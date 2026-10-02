@@ -261,7 +261,7 @@ final class WPCPM_Sponsor_Claims {
 					$user->display_name,
 					$offer['title'],
 					$last,
-					admin_url( 'admin.php?page=wpcpm-sponsors' )
+					admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' )
 				),
 				'headers' => WPCPM_Mail::reply_to( $user ),
 			);

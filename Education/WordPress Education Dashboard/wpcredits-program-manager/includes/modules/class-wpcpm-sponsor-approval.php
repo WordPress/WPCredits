@@ -32,7 +32,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **Never adopts a record.** The institution approval joins an application to a record the
  * program already has; this one always creates (plan ruling 17), because the spec says
  * duplicates are flagged and never merged. A manager who agrees with the `in-base` mark
- * rejects the application and presses Create account on the Sponsors card instead.
+ * rejects the application and creates the account from the No account view of the Sponsors
+ * screen's Accounts tab instead.
  *
  * **Never adopts an account.** `get_user_by( 'email' )` finding an account that is not the
  * one this very application already stamped refuses the approval before Airtable is ever

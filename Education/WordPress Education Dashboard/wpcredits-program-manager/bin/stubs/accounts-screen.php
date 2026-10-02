@@ -7,7 +7,8 @@
  * port of core's `add_query_arg()`, which re-encodes what an address already holds and sets a given
  * value as it is given, so a value the screen forgets to encode breaks its link here as it would on
  * the site; core's `esc_url()` and `wp_nonce_url()`; the nonce check, which dies with core's sentence;
- * the redirect and the death, thrown, so a check reads where a handler was sending the browser; and
+ * the redirect and the death, thrown, so a check reads where a handler was sending the browser; an
+ * account's roles, which a members class adds to as it attaches the account (`add_role()`); and
  * the accounts query (`WP_User_Query`), answered over the fixture accounts the way WordPress answers
  * the arguments a screen passes, anything else it is asked kept apart for the suite's last check;
  * core's `remove_accents()`, for the names a list that orders its accounts itself compares; and
@@ -20,15 +21,19 @@
  * a suite or a check turns: `query_include`, for a screen that narrows its list to IDs of its own
  * reading, as the Students screen does to its institution and its search; `ids_as_rows`, for the
  * answer the program's own site gives a request for IDs; `no_editor`, for a manager who may not open
- * the accounts' editor; `list_screen`, for a table built on a screen; and `l10n`, for a screen drawn
- * in another language.
+ * the accounts' editor; `list_screen`, for a table built on a screen; `l10n`, for a screen drawn in
+ * another language; and `wp_version`, the WordPress version core reports (`get_bloginfo()`), which
+ * says whether core names a list's Apply button, as it does from 6.7 on: the version the plugin is
+ * tested up to (readme.txt), whose list table bin/stubs/class-wp-list-table.php follows, so a press
+ * of the list's Apply sends `bulk_action` here as a browser sends it there.
  *
  * The capability is bin/stubs/caps.php's, which each suite requires beside this file, and the list
  * table is bin/stubs/class-wp-list-table.php, which each suite's own `wpcpm_load_accounts_tables()`
  * loads, as the plugin's loader loads core's.
  *
- * bin/test-administrators-screen.php requires this file too, and the three suites read what a screen
- * drew with the helpers they share beside it (bin/stubs/screen-helpers.php).
+ * bin/test-administrators-screen.php, bin/test-institutions-accounts.php and
+ * bin/test-sponsors-accounts.php require this file too, and the suites read what a screen drew with
+ * the helpers they share beside it (bin/stubs/screen-helpers.php).
  *
  * Loaded with `require_once __DIR__ . '/stubs/accounts-screen.php';` from a suite's header.
  */
@@ -54,6 +59,7 @@ $GLOBALS['no_editor']        = false;   // Whether the manager may not open the 
 $GLOBALS['current_screen']   = null;    // What get_current_screen() answers: set before each press.
 $GLOBALS['list_screen']      = null;    // What convert_to_screen() answers when a table is built: none, unless a check plants one.
 $GLOBALS['l10n']             = array(); // Text => its translation, for a check that draws the screen in another language.
+$GLOBALS['wp_version']       = '7.1';   // The WordPress version get_bloginfo() reports: the one the plugin is tested up to.
 
 // How a meta query is read, which every stand-in user query shares: this file's and the one in
 // bin/test-accounts-table.php.
@@ -79,6 +85,36 @@ class WP_User {
 		$this->roles        = $roles;
 	}
 	public function exists() { return $this->ID > 0; }
+	/**
+	 * A role added beside the account's others, as core's `WP_User::add_role()` adds one: what a
+	 * members class does when it attaches an account that did not hold the audience's role.
+	 *
+	 * @param string $role The role.
+	 */
+	public function add_role( $role ) {
+		if ( '' !== (string) $role && ! in_array( $role, $this->roles, true ) ) {
+			$this->roles[] = (string) $role;
+		}
+	}
+	/**
+	 * A role taken off the account, its others left as they were, as core's `WP_User::remove_role()`
+	 * takes one: what a members class does when a membership ends. A role the account does not hold
+	 * changes nothing.
+	 *
+	 * @param string $role The role.
+	 */
+	public function remove_role( $role ) {
+		$this->roles = array_values( array_diff( $this->roles, array( (string) $role ) ) );
+	}
+	/**
+	 * The account's one role in place of every role it held, as core's `WP_User::set_role()` sets it:
+	 * what a members class gives an account a removal left with none. An empty role leaves none.
+	 *
+	 * @param string $role The role.
+	 */
+	public function set_role( $role ) {
+		$this->roles = '' !== (string) $role ? array( (string) $role ) : array();
+	}
 }
 
 /** What wp_safe_redirect() does here: it stops the handler and carries the address it was sending the browser to. */
@@ -91,7 +127,9 @@ class DieSignal extends Exception {}
  * The accounts query, answered over the fixture accounts the way WordPress answers it.
  *
  * What a screen asks: the role; `meta_query` clauses as bin/stubs/meta-matcher.php reads them, each
- * on whether the key is there; a search with a wildcard at both ends as "contains" over the columns
+ * on whether the key is there; `meta_key`, with `meta_value` or without, as WordPress reads the pair,
+ * one clause of its own: the key holding that value, or the key there at all; a search with a
+ * wildcard at both ends as "contains" over the columns
  * named, without regard to case, as MySQL compares; `orderby` by name, username or ID, one with the
  * query's `order` or the array form, each key an orderby and its value that key's order, a key
  * settling what the one before it leaves tied; `number` and `offset`, -1 being no limit; `fields`
@@ -114,7 +152,7 @@ class WP_User_Query {
 		$GLOBALS['queries'][] = $args;
 		$GLOBALS['reads'][]   = 'query';
 
-		$modeled = array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'fields', 'count_total' );
+		$modeled = array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'meta_key', 'meta_value', 'fields', 'count_total' );
 
 		if ( $GLOBALS['query_include'] ) {
 			$modeled[] = 'include';
@@ -128,6 +166,29 @@ class WP_User_Query {
 
 		$include = ( $GLOBALS['query_include'] && ! empty( $args['include'] ) ) ? array_map( 'intval', (array) $args['include'] ) : null;
 		$found   = array();
+		$clauses = isset( $args['meta_query'] ) ? (array) $args['meta_query'] : array();
+
+		// The pair WordPress turns into a clause of its own; asked beside a meta query, it would join
+		// that query as a nested one, which the matcher does not read.
+		if ( isset( $args['meta_key'] ) ) {
+			if ( ! empty( $clauses ) ) {
+				$GLOBALS['unmodeled'][] = 'WP_User_Query meta_key beside a meta_query';
+			}
+
+			$clauses = array(
+				array_key_exists( 'meta_value', $args )
+					? array(
+						'key'   => $args['meta_key'],
+						'value' => $args['meta_value'],
+					)
+					: array(
+						'key'     => $args['meta_key'],
+						'compare' => 'EXISTS',
+					),
+			);
+		} elseif ( array_key_exists( 'meta_value', $args ) ) {
+			$GLOBALS['unmodeled'][] = 'WP_User_Query meta_value without a meta_key';
+		}
 
 		foreach ( $GLOBALS['users'] as $id => $user ) {
 			if ( ! empty( $args['role'] ) && ! in_array( $args['role'], $user->roles, true ) ) {
@@ -138,7 +199,7 @@ class WP_User_Query {
 				continue;
 			}
 
-			if ( wpcpm_stub_meta_matches( $id, isset( $args['meta_query'] ) ? (array) $args['meta_query'] : array() ) && wpcpm_stub_search_matches( $user, $args ) ) {
+			if ( wpcpm_stub_meta_matches( $id, $clauses ) && wpcpm_stub_search_matches( $user, $args ) ) {
 				$found[] = $user;
 			}
 		}
@@ -797,6 +858,23 @@ function get_plugin_page_hookname( $plugin_page, $parent_page ) {
 	$type = isset( $GLOBALS['admin_page_hooks'][ $parent_page ] ) ? $GLOBALS['admin_page_hooks'][ $parent_page ] : 'admin';
 
 	return $type . '_page_' . $plugin_page;
+}
+/**
+ * What core says of the site, as far as a screen asks: its version, which core keeps in
+ * `$wp_version` (`wp_version` here). Anything else asked is kept apart for the suite's last check.
+ *
+ * @param string $show   What is asked.
+ * @param string $filter Core's display filter, not modeled.
+ * @return string
+ */
+function get_bloginfo( $show = '', $filter = 'raw' ) {
+	if ( 'version' === $show ) {
+		return (string) $GLOBALS['wp_version'];
+	}
+
+	$GLOBALS['unmodeled'][] = 'get_bloginfo() ' . $show;
+
+	return '';
 }
 /**
  * Core's submit button, as `get_submit_button()` shapes it: `button` and the type's classes, the

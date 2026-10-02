@@ -295,9 +295,9 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * Where the list stands, which a row's invitation carries, so the invitation comes back to the same
-	 * view, search, sort and page: the Mentors screen's own reading of it, the one a press on the
-	 * ticked accounts comes back through (`WPCPM_Mentors::list_state()`).
+	 * Where the list stands, which a row's invitation carries, so the invitation comes back to the
+	 * same view, search, sort and page: the Mentors screen's reading of it, the accounts screen's own,
+	 * which a press on the ticked accounts comes back through (`WPCPM_Mentors::list_state()`).
 	 *
 	 * @return array<string, string>
 	 */

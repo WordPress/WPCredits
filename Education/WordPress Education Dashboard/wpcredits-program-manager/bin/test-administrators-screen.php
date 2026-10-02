@@ -819,7 +819,9 @@ three_admins();
 manager( 2 );
 
 // What the list's form would send with a bulk action if it offered one: core's nonce, which the
-// form carries above the table all the same, and the address it came from.
+// form carries above the table all the same, the address it came from, and the Apply button's name,
+// which core gives it from WordPress 6.7 on, so the press is refused by the list, not by its
+// sender.
 $crafted = press(
 	screen(
 		array(
@@ -827,6 +829,7 @@ $crafted = press(
 			'users'            => array( '11', '13' ),
 			'_wpnonce'         => wp_create_nonce( 'bulk-administrators' ),
 			'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-administrators&tab=accounts',
+			'bulk_action'      => 'Apply',
 		)
 	)
 );
@@ -959,9 +962,9 @@ $screen_code = $code_of( 'includes/modules/trait-wpcpm-accounts-screen.php' );
 preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
 preg_match_all( '/function\s+(\w+)\s*\(/', $module_code, $module_methods );
 
-ck( 'the module uses the screen every audience\'s module shares, and declares none of its methods again but the three it replaces: the tabs\' labels, the page and the Accounts tab',
+ck( 'the module uses the screen every audience\'s module shares, and declares none of its methods again but the four it replaces: where its list stands, which has no view to keep, the tabs\' labels, the page and the Accounts tab',
 	array( 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $module_code ), array_values( array_intersect( $screen_methods[1], $module_methods[1] ) ) ),
-	array( true, array( 'tab_labels', 'render_admin_page', 'render_tab_accounts' ) ) );
+	array( true, array( 'list_state', 'tab_labels', 'render_admin_page', 'render_tab_accounts' ) ) );
 
 // The references check reads a trait's `self::` and `static::` in each class that uses it, and not
 // what the trait calls on `$this`; this reads both, in every method of the shared screen the module
@@ -1020,7 +1023,7 @@ ck( 'every method of the shared screen the module keeps finds what it calls and 
 		}
 	),
 	array(
-		array( 'accounts_messages', 'accounts_url', 'boot_screen', 'handle_invite', 'handle_list_form', 'hook_screen', 'invite_selected', 'leave', 'list_url', 'load_screen', 'never_invited', 'notice_sentence', 'render_accounts_list', 'render_not_connected', 'save_per_page', 'tab', 'tab_field', 'table' ),
+		array( 'accounts_messages', 'accounts_url', 'apply_pressed', 'boot_screen', 'handle_invite', 'handle_list_form', 'hook_screen', 'invite_one', 'invite_selected', 'leave', 'list_url', 'load_screen', 'never_invited', 'notice_sentence', 'render_accounts_list', 'render_not_connected', 'save_per_page', 'tab', 'tab_field', 'table' ),
 		array(),
 	) );
 

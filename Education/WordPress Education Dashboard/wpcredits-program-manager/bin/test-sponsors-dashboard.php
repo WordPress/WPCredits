@@ -243,6 +243,14 @@ class WPCPM_Settings { public static function get_value( $k, $d = null ) { retur
 class WPCPM_Field_Value { public static function clean_url( $raw ) { return $raw; } }
 class WPCPM_Mail { public static function send( $u, $c, $b ) { return true; } public static function send_to( $e, $c, $b ) { return true; } }
 class WPCPM_Institutions { public static function notify_managers( $c, $b, $k = '' ) { return 1; } }
+/**
+ * The Sponsors module, as far as the page reaches it: the address of one sponsor's accounts on its
+ * screen, which the People card sends a manager to. The module's own builder of that address is
+ * pinned by bin/test-sponsors-screen.php.
+ */
+class WPCPM_Sponsors {
+	public static function accounts_view_url( $record ) { return admin_url( 'admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . rawurlencode( (string) $record ) ); }
+}
 
 function wp_safe_redirect( $url ) { $GLOBALS['redirected'] = $url; throw new WPCPM_Test_Redirect( $url ); }
 function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 501 === (int) $id ? 'https://example.test/uploads/501.png' : false; }
@@ -359,7 +367,7 @@ ck( 'the switcher lists both sponsors and the manager is viewing B', false !== s
 ck( 'B has no logo: initials stand in', false !== strpos( $out, 'wpcpm-sponsor__initials' ) && false !== strpos( $out, '>W<' ), true );
 ck( 'B has no manager: no contact block, and no empty heading', strpos( $out, 'wpcpm-resources__contact' ), false );
 ck( 'a manager sees the status line', false !== strpos( $out, 'Status: Approved' ), true );
-ck( 'the people card points a manager at the Sponsors screen', false !== strpos( substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ), 'page=wpcpm-sponsors' ), true );
+ck( 'the people card points a manager at the accounts of the sponsor being viewed, on the Sponsors screen\'s Accounts tab, where they are attached and removed', false !== strpos( substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ), '<p class="wpcpm-student__note"><a href="https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . $B . '">Attach or remove accounts on the Sponsors screen.</a></p>' ), true );
 $GLOBALS['get'] = array();
 
 echo "\n=== Messages and leave() ===\n";

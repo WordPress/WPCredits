@@ -184,6 +184,7 @@ function esc_attr__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_url( $s ) { return (string) $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function sanitize_email( $e ) { return (string) $e; }
 function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
 function wp_unslash( $v ) { return $v; }
@@ -931,13 +932,17 @@ if ( ! class_exists( 'WPCPM_Institution_Approval' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	/**
 	 * Stands in for the panel: the queue asks it to draw the review block and nothing else, and the
-	 * map asks its outcomes, of which the upload's is the one this suite reads, in the panel's own
-	 * words. What the block holds is bin/test-institution-panel.php's; what the queue owes it is the
-	 * post and whether the block may decide, which the marker prints and `$GLOBALS['reviews']` records.
+	 * map asks its outcomes, of which the upload's and the withdrawal's are the two this suite reads,
+	 * in the panel's own words. What the block holds is bin/test-institution-panel.php's; what the
+	 * queue owes it is the post and whether the block may decide, which the marker prints and
+	 * `$GLOBALS['reviews']` records.
 	 */
 	class WPCPM_Institution_Panel {
 		public static function messages() {
-			return array( 'agreement-uploaded' => array( 'success', 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.' ) );
+			return array(
+				'agreement-uploaded'  => array( 'success', 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.' ),
+				'agreement-withdrawn' => array( 'success', 'The signed agreement is withdrawn and its file is deleted. Upload another whenever you are ready.' ),
+			);
 		}
 		public static function render_review( $post_id, $decide = true ) {
 			$GLOBALS['reviews'][] = array( (int) $post_id, $decide );
@@ -1861,6 +1866,18 @@ ck( 'a manager\'s upload is told where the agreement waits and who was emailed, 
 ), array( true, false ) );
 delete_user_meta( 67, WPCPM_Flash::META );
 
+// So is a withdrawal there: the panel's sentence asks the institution to upload another whenever it
+// is ready, which the manager does from the same view, once the institution sends one.
+$GLOBALS['uid'] = 644;
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-withdrawn' );
+$withdrawn_notice = render_tab( 'accounts' );
+$GLOBALS['uid']   = 1;
+ck( 'a manager\'s withdrawal on the institution\'s behalf is told the file is gone and where another is uploaded, in words for the person who pressed', array(
+	false !== strpos( $withdrawn_notice, '<div class="notice notice-success is-dismissible"><p>The signed agreement is withdrawn and its file is deleted. Upload another from this view when the institution sends one.</p></div>' ),
+	strpos( $withdrawn_notice, 'Upload another whenever you are ready.' ),
+), array( true, false ) );
+delete_user_meta( 644, WPCPM_Flash::META );
+
 $GLOBALS['locked'] = array( new WP_User( 50, 'Rep One', 'rep.one@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) );
 $locked_on         = array();
 foreach ( $slugs as $slug ) {
@@ -2250,12 +2267,13 @@ ck( 'and nothing of the provisioning card is drawn: no bulk button, no worklist 
 	array( strpos( $accounts_tab, 'wpcpm_institutions_provision' ), strpos( $accounts_tab, 'wpcpm-inst-provision' ), strpos( $accounts_tab, 'Create the accounts' ), strpos( $accounts_tab, 'are not listed above' ) ),
 	array( false, false, false, false ) );
 
-// The one outcome both a failed sync start and a failed row invitation leave, `error`, is worded by
-// the tab the press came back to: the Sync and storage tab's points to the last sync's error, which
-// it prints below, and the Accounts tab, which prints no sync error, says the invitation could not
-// be sent.
+// The one outcome a failed press leaves whatever it was, `error`, a failed sync start, a failed row
+// invitation and a failed decision on the queue among them, is worded by the tab the press came
+// back to: the Sync and storage tab's points to the last sync's error, which it prints below; the
+// Accounts tab, which prints no sync error, says the invitation could not be sent; and the other
+// four, which print no error below, send the reader to the screen again.
 $worded = array();
-foreach ( array( 'sync' => 64, 'accounts' => 65 ) as $tab => $viewer ) {
+foreach ( array( 'queue' => 640, 'pipeline' => 641, 'accounts' => 65, 'reports' => 642, 'agreements' => 643, 'sync' => 64 ) as $tab => $viewer ) {
 	$GLOBALS['uid'] = $viewer;
 	WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'error' );
 	preg_match( '#<div class="notice notice-error is-dismissible"><p>(.*?)</p></div>#', render_tab( $tab ), $error_notice );
@@ -2264,11 +2282,15 @@ foreach ( array( 'sync' => 64, 'accounts' => 65 ) as $tab => $viewer ) {
 }
 $GLOBALS['uid'] = 1;
 
-ck( 'the outcome both a failed start and a failed row invitation leave is worded by the tab it comes back to',
+ck( 'the outcome a failed press leaves is worded by the tab it comes back to: the last sync\'s error on Sync and storage, the invitation on Accounts, and on the four tabs that print no error below, a reload',
 	$worded,
 	array(
-		'sync'     => 'That action could not be completed. See the error below.',
-		'accounts' => 'The invitation could not be sent.',
+		'queue'      => 'That action could not be completed. Reload the screen and try again.',
+		'pipeline'   => 'That action could not be completed. Reload the screen and try again.',
+		'accounts'   => 'The invitation could not be sent.',
+		'reports'    => 'That action could not be completed. Reload the screen and try again.',
+		'agreements' => 'That action could not be completed. Reload the screen and try again.',
+		'sync'       => 'That action could not be completed. See the error below.',
 	) );
 
 /* ---- agreements on file ------------------------------------------------- */
@@ -2944,16 +2966,24 @@ ck( 'a request of another kind is labeled a request, says its kind, and names a 
 	array( $dashboard . '#wpcpm-requests', $dashboard . '#wpcpm-requests' ),
 ) );
 
-// The queue reads and the Administrator Dashboard decides: every row ends with the way to the card
-// there that decides it, and the agreement row's block, drawn by the panel, carries its own.
-ck( 'every row links to the card on the Administrator Dashboard that decides it, and the agreement row leaves its link to the panel', queue_links( $html ), array(
+// The queue reads and the Administrator Dashboard decides: every row ends with the way to its place
+// there, an application to its own item on the card that decides it, which carries the
+// application's id, a request to the card that decides it, and the agreement row's block, drawn by
+// the panel, carries its own.
+ck( 'every row links to the Administrator Dashboard, an application to its own item there and a request to its card, and the agreement row leaves its link to the panel', queue_links( $html ), array(
 	array( $request_names[0], 'Mentor request', $dashboard . '#wpcpm-requests' ),
-	array( 'Universidad Example', 'Application', $dashboard . '#wpcpm-applications' ),
+	array( 'Universidad Example', 'Application', $dashboard . '#wpcpm-application-501' ),
 	array( $request_names[1], 'Mentor request', $dashboard . '#wpcpm-requests' ),
-	array( 'Universidad EXAMPLE', 'Application', $dashboard . '#wpcpm-applications' ),
+	array( 'Universidad EXAMPLE', 'Application', $dashboard . '#wpcpm-application-502' ),
 	array( $record_name, 'Signed agreement', '' ),
-	array( 'Escola Nova', 'Application', $dashboard . '#wpcpm-applications' ),
+	array( 'Escola Nova', 'Application', $dashboard . '#wpcpm-application-503' ),
 ) );
+// One printer draws that line on every wp-admin screen that links into the dashboard, the Sponsors
+// screen's too, on the class that owns the dashboard's card ids; this screen keeps none of its own.
+ck( 'the way there is the printer every wp-admin screen shares, and this screen keeps no printer of its own', array(
+	method_exists( 'WPCPM_Institutions', 'render_open_on_dashboard' ),
+	substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ), 'WPCPM_Return::render_dashboard_link(' ) > 0,
+), array( false, true ) );
 ck( 'an agreement row hands the review block to the panel that owns it, to be read: its two decisions are the dashboard\'s', array( $html_reviews, false !== strpos( $html, '<div class="wpcpm-agreement-review" data-post="601" data-decide="no"></div>' ) ), array( array( array( 601, false ) ), true ) );
 ck( 'an application row still opens itself here, for what only this screen shows', false !== strpos( $html, WPCPM_Institutions::ARG_APPLICATION . '=501">Open this application' ), true );
 ck( 'and nothing on the list decides anything: no form, and a request\'s decisions never asked for', array( substr_count( $html, '<form' ), $GLOBALS['request_decisions'] ), array( 0, array() ) );
@@ -3214,19 +3244,24 @@ function decisions_on( $html, $id ) {
 $no_decision = array( 'approve' => 0, 'info' => 0, 'reject' => 0, 'spam' => 0, 'reopen' => 0, 'purge' => 0 );
 $open_four   = array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 0, 'purge' => 0 );
 $to_card     = '<a href="' . $dashboard . '#wpcpm-applications">Open on the Administrator Dashboard</a>';
+// An application the card lists is an item of it with an id of its own, and the link names it.
+$to_item     = static function ( $id ) use ( $dashboard ) {
+	return '<a href="' . $dashboard . '#wpcpm-application-' . (int) $id . '">Open on the Administrator Dashboard</a>';
+};
 $listed      = '<p>Applications are decided on the Administrator Dashboard. This one is listed in its Institution applications card, with every decision its state allows.</p>';
 $past_window = '<p>The Administrator Dashboard&#039;s card lists the ' . WPCPM_Administrators_Cards::LIMIT . ' oldest open applications, and this one is past them, so it is decided here.</p>';
 
 ck( 'a new application opened here draws no decision, and no form at all', array( decisions_on( $open, 501 ), substr_count( $open, '<form' ) ), array( $no_decision, 0 ) );
-ck( 'it says where it is decided, that the card there lists it, and links to that card', array(
+ck( 'it says where it is decided, that the card there lists it, and links to its own item on that card', array(
 	false !== strpos( $open, '<h3>Where it is decided</h3>' ),
 	strpos( $open, 'What happens next' ),
 	false !== strpos( $open, $listed ),
-	substr_count( $open, $to_card ),
-), array( true, false, true, 1 ) );
+	substr_count( $open, $to_item( 501 ) ),
+	substr_count( $open, 'Open on the Administrator Dashboard' ),
+), array( true, false, true, 1, 1 ) );
 
 $decided = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) );
-ck( 'one waiting on the applicant draws none either, and links there the same', array( decisions_on( $decided, 503 ), substr_count( $decided, $to_card ) ), array( $no_decision, 1 ) );
+ck( 'one waiting on the applicant draws none either, and links to its own item the same way', array( decisions_on( $decided, 503 ), substr_count( $decided, $to_item( 503 ) ) ), array( $no_decision, 1 ) );
 
 // The card lists the oldest `WPCPM_Administrators_Cards::LIMIT` open applications, so one opened
 // from its address while that many older ones wait is on no card at all: it is decided here, with
@@ -3249,11 +3284,11 @@ WPCPM_Administrators_Dashboard::$url = '';
 $past_no_page                        = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
 WPCPM_Administrators_Dashboard::$url = $dashboard;
 
-ck( 'the last application the card lists is read here and linked there, with no form', array(
+ck( 'the last application the card lists is read here and linked to its item there, with no form', array(
 	false !== strpos( $last_listed, $listed ),
 	decisions_on( $last_listed, 501 ),
 	substr_count( $last_listed, '<form' ),
-	substr_count( $last_listed, $to_card ),
+	substr_count( $last_listed, $to_item( 501 ) ),
 	strpos( $last_listed, 'so it is decided here' ),
 ), array( true, $no_decision, 0, 1, false ) );
 ck( 'the first one past it is decided here: Approve, Send this question, Reject and Reject as spam, under the sentence that says why, and no way to a card that does not list it', array(
@@ -3536,10 +3571,10 @@ ck( 'one that was acknowledged is still sent to the link that acknowledgement ca
 // approval itself is the Administrator Dashboard's, so the way there is what the row offers.
 update_post_meta( 502, WPCPM_Institution_Application::META_VERIFIED, (string) ( $now - $day ) );
 $open_held_verified = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
-ck( 'a held application that has been confirmed says the confirmed thing, still says why it is held, and links to where it is approved', array(
+ck( 'a held application that has been confirmed says the confirmed thing, still says why it is held, and links to its own item where it is approved', array(
 	false !== strpos( $open_held_verified, 'The applicant confirmed their address on ' . gmdate( 'Y-m-d H:i', $now - $day ) ),
 	false !== strpos( $open_held_verified, '<h3>Why this application is held</h3>' ),
-	substr_count( $open_held_verified, $to_card ),
+	substr_count( $open_held_verified, $to_item( 502 ) ),
 	decisions_on( $open_held_verified, 502 ),
 ), array( true, true, 1, $no_decision ) );
 update_post_meta( 502, WPCPM_Institution_Application::META_VERIFIED, '' );

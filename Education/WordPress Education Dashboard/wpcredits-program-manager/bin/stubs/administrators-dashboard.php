@@ -7,7 +7,9 @@
  *
  * Every row of the Institutions screen's queue links into the page (bin/test-institutions-screen.php),
  * and so does the agreement review block on the screen that only reads it
- * (bin/test-institution-panel.php). Declared where the run reaches the require, and only when the
+ * (bin/test-institution-panel.php), every item on the Sponsors screen's queue tab
+ * (bin/test-sponsors-screen.php) and an opened sponsor application the page's card lists
+ * (bin/test-sponsor-application.php). Declared where the run reaches the require, and only when the
  * real class is not loaded.
  *
  * Loaded with `require_once __DIR__ . '/stubs/administrators-dashboard.php';` from a suite.

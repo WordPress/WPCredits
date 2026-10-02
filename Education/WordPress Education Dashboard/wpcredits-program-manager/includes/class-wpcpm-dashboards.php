@@ -218,14 +218,15 @@ class WPCPM_Dashboards {
 
 		// The Students and Mentors screens at their Sync tab, where the sync the sentence asks for runs,
 		// rather than the Accounts tab each opens on; the Institutions screen at its Accounts tab,
-		// where the accounts the sentence asks for are made, rather than the queue it opens on; every
+		// where the accounts the sentence asks for are made, rather than the queue it opens on; the
+		// Sponsors screen at its Accounts tab, where the accounts the sentence asks for are made; every
 		// other screen at its own address.
 		$screens = array(
 			'students'       => 'admin.php?page=wpcpm-students&tab=sync',
 			'mentors'        => 'admin.php?page=wpcpm-mentors&tab=sync',
 			'institutions'   => 'admin.php?page=wpcpm-institutions&tab=accounts',
 			'administrators' => 'admin.php?page=wpcpm-administrators',
-			'sponsors'       => 'admin.php?page=wpcpm-sponsors',
+			'sponsors'       => 'admin.php?page=wpcpm-sponsors&tab=accounts',
 		);
 
 		return esc_html( self::empty_sentence( $module ) ) . ' <a href="' . esc_url( admin_url( $screens[ $module ] ) ) . '">'

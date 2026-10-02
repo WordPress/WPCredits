@@ -308,6 +308,56 @@ $GLOBALS['audit'] = array();
 WPCPM_Sponsor_Members::maybe_repair_detached();
 ck( 'a second call does nothing at all: the repair runs once per site', array( caps_of( 20 ), $GLOBALS['audit'] ), array( array( 'subscriber', 'edit_posts', 'delete_posts', 'upload_files' ), array() ) );
 
+echo "\n=== One account's invitation, sent now ===\n";
+/**
+ * The mail layer, as far as one account's invitation reaches it: whether one may go now, which the
+ * real class answers from the account's stamps against its fifteen-minute gap and refuses with
+ * `wpcpm_invite_too_soon`, here for the accounts a check names; and the stamp it writes once one has
+ * gone. Each ask kept, so a check reads what was asked and in what order. The real class is
+ * bin/test-mail.php's, and the Sponsors screen's Accounts tab sends through it in
+ * bin/test-sponsors-accounts.php.
+ */
+class WPCPM_Mail {
+	public static function may_invite( $user_id ) {
+		$GLOBALS['mail_asked'][] = array( 'may', (int) $user_id );
+
+		return in_array( (int) $user_id, $GLOBALS['too_soon'], true ) ? new WP_Error( 'wpcpm_invite_too_soon', 'Sent too recently.' ) : true;
+	}
+	public static function stamp_invited( WP_User $user ) {
+		$GLOBALS['mail_asked'][] = array( 'stamp', (int) $user->ID );
+
+		return array( 'wpcpm_sponsor_invited' );
+	}
+}
+/** Core's login invitation, each call kept as it was asked. */
+function wp_new_user_notification( $user_id, $deprecated = null, $notify = '' ) {
+	$GLOBALS['mail_asked'][] = array( 'notify', (int) $user_id, $deprecated, $notify );
+}
+
+$GLOBALS['too_soon']   = array();
+$GLOBALS['mail_asked'] = array();
+$gone                  = WPCPM_Sponsor_Members::send_invite( 404 );
+$not_one               = WPCPM_Sponsor_Members::send_invite( 8 );
+
+ck( 'an account that does not exist is refused, and so is one without the Sponsor role, a mentor\'s since its membership ended, each before the mail layer is asked anything',
+	array( code( $gone ), is_wp_error( $gone ) ? $gone->get_error_message() : '', code( $not_one ), is_wp_error( $not_one ) ? $not_one->get_error_message() : '', $GLOBALS['mail_asked'] ),
+	array( 'wpcpm_no_user', 'That user does not exist.', 'wpcpm_not_sponsor', 'That account does not hold the Sponsor role.', array() ) );
+
+$GLOBALS['too_soon']   = array( 5 );
+$GLOBALS['mail_asked'] = array();
+$recent                = WPCPM_Sponsor_Members::send_invite( 5 );
+
+ck( 'one sent an invitation inside the gap is refused with the mail layer\'s own answer, and nothing is sent or stamped',
+	array( code( $recent ), $GLOBALS['mail_asked'] ),
+	array( 'wpcpm_invite_too_soon', array( array( 'may', 5 ) ) ) );
+
+$GLOBALS['too_soon']   = array();
+$GLOBALS['mail_asked'] = array();
+
+ck( 'a sponsor\'s account outside the gap is sent core\'s invitation, to the account alone, then stamped by the mail layer\'s one rule, and the send answers true',
+	array( WPCPM_Sponsor_Members::send_invite( 5 ), $GLOBALS['mail_asked'] ),
+	array( true, array( array( 'may', 5 ), array( 'notify', 5, null, 'user' ), array( 'stamp', 5 ) ) ) );
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );

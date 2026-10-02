@@ -233,10 +233,10 @@ Approved**, **Interest mail** and **Offers**.
 - **Applications from sponsors** - **Take sponsor applications through the form on this site**, at
   /sponsor-application/. Off by default, since it is a public page anybody can post to; its address
   is under the switch. Every submission is stored for a program manager to read on the Sponsors
-  screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody
-  approves it; while this is off, the page shows one sentence saying applications are closed. As
-  with institutions, the form shows nothing to the public without a published privacy policy, and
-  the row says so.
+  screen's Waiting for review tab and to decide on the Administrator Dashboard, and nothing is
+  created in Airtable until somebody approves it; while this is off, the page shows one sentence
+  saying applications are closed. As with institutions, the form shows nothing to the public
+  without a published privacy policy, and the row says so.
 
 #### Sponsor landing page
 

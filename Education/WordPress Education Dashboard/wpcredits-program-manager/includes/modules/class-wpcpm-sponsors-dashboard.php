@@ -842,7 +842,8 @@ final class WPCPM_Sponsors_Dashboard {
 	 * The people card: who has an account for this sponsor, read-only for everybody.
 	 *
 	 * Attaching and removing are manager actions on the wp-admin Sponsors screen, and sponsors
-	 * do not invite each other in this release (design spec of 4 September 2026, section 14).
+	 * do not invite each other in this release (design spec of 4 September 2026, section 14). A
+	 * manager's link opens this sponsor's accounts there (`WPCPM_Sponsors::accounts_view_url()`).
 	 *
 	 * @param string $record  Sponsors record ID.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
@@ -876,7 +877,7 @@ final class WPCPM_Sponsors_Dashboard {
 		if ( ! empty( $context['can_manage'] ) ) {
 			printf(
 				'<p class="wpcpm-student__note"><a href="%1$s">%2$s</a></p>',
-				esc_url( admin_url( 'admin.php?page=wpcpm-sponsors' ) ),
+				esc_url( WPCPM_Sponsors::accounts_view_url( $record ) ),
 				esc_html__( 'Attach or remove accounts on the Sponsors screen.', 'wpcredits-program-manager' )
 			);
 		} else {

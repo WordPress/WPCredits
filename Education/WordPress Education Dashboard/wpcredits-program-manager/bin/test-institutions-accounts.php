@@ -1540,15 +1540,29 @@ $delta = record_row( $html, DELTA );
 ck( 'École\'s row: its name as the index holds it, trimmed, over its record ID; Airtable holds an address for it, not printed; Ready',
 	array( cell( $ecole, 'institution' ), cell( $ecole, 'contact' ), cell( $ecole, 'account' ) ),
 	array( '<strong>École Example Charlie</strong><br /><code class="wpcpm-inst-record">recINSTECOLE00003</code>', 'email on record', 'Ready' ) );
-ck( 'Delta\'s: its address belongs to an account already, so the Account column says why in the institutions sync\'s own words, and the row\'s one action is Manage members, where an account is added by hand',
+ck( 'Delta\'s: its address belongs to an account already, so the Account column says why in the institutions sync\'s own words, and the row\'s actions are View page and Manage members, where an account is added by hand',
 	array( cell( $delta, 'contact' ), cell( $delta, 'account' ), array_keys( actions_in( $delta ) ), substr_count( $delta, 'toggle-row' ) ),
-	array( 'email on record', 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor&#039;s; for any other, correct the Contact Email in Airtable or the account&#039;s address first.', array( 'members' ), 1 ) );
+	array( 'email on record', 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor&#039;s; for any other, correct the Contact Email in Airtable or the account&#039;s address first.', array( 'view', 'members' ), 1 ) );
 
 $create = actions_in( $ecole );
 
-ck( 'a ready row\'s actions are Create account, then Manage members, under its name',
+ck( 'a ready row\'s actions are Create account, View page, then Manage members, under its name',
 	array( array_keys( $create ), array_map( 'strip_tags', $create ), substr_count( $ecole, 'toggle-row' ) ),
-	array( array( 'create', 'members' ), array( 'create' => 'Create account', 'members' => 'Manage members' ), 1 ) );
+	array( array( 'create', 'view', 'members' ), array( 'create' => 'Create account', 'view' => 'View page', 'members' => 'Manage members' ), 1 ) );
+ck( 'View page opens the Institution Dashboard as the institution, through the switcher\'s own argument, the address an account row\'s View page builds: on the ready row and on the one that is not',
+	array( link_of( isset( $create['view'] ) ? $create['view'] : '' ), link_of( actions_in( $delta )['view'] ?? '' ) ),
+	array(
+		array( 'https://example.test/institution-dashboard/', array( 'wpcpm_institution_view' => ECOLE ) ),
+		array( 'https://example.test/institution-dashboard/', array( 'wpcpm_institution_view' => DELTA ) ),
+	) );
+
+WPCPM_Institutions_Dashboard::$url = '';
+$no_page                           = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+WPCPM_Institutions_Dashboard::$url = 'https://example.test/institution-dashboard/';
+
+ck( 'while the Institution Dashboard\'s page is missing, View page is left out, as on an account row: Create account and Manage members on the ready row, Manage members alone on the other',
+	array( array_keys( actions_in( record_row( $no_page, ECOLE ) ) ), array_keys( actions_in( record_row( $no_page, DELTA ) ) ) ),
+	array( array( 'create', 'members' ), array( 'members' ) ) );
 ck( 'a nonce link to the module\'s handler for one institution: the record with its case, the tab and the view to come back to, under a nonce keyed to the institution',
 	link_of( isset( $create['create'] ) ? $create['create'] : '' ),
 	array(
@@ -1719,11 +1733,13 @@ ck( 'with no institution at Confirmed at all, the view says none has reached it,
 
 echo "\n=== Create account on the ticked institutions, handled before the screen draws ===\n";
 
-// What the list's form sends besides the choice: core's nonce and the address it came from.
+// What the list's form sends besides the choice: core's nonce, the address it came from, and the
+// Apply button that sent it, which core names from WordPress 6.7 on, as the version here does.
 $sent_with = array(
 	'_wpnonce'         => wp_create_nonce( 'bulk-institutions' ),
 	'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_view=no-account',
 	'action2'          => '-1',
+	'bulk_action'      => 'Apply',
 );
 $on_view   = array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-institutions', 'tab' => 'accounts', 'wpcpm_view' => 'no-account' ) );
 $tick      = function ( array $records, array $more = array() ) use ( $sent_with ) {
@@ -1929,6 +1945,17 @@ $GLOBALS['caps'] = true;
 ck( 'somebody without the program\'s capability is refused before the nonce is asked about, and nothing is created',
 	array( $refused['died'], $GLOBALS['nonce_checks'], $GLOBALS['inserted'] ),
 	array( 'You do not have permission to manage the program.', array(), array() ) );
+
+// A search pressed on the No account view with Create account chosen and École ticked is a search:
+// the form is sent without Apply, so nothing is asked about or created, and the press comes back
+// to the view, searched.
+the_site();
+manager( 79 );
+$searched_create = press( screen( array_merge( array_diff_key( $sent_with, array( 'bulk_action' => true ) ), array( 'wpcpm_view' => 'no-account', 'action' => 'create', 'records' => array( ECOLE ), 's' => 'ecole' ) ) ) );
+
+ck( 'a search pressed with Create account chosen and École ticked creates nothing, queues nobody and asks about no nonce: the press comes back to the No account view, searched',
+	array( $GLOBALS['inserted'], WPCPM_Mail::queue(), $GLOBALS['nonce_checks'], link_of( $searched_create['redirect'] ) ),
+	array( array(), array(), array(), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-institutions', 'tab' => 'accounts', 'wpcpm_view' => 'no-account', 's' => 'ecole' ) ) ) );
 
 manager( 67 );
 $from_accounts = press( screen( array_merge( $sent_with, array( 'action' => 'create', 'users' => array( '22' ) ) ) ) );
@@ -2322,11 +2349,11 @@ seat(
 $former_row  = record_row( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ), ECOLE );
 $former_view = html_of( page_for( screen( array( 'wpcpm_institution' => ECOLE ) ) ) );
 
-ck( 'an institution that has had a member is not ready for an account: its row sends the reader to Manage members, its one action, where that former member is listed with a Re-add',
+ck( 'an institution that has had a member is not ready for an account: its row offers View page and sends the reader to Manage members, where that former member is listed with a Re-add',
 	array( cell( $former_row, 'account' ), array_keys( actions_in( $former_row ) ), form_fields_of( $former_view, 'wpcpm_readd_institution_member' ) ),
 	array(
 		'It has had a member before. Re-add the member, or add another account, under Manage members.',
-		array( 'members' ),
+		array( 'view', 'members' ),
 		array( array( '_wpnonce' => wp_create_nonce( 'wpcpm_readd_institution_member_27' ), 'action' => 'wpcpm_readd_institution_member', 'member' => '27', 'record' => ECOLE, 'wpcpm_from' => 'admin' ) ),
 	) );
 
@@ -2339,7 +2366,7 @@ $rows     = html_of( draw( screen() ) );
 $ben_link = actions_in( row_for( $rows, 22 ) );
 $ben_link = isset( $ben_link['invite'] ) ? $ben_link['invite'] : '';
 
-ck( 'Ben\'s Send invite goes to the Institutions module\'s invite handler with his account, the tab to come back to and the nonce that handler checks',
+ck( 'Ben\'s Send invite goes to the Institutions module\'s invite handler with his account, the tab to come back to and the nonce that handler checks, keyed to his account',
 	link_of( $ben_link ),
 	array(
 		'https://example.test/wp-admin/admin-post.php',
@@ -2347,7 +2374,7 @@ ck( 'Ben\'s Send invite goes to the Institutions module\'s invite handler with h
 			'action'    => 'wpcpm_institutions_invite',
 			'user'      => '22',
 			'wpcpm_tab' => 'accounts',
-			'_wpnonce'  => wp_create_nonce( 'wpcpm_institutions_invite' ),
+			'_wpnonce'  => wp_create_nonce( 'wpcpm_institutions_invite_22' ),
 		),
 	) );
 
@@ -2394,11 +2421,35 @@ ck( 'Carmen, never invited and a mentor too, is offered Send invite; followed, s
 	array( array( 'edit', 'view', 'invite', 'members' ), array( 23 ), array( '[WPCredits] Your mentor account is ready' ), true ) );
 
 manager( 82 );
-follow( str_replace( 'user=22', 'user=999', $ben_link ), 'handle_invite' );
+follow( str_replace( array( 'user=22', wp_create_nonce( 'wpcpm_institutions_invite_22' ) ), array( 'user=999', wp_create_nonce( 'wpcpm_institutions_invite_999' ) ), $ben_link ), 'handle_invite' );
 
 ck( 'a row\'s send that fails comes back to the Accounts tab, which says the invitation could not be sent, sending nothing',
 	array( notice_now(), $GLOBALS['mails'] ),
 	array( '<div class="notice notice-error is-dismissible"><p>The invitation could not be sent.</p></div>', array() ) );
+
+// The nonce is keyed to the account, so a link taken from one row is no use on another: the
+// handler's own action alone, which every row's link was signed with before, is refused, and so is
+// Ben's link pointed at Hugo's account; a form posting the account is not read at all.
+manager( 130 );
+$unkeyed       = follow( str_replace( wp_create_nonce( 'wpcpm_institutions_invite_22' ), wp_create_nonce( 'wpcpm_institutions_invite' ), $ben_link ), 'handle_invite' );
+$unkeyed_asked = $GLOBALS['nonce_checks'];
+$borrowed      = follow( str_replace( 'user=22', 'user=24', $ben_link ), 'handle_invite' );
+$borrow_asked  = array_slice( $GLOBALS['nonce_checks'], count( $unkeyed_asked ) );
+$refused_mails = $GLOBALS['mails'];
+manager( 131 );
+request( array( 'action' => 'wpcpm_institutions_invite' ), array( 'user_id' => '24', '_wpnonce' => wp_create_nonce( 'wpcpm_institutions_invite_24' ) ) );
+$posted = run(
+	function () {
+		( new WPCPM_Institutions() )->handle_invite();
+	}
+);
+
+ck( 'the link verifies only under the nonce keyed to its account: the handler\'s unkeyed nonce is refused, and so is Ben\'s nonce on Hugo\'s account, each before anything is sent',
+	array( $unkeyed['died'], $unkeyed_asked, $borrowed['died'], $borrow_asked, $refused_mails ),
+	array( 'The link you followed has expired.', array( 'wpcpm_institutions_invite_22' ), 'The link you followed has expired.', array( 'wpcpm_institutions_invite_24' ), array() ) );
+ck( 'and an account posted by a form is not read: no form in the plugin posts one, so the request names no account, dies at the nonce keyed to none, and sends nothing',
+	array( $posted['died'], $GLOBALS['nonce_checks'], $GLOBALS['mails'] ),
+	array( 'The link you followed has expired.', array( 'wpcpm_institutions_invite_0' ), array() ) );
 
 the_site();
 manager( 83 );
@@ -2406,6 +2457,7 @@ $invite_with = array(
 	'_wpnonce'         => wp_create_nonce( 'bulk-institutions' ),
 	'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
 	'action2'          => '-1',
+	'bulk_action'      => 'Apply',
 );
 $queued      = press( screen( array_merge( $invite_with, array( 'action' => 'invite', 'users' => array( '22', '24', '26', '21', '30' ) ) ) ) );
 
@@ -2420,6 +2472,16 @@ ck( 'Resend invite queues Nora and Carmen, invited before, one at a time, and sa
 	array( WPCPM_Mail::queue(), notice_now() ),
 	array( array( 21, 23 ), '<div class="notice notice-success is-dismissible"><p>2 invitations queued. They go out with the next batch, and each replaces the link in any earlier invitation.</p></div>' ) );
 
+// A search pressed with Send invite chosen and Ben ticked is a search: the form is sent without
+// Apply, so nothing is asked about or queued, and the press comes back to the list, searched.
+the_site();
+manager( 88 );
+$searched_invite = press( screen( array_merge( array_diff_key( $invite_with, array( 'bulk_action' => true ) ), array( 'action' => 'invite', 'users' => array( '22' ), 's' => 'ben' ) ) ) );
+
+ck( 'a search pressed with Send invite chosen and Ben ticked queues nobody and asks about no nonce: the press comes back to the list, searched',
+	array( WPCPM_Mail::queue(), $GLOBALS['nonce_checks'], link_of( $searched_invite['redirect'] ) ),
+	array( array(), array(), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-institutions', 'tab' => 'accounts', 's' => 'ben' ) ) ) );
+
 the_site();
 manager( 85 );
 $tab_page = html_of( page_for( screen() ) );
@@ -2430,6 +2492,10 @@ $card     = isset( $card['wpcpm_institutions_bulk_invite'] ) ? $card['wpcpm_inst
 ck( 'the invitations card counts the three accounts never sent an invitation under any stamp, in words that fit accounts, and its button names the Accounts tab',
 	array( has( $card, '>Invite 3 institution accounts that have never been invited</button>' ), hidden_fields_of( $card )['wpcpm_tab'] ?? null, has( $tab_page, '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>' ) ),
 	array( true, 'accounts', true ) );
+// The card's question is shared by every audience's screen, so its words fit any audience's noun.
+ck( 'it asks before it sends, of the three, in the plural',
+	has( $tab_page, 'onsubmit="return confirm(\'Send an invitation to 3 of the institution accounts? They cannot be recalled once sent.\');"' ),
+	true );
 
 // The press is the manager's next request. WPCPM_Flash remembers within one run of PHP what it took
 // for a person, and drawing the tab above took this one's, so the press is made by somebody new.
@@ -2444,10 +2510,14 @@ the_site();
 manager( 86 );
 $GLOBALS['umeta'][24]['wpcpm_inst_invited'] = 1780000000;
 $GLOBALS['umeta'][26]['wpcpm_inst_invited'] = 1780000000;
-$one_card                                   = forms_by_action( html_of( page_for( screen() ) ) );
+$one_page                                   = html_of( page_for( screen() ) );
+$one_card                                   = forms_by_action( $one_page );
 
 ck( 'with one left, the button says so in the singular',
 	has( isset( $one_card['wpcpm_institutions_bulk_invite'] ) ? $one_card['wpcpm_institutions_bulk_invite'] : '', '>Invite 1 institution account that has never been invited</button>' ),
+	true );
+ck( 'and the card asks about the one, in the singular',
+	has( $one_page, 'onsubmit="return confirm(\'Send an invitation to 1 of the institution accounts? It cannot be recalled once sent.\');"' ),
 	true );
 
 echo "\n=== The screen's names, and the Accounts tab top to bottom ===\n";

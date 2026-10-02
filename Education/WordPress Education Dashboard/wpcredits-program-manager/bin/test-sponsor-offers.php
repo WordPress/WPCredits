@@ -489,6 +489,7 @@ $GLOBALS['audit'] = array();
 $report = WPCPM_Sponsor_Claims::report_problem( $a1, $GLOBALS['users'][22] );
 ck( 'a claimant reports a problem: the manager is mailed the name, the offer and the last four characters, never the code', array( $report['mailed'], $GLOBALS['sent'][0][2], false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Student Paused' ), false !== strpos( $GLOBALS['sent'][0][3]['body'], 'RE-1' ), strpos( $GLOBALS['sent'][0][3]['body'], 'MORE-1' ) ), array( 1, 'claim-problem', true, true, false ) );
 ck( 'with a Reply-To at the claimant', $GLOBALS['sent'][0][3]['headers'], array( 'Reply-To: maciej@a8c.com' ) );
+ck( 'and the way to the Sponsors screen at its Offers and codes tab, where the offers and their claimants are', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'are on the Sponsors screen: https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers' . "\n" ), true );
 ck( 'and it is logged on the sponsor with the claimant as the subject', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['subject'], end( $GLOBALS['audit'] )['ground'] ), array( 'claim_problem', '22', 'system' ) );
 ck( 'somebody without a claim cannot report one', WPCPM_Sponsor_Claims::report_problem( $a1, $GLOBALS['users'][21] )->get_error_code(), 'wpcpm_problem_refused' );
 WPCPM_Sponsor_Claims::report_problem( $a1, $GLOBALS['users'][22] );

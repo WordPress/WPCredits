@@ -77,8 +77,9 @@
  *   shown twice while the other is on no page. The search is `WP_User_Query`'s contains search,
  *   over name, username and email, and the list asks for its total to be counted.
  * - The plugin declares no list table as it loads: its loader `wpcpm_load_accounts_tables()` loads
- *   the base, the Students table, the Mentors table and the Administrators table when a screen
- *   first needs one, so the front end, REST and cron never load core's list table for them. The
+ *   the base, the Students table, the Mentors table, the Administrators table, the Institutions table
+ *   and the Sponsors table when a screen first needs one, so the front end, REST and cron never load
+ *   core's list table for them. The
  *   base loads core's list table itself when it is not there yet: core loads it for wp-admin
  *   requests, after plugins have loaded.
  *
@@ -129,7 +130,7 @@ function wpcpm_accounts_table_plugin_child( $abspath ) {
 	require dirname( __DIR__ ) . '/wpcredits-program-manager.php';
 
 	$declared = function () {
-		return array( class_exists( 'WP_List_Table', false ), class_exists( 'WPCPM_Accounts_Table', false ), class_exists( 'WPCPM_Students_Table', false ), class_exists( 'WPCPM_Mentors_Table', false ), class_exists( 'WPCPM_Administrators_Table', false ), class_exists( 'WPCPM_Institutions_Table', false ) );
+		return array( class_exists( 'WP_List_Table', false ), class_exists( 'WPCPM_Accounts_Table', false ), class_exists( 'WPCPM_Students_Table', false ), class_exists( 'WPCPM_Mentors_Table', false ), class_exists( 'WPCPM_Administrators_Table', false ), class_exists( 'WPCPM_Institutions_Table', false ), class_exists( 'WPCPM_Sponsors_Table', false ) );
 	};
 
 	$as_loaded = $declared();
@@ -202,6 +203,7 @@ $GLOBALS['screen']         = null;    // What convert_to_screen() answers: null 
 $GLOBALS['no_editor']      = false;   // Whether the person looking may not open the accounts' editor.
 $GLOBALS['can_manage']     = true;    // Whether the person looking holds the program's capability.
 $GLOBALS['events']         = array(); // What a press in a list reached, in order: the capability and nonce asked about, a table's own action.
+$GLOBALS['wp_version']     = '7.1';   // The WordPress version get_bloginfo() reports: the one the plugin is tested up to.
 
 /* ---- WordPress, as far as the table reaches ------------------------------ */
 
@@ -600,6 +602,25 @@ function convert_to_screen( $hook_name ) {
 function add_screen_option( $option, $args = array() ) {
 	$GLOBALS['screen_options'][ $option ] = $args;
 }
+/**
+ * What core says of the site, as far as the screen plumbing asks: its version, which core keeps in
+ * `$wp_version`, and which says whether core names a list's Apply button (it does from 6.7 on).
+ * Here the version the plugin is tested up to (readme.txt), unless a check sets another. Anything
+ * else asked is kept apart and fails the suite's check of what the stand-ins do not model.
+ *
+ * @param string $show   What is asked.
+ * @param string $filter Core's display filter, not modeled.
+ * @return string
+ */
+function get_bloginfo( $show = '', $filter = 'raw' ) {
+	if ( 'version' === $show ) {
+		return (string) $GLOBALS['wp_version'];
+	}
+
+	$GLOBALS['unmodeled'][] = 'get_bloginfo ' . $show;
+
+	return '';
+}
 
 /** What wp_safe_redirect() does here: it stops the press and carries the address it was sending the browser to. */
 class WPCPM_Test_Redirect extends Exception {}
@@ -909,6 +930,31 @@ class WPCPM_Test_Mentors_Table extends WPCPM_Accounts_Table {
 }
 
 /**
+ * A third audience whose screen sends a row's invitation through the shared handler: the sponsors,
+ * for the one name their row's link is built with.
+ */
+class WPCPM_Test_Sponsors_Table extends WPCPM_Accounts_Table {
+	protected static function audience() {
+		return 'sponsors';
+	}
+	public static function role() {
+		return WPCPM_Roles::ROLE_SPONSOR;
+	}
+	protected function columns() {
+		return array( 'name' => 'Name' );
+	}
+	protected function query( array $args ) {
+		return array(
+			'items' => array(),
+			'total' => 0,
+		);
+	}
+	public static function action() {
+		return static::invite_action();
+	}
+}
+
+/**
  * Any role, for reading the stamp each role's accounts carry.
  */
 class WPCPM_Test_Role_Table extends WPCPM_Accounts_Table {
@@ -1028,6 +1074,23 @@ class WPCPM_Test_Records_Table extends WPCPM_Test_Accounts_Table {
 }
 
 /**
+ * A table that answers the three seams around its list, as the Institutions table does: a row its
+ * bulk action could only refuse, which may not be ticked (one account, one record), a sentence
+ * above its views and one under its table, each marked so a check finds where it was printed.
+ */
+class WPCPM_Test_Seams_Table extends WPCPM_Test_Records_Table {
+	protected function row_tickable( $item ) {
+		return is_array( $item ) ? 'recNOACCOUNT00002' !== $item['id'] : 12 !== (int) $item->ID;
+	}
+	protected function list_intro() {
+		echo '<p class="wpcpm-test-intro">Above the views.</p>';
+	}
+	protected function list_outro() {
+		echo '<p class="wpcpm-test-outro">Under the table.</p>';
+	}
+}
+
+/**
  * A module drawn in tabs whose first is not Accounts, as the Institutions screen's first is its
  * queue, on the screen plumbing every audience's module shares (`WPCPM_Accounts_Screen`), listing
  * the records table above: what the plumbing reads of a module, and nothing more. Its page is the
@@ -1079,17 +1142,6 @@ class WPCPM_Test_Queue_Module extends WPCPM_Module {
 	}
 	protected function dashboard_url() {
 		return '';
-	}
-	public static function list_state() {
-		return array_map(
-			'rawurlencode',
-			array_filter(
-				array(
-					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
-					's'          => WPCPM_Request::text( 's' ),
-				)
-			)
-		);
 	}
 }
 
@@ -1181,6 +1233,33 @@ function request( array $query ) {
 function drawn( $table ) {
 	ob_start();
 	$table->display();
+	return (string) ob_get_clean();
+}
+
+/**
+ * What a table's views() prints.
+ *
+ * @param WP_List_Table $table The table.
+ * @return string
+ */
+function views_of( $table ) {
+	ob_start();
+	$table->views();
+	return (string) ob_get_clean();
+}
+
+/**
+ * What core's own method of a list table prints for a table, the table's overrides passed over:
+ * core's `views()` or `display()`, as the base would print them with nothing of its own around
+ * them.
+ *
+ * @param WP_List_Table $table  The table.
+ * @param string        $method `views` or `display`.
+ * @return string
+ */
+function core_drawn( $table, $method ) {
+	ob_start();
+	( new ReflectionMethod( 'WP_List_Table', $method ) )->invoke( $table );
 	return (string) ob_get_clean();
 }
 
@@ -1922,14 +2001,16 @@ $again = $table->actions_for( $GLOBALS['users'][11] );
 ck( 'an account never invited is offered Send invite', array( array_keys( $never ), strip_tags( at( $never, 'invite' ) ) ), array( array( 'invite' ), 'Send invite' ) );
 ck( 'an account already invited is offered Resend invite', array( array_keys( $again ), strip_tags( at( $again, 'reinvite' ) ) ), array( array( 'reinvite' ), 'Resend invite' ) );
 
-$nonce = wp_create_nonce( 'wpcpm_students_invite' );
+// The handler's nonce is keyed to the account, its action with the account's ID after it, so a
+// link taken from one row is no use on another.
+$nonce = wp_create_nonce( 'wpcpm_students_invite_12' );
 
-ck( 'Send invite links to the audience\'s invite handler, with the account, the tab and the handler\'s nonce',
+ck( 'Send invite links to the audience\'s invite handler, with the account, the tab and the handler\'s nonce, keyed to the account',
 	link_of( at( $never, 'invite' ) ),
 	array( 'https://example.test/wp-admin/admin-post.php', array( 'action' => 'wpcpm_students_invite', 'user' => '12', 'wpcpm_tab' => 'accounts', '_wpnonce' => $nonce ) ) );
-ck( 'Resend invite goes to the same handler, for its own account',
+ck( 'Resend invite goes to the same handler, for its own account, under a nonce keyed to that account',
 	link_of( at( $again, 'reinvite' ) ),
-	array( 'https://example.test/wp-admin/admin-post.php', array( 'action' => 'wpcpm_students_invite', 'user' => '11', 'wpcpm_tab' => 'accounts', '_wpnonce' => $nonce ) ) );
+	array( 'https://example.test/wp-admin/admin-post.php', array( 'action' => 'wpcpm_students_invite', 'user' => '11', 'wpcpm_tab' => 'accounts', '_wpnonce' => wp_create_nonce( 'wpcpm_students_invite_11' ) ) ) );
 
 // An audience that says where its list stands: the link carries it, so the handler can come back to
 // the same place, and the link's own action, account and tab are never the state's to change.
@@ -1961,18 +2042,20 @@ ck( 'the list\'s state the audience gives rides on the invitation link, and neve
 
 $students_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php' );
 $mentors_src  = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php' );
+$sponsors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php' );
 $students_act = preg_match( "/const ACTION_INVITE = '([a-z_]+)';/", $students_src, $found ) ? $found[1] : 'no ACTION_INVITE in the Students module';
 $mentors_act  = preg_match( "/const ACTION_INVITE = '([a-z_]+)';/", $mentors_src, $found ) ? $found[1] : 'no ACTION_INVITE in the Mentors module';
+$sponsors_act = preg_match( "/const ACTION_INVITE = '([a-z_]+)';/", $sponsors_src, $found ) ? $found[1] : 'no ACTION_INVITE in the Sponsors module';
 
-ck( 'the handler is the one each module has: the Students\' and the Mentors\' ACTION_INVITE',
-	array( WPCPM_Test_Accounts_Table::action(), WPCPM_Test_Mentors_Table::action() ), array( $students_act, $mentors_act ) );
+ck( 'the handler is the one each module has: the Students\', the Mentors\' and the Sponsors\' ACTION_INVITE',
+	array( WPCPM_Test_Accounts_Table::action(), WPCPM_Test_Mentors_Table::action(), WPCPM_Test_Sponsors_Table::action() ), array( $students_act, $mentors_act, $sponsors_act ) );
 
 $mentors = new WPCPM_Test_Mentors_Table();
 $dana    = $mentors->actions_for( $GLOBALS['users'][14] );
 
-ck( 'and a mentor already invited is offered Resend invite through the Mentors\' handler',
+ck( 'and a mentor already invited is offered Resend invite through the Mentors\' handler, under its nonce keyed to her account',
 	array( array_keys( $dana ), at( link_of( at( $dana, 'reinvite' ) )[1], 'action' ), at( link_of( at( $dana, 'reinvite' ) )[1], '_wpnonce' ) ),
-	array( array( 'reinvite' ), 'wpcpm_mentors_invite', wp_create_nonce( 'wpcpm_mentors_invite' ) ) );
+	array( array( 'reinvite' ), 'wpcpm_mentors_invite', wp_create_nonce( 'wpcpm_mentors_invite_14' ) ) );
 
 $table->prepare_items();
 $html = drawn( $table );
@@ -2062,6 +2145,39 @@ ck( 'each with WordPress\'s Apply button, named as core names it, so the list fo
 	array( has( $html, '<input type="submit" name="bulk_action" id="doaction" class="button action button-compact" value="Apply"  />' ), has( $html, '<input type="submit" name="bulk_action" id="doaction2"' ) ),
 	array( true, true ) );
 ck( 'every row\'s checkbox posts its account under one name', array( WPCPM_Accounts_Table::USERS_FIELD, substr_count( $html, 'name="users[]"' ) ), array( 'users', 3 ) );
+
+// The list's form as every audience's screen draws it (`render_accounts_list()`): core's search box,
+// then the table, whose Apply buttons come after it. A browser sends a form by its first submit
+// button when Enter is pressed in one of its fields, so Enter in the search field sends the search,
+// which carries no `bulk_action`, and never Apply.
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) );
+$list_module = new class() extends WPCPM_Test_Queue_Module {
+	protected function screen_words() {
+		return array(
+			'list_heading' => 'Student accounts',
+			'page_label'   => 'Their page:',
+			'page_missing' => 'Their page is missing.',
+			'search'       => 'Search accounts',
+			'list_note'    => 'Under the list.',
+		);
+	}
+};
+$draw_list   = new ReflectionMethod( 'WPCPM_Test_Queue_Module', 'render_accounts_list' );
+
+// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+if ( PHP_VERSION_ID < 80100 ) {
+	$draw_list->setAccessible( true );
+}
+
+ob_start();
+$draw_list->invoke( $list_module );
+$list_form = between( (string) ob_get_clean(), '<form method="get">', '</form>' );
+$search_at = strpos( $list_form, 'id="search-submit"' );
+$apply_at  = strpos( $list_form, 'name="bulk_action"' );
+
+ck( 'the list\'s form, as the screens draw it, puts the search\'s submit before the first Apply, so Enter in the search field sends the search and never Apply',
+	array( false !== $search_at, false !== $apply_at, false !== $search_at && false !== $apply_at && $search_at < $apply_at ),
+	array( true, true, true ) );
 
 request( array( 'action' => 'invite' ) );
 $picked = $table->current_action();
@@ -2268,29 +2384,37 @@ echo "\n=== The screen plumbing the audiences share: one trait, which neither mo
 // so a later fix to the press checked before anything is read, or to the count read once, had to be
 // made in each, and a third audience's screen would have been a third copy. They are one trait now.
 // Its methods are read from its own file, so one added to it is covered the day it lands; a module
-// declaring one of them again, whose copy would quietly win over the trait's, fails here, and so does
-// a method moved back out of the trait.
+// declaring one of them again, whose copy would quietly win over the trait's, fails here, and so
+// does a method moved back out of the trait. Two of them are defaults a module replaces where its
+// audience differs, by design: where its list stands (`list_state()`), which the Students module
+// keeps for its institution filter, and how one account is sent its invitation (`invite_one()`).
 preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
 
-$declared_again = function ( $code ) use ( $screen_methods ) {
+$replaceable    = array( 'list_state', 'invite_one' );
+$declared_again = function ( $code ) use ( $screen_methods, $replaceable ) {
 	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
 
-	return array_values( array_intersect( $screen_methods[1], $own[1] ) );
+	return array_values( array_diff( array_intersect( $screen_methods[1], $own[1] ), $replaceable ) );
+};
+$replaced       = function ( $code ) use ( $replaceable ) {
+	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
+
+	return array_values( array_intersect( $replaceable, $own[1] ) );
 };
 $uses_screen    = function ( $code ) {
 	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $code );
 };
 
-ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again',
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter',
 	array(
-		'trait'    => array_values( array_diff( array( 'hook_screen', 'load_screen', 'handle_list_form', 'save_per_page', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited', 'handle_invite' ), $screen_methods[1] ) ),
-		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ) ),
-		'mentors'  => array( $uses_screen( $mentors_code ), $declared_again( $mentors_code ) ),
+		'trait'    => array_values( array_diff( array( 'list_state', 'hook_screen', 'load_screen', 'handle_list_form', 'apply_pressed', 'save_per_page', 'handle_invite', 'invite_one', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited' ), $screen_methods[1] ) ),
+		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ), $replaced( $students_code ) ),
+		'mentors'  => array( $uses_screen( $mentors_code ), $declared_again( $mentors_code ), $replaced( $mentors_code ) ),
 	),
 	array(
 		'trait'    => array(),
-		'students' => array( true, array() ),
-		'mentors'  => array( true, array() ),
+		'students' => array( true, array(), array( 'list_state' ) ),
+		'mentors'  => array( true, array(), array() ),
 	) );
 
 echo "\n=== The seams answer none on the base, so a list that keeps no records draws as it did ===\n";
@@ -2613,7 +2737,8 @@ ck( 'and a list says whether a record view is in force, which the screen reads t
 
 echo "\n=== A bulk action the table owns: the capability and the list's nonce, then the table, then back to the list ===\n";
 
-// What the list's form sends besides the choice: core's nonce and the address it came from.
+// What the list's form sends besides the choice: core's nonce, the address it came from, and the
+// Apply button that sent it, which core names from WordPress 6.7 on, as the version here does.
 $form   = array(
 	'page'             => 'wpcpm-students',
 	'tab'              => 'accounts',
@@ -2621,6 +2746,7 @@ $form   = array(
 	'_wpnonce'         => wp_create_nonce( 'bulk-students' ),
 	'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-students&tab=accounts&wpcpm_view=no-account',
 	'action2'          => '-1',
+	'bulk_action'      => 'Apply',
 );
 $ticked = array( 'records' => array( 'recNOACCOUNT00003', 'recNOACCOUNT00007' ) );
 $manage = 'capability ' . WPCPM_Roles::CAP_MANAGE;
@@ -2658,9 +2784,9 @@ ck( 'and somebody without the program\'s capability is refused before the nonce 
 	array( 'You do not have permission to manage the program.', array( 'owns_action create', $manage ), null ) );
 
 $unowned = array(
-	'an action the table does not own'        => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => 'delete' ) ) ),
-	'an action sent as a list'                => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => array( 'create' ) ) ) ),
-	'Create account on a list that owns none' => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => 'create' ) ), 'WPCPM_Test_Accounts_Table' ),
+	'an action the table does not own'        => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => 'delete', 'bulk_action' => 'Apply' ) ) ),
+	'an action sent as a list'                => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => array( 'create' ), 'bulk_action' => 'Apply' ) ) ),
+	'Create account on a list that owns none' => list_press( array_merge( $ticked, array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'action' => 'create', 'bulk_action' => 'Apply' ) ), 'WPCPM_Test_Accounts_Table' ),
 );
 
 ck( 'an action nobody owns still does nothing: the table is asked by the action\'s name alone, and an action sent as a list is never asked about; nothing is checked, nothing carried out, nothing flashed, and the screen goes on to draw',
@@ -2715,9 +2841,185 @@ ck( 'the invitations\' two outcomes are worded by the base, as on every audience
 		array(),
 	) );
 
+// Core reads the bulk select's choice whatever sent the form (`current_action()`), so a search
+// pressed with an action chosen and rows ticked would carry the action out. From WordPress 6.7 core
+// names the Apply button, and a press of it says so as `bulk_action`; any other press, a search's
+// among them, sends the form without it. Below 6.7 core prints the button unnamed, the request
+// cannot say which press sent it, and core's own behavior stands: the choice runs.
+$press_on = function ( $version, array $fields ) use ( $form ) {
+	$GLOBALS['wp_version'] = $version;
+	$out                   = list_press( array_merge( array_diff_key( $form, array( 'bulk_action' => true ) ), $fields ) );
+	$GLOBALS['wp_version'] = '7.1';
+
+	return array(
+		'events' => $out['events'],
+		'queued' => $GLOBALS['queue_calls'],
+		'flash'  => at( (array) $out['flash'], 'queue_admin' ),
+		'back'   => '' === $out['redirect'] ? 'no redirect: ' . $out['error'] . $out['died'] : link_of( '<a href="' . $out['redirect'] . '">' ),
+	);
+};
+$apply    = array( 'bulk_action' => 'Apply' );
+$invite   = array( 'wpcpm_view' => 'never-invited', 'action' => 'invite', 'users' => array( '12' ) );
+$create   = array_merge( $ticked, array( 'action' => 'create' ) );
+$on_list  = function ( $view ) {
+	return array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_view' => $view ) );
+};
+$untouched = function ( $view ) use ( $on_list ) {
+	return array(
+		'events' => array(),
+		'queued' => array(),
+		'flash'  => '',
+		'back'   => $on_list( $view ),
+	);
+};
+$queued_one  = array(
+	'events' => array( $manage, 'nonce bulk-students' ),
+	'queued' => array( array( 'queue_invites', array( 12 ) ) ),
+	'flash'  => 'invites-queued',
+	'back'   => $on_list( 'never-invited' ),
+);
+$created_two = array(
+	'events' => array( 'owns_action create', $manage, 'nonce bulk-students', 'handle_action create: recNOACCOUNT00003,recNOACCOUNT00007' ),
+	'queued' => array(),
+	'flash'  => 'records-created',
+	'back'   => $on_list( 'no-account' ),
+);
+
+ck( 'on WordPress 6.7, which names the Apply button, Send invite chosen with an account ticked runs only when Apply sent the form; sent by any other press, a search\'s among them, nothing is asked about or queued, and the press comes back to the list as it stood',
+	array(
+		'Apply'         => $press_on( '6.7', array_merge( $apply, $invite ) ),
+		'another press' => $press_on( '6.7', $invite ),
+	),
+	array(
+		'Apply'         => $queued_one,
+		'another press' => $untouched( 'never-invited' ),
+	) );
+ck( 'below 6.7, where core prints Apply unnamed and the request cannot say which press sent it, the choice runs either way, as core\'s own lists run it',
+	array(
+		'Apply'         => $press_on( '6.6', array_merge( $apply, $invite ) ),
+		'another press' => $press_on( '6.6', $invite ),
+	),
+	array(
+		'Apply'         => $queued_one,
+		'another press' => $queued_one,
+	) );
+ck( 'and so for an action the table owns: on 6.7 Create account is carried out only when Apply sent the form, the table not even asked whether the action is its own otherwise; below 6.7 either way',
+	array(
+		'6.7, Apply'         => $press_on( '6.7', array_merge( $apply, $create ) ),
+		'6.7, another press' => $press_on( '6.7', $create ),
+		'6.6, Apply'         => $press_on( '6.6', array_merge( $apply, $create ) ),
+		'6.6, another press' => $press_on( '6.6', $create ),
+	),
+	array(
+		'6.7, Apply'         => $created_two,
+		'6.7, another press' => $untouched( 'no-account' ),
+		'6.6, Apply'         => $created_two,
+		'6.6, another press' => $created_two,
+	) );
+
 $GLOBALS['events']      = array();
 $GLOBALS['opts']        = array();
 $GLOBALS['queue_calls'] = array();
+
+echo "\n=== Around the list: what is printed above its views and under its table, and which rows may be ticked ===\n";
+
+// A table built and read for each draw: the list table stand-in, as core's, keeps the bulk actions
+// it read on its first display, so a second display of one table names its top select the bottom's.
+// And each draw numbers the select-all checkbox anew, as core counts them, so two draws are
+// compared with that number set aside.
+$fresh = function ( $class ) {
+	$table = new $class();
+	$table->prepare_items();
+
+	return $table;
+};
+$alike = function ( $one, $other ) {
+	return preg_replace( '/cb-select-all-\d+/', 'cb-select-all-', $one ) === preg_replace( '/cb-select-all-\d+/', 'cb-select-all-', $other );
+};
+
+// The base answers each seam with nothing of its own: every row may be ticked, nothing is printed
+// above the views or under the table, so a list that says nothing there draws core's views and
+// core's table as they are.
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) );
+$asked = new class() extends WPCPM_Test_Accounts_Table {
+	public function seams_for( $item ) {
+		try {
+			ob_start();
+			$this->list_intro();
+			$this->list_outro();
+			$printed = (string) ob_get_clean();
+
+			return array( $this->row_tickable( $item ), $printed );
+		} catch ( Throwable $thrown ) {
+			ob_end_clean();
+
+			return 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+		}
+	}
+};
+
+ck( 'on the base every row may be ticked, an account\'s and a record\'s, and nothing is printed above the views or under the table',
+	array( $asked->seams_for( $GLOBALS['users'][12] ), $asked->seams_for( WPCPM_Test_Records_Table::$records[1] ) ),
+	array( array( true, '' ), array( true, '' ) ) );
+ck( 'so a list that says nothing there draws core\'s views and core\'s table as they are, a checkbox on every row',
+	array(
+		$alike( views_of( $fresh( 'WPCPM_Test_Accounts_Table' ) ), core_drawn( $fresh( 'WPCPM_Test_Accounts_Table' ), 'views' ) ),
+		$alike( drawn( $fresh( 'WPCPM_Test_Accounts_Table' ) ), core_drawn( $fresh( 'WPCPM_Test_Accounts_Table' ), 'display' ) ),
+		substr_count( drawn( $fresh( 'WPCPM_Test_Accounts_Table' ) ), 'name="users[]"' ),
+	),
+	array( true, true, 3 ) );
+
+$seams_views = views_of( $fresh( 'WPCPM_Test_Seams_Table' ) );
+$seams_table = drawn( $fresh( 'WPCPM_Test_Seams_Table' ) );
+$seams_rows  = array_slice( explode( '<tr>', between( $seams_table, '<tbody', '</tbody>' ) ), 1 );
+$outro       = '<p class="wpcpm-test-outro">Under the table.</p>';
+
+ck( 'a table that says a row may not be ticked draws no checkbox on that row: Ada\'s is left out, Bruno\'s and Cleo\'s drawn as before',
+	array( array_map( function ( $row ) { return preg_match( '/Ada Kowalski|Bruno Diaz|Cleo Ahn/', $row, $name ) ? $name[0] : ''; }, $seams_rows ), array_map( function ( $row ) { return substr_count( $row, 'type="checkbox"' ); }, $seams_rows ) ),
+	array( array( 'Ada Kowalski', 'Bruno Diaz', 'Cleo Ahn' ), array( 0, 1, 1 ) ) );
+ck( 'its sentence above the views is printed first, before core\'s views, and its sentence under the table last, after the table and its pagination, each once',
+	array(
+		0 === strpos( $seams_views, '<p class="wpcpm-test-intro">Above the views.</p>' ),
+		$alike( substr( $seams_views, strlen( '<p class="wpcpm-test-intro">Above the views.</p>' ) ), core_drawn( $fresh( 'WPCPM_Test_Seams_Table' ), 'views' ) ),
+		substr( $seams_table, -strlen( $outro ) ) === $outro,
+		$alike( substr( $seams_table, 0, -strlen( $outro ) ), core_drawn( $fresh( 'WPCPM_Test_Seams_Table' ), 'display' ) ),
+		substr_count( $seams_views . $seams_table, 'wpcpm-test-' ),
+	),
+	array( true, true, true, true, 2 ) );
+
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_view' => 'no-account' ) );
+$record_rows = array_slice( explode( '<tr>', between( drawn( $fresh( 'WPCPM_Test_Seams_Table' ) ), '<tbody', '</tbody>' ) ), 1 );
+
+ck( 'and on a record view the record it says may not be ticked has none either, the records before and after it theirs',
+	array_map( function ( $row ) { return substr_count( $row, 'name="records[]"' ); }, array_slice( $record_rows, 0, 3 ) ),
+	array( 1, 0, 1 ) );
+
+echo "\n=== The invitation views' counts: read once a table, however often they are asked ===\n";
+
+// On a record view the views and the heading both ask how many accounts each invitation view holds,
+// and each count is a query: the table reads them once and keeps them.
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_view' => 'no-account' ) );
+$GLOBALS['queries'] = array();
+$counted            = new WPCPM_Test_Records_Table();
+$counted->prepare_items();
+$counted_views   = $counted->views_now();
+$counted_heading = $counted->heading_count();
+$counted_again   = $counted->views_now();
+$count_queries   = array_values(
+	array_filter(
+		$GLOBALS['queries'],
+		function ( $args ) {
+			return isset( $args['fields'] ) && 'ID' === $args['fields'];
+		}
+	)
+);
+
+ck( 'the views, the heading and the views again read the counts three times, and the table counts each view once: two queries in all, Invited and Never invited',
+	array( count( $count_queries ), array_map( function ( $args ) { return isset( $args['meta_query'][0]['compare'] ) ? $args['meta_query'][0]['compare'] : ''; }, $count_queries ) ),
+	array( 2, array( 'EXISTS', 'NOT EXISTS' ) ) );
+ck( 'and every read answers the same counts: three accounts, one Invited, two Never invited',
+	array( $counted_heading, $counted_views === $counted_again, has( at( $counted_views, 'all' ), '(3)' ), has( at( $counted_views, 'invited' ), '(1)' ), has( at( $counted_views, 'never-invited' ), '(2)' ) ),
+	array( 3, true, true, true, true ) );
 
 echo "\n=== The tab a screen opens on is its first ===\n";
 
@@ -3168,12 +3470,12 @@ exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-
 
 $plugin = (array) json_decode( implode( "\n", $plugin_out ), true );
 
-ck( 'the plugin loads as a site loads it, declaring no list table: not core\'s, not the base, not the Students table, not the Mentors table, not the Administrators table, not the Institutions table',
+ck( 'the plugin loads as a site loads it, declaring no list table: not core\'s, not the base, not the Students table, not the Mentors table, not the Administrators table, not the Institutions table, not the Sponsors table',
 	array( $plugin_status, isset( $plugin['loaded'] ) ? $plugin['loaded'] : implode( "\n", $plugin_out ) ),
-	array( 0, array( false, false, false, false, false, false ) ) );
-ck( 'its lazy loader brings core\'s list table from the WordPress root, then the base, the Students table, the Mentors table, the Administrators table and the Institutions table',
+	array( 0, array( false, false, false, false, false, false, false ) ) );
+ck( 'its lazy loader brings core\'s list table from the WordPress root, then the base, the Students table, the Mentors table, the Administrators table, the Institutions table and the Sponsors table',
 	array( isset( $plugin['lazy'] ) ? $plugin['lazy'] : null, isset( $plugin['after'] ) ? $plugin['after'] : null, isset( $plugin['from'] ) ? realpath( $plugin['from'] ) : null ),
-	array( true, array( true, true, true, true, true, true ), realpath( $root . 'wp-admin/includes/class-wp-list-table.php' ) ) );
+	array( true, array( true, true, true, true, true, true, true ), realpath( $root . 'wp-admin/includes/class-wp-list-table.php' ) ) );
 
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 

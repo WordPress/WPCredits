@@ -39,8 +39,9 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  * address or name (the institution rule), and a sponsor the index already holds with the same
  * name or website host. Both flags stay on a `new` row: a stranger who submits first using a
  * company's published address must not be able to edit or suppress the genuine submission,
- * and a company already in the base is a fact for the manager, who rejects and provisions from
- * the Sponsors card instead of approving a second record.
+ * and a company already in the base is a fact for the manager, who rejects and creates its account
+ * on the Sponsors screen's Accounts tab, from its No account view, instead of approving a second
+ * record.
  *
  * **Consent is a precondition, not an answer.** Anything but `"1"` or `"true"` refuses the
  * whole submission and stores nothing. What is stored instead is the evidence, through the
@@ -2333,13 +2334,19 @@ class WPCPM_Sponsor_Application {
 			return array();
 		}
 
+		// Oldest first, and by ID within one second, so every read of the open applications, the
+		// queue's, the Administrator Dashboard card's and an opened application's place, comes back
+		// in one order: a tie the order left open could put one application on both sides of the
+		// card's window, or on neither.
 		return (array) get_posts(
 			array(
 				'post_type'   => self::POST_TYPE,
 				'post_status' => 'private',
 				'numberposts' => $limit > 0 ? (int) $limit : -1,
-				'orderby'     => 'date',
-				'order'       => 'ASC',
+				'orderby'     => array(
+					'date' => 'ASC',
+					'ID'   => 'ASC',
+				),
 				'fields'      => 'ids' === $fields ? 'ids' : '',
 				'meta_query'  => array(
 					array(
@@ -2670,7 +2677,7 @@ class WPCPM_Sponsor_Application {
 			'sapp-incomplete'   => array( 'error', __( 'That application holds no company name or no address, so there is nothing to create a record from.', 'wpcredits-program-manager' ) ),
 			'sapp-airtable'     => array( 'error', __( 'Airtable could not be written, so nothing else happened and the application is where it was. Try again once the base answers.', 'wpcredits-program-manager' ) ),
 			'sapp-account'      => array( 'error', __( 'The Airtable record was created, but the account could not be made. Press Approve again once the problem is fixed.', 'wpcredits-program-manager' ) ),
-			'account-conflict'  => array( 'error', __( 'Nothing was approved. The contact address already belongs to an account on this site, so approving would hand that person a sponsor\'s dashboard. Ask the company for another address, or attach the existing account on purpose from the Sponsors screen.', 'wpcredits-program-manager' ) ),
+			'account-conflict'  => array( 'error', __( 'Nothing was approved. The contact address already belongs to an account on this site, so approving would hand that person a sponsor\'s dashboard. Ask the company for another address, or, if the company is already a sponsor here, attach the existing account on purpose from Manage accounts on the Sponsors screen\'s Accounts tab.', 'wpcredits-program-manager' ) ),
 			'category-failed'   => array( 'error', __( 'The record and the account are made, but the Sponsors category could not be. Press Approve again to finish: neither the record nor the account will be made a second time.', 'wpcredits-program-manager' ) ),
 			'sapp-failed'       => array( 'error', __( 'The approval did not land. What did land is stamped on the application, and pressing Approve again completes the rest.', 'wpcredits-program-manager' ) ),
 			'sapp-purge-failed' => array( 'error', __( 'The application could not be deleted.', 'wpcredits-program-manager' ) ),
@@ -3252,16 +3259,20 @@ class WPCPM_Sponsor_Application {
 	 * its confirmations and mints the four decision nonces. The guarantee used to live in the
 	 * call sites alone, so a caller that forgot inherited nothing.
 	 *
-	 * @param WP_Post $post   The application.
-	 * @param string  $state  Its state.
-	 * @param string  $return `WPCPM_Return::DASHBOARD` when drawn on the Administrator Dashboard, else ''.
+	 * @param WP_Post $post    The application.
+	 * @param string  $state   Its state.
+	 * @param string  $return  `WPCPM_Return::DASHBOARD` when drawn on the Administrator Dashboard, else ''.
+	 * @param bool    $heading Whether to print the heading over the forms: false where the caller
+	 *                         prints its own (`render_here()`).
 	 */
-	public static function render_actions( WP_Post $post, $state, $return = '' ) {
+	public static function render_actions( WP_Post $post, $state, $return = '', $heading = true ) {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			return;
 		}
 
-		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
+		if ( $heading ) {
+			echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
+		}
 
 		$name  = self::stored_name( $post );
 		$name  = '' !== $name ? $name : self::reference_of( $post );
@@ -3278,7 +3289,7 @@ class WPCPM_Sponsor_Application {
 			// The in-base flag, said again where it matters most: approving a company the base
 			// already holds creates a second record (plan ruling 17).
 			if ( in_array( self::SIGNAL_IN_BASE, self::signals_of( $post ), true ) ) {
-				$confirm = __( 'The base already holds a sponsor with this name or website, and approving creates a second record. If it is the same company, reject this application and use Create account on the Sponsors card instead.', 'wpcredits-program-manager' ) . ' ' . $confirm;
+				$confirm = __( 'The base already holds a sponsor with this name or website, and approving creates a second record. If it is the same company, reject this application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . ' ' . $confirm;
 			}
 
 			self::render_decision_form(
@@ -3370,6 +3381,88 @@ class WPCPM_Sponsor_Application {
 				)
 			);
 		}
+	}
+
+	/**
+	 * An opened application on the Sponsors screen: under one heading, what is done here and where
+	 * the rest is decided, by its state.
+	 *
+	 * Decisions have one home, the Administrator Dashboard, whose Sponsor applications card lists
+	 * the oldest `WPCPM_Administrators_Cards::LIMIT` open applications, each with every decision its
+	 * state allows (`render_decision()`). What that card cannot reach stays here, drawn by
+	 * `render_actions()` under this method's heading instead of its own: Delete for good on an
+	 * approved application, which the card never lists; Put back in the queue and Delete for good on
+	 * a rejected or spam one, since the card lists open applications only; and every decision on an
+	 * open application past the card's window, which is on no card at all. The window is read from
+	 * the cards class because it is the number the card cuts at. None of this needs the dashboard's
+	 * page, so it stays while the page is missing, and a press here lands back on the queue
+	 * (`leave()`), which prints its outcome.
+	 *
+	 * An open application the card lists is decided there: the sentence says so, with the way to its
+	 * own item on the card. Its place is one read of the open IDs, oldest first, as the card reads
+	 * them, which is cheap on a view of one application. An application in a state no decision writes
+	 * is on no list, so it is told only where applications are decided, with the way to the card.
+	 * While the dashboard's page is missing there is nowhere to link, and the sentence its class keeps
+	 * for that stands in the link's place.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 */
+	private static function render_here( WP_Post $post, $state ) {
+		echo '<h3>' . esc_html__( 'Where it is decided', 'wpcredits-program-manager' ) . '</h3>';
+
+		if ( self::STATE_APPROVED === $state ) {
+			echo '<p>' . esc_html__( 'It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here.', 'wpcredits-program-manager' ) . '</p>';
+
+			self::render_actions( $post, $state, '', false );
+
+			return;
+		}
+
+		if ( in_array( $state, array( self::STATE_SPAM, self::STATE_REJECTED ), true ) ) {
+			echo '<p>' . esc_html__( 'Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard lists open applications only.', 'wpcredits-program-manager' ) . '</p>';
+
+			self::render_actions( $post, $state, '', false );
+
+			return;
+		}
+
+		$place  = array_search( (int) $post->ID, array_map( 'intval', (array) self::query( self::open_states(), 'ids' ) ), true );
+		$window = (int) WPCPM_Administrators_Cards::LIMIT;
+
+		if ( false !== $place && $place >= $window ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many open applications the Administrator Dashboard's card lists. */
+						__( 'The Administrator Dashboard\'s card lists the %s oldest open applications, and this one is past them, so it is decided here.', 'wpcredits-program-manager' ),
+						number_format_i18n( $window )
+					)
+				)
+			);
+
+			self::render_actions( $post, $state, '', false );
+
+			return;
+		}
+
+		$said = array( __( 'Applications are decided on the Administrator Dashboard.', 'wpcredits-program-manager' ) );
+
+		if ( '' === WPCPM_Administrators_Dashboard::page_url() ) {
+			printf( '<p>%s</p>', esc_html( $said[0] ) );
+			echo '<p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>';
+
+			return;
+		}
+
+		if ( false !== $place ) {
+			$said[] = __( 'This one is listed in its Sponsor applications card, with every decision its state allows.', 'wpcredits-program-manager' );
+		}
+
+		printf( '<p>%s</p>', esc_html( implode( ' ', $said ) ) );
+
+		WPCPM_Return::render_dashboard_link( self::RETURN_ANCHOR, false !== $place ? 'wpcpm-sponsor-application-' . (int) $post->ID : '' );
 	}
 
 	/**
@@ -3574,7 +3667,7 @@ class WPCPM_Sponsor_Application {
 			esc_html__( 'Sponsor applications', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $waiting ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the base already holds, then decide it. A decision taken here is the same decision the Administrator Dashboard offers, and approving creates the Airtable record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the base already holds. Applications are decided on the Administrator Dashboard, where approving creates the Airtable record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'Nothing is waiting. New applications appear here.', 'wpcredits-program-manager' ) . '</p>';
@@ -3585,7 +3678,7 @@ class WPCPM_Sponsor_Application {
 					esc_html(
 						sprintf(
 							/* translators: 1: how many rows are drawn, 2: how many are waiting in total. */
-							__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; decide these and the next of them take their place.', 'wpcredits-program-manager' ),
+							__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place.', 'wpcredits-program-manager' ),
 							number_format_i18n( count( $rows ) ),
 							number_format_i18n( $waiting )
 						)
@@ -3601,6 +3694,10 @@ class WPCPM_Sponsor_Application {
 
 			echo '</ol>';
 		}
+
+		// The card that decides these, or nothing while the dashboard's page is missing, which the
+		// queue tab says once above its cards.
+		WPCPM_Return::render_dashboard_link( self::RETURN_ANCHOR );
 
 		self::render_decided( $screen_url );
 
@@ -3782,11 +3879,21 @@ class WPCPM_Sponsor_Application {
 			esc_html( self::state_label( $state ) )
 		);
 
+		// To its own item on the Administrator Dashboard's Sponsor applications card, which carries the
+		// application's id. The open rows are the oldest QUEUE_MAX open applications and the card lists
+		// the oldest WPCPM_Administrators_Cards::LIMIT, in the same states and the same order, so every
+		// open row drawn here is one the card lists while QUEUE_MAX is not above that LIMIT: the two are
+		// equal today. A decided row draws none, since the card lists open applications only.
+		if ( in_array( $state, self::open_states(), true ) ) {
+			WPCPM_Return::render_dashboard_link( self::RETURN_ANCHOR, 'wpcpm-sponsor-application-' . (int) $post->ID );
+		}
+
 		echo '</li>';
 	}
 
 	/**
-	 * One application, open: the checks, every answer, the logos, the base, the decisions.
+	 * One application, open: the checks, every answer, the logos, the base, and where it is decided
+	 * (`render_here()`).
 	 *
 	 * It prints the applicant's answers directly rather than through `render_details()`, which
 	 * is why it asks the capability itself the way every renderer in this module now does: the
@@ -3834,7 +3941,7 @@ class WPCPM_Sponsor_Application {
 		self::render_answers( $post );
 		self::render_logos( $post );
 		self::render_base_matches( $post );
-		self::render_actions( $post, $state );
+		self::render_here( $post, $state );
 
 		echo '</div>';
 	}
@@ -4013,7 +4120,7 @@ class WPCPM_Sponsor_Application {
 			return;
 		}
 
-		echo '<p>' . esc_html__( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors card instead.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p>' . esc_html__( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<ul class="wpcpm-app-matches">';
 
 		foreach ( $matches as $record => $row ) {

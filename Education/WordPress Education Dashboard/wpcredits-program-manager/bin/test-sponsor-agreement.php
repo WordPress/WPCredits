@@ -17,6 +17,9 @@
  * - **An Airtable failure never fails the site action** on the upload path: the document is
  *   stored, the post carries the pending mark, and the sponsor is not asked to upload again.
  * - **What the cron forgets and what uninstall keeps.**
+ * - **The Administrator Dashboard's row speaks the institution side's words**, Accept it, Return
+ *   it with this note and Reinstate, and the manager's mail says the document is read on the
+ *   Sponsors screen and decided on the dashboard.
  *
  * Real temporary files for the PDFs, an in-memory `WPCPM_Private_Files` that journals its
  * calls, and the real `WPCPM_Pdf_Check`, `WPCPM_Sponsor_Policy`, `WPCPM_Sponsor_Roster`,
@@ -601,6 +604,16 @@ ck( 'Airtable is told it is awaiting review, and told nothing else', patched_cel
 ck( 'the index block is in step at once, without waiting for a sync', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Awaiting review' );
 ck( 'the summary is submitted and names the document', array( WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::summary( $S )['pending_id'] ), array( 'submitted', $first ) );
 ck( 'the assigned manager is told once and the sponsor\'s accounts are not mailed', mail_log(), array( 'sponsor-agreement-received to maciej@a8c.com' ) );
+// The document is decided on the Administrator Dashboard, the one place that accepts or returns it,
+// and read first on the Sponsors screen, whose address the mail ends on: the queue tab, at the card
+// that lists the signed agreements.
+$received = end( $GLOBALS['mail'] );
+$received = isset( $received['mail']['body'] ) ? (string) $received['mail']['body'] : '';
+ck( 'the mail says where the document is decided, then where it is read first, and ends on that address, the Sponsors screen\'s queue tab at the signed agreements\' card', array(
+	false !== strpos( $received, "Accept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements" ),
+	'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements' === substr( $received, -strlen( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements' ) ),
+	strpos( $received, 'Read it on the Sponsors screen, then' ),
+), array( true, true, false ) );
 ck( 'an audit row names the upload with the size and the hash', array( end( $GLOBALS['audit'] )['kind'], isset( end( $GLOBALS['audit'] )['data']['sha256'] ) ), array( 'sponsor_agreement_upload', true ) );
 
 post_file( $good );
@@ -1106,6 +1119,35 @@ ck( 'a document waiting for review gets Download, Accept and the folded Return, 
 	false !== strpos( $row, 'minlength="20" maxlength="2000" required' ),
 	false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ),
 ), array( true, true, true, true, 2, 2, true, false ) );
+// The institution side's words, which the sponsor side shares: Accept it, and Return it with this
+// note under the fold, whose summary keeps its own words. Accept it asks first, as the institution
+// side's Accept on the same page does, and in the same place, the button: a No posts nothing, so the
+// page's double-submit guard never sees a press that went nowhere.
+$accept_asks = 'onclick="return confirm(&quot;Accept the signed agreement from Other Sponsor? Airtable is set to Accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab.&quot;)"';
+ck( 'its buttons read Accept it and, under the fold Return with a note, Return it with this note, as the institution side\'s do', array(
+	false !== strpos( $row, '<button type="submit" class="button button-primary" ' . $accept_asks . '>Accept it</button>' ),
+	false !== strpos( $row, '<summary class="button">Return with a note</summary>' ),
+	false !== strpos( $row, '<button type="submit" class="button">Return it with this note</button>' ),
+	strpos( $row, '>Accept<' ),
+	strpos( $row, 'Send back with this note' ),
+), array( true, true, true, false, false ) );
+ck( 'Accept it asks before it acts, naming the company, what Airtable is set to, how many people at the company are emailed and where it can be taken out of force; Return asks nothing, its note is the press', array(
+	substr_count( $row, 'onclick="return confirm(' ),
+	false !== strpos( $row, $accept_asks ),
+	false !== strpos( $row, '<form class="wpcpm-sponsor-agreement__form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once>' ),
+), array( 1, true, true ) );
+// A second account at the company, for the plural: the question counts the people the press emails.
+$kept_23              = isset( $GLOBALS['umeta'][23] ) ? $GLOBALS['umeta'][23] : null;
+$GLOBALS['umeta'][23] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $T, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+ob_start();
+WPCPM_Sponsor_Agreement::render_decision( $queued, WPCPM_Return::DASHBOARD );
+$two = (string) ob_get_clean();
+if ( null === $kept_23 ) {
+	unset( $GLOBALS['umeta'][23] );
+} else {
+	$GLOBALS['umeta'][23] = $kept_23;
+}
+ck( 'with two accounts at the company the question says so, in the plural', false !== strpos( $two, 'and the 2 people at the company are emailed.' ), true );
 
 $GLOBALS['uid'] = 21;
 ob_start();
@@ -1121,6 +1163,8 @@ ob_start();
 WPCPM_Sponsor_Agreement::render_decision( $gone, WPCPM_Return::DASHBOARD );
 $row = (string) ob_get_clean();
 ck( 'an agreement out of force gets the way back and, being a Drive copy, no download', array( false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ), false !== strpos( $row, 'wpcpm_sponsor_agr_download' ), false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ) ), array( true, false, false ) );
+ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" onclick="return confirm(&quot;Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.&quot;)">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
+ck( 'the question is the one the class keeps for every page that reinstates, the Sponsors screen\'s Agreements tab included', WPCPM_Sponsor_Agreement::reinstate_question(), 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.' );
 ck( 'revoked_all() lists it', in_array( $gone, WPCPM_Sponsor_Agreement::revoked_all(), true ), true );
 wp_delete_post( $gone, true );
 

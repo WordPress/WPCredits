@@ -51,8 +51,8 @@ final class WPCPM_Sponsor_Members {
 
 	/**
 	 * The ways a membership can come about. A server-held list, never a pass-through: the
-	 * value is shown on the members card and in the log, and a typo there would be a fact
-	 * nobody wrote.
+	 * value is kept with the membership and written into the log, and a typo there would be a
+	 * fact nobody wrote.
 	 *
 	 * @return string[]
 	 */
@@ -537,5 +537,44 @@ final class WPCPM_Sponsor_Members {
 		}
 
 		return $actor_id > 0 ? WPCPM_Institution_Audit::GROUND_MEMBER : WPCPM_Institution_Audit::GROUND_SYSTEM;
+	}
+
+	/**
+	 * Send one sponsor account its login invitation now.
+	 *
+	 * The Sponsors screen's row invitation, Send invite or Resend invite on the Accounts tab's list,
+	 * sends through this (`WPCPM_Sponsors::invite_one()`). Sent at once, not queued as provisioning
+	 * queues the account it makes: one message to one account somebody picked.
+	 *
+	 * Refused for an account that does not exist, for one that does not hold the Sponsor role, and
+	 * inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a second one would
+	 * cancel the link in the first (`WPCPM_Mail::may_invite()`). Stamped by the mail layer's one rule
+	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's would:
+	 * stamped for each program role it holds, the stamp this class names (`META_INVITED`) among them.
+	 *
+	 * @param int $user_id User ID.
+	 * @return true|WP_Error
+	 */
+	public static function send_invite( $user_id ) {
+		$user = get_user_by( 'id', (int) $user_id );
+
+		if ( ! $user instanceof WP_User ) {
+			return new WP_Error( 'wpcpm_no_user', __( 'That user does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR ) ) {
+			return new WP_Error( 'wpcpm_not_sponsor', __( 'That account does not hold the Sponsor role.', 'wpcredits-program-manager' ) );
+		}
+
+		$allowed = WPCPM_Mail::may_invite( $user->ID );
+
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
+		}
+
+		wp_new_user_notification( $user->ID, null, 'user' );
+		WPCPM_Mail::stamp_invited( $user );
+
+		return true;
 	}
 }

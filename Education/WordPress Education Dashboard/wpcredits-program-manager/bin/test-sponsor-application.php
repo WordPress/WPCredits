@@ -27,6 +27,10 @@
  *   new, both flags are read back by the queue.
  * - **Two mails, gated differently.** The applicant hears for every row that is not spam; the
  *   managers only for a `new` one, through the sponsors module's own setting.
+ * - **An opened application is read on the Sponsors screen and decided on the Administrator
+ *   Dashboard.** One the dashboard's card lists draws no decision and links to its own item there;
+ *   one past the card's window, a rejected or spam one and an approved one keep here what the card
+ *   cannot reach, under one heading that says why. The queue card says the same and links there.
  *
  * `WPCPM_Form_Guard`, `WPCPM_Ceiling`, `WPCPM_Request`, `WPCPM_Field_Value`, `WPCPM_Image_Upload`,
  * `WPCPM_Sponsors_Index` and `WPCPM_Roles` are the real files. Real GD images and a real editor
@@ -96,6 +100,7 @@ function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function sanitize_email( $s ) { return trim( (string) $s ); }
 function is_email( $s ) { return (bool) preg_match( '/^[^@\s]+@[^@\s.]+\.[^@\s]+$/', (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function sanitize_file_name( $s ) { return preg_replace( '/[^A-Za-z0-9_.-]/', '-', (string) $s ); }
 function wp_unslash( $v ) { return is_array( $v ) ? array_map( 'wp_unslash', $v ) : stripslashes( (string) $v ); }
 function absint( $v ) { return abs( (int) $v ); }
@@ -252,9 +257,13 @@ function get_posts( $a = array() ) {
 			return $by_id * ( $x->ID - $y->ID );
 		} );
 	} else {
-		usort( $out, function ( $x, $y ) {
+		// Oldest first, then by ID when the query names it. A tie the query does not settle keeps
+		// the order the rows came in, as with the meta order above: a stub that settled it by ID
+		// anyway would let the suite pass on an order MySQL leaves open.
+		$tie = is_array( $orderby ) && isset( $orderby['ID'] ) ? ( 'DESC' === $orderby['ID'] ? -1 : 1 ) : 0;
+		usort( $out, function ( $x, $y ) use ( $tie ) {
 			$by_date = strcmp( $x->post_date, $y->post_date );
-			return 0 !== $by_date ? $by_date : $x->ID - $y->ID;
+			return 0 !== $by_date ? $by_date : $tie * ( $x->ID - $y->ID );
 		} );
 	}
 	if ( isset( $a['numberposts'] ) && (int) $a['numberposts'] > 0 ) {
@@ -1214,6 +1223,22 @@ if ( ! class_exists( 'WPCPM_Sponsor_Approval' ) ) {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
+// The Administrator Dashboard's page, which an opened application its card lists links into.
+require_once __DIR__ . '/stubs/administrators-dashboard.php';
+
+if ( ! class_exists( 'WPCPM_Administrators_Cards' ) ) {
+	/**
+	 * The Administrator Dashboard's cards, for the one number an opened application reads from them:
+	 * how many open applications the Sponsor applications card lists, past which an opened one is
+	 * decided on the Sponsors screen. A number of its own here, apart from the queue's `QUEUE_MAX`,
+	 * which equals it on a real site, so a check can tell which of the two the opened application
+	 * reads.
+	 */
+	class WPCPM_Administrators_Cards {
+		const LIMIT = 40;
+	}
+}
+
 /**
  * Press one decision as the current user and answer with what came back.
  *
@@ -1289,6 +1314,11 @@ foreach ( array( 'wpcpm_sapp_unknown', 'wpcpm_sapp_state', 'wpcpm_sapp_busy', 'w
 	$mapped[] = isset( WPCPM_Sponsor_Application::manager_messages()[ WPCPM_Sponsor_Application::approval_outcome( $code ) ] );
 }
 ck( 'every status a decision leaves has a sentence, and every approval refusal maps to one', array( $leaves, in_array( false, $mapped, true ) ), array( array(), false ) );
+// An address an account already holds approves nothing: the sentence names where that account is
+// attached on purpose, the sponsor's accounts opened by Manage accounts on the Sponsors screen, and
+// says that way is for a company that is a sponsor here already, since the refused approval made no
+// record for one that is not.
+ck( 'a contact address that already belongs to an account approves nothing, and its sentence sends the manager to Manage accounts on the Sponsors screen\'s Accounts tab only for a company that is already a sponsor here', array( WPCPM_Sponsor_Application::approval_outcome( 'wpcpm_sapp_conflict' ), WPCPM_Sponsor_Application::manager_messages()['account-conflict'] ), array( 'account-conflict', array( 'error', 'Nothing was approved. The contact address already belongs to an account on this site, so approving would hand that person a sponsor\'s dashboard. Ask the company for another address, or, if the company is already a sponsor here, attach the existing account on purpose from Manage accounts on the Sponsors screen\'s Accounts tab.' ) ) );
 // Seven `admin_post_` registrations (the submit and the six decisions) and one `nopriv`, the submit's.
 ck( 'the six decisions register under admin_post_ beside the submit, and only the submit is nopriv', array( substr_count( method_body( $src, 'init' ), "'admin_post_' . self::ACTION_" ), substr_count( method_body( $src, 'init' ), 'admin_post_nopriv_' ) ), array( 7, 1 ) );
 
@@ -1474,7 +1504,7 @@ $back = decide( 'handle_spam', $id, array( WPCPM_Return::FIELD => WPCPM_Return::
 ck( 'the flash goes on the dashboard\'s channel and the redirect leaves the Sponsors screen', array( isset( $back['flash']['institutions'] ) ? $back['flash']['institutions'] : '', isset( $back['flash']['sponsors_admin'] ), strpos( $back['url'], 'page=wpcpm-sponsors' ) ), array( 'sapp-spam', false, false ) );
 $id   = seed_application( array( 'Company Name' => 'Screen Co' ) );
 $here = decide( 'handle_spam', $id );
-ck( 'and one taken on the screen comes back to the screen', array( flashed( $here ), false !== strpos( $here['url'], 'page=wpcpm-sponsors' ) ), array( 'sapp-spam', true ) );
+ck( 'and one taken on the screen comes back to the screen\'s own address, which opens on the queue', array( flashed( $here ), $here['url'] ), array( 'sapp-spam', 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' ) );
 
 echo "\n-- the decision forms ---------------------------------------------------\n";
 
@@ -1497,7 +1527,15 @@ update_post_meta( $id, WPCPM_Sponsor_Application::META_SIGNALS, array( 'in-base'
 ob_start();
 WPCPM_Sponsor_Application::render_actions( get_post( $id ), 'new' );
 $flagged = (string) ob_get_clean();
-ck( 'a company already in the base is warned about on Approve', false !== strpos( $flagged, 'already holds a sponsor with this name or website' ), true );
+ck( 'a company already in the base is warned about on Approve, and sent to Create account on the Sponsors screen\'s Accounts tab instead', array(
+	false !== strpos( $flagged, 'already holds a sponsor with this name or website' ),
+	false !== strpos( $flagged, esc_js( "If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
+	strpos( $flagged, 'Sponsors card' ),
+), array( true, true, false ) );
+ob_start();
+WPCPM_Sponsor_Application::render_actions( $post, 'new', '', false );
+$headless = (string) ob_get_clean();
+ck( 'drawn without its heading, the same four forms and no heading at all; with it, the heading once', array( substr_count( $headless, '<form' ), strpos( $headless, '<h3>' ), substr_count( $forms, '<h3>What happens next</h3>' ) ), array( 4, false, 1 ) );
 ob_start();
 WPCPM_Sponsor_Application::render_actions( $post, 'rejected' );
 $closed_forms = (string) ob_get_clean();
@@ -1520,7 +1558,7 @@ $by_id = (string) ob_get_clean();
 ob_start();
 WPCPM_Sponsor_Application::render_open( $post, $screen );
 $open = (string) ob_get_clean();
-ck( 'an open application is drawn in full for a manager: the answers and the four decisions', array( substr_count( $open, '<form' ), false !== strpos( $open, 'Gadgetry Inc' ) ), array( 4, true ) );
+ck( 'an open application the Administrator Dashboard\'s card lists is drawn in full for a manager to read, and its decisions are the dashboard\'s: no form here', array( substr_count( $open, '<form' ), false !== strpos( $open, 'Gadgetry Inc' ) ), array( 0, true ) );
 $GLOBALS['uid']  = 21;
 $GLOBALS['caps'] = false;
 ob_start();
@@ -1536,7 +1574,260 @@ ob_start();
 WPCPM_Sponsor_Application::render_open( $post, $screen );
 $no_open = (string) ob_get_clean();
 ck( 'render_decision() draws the same four forms by ID for a manager, and no renderer of the four draws anything for an account that is not one', array( substr_count( $by_id, '<form' ), $no_decision, $no_details, $no_actions, $no_open ), array( 4, '', '', '', '' ) );
+ck( 'and the Administrator Dashboard\'s call keeps its heading over them', substr_count( $by_id, '<h3>What happens next</h3>' ), 1 );
 as_manager();
+
+echo "\n-- where an opened application is decided -------------------------------\n";
+
+/**
+ * An application written straight into the store, in a state and at a time of its own: the window
+ * below needs dozens of them older than the one opened, which the form's own ceilings would refuse.
+ *
+ * @param string $name  The company.
+ * @param string $state Its state.
+ * @param int    $at    When it arrived.
+ * @return int
+ */
+function seed_stored( $name, $state, $at ) {
+	$id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private', 'post_title' => $name ) );
+	$GLOBALS['posts'][ $id ]->post_date = gmdate( 'Y-m-d H:i:s', (int) $at );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, $state );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Contact Email' => 'maciej@a8c.com' ) );
+
+	return $id;
+}
+
+/** One application opened, as the Sponsors screen draws it. */
+function opened( $id ) {
+	ob_start();
+	WPCPM_Sponsor_Application::render_open( get_post( $id ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
+
+	return (string) ob_get_clean();
+}
+
+/** The decisions a render offers, each by its action, with how many forms post it. */
+function decisions_in( $html ) {
+	preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_sapp_[a-z]+)" />#', (string) $html, $found );
+	$out = array_count_values( $found[1] );
+	ksort( $out );
+
+	return $out;
+}
+
+reset_world();
+as_manager();
+
+$dashboard   = 'https://example.test/administrator-dashboard/';
+$heading     = '<h3>Where it is decided</h3>';
+$listed      = '<p>Applications are decided on the Administrator Dashboard. This one is listed in its Sponsor applications card, with every decision its state allows.</p>';
+$past_window = '<p>The Administrator Dashboard&#039;s card lists the ' . WPCPM_Administrators_Cards::LIMIT . ' oldest open applications, and this one is past them, so it is decided here.</p>';
+$four        = array( 'wpcpm_sapp_approve' => 1, 'wpcpm_sapp_info' => 1, 'wpcpm_sapp_reject' => 1, 'wpcpm_sapp_spam' => 1 );
+$five        = array( 'wpcpm_sapp_approve' => 1, 'wpcpm_sapp_info' => 1, 'wpcpm_sapp_reject' => 1, 'wpcpm_sapp_reopen' => 1, 'wpcpm_sapp_spam' => 1 );
+$kept        = array( 'wpcpm_sapp_purge' => 1, 'wpcpm_sapp_reopen' => 1 );
+$subject     = seed_application();
+$to_item     = '<p><a href="' . $dashboard . '#wpcpm-sponsor-application-' . $subject . '">Open on the Administrator Dashboard</a></p>';
+$older       = strtotime( $GLOBALS['posts'][ $subject ]->post_date . ' UTC' ) - ( 30 * DAY_IN_SECONDS );
+
+// Three decided applications older than it: the window counts the open ones alone, and these are
+// the closed states' own cases further down.
+$rejected = seed_stored( 'Rejected Co', WPCPM_Sponsor_Application::STATE_REJECTED, $older - 30 );
+$spammed  = seed_stored( 'Spam Co', WPCPM_Sponsor_Application::STATE_SPAM, $older - 20 );
+$approved = seed_stored( 'Approved Co', WPCPM_Sponsor_Application::STATE_APPROVED, $older - 10 );
+
+$alone = opened( $subject );
+ck( 'an open application the card lists draws no decision: under one heading, Where it is decided, the sentence that says the card lists it, and the way to its own item there', array(
+	substr_count( $alone, '<form' ),
+	substr_count( $alone, $heading ),
+	strpos( $alone, 'What happens next' ),
+	false !== strpos( $alone, $heading . $listed . $to_item ),
+	substr_count( $alone, 'Open on the Administrator Dashboard' ),
+), array( 0, 1, false, true, 1 ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$alone_no_page                       = opened( $subject );
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'while the dashboard\'s page is missing it says where applications are decided, and the page-missing sentence stands in the link\'s place', array(
+	false !== strpos( $alone_no_page, $heading . '<p>Applications are decided on the Administrator Dashboard.</p><p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>' ),
+	strpos( $alone_no_page, 'This one is listed' ),
+	substr_count( $alone_no_page, 'Open on the Administrator Dashboard' ),
+	substr_count( $alone_no_page, '<form' ),
+), array( true, false, 0, 0 ) );
+
+// The card lists the oldest `WPCPM_Administrators_Cards::LIMIT` open applications, new, held and
+// waiting on the applicant alike, so with one fewer older open ones the opened application is the
+// last it lists; one more and it is on no card at all, and decided here. The window is the card's
+// number and not the queue's `QUEUE_MAX`, which the stand-in keeps apart from it.
+$open_states = array( WPCPM_Sponsor_Application::STATE_NEW, WPCPM_Sponsor_Application::STATE_HELD, WPCPM_Sponsor_Application::STATE_INFO );
+for ( $i = 1; $i < WPCPM_Administrators_Cards::LIMIT; $i++ ) {
+	seed_stored( 'Older ' . $i, $open_states[ $i % 3 ], $older + $i );
+}
+
+$last_listed = opened( $subject );
+seed_stored( 'Older last', WPCPM_Sponsor_Application::STATE_HELD, $older );
+$first_past = opened( $subject );
+
+ck( 'with one open application fewer ahead of it than the card lists, decided ones aside, it is the last the card lists: read here, linked there, no form', array(
+	substr_count( $last_listed, '<form' ),
+	false !== strpos( $last_listed, $heading . $listed . $to_item ),
+	strpos( $last_listed, 'so it is decided here' ),
+), array( 0, true, false ) );
+ck( 'one more older one and it is past the card: Approve, Send this question, Reject and Reject as spam here, under the one heading and the sentence that says why, and no way to a card that does not list it', array(
+	decisions_in( $first_past ),
+	false !== strpos( $first_past, $heading . $past_window . '<form' ),
+	substr_count( $first_past, $heading ),
+	strpos( $first_past, 'What happens next' ),
+	substr_count( $first_past, 'Open on the Administrator Dashboard' ),
+	strpos( $first_past, 'This one is listed' ),
+), array( $four, true, 1, false, 0, false ) );
+ck( 'the forms are the dashboard card\'s own, each keyed to this application, carrying the once attribute and posting no return, so a press comes back to the queue', array(
+	substr_count( $first_past, 'name="_wpnonce" value="nonce-wpcpm_sapp_approve_' . $subject . '"' ) + substr_count( $first_past, 'name="_wpnonce" value="nonce-wpcpm_sapp_info_' . $subject . '"' ) + substr_count( $first_past, 'name="_wpnonce" value="nonce-wpcpm_sapp_reject_' . $subject . '"' ) + substr_count( $first_past, 'name="_wpnonce" value="nonce-wpcpm_sapp_spam_' . $subject . '"' ),
+	strpos( $first_past, 'wpcpm_return' ),
+	substr_count( $first_past, 'data-wpcpm-once' ),
+), array( 4, false, 4 ) );
+
+update_post_meta( $subject, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::STATE_HELD );
+$held_past = opened( $subject );
+update_post_meta( $subject, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::STATE_INFO );
+$info_past = opened( $subject );
+update_post_meta( $subject, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::STATE_NEW );
+ck( 'a held one and one waiting on the applicant past it are decided here with every decision their state allows: the four, and Put back in the queue', array( decisions_in( $held_past ), decisions_in( $info_past ), substr_count( $held_past . $info_past, $heading . $past_window ) ), array( $five, $five, 2 ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$past_no_page                        = opened( $subject );
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'while the dashboard\'s page is missing one past the window keeps its four decisions, and says nothing about the page', array(
+	decisions_in( $past_no_page ),
+	false !== strpos( $past_no_page, $past_window ),
+	strpos( $past_no_page, WPCPM_Administrators_Dashboard::page_missing() ),
+	substr_count( $past_no_page, 'Open on the Administrator Dashboard' ),
+), array( $four, true, false, 0 ) );
+
+// The record-keeping on a decided application stays here: the dashboard lists open applications
+// only, so Put back in the queue on a rejected or spam one, and Delete for good on any decided
+// one, have no other home. None of it needs the dashboard's page.
+$closed_said   = '<p>Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard lists open applications only.</p>';
+$approved_said = '<p>It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here.</p>';
+$closed_html   = array( 'rejected' => opened( $rejected ), 'spam' => opened( $spammed ), 'approved' => opened( $approved ) );
+ck( 'a rejected one and a spam one keep Put back in the queue and Delete for good here, under the one heading and the sentence that says why, and link nowhere', array(
+	decisions_in( $closed_html['rejected'] ),
+	decisions_in( $closed_html['spam'] ),
+	substr_count( $closed_html['rejected'] . $closed_html['spam'], $heading . $closed_said . '<form' ),
+	substr_count( $closed_html['rejected'] . $closed_html['spam'], $heading ),
+	substr_count( $closed_html['rejected'] . $closed_html['spam'], 'Open on the Administrator Dashboard' ),
+	substr_count( $closed_html['rejected'] . $closed_html['spam'], 'What happens next' ),
+), array( $kept, $kept, 2, 2, 0, 0 ) );
+ck( 'an approved one keeps Delete for good alone, under the one heading and the sentence that says why, and links nowhere', array(
+	decisions_in( $closed_html['approved'] ),
+	false !== strpos( $closed_html['approved'], $heading . $approved_said . '<form' ),
+	substr_count( $closed_html['approved'], $heading ),
+	substr_count( $closed_html['approved'], 'Open on the Administrator Dashboard' ),
+	strpos( $closed_html['approved'], 'What happens next' ),
+), array( array( 'wpcpm_sapp_purge' => 1 ), true, 1, 0, false ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$closed_no_page                      = opened( $rejected ) . opened( $approved );
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'and while the dashboard\'s page is missing a decided one keeps its record-keeping and says nothing about the page', array( decisions_in( $closed_no_page ), strpos( $closed_no_page, WPCPM_Administrators_Dashboard::page_missing() ) ), array( array( 'wpcpm_sapp_purge' => 2, 'wpcpm_sapp_reopen' => 1 ), false ) );
+
+// A state no decision writes is on no list: it is told only where applications are decided, with
+// the way to the card, or the page-missing sentence in the link's place.
+$stateless = seed_stored( 'Stateless Co', '', $older - 40 );
+$odd       = opened( $stateless );
+WPCPM_Administrators_Dashboard::$url = '';
+$odd_no_page                         = opened( $stateless );
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'an application in a state no decision writes is pointed at the card, with no claim that the card lists it, and no form', array(
+	false !== strpos( $odd, $heading . '<p>Applications are decided on the Administrator Dashboard.</p><p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p>' ),
+	strpos( $odd, 'This one is listed' ),
+	substr_count( $odd, '<form' ),
+	false !== strpos( $odd_no_page, $heading . '<p>Applications are decided on the Administrator Dashboard.</p><p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>' ),
+	substr_count( $odd_no_page, 'Open on the Administrator Dashboard' ),
+), array( true, false, 0, true, 0 ) );
+
+echo "\n-- open applications that arrive in the same second ---------------------\n";
+
+// The queue, the dashboard's card and an opened application's place read the open applications in
+// one order, so two that share their second must come back the same way every time: by ID. The
+// store here hands back the later ID first, as a database may for rows an order does not settle.
+reset_world();
+as_manager();
+$tie_first  = seed_stored( 'Tie First', WPCPM_Sponsor_Application::STATE_NEW, 1788000000 );
+$tie_second = seed_stored( 'Tie Second', WPCPM_Sponsor_Application::STATE_NEW, 1788000000 );
+$GLOBALS['posts'] = array( $tie_second => $GLOBALS['posts'][ $tie_second ] ) + $GLOBALS['posts'];
+ck( 'two open applications that arrive in the same second are read oldest ID first, by the queue and by the dashboard\'s card alike', array(
+	array_map( static function ( $post ) { return (int) $post->ID; }, WPCPM_Sponsor_Application::applications( WPCPM_Sponsor_Application::open_states() ) ),
+	array_column( WPCPM_Sponsor_Application::queue_facts(), 'id' ),
+), array( array( $tie_first, $tie_second ), array( $tie_first, $tie_second ) ) );
+
+echo "\n-- the queue card: read here, decided on the Administrator Dashboard ----\n";
+
+/** The queue card, captured. */
+function queue_card() {
+	ob_start();
+	WPCPM_Sponsor_Application::render_queue( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
+
+	return (string) ob_get_clean();
+}
+
+reset_world();
+as_manager();
+seed_application( array( 'Company Name' => 'Widgetry Ltd', 'Website' => 'widgetry.example' ) );
+$card = queue_card();
+WPCPM_Administrators_Dashboard::$url = '';
+$card_no_page                        = queue_card();
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'the queue card says what it is for and where its applications are decided', false !== strpos( $card, '<p class="description">Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the base already holds. Applications are decided on the Administrator Dashboard, where approving creates the Airtable record, the account, the category, the logo record and the first offer in one press.</p>' ), true );
+ck( 'under the list, before Recently decided, one line opens the card on the Administrator Dashboard; the rows keep their own way to open each here, and nothing on the card is a form', array(
+	substr_count( $card, '<p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p>' ),
+	false !== strpos( $card, '</ol><p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p><section class="wpcpm-sapp-decided">' ),
+	substr_count( $card, 'Open this application' ),
+	substr_count( $card, '<form' ),
+), array( 1, true, 1, 0 ) );
+ck( 'while the dashboard\'s page is missing the card prints no link and leaves the sentence to the tab, which says it once above every card', array( substr_count( $card_no_page, 'Open on the Administrator Dashboard' ), strpos( $card_no_page, WPCPM_Administrators_Dashboard::page_missing() ) ), array( 0, false ) );
+
+$rows = stored();
+$post = end( $rows );
+ob_start();
+WPCPM_Sponsor_Application::render_details( $post );
+$matches = (string) ob_get_clean();
+ck( 'what the base already has sends a manager to Create account on the Sponsors screen\'s Accounts tab when the company is already there', array(
+	false !== strpos( $matches, esc_html( "Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
+	strpos( $matches, 'Sponsors card' ),
+), array( true, false ) );
+
+// Each open row also ends with the way to its own item on the Administrator Dashboard's card, as a
+// post and a document do: the row is one of the oldest QUEUE_MAX open applications, and that card
+// lists the oldest WPCPM_Administrators_Cards::LIMIT in the same states and the same order.
+ck( 'an open row ends with the way to its own item on the Administrator Dashboard\'s card, after its Open this application', array(
+	false !== strpos( $card, 'Open this application</a> <span class="wpcpm-inst-muted">new</span></p><p><a href="' . $dashboard . '#wpcpm-sponsor-application-' . (int) $post->ID . '">Open on the Administrator Dashboard</a></p></li>' ),
+	substr_count( $card, 'Open on the Administrator Dashboard' ),
+), array( true, 2 ) );
+
+reset_world();
+as_manager();
+$card_empty = queue_card();
+ck( 'with nothing waiting the card says so, and still ends with the way to its card there, as the card there ends with the way here', array(
+	false !== strpos( $card_empty, 'Nothing is waiting. New applications appear here.' ),
+	substr_count( $card_empty, '<p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p>' ),
+), array( true, 1 ) );
+
+for ( $i = 0; $i <= WPCPM_Sponsor_Application::QUEUE_MAX; $i++ ) {
+	seed_stored( 'Burst ' . $i, WPCPM_Sponsor_Application::STATE_NEW, 1788000000 + $i );
+}
+$card_full = queue_card();
+ck( 'past its own cap the card says how many it shows of how many, and that the next take their place as these are decided on the Administrator Dashboard', array(
+	false !== strpos( $card_full, '<p class="description">Showing the oldest ' . WPCPM_Sponsor_Application::QUEUE_MAX . ' of ' . ( WPCPM_Sponsor_Application::QUEUE_MAX + 1 ) . '. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place.</p>' ),
+	strpos( $card_full, 'decide these and the next' ),
+	substr_count( $card_full, 'class="wpcpm-queue-item"' ),
+), array( true, false, WPCPM_Sponsor_Application::QUEUE_MAX ) );
+preg_match_all( '#<p><a href="' . preg_quote( $dashboard, '#' ) . '\#wpcpm-sponsor-application-(\d+)">Open on the Administrator Dashboard</a></p></li>#', $card_full, $linked );
+// The card's own limit is read off the real class, since the stand-in above keeps a number of its own.
+preg_match( '/\bconst LIMIT = (\d+);/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ), $card_limit );
+ck( 'past its own cap, every row drawn ends with the way to its own item there: the oldest QUEUE_MAX open applications in the order the Administrator Dashboard\'s card reads them, and that card\'s own limit is the same number, so each is an item it lists', array(
+	count( $linked[1] ),
+	array_map( 'intval', $linked[1] ) === array_column( WPCPM_Sponsor_Application::queue_facts( WPCPM_Sponsor_Application::QUEUE_MAX ), 'id' ),
+	isset( $card_limit[1] ) ? (int) $card_limit[1] : 0,
+), array( WPCPM_Sponsor_Application::QUEUE_MAX, true, WPCPM_Sponsor_Application::QUEUE_MAX ) );
 
 /* ---- part 3: the retention run (Task 6) --------------------------------- */
 

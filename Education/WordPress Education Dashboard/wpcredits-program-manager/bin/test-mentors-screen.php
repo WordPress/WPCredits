@@ -877,6 +877,10 @@ ck( 'Dev is Invited and counted so, his row offers Resend invite, and the invita
 		has( isset( $both_card[ WPCPM_Mentors::ACTION_BULK ] ) ? $both_card[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 2 mentors who have never been invited</button>' ),
 	),
 	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2' ), array( 'edit', 'view', 'reinvite' ), true ) );
+// The card's question is shared by every audience's screen, so its words fit any audience's noun.
+ck( 'the card asks before it sends, of the two, in the plural',
+	has( $both_page, 'onsubmit="return confirm(\'Send an invitation to 2 of the mentors? They cannot be recalled once sent.\');"' ),
+	true );
 ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
 	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),
 	array( array( 11, 16 ), array( 12, 13 ) ) );
@@ -1116,16 +1120,19 @@ echo "\n=== Send invite and Resend invite on the ticked accounts, handled before
 
 three_mentors();
 
-// What the list's form sends besides the choice: core's nonce and the address it came from.
+// What the list's form sends besides the choice: core's nonce and the address it came from; and
+// what a press of its Apply button adds, the button's name, which core gives it from WordPress 6.7
+// on, as the version here does. A search is sent without it.
 $sent_with = array(
 	'_wpnonce'         => wp_create_nonce( 'bulk-mentors' ),
 	'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-mentors&tab=accounts',
 	'action2'          => '-1',
 );
+$applied   = array_merge( $sent_with, array( 'bulk_action' => 'Apply' ) );
 $accounts  = array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-mentors', 'tab' => 'accounts' ) );
 
 manager( 2 );
-$sent       = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
+$sent       = press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
 $sent_reads = $GLOBALS['reads'];
 
 ck( 'Send invite on Bruno and Cleo, never invited, queues the two',
@@ -1149,7 +1156,7 @@ ck( 'and the screen says how many were queued, in the words every audience\'s li
 	'<div class="notice notice-success is-dismissible"><p>2 invitations queued. They go out in the background - the progress is shown below.</p></div>' );
 
 manager( 3 );
-$again = press( screen( array_merge( $sent_with, array( 'action' => 'reinvite', 'users' => array( '11', '12' ) ) ) ) );
+$again = press( screen( array_merge( $applied, array( 'action' => 'reinvite', 'users' => array( '11', '12' ) ) ) ) );
 
 ck( 'Resend invite on Ada and Bruno queues Ada, invited before, and skips Bruno, never invited',
 	got(
@@ -1165,14 +1172,14 @@ ck( 'the screen says so, and that the new link replaces the old one',
 	'<div class="notice notice-success is-dismissible"><p>1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation.</p></div>' );
 
 manager( 4 );
-$nothing = press( screen( array_merge( $sent_with, array( 'action' => 'invite' ) ) ) );
+$nothing = press( screen( array_merge( $applied, array( 'action' => 'invite' ) ) ) );
 
 ck( 'with nothing ticked, the press queues nobody, returns to the list and says why',
 	array( link_of( $nothing['redirect'] ) === $accounts, WPCPM_Mail::queue(), html_of( notice_now() ) ),
 	array( true, array(), '<div class="notice notice-info is-dismissible"><p>Nothing to send: no accounts were selected.</p></div>' ) );
 
 manager( 5 );
-press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '20', '12', '999', '12' ) ) ) ) );
+press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '20', '12', '999', '12' ) ) ) ) );
 
 ck( 'every ticked ID is checked against the Mentor role: the student and an ID nobody holds are skipped, a repeat counts once',
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
@@ -1182,7 +1189,7 @@ manager( 6 );
 $kept = press(
 	screen(
 		array_merge(
-			$sent_with,
+			$applied,
 			array(
 				'action'     => 'invite',
 				'users'      => array( '13' ),
@@ -1212,7 +1219,7 @@ ck( 'the press returns to the list as it was, its view, search, sort and page, a
 	) );
 
 manager( 8 );
-$forged = press( screen( array_merge( $sent_with, array( '_wpnonce' => 'forged', 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
+$forged = press( screen( array_merge( $applied, array( '_wpnonce' => 'forged', 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
 
 ck( 'a press with the wrong nonce dies with WordPress\'s own sentence, before any account is read or queued',
 	array( $forged['died'], $GLOBALS['reads'], WPCPM_Mail::queue() ),
@@ -1220,7 +1227,7 @@ ck( 'a press with the wrong nonce dies with WordPress\'s own sentence, before an
 
 manager( 9 );
 $GLOBALS['caps'] = false;
-$refused         = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '12' ) ) ) ) );
+$refused         = press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '12' ) ) ) ) );
 $GLOBALS['caps'] = true;
 
 ck( 'somebody without the program\'s capability is refused before the nonce is asked about or anything is read',
@@ -1228,7 +1235,7 @@ ck( 'somebody without the program\'s capability is refused before the nonce is a
 	array( 'You do not have permission to manage the program.', array(), array(), array() ) );
 
 manager( 10 );
-$other = press( screen( array( 'action' => 'delete', 'users' => array( '12' ) ) ) );
+$other = press( screen( array( 'action' => 'delete', 'users' => array( '12' ), 'bulk_action' => 'Apply' ) ) );
 
 ck( 'a bulk action the list does not have does nothing: the screen draws, no nonce is asked about, nobody is queued',
 	array( $other['value'], $GLOBALS['nonce_checks'], WPCPM_Mail::queue() ),
@@ -1242,6 +1249,15 @@ ck( 'a search sent from the list\'s form comes back to the same list without the
 	array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-mentors', 'tab' => 'accounts', 's' => 'ada' ) ) );
 ck( 'and nothing is asked about or queued on the way', array( '' !== $searched['redirect'], $GLOBALS['nonce_checks'], WPCPM_Mail::queue() ), array( true, array(), array() ) );
 
+// A search pressed with Send invite chosen and Bruno ticked is a search: the form is sent without
+// Apply, so nothing is asked about or queued, and the press comes back to the list, searched.
+manager( 32 );
+$searched_invite = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '12' ), 's' => 'bruno' ) ) ) );
+
+ck( 'a search pressed with Send invite chosen and Bruno ticked queues nobody and asks about no nonce: the press comes back to the list, searched',
+	array( WPCPM_Mail::queue(), $GLOBALS['nonce_checks'], link_of( $searched_invite['redirect'] ) ),
+	array( array(), array(), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-mentors', 'tab' => 'accounts', 's' => 'bruno' ) ) ) );
+
 echo "\n=== A row's invitation: a nonce link to the Mentors module's own handler ===\n";
 
 three_mentors();
@@ -1249,9 +1265,9 @@ manager( 40 );
 $rows       = html_of( draw( screen() ) );
 $bruno_link = link_of( actions_in( row_for( $rows, 12 ) )['invite'] ?? '' );
 
-ck( 'Bruno\'s Send invite goes to the module\'s invite handler with his account, the tab to come back to and the nonce that handler checks',
+ck( 'Bruno\'s Send invite goes to the module\'s invite handler with his account, the tab to come back to and the nonce that handler checks, keyed to his account',
 	array( $bruno_link[0], arg( $bruno_link[1], 'action' ), arg( $bruno_link[1], 'user' ), arg( $bruno_link[1], 'wpcpm_tab' ), arg( $bruno_link[1], '_wpnonce' ) ),
-	array( 'https://example.test/wp-admin/admin-post.php', WPCPM_Mentors::ACTION_INVITE, '12', 'accounts', wp_create_nonce( WPCPM_Mentors::ACTION_INVITE ) ) );
+	array( 'https://example.test/wp-admin/admin-post.php', WPCPM_Mentors::ACTION_INVITE, '12', 'accounts', wp_create_nonce( WPCPM_Mentors::ACTION_INVITE . '_12' ) ) );
 
 request( $bruno_link[1] );
 $followed = run(
@@ -1279,14 +1295,16 @@ run(
 ck( 'Ada\'s Resend invite sends her a fresh one', $GLOBALS['mails'], array( 11 ) );
 
 manager( 42 );
-request( array( 'action' => WPCPM_Mentors::ACTION_INVITE ), array( 'user_id' => '13', '_wpnonce' => wp_create_nonce( WPCPM_Mentors::ACTION_INVITE ) ) );
+request( array( 'action' => WPCPM_Mentors::ACTION_INVITE ), array( 'user_id' => '13', '_wpnonce' => wp_create_nonce( WPCPM_Mentors::ACTION_INVITE . '_13' ) ) );
 $posted = run(
 	function () {
 		( new WPCPM_Mentors() )->handle_invite();
 	}
 );
 
-ck( 'the handler still takes an account posted by a form, and returns it to the Accounts tab too', array( $GLOBALS['mails'], link_of( $posted['redirect'] ) ), array( array( 13 ), $accounts ) );
+// The account is read from the row's link alone: no form in the plugin posts one, so a posted
+// account names nobody, the nonce asked is keyed to no account, and the request dies there.
+ck( 'an account posted by a form is not read: the request names no account, dies at the nonce keyed to none, and sends nothing', array( $posted['died'], $GLOBALS['nonce_checks'], $GLOBALS['mails'] ), array( 'The link you followed has expired.', array( WPCPM_Mentors::ACTION_INVITE . '_0' ), array() ) );
 
 manager( 43 );
 request( array_merge( $bruno_link[1], array( '_wpnonce' => 'forged' ) ) );
@@ -1300,10 +1318,33 @@ ck( 'with the wrong nonce the link dies before any account is read, and sends no
 	array( $forged['died'], $GLOBALS['reads'], $GLOBALS['mails'] ),
 	array( 'The link you followed has expired.', array(), array() ) );
 
+// The nonce is keyed to the account, so a link taken from one row is no use on another: the
+// handler's own action alone, which every row's link was signed with before, is refused, and so is
+// Bruno's link pointed at Cleo's account.
+manager( 35 );
+request( array_merge( $bruno_link[1], array( '_wpnonce' => wp_create_nonce( WPCPM_Mentors::ACTION_INVITE ) ) ) );
+$unkeyed = run(
+	function () {
+		( new WPCPM_Mentors() )->handle_invite();
+	}
+);
+$unkeyed_asked = $GLOBALS['nonce_checks'];
+manager( 36 );
+request( array_merge( $bruno_link[1], array( 'user' => '13' ) ) );
+$borrowed = run(
+	function () {
+		( new WPCPM_Mentors() )->handle_invite();
+	}
+);
+
+ck( 'the link verifies only under the nonce keyed to its account: the handler\'s unkeyed nonce is refused, and so is Bruno\'s nonce on Cleo\'s account, each before anything is sent',
+	array( $unkeyed['died'], $unkeyed_asked, $borrowed['died'], $GLOBALS['nonce_checks'], $GLOBALS['mails'] ),
+	array( 'The link you followed has expired.', array( WPCPM_Mentors::ACTION_INVITE . '_12' ), 'The link you followed has expired.', array( WPCPM_Mentors::ACTION_INVITE . '_13' ), array() ) );
+
 // A link to an account nobody holds, as a row left open while the account went: the send fails,
 // and the Accounts tab, which prints no sync error, says what failed without pointing below.
 manager( 44 );
-request( array_merge( $bruno_link[1], array( 'user' => '999' ) ) );
+request( array_merge( $bruno_link[1], array( 'user' => '999', '_wpnonce' => wp_create_nonce( WPCPM_Mentors::ACTION_INVITE . '_999' ) ) ) );
 $failed = run(
 	function () {
 		( new WPCPM_Mentors() )->handle_invite();
@@ -1346,7 +1387,7 @@ foreach ( $place as $key => $value ) {
 ck( 'the second page of the Never invited view, searched and sorted by the most students, is Hal\'s row', row_ids( $on_page ), array( 42 ) );
 ck( 'his Send invite carries where the list stands, beside the handler\'s own action, account, tab and nonce',
 	array( $carried, $hal[0], arg( $hal[1], 'action' ), arg( $hal[1], 'user' ), arg( $hal[1], 'wpcpm_tab' ), arg( $hal[1], '_wpnonce' ) ),
-	array( $place, 'https://example.test/wp-admin/admin-post.php', WPCPM_Mentors::ACTION_INVITE, '42', 'accounts', wp_create_nonce( WPCPM_Mentors::ACTION_INVITE ) ) );
+	array( $place, 'https://example.test/wp-admin/admin-post.php', WPCPM_Mentors::ACTION_INVITE, '42', 'accounts', wp_create_nonce( WPCPM_Mentors::ACTION_INVITE . '_42' ) ) );
 
 request( $hal[1] );
 $back    = run(

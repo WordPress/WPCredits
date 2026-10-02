@@ -152,8 +152,8 @@ if ( file_exists( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php' ) ) 
 }
 
 /**
- * A module whose screen is drawn in one piece, as the Institutions and Sponsors screens are until
- * they take tabs: its presses come back to its own address, whatever tab a form names.
+ * A module whose screen is drawn in one piece, declaring no tabs, as every audience's screen was
+ * before it took them: its presses come back to its own address, whatever tab a form names.
  */
 class WPCPM_Stub_Untabbed_Module extends WPCPM_Sync_Module {
 	const ACTION_SYNC   = 'wpcpm_untabbed_sync';
@@ -932,6 +932,10 @@ ck( 'Gil is Invited and counted so, his row offers Resend invite, and the invita
 		has( isset( $both_card[ WPCPM_Students::ACTION_BULK ] ) ? $both_card[ WPCPM_Students::ACTION_BULK ] : '', '>Invite 2 students who have never been invited</button>' ),
 	),
 	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2' ), array( 'edit', 'view', 'reinvite' ), true ) );
+// The card's question is shared by every audience's screen, so its words fit any audience's noun.
+ck( 'the card asks before it sends, of the two, in the plural',
+	has( $both_page, 'onsubmit="return confirm(\'Send an invitation to 2 of the students? They cannot be recalled once sent.\');"' ),
+	true );
 ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
 	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),
 	array( array( 11, 17 ), array( 12, 13 ) ) );
@@ -1223,16 +1227,19 @@ echo "\n=== Send invite and Resend invite on the ticked accounts, handled before
 three_students();
 person( 20, 'Mia Mentor', 'mmentor', array( WPCPM_Roles::ROLE_MENTOR ), 'Escuela Norte' );
 
-// What the list's form sends besides the choice: core's nonce and the address it came from.
+// What the list's form sends besides the choice: core's nonce and the address it came from; and
+// what a press of its Apply button adds, the button's name, which core gives it from WordPress 6.7
+// on, as the version here does. A search or a filter is sent without it.
 $sent_with = array(
 	'_wpnonce'         => wp_create_nonce( 'bulk-students' ),
 	'_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-students&tab=accounts',
 	'action2'          => '-1',
 );
+$applied   = array_merge( $sent_with, array( 'bulk_action' => 'Apply' ) );
 $accounts  = array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) );
 
 manager( 2 );
-$sent       = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '11', '12', '13' ) ) ) ) );
+$sent       = press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '11', '12', '13' ) ) ) ) );
 $sent_reads = $GLOBALS['reads'];
 
 ck( 'Send invite on Ada, Bruno and Cleo queues the two never invited, and skips Ada, invited before',
@@ -1256,7 +1263,7 @@ ck( 'and the screen says how many were queued',
 	'<div class="notice notice-success is-dismissible"><p>2 invitations queued. They go out in the background - the progress is shown below.</p></div>' );
 
 manager( 3 );
-$again = press( screen( array_merge( $sent_with, array( 'action' => 'reinvite', 'users' => array( '11', '12' ) ) ) ) );
+$again = press( screen( array_merge( $applied, array( 'action' => 'reinvite', 'users' => array( '11', '12' ) ) ) ) );
 
 ck( 'Resend invite on Ada and Bruno queues Ada, invited before, and skips Bruno, never invited',
 	got(
@@ -1288,7 +1295,7 @@ foreach ( array(
 		update_option( WPCPM_Mail::QUEUE_OPTION, $choice[1] );
 	}
 
-	press( screen( array_merge( $sent_with, array( 'action' => 'reinvite', 'users' => $choice[0] ) ) ) );
+	press( screen( array_merge( $applied, array( 'action' => 'reinvite', 'users' => $choice[0] ) ) ) );
 	$too_soon[ $case ] = array( WPCPM_Mail::queue(), html_of( notice_now() ) );
 }
 
@@ -1316,7 +1323,7 @@ foreach ( array(
 		update_option( WPCPM_Mail::QUEUE_OPTION, $choice[2] );
 	}
 
-	$fields = array_merge( $sent_with, array( 'action' => $choice[0] ) );
+	$fields = array_merge( $applied, array( 'action' => $choice[0] ) );
 
 	if ( null !== $choice[1] ) {
 		$fields['users'] = $choice[1];
@@ -1337,7 +1344,7 @@ ck( 'with nothing to send, the press queues nobody, returns to the list and says
 	) );
 
 manager( 60 );
-press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '20', '12', '999', '12' ) ) ) ) );
+press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '20', '12', '999', '12' ) ) ) ) );
 
 ck( 'every ticked ID is checked against the Student role: the mentor and an ID nobody holds are skipped, a repeat counts once',
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
@@ -1347,7 +1354,7 @@ manager( 21 );
 $kept = press(
 	screen(
 		array_merge(
-			$sent_with,
+			$applied,
 			array(
 				'action'            => 'invite',
 				'users'             => array( '13' ),
@@ -1379,7 +1386,7 @@ ck( 'the press returns to the list as it was, its view, search, school, sort and
 	) );
 
 manager( 22 );
-$forged = press( screen( array_merge( $sent_with, array( '_wpnonce' => 'forged', 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
+$forged = press( screen( array_merge( $applied, array( '_wpnonce' => 'forged', 'action' => 'invite', 'users' => array( '12', '13' ) ) ) ) );
 
 ck( 'a press with the wrong nonce dies with WordPress\'s own sentence, before any account is read or queued',
 	array( $forged['died'], $GLOBALS['reads'], WPCPM_Mail::queue() ),
@@ -1387,7 +1394,7 @@ ck( 'a press with the wrong nonce dies with WordPress\'s own sentence, before an
 
 manager( 23 );
 $GLOBALS['caps'] = false;
-$refused         = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '12' ) ) ) ) );
+$refused         = press( screen( array_merge( $applied, array( 'action' => 'invite', 'users' => array( '12' ) ) ) ) );
 $GLOBALS['caps'] = true;
 
 ck( 'somebody without the program\'s capability is refused before the nonce is asked about or anything is read',
@@ -1395,7 +1402,7 @@ ck( 'somebody without the program\'s capability is refused before the nonce is a
 	array( 'You do not have permission to manage the program.', array(), array(), array() ) );
 
 manager( 24 );
-$other = press( screen( array( 'action' => 'delete', 'users' => array( '12' ) ) ) );
+$other = press( screen( array( 'action' => 'delete', 'users' => array( '12' ), 'bulk_action' => 'Apply' ) ) );
 
 ck( 'a bulk action the list does not have does nothing: the screen draws, no nonce is asked about, nobody is queued',
 	array( $other['value'], $GLOBALS['nonce_checks'], WPCPM_Mail::queue() ),
@@ -1415,6 +1422,15 @@ ck( 'Filter pressed while a bulk action is chosen filters, and queues nobody',
 	array( link_of( $filtered['redirect'] )[1], WPCPM_Mail::queue() ),
 	array( array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_institution' => 'Academia Sur' ), array() ) );
 
+// A search pressed with Send invite chosen and Bruno ticked is a search: the form is sent without
+// Apply, so nothing is asked about or queued, and the press comes back to the list, searched.
+manager( 26 );
+$searched_invite = press( screen( array_merge( $sent_with, array( 'action' => 'invite', 'users' => array( '12' ), 's' => 'bruno' ) ) ) );
+
+ck( 'a search pressed with Send invite chosen and Bruno ticked queues nobody and asks about no nonce: the press comes back to the list, searched',
+	array( WPCPM_Mail::queue(), $GLOBALS['nonce_checks'], link_of( $searched_invite['redirect'] ) ),
+	array( array(), array(), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 's' => 'bruno' ) ) ) );
+
 echo "\n=== A row's invitation: a nonce link to the Students module's own handler ===\n";
 
 three_students();
@@ -1422,9 +1438,9 @@ manager( 30 );
 $rows       = html_of( draw( screen() ) );
 $bruno_link = link_of( actions_in( row_for( $rows, 12 ) )['invite'] ?? '' );
 
-ck( 'Bruno\'s Send invite goes to the module\'s invite handler with his account, the tab to come back to and the nonce that handler checks',
+ck( 'Bruno\'s Send invite goes to the module\'s invite handler with his account, the tab to come back to and the nonce that handler checks, keyed to his account',
 	array( $bruno_link[0], arg( $bruno_link[1], 'action' ), arg( $bruno_link[1], 'user' ), arg( $bruno_link[1], 'wpcpm_tab' ), arg( $bruno_link[1], '_wpnonce' ) ),
-	array( 'https://example.test/wp-admin/admin-post.php', WPCPM_Students::ACTION_INVITE, '12', 'accounts', wp_create_nonce( WPCPM_Students::ACTION_INVITE ) ) );
+	array( 'https://example.test/wp-admin/admin-post.php', WPCPM_Students::ACTION_INVITE, '12', 'accounts', wp_create_nonce( WPCPM_Students::ACTION_INVITE . '_12' ) ) );
 
 request( $bruno_link[1] );
 $followed = run(
@@ -1452,14 +1468,16 @@ run(
 ck( 'Ada\'s Resend invite sends her a fresh one', $GLOBALS['mails'], array( 11 ) );
 
 manager( 32 );
-request( array( 'action' => WPCPM_Students::ACTION_INVITE ), array( 'user_id' => '13', '_wpnonce' => wp_create_nonce( WPCPM_Students::ACTION_INVITE ) ) );
+request( array( 'action' => WPCPM_Students::ACTION_INVITE ), array( 'user_id' => '13', '_wpnonce' => wp_create_nonce( WPCPM_Students::ACTION_INVITE . '_13' ) ) );
 $posted = run(
 	function () {
 		( new WPCPM_Students() )->handle_invite();
 	}
 );
 
-ck( 'the handler still takes an account posted by a form, and returns it to the Accounts tab too', array( $GLOBALS['mails'], link_of( $posted['redirect'] ) ), array( array( 13 ), $accounts ) );
+// The account is read from the row's link alone: no form in the plugin posts one, so a posted
+// account names nobody, the nonce asked is keyed to no account, and the request dies there.
+ck( 'an account posted by a form is not read: the request names no account, dies at the nonce keyed to none, and sends nothing', array( $posted['died'], $GLOBALS['nonce_checks'], $GLOBALS['mails'] ), array( 'The link you followed has expired.', array( WPCPM_Students::ACTION_INVITE . '_0' ), array() ) );
 
 manager( 33 );
 request( array_merge( $bruno_link[1], array( '_wpnonce' => 'forged' ) ) );
@@ -1473,10 +1491,77 @@ ck( 'with the wrong nonce the link dies before any account is read, and sends no
 	array( $forged['died'], $GLOBALS['reads'], $GLOBALS['mails'] ),
 	array( 'The link you followed has expired.', array(), array() ) );
 
+manager( 38 );
+$GLOBALS['caps'] = false;
+request( $bruno_link[1] );
+$no_right        = run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+$GLOBALS['caps'] = true;
+
+ck( 'followed by somebody without the program\'s capability, the link dies before the nonce keyed to the account is asked about, reads no account and sends nothing',
+	array( $no_right['died'], $GLOBALS['nonce_checks'], $GLOBALS['reads'], $GLOBALS['mails'] ),
+	array( 'You do not have permission to manage the program.', array(), array(), array() ) );
+
+// The nonce is keyed to the account, so a link taken from one row is no use on another: the
+// handler's own action alone, which every row's link was signed with before, is refused, and so is
+// Bruno's link pointed at Cleo's account.
+manager( 35 );
+request( array_merge( $bruno_link[1], array( '_wpnonce' => wp_create_nonce( WPCPM_Students::ACTION_INVITE ) ) ) );
+$unkeyed = run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+$unkeyed_asked = $GLOBALS['nonce_checks'];
+manager( 36 );
+request( array_merge( $bruno_link[1], array( 'user' => '13' ) ) );
+$borrowed = run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+
+ck( 'the link verifies only under the nonce keyed to its account: the handler\'s unkeyed nonce is refused, and so is Bruno\'s nonce on Cleo\'s account, each before anything is sent',
+	array( $unkeyed['died'], $unkeyed_asked, $borrowed['died'], $GLOBALS['nonce_checks'], $GLOBALS['mails'] ),
+	array( 'The link you followed has expired.', array( WPCPM_Students::ACTION_INVITE . '_12' ), 'The link you followed has expired.', array( WPCPM_Students::ACTION_INVITE . '_13' ), array() ) );
+
+// One invitation is sent by the module's `invite_one()`, its sync's own send unless the module
+// answers it itself, as a module whose sync class sends none does. Bruno is never invited again
+// here, so a sync asked all the same would send him one.
+three_students();
+manager( 37 );
+$own_invite = new class() extends WPCPM_Students {
+	/**
+	 * The accounts this module was asked to invite.
+	 *
+	 * @var int[]
+	 */
+	public static $asked = array();
+
+	protected function invite_one( $user_id ) {
+		self::$asked[] = $user_id;
+
+		return true;
+	}
+};
+request( $bruno_link[1] );
+$answered = run(
+	function () use ( $own_invite ) {
+		$own_invite->handle_invite();
+	}
+);
+
+ck( 'a module that answers invite_one() itself is asked in its sync\'s place, once both checks have passed: the account the link names is handed to it, the sync sends nothing, and the list says what it answered',
+	array( $own_invite::$asked, $GLOBALS['nonce_checks'], $GLOBALS['mails'], link_of( $answered['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent.' ) ),
+	array( array( 12 ), array( WPCPM_Students::ACTION_INVITE . '_12' ), array(), $accounts, true ) );
+
 // A link to an account nobody holds, as a row left open while the account went: the send fails,
 // and the Accounts tab, which prints no sync error, says what failed without pointing below.
 manager( 34 );
-request( array_merge( $bruno_link[1], array( 'user' => '999' ) ) );
+request( array_merge( $bruno_link[1], array( 'user' => '999', '_wpnonce' => wp_create_nonce( WPCPM_Students::ACTION_INVITE . '_999' ) ) ) );
 $failed = run(
 	function () {
 		( new WPCPM_Students() )->handle_invite();
@@ -1520,7 +1605,7 @@ foreach ( $place as $key => $value ) {
 ck( 'the second page of the Never invited view, searched, at one school and sorted Z to A, is Hal\'s row', row_ids( $on_page ), array( 42 ) );
 ck( 'his Send invite carries where the list stands, the school\'s name whole, beside the handler\'s own action, account, tab and nonce',
 	array( $carried, $hal[0], arg( $hal[1], 'action' ), arg( $hal[1], 'user' ), arg( $hal[1], 'wpcpm_tab' ), arg( $hal[1], '_wpnonce' ) ),
-	array( $place, 'https://example.test/wp-admin/admin-post.php', WPCPM_Students::ACTION_INVITE, '42', 'accounts', wp_create_nonce( WPCPM_Students::ACTION_INVITE ) ) );
+	array( $place, 'https://example.test/wp-admin/admin-post.php', WPCPM_Students::ACTION_INVITE, '42', 'accounts', wp_create_nonce( WPCPM_Students::ACTION_INVITE . '_42' ) ) );
 
 request( $hal[1] );
 $back    = run(
@@ -2125,7 +2210,7 @@ ck( 'a form that names no tab, or one the screen does not have, comes back to th
 manager( 218 );
 $untabbed = post_to( 'handle_cancel', 'wpcpm_untabbed_cancel', array( 'wpcpm_tab' => 'sync' ), new WPCPM_Stub_Untabbed_Module() );
 
-ck( 'a screen still drawn in one piece, as the Institutions and Sponsors screens are, comes back to its own address whatever tab a form names',
+ck( 'a screen drawn in one piece, which declares no tabs, comes back to its own address whatever tab a form names',
 	link_of( $untabbed['redirect'] ),
 	array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-untabbed' ) ) );
 

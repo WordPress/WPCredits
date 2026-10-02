@@ -148,9 +148,10 @@ class WPCPM_Administrators extends WPCPM_Module {
 	/**
 	 * No sync: administrators are WordPress's own accounts, never read from Airtable.
 	 *
-	 * The shared screen asks a module for its sync only in its one row's invitation handler
-	 * (`handle_invite()`), and this screen hooks no invitation handler: no `admin_post_` action is
-	 * added for it, since administrators are never invited by the plugin, so nothing ever asks here.
+	 * The shared screen asks a module for its sync only when it sends one row's invitation
+	 * (`invite_one()`, reached from `handle_invite()`), and this screen hooks no invitation handler: no
+	 * `admin_post_` action is added for it, since administrators are never invited by the plugin, so
+	 * nothing ever asks here.
 	 *
 	 * @return string
 	 */

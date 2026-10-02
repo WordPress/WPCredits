@@ -549,7 +549,8 @@ class WPCPM_Institution_Panel {
 
 	/**
 	 * The line a block drawn to be read ends with, in the place of the two decisions: the way to the
-	 * same block on the Administrator Dashboard, which makes them.
+	 * same block on the Administrator Dashboard, which makes them, printed by the one printer every
+	 * screen and block that links there shares (`WPCPM_Return::render_dashboard_link()`).
 	 *
 	 * Nothing while the dashboard's page is missing: there is nowhere to link, and the caller says
 	 * so once for its whole list rather than once in every block.
@@ -557,17 +558,7 @@ class WPCPM_Institution_Panel {
 	 * @param int $post_id Agreement post ID.
 	 */
 	private static function render_decided_elsewhere( $post_id ) {
-		$page = WPCPM_Administrators_Dashboard::page_url();
-
-		if ( '' === $page ) {
-			return;
-		}
-
-		printf(
-			'<p class="wpcpm-review__open"><a href="%1$s">%2$s</a></p>',
-			esc_url( $page . '#wpcpm-review-' . (int) $post_id ),
-			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
-		);
+		WPCPM_Return::render_dashboard_link( 'agreements', 'wpcpm-review-' . (int) $post_id, 'wpcpm-review__open' );
 	}
 
 	/**

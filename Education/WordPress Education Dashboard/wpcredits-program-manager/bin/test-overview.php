@@ -12,9 +12,9 @@
  *   (bin/stubs/overview-reads.php), so a number here is the attention strip's number there: the
  *   queues with something in them, in the strip's order, each its label and then its count in
  *   parentheses, as core's list tables print their views, linking to where the queue is listed
- *   (`WPCPM_Overview::targets()`): a wp-admin screen, or for the sponsor posts their card on the
- *   Administrator Dashboard, a count left unlinked while that page is missing. A tile added to the
- *   strip fails here until it is given a place to link to.
+ *   (`WPCPM_Overview::targets()`): a wp-admin screen for every tile, the sponsor posts among them,
+ *   whether or not the Administrator Dashboard's page is there. A tile added to the strip fails
+ *   here until it is given a place to link to.
  * - **Decisions have one home.** The card links to the Administrator Dashboard, or says its page
  *   is missing in the words the dashboard class keeps for it, which the Administrators screen
  *   prints too, and nothing on the screen posts anything.
@@ -629,10 +629,10 @@ ck( 'and each tile links to its own screen',
 	array_column( $busy_links, 0 ),
 	$busy_targets );
 
-// None of the plugin's wp-admin screens lists the sponsor posts waiting; their card on the
-// Administrator Dashboard does, with the decision each waits for, so their count opens it, at the
-// anchor the strip's own tile uses.
-ck( 'and the sponsor posts open their card on the Administrator Dashboard',
+// The sponsor posts waiting are listed on the Sponsors screen's Waiting for review tab, in a card
+// of their own beside the applications and the signed agreements, so their count opens that card
+// there, as the other two sponsor queues open theirs.
+ck( 'and the sponsor posts open the Sponsors screen at their card on Waiting for review',
 	array_values(
 		array_filter(
 			$busy_links,
@@ -641,7 +641,7 @@ ck( 'and the sponsor posts open their card on the Administrator Dashboard',
 			}
 		)
 	),
-	array( array( 'https://site.example/administrator-dashboard/#wpcpm-sponsor-posts', 'Sponsor posts to review', '1' ) ) );
+	array( array( esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts' ), 'Sponsor posts to review', '1' ) ) );
 
 // The map is the class's, read as the class holds it: a tile the strip gains without a screen here
 // fails this check until it is given one.
@@ -652,11 +652,11 @@ $targets = attempt(
 );
 $keys    = array_keys( counts_for( array() ) );
 
-ck( 'while the Administrator Dashboard\'s page is published, every tile the strip counts has a place to link to, and every place on the map is a tile\'s',
+ck( 'every tile the strip counts has a place to link to, and every place on the map is a tile\'s',
 	is_array( $targets ) ? array( array_values( array_diff( $keys, array_keys( $targets ) ) ), array_values( array_diff( array_keys( $targets ), $keys ) ) ) : $targets,
 	array( array(), array() ) );
 
-ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen but for their posts, which open their card on the Administrator Dashboard; and the duplicated students the Student Duplicate Finder',
+ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen at the tab for each, the applications, the posts and the signed agreements on Waiting for review, each at its own card there, and the offers running low on Offers and codes; and the duplicated students the Student Duplicate Finder',
 	$targets,
 	array(
 		'applications'         => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
@@ -667,10 +667,10 @@ ck( 'today the institutions\' queues open the Institutions screen at the tab for
 		'requests'             => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
 		'overdue_requests'     => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
 		'locked'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
-		'sponsor_posts'        => 'https://site.example/administrator-dashboard/#wpcpm-sponsor-posts',
-		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors',
-		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors',
-		'offers_low'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors',
+		'sponsor_posts'        => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts',
+		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements',
+		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-applications',
+		'offers_low'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers',
 		'duplicates'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder',
 	) );
 
@@ -751,17 +751,17 @@ ck( 'and while the page is missing, the card says so in the words the dashboard 
 	),
 	array( false, true, true, true ) );
 
-// Without the page, the sponsor posts have no card to open. Their count stays where the strip has
-// it, as a tile the map does not place, and every other count keeps its screen.
+// No count opens the dashboard's page any more, so none of them depends on it: without the page,
+// every count, the sponsor posts' among them, still opens the wp-admin screen that lists its queue.
 $chips_page_gone = array();
 
 foreach ( array_keys( $busy_counts ) as $key ) {
-	$chips_page_gone[] = array( 'sponsor_posts' === $key ? '' : target_of( $key ), $busy_counts[ $key ]['label'], (string) $busy_counts[ $key ]['n'] );
+	$chips_page_gone[] = array( target_of( $key ), $busy_counts[ $key ]['label'], (string) $busy_counts[ $key ]['n'] );
 }
 
-ck( 'and while the page is missing, the sponsor posts\' count is still listed in its place, unlinked, and the other twelve still open their screens',
-	array( chips_of( $busy_page_gone ), is_array( $targets_page_gone ) ? array_keys( $targets_page_gone ) : $targets_page_gone ),
-	array( $chips_page_gone, array_values( array_diff( array_keys( $busy_counts ), array( 'sponsor_posts' ) ) ) ) );
+ck( 'and while the page is missing, every count still opens its screen, the sponsor posts\' their card on the Sponsors screen, at the same address the map gives with the page there',
+	array( chips_of( $busy_page_gone ), $targets_page_gone, has( card( $busy_page_gone, 'Waiting for a decision' ), 'administrator-dashboard/#' ) ),
+	array( $chips_page_gone, $targets, false ) );
 
 echo "\n=== Syncs ===\n";
 
@@ -797,7 +797,7 @@ ck( 'each audience\'s name opens the screen its sync is run from, at the tab tha
 		array( 'Students', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-students&tab=sync' ), 'Never', gmdate( 'j F Y H:i', 1757100000 ) ),
 		array( 'Mentors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=sync' ), gmdate( 'j F Y H:i', 1756990000 ), 'Not scheduled' ),
 		array( 'Institutions', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=sync' ), gmdate( 'j F Y H:i', 1756980000 ), 'Running now' ),
-		array( 'Sponsors', 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors', gmdate( 'j F Y H:i', 1756880000 ), gmdate( 'j F Y H:i', 1756993600 ) ),
+		array( 'Sponsors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=sponsors' ), gmdate( 'j F Y H:i', 1756880000 ), gmdate( 'j F Y H:i', 1756993600 ) ),
 	) );
 
 echo "\n=== Tools ===\n";

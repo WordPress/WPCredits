@@ -821,7 +821,7 @@ class WPCPM_Sponsor_Posts {
 		} else {
 
 			if ( $can_manage && ! self::posting_enabled( $record ) ) {
-				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on the Sponsors screen in wp-admin.', 'wpcredits-program-manager' ) . '</p>';
+				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on from Manage accounts on the Sponsors screen\'s Accounts tab.', 'wpcredits-program-manager' ) . '</p>';
 			}
 
 			if ( $can_manage ) {
@@ -1078,7 +1078,7 @@ class WPCPM_Sponsor_Posts {
 			esc_html__( 'A note for the author', 'wpcredits-program-manager' ),
 			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' )
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back with this note', 'wpcredits-program-manager' ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
 		echo '</form>';
 		echo '</details>';
 
@@ -1332,8 +1332,9 @@ class WPCPM_Sponsor_Posts {
 
 	/**
 	 * A manager switches posting for a sponsor, from wp-admin. The capability, the nonce keyed
-	 * to the record, the policy, then the switch; back to the Sponsors screen with a flash on
-	 * the module's own channel.
+	 * to the record, the policy, then the switch; back to the sponsor's accounts on the Sponsors
+	 * screen's Accounts tab, where the switch is drawn, with a flash on the module's own channel,
+	 * or to that tab itself for a record the index does not hold, which has no accounts to show.
 	 */
 	public static function handle_flags() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1358,8 +1359,10 @@ class WPCPM_Sponsor_Posts {
 			$status = $on ? 'posting-on' : 'posting-off';
 		}
 
+		$back = WPCPM_Sponsors_Index::has( $record ) ? WPCPM_Sponsors::accounts_view_url( $record ) : admin_url( 'admin.php?page=wpcpm-sponsors&tab=accounts' );
+
 		WPCPM_Flash::set( WPCPM_Sponsors::FLASH, $status );
-		wp_safe_redirect( WPCPM_Return::url( admin_url( 'admin.php?page=wpcpm-sponsors' ) ) );
+		wp_safe_redirect( WPCPM_Return::url( $back ) );
 		exit;
 	}
 

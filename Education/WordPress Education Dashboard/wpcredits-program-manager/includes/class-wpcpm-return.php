@@ -89,4 +89,44 @@ final class WPCPM_Return {
 
 		return in_array( $anchor, self::ANCHORS, true ) ? $page . '#wpcpm-' . $anchor : $page;
 	}
+
+	/**
+	 * Print "Open on the Administrator Dashboard": the way from a wp-admin screen that reads a queue
+	 * to the place on the dashboard where it is decided.
+	 *
+	 * The address is the page, then the element id of one item of the card when the caller names
+	 * one, so the reader lands on the item the screen was showing, else `#wpcpm-` and the card's id,
+	 * the address a decision posted from that card comes back to (`url()`), so the way in and the
+	 * way back land on the same card. One printer for every screen and block that links there,
+	 * beside the card ids it reads; a block that ends in a line of its own markup, as the review
+	 * blocks do, names the paragraph's class.
+	 *
+	 * Nothing is printed for a card the dashboard does not have, and nothing while its page is
+	 * missing: there is nowhere to link, and the caller says so in its own place, in the words
+	 * `WPCPM_Administrators_Dashboard::page_missing()` keeps for it.
+	 *
+	 * @param string $card      One of ANCHORS: the card that decides what the link is printed for.
+	 * @param string $item      The element id of one item on that card, or '' for the card itself.
+	 * @param string $css_class The paragraph's class, or '' for none.
+	 */
+	public static function render_dashboard_link( $card, $item = '', $css_class = '' ) {
+		if ( ! in_array( (string) $card, self::ANCHORS, true ) || ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
+			return;
+		}
+
+		$page = (string) WPCPM_Administrators_Dashboard::page_url();
+
+		if ( '' === $page ) {
+			return;
+		}
+
+		$css_class = sanitize_html_class( (string) $css_class );
+
+		printf(
+			'<p%1$s><a href="%2$s">%3$s</a></p>',
+			'' !== $css_class ? ' class="' . esc_attr( $css_class ) . '"' : '',
+			esc_url( $page . '#' . ( '' !== (string) $item ? (string) $item : 'wpcpm-' . $card ) ),
+			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
+		);
+	}
 }

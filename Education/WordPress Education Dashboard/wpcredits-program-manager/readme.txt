@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.121.0
+Stable tag: 1.122.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ The plugin is organized around five audiences:
 1. **Students** - the Student role, Airtable account provisioning, and the Student Report Card, a private page with each student's program details and their assigned mentor. **Built.**
 2. **Mentors** - the Mentor role, Airtable account provisioning, and the Mentor Report Card, a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role, the Airtable sync of the institution records, account creation, the Institution Dashboard with its roster, student imports and semester reports, the public institution application form, the Collaboration Agreement, and the institution queues on the Administrator Dashboard. **Built.**
-4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
+4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
 5. **Administrators** - the people who manage the program: the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
@@ -288,6 +288,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.0 =
+
+* Sponsors module: the Sponsors screen is six tabs, Waiting for review, Sponsors, Accounts, Offers and codes, Interests, and Agreements; the queue lists sponsor applications, sponsor posts and signed agreements read-only, each with a link to decide it on the Administrator Dashboard, whose sponsor cards link back to the tab that holds each item; the accounts are a WordPress list table with search, the All, Invited, Never invited and No account views, sortable columns, a per-page screen option, invitations sent to the selected accounts or from a row's own link, which sponsor accounts did not have before, and accounts created for the selected Approved sponsors or from a row; each sponsor's accounts are attached and removed, and its posting switched, from the Accounts tab; the Overview's links open the tab that holds each queue.
+* Administrator Dashboard: the sponsor agreement and sponsor post decisions use the same words as the institution side ("Accept it", "Return it with this note", "Reinstate"), accepting or reinstating a sponsor agreement there asks before it acts, and a link from wp-admin opens the item it names.
+* Accounts screens: on WordPress 6.7 or later an action on the ticked rows runs only when Apply is pressed; a row's invitation link is signed for its own account.
 
 = 1.121.0 =
 

@@ -71,6 +71,12 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
  * on the other. A column key both kinds have, hidden on one and primary on the other, is drawn all
  * the same, since the primary column is never hidden (`prepare_items()`).
  *
+ * **What is said around the list, and which rows may be ticked, are the table's to say too.** A
+ * table prints what it has to say above its views (`list_intro()`) and under its table
+ * (`list_outro()`), such as what a record view's bulk action sends, which the list's Apply has no
+ * dialog to say; and it leaves the checkbox out of a row its bulk action could only refuse
+ * (`row_tickable()`). The base says nothing there and lets every row be ticked.
+ *
  * **Built on an admin request only**, on the audience screen's `load-<hook>` or later, never on the
  * front end: core's constructor binds the table to the current screen through `convert_to_screen()`,
  * which lives in wp-admin, and the screen exists from the page's load hook on.
@@ -100,6 +106,13 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 
 	/** What a list nobody sorted is sorted by. */
 	const DEFAULT_ORDERBY = 'display_name';
+
+	/**
+	 * How many accounts each invitation view holds, read once a table (`invite_counts()`).
+	 *
+	 * @var array{all: int, invited: int, never-invited: int}|null
+	 */
+	private $invite_counts;
 
 	/**
 	 * The audience: its module's ID, as in `wpcpm-<audience>`, the screen's address.
@@ -286,13 +299,19 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * the record's name, or with its ID where it has no name. One markup for both, so a change to how
 	 * a row is ticked reaches both.
 	 *
-	 * A record row whose ID is missing, empty or not a scalar draws none: a box with no ID would post
-	 * nothing, and every such row would share one HTML id, which its label would tick in its place.
+	 * A row the table says may not be ticked draws none (`row_tickable()`), asked before anything
+	 * else. A record row whose ID is missing, empty or not a scalar draws none either: a box with no
+	 * ID would post nothing, and every such row would share one HTML id, which its label would tick in
+	 * its place.
 	 *
 	 * @param WP_User|array $item The row: an account, or a record on a record view.
 	 * @return string
 	 */
 	protected function column_cb( $item ) {
+		if ( ! $this->row_tickable( $item ) ) {
+			return '';
+		}
+
 		if ( is_array( $item ) ) {
 			$value = ( isset( $item['id'] ) && is_scalar( $item['id'] ) ) ? (string) $item['id'] : '';
 
@@ -323,6 +342,61 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				)
 			)
 		);
+	}
+
+	/**
+	 * Whether a row may be ticked for a bulk action: every row, here.
+	 *
+	 * A table answers no for a row its bulk action could only refuse, and the row draws no checkbox
+	 * (`column_cb()`), as core's own users list leaves the box out of a row the person looking may
+	 * not act on, so the header's tick-all never ticks a refusal. Asked for an account row and for a
+	 * record row alike. A box left out is no guard: the table's action still checks every row it is
+	 * handed, since a row can stop being one it may act on after the page was drawn.
+	 *
+	 * @param WP_User|array $item The row: an account, or a record on a record view.
+	 * @return bool
+	 */
+	protected function row_tickable( $item ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: every row may be ticked here, whatever the row.
+		return true;
+	}
+
+	/**
+	 * What the table prints above its views: nothing, here.
+	 *
+	 * Above the views is the first part of the list the screen draws, so what is printed there is
+	 * read before the list and its search: a table says there what a view's bulk action does that the
+	 * list's Apply has no dialog to say. Printed by the table's `views()`, escaped by the table.
+	 */
+	protected function list_intro() {}
+
+	/**
+	 * What the table prints under its table, after the rows and the pagination: nothing, here.
+	 *
+	 * A table says there what the list holds that the rows do not, such as where its rows come from.
+	 * Printed by the table's `display()`, escaped by the table.
+	 */
+	protected function list_outro() {}
+
+	/**
+	 * The views, as core prints them, after what the table prints above them (`list_intro()`).
+	 *
+	 * Public, as core declares it.
+	 */
+	public function views() {
+		$this->list_intro();
+
+		parent::views();
+	}
+
+	/**
+	 * The table, as core prints it, then what the table prints under it (`list_outro()`).
+	 *
+	 * Public, as core declares it.
+	 */
+	public function display() {
+		parent::display();
+
+		$this->list_outro();
 	}
 
 	/**
@@ -501,17 +575,25 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * narrows the counts the same way. Not the search: the views count the whole list, as
 	 * WordPress's own views do. All is the sum, because an account holds a stamp or holds none.
 	 *
+	 * Read once a table and kept: each count is a query, and one draw asks for them more than once,
+	 * the views and, on a record view, the heading (`heading_count()`). A table is built for one
+	 * request, and a press that changes a stamp leaves for another page before anything is drawn.
+	 *
 	 * @return array{all: int, invited: int, never-invited: int}
 	 */
 	protected function invite_counts() {
-		$invited = $this->count_view( 'invited' );
-		$never   = $this->count_view( 'never-invited' );
+		if ( null === $this->invite_counts ) {
+			$invited = $this->count_view( 'invited' );
+			$never   = $this->count_view( 'never-invited' );
 
-		return array(
-			'all'           => $invited + $never,
-			'invited'       => $invited,
-			'never-invited' => $never,
-		);
+			$this->invite_counts = array(
+				'all'           => $invited + $never,
+				'invited'       => $invited,
+				'never-invited' => $never,
+			);
+		}
+
+		return $this->invite_counts;
 	}
 
 	/**
@@ -931,8 +1013,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * A row's invitation: Send invite for an account never invited, Resend invite for one that was.
 	 *
 	 * A nonce link to the audience's invite handler, with the account as `user`, the tab to come back
-	 * to and where the list stands (`list_state()`), under the nonce that handler already checks, its
-	 * own action's. The audience adds its own actions, such as "View page", beside it.
+	 * to and where the list stands (`list_state()`), under the nonce that handler checks: its own
+	 * action keyed to the account, the action, then `_` and the account's ID, so a link taken from one
+	 * row is no use on another. The audience adds its own actions, such as "View page", beside it.
 	 *
 	 * The link is a GET request, so the handler has to read the account from the query string as
 	 * `user`, as the accounts screen's `handle_invite()` does (`WPCPM_Accounts_Screen`) after the
@@ -956,7 +1039,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				) + $this->list_state(),
 				admin_url( 'admin-post.php' )
 			),
-			$action
+			$action . '_' . (int) $user->ID
 		);
 
 		return array(

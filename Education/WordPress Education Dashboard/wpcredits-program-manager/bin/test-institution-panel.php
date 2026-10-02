@@ -503,8 +503,10 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	}
 }
 
-// The Administrator Dashboard's page, which the review block links to on the screen that only reads it.
+// The Administrator Dashboard's page, which the review block links to on the screen that only reads it,
+// and the real class that prints that link for every screen and block that links there.
 require_once __DIR__ . '/stubs/administrators-dashboard.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
@@ -2109,8 +2111,10 @@ function classes_in( $src ) {
 
 	preg_match_all( '/class="([^"]*)"/', $src, $attrs );
 	preg_match_all( "/form_start\(\s*'([^']+)'/", $src, $forms );
+	// A line printed by the shared printer names its paragraph's class as the third argument.
+	preg_match_all( "/render_dashboard_link\(\s*'[^']*',\s*[^,]+,\s*'([^']+)'\s*\)/", $src, $printed );
 
-	foreach ( array_merge( $attrs[1], $forms[1] ) as $list ) {
+	foreach ( array_merge( $attrs[1], $forms[1], $printed[1] ) as $list ) {
 		foreach ( preg_split( '/\s+/', trim( $list ) ) as $name ) {
 			if ( '' !== $name && 0 === strpos( $name, 'wpcpm-' ) && false === strpos( $name, '%' ) ) {
 				$names[ $name ] = true;

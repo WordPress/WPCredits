@@ -170,7 +170,9 @@ function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
 function is_singular( $t = '' ) { return ! empty( $GLOBALS['singular'] ); }
 function in_the_loop() { return ! empty( $GLOBALS['singular'] ); }
 function is_main_query() { return true; }
-function check_admin_referer( $a ) { $GLOBALS['calls'][] = array( 'nonce', $a ); return true; }
+// A nonce that fails on demand dies with WordPress's own sentence, not through wp_die() below,
+// whose answer keeps only the status and so would read as the capability's refusal.
+function check_admin_referer( $a ) { $GLOBALS['calls'][] = array( 'nonce', $a ); if ( ! empty( $GLOBALS['nonce_fails'] ) ) { throw new WPCPM_Test_Redirect( 'The link you followed has expired.' ); } return true; }
 function wp_safe_redirect( $u ) { throw new WPCPM_Test_Redirect( $u ); }
 function wp_die( $m, $t = '', $a = array() ) { throw new WPCPM_Test_Redirect( 'die:' . ( is_int( $t ) ? $t : ( isset( $a['response'] ) ? (int) $a['response'] : 0 ) ) ); }
 
@@ -218,7 +220,15 @@ class WPCPM_Return {
 	public static function field( $where, $anchor = '' ) { if ( self::DASHBOARD === $where ) { echo '<input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="' . $anchor . '" />'; } }
 	public static function url( $default ) { return ( isset( $_POST['wpcpm_return'] ) && 'dashboard' === $_POST['wpcpm_return'] ) ? 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts' : $default; }
 }
-class WPCPM_Sponsors { const FLASH = 'sponsors_admin'; }
+/**
+ * The Sponsors module, as far as this class reaches it: its flash channel, and the address of one
+ * sponsor's accounts on its screen, where the posting switch is drawn and comes back to. The module's
+ * own builder of that address is pinned by bin/test-sponsors-screen.php.
+ */
+class WPCPM_Sponsors {
+	const FLASH = 'sponsors_admin';
+	public static function accounts_view_url( $record ) { return admin_url( 'admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . rawurlencode( (string) $record ) ); }
+}
 class WPCPM_Institutions { const FLASH = 'institutions'; }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
@@ -426,6 +436,8 @@ ck( 'a manager has the Posts screen filtered to the sponsor\'s category', false 
 WPCPM_Sponsor_Posts::set_posting( $S, false, 1 );
 $html = card( $S, 20 );
 ck( 'with posting off the member reads one sentence instead of Write a post, and no wp-admin link', array( false !== strpos( $html, 'The program has not enabled posting for this sponsor.' ), strpos( $html, 'post-new.php' ), strpos( $html, 'edit.php' ) ), array( true, false, false ) );
+$html = card( $S, 1 );
+ck( 'and a manager reads that posting is off and where it is switched on: Manage accounts on the Sponsors screen\'s Accounts tab', false !== strpos( $html, '<p class="wpcpm-student__note">Posting is off for this sponsor. Switch it on from Manage accounts on the Sponsors screen&#039;s Accounts tab.</p>' ), true );
 WPCPM_Sponsor_Posts::set_posting( $S, true, 1 );
 ck( 'an empty card says so in the page\'s own words', false !== strpos( card( $S2, 1 ), '<p class="wpcpm-student__note">No posts yet.</p>' ), true );
 $html = card( $S, 20, 'posts' );
@@ -460,10 +472,16 @@ echo "\n=== The posting switch (wp-admin) ===\n";
 function flags( $uid, $post ) { $GLOBALS['uid'] = $uid; $_POST = $post; try { WPCPM_Sponsor_Posts::handle_flags(); } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
 $GLOBALS['flash'] = array();
 ck( 'a member cannot switch the flag', flags( 20, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), 'die:403' );
-ck( 'a manager switches it off and is sent back with the flash', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors', false, array( 'sponsors_admin', 'posting-off' ) ) );
-flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '1' ) );
-ck( 'and on again', array( WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] )[1] ), array( true, 'posting-on' ) );
-ck( 'a manager naming a record the index does not hold is refused', flags( 1, array( 'wpcpm_sponsor' => 'recNOPE0000000001', 'wpcpm_on' => '0' ) ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
+ck( 'a manager switches it off and is sent back to the sponsor\'s accounts on the Sponsors screen\'s Accounts tab, where the switch is, with the flash', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . $S, false, array( 'sponsors_admin', 'posting-off' ) ) );
+reset_calls();
+ck( 'and on again, back to the same accounts', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '1' ) ), WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] )[1] ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . $S, true, 'posting-on' ) );
+ck( 'the switch asks one nonce, its own action keyed to the sponsor its form names', calls( 'nonce' ), array( array( 'nonce', 'wpcpm_sponsor_flags_' . $S ) ) );
+$flags_before           = get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' );
+$GLOBALS['flash']       = array();
+$GLOBALS['nonce_fails'] = true;
+ck( 'with a nonce that fails, the manager meets WordPress\'s sentence, the sponsor\'s posting flag is as it was and nothing is flashed', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' ), WPCPM_Sponsor_Posts::posting_enabled( $S ), $GLOBALS['flash'] ), array( 'The link you followed has expired.', $flags_before, true, array() ) );
+$GLOBALS['nonce_fails'] = false;
+ck( 'a manager naming a record the index does not hold is refused, back on the Accounts tab itself: that record names no sponsor\'s accounts to come back to', flags( 1, array( 'wpcpm_sponsor' => 'recNOPE0000000001', 'wpcpm_on' => '0' ) ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
 ck( 'with the one sentence', end( $GLOBALS['flash'] )[1], 'refused' );
 ck( 'and no flag is left behind for it', get_option( 'wpcpm_sponsor_flags_recNOPE0000000001', 'none' ), 'none' );
 
@@ -567,6 +585,13 @@ $rows = WPCPM_Sponsor_Posts::pending_all();
 ck( 'pending_all() lists the pending sponsor posts as facts, the company named, and nothing unstamped or in another state', array( in_array( $queued, array_column( $rows, 'id' ), true ), in_array( $unstamped, array_column( $rows, 'id' ), true ), in_array( $pid, array_column( $rows, 'id' ), true ), $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['company'], $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['author'] ), array( true, false, false, 'TEST Sponsor', 'Member One' ) );
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $decision = ob_get_clean();
 ck( 'the decision block is the request cards\' shape: Preview, Publish, a folded Return with a note that says what it does, both forms carrying the way back to the dashboard', array( 0 === strpos( $decision, '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide"><a class="button" href="https://example.test/?p=' . $queued . '&preview=true">Preview</a>' ), substr_count( $decision, 'name="wpcpm_return" value="dashboard"' ), substr_count( $decision, 'name="wpcpm_return_to" value="sponsor-posts"' ), false !== strpos( $decision, '<details class="wpcpm-sponsor-post__return"><summary class="button">Return with a note</summary><p class="wpcpm-administrator__note">The post goes back to the sponsor&#039;s account as a draft, and your note is sent to its author by email.</p>' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_publish"' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_return"' ) ), array( true, 2, 2, true, true, true ) );
+// The institution side's words, which the sponsor side shares: the button under the fold reads
+// Return it with this note; Publish, Preview and the fold's summary keep theirs.
+ck( 'the return button reads Return it with this note, as the institution side\'s does, and Publish keeps its word', array(
+	false !== strpos( $decision, '<button type="submit" class="button">Return it with this note</button>' ),
+	false !== strpos( $decision, '<button type="submit" class="button button-primary">Publish</button>' ),
+	strpos( $decision, 'Send back with this note' ),
+), array( true, true, false ) );
 $GLOBALS['uid'] = 20;
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $none = ob_get_clean();
 ck( 'a member gets no decision block', $none, '' );

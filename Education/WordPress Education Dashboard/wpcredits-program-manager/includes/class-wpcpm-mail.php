@@ -676,8 +676,9 @@ class WPCPM_Mail {
 
 	/**
 	 * Stamp an account as sent its login invitation, by the one rule every route that sends one
-	 * follows: the queue (`drain_queue()`), and the Students, Mentors and Institutions syncs'
-	 * `send_invite()` for one person.
+	 * follows: the queue (`drain_queue()`), and for one person the Students, Mentors and
+	 * Institutions syncs' `send_invite()` and the sponsor members' own
+	 * (`WPCPM_Sponsor_Members::send_invite()`).
 	 *
 	 * Each program role the account holds is asked on its own and stamped under its key (`STAMPS`),
 	 * all at one moment, the one given or now; an account holding none of them is stamped as a
@@ -741,8 +742,9 @@ class WPCPM_Mail {
 	 * Whether an invitation may go to somebody now: true, or why not.
 	 *
 	 * The one check every route asks before it sends - the Students, Mentors and Institutions
-	 * syncs' `send_invite()`, one person at a time, and the queue - so no route cancels a link
-	 * another sent inside `INVITE_GAP`. The queue stamps only after it sends, so two runs racing
+	 * syncs' `send_invite()` and the sponsor members' (`WPCPM_Sponsor_Members::send_invite()`), one
+	 * person at a time, and the queue - so no route cancels a link another sent inside
+	 * `INVITE_GAP`. The queue stamps only after it sends, so two runs racing
 	 * each other can still both send in the moment before either stamps: this narrows that window
 	 * to the send itself, it does not close it.
 	 *
@@ -783,8 +785,8 @@ class WPCPM_Mail {
 	}
 
 	/**
-	 * The two notices a Resend invite press can leave, worded once for the Students, Mentors and
-	 * Institutions screens.
+	 * The two notices a Resend invite press can leave, worded once for the Students, Mentors,
+	 * Institutions and Sponsors screens.
 	 *
 	 * The sent notice says the new email replaces the earlier link, because whoever pressed is
 	 * usually helping somebody whose link failed, and the old email is still in that inbox.
@@ -1088,7 +1090,7 @@ class WPCPM_Mail {
 			esc_js(
 				sprintf(
 					/* translators: 1: how many people, 2: the people, e.g. "students". */
-					__( 'Send an invitation to %1$d %2$s? They cannot be recalled once sent.', 'wpcredits-program-manager' ),
+					_n( 'Send an invitation to %1$d of the %2$s? It cannot be recalled once sent.', 'Send an invitation to %1$d of the %2$s? They cannot be recalled once sent.', $count, 'wpcredits-program-manager' ),
 					$count,
 					$noun
 				)

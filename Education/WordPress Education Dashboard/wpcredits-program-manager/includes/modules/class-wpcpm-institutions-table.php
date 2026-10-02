@@ -36,12 +36,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ones first, each saying whether Airtable holds an address for it and, while it cannot be given an
  * account, why. Its bulk action, Create account, is the table's own (`owns_action()`,
  * `handle_action()`) and keeps the rules provisioning has always kept
- * (`WPCPM_Institutions::provision_ticked()`); a ready row's own Create account is a nonce link to the
- * module's handler for one institution (`record_row_actions()`). Above that view's list come the
- * gate, while it holds back every Create account on the ticked institutions, and, while the view
- * lists an institution ready for one, what a Create account sends, which a list's Apply has no
- * dialog to say; under it, whether the sync creates these accounts too, and when the index it is
- * read from was read.
+ * (`WPCPM_Institutions::provision_ticked()`), and a row that is not ready cannot be ticked for it
+ * (`row_tickable()`); a ready row's own Create account is a nonce link to the module's handler for
+ * one institution, and a row's View page opens the Institution Dashboard as that institution, as
+ * an account row's does (`record_row_actions()`). Above that view's list (`list_intro()`) come
+ * the gate, while it holds back every Create account on the ticked institutions, and, while the
+ * view lists an institution ready for one, what a Create account sends, which a list's Apply has no
+ * dialog to say; under it (`list_outro()`), whether the sync creates these accounts too, and when
+ * the index it is read from was read.
  *
  * **Manage members** is on every row that names an institution: every record's, and an account's by
  * the institution it acts for or, once its membership ended, the one it left (`members_action()`).
@@ -539,7 +541,7 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * A row's checkbox, as the base draws it, but none on a No account row that is not ready.
+	 * Whether a row may be ticked: every account row, and on the No account view a row that is ready.
 	 *
 	 * Create account is the one bulk action on that view, and a row it can only refuse would turn
 	 * the header's tick-all into a notice that names refusals beside every account it made. Core's
@@ -548,14 +550,10 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	 * the page was drawn.
 	 *
 	 * @param WP_User|array $item The row: an account, or a record on the No account view.
-	 * @return string
+	 * @return bool
 	 */
-	protected function column_cb( $item ) {
-		if ( is_array( $item ) && empty( $item['ready'] ) ) {
-			return '';
-		}
-
-		return parent::column_cb( $item );
+	protected function row_tickable( $item ) {
+		return ! is_array( $item ) || ! empty( $item['ready'] );
 	}
 
 	/**
@@ -653,15 +651,7 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	protected function row_actions_for( WP_User $user ) {
 		$actions = $this->edit_row_action( $user );
 		$record  = $this->facts_of( $user )['record'];
-		$page    = $this->dashboard();
-
-		if ( '' !== $page && WPCPM_Mentors_Sync::is_record_id( $record ) ) {
-			$actions['view'] = sprintf(
-				'<a href="%1$s">%2$s</a>',
-				esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, rawurlencode( $record ), $page ) ),
-				esc_html__( 'View page', 'wpcredits-program-manager' )
-			);
-		}
+		$actions = array_merge( $actions, $this->view_action( $record ) );
 
 		// An ended membership keeps no live stamp: the members class moved it aside, and the stamp it
 		// moved names the institution whose former members list this account with its Re-add.
@@ -673,9 +663,15 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * A No account row's actions: Create account, for an institution ready for one, then Manage
-	 * members, on every row, since an institution provisioning will not give its first account is
-	 * given one there by hand, and one that has had a member has that member to re-add there.
+	 * A No account row's actions: Create account, for an institution ready for one; View page, the
+	 * Institution Dashboard as that institution, the address an account row's View page opens, while
+	 * the page exists; then Manage members, on every row, since an institution provisioning will not
+	 * give its first account is given one there by hand, and one that has had a member has that member
+	 * to re-add there.
+	 *
+	 * View page is offered on a row with no account because the institution still has its Institution
+	 * Dashboard, which a manager opens as that institution through the switcher, as the Administrator
+	 * Dashboard links an institution.
 	 *
 	 * Create account is a nonce link to the module's handler for one institution, with the record ID
 	 * as Airtable writes it, case and all, the tab and where the list stands, so the handler comes back
@@ -683,15 +679,16 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	 * no use on another. The table is one form, so a row's action cannot be a form of its own.
 	 *
 	 * @param array $row The record row.
-	 * @return array<string, string> `create` and `members` => the links, `members` alone for a row that
-	 *                               is not ready, or nothing for a row that names no record.
+	 * @return array<string, string> `create`, `view` and `members` => the links, in that order: no
+	 *                               `create` for a row that is not ready, no `view` while the page is
+	 *                               missing, and nothing for a row that names no record.
 	 */
 	protected function record_row_actions( array $row ) {
-		$record  = ( isset( $row['id'] ) && is_scalar( $row['id'] ) ) ? (string) $row['id'] : '';
-		$members = $this->members_action( $record );
+		$record = ( isset( $row['id'] ) && is_scalar( $row['id'] ) ) ? (string) $row['id'] : '';
+		$links  = $this->view_action( $record ) + $this->members_action( $record );
 
 		if ( '' === $record || empty( $row['ready'] ) ) {
-			return $members;
+			return $links;
 		}
 
 		$action = WPCPM_Institutions::ACTION_PROVISION_ONE;
@@ -708,7 +705,33 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 			$action . '_' . $record
 		);
 
-		return array( 'create' => sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html__( 'Create account', 'wpcredits-program-manager' ) ) ) + $members;
+		return array( 'create' => sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html__( 'Create account', 'wpcredits-program-manager' ) ) ) + $links;
+	}
+
+	/**
+	 * View page, as action => link: the Institution Dashboard as one institution, through the
+	 * switcher's own argument, as the Administrator Dashboard links an institution; nothing while the
+	 * page is missing, or for a value that is no record ID, which names no institution to show.
+	 *
+	 * One address for both kinds of row: an account's institution and a No account row's record.
+	 *
+	 * @param string $record The institution's record ID, with its case.
+	 * @return array<string, string> `view` => the link, or nothing.
+	 */
+	private function view_action( $record ) {
+		$page = $this->dashboard();
+
+		if ( '' === $page || ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			return array();
+		}
+
+		return array(
+			'view' => sprintf(
+				'<a href="%1$s">%2$s</a>',
+				esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, rawurlencode( $record ), $page ) ),
+				esc_html__( 'View page', 'wpcredits-program-manager' )
+			),
+		);
 	}
 
 	/**
@@ -974,37 +997,35 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * The views, and on the No account view, above them, the gate while it applies and, while the view
-	 * lists an institution ready for an account, what a Create account sends.
+	 * Above the views, on the No account view: the gate while it applies and, while the view lists an
+	 * institution ready for an account, what a Create account sends.
 	 *
 	 * Above the views, the first part of the list the screen draws, so both are read before the list
 	 * and its search. What a Create account sends is said in words because the list's Apply has no
 	 * dialog to ask with, and an invitation cannot be recalled; over a view where nothing can be
 	 * created, it would warn of nothing.
 	 */
-	public function views() {
-		if ( self::VIEW_NO_ACCOUNT === $this->record_view() ) {
-			$this->render_gate();
-
-			if ( in_array( true, array_column( $this->worklist(), 'ready' ), true ) ) {
-				echo '<p>' . esc_html__( 'Creating an account emails a password-set link to the address Airtable holds for the institution. An invitation cannot be recalled once sent.', 'wpcredits-program-manager' ) . '</p>';
-			}
+	protected function list_intro() {
+		if ( self::VIEW_NO_ACCOUNT !== $this->record_view() ) {
+			return;
 		}
 
-		parent::views();
+		$this->render_gate();
+
+		if ( in_array( true, array_column( $this->worklist(), 'ready' ), true ) ) {
+			echo '<p>' . esc_html__( 'Creating an account emails a password-set link to the address Airtable holds for the institution. An invitation cannot be recalled once sent.', 'wpcredits-program-manager' ) . '</p>';
+		}
 	}
 
 	/**
-	 * The table, and on the No account view, under it, whether the sync creates these accounts too,
-	 * and when the index the view is read from was read.
+	 * Under the table, on the No account view: whether the sync creates these accounts too, and when
+	 * the index the view is read from was read.
 	 *
 	 * Which of the two ways in is live is said plainly: the same rule decides both, and a manager who
 	 * creates nothing here should still know whether accounts appear by the next sync. The view joins
 	 * the index, as old as the last sync, to the memberships, read now, and says which is which.
 	 */
-	public function display() {
-		parent::display();
-
+	protected function list_outro() {
 		if ( self::VIEW_NO_ACCOUNT !== $this->record_view() ) {
 			return;
 		}
@@ -1083,8 +1104,8 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 
 	/**
 	 * Where the list stands, which a row's links carry, so the press comes back to the same view,
-	 * search, sort and page: the Institutions screen's own reading of it, the one a press on the
-	 * ticked rows comes back through (`WPCPM_Institutions::list_state()`).
+	 * search, sort and page: the Institutions screen's reading of it, the accounts screen's own, which
+	 * a press on the ticked rows comes back through (`WPCPM_Institutions::list_state()`).
 	 *
 	 * @return array<string, string>
 	 */

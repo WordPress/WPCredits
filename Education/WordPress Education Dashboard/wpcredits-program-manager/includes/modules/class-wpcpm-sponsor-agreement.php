@@ -506,10 +506,12 @@ final class WPCPM_Sponsor_Agreement {
 
 	/**
 	 * A manager's decision on one document, in the request cards' own shape for the
-	 * Administrator Dashboard (1.96.1): Download, Accept, and a folded "Return with a note"
-	 * for a document waiting for review; "Put it back in force" for one out of force. The forms
-	 * post to the same handlers the wp-admin Sponsors screen uses, with the same nonces; the
-	 * return field brings the manager back to this card.
+	 * Administrator Dashboard (1.96.1): Download, Accept it, and a folded "Return with a note"
+	 * for a document waiting for review; Reinstate for one out of force. Accept it and Reinstate
+	 * ask before they post (`accept_question()`, `reinstate_question()`). The forms post to this
+	 * class's handlers, each under the nonce keyed to the document; of the three, the wp-admin
+	 * Sponsors screen draws only Reinstate, for a document past this card's list. The return field
+	 * brings the manager back to this card.
 	 *
 	 * @param int    $post_id The document.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -551,12 +553,12 @@ final class WPCPM_Sponsor_Agreement {
 		}
 
 		if ( self::STATE_REVOKED === $state ) {
-			self::render_decision_form( self::ACTION_REINSTATE, $post_id, __( 'Put it back in force', 'wpcredits-program-manager' ), 'button', $return );
+			self::render_decision_form( self::ACTION_REINSTATE, $post_id, __( 'Reinstate', 'wpcredits-program-manager' ), 'button', $return, self::reinstate_question() );
 			echo '</div>';
 			return;
 		}
 
-		self::render_decision_form( self::ACTION_ACCEPT, $post_id, __( 'Accept', 'wpcredits-program-manager' ), 'button button-primary', $return );
+		self::render_decision_form( self::ACTION_ACCEPT, $post_id, __( 'Accept it', 'wpcredits-program-manager' ), 'button button-primary', $return, self::accept_question( $post_id ) );
 
 		echo '<details class="wpcpm-sponsor-agreement__return">';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
@@ -579,7 +581,7 @@ final class WPCPM_Sponsor_Agreement {
 			(int) self::MAX_NOTE,
 			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' )
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back with this note', 'wpcredits-program-manager' ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
 		echo '</form>';
 		echo '</details>';
 		echo '</div>';
@@ -587,15 +589,20 @@ final class WPCPM_Sponsor_Agreement {
 
 	/**
 	 * One decision form of the dashboard row: the action, the nonce keyed to the document, the
-	 * document, the return field and one button.
+	 * document, the return field and one button, which may ask a question first.
+	 *
+	 * The question rides on the button, as the institution side's Accept asks on the same page: a
+	 * No stops the press before the form is sent, so the page's double-submit guard never sees a
+	 * press that went nowhere.
 	 *
 	 * @param string $action  The admin-post action.
 	 * @param int    $post_id The document.
 	 * @param string $label   The button.
 	 * @param string $css     The button's classes.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` or ''.
+	 * @param string $confirm The question asked before the form posts, or '' for none.
 	 */
-	private static function render_decision_form( $action, $post_id, $label, $css, $return ) {
+	private static function render_decision_form( $action, $post_id, $label, $css, $return, $confirm = '' ) {
 		printf( '<form class="wpcpm-sponsor-agreement__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( $action . '_' . (int) $post_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
@@ -605,8 +612,57 @@ final class WPCPM_Sponsor_Agreement {
 			WPCPM_Return::field( (string) $return, 'sponsor-agreements' );
 		}
 
-		printf( '<button type="submit" class="%1$s">%2$s</button>', esc_attr( $css ), esc_html( $label ) );
+		if ( '' !== (string) $confirm ) {
+			printf(
+				'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+				esc_attr( $css ),
+				esc_attr( wp_json_encode( (string) $confirm ) ),
+				esc_html( $label )
+			);
+		} else {
+			printf( '<button type="submit" class="%1$s">%2$s</button>', esc_attr( $css ), esc_html( $label ) );
+		}
+
 		echo '</form>';
+	}
+
+	/**
+	 * What Accept it asks before it acts: the company, what Airtable is set to, how many people at
+	 * the company are emailed, and where the agreement can be taken out of force again.
+	 *
+	 * Asked because the press writes Airtable and emails everybody at the company, and a mail
+	 * cannot be recalled. The count is the accounts the acceptance mails, as the review facts
+	 * count them.
+	 *
+	 * @param int $post_id The document waiting for review.
+	 * @return string The question, translated and not escaped.
+	 */
+	private static function accept_question( $post_id ) {
+		$facts   = self::review_facts( $post_id );
+		$members = isset( $facts['members'] ) ? (int) $facts['members'] : 0;
+
+		return sprintf(
+			/* translators: 1: company name, 2: number of people emailed. */
+			_n(
+				'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s person at the company is emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
+				'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s people at the company are emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
+				$members,
+				'wpcredits-program-manager'
+			),
+			isset( $facts['sponsor_name'] ) ? (string) $facts['sponsor_name'] : '',
+			number_format_i18n( $members )
+		);
+	}
+
+	/**
+	 * What Reinstate asks before it acts, on each page that offers it: the Administrator
+	 * Dashboard's card, and the Sponsors screen's Agreements tab for a document past that card's
+	 * list. One string both read, so the two pages cannot ask different questions.
+	 *
+	 * @return string The question, translated and not escaped.
+	 */
+	public static function reinstate_question() {
+		return __( 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -2416,7 +2472,7 @@ final class WPCPM_Sponsor_Agreement {
 
 		$site  = WPCPM_Mail::site_name();
 		$days  = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
-		$queue = admin_url( 'admin.php?page=wpcpm-sponsors' );
+		$queue = admin_url( 'admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements' );
 
 		$build = function () use ( $site, $facts, $days, $queue ) {
 			$lines = array(
@@ -2437,7 +2493,7 @@ final class WPCPM_Sponsor_Agreement {
 					),
 					number_format_i18n( $days )
 				),
-				__( 'Read it and accept or return it from the Sponsors screen:', 'wpcredits-program-manager' ),
+				__( 'Accept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:', 'wpcredits-program-manager' ),
 				$queue,
 			);
 

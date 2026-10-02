@@ -17,6 +17,9 @@
  *   off roster rows, and a finished student no longer says their track, so "finished this
  *   semester" is one number rather than one per track.
  * - **A viewer without the capability sees the refusal and no form.**
+ * - **Every item a wp-admin screen links to carries an id of its own**, an institution or a
+ *   sponsor application, a sponsor post, a sponsor agreement, so the link lands on the item
+ *   rather than on the top of its card; the decisions inside it are drawn as before.
  *
  * Run from the plugin root:  php bin/test-administrators-dashboard.php
  */
@@ -807,7 +810,7 @@ $int_no_page = capture( static function () { WPCPM_Administrators_Cards::render_
 // current page, only the title or the name in plain text (S6 review, finding 3).
 ck( 'and the renderers print no anchor when there is no page to link to, just the title and the name', array( has( $low_no_page, 'href=""' ), has( $low_no_page, 'Pro license' ), has( $int_no_page, 'href=""' ), has( $int_no_page, 'TEST Sponsor' ) ), array( false, true, false, true ) );
 unset( $GLOBALS['sponsor_page_url'] );
-ck( 'the syncs card lists the sponsors sync fourth, linking to the Sponsors screen', array( array_keys( $data['health']['syncs'] ), $data['health']['syncs']['sponsors']['label'], $data['health']['syncs']['sponsors']['last'], $data['health']['syncs']['sponsors']['next'], false !== strpos( $data['health']['syncs']['sponsors']['screen'], 'page=wpcpm-sponsors' ) ), array( array( 'students', 'mentors', 'institutions', 'sponsors' ), 'Sponsors', 1756880000, 1756990000 + 3600, true ) );
+ck( 'the syncs card lists the sponsors sync fourth, linking to the Sponsors screen at its Sponsors tab, where the sync is run', array( array_keys( $data['health']['syncs'] ), $data['health']['syncs']['sponsors']['label'], $data['health']['syncs']['sponsors']['last'], $data['health']['syncs']['sponsors']['next'], $data['health']['syncs']['sponsors']['screen'] ), array( array( 'students', 'mentors', 'institutions', 'sponsors' ), 'Sponsors', 1756880000, 1756990000 + 3600, 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=sponsors' ) );
 $low = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_offers_low( $data['offers_low'] ); } );
 ck( 'Offers running low is a card with a table: offer, sponsor, codes left, warns at, the offer linked to its sponsor\'s card', array( has( $low, 'id="wpcpm-offers-low"' ), has( $low, 'Offers running low' ), has( $low, '<table class="wpcpm-admin-table wpcpm-offers-low">' ), preg_match( '#<th scope="row"><a href="https://site\.example/sponsor-dashboard/\?wpcpm_sponsor_view=recSPN00000000001\#wpcpm-sponsor-offers">Pro license</a></th><td>TEST Sponsor</td><td>3</td><td>10</td>#', $low ) ), array( true, true, true, 1 ) );
 $empty_low = capture( static function () { WPCPM_Administrators_Cards::render_offers_low( array() ); } );
@@ -1226,6 +1229,43 @@ $GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );
 $out_sapp          = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a decision\'s flash is drawn in the application class\'s words, on the page it came back to', has( $out_sapp, 'The sponsor application is approved.' ), true );
 
+echo "\n=== Each item a wp-admin screen links to carries an id of its own ===\n";
+// The wp-admin screens read these four queues and link each item to its place here, where it is
+// decided: one attribute on the article each item already is, named for the item's post, with the
+// decision block drawn inside it as before, bound for this page. The agreements card's two lists
+// carry it alike, the document waiting to be read and the agreement out of force.
+$items_of = static function ( $html, $kind ) {
+	preg_match_all( '#<article class="wpcpm-administrator__item ' . preg_quote( $kind, '#' ) . '"(?: id="([^"]*)")?>(.*?)</article>#s', (string) $html, $found, PREG_SET_ORDER );
+	$out = array();
+	foreach ( $found as $item ) {
+		$out[ (string) $item[1] ] = $item[2];
+	}
+	ksort( $out );
+	return $out;
+};
+$app_items  = $items_of( $apps, 'wpcpm-application' );
+$post_items = $items_of( $sp, 'wpcpm-sponsor-post' );
+$agr_items  = $items_of( $sagr, 'wpcpm-sponsor-agreement' );
+$sapp_items = $items_of( $sapp, 'wpcpm-sponsor-application' );
+ck( 'each institution application carries its own id, the two open ones and the one folded closed', array_keys( $app_items ), array( 'wpcpm-application-501', 'wpcpm-application-502', 'wpcpm-application-503' ) );
+ck( 'each sponsor application, each sponsor post and each sponsor agreement, waiting or out of force, carries its own', array( array_keys( $sapp_items ), array_keys( $post_items ), array_keys( $agr_items ) ), array(
+	array( 'wpcpm-sponsor-application-950' ),
+	array( 'wpcpm-sponsor-post-905' ),
+	array( 'wpcpm-sponsor-agreement-880', 'wpcpm-sponsor-agreement-913' ),
+) );
+ck( 'and every one of them still draws its decisions inside it, bound for this page', array(
+	isset( $app_items['wpcpm-application-501'] ) && has( $app_items['wpcpm-application-501'], 'name="wpcpm_return" value="dashboard"' ) && has( $app_items['wpcpm-application-501'], 'value="wpcpm_app_spam"' ),
+	isset( $app_items['wpcpm-application-502'] ) && has( $app_items['wpcpm-application-502'], 'name="wpcpm_return" value="dashboard"' ),
+	isset( $sapp_items['wpcpm-sponsor-application-950'] ) && has( $sapp_items['wpcpm-sponsor-application-950'], 'data-post="950" data-return="dashboard"' ),
+	isset( $post_items['wpcpm-sponsor-post-905'] ) && has( $post_items['wpcpm-sponsor-post-905'], 'data-post="905" data-return="dashboard"' ),
+	isset( $agr_items['wpcpm-sponsor-agreement-913'] ) && has( $agr_items['wpcpm-sponsor-agreement-913'], 'data-post="913" data-return="dashboard"' ),
+	isset( $agr_items['wpcpm-sponsor-agreement-880'] ) && has( $agr_items['wpcpm-sponsor-agreement-880'], 'data-post="880" data-return="dashboard"' ),
+), array( true, true, true, true, true, true ) );
+// Counted off the markup rather than off the lists above, which are keyed by the id and would fold
+// two items with one id into one.
+preg_match_all( '#<article class="wpcpm-administrator__item [^"]*" id="([^"]*)">#', $apps . $sapp . $sp . $sagr, $printed_ids );
+ck( 'and no two items share one', array( count( $printed_ids[1] ), count( array_unique( $printed_ids[1] ) ) ), array( 7, 7 ) );
+
 /* ---- each institution card links its wp-admin tab ------------------------ */
 
 echo "\n=== Each institution card ends with the way to its tab on the Institutions screen ===\n";
@@ -1234,7 +1274,8 @@ echo "\n=== Each institution card ends with the way to its tab on the Institutio
 // line to the Institutions screen's tab that lists its items, on every draw of the card, an empty
 // one's too. The line a cut list prints says how many more there are and when they are listed (the
 // open list's as these are decided, the closed fold's as these are deleted or put back in the
-// queue), and links nowhere: the screen lists the same window. The sponsor cards print none yet.
+// queue), and links nowhere: the screen lists the same window. The sponsor cards end with the
+// Sponsors screen's line instead (below).
 $foot_line = function ( $tab ) {
 	return '<p class="wpcpm-administrator__more"><a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=' . $tab . '">Open on the Institutions screen</a></p></div></details></section>';
 };
@@ -1265,6 +1306,37 @@ ck( 'a cut list keeps its own line, unlinked, and the card still ends with its t
 	$ends_with( $capped_html, $foot_line( 'queue' ) ),
 ), array( true, true ) );
 ck( 'and none of the other cards prints one: the sponsor posts and the offers running low, full and empty, the interests, the duplicated students, the Sponsor Collaboration Agreements, full and empty, the sponsors strip and the sponsor applications', substr_count( $sp . $empty_sp . $low . $empty_low . $int . $dup . $sagr . $sagr_empty . $strip2 . $sapp, 'Open on the Institutions screen' ), 0 );
+
+/* ---- each sponsor card links its wp-admin tab ---------------------------- */
+
+echo "\n=== Each sponsor card ends with the way to its tab on the Sponsors screen ===\n";
+
+// The same line, to the Sponsors screen's tab that lists the card's items, on every draw of the card,
+// an empty one's too: the applications, the posts and the signed agreements wait on the queue tab,
+// each in a card of its own there, and each card's line opens that card, as the Overview's counts do.
+$sponsors_line = function ( $tab, $anchor = '' ) {
+	return '<p class="wpcpm-administrator__more"><a href="https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=' . $tab . ( '' !== $anchor ? '#' . $anchor : '' ) . '">Open on the Sponsors screen</a></p></div></details></section>';
+};
+$empty_sapp = capture( static function () { WPCPM_Administrators_Cards::render_sponsor_applications( array() ); } );
+$empty_int  = capture( static function () { WPCPM_Administrators_Cards::render_interests( array() ); } );
+ck( 'the six sponsor cards each end with one line to the tab that holds their items: the applications, the posts and the agreements the queue, each at its own card there, the offers running low Offers and codes, the interests Interests, the sponsors strip Sponsors', array(
+	$ends_with( $sapp, $sponsors_line( 'queue', 'wpcpm-sponsor-applications' ) ),
+	$ends_with( $sp, $sponsors_line( 'queue', 'wpcpm-sponsor-posts' ) ),
+	$ends_with( $sagr, $sponsors_line( 'queue', 'wpcpm-sponsor-agreements' ) ),
+	$ends_with( $low, $sponsors_line( 'offers' ) ),
+	$ends_with( $int, $sponsors_line( 'interests' ) ),
+	$ends_with( $strip2, $sponsors_line( 'sponsors' ) ),
+	substr_count( $sapp . $sp . $sagr . $low . $int . $strip2, 'Open on the Sponsors screen' ),
+), array( true, true, true, true, true, true, 6 ) );
+ck( 'and so does each of them with nothing in it', array(
+	$ends_with( $empty_sapp, $sponsors_line( 'queue', 'wpcpm-sponsor-applications' ) ),
+	$ends_with( $empty_sp, $sponsors_line( 'queue', 'wpcpm-sponsor-posts' ) ),
+	$ends_with( $sagr_empty, $sponsors_line( 'queue', 'wpcpm-sponsor-agreements' ) ),
+	$ends_with( $empty_low, $sponsors_line( 'offers' ) ),
+	$ends_with( $empty_int, $sponsors_line( 'interests' ) ),
+	substr_count( $empty_sapp . $empty_sp . $sagr_empty . $empty_low . $empty_int, 'Open on the Sponsors screen' ),
+), array( true, true, true, true, true, 5 ) );
+ck( 'and no institution card prints it', substr_count( $apps . $agr_html . $rep . $req . implode( '', $empty_cards ) . $capped_html, 'Open on the Sponsors screen' ), 0 );
 
 /* ---- the closed applications are counted, not loaded (FADMN-2) ----------- */
 

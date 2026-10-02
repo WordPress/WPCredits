@@ -677,35 +677,6 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Where the list stands, as the request says: its view, search, sort and page, each encoded, the
-	 * empty ones left out.
-	 *
-	 * What a press in the list comes back to (`list_url()`), and what each row's links carry, a
-	 * row's invitation and a row's Create account, so the press comes back to the same place.
-	 * Rebuilt from what the list reads rather than copied from the address, so the form's own fields
-	 * (its nonce, the ticked rows, the action chosen) are never carried. Each value is encoded,
-	 * because `add_query_arg()` sets a value as it is given.
-	 *
-	 * @return array<string, string>
-	 */
-	public static function list_state() {
-		return array_map(
-			static function ( $value ) {
-				return rawurlencode( (string) $value );
-			},
-			array_filter(
-				array(
-					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
-					's'          => WPCPM_Request::text( 's' ),
-					'orderby'    => WPCPM_Request::key( 'orderby' ),
-					'order'      => WPCPM_Request::key( 'order' ),
-					'paged'      => WPCPM_Request::id( 'paged' ),
-				)
-			)
-		);
-	}
-
-	/**
 	 * Before the screen draws its Accounts tab: the list, built and read as the accounts screen every
 	 * audience shares builds it (`WPCPM_Accounts_Screen::load_screen()`), unless the address names an
 	 * institution, whose Manage members view is drawn in the list's place.
@@ -2275,9 +2246,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The invitations' outcomes are worded once for every audience's accounts screen
 	 * (`accounts_messages()`), and they come back to the Accounts tab. Among them is `error`, which a
-	 * failed start of the sync leaves too: it is worded by the tab it comes back to, the sync's words,
-	 * which point to the last sync's error printed below them, on every tab but Accounts, and the
-	 * invitation's on Accounts, which prints no sync error.
+	 * failed start of the sync and a failed decision on the queue leave too: it is worded by the tab
+	 * it comes back to. The sync's words, which point to the last sync's error printed below them, on
+	 * the Sync and storage tab, the one that prints it; the invitation's on Accounts; and on the other
+	 * four, which print no error below, a sentence that sends the reader to the screen again.
 	 *
 	 * @param string $tab The tab shown.
 	 * @return array<string, array> Status => notice type and sentence.
@@ -2307,6 +2279,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// reviews it"), so this screen words it for the person who pressed.
 		$messages['agreement-uploaded'] = array( 'success', __( 'The signed agreement is uploaded. It waits on the Waiting for review tab, and everybody at the institution has been emailed that it arrived.', 'wpcredits-program-manager' ) );
 
+		// So is the one withdrawal, from the same view: the panel's sentence asks the institution to
+		// upload another whenever it is ready, and here a manager uploads the copy the institution sends.
+		$messages['agreement-withdrawn'] = array( 'success', __( 'The signed agreement is withdrawn and its file is deleted. Upload another from this view when the institution sends one.', 'wpcredits-program-manager' ) );
+
 		// The queue's own outcomes, kept beside the handlers that flash them for the reason
 		// the panel keeps the agreement route's: one list, in the words the reader gets.
 		$messages = array_merge( $messages, self::queue_messages() );
@@ -2321,6 +2297,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( self::TAB_ACCOUNTS !== $tab ) {
 			unset( $invitations['error'] );
+		}
+
+		// The sync's sentence for `error` points to the last sync's error, which the Sync and storage
+		// tab alone prints below it, and Accounts words it for the invitation; the other four tabs
+		// print no error below, so theirs points nowhere.
+		if ( self::TAB_ACCOUNTS !== $tab && self::TAB_SYNC !== $tab ) {
+			$messages['error'] = self::failed_message();
 		}
 
 		return array_merge( $messages, $invitations );
@@ -2739,7 +2722,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<ol class="wpcpm-queue">';
 
 		foreach ( $rows as $row ) {
-			$this->render_queue_row( $row, $dashboard );
+			$this->render_queue_row( $row );
 		}
 
 		echo '</ol>';
@@ -2748,7 +2731,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * One row of the queue, to be read: the decisions are the Administrator Dashboard's, and the
-	 * row ends with the way to the card there that makes them.
+	 * row ends with the way to its place there, an application's own item on the card that decides
+	 * it, a request's card, or nothing while the page is missing (`WPCPM_Return::render_dashboard_link()`).
 	 *
 	 * The age in words and the date in figures, because "4 days ago" is what a manager
 	 * triages by and the date is what they quote in an email. The country's contact is
@@ -2764,11 +2748,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * A request says what it asks for by its kind, then its note when one is stored
 	 * (`render_request_facts()`).
 	 *
-	 * @param array  $row       One row from `queue_rows()`.
-	 * @param string $dashboard The Administrator Dashboard's address, or '' while its page is
-	 *                          missing, when the row links nowhere.
+	 * @param array $row One row from `queue_rows()`.
 	 */
-	private function render_queue_row( array $row, $dashboard ) {
+	private function render_queue_row( array $row ) {
 		$overdue = ! empty( $row['overdue'] );
 
 		printf( '<li class="wpcpm-queue-item%s">', $overdue ? ' is-overdue' : '' );
@@ -2850,10 +2832,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html( self::application_state_label( (string) $row['state'] ) )
 			);
 
-			$this->render_open_on_dashboard( $dashboard, 'applications' );
+			// To its own item on the dashboard's applications card, which carries the application's
+			// id. The rows are the oldest QUEUE_MAX of the three kinds and the card lists the oldest
+			// WPCPM_Administrators_Cards::LIMIT open applications, in the same states and the same
+			// order, so every application row here is one the card lists while QUEUE_MAX is not
+			// above that LIMIT: the two are equal today.
+			WPCPM_Return::render_dashboard_link( 'applications', 'wpcpm-application-' . (int) $row['id'] );
 		} elseif ( 'request' === $row['kind'] ) {
 			$this->render_request_facts( $row );
-			$this->render_open_on_dashboard( $dashboard, 'requests' );
+			WPCPM_Return::render_dashboard_link( 'requests' );
 		} else {
 			// The review block, to be read: the checklist, the flags and the download link,
 			// drawn by the panel that owns every agreement control, so the queue and the
@@ -2913,31 +2900,6 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		if ( '' !== (string) $row['note'] ) {
 			printf( '<p>%s</p>', esc_html( (string) $row['note'] ) );
 		}
-	}
-
-	/**
-	 * "Open on the Administrator Dashboard", to the card there that decides a row.
-	 *
-	 * The address is built the way `WPCPM_Return::url()` builds the one a decision posted on
-	 * the dashboard comes back to, the page, then `#wpcpm-` and the card's id, so the way in
-	 * and the way back land on the same card. An application or a request from an institution
-	 * carries no anchor of its own there, so its card is as near as a link can go. Nothing is printed
-	 * while the page is missing, which the caller says in its own place, and nothing for a card
-	 * id the dashboard does not have.
-	 *
-	 * @param string $dashboard The Administrator Dashboard's address, or '' while its page is missing.
-	 * @param string $card      The card's id, one of `WPCPM_Return::ANCHORS`.
-	 */
-	private function render_open_on_dashboard( $dashboard, $card ) {
-		if ( '' === (string) $dashboard || ! in_array( (string) $card, WPCPM_Return::ANCHORS, true ) ) {
-			return;
-		}
-
-		printf(
-			'<p><a href="%1$s">%2$s</a></p>',
-			esc_url( $dashboard . '#wpcpm-' . $card ),
-			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
-		);
 	}
 
 	/**
@@ -3452,17 +3414,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * otherwise be beyond reach until older rows aged out. An approved one keeps Delete for good
 	 * alone, as the dashboard never lists it.
 	 *
-	 * An open application the dashboard's applications card lists is decided there, linked, and
-	 * the sentence says so. The card lists the oldest `WPCPM_Administrators_Cards::LIMIT` open
-	 * applications, read from that class because it is the number the card cuts at, so one opened by
-	 * its address while that many older ones wait is on no card at all: it is decided here, with the
-	 * four decisions the card draws, under the sentence that says why, and each press comes back to
-	 * the queue, which prints its outcome. None of that needs the dashboard's page, so it keeps them
-	 * while the page is missing too, as a closed one keeps its record-keeping. Its place is one read
-	 * of the open IDs, oldest first, which is cheap on a view of one application. An application in
-	 * a state no decision writes is on no list, so it is told only where applications are decided,
-	 * with the way there. While the dashboard's page is missing there is no card to speak of for
-	 * the rest, and the sentence its class keeps for that stands in the link's place.
+	 * An open application the dashboard's applications card lists is decided there, linked to its
+	 * own item on the card, and the sentence says so. The card lists the oldest
+	 * `WPCPM_Administrators_Cards::LIMIT` open applications, read from that class because it is the
+	 * number the card cuts at, so one opened by its address while that many older ones wait is on no
+	 * card at all: it is decided here, with the four decisions the card draws, under the sentence
+	 * that says why, and each press comes back to the queue, which prints its outcome. None of that
+	 * needs the dashboard's page, so it keeps them while the page is missing too, as a closed one
+	 * keeps its record-keeping. Its place is one read of the open IDs, oldest first, which is cheap
+	 * on a view of one application. An application in a state no decision writes is on no list, so
+	 * it is told only where applications are decided, with the way there. While the dashboard's page
+	 * is missing there is no card to speak of for the rest, and the sentence its class keeps for
+	 * that stands in the link's place.
 	 *
 	 * @param WP_Post $post  The application.
 	 * @param string  $state Its state.
@@ -3538,7 +3501,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		printf( '<p>%s</p>', esc_html( implode( ' ', $said ) ) );
 
-		$this->render_open_on_dashboard( $dashboard, 'applications' );
+		// To its own item on the card, which carries the application's id, when the card lists it.
+		WPCPM_Return::render_dashboard_link( 'applications', false !== $place ? 'wpcpm-application-' . (int) $post->ID : '' );
 	}
 
 	/**

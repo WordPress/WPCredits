@@ -671,8 +671,8 @@ foreach ( array( 'wpcpm_student', 'wpcpm_mentor', 'wpcpm_institution', 'wpcpm_sp
 	$GLOBALS['roles'][ $role ] = new WP_Role( $role, array( 'read' => true, $program_caps[ $i ] => true ) );
 }
 
-// A program manager who chose how many Student, Mentor, Institution and Administrator accounts a
-// page shows: core keeps each choice as user meta.
+// A program manager who chose how many Student, Mentor, Institution, Sponsor and Administrator
+// accounts a page shows: core keeps each choice as user meta.
 $admin   = a_user(
 	array( 'administrator' ),
 	array(),
@@ -680,6 +680,7 @@ $admin   = a_user(
 		'wpcpm_students_per_page'       => 50,  // WPCPM_Students::PER_PAGE_OPTION.
 		'wpcpm_mentors_per_page'        => 100, // WPCPM_Mentors::PER_PAGE_OPTION.
 		'wpcpm_institutions_per_page'   => 30,  // WPCPM_Institutions::PER_PAGE_OPTION.
+		'wpcpm_sponsors_per_page'       => 40,  // WPCPM_Sponsors::PER_PAGE_OPTION.
 		'wpcpm_administrators_per_page' => 20,  // WPCPM_Administrators::PER_PAGE_OPTION.
 	)
 );
@@ -795,7 +796,7 @@ ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) 
 echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
-ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution and Administrator accounts go too', $GLOBALS['umeta'][ $admin ], array() );
+ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts go too', $GLOBALS['umeta'][ $admin ], array() );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
 
@@ -871,6 +872,7 @@ $names = array(
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
 	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',
 	'WPCPM_Institutions::PER_PAGE_OPTION'           => 'wpcpm_institutions_per_page',
+	'WPCPM_Sponsors::PER_PAGE_OPTION'               => 'wpcpm_sponsors_per_page',
 	'WPCPM_Administrators::PER_PAGE_OPTION'         => 'wpcpm_administrators_per_page',
 	'WPCPM_Flash::META'                             => 'wpcpm_flash',
 	'WPCPM_Student_Report_Form::META_IMAGES'        => '_wpcpm_report_images',

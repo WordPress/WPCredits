@@ -32,11 +32,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * - through `static::`, the constants a trait cannot hold on PHP 7.4: `TABS`, `TAB_ACCOUNTS`,
  *   `TAB_SYNC`, `PER_PAGE_OPTION`, `FLASH_DETAIL` and `ACTION_INVITE`;
- * - the audience's accounts table (`table_class()`), where its list stands (`list_state()`), the
- *   words the screen prints for the audience (`screen_words()`) and the audience's own page on the
- *   site (`dashboard_url()`);
+ * - the audience's accounts table (`table_class()`), the words the screen prints for the audience
+ *   (`screen_words()`) and the audience's own page on the site (`dashboard_url()`);
  * - its Sync tab (`render_tab_sync()`) and its invitations card (`render_invitations()`), which
  *   differ from audience to audience.
+ *
+ * Two more it reads have a default here, which a module replaces with its own where its audience
+ * differs: where the list stands (`list_state()`), for a list that reads more or less than the five
+ * values every list shares, and how one account is sent its invitation (`invite_one()`), for an
+ * audience its sync does not invite.
  *
  * Only the three methods that draw the tabs read what a screen with a Sync tab and invitations has
  * (`TAB_SYNC`, `render_tab_sync()`, `render_invitations()`): a module that replaces those three,
@@ -97,14 +101,38 @@ trait WPCPM_Accounts_Screen {
 	abstract protected function dashboard_url();
 
 	/**
-	 * Where the list stands, as the request says, each value encoded and the empty ones left out:
-	 * what a press in the list comes back to (`list_url()`), and what each row's invitation link
-	 * carries. The module's own, because each audience narrows its list by its own filters; public,
-	 * because the audience's table reads it too.
+	 * Where the list stands, as the request says: its view, search, sort and page, each encoded, the
+	 * empty ones left out.
+	 *
+	 * What a press in the list comes back to (`list_url()`), and what each row's links carry, a row's
+	 * invitation and, on a record view, a row's own action such as Create account, so the press comes
+	 * back to the same place. Rebuilt from what the list reads rather than copied from the address,
+	 * so the form's own fields (its nonce, the ticked rows, the action chosen) are never carried. Each
+	 * value is encoded, because `add_query_arg()` sets a value as it is given. Public, because the
+	 * audience's table reads it too.
+	 *
+	 * The reading every list shares. A module whose list reads more or less writes its own, which
+	 * replaces this one: the Students module, whose list is narrowed by its institution too, and the
+	 * Administrators module, whose list has one view and so no view to keep.
 	 *
 	 * @return array<string, string>
 	 */
-	abstract public static function list_state();
+	public static function list_state() {
+		return array_map(
+			static function ( $value ) {
+				return rawurlencode( (string) $value );
+			},
+			array_filter(
+				array(
+					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
+					's'          => WPCPM_Request::text( 's' ),
+					'orderby'    => WPCPM_Request::key( 'orderby' ),
+					'order'      => WPCPM_Request::key( 'order' ),
+					'paged'      => WPCPM_Request::id( 'paged' ),
+				)
+			)
+		);
+	}
 
 	/**
 	 * The screen's two hooks, which the module adds as it boots.
@@ -185,23 +213,31 @@ trait WPCPM_Accounts_Screen {
 	 * What the list's form sent, if it was sent: a bulk action, or a search, a view, a sort, a page
 	 * or a filter of the audience's own.
 	 *
-	 * Send invite and Resend invite go through the capability and the list's nonce before anything
-	 * else of the request is read. So does any other bulk action the audience's table carries out
-	 * itself, such as Create account on a view of the records that have no account: the table says
-	 * whether the action is its own by the action's name alone (`WPCPM_Accounts_Table::owns_action()`),
-	 * and carries it out only once both are checked (`handle_action()`). What came of it is flashed
-	 * and the press comes back to the list (`leave()`), whose tab prints the outcome from its message
-	 * map, which has to hold it: in the table's own words for it where it has any
-	 * (`action_sentence()`), and otherwise in the map's, never in the invitations'
-	 * (`notice_sentence()`). The action is the table's to name and to carry out, so this holds no
-	 * branch for any one audience's, and an action no table owns does nothing. Anything else sent from
-	 * the form comes back to the same list without the form's own fields, as core's own lists do, so
-	 * the nonce never stays in the address or in the page and sort links built from it.
+	 * Send invite and Resend invite go through the capability and the list's nonce before anything of
+	 * the request is read but the action and whether Apply sent it. So does any other bulk action the
+	 * audience's table carries out itself, such as Create account on a view of the records that have
+	 * no account: the table says whether the action is its own by the action's name alone
+	 * (`WPCPM_Accounts_Table::owns_action()`), and carries it out only once both are checked
+	 * (`handle_action()`). What came of it is flashed and the press comes back to the list
+	 * (`leave()`), whose tab prints the outcome from its message map, which has to hold it: in the
+	 * table's own words for it where it has any (`action_sentence()`), and otherwise in the map's,
+	 * never in the invitations' (`notice_sentence()`). The action is the table's to name and to carry
+	 * out, so this holds no branch for any one audience's, and an action no table owns does nothing.
+	 * Anything else sent from the form comes back to the same list without the form's own fields, as
+	 * core's own lists do, so the nonce never stays in the address or in the page and sort links built
+	 * from it.
+	 *
+	 * **On WordPress 6.7 or later, the action chosen runs only when Apply sent the form**
+	 * (`apply_pressed()`). The bulk select's choice travels with every submission of the form, so a
+	 * search pressed with an action chosen and rows ticked would otherwise carry the action out on
+	 * those rows. A request Apply did not send is the form's other kind of submission, and comes back
+	 * to the list like any other. Below 6.7 a request cannot say which press sent it, and core's own
+	 * behavior stands.
 	 *
 	 * @param WPCPM_Accounts_Table $table The table the form belongs to.
 	 */
 	private function handle_list_form( WPCPM_Accounts_Table $table ) {
-		$action = $table->current_action();
+		$action = self::apply_pressed() ? $table->current_action() : false;
 
 		if ( 'invite' === $action || 'reinvite' === $action ) {
 			$this->verify( $table::bulk_nonce_action() );
@@ -218,6 +254,29 @@ trait WPCPM_Accounts_Screen {
 			wp_safe_redirect( $this->list_url() );
 			exit;
 		}
+	}
+
+	/**
+	 * Whether the list's form was sent by its Apply button, the one press that may carry out the bulk
+	 * action chosen in it.
+	 *
+	 * Core reads the bulk select's choice from the request whatever sent the form
+	 * (`WP_List_Table::current_action()`). From WordPress 6.7 core names the Apply button
+	 * `bulk_action`, so a request Apply sent says so and one sent by the search, or by Enter in a
+	 * field, does not. Below 6.7 core prints the button unnamed and the request cannot say which press
+	 * sent it, so the answer there is yes, and core's own behavior stands.
+	 *
+	 * What it gives up, on 6.7 or later: Enter pressed inside the bulk select no longer applies the
+	 * action. Apply has to be pressed.
+	 *
+	 * @return bool
+	 */
+	private static function apply_pressed() {
+		if ( version_compare( get_bloginfo( 'version' ), '6.7', '<' ) ) {
+			return true;
+		}
+
+		return '' !== WPCPM_Request::text( 'bulk_action' );
 	}
 
 	/**
@@ -242,25 +301,44 @@ trait WPCPM_Accounts_Screen {
 	 * Email one person on the list their login invitation.
 	 *
 	 * From a row of the list, whose invitation is a link carrying the account as `user`, where the list
-	 * stands and the handler's nonce, or from a form that posts the account as `user_id`, as each row
-	 * did before the list became one form. Sent at once by the module's own sync (`sync_class()`), as
-	 * it always was for one person, then back to the list as the link says it stood, on the Accounts
-	 * tab, the way a press on the ticked accounts comes back (`list_url()`); a posted form carries no
-	 * list, and comes back to the tab itself.
+	 * stands and the handler's nonce. The account is read from that link alone: no form in the plugin
+	 * posts one, so a request that names no account is checked against a nonce no link carries, and
+	 * dies there. The nonce is the handler's own action keyed to the account (`ACTION_INVITE`, then
+	 * `_` and the account's ID), as a row's Create account is keyed to its record, so a link taken from
+	 * one row is no use on another. The account is read before the capability is decided only because
+	 * the nonce is keyed to it; nothing is done with it until both checks have passed (`verify()`).
+	 *
+	 * Sent at once (`invite_one()`), as it always was for one person, then back to the list as the
+	 * link says it stood, on the Accounts tab, the way a press on the ticked accounts comes back
+	 * (`list_url()`).
 	 */
 	public function handle_invite() {
-		$this->verify( static::ACTION_INVITE );
+		$user_id = WPCPM_Request::id( 'user' );
 
-		$user_id = WPCPM_Request::posted_id( 'user_id' );
+		$this->verify( static::ACTION_INVITE . '_' . $user_id );
 
-		if ( ! $user_id ) {
-			$user_id = WPCPM_Request::id( 'user' );
-		}
-
-		$sync   = $this->sync_class();
-		$result = $sync::send_invite( $user_id );
+		$result = $this->invite_one( $user_id );
 
 		$this->leave( $this->list_url(), WPCPM_Mail::invite_outcome( $result ) );
+	}
+
+	/**
+	 * Send one account its invitation now, and say what came of it, in the shape
+	 * `WPCPM_Mail::invite_outcome()` words: true, or the error the send answered.
+	 *
+	 * The module's own sync sends it (`sync_class()`), as it always has for one person. A module whose
+	 * audience is invited by another class than its sync answers this itself.
+	 *
+	 * Reached only from a row's invitation link, once the capability and the nonce keyed to the
+	 * account have both been checked (`handle_invite()`).
+	 *
+	 * @param int $user_id The account.
+	 * @return true|WP_Error
+	 */
+	protected function invite_one( $user_id ) {
+		$sync = $this->sync_class();
+
+		return $sync::send_invite( $user_id );
 	}
 
 	/**

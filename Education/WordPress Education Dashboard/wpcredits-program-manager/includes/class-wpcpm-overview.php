@@ -59,59 +59,47 @@ final class WPCPM_Overview {
 
 	/**
 	 * Where each count on the waiting list opens: the attention strip's tile key => the address of
-	 * the place that lists the tile's queue, a wp-admin screen for every tile but one.
-	 *
-	 * The sponsor posts open their card on the Administrator Dashboard, the one place that lists them
-	 * with the decision each waits for: none of the plugin's wp-admin screens lists them, since the
-	 * Sponsors screen counts them for its menu bubble and draws none. The day the Sponsors screen
-	 * gains a tab that lists them, this key points there instead. While the dashboard's page is
-	 * missing the key is left out, so the count is listed unlinked rather than sent to a page that
-	 * is not there.
+	 * the wp-admin screen that lists the tile's queue.
 	 *
 	 * The institutions' counts open the Institutions screen at the tab for each, named even where
 	 * it is the queue the screen opens on, so each address says where it goes: the applications,
 	 * the agreements and the mentor requests at Waiting for review, the semester reports to draft
-	 * and to review at Semester reports, and the locked accounts at Accounts.
+	 * and to review at Semester reports, and the locked accounts at Accounts. The sponsors' counts
+	 * open the Sponsors screen the same way: the applications, the sponsor posts and the signed
+	 * agreements at Waiting for review, each at the card there that lists it, and the offers running
+	 * low at Offers and codes. Every count opens a wp-admin screen, so none of them depends on the
+	 * Administrator Dashboard's page being there.
 	 *
 	 * One map, so pointing a count at another screen, or at a tab of one, is an edit here and
-	 * nowhere else. Every tile `counts()` returns has a place in it while the dashboard's page is
-	 * published, which bin/test-overview.php holds the two lists to; a tile it does not place is
-	 * still listed, unlinked.
+	 * nowhere else. Every tile `counts()` returns has a place in it, which bin/test-overview.php
+	 * holds the two lists to; a tile it does not place is still listed, unlinked.
 	 *
 	 * @return array<string, string> Tile key => full address, not escaped.
 	 */
 	public static function targets() {
-		$queue     = admin_url( 'admin.php?page=wpcpm-institutions&tab=queue' );
-		$reports   = admin_url( 'admin.php?page=wpcpm-institutions&tab=reports' );
-		$accounts  = admin_url( 'admin.php?page=wpcpm-institutions&tab=accounts' );
-		$sponsors  = admin_url( 'admin.php?page=wpcpm-sponsors' );
-		$dashboard = WPCPM_Administrators_Dashboard::page_url();
+		$institution_queue    = admin_url( 'admin.php?page=wpcpm-institutions&tab=queue' );
+		$institution_reports  = admin_url( 'admin.php?page=wpcpm-institutions&tab=reports' );
+		$institution_accounts = admin_url( 'admin.php?page=wpcpm-institutions&tab=accounts' );
+		$sponsor_queue        = admin_url( 'admin.php?page=wpcpm-sponsors&tab=queue' );
+		$sponsor_offers       = admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' );
 
-		$targets = array(
-			'applications'         => $queue,
-			'agreements'           => $queue,
-			'overdue_agreements'   => $queue,
-			'drafts'               => $reports,
-			'due'                  => $reports,
-			'requests'             => $queue,
-			'overdue_requests'     => $queue,
+		return array(
+			'applications'         => $institution_queue,
+			'agreements'           => $institution_queue,
+			'overdue_agreements'   => $institution_queue,
+			'drafts'               => $institution_reports,
+			'due'                  => $institution_reports,
+			'requests'             => $institution_queue,
+			'overdue_requests'     => $institution_queue,
 			// Institution members, whose write path the roster's refusal ceiling locked for the day.
-			'locked'               => $accounts,
-			// The card's own anchor, the one the strip's tile for it jumps to.
-			'sponsor_posts'        => $dashboard . '#wpcpm-sponsor-posts',
-			'sponsor_agreements'   => $sponsors,
-			'sponsor_applications' => $sponsors,
-			'offers_low'           => $sponsors,
+			'locked'               => $institution_accounts,
+			// Each at its own card on the queue tab, the id the card carries there.
+			'sponsor_posts'        => $sponsor_queue . '#wpcpm-sponsor-posts',
+			'sponsor_agreements'   => $sponsor_queue . '#wpcpm-sponsor-agreements',
+			'sponsor_applications' => $sponsor_queue . '#wpcpm-sponsor-applications',
+			'offers_low'           => $sponsor_offers,
 			'duplicates'           => admin_url( 'admin.php?page=wpcpm-tool-duplicate-finder' ),
 		);
-
-		// Without the page there is no card to open: the anchor alone would point back at this screen,
-		// which has no such card.
-		if ( '' === $dashboard ) {
-			unset( $targets['sponsor_posts'] );
-		}
-
-		return $targets;
 	}
 
 	/**

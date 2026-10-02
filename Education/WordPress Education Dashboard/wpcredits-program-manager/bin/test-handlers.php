@@ -172,6 +172,20 @@ function check_admin_referer( $a = '', $q = '' ) {
 
 	return true;
 }
+// The nonce a request made in the background carries fails on the same switch, and dies as
+// WordPress's does there: with -1 (`wp_die( -1, 403 )` under `wp_doing_ajax()`), not the
+// sentence, since no page is drawn for a script.
+function check_ajax_referer( $a = -1, $q = false, $stop = true ) {
+	if ( empty( $GLOBALS['nonce_fails'] ) ) {
+		return 1;
+	}
+
+	if ( $stop ) {
+		throw new DieSignal( '-1' );
+	}
+
+	return false;
+}
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo ''; }
 function wp_verify_nonce( $n, $a = '' ) { return 1; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
@@ -185,6 +199,15 @@ function get_users( $a = array() ) {
 		$out = array();
 		foreach ( $GLOBALS['users'] as $id => $u ) {
 			if ( ( $GLOBALS['umeta'][ $id ][ $a['meta_key'] ] ?? null ) === $a['meta_value'] ) { $out[] = $u; }
+		}
+		return $out;
+	}
+	// Asked for IDs, as the invitations card asks who was never invited: the accounts holding the
+	// role asked for, as their IDs; the stamps it asks about are not read here.
+	if ( isset( $a['fields'] ) && 'ID' === $a['fields'] ) {
+		$out = array();
+		foreach ( $GLOBALS['users'] as $id => $u ) {
+			if ( ! isset( $a['role'] ) || in_array( $a['role'], (array) $u->roles, true ) ) { $out[] = (int) $id; }
 		}
 		return $out;
 	}
@@ -432,6 +455,12 @@ if ( empty( $requires[1] ) ) {
 // needs one (`wpcpm_load_accounts_tables()`). They extend core's list table and load core's file
 // when the class is missing; there is no wp-admin here to load it from, so the stand-in comes first.
 require_once __DIR__ . '/stubs/class-wp-list-table.php';
+
+/**
+ * The plugin's lazy loader, which a handler calls before it reads a list's role and stamps: the
+ * tables are in the require list read below, so it has nothing left to load here.
+ */
+function wpcpm_load_accounts_tables() {}
 
 foreach ( $requires[1] as $rel ) {
 	// The CLI command class expects WP_CLI to exist; it is not part of any handler path.
@@ -2476,21 +2505,119 @@ $sponsors = new WPCPM_Sponsors();
 
 $GLOBALS['uid']  = 1;
 $GLOBALS['caps'] = true;
-$_POST           = array( 'wpcpm_sponsor' => 'recSPONSOR0000001' );
+// Each press posts the tab its form on the screen names, as the screen's forms do, so where it lands
+// is read too: back on that tab, whatever the outcome. Create account comes back to the Accounts
+// tab's list, which is where it is pressed, from a row's link or a form that posts the sponsor.
+$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_tab' => 'accounts' );
 
 run( 'handle_provision (manager, sponsor not yet indexed)', array( $sponsors, 'handle_provision' ) );
+check( 'handle_provision, posted, comes back to the Accounts tab', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
 
-$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_op' => 'eat' );
+// A row's Create account is a link: the sponsor arrives in the query string, beside where the list
+// stood, and nothing is posted.
+$_POST = array();
+$_GET  = array( 'action' => 'wpcpm_sponsor_provision', 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_tab' => 'accounts', 'wpcpm_view' => 'no-account' );
+
+run( 'handle_provision (manager, from a row\'s link)', array( $sponsors, 'handle_provision' ) );
+check( 'handle_provision, from a row\'s link, comes back to the list as it stood', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_view=no-account' );
+
+// A row's invitation is a link too, naming the account; the invitations card's button posts its tab.
+$_GET = array( 'action' => 'wpcpm_sponsors_invite', 'user' => 999, 'wpcpm_tab' => 'accounts' );
+
+run( 'handle_invite (manager, no such account)', array( $sponsors, 'handle_invite' ) );
+check( 'handle_invite comes back to the Accounts tab', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
+
+$_GET  = array();
+$_POST = array( 'wpcpm_tab' => 'accounts' );
+
+run( 'handle_bulk_invite (manager, nobody to invite)', array( $sponsors, 'handle_bulk_invite' ) );
+check( 'handle_bulk_invite comes back to the Accounts tab', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
+
+// Remove and Attach account are pressed on one sponsor's accounts, and post its record beside the
+// Accounts tab: the press comes back to that sponsor's accounts, whatever the outcome. One that
+// names the tab and no sponsor comes back to the tab itself.
+$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_op' => 'eat', 'wpcpm_tab' => 'accounts' );
 
 run( 'handle_members (manager, an op that is not one)', array( $sponsors, 'handle_members' ) );
+check( 'handle_members comes back to the accounts of the sponsor its form names, on the Accounts tab', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=recSPONSOR0000001' );
 
-// Capability before nonce: somebody without it meets wp_die(), not a nonce screen.
-$GLOBALS['caps'] = false;
+$_POST = array( 'wpcpm_op' => 'eat', 'wpcpm_tab' => 'accounts' );
 
-run( 'handle_provision (no capability)', array( $sponsors, 'handle_provision' ) );
-run( 'handle_members (no capability)', array( $sponsors, 'handle_members' ) );
+run( 'handle_members (manager, no sponsor named)', array( $sponsors, 'handle_members' ) );
+check( 'handle_members naming no sponsor comes back to the Accounts tab itself', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
 
-$GLOBALS['caps'] = true;
+// Capability before nonce, and the nonce before anything else, on every handler of the screen.
+// Each is found by name, so a handler added later is pressed too and has to be named below with
+// the two answers it gives. Each is pressed twice, the nonce failing both times: by a student, who
+// holds `read` and not the program's capability, who must meet the capability's sentence and not
+// the nonce's; and by a manager, who must meet WordPress's own sentence for a failed nonce, which
+// a handler that lost its nonce check, or did its work before it, could not give. The stand-in
+// fails a nonce whatever its action, so the handlers whose nonce is keyed to a posted sponsor, an
+// offer and a person, or a linked account need none of those fields to meet it.
+$sponsor_handlers = array();
+
+foreach ( get_class_methods( $sponsors ) as $method ) {
+	if ( 0 === strpos( $method, 'handle_' ) ) {
+		$sponsor_handlers[ $method ] = array( $sponsors, $method );
+	}
+}
+
+ksort( $sponsor_handlers );
+
+$no_right = 'You do not have permission to manage the program.';
+$expired  = 'The link you followed has expired.';
+
+// The progress bar's tick is the one handler asked in the background, by the screen's own script,
+// and it answers as a background request is answered: the capability's sentence in a JSON error
+// with a 403, for the script to show, and a failed nonce with check_ajax_referer()'s -1.
+$sponsor_refusals = array(
+	'handle_bulk_invite' => array( $no_right, $expired ),
+	'handle_cancel'      => array( $no_right, $expired ),
+	'handle_claim_void'  => array( $no_right, $expired ),
+	'handle_invite'      => array( $no_right, $expired ),
+	'handle_members'     => array( $no_right, $expired ),
+	'handle_provision'   => array( $no_right, $expired ),
+	'handle_seed'        => array( $no_right, $expired ),
+	'handle_sync'        => array( $no_right, $expired ),
+	'handle_tick'        => array( array( 'success' => false, 'data' => array( 'message' => $no_right ), 'status' => 403 ), '-1' ),
+);
+
+check( 'the screen\'s handlers, each found by name, are the nine named here with their refusals', array_keys( $sponsor_handlers ), array_keys( $sponsor_refusals ) );
+
+$GLOBALS['nonce_fails'] = true;
+$GLOBALS['grants'][30]  = array( 'read' );
+
+flashed( 1, WPCPM_Sponsors::FLASH );
+
+foreach ( $sponsor_handlers as $method => $handler ) {
+	$GLOBALS['uid']       = 30;
+	$GLOBALS['caps']      = false;
+	$GLOBALS['json_sent'] = null;
+
+	run( $method . ' (a student, and the nonce fails too)', $handler );
+
+	$student_answer       = 'json' === $GLOBALS['died_with'] ? $GLOBALS['json_sent'] : $GLOBALS['died_with'];
+	$GLOBALS['uid']       = 1;
+	$GLOBALS['caps']      = true;
+	$GLOBALS['json_sent'] = null;
+
+	run( $method . ' (manager, a nonce that fails)', $handler );
+
+	$manager_answer = 'json' === $GLOBALS['died_with'] ? $GLOBALS['json_sent'] : $GLOBALS['died_with'];
+
+	check( $method . ' refuses the student on the capability before the nonce, and the manager on the nonce before anything else',
+	    array( $student_answer, $manager_answer ),
+	    $sponsor_refusals[ $method ] ?? null );
+}
+
+check( 'and none of those presses queued a notice for the student or the manager',
+    array( flashed( 30, WPCPM_Sponsors::FLASH ), flashed( 1, WPCPM_Sponsors::FLASH ) ),
+    array( '', '' ) );
+
+unset( $GLOBALS['grants'][30] );
+$GLOBALS['nonce_fails'] = false;
+$GLOBALS['caps']        = true;
+$GLOBALS['uid']         = 1;
 
 echo "\n=== The Sponsors module's offers, codes, claims and usage (Phase S2) ===\n";
 
@@ -2506,11 +2633,16 @@ run( 'handle_state (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'h
 run( 'handle_codes_add (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_codes_add' ) );
 run( 'handle_codes_void (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_codes_void' ) );
 run( 'handle_export (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Usage', 'handle_export' ) );
-run( 'handle_seed (sponsor not yet indexed)', array( $sponsors, 'handle_seed' ) );
 
-$_POST = array( 'wpcpm_offer' => 0, 'wpcpm_user' => 30 );
+$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_tab' => 'offers' );
+
+run( 'handle_seed (sponsor not yet indexed)', array( $sponsors, 'handle_seed' ) );
+check( 'handle_seed comes back to the Offers and codes tab its form names', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers' );
+
+$_POST = array( 'wpcpm_offer' => 0, 'wpcpm_user' => 30, 'wpcpm_tab' => 'offers' );
 
 run( 'handle_claim_void (no such offer)', array( $sponsors, 'handle_claim_void' ) );
+check( 'handle_claim_void comes back to the Offers and codes tab its form names', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers' );
 
 $GLOBALS['uid']  = 30;
 $GLOBALS['caps'] = false;

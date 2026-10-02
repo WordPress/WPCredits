@@ -264,35 +264,6 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Where the list stands, as the request says: its view, search, sort and page, each encoded, the
-	 * empty ones left out.
-	 *
-	 * What a press in the list comes back to (`list_url()`), and what each row's invitation link
-	 * carries, so the invitation comes back to the same place. Rebuilt from what the list reads rather
-	 * than copied from the address, so the form's own fields (its nonce, the ticked accounts, the
-	 * action chosen) are never carried. Each value is encoded, because `add_query_arg()` sets a value
-	 * as it is given.
-	 *
-	 * @return array<string, string>
-	 */
-	public static function list_state() {
-		return array_map(
-			static function ( $value ) {
-				return rawurlencode( (string) $value );
-			},
-			array_filter(
-				array(
-					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
-					's'          => WPCPM_Request::text( 's' ),
-					'orderby'    => WPCPM_Request::key( 'orderby' ),
-					'order'      => WPCPM_Request::key( 'order' ),
-					'paged'      => WPCPM_Request::id( 'paged' ),
-				)
-			)
-		);
-	}
-
-	/**
 	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the last run's
 	 * error, the warning while names are still unread, the Airtable sync card and the last run's
 	 * report.

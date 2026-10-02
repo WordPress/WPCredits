@@ -278,8 +278,10 @@ final class WPCPM_Administrators_Cards {
 	 * Sponsor Collaboration Agreements: each document waiting for review with who uploaded it,
 	 * when, its size, what the scan noticed and how many accounts the company has, then the
 	 * decision drawn by the agreement class; below, the agreements out of force with the way
-	 * back. Nothing is decided here that the wp-admin Sponsors screen does not decide the same
-	 * way (spec 8.2; pulled forward from S6 at the owner's request, 1.96.1).
+	 * back. A waiting document is accepted or returned here and nowhere else, and an agreement out
+	 * of force is reinstated here while this list holds it; the wp-admin Sponsors screen lists the
+	 * documents to be read, and reinstates one past this list under the same action and nonce (spec
+	 * 8.2; pulled forward from S6 at the owner's request, 1.96.1).
 	 *
 	 * @param array $data `review` and `revoked`, each a list of `review_facts()` rows.
 	 */
@@ -305,6 +307,7 @@ final class WPCPM_Administrators_Cards {
 			}
 		}
 
+		self::render_sponsors_line( 'queue', 'wpcpm-sponsor-agreements' );
 		self::card_close();
 	}
 
@@ -315,7 +318,7 @@ final class WPCPM_Administrators_Cards {
 	 * @param string $kind The state word shown beside the company.
 	 */
 	private static function render_sponsor_agreement_item( array $row, $kind ) {
-		echo '<article class="wpcpm-administrator__item wpcpm-sponsor-agreement">';
+		printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-agreement" id="wpcpm-sponsor-agreement-%d">', (int) $row['post_id'] );
 		printf(
 			'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
 			esc_html( (string) $row['sponsor_name'] ),
@@ -367,7 +370,7 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		foreach ( $rows as $row ) {
-			echo '<article class="wpcpm-administrator__item wpcpm-sponsor-post">';
+			printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-post" id="wpcpm-sponsor-post-%d">', (int) $row['id'] );
 			printf(
 				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
 				esc_url( (string) $row['preview'] ),
@@ -392,16 +395,17 @@ final class WPCPM_Administrators_Cards {
 			echo '</article>';
 		}
 
+		self::render_sponsors_line( 'queue', 'wpcpm-sponsor-posts' );
 		self::card_close();
 	}
 
 	/**
 	 * Sponsor applications: one compact item per open application, with the six decisions.
 	 *
-	 * The company, the reference, when it arrived, the website, the contact and the marks; the
-	 * answers, the logo files, the consent evidence and what the base holds stay on the wp-admin
-	 * Sponsors screen until Phase S6, and the title links there. The decisions are the
-	 * application class's own, bound for this page (spec 9.2).
+	 * The company, the reference, when it arrived, the website, the contact and the marks; then the
+	 * answers, the logo files and what the base holds, folded under Read the application; the title
+	 * opens the application on the wp-admin Sponsors screen. The decisions are the application
+	 * class's own, bound for this page (spec 9.2).
 	 *
 	 * @param array $rows What `WPCPM_Sponsor_Application::queue_facts()` returned.
 	 */
@@ -413,7 +417,7 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		foreach ( $rows as $row ) {
-			echo '<article class="wpcpm-administrator__item wpcpm-sponsor-application">';
+			printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-application" id="wpcpm-sponsor-application-%d">', (int) $row['id'] );
 			printf(
 				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
 				esc_url( admin_url( 'admin.php?page=wpcpm-sponsors&' . WPCPM_Sponsor_Application::QUERY_QUEUE . '=' . (int) $row['id'] ) ),
@@ -470,6 +474,7 @@ final class WPCPM_Administrators_Cards {
 			echo '</article>';
 		}
 
+		self::render_sponsors_line( 'queue', 'wpcpm-sponsor-applications' );
 		self::card_close();
 	}
 
@@ -483,6 +488,7 @@ final class WPCPM_Administrators_Cards {
 
 		if ( empty( $rows ) ) {
 			self::empty_line( __( 'No offer is running low.', 'wpcredits-program-manager' ) );
+			self::render_sponsors_line( 'offers' );
 			self::card_close();
 			return;
 		}
@@ -512,6 +518,7 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		echo '</tbody></table>';
+		self::render_sponsors_line( 'offers' );
 		self::card_close();
 	}
 
@@ -596,6 +603,7 @@ final class WPCPM_Administrators_Cards {
 			echo '</article>';
 		}
 
+		self::render_sponsors_line( 'interests' );
 		self::card_close();
 	}
 
@@ -646,6 +654,7 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		echo '</ul>';
+		self::render_sponsors_line( 'sponsors' );
 		self::card_close();
 	}
 
@@ -1115,7 +1124,8 @@ final class WPCPM_Administrators_Cards {
 				'progress' => WPCPM_Sponsors_Sync::progress(),
 				'last'     => (int) WPCPM_Sponsors_Sync::last_read(),
 				'next'     => (int) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_DAILY ),
-				'screen'   => admin_url( 'admin.php?page=wpcpm-sponsors' ),
+				// The Sponsors screen's Sponsors tab, where the sync is drawn beside the sponsors it reads.
+				'screen'   => admin_url( 'admin.php?page=wpcpm-sponsors&tab=sponsors' ),
 			);
 		}
 
@@ -1256,21 +1266,35 @@ final class WPCPM_Administrators_Cards {
 	 * @param string $tab The Institutions screen's tab that holds the card's items.
 	 */
 	private static function render_open_line( $tab ) {
-		self::render_screen_line( $tab, __( 'Open on the Institutions screen', 'wpcredits-program-manager' ) );
+		self::render_tab_line( 'wpcpm-institutions', $tab, __( 'Open on the Institutions screen', 'wpcredits-program-manager' ) );
 	}
 
 	/**
-	 * One line at a card's foot linking the Institutions screen, at one of its tabs or at its own
-	 * address, which opens the screen's queue: the card's own line to its tab, in the markup the
-	 * "more are waiting" line shares.
+	 * "Open on the Sponsors screen", the last line of each sponsor card: the way to the screen's tab
+	 * for the card's items, printed on every draw of the card, an empty one's too, as each
+	 * institution card's line is.
 	 *
-	 * @param string $tab  A tab of the Institutions screen, or '' for the screen's own address.
-	 * @param string $text The line's words, translated.
+	 * @param string $tab    The Sponsors screen's tab that holds the card's items.
+	 * @param string $anchor The id of the card on that tab that lists them, or '' for the tab's top.
 	 */
-	private static function render_screen_line( $tab, $text ) {
+	private static function render_sponsors_line( $tab, $anchor = '' ) {
+		self::render_tab_line( 'wpcpm-sponsors', $tab, __( 'Open on the Sponsors screen', 'wpcredits-program-manager' ), $anchor );
+	}
+
+	/**
+	 * One line at a card's foot linking an audience's screen, at one of its tabs or at its own
+	 * address, which opens the screen's first tab: the card's own line to its tab, in the markup
+	 * the "more are waiting" line shares.
+	 *
+	 * @param string $page   The screen's page slug, which its address names as `page`.
+	 * @param string $tab    A tab of that screen, or '' for the screen's own address.
+	 * @param string $text   The line's words, translated.
+	 * @param string $anchor The id of an element on that tab to land on, or '' for its top.
+	 */
+	private static function render_tab_line( $page, $tab, $text, $anchor = '' ) {
 		printf(
 			'<p class="wpcpm-administrator__more"><a href="%1$s">%2$s</a></p>',
-			esc_url( admin_url( 'admin.php?page=wpcpm-institutions' . ( '' !== (string) $tab ? '&tab=' . $tab : '' ) ) ),
+			esc_url( admin_url( 'admin.php?page=' . $page . ( '' !== (string) $tab ? '&tab=' . $tab : '' ) ) . ( '' !== (string) $anchor ? '#' . $anchor : '' ) ),
 			esc_html( $text )
 		);
 	}
@@ -1288,7 +1312,7 @@ final class WPCPM_Administrators_Cards {
 		$at      = (int) get_post_time( 'U', true, $post );
 		$manager = WPCPM_Countries::contact_of( $country );
 
-		echo '<article class="wpcpm-administrator__item wpcpm-application">';
+		printf( '<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-%d">', (int) $post->ID );
 		printf(
 			'<h4 class="wpcpm-administrator__item-title">%1$s <code class="wpcpm-administrator__ref">%2$s</code></h4>',
 			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),

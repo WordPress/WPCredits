@@ -142,6 +142,20 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	}
 
 	/**
+	 * The words for `error` on a tab that prints no error below the notice, in one wording.
+	 *
+	 * The sync's own words (`sync_messages()`) point to the last sync's error, which a screen drawn in
+	 * tabs prints on the tab that runs the sync alone; on its other tabs the sentence would point
+	 * nowhere, so this one sends the reader to the screen again. The Institutions and Sponsors screens
+	 * both print it.
+	 *
+	 * @return array{0: string, 1: string} Notice type and sentence.
+	 */
+	public static function failed_message() {
+		return array( 'error', __( 'That action could not be completed. Reload the screen and try again.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
 	 * Print the notice for the outcome the last press flashed, if the map knows it.
 	 *
 	 * Here, beside the sync's three outcomes it starts from (`sync_messages()`), rather than on the

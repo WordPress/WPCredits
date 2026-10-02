@@ -204,9 +204,9 @@ final class WPCPM_Administrators_Dashboard {
 	/**
 	 * What a screen says in place of the page's address while `page_url()` has none.
 	 *
-	 * Here, beside the page it is about, because two screens print it, the Administrators screen and
-	 * the Overview, and a sentence written out on each would be two sentences the day one of them is
-	 * reworded.
+	 * Here, beside the page it is about, because several screens print it, the Administrators screen,
+	 * the Overview and the Institutions and Sponsors screens, where a link to the page would stand,
+	 * and a sentence written out on each would be several sentences the day one of them is reworded.
 	 *
 	 * @return string The sentence, translated and not escaped.
 	 */

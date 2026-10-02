@@ -302,15 +302,16 @@ ck( 'a manager with nothing waiting is sent to the Administrators screen',
     array( true, true ) );
 
 // The fifth audience. A non-member is told whose page this is and never about the Mentor role;
-// a manager with no sponsor account yet is pointed at the Sponsors screen.
+// a manager with no sponsor account yet is pointed at the Sponsors screen's Accounts tab, where
+// the accounts are, rather than at the queue the screen opens on.
 ck( 'a non-member is told the Sponsor Dashboard is for the program sponsors',
     WPCPM_Dashboards::nothing_to_show( 'sponsors', false ),
     'This page is for the program sponsors. Your account is not attached to a sponsor.' );
 $manager_sponsor_sees = WPCPM_Dashboards::nothing_to_show( 'sponsors', true );
-ck( 'a manager with no sponsor account yet is sent to the Sponsors screen',
+ck( 'a manager with no sponsor account yet is sent to the Sponsors screen\'s Accounts tab',
     array(
         false !== strpos( $manager_sponsor_sees, 'No sponsor has an account yet.' ),
-        false !== strpos( $manager_sponsor_sees, 'admin.php?page=wpcpm-sponsors' ),
+        false !== strpos( $manager_sponsor_sees, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts">' ),
     ),
     array( true, true ) );
 
