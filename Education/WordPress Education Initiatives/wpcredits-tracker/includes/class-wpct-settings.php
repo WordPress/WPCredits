@@ -139,6 +139,7 @@ class WPCT_Settings {
 		$data      = get_option( WPCT_OPT_DATA, array() );
 		$last_sync = (int) get_option( WPCT_OPT_LASTSYNC, 0 );
 		$last_err  = get_option( WPCT_OPT_LASTERR, '' );
+		$profiles  = get_option( WPCT_OPT_PROFILES, array() );
 		$running   = WPCT_Sync::is_running();
 		$flag      = isset( $_GET['ecd'] ) ? sanitize_key( wp_unslash( $_GET['ecd'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
@@ -194,6 +195,25 @@ class WPCT_Settings {
 					}
 					?>
 				</p>
+				<?php if ( is_array( $profiles ) && ! empty( $profiles['read'] ) ) : ?>
+					<p style="margin:.2em 0;">
+						<strong><?php esc_html_e( 'Translation activity:', 'wpcredits-tracker' ); ?></strong>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: 1: translation strings, 2: profiles read, 3: profiles with translation activity. */
+								__( '%1$s strings from %2$s profiles, %3$s of them with translation activity', 'wpcredits-tracker' ),
+								number_format_i18n( isset( $data['translationTotals']['total'] ) ? (int) $data['translationTotals']['total'] : 0 ),
+								number_format_i18n( (int) $profiles['read'] ),
+								number_format_i18n( isset( $profiles['withStrings'] ) ? (int) $profiles['withStrings'] : 0 )
+							)
+						);
+						?>
+					</p>
+					<?php foreach ( WPCT_Sync::profile_warnings( $profiles ) as $warning ) : ?>
+						<div class="notice notice-warning inline"><p><?php echo esc_html( $warning ); ?></p></div>
+					<?php endforeach; ?>
+				<?php endif; ?>
 				<p style="margin:.2em 0;">
 					<strong><?php esc_html_e( 'Last synced:', 'wpcredits-tracker' ); ?></strong>
 					<?php
@@ -262,7 +282,7 @@ class WPCT_Settings {
 
 			<h2><?php esc_html_e( 'How the data works', 'wpcredits-tracker' ); ?></h2>
 			<p class="description" style="max-width:820px;">
-				<?php esc_html_e( 'On each sync the plugin reads the program tables from Airtable, scrapes each student\'s profiles.wordpress.org page for translation activity, and computes the same public aggregates as the upstream WordPress Credits dashboard — the same numbers, hosted natively on this site. Syncs run automatically once a week (Monday 06:00 UTC) and on demand via "Sync now". A bundled snapshot is shown until the first live sync completes.', 'wpcredits-tracker' ); ?>
+				<?php esc_html_e( 'On each sync the plugin reads the program tables from Airtable, reads each student\'s whole contributions timeline on profiles.wordpress.org for translation activity, and computes the same public aggregates as the upstream WordPress Credits dashboard: the same numbers, hosted natively on this site. Syncs run automatically once a week (Monday 06:00 UTC) and on demand via "Sync now". A bundled snapshot is shown until the first live sync completes.', 'wpcredits-tracker' ); ?>
 			</p>
 		</div>
 

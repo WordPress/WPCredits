@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -40,7 +40,9 @@ The dashboard is designed to sit inside your theme's page — it has no header o
 
 = How the data works =
 
-On each sync the plugin reads the program tables from Airtable, scrapes each student's profiles.wordpress.org page for translation activity, and computes the same public aggregates as the upstream dashboard. Only anonymous, aggregated data is stored and displayed — no per-person detail. Syncs run automatically once a week (Monday 06:00 UTC) and on demand via **Sync now** on the WPCredits-Tracker admin screen. A bundled snapshot is shown until the first live sync completes.
+On each sync the plugin reads the program tables from Airtable, reads each student's whole contributions timeline on profiles.wordpress.org for translation activity, and computes the same public aggregates as the upstream dashboard. Only anonymous, aggregated data is stored and displayed, with no per-person detail. Syncs run automatically once a week (Monday 06:00 UTC) and on demand via **Sync now** on the WPCredits-Tracker admin screen. A bundled snapshot is shown until the first live sync completes.
+
+Translation activity is added up from every page of a profile's timeline, not from the profile page alone, which shows only the newest ten contributions. A long timeline is read across several sync steps, up to 100 pages per profile, with a 0.2 second pause between pages; the `wpct_timeline_max_pages` filter changes the limit (in pages) and `wpct_timeline_pause` the pause (in microseconds). When a profile cannot be fetched, or its timeline cannot be paged, the admin screen says how many profiles were affected; it never names them.
 
 = Bundled third-party libraries =
 
@@ -63,6 +65,11 @@ Yes — a Personal Access Token with read access to the WordPress Credits base i
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count) — the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.5.1 =
+* Translation activity is counted from every page of each profile's contributions timeline. The profile page shows only the newest ten contributions of every kind, so the totals missed all older translation activity; the sync now pages the timeline's Polyglots filter the way the upstream dashboard does since 2 October 2026. Only Polyglots rows are counted, so a commit message or a forum topic that mentions strings no longer adds to the totals.
+* A long timeline is read across several sync steps, within each step's time budget, with a 0.2 second pause between pages and a limit of 100 pages per profile.
+* The admin screen shows how many profiles the last sync read and how many had translation activity, and warns with counts (never names) when profiles could not be fetched, were counted from their newest rows only, or ran past the page limit.
 
 = 1.5.0 =
 * The count of approved sponsors comes from the WordPress Education Dashboard's sponsors feed instead of the Airtable Sponsors table; when the feed does not answer, the last count stays and the settings page says so. The feed's address is a setting, blank for the program's own.

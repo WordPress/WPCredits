@@ -1,12 +1,13 @@
 <?php
 /**
- * Sync engine — a faithful PHP port of the upstream Python builder
- * (scripts/build_dashboard.py in wordpress/WPCredits-Tracker).
+ * Sync engine: a faithful PHP port of the upstream Python builder
+ * (scripts/build_dashboard.py in WordPress/WPCredits).
  *
- * It pulls the WordPress Credits program data from Airtable, scrapes each
- * student's profiles.wordpress.org page for translation activity, computes the
- * same public aggregates the GitHub dashboard shows, and stores the resulting
- * data blob for the front-end to render.
+ * It pulls the WordPress Credits program data from Airtable, reads each
+ * student's contributions timeline on profiles.wordpress.org for translation
+ * activity (every page of it, through WPCT_Timeline), computes the same public
+ * aggregates the GitHub dashboard shows, and stores the resulting data blob for
+ * the front-end to render.
  *
  * The sync is a resumable state machine: each invocation works within a
  * wall-clock budget and, if there is more to do, reschedules itself. This keeps
@@ -27,9 +28,6 @@ class WPCT_Sync {
 
 	/** Profiles scraped per invocation cap (belt-and-suspenders with the time budget). */
 	const BATCH_CAP = 40;
-
-	/** HTTP timeout per profile fetch (seconds). */
-	const HTTP_TIMEOUT = 12;
 
 	/** Airtable API root. */
 	const API_URL = 'https://api.airtable.com/v0';
@@ -638,6 +636,7 @@ class WPCT_Sync {
 			'growth'   => $growth,
 			'feedback' => $feedback,
 			'translationTotals' => array( 'suggested' => 0, 'translated' => 0, 'reviewed' => 0, 'total' => 0 ),
+			'profiles' => self::profiles_tally( array() ),
 			'started'  => time(),
 		);
 	}
@@ -833,6 +832,11 @@ class WPCT_Sync {
 	/**
 	 * Scrape profiles within the time budget; resumable via the cursor.
 	 *
+	 * A profile's timeline can run to many pages, so the place inside one is resumable too:
+	 * when the budget runs out partway, WPCT_Timeline::stats() hands back where it stopped,
+	 * the state keeps that under `paging`, and the cursor stays on the profile until a later
+	 * step has read it to the end. Its strings are added up once, then.
+	 *
 	 * @param array $state    Current state.
 	 * @param int   $deadline Unix time to stop by.
 	 * @return array Updated state.
@@ -840,22 +844,38 @@ class WPCT_Sync {
 	private static function phase_scrape( $state, $deadline ) {
 		$total     = count( $state['students'] );
 		$processed = 0;
+		$tally     = self::profiles_tally( $state );
 
 		while ( $state['cursor'] < $total && time() < $deadline && $processed < self::BATCH_CAP ) {
 			$idx      = $state['cursor'];
 			$username = isset( $state['students'][ $idx ]['wp_username'] ) ? $state['students'][ $idx ]['wp_username'] : '';
 			if ( $username ) {
-				$stats = self::scrape_translation( $username );
+				$stats = WPCT_Timeline::stats( $username, $deadline, isset( $state['paging'] ) ? $state['paging'] : null );
+				if ( isset( $stats['resume'] ) ) {
+					// Out of time inside this profile's timeline: keep the place, not the cursor.
+					$state['paging'] = $stats['resume'];
+					break;
+				}
+				unset( $state['paging'] );
 				$state['students'][ $idx ]['total_strings'] = $stats['total'];
 				$state['translationTotals']['suggested']   += $stats['suggested'];
 				$state['translationTotals']['translated']  += $stats['translated'];
 				$state['translationTotals']['reviewed']    += $stats['reviewed'];
 				$state['translationTotals']['total']       += $stats['total'];
+
+				// Counts only, never usernames: this is all the sync keeps about how a
+				// profile read went, and all the settings page is shown.
+				++$tally['read'];
+				$tally['withStrings'] += $stats['total'] > 0 ? 1 : 0;
+				$tally['failed']      += $stats['failed'] ? 1 : 0;
+				$tally['partial']     += $stats['partial'] ? 1 : 0;
+				$tally['capped']      += $stats['capped'] ? 1 : 0;
 			}
 			$state['cursor']++;
 			$processed++;
 		}
 
+		$state['profiles'] = $tally;
 		if ( $state['cursor'] >= $total ) {
 			$state['phase'] = 'finalize';
 		}
@@ -863,37 +883,55 @@ class WPCT_Sync {
 	}
 
 	/**
-	 * Fetch translation stats from a WordPress.org profile page.
-	 * Parses the activity feed for "Suggested/Translated/Reviewed N string(s)".
+	 * The running tally of profile reads in a sync's state, every count present.
 	 *
-	 * @param string $username WordPress.org username.
-	 * @return array {suggested, translated, reviewed, total}
+	 * A sync that was in flight when the plugin was updated to 1.5.1 carries no tally yet;
+	 * it starts from zero here instead of tripping on the missing key.
+	 *
+	 * @param mixed $state The sync state.
+	 * @return array `read` (profiles asked), `withStrings` (those with translation activity),
+	 *               `failed` (could not be fetched, counted as 0), `partial` (counted from the
+	 *               profile page alone) and `capped` (cut at the page limit).
 	 */
-	private static function scrape_translation( $username ) {
-		$out = array( 'suggested' => 0, 'translated' => 0, 'reviewed' => 0, 'total' => 0 );
+	private static function profiles_tally( $state ) {
+		$tally = array();
+		foreach ( array( 'read', 'withStrings', 'failed', 'partial', 'capped' ) as $key ) {
+			$tally[ $key ] = isset( $state['profiles'][ $key ] ) ? (int) $state['profiles'][ $key ] : 0;
+		}
+		return $tally;
+	}
 
-		$resp = wp_remote_get(
-			'https://profiles.wordpress.org/' . rawurlencode( $username ) . '/',
-			array(
-				'timeout'    => self::HTTP_TIMEOUT,
-				'user-agent' => 'WPCredits-Tracker/' . WPCT_VERSION . '; ' . home_url(),
-			)
-		);
-		if ( is_wp_error( $resp ) || 200 !== (int) wp_remote_retrieve_response_code( $resp ) ) {
+	/**
+	 * What fell short of a whole timeline in a sync's profile reads, as sentences for the
+	 * settings page. The plugin's stand-in for the upstream build's log warnings, and like
+	 * them it names no one: the tally holds counts only.
+	 *
+	 * @param mixed $tally The stored tally (`WPCT_OPT_PROFILES`), if any.
+	 * @return string[] One sentence per kind of shortfall; none when every profile was read whole.
+	 */
+	public static function profile_warnings( $tally ) {
+		$out = array();
+		if ( ! is_array( $tally ) ) {
 			return $out;
 		}
-		$html = wp_remote_retrieve_body( $resp );
+		$failed  = isset( $tally['failed'] ) ? (int) $tally['failed'] : 0;
+		$partial = isset( $tally['partial'] ) ? (int) $tally['partial'] : 0;
+		$capped  = isset( $tally['capped'] ) ? (int) $tally['capped'] : 0;
 
-		if ( preg_match_all( '/Suggested (\d+) strings?/', $html, $m ) ) {
-			$out['suggested'] = array_sum( array_map( 'intval', $m[1] ) );
+		if ( $failed > 0 ) {
+			/* translators: %s: number of profiles. */
+			$out[] = sprintf( _n( '%s profile could not be fetched and counts as 0.', '%s profiles could not be fetched and count as 0.', $failed, 'wpcredits-tracker' ), number_format_i18n( $failed ) );
 		}
-		if ( preg_match_all( '/Translated (\d+) strings?/', $html, $m ) ) {
-			$out['translated'] = array_sum( array_map( 'intval', $m[1] ) );
+		if ( $partial > 0 ) {
+			// A jump here means WordPress.org changed its timeline and the totals are back
+			// to the profile page's newest rows only.
+			/* translators: %s: number of profiles. */
+			$out[] = sprintf( _n( '%s profile was counted from its newest rows only, because its timeline could not be paged.', '%s profiles were counted from their newest rows only, because their timelines could not be paged.', $partial, 'wpcredits-tracker' ), number_format_i18n( $partial ) );
 		}
-		if ( preg_match_all( '/Reviewed (\d+) strings?/', $html, $m ) ) {
-			$out['reviewed'] = array_sum( array_map( 'intval', $m[1] ) );
+		if ( $capped > 0 ) {
+			/* translators: 1: number of profiles, 2: the page limit. */
+			$out[] = sprintf( _n( '%1$s profile has a timeline longer than the limit of %2$s pages; the pages read were counted.', '%1$s profiles have a timeline longer than the limit of %2$s pages; the pages read were counted.', $capped, 'wpcredits-tracker' ), number_format_i18n( $capped ), number_format_i18n( WPCT_Timeline::max_pages() ) );
 		}
-		$out['total'] = $out['suggested'] + $out['translated'] + $out['reviewed'];
 		return $out;
 	}
 
@@ -927,6 +965,7 @@ class WPCT_Sync {
 		);
 
 		update_option( WPCT_OPT_DATA, $blob, false );
+		update_option( WPCT_OPT_PROFILES, self::profiles_tally( $state ), false );
 		update_option( WPCT_OPT_LASTSYNC, time() );
 		delete_option( WPCT_OPT_LASTERR );
 
