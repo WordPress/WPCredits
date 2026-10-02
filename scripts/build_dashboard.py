@@ -449,44 +449,97 @@ def status_key(value):
     return name.strip().casefold()
 
 
-def fetch_translation_stats(wp_username):
-    """Fetch translation stats from a WordPress.org profile page.
+# One Polyglots row in the profile contributions timeline. The page and the
+# timeline's AJAX endpoint render rows with the same markup.
+POLYGLOTS_ROW_RE = re.compile(r'data-type="polyglots"[^>]*>.*?class="title-ln">(.*?)</div>', re.S)
+TRANSLATION_ACTIVITY_RE = re.compile(r"(Suggested|Translated|Reviewed) (\d+) strings?")
 
-    Parses the activity feed for entries like:
+
+def fetch_polyglots_rows(page_html):
+    """Profile page HTML -> title text of every Polyglots timeline row.
+
+    The page itself only renders the first page of the contributions timeline
+    (all types mixed); older rows load through admin-ajax as the visitor pages
+    back. Fetch the timeline filtered to Polyglots, page by page, so the totals
+    cover the student's whole history rather than their most recent rows.
+
+    If the page has no pager (a short timeline fits on one page) or the AJAX
+    call fails, fall back to the rows on the page, which is what the build
+    counted before.
+    """
+    page_rows = POLYGLOTS_ROW_RE.findall(page_html)
+    nonce = re.search(r'data-tl-pager[^>]*?data-nonce="([^"]+)"', page_html, re.S)
+    user_id = re.search(r'data-tl-pager[^>]*?data-user="(\d+)"', page_html, re.S)
+    ajax = re.search(r'data-tl-pager[^>]*?data-ajax="([^"]+)"', page_html, re.S)
+    if not (nonce and user_id and ajax):
+        return page_rows, False
+
+    rows = []
+    page, max_pages = 1, 1
+    while page <= max_pages:
+        try:
+            r = requests.get(
+                ajax.group(1),
+                params={"action": "wporg_p2_timeline", "user_id": user_id.group(1),
+                        "filter": "polyglots", "page": page, "nonce": nonce.group(1)},
+                timeout=15,
+                headers={"User-Agent": "WPCredits-Dashboard/1.0",
+                         "X-Requested-With": "XMLHttpRequest"},
+            )
+            data = r.json().get("data") if r.status_code == 200 else None
+        except (requests.RequestException, ValueError):
+            data = None
+        if not isinstance(data, dict):
+            return page_rows, True
+        rows += POLYGLOTS_ROW_RE.findall(data.get("html") or "")
+        max_pages = data.get("max_pages") or 1
+        page += 1
+        if page <= max_pages:
+            time.sleep(0.2)
+    return rows, False
+
+
+def fetch_translation_stats(wp_username):
+    """Fetch translation stats from a WordPress.org profile's full timeline.
+
+    Sums the Polyglots timeline entries:
       - 'Suggested N string(s)'
       - 'Translated N string(s)'
       - 'Reviewed N string(s)'
 
-    Returns dict: {suggested, translated, reviewed, total}
+    Returns dict: {suggested, translated, reviewed, total, partial, failed}.
+    `partial` is True when the timeline could not be paged and only the
+    profile page's own rows were counted; `failed` is True when the profile
+    could not be fetched at all.
+
+    PRIVACY: logs nothing itself. The build runs in a PUBLIC-repo Action whose
+    logs are world-readable, and a username next to a count or an HTTP error is
+    per-student data. The caller logs totals and failure counts instead.
     """
+    empty = {"suggested": 0, "translated": 0, "reviewed": 0, "total": 0,
+             "partial": False, "failed": False}
     if not wp_username:
-        return {"suggested": 0, "translated": 0, "reviewed": 0, "total": 0}
+        return empty
 
     url = f"https://profiles.wordpress.org/{wp_username}/"
     try:
         r = requests.get(url, timeout=15, headers={"User-Agent": "WPCredits-Dashboard/1.0"})
         if r.status_code != 200:
-            print(f"  Profile {wp_username}: HTTP {r.status_code}", file=sys.stderr)
-            return {"suggested": 0, "translated": 0, "reviewed": 0, "total": 0}
+            return {**empty, "failed": True}
         html = r.text
-    except requests.RequestException as e:
-        print(f"  Profile {wp_username}: {e}", file=sys.stderr)
-        return {"suggested": 0, "translated": 0, "reviewed": 0, "total": 0}
+    except requests.RequestException:
+        return {**empty, "failed": True}
 
-    suggested = 0
-    translated = 0
-    reviewed = 0
+    rows, partial = fetch_polyglots_rows(html)
+    counts = {"Suggested": 0, "Translated": 0, "Reviewed": 0}
+    for row in rows:
+        for kind, n in TRANSLATION_ACTIVITY_RE.findall(row):
+            counts[kind] += int(n)
 
-    # Match patterns like "Suggested 5 strings" or "Translated 1 string"
-    for m in re.finditer(r"Suggested (\d+) strings?", html):
-        suggested += int(m.group(1))
-    for m in re.finditer(r"Translated (\d+) strings?", html):
-        translated += int(m.group(1))
-    for m in re.finditer(r"Reviewed (\d+) strings?", html):
-        reviewed += int(m.group(1))
-
+    suggested, translated, reviewed = counts["Suggested"], counts["Translated"], counts["Reviewed"]
     total = suggested + translated + reviewed
-    return {"suggested": suggested, "translated": translated, "reviewed": reviewed, "total": total}
+    return {"suggested": suggested, "translated": translated, "reviewed": reviewed,
+            "total": total, "partial": partial, "failed": False}
 
 
 def main():
@@ -900,10 +953,15 @@ def main():
     print("Fetching translation stats from WordPress.org profiles...", file=sys.stderr)
     translation_totals_agg = {"suggested": 0, "translated": 0, "reviewed": 0, "total": 0}
     profiles_fetched = 0
+    profiles_partial = 0
+    profiles_failed = 0
+    profiles_with_strings = 0
     for student in students:
         wp_username = student.get("wp_username")
         if wp_username:
             stats = fetch_translation_stats(wp_username)
+            profiles_partial += stats["partial"]
+            profiles_failed += stats["failed"]
             # Throttle to avoid rate limiting (200ms between requests)
             profiles_fetched += 1
             if profiles_fetched % 5 == 0:
@@ -924,9 +982,21 @@ def main():
         translation_totals_agg["total"] += stats["total"]
 
         if stats["total"] > 0:
-            print(f"  {wp_username}: {stats['total']} strings ({stats['suggested']}s/{stats['translated']}t/{stats['reviewed']}r)", file=sys.stderr)
+            profiles_with_strings += 1
 
-    print(f"Translation totals: {translation_totals_agg['total']} strings from {profiles_fetched} profiles", file=sys.stderr)
+    # Counts only, never usernames: the Action log is public.
+    agg = translation_totals_agg
+    print(f"Translation totals: {agg['total']} strings from {profiles_fetched} profiles "
+          f"({agg['suggested']}s/{agg['translated']}t/{agg['reviewed']}r; "
+          f"{profiles_with_strings} profiles with translation activity)", file=sys.stderr)
+    if profiles_failed:
+        print(f"  WARNING: {profiles_failed} profiles could not be fetched and count as 0",
+              file=sys.stderr)
+    if profiles_partial:
+        # A jump here means the timeline endpoint changed and the totals are
+        # back to page one only.
+        print(f"  WARNING: {profiles_partial} profiles counted from page one only "
+              f"(timeline paging failed)", file=sys.stderr)
 
     # Which statuses were counted as active participants. A track added in
     # Airtable appears here on the first build after it, so a change in the
