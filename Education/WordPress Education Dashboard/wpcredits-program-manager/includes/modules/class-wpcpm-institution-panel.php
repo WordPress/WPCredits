@@ -385,15 +385,15 @@ class WPCPM_Institution_Panel {
 	 *
 	 * **`data-wpcpm-once` is an attribute, and the guard is a script.** What reads it is
 	 * `assets/js/forms.js`, registered as `wpcpm-forms`. The institution dashboard enqueues
-	 * it since 1.90.0, so the attribute is live on every form drawn there; the Institutions
-	 * screen in wp-admin, which enqueues `admin.js`, still does not, so a manager's upload
-	 * from that screen relies on the other side alone. That other side is what actually
-	 * stops a second press wherever the script is missing: the daily ceiling, the
-	 * institution's own lock, and "one document in review at a time" - and since 1.90.0 the
-	 * upload handler holds the lock across its read and its insert, which is what turned two
-	 * presses into two documents before. Written down rather than
-	 * promised, because a reader who believes the guard is running does not go looking for
-	 * the enqueue that is missing.
+	 * it since 1.90.0, and in wp-admin the admin class loads it on every plugin screen since
+	 * 1.122.1, the Institutions screen among them, so the attribute is live on every form
+	 * drawn on either. The other side still stops a second press on its own wherever the
+	 * script does not run, in a browser with scripts off or for a request made by hand: the
+	 * daily ceiling, the institution's own lock, and "one document in review at a time" - and
+	 * since 1.90.0 the upload handler holds the lock across its read and its insert, which is
+	 * what turned two presses into two documents before. Written down rather than promised,
+	 * because the guard runs only on a page that enqueues it, and a reader who believes the
+	 * guard is running does not go looking for the enqueue that is missing.
 	 *
 	 * **The switcher travels on the action URL, for a manager only.** The generate route
 	 * works out which institution it is acting for from the request alone, and a POST to

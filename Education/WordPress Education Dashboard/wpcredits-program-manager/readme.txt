@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.0
+Stable tag: 1.122.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.1 =
+
+* wp-admin screens: on the forms named here a press locks the button at once and the button says what it is doing, as on the dashboards, so a double press acts once: the decisions and the question on an opened application, on the Sponsors and Institutions screens; on the Sponsors screen, the offer and code forms, a sponsor's Attach account, Remove and posting switch, and the agreement forms; on the Institutions screen, the signed agreement's upload and withdrawal and the semester report buttons; the test invitations on Settings > Mail; and the Track Builder's Create the track and Make the copy. The Sponsors screen's sync buttons lock without changing their words. Every other form works as before, searching, filtering, a list's Apply and Screen Options among them.
 
 = 1.122.0 =
 

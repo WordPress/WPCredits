@@ -2393,29 +2393,44 @@ ck( 'every free-text block on the printed report wraps an unbroken run', $clippe
 
 echo "\n=== The once attribute is printed, and the docblock says what reads it ===\n";
 
-// `data-wpcpm-once` is inert on both of these screens: what reads it is assets/js/forms.js,
-// registered as `wpcpm-forms`, and neither the institution dashboard nor the Institutions
-// screen enqueues it. That is a fact about the site rather than about this file, and the
-// only thing this file can do about it is not pretend otherwise - a reader who believes the
-// guard is running does not go looking for the enqueue that is missing.
-$form_doc = substr( $panel_src, 0, (int) strpos( $panel_src, 'private static function form_start(' ) );
-$form_doc = substr( $form_doc, (int) strrpos( $form_doc, '/**' ) );
+// `data-wpcpm-once` is an attribute, and what reads it is assets/js/forms.js, registered as
+// `wpcpm-forms`: the Institution Dashboard enqueues it, and in wp-admin the admin class loads
+// it on every plugin screen, the Institutions screen among them. That is a fact about the site
+// rather than about this file, and the only thing this file can do about it is hold the
+// docblock to it - a reader who believes the guard is running does not go looking for the
+// enqueue that is missing. The docblock is read as prose, its lines joined, so a sentence
+// that wraps differently still reads the same.
+$form_doc  = substr( $panel_src, 0, (int) strpos( $panel_src, 'private static function form_start(' ) );
+$form_doc  = substr( $form_doc, (int) strrpos( $form_doc, '/**' ) );
+$form_text = (string) preg_replace( '/\s*\n\s*\*\s*/', ' ', $form_doc );
 
-ck( 'the docblock names the script the attribute needs', false !== strpos( $form_doc, 'wpcpm-forms' ), true );
-ck( 'and says which screen enqueues it', false !== strpos( $form_doc, 'dashboard enqueues' ), true );
+ck( 'the docblock names the script the attribute needs', false !== strpos( $form_text, 'wpcpm-forms' ), true );
+ck( 'and says the dashboard enqueues it', false !== strpos( $form_text, 'dashboard enqueues' ), true );
+ck( 'and that in wp-admin the admin class loads it on every plugin screen, the Institutions screen among them',
+	array( false !== strpos( $form_text, 'in wp-admin the admin class loads it on every plugin screen' ), false !== strpos( $form_text, 'the Institutions screen among them' ) ),
+	array( true, true ) );
+ck( 'and no longer says the Institutions screen goes without it', false === strpos( $form_text, 'still does not' ), true );
 ck( 'and the attribute is still the one that script reads', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' ), 'form[data-wpcpm-once]' ), true );
 
-// The tripwire on the sentence above: the institution dashboard enqueues the guard and the
-// Institutions screen does not. A change on either side fails here, and the docblock that
-// names the screens is one line away from the failure.
-$enqueues = 0;
+// The tripwire on the sentences above: the Institution Dashboard enqueues the guard, the admin
+// class enqueues it for every plugin screen, and the Institutions screen leaves it to the admin
+// class rather than enqueueing it a second time. This counts the call as it is written in each
+// file, comments included, so an enqueue added or dropped on any side fails here, one line away
+// from the docblock that names the screens; that the admin class's call is live code, not a
+// comment, is pinned where its method is read without its comments, in test-submit-guard.php.
+$enqueues = array();
 
 foreach ( array( 'includes/class-wpcpm-admin.php', 'includes/modules/class-wpcpm-institutions.php', 'includes/modules/class-wpcpm-institutions-dashboard.php' ) as $file ) {
-	$enqueues += substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ), "wp_enqueue_script( 'wpcpm-forms' )" );
+	$enqueues[ $file ] = substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ), "wp_enqueue_script( 'wpcpm-forms' )" );
 }
 
-ck( 'the dashboard enqueues it, and only the dashboard, which is what the docblock says', $enqueues, 1 );
-ck( 'and it is the dashboard', substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php' ), "wp_enqueue_script( 'wpcpm-forms' )" ), 1 );
+ck( 'the dashboard enqueues it and so does the admin class, once each, which is what the docblock says; the Institutions screen has no enqueue of its own',
+	$enqueues,
+	array(
+		'includes/class-wpcpm-admin.php'                          => 1,
+		'includes/modules/class-wpcpm-institutions.php'           => 0,
+		'includes/modules/class-wpcpm-institutions-dashboard.php' => 1,
+	) );
 
 /* ---- every outcome the handlers flash has words --------------------------- */
 

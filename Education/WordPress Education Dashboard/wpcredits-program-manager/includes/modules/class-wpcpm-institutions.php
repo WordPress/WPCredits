@@ -3647,9 +3647,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$args
 		);
 
-		// The double-submit guard, inert on wp-admin where forms.js is not loaded and live on
-		// the Administrator Dashboard, which enqueues it: two presses of Approve made two
-		// accounts once, on another form that lacked it.
+		// The double-submit guard, forms.js, live on the Administrator Dashboard, which enqueues
+		// it, and in wp-admin, where the admin class loads it on every plugin screen: two presses
+		// of Approve made two accounts once, on another form that lacked it.
 		printf(
 			'<form class="wpcpm-app-action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%3$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),

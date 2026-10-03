@@ -5,6 +5,16 @@ need the `wpcpm_manage_program` capability to see it, which the Administrator ro
 activation. Every screen under it is titled with its own name: **Overview**, a screen for each
 audience, **Tools** and a screen for each tool, and **Settings**.
 
+On the forms named here, a press locks the button at once and the button says what it is doing
+until the next page opens, so a double press acts once: the decisions and the question on an opened
+application, on the Sponsors and Institutions screens; on the Sponsors screen, the offer and code
+forms, a sponsor's **Attach account**, **Remove** and posting switch, and the agreement forms; on
+the Institutions screen, the signed agreement's upload and withdrawal and the semester report
+buttons; the test invitations on **Settings > Mail**; and the Track Builder's **Create the track**
+and **Make the copy**. The Sponsors screen's sync buttons lock without changing their words. Every
+other form works as it always has, searching, filtering, a list's **Apply** and **Screen Options**
+among them.
+
 ### The words the screens use
 
 The screens, the settings and this guide call each thing by one name.

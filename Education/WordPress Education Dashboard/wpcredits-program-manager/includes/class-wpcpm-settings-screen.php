@@ -1573,9 +1573,12 @@ class WPCPM_Settings_Screen {
 			'institution' => __( 'Email me the institution invitation', 'wpcredits-program-manager' ),
 			'sponsor'     => __( 'Email me the sponsor invitation', 'wpcredits-program-manager' ),
 		) as $kind => $label ) {
+			// Locked at its first press, saying so while the mail is on the way: the handler mails
+			// the sample for every press it is sent, so a double press mailed two.
 			printf(
-				'<form method="post" action="%1$s" class="wpcpm-inline-form">',
-				esc_url( admin_url( 'admin-post.php' ) )
+				'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Sending', 'wpcredits-program-manager' )
 			);
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Mail::ACTION_TEST ) );
 			printf( '<input type="hidden" name="kind" value="%s" />', esc_attr( $kind ) );

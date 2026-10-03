@@ -890,7 +890,14 @@ final class WPCPM_Track_Builder_Screen {
 
 		echo '<p>' . esc_html__( 'A track from nothing: its name, its Airtable status and its key, and the link of the Learn course it follows, when it follows one. With a link, the course\'s lessons are listed beside the questions, and the name is taken from the course when it is left empty. Everything else about the track, and every question, is edited on the page that opens next.', 'wpcredits-program-manager' ) . '</p>';
 
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		// Locked at its first press, saying so while the track is made: the handler checks the status
+		// and the key, then creates, with no lock between, so two presses that overlap could make two
+		// tracks.
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Creating', 'wpcredits-program-manager' )
+		);
 		wp_nonce_field( WPCPM_Track_Builder::ACTION_NEW );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Builder::ACTION_NEW ) . '" />';
 
@@ -938,7 +945,13 @@ final class WPCPM_Track_Builder_Screen {
 			)
 		);
 
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		// Locked at its first press, as New track is, and for the same reason: two presses that
+		// overlap could make two copies.
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Copying', 'wpcredits-program-manager' )
+		);
 		wp_nonce_field( WPCPM_Track_Builder::ACTION_DUPLICATE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Builder::ACTION_DUPLICATE ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $form['id'] );

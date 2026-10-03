@@ -208,6 +208,12 @@ class WPCPM_Admin {
 			WPCPM_VERSION,
 			true
 		);
+
+		// The double-press guard, the dashboards' own script: it locks a form that carries
+		// `data-wpcpm-once` at its first submit and shows the form's busy word, and leaves every
+		// other form alone, so the list tables, their search and Screen Options work as before.
+		// The call calendar registers the handle on `init`, which runs in wp-admin too.
+		wp_enqueue_script( 'wpcpm-forms' );
 	}
 
 	/**

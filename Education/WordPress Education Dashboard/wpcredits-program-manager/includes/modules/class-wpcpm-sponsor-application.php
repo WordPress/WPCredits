@@ -3469,8 +3469,9 @@ class WPCPM_Sponsor_Application {
 	 * One decision's form.
 	 *
 	 * The nonce is keyed to the action and the application together. The double-submit guard
-	 * is inert on wp-admin, where forms.js is not loaded, and live on the Administrator
-	 * Dashboard, which enqueues it; the guard yields to a canceled confirm.
+	 * is forms.js, live on the Administrator Dashboard, which enqueues it, and in wp-admin,
+	 * where the admin class loads it on every plugin screen; the guard yields to a canceled
+	 * confirm.
 	 *
 	 * @param WP_Post $post The application.
 	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`, `required`.

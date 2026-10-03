@@ -764,6 +764,11 @@ $duplicate = ob_get_clean();
 ck( 'and the form posts the three of them',
     array( substr_count( $duplicate, 'name="action" value="wpcpm_track_duplicate"' ), substr_count( $duplicate, 'name="wpcpm_label"' ), substr_count( $duplicate, 'name="wpcpm_status"' ), substr_count( $duplicate, 'name="wpcpm_key"' ) ),
     array( 1, 1, 1, 1 ) );
+// The handler checks the status and the key, then creates, with no lock between, so two presses
+// that overlap could both pass and make two copies: the form locks at its first press.
+ck( 'and it locks at its first press, saying Copying while the copy is made',
+    substr_count( $duplicate, '<form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Copying">' ),
+    1 );
 
 $GLOBALS['nonce']             = WPCPM_Track_Builder::ACTION_DUPLICATE;
 WPCPM_Track_Store::$duplicated = array();
@@ -2246,6 +2251,11 @@ ck( 'the form asks for the three things, posts the new action with its nonce, an
         substr_count( $new_form, 'name="track"' ),
     ),
     array( 1, 1, true, true, true, true, true, 0 ) );
+// As with a copy: the status and the key are checked, then the track created, with no lock between,
+// and a course link sends a request to Learn first, which widens the window two presses fall in.
+ck( 'and it locks at its first press, saying Creating while the track is made',
+    substr_count( $new_form, '<form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Creating">' ),
+    1 );
 
 $_GET = array( 'wpcpm_new' => 1 );
 ob_start();

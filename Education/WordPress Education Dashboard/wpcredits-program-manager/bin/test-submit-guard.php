@@ -17,6 +17,11 @@
  * last one is what keeps every page that had the guard on it. The same file pins admin.js
  * polling every `[data-wpcpm-progress]` on a page rather than the first, because the
  * Institutions screen draws a sync panel and a provisioning run on one page.
+ *
+ * wp-admin runs the same script: the admin class enqueues `wpcpm-forms` beside admin.js on every
+ * plugin screen, so the attribute is live on every form there that prints it, and the forms
+ * whose second press sends a second mail or can make a second track carry it with their busy
+ * word. All of it is read off the source, as forms.js is.
  */
 if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
@@ -189,6 +194,97 @@ ck( 'the booking form declares a visible status',
     (bool) strpos( file_get_contents( $php_files[0] ), 'data-wpcpm-status=' ) );
 ck( 'and renders the live region it goes in',
     (bool) strpos( file_get_contents( $php_files[0] ), 'data-wpcpm-busy-status' ) );
+
+/**
+ * One method's source, from its signature to the brace that closes it at the class's indent,
+ * with its comments taken out by PHP's own tokenizer, so a sentence about the code cannot pass
+ * for the code and a `//` inside a string is left alone.
+ *
+ * @param string $src       The file.
+ * @param string $signature The method's signature, as written.
+ * @return string The method's code, or '' when the file has no such method.
+ */
+function method_code( $src, $signature ) {
+	$at = strpos( $src, $signature );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$code = '';
+
+	foreach ( token_get_all( '<?php ' . substr( $src, $at, (int) strpos( $src, "\n\t}\n", $at ) - $at ) ) as $token ) {
+		if ( is_array( $token ) && in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+			continue;
+		}
+
+		$code .= is_array( $token ) ? $token[1] : $token;
+	}
+
+	return substr( $code, strlen( '<?php ' ) );
+}
+
+// wp-admin loads the same guard: the admin class enqueues the handle on the screens it enqueues
+// admin.js on, every screen of the plugin's menu and no other, past the one return that keeps
+// both to them. It registers nothing: the call calendar registers the handle on `init`, which
+// wp-admin runs too, and the Mentors module boots the calendar on every request.
+$admin_src = (string) file_get_contents( $root . '/includes/class-wpcpm-admin.php' );
+$enqueue   = method_code( $admin_src, 'public function enqueue_assets( $hook_suffix )' );
+$to_plugin = "if ( false === strpos( \$hook_suffix, self::MENU_SLUG ) ) {\n\t\t\treturn;\n\t\t}";
+$past      = false === strpos( $enqueue, $to_plugin ) ? '' : substr( $enqueue, strpos( $enqueue, $to_plugin ) + strlen( $to_plugin ) );
+
+ck( 'in wp-admin the admin class enqueues wpcpm-forms, once, in enqueue_assets()',
+    array( substr_count( $admin_src, "wp_enqueue_script( 'wpcpm-forms' )" ), substr_count( $enqueue, "wp_enqueue_script( 'wpcpm-forms' );" ) ),
+    array( 1, 1 ) );
+ck( 'on the screens it enqueues wpcpm-admin on: both past the one return, for a screen that is not the plugin\'s, and the guard\'s own line at the method body\'s indent, inside no condition',
+    array(
+        false !== strpos( $enqueue, $to_plugin ),
+        preg_match_all( '/\breturn\b/', $enqueue ),
+        (bool) preg_match( "/wp_enqueue_script\(\s*'wpcpm-admin',/", $past ),
+        false !== strpos( $past, "wp_enqueue_script( 'wpcpm-forms' );" ),
+        false !== strpos( $past, "\n\t\twp_enqueue_script( 'wpcpm-forms' );" ),
+    ),
+    array( true, 1, true, true, true ) );
+ck( 'and the handle it names is registered on init by the call calendar, which the Mentors module boots',
+    array(
+        (bool) preg_match( "/public static function init\(\) \{\s*add_action\( 'init', array\( __CLASS__, 'register_assets' \) \);/", $module ),
+        false !== strpos( method_code( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-mentors.php' ), 'public function boot()' ), 'WPCPM_Call_Calendar::init();' ),
+    ),
+    array( true, true ) );
+
+// The wp-admin forms whose second press does harm and that carried no guard: the sample
+// invitations on Settings > Mail, one form drawn for each audience, where a second press mails
+// the presser again, and the Track Builder's Create the track and Make the copy, where two presses
+// that overlap can make two tracks. Each method draws one form, and it carries the attribute and
+// its busy word, translated and escaped for the attribute, with a `<button>` to show the word on:
+// the guard swaps a button's text, and an input's label is its value, which it leaves alone.
+$settings_src = (string) file_get_contents( $root . '/includes/class-wpcpm-settings-screen.php' );
+$builder_src  = (string) file_get_contents( $root . '/includes/tools/class-wpcpm-track-builder-screen.php' );
+$mail_card    = method_code( $settings_src, 'private function render_mail_card()' );
+$marked       = array();
+
+foreach ( array(
+	'Settings > Mail'  => array( $mail_card, 'Sending' ),
+	'Create the track' => array( method_code( $builder_src, 'public static function render_new( array $args )' ), 'Creating' ),
+	'Make the copy'    => array( method_code( $builder_src, 'public static function render_duplicate( array $args )' ), 'Copying' ),
+) as $form => $drawn ) {
+	$marked[ $form ] = array(
+		substr_count( $drawn[0], '<form' ),
+		(bool) preg_match( '/<form [^>]*data-wpcpm-once data-wpcpm-busy="%\d\$s"/', $drawn[0] ),
+		substr_count( $drawn[0], "esc_attr__( '" . $drawn[1] . "', 'wpcredits-program-manager' )" ),
+		substr_count( $drawn[0], '<button type="submit"' ),
+	);
+}
+
+ck( 'the Settings > Mail sample forms, Create the track and Make the copy each carry data-wpcpm-once and their busy word, Sending, Creating and Copying, on a button',
+    $marked,
+    array(
+        'Settings > Mail'  => array( 1, true, 1, 1 ),
+        'Create the track' => array( 1, true, 1, 1 ),
+        'Make the copy'    => array( 1, true, 1, 1 ),
+    ) );
+ck( 'and the Mail tab draws its one form once for each of the four audiences',
+    (bool) preg_match( '/foreach \( array\(\s*\'student\'\s+=>.*?\'mentor\'\s+=>.*?\'institution\'\s+=>.*?\'sponsor\'\s+=>.*?\) as \$kind => \$label \) \{\s*printf\(\s*\'<form /s', $mail_card ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

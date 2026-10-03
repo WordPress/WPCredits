@@ -2650,6 +2650,11 @@ ck( 'the Mail tab has no Save: its four sample buttons are each a form posting t
         array( true, 'wpcpm_send_test_mail', 'institution', null, 0 ),
         array( true, 'wpcpm_send_test_mail', 'sponsor', null, 0 ),
     ) );
+// A second press mailed the presser a second sample, so each form carries the double-press guard,
+// which locks it at the first press and swaps the button's words for its busy word.
+ck( 'and each sample form locks at its first press and says Sending while its mail is on the way',
+    array_map( function ( $form ) { return trim( $form['open'] ); }, forms_of( $mail_html ) ),
+    array_fill( 0, 4, 'method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Sending"' ) );
 ck( 'and it draws what is waiting to be sent and the recent mail, with no Save anywhere on it',
     array( false !== strpos( $mail_html, '3 invitations are waiting to be sent.' ), false !== strpos( $mail_html, '<td>maciej@a8c.com</td>' ), substr_count( $mail_html, 'value="Save settings"' ) ),
     array( true, true, 0 ) );
