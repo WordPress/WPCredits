@@ -16,6 +16,11 @@
 
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<!-- The hidden folders where linked worktrees and session files hold other copies of the theme.
+	     Matched against the path below this file's folder: a pattern matched against the whole path
+	     would leave out every file of a tree that is itself a linked worktree. -->
+	<exclude-pattern type="relative">^\.worktrees/*</exclude-pattern>
+	<exclude-pattern type="relative">^\.superpowers/*</exclude-pattern>
 
 	<!--
 		Development scripts. They run on the command line, outside WordPress, and read and

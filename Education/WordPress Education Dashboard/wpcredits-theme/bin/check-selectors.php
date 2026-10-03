@@ -37,17 +37,43 @@ if ( ! is_dir( $plugin . '/includes' ) ) {
 }
 
 /**
+ * Whether a file sits in one of the folders a walk leaves out, judged by its path below the
+ * root.
+ *
+ * @param string   $root Directory the walk started from.
+ * @param string   $path The file's whole path.
+ * @param string[] $skip Folder names, each between slashes.
+ * @return bool
+ */
+function wpcredits_skipped( $root, $path, array $skip ) {
+	$below = substr( $path, strlen( rtrim( $root, '/' ) ) );
+
+	foreach ( $skip as $part ) {
+		if ( false !== strpos( $below, $part ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * The source files under a root, by extension.
  *
- * Skips what is not source: version control, dependencies, the development scripts (this
- * one names classes in its own comments) and the documentation.
+ * Skips what is not source: version control, the hidden folders where linked worktrees and
+ * session files hold other copies of the plugin and the theme (a class only another line of
+ * development prints must not vouch for a rule here), dependencies, the development scripts
+ * (this one names classes in its own comments) and the documentation. Each is looked for in
+ * the path below the root, not in the root's own: a root that is itself a linked worktree
+ * sits under `.worktrees/`, and matching the whole path would skip every file of it and
+ * leave the check passing with nothing checked.
  *
  * @param string   $root       Directory.
  * @param string[] $extensions Lower-case extensions, without the dot.
  * @return string[] Paths, sorted.
  */
 function wpcredits_source_files( $root, array $extensions ) {
-	$skip  = array( '/.git/', '/node_modules/', '/vendor/', '/bin/', '/docs/' );
+	$skip  = array( '/.git/', '/.worktrees/', '/.superpowers/', '/node_modules/', '/vendor/', '/bin/', '/docs/' );
 	$files = array();
 
 	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ) ) as $file ) {
@@ -57,10 +83,8 @@ function wpcredits_source_files( $root, array $extensions ) {
 			continue;
 		}
 
-		foreach ( $skip as $part ) {
-			if ( false !== strpos( $path, $part ) ) {
-				continue 2;
-			}
+		if ( wpcredits_skipped( $root, $path, $skip ) ) {
+			continue;
 		}
 
 		$files[] = $path;
@@ -287,12 +311,13 @@ if ( $unscoped ) {
 	exit( 1 );
 }
 
-// The house rule, enforced here too: plain hyphens only, in every text file of the theme.
+// The house rule, enforced here too: plain hyphens only, in every text file of the theme. The
+// hidden folders are left out as above: another line's working copy is not this theme.
 $dashes = array();
 $walk   = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $theme, FilesystemIterator::SKIP_DOTS ) );
 foreach ( $walk as $file ) {
 	$path = $file->getPathname();
-	if ( false !== strpos( $path, '/.git/' ) || ! preg_match( '/\.(php|css|js|json|md|txt|html)$/', $path ) ) {
+	if ( wpcredits_skipped( $theme, $path, array( '/.git/', '/.worktrees/', '/.superpowers/', '/node_modules/' ) ) || ! preg_match( '/\.(php|css|js|json|md|txt|html)$/', $path ) ) {
 		continue;
 	}
 	$text = (string) file_get_contents( $path );

@@ -143,9 +143,10 @@
    The prose
    ========================================================================== */
 /* Somewhere to land. Anchored headings scroll to the top of the viewport, which puts them under a
-   sticky header; the offset is what stops a jump landing on the line above the one you asked for. */
+   sticky header; the offset is what stops a jump landing on the line above the one you asked for.
+   It is the theme's one landing offset, which is larger on a phone, where the bar is taller. */
 .wpc-doc__prose :is( h2, h3, h4 )[id] {
-	scroll-margin-top: 96px;
+	scroll-margin-top: var( --wpc-landing-offset );
 }
 
 /* The guides' section headings are the page's own structure, so they get a rule above them. `h3` is

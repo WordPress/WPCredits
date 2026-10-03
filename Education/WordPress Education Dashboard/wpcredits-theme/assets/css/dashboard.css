@@ -113,6 +113,32 @@
    have matched anything either way. */
 
 /* ==========================================================================
+   Somewhere to land
+
+   A card or an item reached by the anchor in its address scrolls to the top of
+   the window, which puts it under the sticky header: the wp-admin screens link
+   straight to an item ("Open on the Administrator Dashboard"), and a decision's
+   way back lands on its card. Every anchor the program links to on these pages
+   is one of the plugin's ids. The offset is the one the guides' headings use,
+   `--wpc-landing-offset`: the header's height and some air, more on a phone,
+   where the bar is taller. The admin bar's own height is reserved by WordPress.
+
+   A student's row on the Mentor Report Card has one more sticky layer to clear,
+   the group heading pinned below the bar, so it lands a little lower, enough to
+   show whole below that heading. On a phone the heading sits behind the taller
+   bar and there is nothing more to clear.
+   ========================================================================== */
+.wpc-dashboard-page [id^="wpcpm-"] {
+	scroll-margin-top: var( --wpc-landing-offset );
+}
+
+@media ( min-width: 641px ) {
+	.wpc-dashboard-page .wpcpm-mentee[id] {
+		scroll-margin-top: calc( var( --wpc-landing-offset ) + 24px );
+	}
+}
+
+/* ==========================================================================
    Header band - who this list belongs to, and the triage counts
    ========================================================================== */
 /* The plugin's own triage.css gives this a 1em (14px) bottom margin as its theme-agnostic

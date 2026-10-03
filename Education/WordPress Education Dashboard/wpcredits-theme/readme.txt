@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.7
+Stable tag: 1.24.8
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.8 =
+* Dashboards: a card or an item opened by the anchor in its address now lands below the sticky header instead of under it. The wp-admin screens' links to an item on the Administrator Dashboard (plugin 1.121.0 and later) and a decision's way back to its card use such anchors.
+* Guides: an anchored heading keeps clear of the header on a phone too, where the bar is two or more rows tall.
 
 = 1.24.7 =
 * Tools from our sponsors: the button beside the More information link, and Report a problem beside each code under Your codes (plugin 1.116.4).
