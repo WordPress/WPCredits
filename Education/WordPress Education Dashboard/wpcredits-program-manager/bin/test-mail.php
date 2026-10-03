@@ -999,7 +999,7 @@ ck( 'an institution whose agreement is on file is told its account is open',
 // the other stubs so the invitation is first built with no such page at all - the way it is in
 // the plugin today - and only then with one.
 ck( 'no dashboard line while the module has no page',
-    array( false !== strpos( $institution['message'], 'Your institution dashboard:' ) ), array( false ) );
+    array( false !== strpos( $institution['message'], 'Your Institution Dashboard:' ) ), array( false ) );
 
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	/** Stands in for the module once it has a page; empty means the page is not set up yet. */
@@ -1012,9 +1012,9 @@ $GLOBALS['institution_page'] = 'https://example.test/institution-dashboard/';
 $with_page                   = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
 
 ck( 'nor while the page answers with nothing',
-    array( false !== strpos( $no_page['message'], 'Your institution dashboard:' ) ), array( false ) );
+    array( false !== strpos( $no_page['message'], 'Your Institution Dashboard:' ) ), array( false ) );
 ck( 'and the line appears once there is a page to point at',
-    array( false !== strpos( $with_page['message'], "Your institution dashboard:\r\nhttps://example.test/institution-dashboard/" ) ), array( true ) );
+    array( false !== strpos( $with_page['message'], "Your Institution Dashboard:\r\nhttps://example.test/institution-dashboard/" ) ), array( true ) );
 
 // Same page, different job: before the agreement is accepted the dashboard is where the
 // signed copy goes, and the line says so.
@@ -1025,7 +1025,7 @@ $GLOBALS['settled'] = array( 'recLEGACY' );
 ck( 'an institution still to sign is pointed at the same page as the place to upload',
     array(
         false !== strpos( $to_upload['message'], "Where the agreement is uploaded:\r\nhttps://example.test/institution-dashboard/" ),
-        false !== strpos( $to_upload['message'], 'Your institution dashboard:' ),
+        false !== strpos( $to_upload['message'], 'Your Institution Dashboard:' ),
         false !== strpos( $to_upload['message'], 'once it is in place' ),
         false !== strpos( $with_page['message'], 'once it is in place' ),
     ),
@@ -1651,6 +1651,41 @@ ck( 'a bare address keeps its first letter and its domain', WPCPM_Mail::mask_add
 ck( 'a display name is dropped and the address inside the brackets masked', WPCPM_Mail::mask_address( 'Lu Example <lu@example.test>' ), 'l***@example.test' );
 ck( 'something that is not an address masks to nothing identifying', WPCPM_Mail::mask_address( 'not an address' ), '***' );
 ck( 'and an empty one to nothing', WPCPM_Mail::mask_address( '' ), '' );
+
+echo "\n=== Product names in what people read ===\n";
+
+// The program's two report cards are named in full wherever a person reads them, in a mail or on
+// a screen: "Student Report Card" and "Mentor Report Card", never the bare words. Read off the
+// source: every constant string in the PHP files under includes/, which leaves the comments out.
+// A string built around a variable, a heredoc, inline HTML and the blocks' own files are not
+// read; none of them holds the words today.
+$bare = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $source ) {
+	if ( 'php' !== $source->getExtension() ) {
+		continue;
+	}
+
+	foreach ( token_get_all( (string) file_get_contents( $source->getPathname() ) ) as $token ) {
+		if ( is_array( $token ) && T_CONSTANT_ENCAPSED_STRING === $token[0] && 1 === preg_match( '/(?<!Student )(?<!Mentor )\breport cards?\b/i', $token[1] ) ) {
+			$bare[] = $source->getFilename() . ':' . $token[2];
+		}
+	}
+}
+
+sort( $bare );
+
+ck( 'no constant string in the PHP under includes/ says a bare "report card": it is the Student Report Card or the Mentor Report Card', $bare, array() );
+ck( 'the student\'s welcome and the notice that a group session moved name the Student Report Card',
+    array(
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' ), "__( 'Your Student Report Card:'" ),
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), "__( 'Your Student Report Card:'" ),
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), 'you can leave the session from your Student Report Card.' ),
+    ),
+    array( 1, 1, 1 ) );
+ck( 'and the Institutions screen says a semester report is approved on the Institution Dashboard, by its name',
+    substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ), 'reviews and approves it on the Institution Dashboard, and only then does the institution see it.' ),
+    1 );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

@@ -1298,7 +1298,7 @@ class WPCPM_Mail {
 				? __( 'Set your password using the link below. Your Collaboration Agreement is on file, so your account is open.', 'wpcredits-program-manager' )
 				: __( 'Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program\'s or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens.', 'wpcredits-program-manager' );
 			$label   = $settled
-				? __( 'Your institution dashboard:', 'wpcredits-program-manager' )
+				? __( 'Your Institution Dashboard:', 'wpcredits-program-manager' )
 				: __( 'Where the agreement is uploaded:', 'wpcredits-program-manager' );
 			/* translators: %s: site name. */
 			$subject = __( '[%s] Your institution account is ready', 'wpcredits-program-manager' );
@@ -1317,7 +1317,7 @@ class WPCPM_Mail {
 			$page    = WPCPM_Students_Dashboard::page_url();
 			$opening = __( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' );
 			$next    = __( 'Set your password using the link below, then check your details and book your first call with your mentor.', 'wpcredits-program-manager' );
-			$label   = __( 'Your report card:', 'wpcredits-program-manager' );
+			$label   = __( 'Your Student Report Card:', 'wpcredits-program-manager' );
 			/* translators: %s: site name. */
 			$subject = __( '[%s] Welcome to the WordPress Credits Program', 'wpcredits-program-manager' );
 		}

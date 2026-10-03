@@ -246,13 +246,30 @@ ck( 'under it, in order: the Overview, the five audiences, Tools with each tool 
         array( 'Sponsors', 'Sponsors', 'wpcpm-sponsors' ),
         array( 'Administrators', 'Administrators', 'wpcpm-administrators' ),
         array( 'Tools', 'Tools', 'wpcpm-tools' ),
-        array( 'Header notices', '- Header notices', 'wpcpm-tool-header-notices' ),
-        array( 'Need help?', '- Need help?', 'wpcpm-tool-handbook' ),
-        array( 'Mentor Status Checker', '- Mentor Status Checker', 'wpcpm-tool-mentor-status-checker' ),
-        array( 'Student Duplicate Finder', '- Student Duplicate Finder', 'wpcpm-tool-duplicate-finder' ),
-        array( 'Track Builder', '- Track Builder', 'wpcpm-tool-track-builder' ),
+        array( 'Header notices', "-\u{2009}Header notices", 'wpcpm-tool-header-notices' ),
+        array( 'Need help?', "-\u{2009}Need help?", 'wpcpm-tool-handbook' ),
+        array( 'Mentor Status Checker', "-\u{2009}Mentor Status Checker", 'wpcpm-tool-mentor-status-checker' ),
+        array( 'Student Duplicate Finder', "-\u{2009}Student Duplicate Finder", 'wpcpm-tool-duplicate-finder' ),
+        array( 'Track Builder', "-\u{2009}Track Builder", 'wpcpm-tool-track-builder' ),
         array( 'Settings', 'Settings', 'wpcpm-settings' ),
     ) );
+
+// Core passes a menu title through wptexturize(), which turns a hyphen with a space or an edge on
+// both sides into an en dash; the house rule is plain hyphens, so no title may hold one. The
+// pattern is core's own (its spaces: an ordinary space, a tab, a line break, a non-breaking
+// space), asked of each run of text between tags. The tools' marker is a hyphen followed by a thin
+// space, which is none of those.
+ck( 'no menu line holds a hyphen that WordPress would print as an en dash: the tools\' marker is a hyphen and a thin space',
+    array_values( array_filter( array_merge( array_column( $GLOBALS['menu'], 1 ), array_column( $GLOBALS['submenu'], 1 ) ), static function ( $title ) {
+        foreach ( preg_split( '/<[^>]*>/', (string) $title ) as $text ) {
+            if ( 1 === preg_match( '/(?<=^|[\r\n\t ]|\xC2\xA0|&nbsp;)-(?=$|[\r\n\t ]|\xC2\xA0|&nbsp;)/', $text ) ) {
+                return true;
+            }
+        }
+
+        return false;
+    } ) ),
+    array() );
 
 ck( 'and every entry is a program manager\'s, under the plugin\'s own entry',
     array_values( array_unique( array_merge( array_column( $GLOBALS['menu'], 3 ), array_column( $GLOBALS['submenu'], 3 ), array_column( $GLOBALS['submenu'], 4 ) ) ) ),

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.1
+Stable tag: 1.122.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.2 =
+
+* wp-admin menu: the tools listed under Tools are marked with a plain hyphen, not an en dash. WordPress prints a menu line's lone hyphen as an en dash, so the marker is now written in a form it leaves alone.
+* Words: product names are written in full where a few sentences had them short: the institution welcome email and the Institutions screen's Semester reports tab name the Institution Dashboard, and the student welcome email and the notice that a group session moved name the Student Report Card.
 
 = 1.122.1 =
 

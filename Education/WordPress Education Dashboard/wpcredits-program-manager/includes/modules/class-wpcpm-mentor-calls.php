@@ -1313,7 +1313,7 @@ class WPCPM_Mentor_Calls {
 							WPCPM_Mentor_Availability::zone_label( $zone->getName() )
 						),
 						'',
-						__( 'Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your report card.', 'wpcredits-program-manager' ),
+						__( 'Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your Student Report Card.', 'wpcredits-program-manager' ),
 					);
 
 					if ( '' !== trim( (string) $facts['topic'] ) ) {
@@ -1327,7 +1327,7 @@ class WPCPM_Mentor_Calls {
 
 					if ( '' !== $page ) {
 						$lines[] = '';
-						$lines[] = __( 'Your report card:', 'wpcredits-program-manager' );
+						$lines[] = __( 'Your Student Report Card:', 'wpcredits-program-manager' );
 						$lines[] = $page;
 					}
 

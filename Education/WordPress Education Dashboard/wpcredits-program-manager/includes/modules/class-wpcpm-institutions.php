@@ -5016,7 +5016,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $total ) )
 		);
-		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; a program manager reviews and approves it on the institution dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; a program manager reviews and approves it on the Institution Dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $posts ) ) {
 			echo '<p>' . esc_html__( 'No report has been drafted yet.', 'wpcredits-program-manager' ) . '</p>';

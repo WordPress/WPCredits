@@ -90,8 +90,13 @@ class WPCPM_Admin {
 				self::MENU_SLUG,
 				$tool->label(),
 				// Indented so the submenu reads as a tool belonging to Tools rather
-				// than as another audience.
-				'- ' . $tool->label(),
+				// than as another audience. The hyphen is followed by a thin space, not an
+				// ordinary one: core passes a menu title through wptexturize(), which turns
+				// a hyphen into an en dash when each side of it is an edge or one of the
+				// spaces it looks for (an ordinary space, a tab, a line break, a
+				// non-breaking space); a thin space is not among them. The title stays
+				// plain text, with no reference for a reader of the menu to decode.
+				"-\u{2009}" . $tool->label(),
 				WPCPM_Roles::CAP_MANAGE,
 				$tool->page_slug(),
 				array( $tool, 'render_admin_page' )

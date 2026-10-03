@@ -1040,8 +1040,8 @@ ck( 'the Accounts tab draws the invitations card and the sponsor accounts list, 
 	form_fields_of( $tabs['accounts'], WPCPM_Sponsor_Posts::ACTION_FLAGS ),
 ), array( array( 'Invitations', 'Sponsor accounts' ), true, true, array(), array() ) );
 ck( 'the Interests tab draws the interests log card and no other', cards_of( $tabs['interests'] ), array( 'Interests' ) );
-// The once attribute is what the dashboards' submit guard reads; that script is not loaded in
-// wp-admin, so here each check reads the attribute and nothing more.
+// The once attribute is what the submit guard reads, on the dashboards and, since 1.122.1, in
+// wp-admin too; the script itself is not run here, so each check reads the attribute and nothing more.
 ck( 'every form the module draws on a tab carries the once attribute', array_map( static function ( $html ) { return post_forms( without_invitations( $html ), true ); }, $tabs ), array_fill_keys( $slugs, array() ) );
 // The agreement forms name no tab: they come back by their referer. The Accounts tab draws no form
 // here: the invitations card draws its button only for an account never invited, and there is none.
