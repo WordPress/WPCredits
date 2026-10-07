@@ -161,6 +161,9 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $v ) { return $v; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 
 function get_post_meta( $id, $key = '', $single = false ) {

@@ -271,6 +271,9 @@ function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? 
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $v ) { return $v; }
 function wp_get_referer() { return '' !== $GLOBALS['referer'] ? $GLOBALS['referer'] : false; }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonces'][] = $a; return true; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }

@@ -111,6 +111,9 @@ function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function get_user_by( $f, $v ) { return new WP_User( (int) $v ); }
 function get_user_meta( $id, $k, $single = false ) { return isset( $GLOBALS['umeta'][ (int) $id ][ $k ] ) ? $GLOBALS['umeta'][ (int) $id ][ $k ] : ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $v ) { return $v; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }

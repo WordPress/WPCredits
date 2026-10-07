@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.8
+Stable tag: 1.24.9
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.9 =
+* Header: signed in on a tablet-width window (601px to 782px), where WordPress makes the admin bar 46px tall instead of 32px, the sticky header now sits right under the bar. Its top 14px used to be behind the bar, because the theme left room for a 32px bar.
+* Navigation and Mentor Report Card: on that window the open menu (from 641px) and the group heading pinned below the header move down with the header by the same 14px, so each keeps the place it had against the header. All three now read the bar's height from the variable WordPress declares for it, with 32px as the fallback. Nothing moves above 782px, or at 600px and below, where the bar scrolls away.
 
 = 1.24.8 =
 * Dashboards: a card or an item opened by the anchor in its address now lands below the sticky header instead of under it. The wp-admin screens' links to an item on the Administrator Dashboard (plugin 1.121.0 and later) and a decision's way back to its card use such anchors.

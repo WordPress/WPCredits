@@ -74,7 +74,9 @@ class WP_Post {
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
-function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+// Each number a plural string is asked for, in order, so a check can read which number chose a
+// line's form: in English any number above one reads the same, and in other languages it does not.
+function _n( $a, $b, $n, $d = null ) { $GLOBALS['plural_for'][ $a ][] = (int) $n; return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -517,13 +519,35 @@ class WPCPM_Sponsor_Tools {
 abstract class WPCPM_Sync_Module {
 	public static function sync_messages() { return array( 'started' => array( 'success', 'Sync started.' ) ); }
 }
+/**
+ * One read of a sponsor queue, as each class's own read answers it: the oldest `$limit` of what
+ * waits. The cards read a queue twice, its rows at the card's own limit and how many wait, the
+ * posts and the agreements at one more than the Sponsors screen's ceiling and the applications in
+ * full, and the two are separate queries: a check that puts a number in
+ * `$GLOBALS['count_short'][ $queue ]` has the longer read see that many fewer, as a row decided
+ * between the two queries would.
+ *
+ * @param string $queue   `posts`, `agreements` or `applications`.
+ * @param array  $waiting Everything waiting in the queue, oldest first.
+ * @param int    $limit   Most rows to read.
+ * @return array
+ */
+function sponsor_read( $queue, array $waiting, $limit ) {
+	$read = array_slice( $waiting, 0, max( 1, (int) $limit ) );
+
+	if ( (int) $limit > WPCPM_Administrators_Cards::LIMIT && ! empty( $GLOBALS['count_short'][ $queue ] ) ) {
+		$read = array_slice( $read, 0, max( 0, count( $read ) - (int) $GLOBALS['count_short'][ $queue ] ) );
+	}
+
+	return $read;
+}
 class WPCPM_Sponsor_Posts {
-	public static function pending_all( $limit = 50 ) { return isset( $GLOBALS['sponsor_posts'] ) ? $GLOBALS['sponsor_posts'] : array(); }
+	public static function pending_all( $limit = 50 ) { return sponsor_read( 'posts', isset( $GLOBALS['sponsor_posts'] ) ? $GLOBALS['sponsor_posts'] : array(), $limit ); }
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
 	public static function messages() { return array( 'post-published' => array( 'success', 'The post is published.' ) ); }
 }
 class WPCPM_Sponsor_Agreement {
-	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['agr_review'] ) ? $GLOBALS['agr_review'] : array(); }
+	public static function awaiting_review( $limit = 200 ) { return sponsor_read( 'agreements', isset( $GLOBALS['agr_review'] ) ? $GLOBALS['agr_review'] : array(), $limit ); }
 	public static function revoked_all( $limit = 200 ) { return isset( $GLOBALS['agr_revoked'] ) ? $GLOBALS['agr_revoked'] : array(); }
 	public static function review_facts( $id ) { return isset( $GLOBALS['agr_facts'][ (int) $id ] ) ? $GLOBALS['agr_facts'][ (int) $id ] : array(); }
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
@@ -531,7 +555,9 @@ class WPCPM_Sponsor_Agreement {
 }
 class WPCPM_Sponsor_Application {
 	const QUERY_QUEUE = 'wpcpm_sapp_id';
-	public static function queue_facts( $limit = 50 ) { return isset( $GLOBALS['sponsor_apps'] ) ? array_slice( $GLOBALS['sponsor_apps'], 0, (int) $limit ) : array(); }
+	public static function queue_facts( $limit = 50 ) { return sponsor_read( 'applications', isset( $GLOBALS['sponsor_apps'] ) ? $GLOBALS['sponsor_apps'] : array(), $limit ); }
+	/** The open applications, at most `$limit` of them, the menu bubble's count, or every one for 0, the cards' count. */
+	public static function pending_count( $limit = 0 ) { return count( sponsor_read( 'applications', isset( $GLOBALS['sponsor_apps'] ) ? $GLOBALS['sponsor_apps'] : array(), (int) $limit > 0 ? (int) $limit : PHP_INT_MAX ) ); }
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-app-action wpcpm-sponsor-application__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
 	public static function render_details( $post ) { echo '<div class="wpcpm-sapp-details-stub" data-post="' . (int) $post->ID . '"></div>'; }
 	public static function manager_messages() { return array( 'sapp-approved' => array( 'success', 'The sponsor application is approved.' ) ); }
@@ -590,6 +616,12 @@ class WPCPM_Duplicates_Scan {
 }
 if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
+// The Sponsors screen's class, the real one: the ceiling its posts and agreements cards count to
+// and the one printer of their counts, which the sponsor posts and agreements cards and tiles here
+// print through, so this page prints those counts in that screen's form. It extends the stand-in
+// above, and the accounts screens' trait it uses is declared first.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), through the five filters
@@ -1431,6 +1463,217 @@ $research_card = ob_get_clean();
 ck( 'and the Programs running card draws a tile for the new one, counted from nothing', has( $research_card, '<span class="wpcpm-programs__name">Research Track</span><span class="wpcpm-programs__n">0</span>' ), true );
 
 $GLOBALS['live_filters'] = array();
+
+/* ---- the sponsor queues count what waits ---------------------------------- */
+
+echo "\n=== Each sponsor card and its tile count what waits ===\n";
+
+// A sponsor queue is read twice: the rows its card draws, the oldest LIMIT, and how many wait, read
+// as the Sponsors screen counts the same queue: the posts and the signed agreements one more than
+// its ceiling, the applications in full. The tile, the card's count and the line under a cut list
+// come from the second, the rows from the first. Every check reads the three queues apart, through
+// the page a manager opens.
+$limit        = WPCPM_Administrators_Cards::LIMIT;
+$ceiling      = WPCPM_Sponsors::COUNT_MAX;
+$saved_queues = array( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['agr_facts'], $GLOBALS['sponsor_apps'] );
+
+// The sponsor queues holding $posts, $agreements and $applications, oldest first, the last two as
+// many as the posts when they are not given, each row in the shape its class's read hands the
+// cards: a post's facts, a signed agreement's post ID with the facts its card asks for, and an
+// application's facts.
+$sponsor_queues = static function ( $posts, $agreements = null, $applications = null ) use ( $saved_queues ) {
+	$GLOBALS['sponsor_posts'] = array();
+	$GLOBALS['agr_review']    = array();
+	$GLOBALS['sponsor_apps']  = array();
+
+	for ( $i = 0; $i < $posts; $i++ ) {
+		$GLOBALS['sponsor_posts'][] = array_merge( $saved_queues[0][0], array( 'id' => 7000 + $i, 'title' => 'Post ' . $i ) );
+	}
+
+	for ( $i = 0; $i < ( null === $agreements ? $posts : $agreements ); $i++ ) {
+		$GLOBALS['agr_review'][]           = 8000 + $i;
+		$GLOBALS['agr_facts'][ 8000 + $i ] = array_merge( $saved_queues[2][913], array( 'post_id' => 8000 + $i ) );
+	}
+
+	for ( $i = 0; $i < ( null === $applications ? $posts : $applications ); $i++ ) {
+		$GLOBALS['sponsor_apps'][] = array_merge( $saved_queues[3][0], array( 'id' => 9000 + $i, 'reference' => sprintf( 'SAPP-2026-%04d', 9000 + $i ) ) );
+	}
+};
+
+// Each sponsor card as the page draws it for a manager, with the number on its tile in the strip.
+$sponsor_cards = static function () {
+	$GLOBALS['uid']    = 3;
+	$GLOBALS['manage'] = array( 3 );
+	$page              = WPCPM_Administrators_Dashboard::render( array() );
+	$drawn             = array();
+
+	foreach ( array( 'posts' => 'sponsor-posts', 'agreements' => 'sponsor-agreements', 'applications' => 'sponsor-applications' ) as $queue => $id ) {
+		preg_match( '#<section class="wpcpm-administrator__card" id="wpcpm-' . $id . '">.*?</section>#s', $page, $card );
+		preg_match( '#<a class="wpcpm-attention__link" href="\#wpcpm-' . $id . '"><span class="wpcpm-attention__n">([^<]*)</span>#', $page, $tile );
+		$drawn[ $queue ] = array(
+			'card' => isset( $card[0] ) ? $card[0] : '',
+			'tile' => isset( $tile[1] ) ? $tile[1] : '',
+		);
+	}
+
+	return $drawn;
+};
+
+// What each sponsor card counts: its tile's number, the number in its heading, and how many of its
+// queue's items it lists.
+$sponsor_counts = static function () use ( $sponsor_cards ) {
+	$item = array(
+		'posts'        => '<article class="wpcpm-administrator__item wpcpm-sponsor-post" ',
+		'agreements'   => '<span class="wpcpm-administrator__kind">Waiting for review</span>',
+		'applications' => '<article class="wpcpm-administrator__item wpcpm-sponsor-application" ',
+	);
+	$said = array();
+
+	foreach ( $sponsor_cards() as $queue => $drawn ) {
+		preg_match( '#<span class="wpcpm-group__count">([^<]*)</span>#', $drawn['card'], $badge );
+		$said[ $queue ] = array( $drawn['tile'], isset( $badge[1] ) ? $badge[1] : '', substr_count( $drawn['card'], $item[ $queue ] ) );
+	}
+
+	return $said;
+};
+
+// The lines under each sponsor card's list that link nowhere, in the order printed.
+$sponsor_lines = static function () use ( $sponsor_cards ) {
+	$said = array();
+
+	foreach ( $sponsor_cards() as $queue => $drawn ) {
+		preg_match_all( '#<p class="wpcpm-administrator__more">([^<]*)</p>#', $drawn['card'], $more );
+		$said[ $queue ] = $more[1];
+	}
+
+	return $said;
+};
+
+// The same thing said by each of the three cards.
+$alike = static function ( array $said ) {
+	return array(
+		'posts'        => $said,
+		'agreements'   => $said,
+		'applications' => $said,
+	);
+};
+
+// Each card drawn from its rows alone, the way the page drew it before its count was read apart:
+// the agreements card with the one agreement out of force the fixture holds.
+$sponsor_alone = static function () {
+	$review = array();
+
+	foreach ( $GLOBALS['agr_review'] as $id ) {
+		$review[] = $GLOBALS['agr_facts'][ $id ];
+	}
+
+	return array(
+		'posts'        => capture( static function () { WPCPM_Administrators_Cards::render_sponsor_posts( $GLOBALS['sponsor_posts'] ); } ),
+		'agreements'   => capture( static function () use ( $review ) { WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => $review, 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) ); } ),
+		'applications' => capture( static function () { WPCPM_Administrators_Cards::render_sponsor_applications( $GLOBALS['sponsor_apps'] ); } ),
+	);
+};
+
+$sponsor_queues( 0 );
+$none_counts = $sponsor_counts();
+$none_lines  = $sponsor_lines();
+$none_page   = array_map( static function ( $drawn ) { return $drawn['card']; }, $sponsor_cards() );
+$none_alone  = $sponsor_alone();
+$sponsor_queues( 3 );
+$three_counts = $sponsor_counts();
+$three_lines  = $sponsor_lines();
+$three_page   = array_map( static function ( $drawn ) { return $drawn['card']; }, $sponsor_cards() );
+$three_alone  = $sponsor_alone();
+ck( 'with nothing waiting, and with three waiting and three listed, each card and its tile count what the card lists, as before',
+	array( $none_counts, $three_counts ),
+	array( $alike( array( '0', '0', 0 ) ), $alike( array( '3', '3', 3 ) ) ) );
+ck( 'and no card says any more under its list', array( $none_lines, $three_lines ), array( $alike( array() ), $alike( array() ) ) );
+ck( 'and each card is drawn byte for byte as it is drawn from its rows alone', array( $none_page === $none_alone, $three_page === $three_alone ), array( true, true ) );
+
+$sponsor_queues( $limit + 7 );
+ck( 'with seven more waiting than a card lists, each card lists the oldest LIMIT, and its tile and its heading count every one waiting',
+	$sponsor_counts(),
+	$alike( array( (string) ( $limit + 7 ), (string) ( $limit + 7 ), $limit ) ) );
+$cut_cards = $sponsor_cards();
+ck( 'and the line under each list says seven more are waiting',
+	$sponsor_lines(),
+	$alike( array( '7 more are waiting; they are listed here as these are decided.' ) ) );
+ck( 'the line sits right under the list it speaks of: before the way to the Sponsors screen, and in the agreements card above the agreements out of force', array(
+	has( $cut_cards['posts']['card'], '</article><p class="wpcpm-administrator__more">7 more are waiting; they are listed here as these are decided.</p><p class="wpcpm-administrator__more"><a href=' ),
+	has( $cut_cards['agreements']['card'], '</article><p class="wpcpm-administrator__more">7 more are waiting; they are listed here as these are decided.</p><h4 class="wpcpm-administrator__subheading">Out of force</h4>' ),
+	has( $cut_cards['applications']['card'], '</article><p class="wpcpm-administrator__more">7 more are waiting; they are listed here as these are decided.</p><p class="wpcpm-administrator__more"><a href=' ),
+), array( true, true, true ) );
+
+$sponsor_queues( $limit + 1 );
+ck( 'one more waiting than a card lists is said in the singular',
+	$sponsor_lines(),
+	$alike( array( '1 more is waiting; it is listed here as these are decided.' ) ) );
+
+// The three queues of three sizes on one page, so a count wired to another queue's tile or card
+// cannot pass: the posts seven past the cut, the agreements one, the applications all listed.
+$sponsor_queues( $limit + 7, $limit + 1, 3 );
+ck( 'with the three queues of three sizes, each card and its tile count their own queue: the posts and the agreements cut at the oldest LIMIT, the applications listed whole',
+	$sponsor_counts(),
+	array(
+		'posts'        => array( (string) ( $limit + 7 ), (string) ( $limit + 7 ), $limit ),
+		'agreements'   => array( (string) ( $limit + 1 ), (string) ( $limit + 1 ), $limit ),
+		'applications' => array( '3', '3', 3 ),
+	) );
+ck( 'and each says its own under its list: seven more posts, one more agreement, nothing under the applications',
+	$sponsor_lines(),
+	array(
+		'posts'        => array( '7 more are waiting; they are listed here as these are decided.' ),
+		'agreements'   => array( '1 more is waiting; it is listed here as these are decided.' ),
+		'applications' => array(),
+	) );
+
+// Past the ceiling the posts' and the agreements' reads stop at one more than it, so the page knows
+// only that more than the ceiling wait. The applications are counted in full, as the Sponsors
+// screen's applications card counts them, so their number stands at any size.
+$sponsor_queues( $ceiling + 50 );
+ck( 'past the Sponsors screen\'s ceiling the posts\' and the agreements\' tiles and headings print the ceiling with a plus sign, and the applications\' every one waiting',
+	$sponsor_counts(),
+	array(
+		'posts'        => array( $ceiling . '+', $ceiling . '+', $limit ),
+		'agreements'   => array( $ceiling . '+', $ceiling . '+', $limit ),
+		'applications' => array( (string) ( $ceiling + 50 ), (string) ( $ceiling + 50 ), $limit ),
+	) );
+// The posts' and the agreements' lines say the least of it, never the read less the rows; the
+// applications' line says exactly how many more.
+$GLOBALS['plural_for'] = array();
+ck( 'and the line under the posts\' and the agreements\' lists gives the ceiling less the rows drawn, with the plus sign, and under the applications\' the exact rest',
+	$sponsor_lines(),
+	array(
+		'posts'        => array( ( $ceiling - $limit ) . '+ more are waiting; they are listed here as these are decided.' ),
+		'agreements'   => array( ( $ceiling - $limit ) . '+ more are waiting; they are listed here as these are decided.' ),
+		'applications' => array( ( $ceiling + 50 - $limit ) . ' more are waiting; they are listed here as these are decided.' ),
+	) );
+// In the order the page draws the cards: the applications, the posts, the agreements.
+ck( 'and each line\'s singular or plural is chosen by the number it prints: the exact rest for the applications, and for the posts and the agreements the ceiling less the rows, not the read less them',
+	isset( $GLOBALS['plural_for']['%s more is waiting; it is listed here as these are decided.'] ) ? $GLOBALS['plural_for']['%s more is waiting; it is listed here as these are decided.'] : array(),
+	array( $ceiling + 50 - $limit, $ceiling - $limit, $ceiling - $limit ) );
+$past_counts = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
+ck( 'and each tile\'s number is still an integer: the posts\' and the agreements\' the count\'s read, one more than the ceiling, and the applications\' every one waiting',
+	array( $past_counts['sponsor_posts']['n'], $past_counts['sponsor_agreements']['n'], $past_counts['sponsor_applications']['n'] ),
+	array( $ceiling + 1, $ceiling + 1, $ceiling + 50 ) );
+
+// The two reads are separate queries: one decided between them leaves the count's read short of the
+// rows the card already holds, and the card must not count fewer than it lists.
+$sponsor_queues( 3 );
+$GLOBALS['count_short'] = array(
+	'posts'        => 1,
+	'agreements'   => 1,
+	'applications' => 1,
+);
+ck( 'when the count\'s read answers fewer than the rows a card holds, the count is the rows',
+	$sponsor_counts(),
+	$alike( array( '3', '3', 3 ) ) );
+ck( 'and no line is printed under them',
+	$sponsor_lines(),
+	$alike( array() ) );
+unset( $GLOBALS['count_short'] );
+
+list( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['agr_facts'], $GLOBALS['sponsor_apps'] ) = $saved_queues;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

@@ -39,7 +39,8 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 
 **Waiting for a decision** lists each queue with something in it, in the order of the Administrator
 Dashboard's strip of counts, by the strip's name for the queue with its count after it in
-parentheses. Each is a link to where its queue is listed: the institution applications, agreements
+parentheses, as the strip counts it: past 200, the sponsor posts' and agreements' counts read 200+.
+Each is a link to where its queue is listed: the institution applications, agreements
 and mentor requests open the **Waiting for review** tab of the **Institutions** screen, the semester
 reports to review and the semesters due for drafting its **Semester reports** tab, and the locked
 accounts its **Accounts** tab; the sponsor posts, agreements and applications open the

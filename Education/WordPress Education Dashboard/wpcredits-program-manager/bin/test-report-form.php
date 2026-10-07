@@ -79,6 +79,9 @@ function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; r
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $v ) { return $v; }
 function get_users( $a = array() ) { return array(); }
 function get_user_by( $f, $v ) { return new WP_User( (int) $v ); }
 function get_current_user_id() { return $GLOBALS['uid'] ?? 0; }

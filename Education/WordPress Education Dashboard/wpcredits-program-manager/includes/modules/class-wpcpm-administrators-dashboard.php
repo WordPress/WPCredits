@@ -273,9 +273,9 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_agreements( $data['agreements'] );
 		WPCPM_Administrators_Cards::render_reports( $data['reports'] );
 		WPCPM_Administrators_Cards::render_requests( $data['requests'] );
-		WPCPM_Administrators_Cards::render_sponsor_applications( isset( $data['sponsor_applications'] ) ? (array) $data['sponsor_applications'] : array() );
-		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array() );
-		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array() );
+		WPCPM_Administrators_Cards::render_sponsor_applications( isset( $data['sponsor_applications'] ) ? (array) $data['sponsor_applications'] : array(), $data['sponsor_totals']['applications'] );
+		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array(), $data['sponsor_totals']['posts'] );
+		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array(), $data['sponsor_totals']['agreements'] );
 		WPCPM_Administrators_Cards::render_offers_low( isset( $data['offers_low'] ) ? (array) $data['offers_low'] : array() );
 		WPCPM_Administrators_Cards::render_duplicates( isset( $data['duplicates'] ) ? (array) $data['duplicates'] : array() );
 		WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );

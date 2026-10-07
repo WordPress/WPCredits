@@ -684,6 +684,11 @@ function update_user_meta( $user_id, $key, $value ) {
 
 	return true;
 }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $value ) {
+	return $value;
+}
 function delete_user_meta( $user_id, $key ) {
 	unset( $GLOBALS['umeta'][ (int) $user_id ][ $key ] );
 

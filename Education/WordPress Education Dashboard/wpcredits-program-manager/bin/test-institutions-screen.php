@@ -197,6 +197,9 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; $GLOB
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); $GLOBALS['calls'][] = array( 'delete_option', $k ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
+function wp_slash( $v ) { return $v; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function delete_metadata( $type, $id, $key, $value = '', $all = false ) { $GLOBALS['calls'][] = array( 'delete_metadata', $key ); return true; }
 function get_user_by( $field, $value ) {

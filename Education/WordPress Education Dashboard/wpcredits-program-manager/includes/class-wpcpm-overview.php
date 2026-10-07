@@ -110,6 +110,9 @@ final class WPCPM_Overview {
 	 * Each link is the queue's label, then its count in parentheses, in the `count` span core's list
 	 * tables print their views' counts in: the label is the strip's caption for the queue, not a
 	 * counted phrase, so it reads as "Agreements to review (1)" and never as "1 Agreements to review".
+	 * The count is printed as the strip prints it: in the words a tile carries for its number, a
+	 * sponsor posts or agreements count as `WPCPM_Sponsors::queue_count()` prints it, or as the
+	 * number stands.
 	 *
 	 * Only the queues that hold something: the strip keeps its shape so a manager learns where to
 	 * look on the page the work is done on, and here the list is what there is to do. With nothing
@@ -117,7 +120,8 @@ final class WPCPM_Overview {
 	 * waiting (`WPCPM_Dashboards::empty_sentence()`).
 	 *
 	 * @param array $counts What `WPCPM_Administrators_Cards::counts()` returned: `label`, `n` and
-	 *                      `card`, keyed in the strip's order.
+	 *                      `card`, and `shown` on the sponsor posts and agreements, keyed in the
+	 *                      strip's order.
 	 */
 	public static function render_waiting( array $counts ) {
 		$targets = self::targets();
@@ -137,12 +141,14 @@ final class WPCPM_Overview {
 			echo '<ul class="wpcpm-list wpcpm-waiting">';
 
 			foreach ( $waiting as $key => $tile ) {
+				$count = isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] );
+
 				if ( isset( $targets[ $key ] ) ) {
 					printf(
 						'<li><a href="%1$s"><span class="wpcpm-waiting__label">%2$s</span> <span class="count">(%3$s)</span></a></li>',
 						esc_url( $targets[ $key ] ),
 						esc_html( $tile['label'] ),
-						esc_html( number_format_i18n( (int) $tile['n'] ) )
+						esc_html( $count )
 					);
 
 					continue;
@@ -151,7 +157,7 @@ final class WPCPM_Overview {
 				printf(
 					'<li><span class="wpcpm-waiting__label">%1$s</span> <span class="count">(%2$s)</span></li>',
 					esc_html( $tile['label'] ),
-					esc_html( number_format_i18n( (int) $tile['n'] ) )
+					esc_html( $count )
 				);
 			}
 

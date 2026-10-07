@@ -574,8 +574,13 @@
 	z-index: 2;
 }
 
+/* A signed-in reader's header sits right under the admin bar, so the heading's offset is the
+   header's constant height plus the bar's, and the heading moves down with the header by the
+   bar's height. The bar's height is read from the variable core's admin bar CSS declares
+   (32px above 782px, 46px from 782px down), as the header's own offset is, and the fallback
+   is the desktop height, for a page where nothing has declared it. */
 .admin-bar .wpc-group {
-	top: calc( var( --wpc-header-height ) + 32px );
+	top: calc( var( --wpc-header-height ) + var( --wp-admin--admin-bar--height, 32px ) );
 }
 
 /* The admin bar is not fixed below 600px, so nothing has to make room for it. */

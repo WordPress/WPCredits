@@ -158,7 +158,11 @@ function sanitize_email( $e ) { return trim( (string) $e ); }
 function is_email( $e ) { return is_string( $e ) && (bool) filter_var( $e, FILTER_VALIDATE_EMAIL ); }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_unslash( $v ) { return $v; }
-function wp_slash( $v ) { return $v; }
+// Core's own: what is posted here arrives unslashed, and user meta below unslashes what it is
+// handed as core does, so a value written to it is slashed first, as the report's stash is.
+function wp_slash( $v ) { if ( is_array( $v ) ) { $v = array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+// Core's own, for the strings, arrays and scalars written here.
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_hash( $v, $scheme = 'auth' ) { return md5( (string) $v ); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
@@ -259,7 +263,8 @@ function get_user_meta( $id, $k = '', $single = false ) {
 	if ( '' === $k ) { return isset( $GLOBALS['umeta'][ (int) $id ] ) ? $GLOBALS['umeta'][ (int) $id ] : array(); }
 	return isset( $GLOBALS['umeta'][ (int) $id ][ $k ] ) ? $GLOBALS['umeta'][ (int) $id ][ $k ] : ( $single ? '' : array() );
 }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core writes it: `update_metadata()` unslashes every string it is handed, at any depth.
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function is_user_logged_in() { return (int) $GLOBALS['uid'] > 0; }
@@ -1870,6 +1875,21 @@ ck( 'the text they typed is stashed rather than lost', has( $stash, 'The narrati
 $screen_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php' );
 
 ck( 'and they are told what happened in words', has( $screen_source, 'saved this report after you opened it' ), true );
+
+// What a refused save hands back is what was typed, backslashes and all: user meta unslashes what it
+// is handed, as core's does, so the words come back whole only if the stash was written slashed.
+$typed_back   = 'A path, C:\drafts\semester, and a doubled \\\\ backslash.';
+$member_three = $scraped['fields'];
+set_posted( $member_three, $first_area, $typed_back );
+
+$_POST = $member_three;
+$_GET  = array();
+
+run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+
+$handed_back = form_fields( form_for( screen_html( $A, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) );
+
+ck( 'the words a refused save hands back keep their backslashes', isset( $handed_back['textareas'][ $first_area ] ) ? $handed_back['textareas'][ $first_area ] : null, $typed_back );
 
 echo "\n=== A withdrawal reaches a stored document ===\n";
 

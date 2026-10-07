@@ -18,6 +18,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * compute differently. `collect()` reads everything once, because the attention strip and
  * the cards draw the same arrays.
  *
+ * A list stops at `LIMIT` rows, and where its queue can hold more, how many wait is read apart
+ * from the rows and printed beside them: the institution applications' totals, and the three
+ * sponsor queues', each counted as the Sponsors screen counts it (`sponsor_totals()`): the
+ * applications in full, the posts and the agreements up to that screen's ceiling, past which they
+ * print as its printer prints them (`WPCPM_Sponsors::queue_count()`).
+ *
  * Sponsors' cards join in the Sponsor module's last phase; the ids here are the anchors
  * `WPCPM_Return::ANCHORS` names, so a decision posted from a card lands back on it.
  */
@@ -109,6 +115,12 @@ final class WPCPM_Administrators_Cards {
 		$open          = WPCPM_Institution_Application::applications( $open_states, self::LIMIT );
 		$closed        = WPCPM_Institution_Application::applications( $closed_states, self::LIMIT );
 
+		// The three sponsor queues: the rows each card draws, the oldest self::LIMIT, read as they
+		// always were, and how many wait in each, read apart from them (`sponsor_totals()`).
+		$sponsor_posts        = class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array();
+		$sponsor_agreements   = self::sponsor_agreements();
+		$sponsor_applications = class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::queue_facts( self::LIMIT ) : array();
+
 		return array(
 			// Only self::LIMIT of each list is drawn: the wp-admin queue caps its own list at
 			// WPCPM_Institutions::QUEUE_MAX, which is the same number, and a page reading the
@@ -139,13 +151,15 @@ final class WPCPM_Administrators_Cards {
 			),
 			'locked'               => WPCPM_Institution_Roster::locked_today(),
 			// Sponsor posts waiting for review (Sponsors module, S3): the facts, never the posts.
-			'sponsor_posts'        => class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array(),
+			'sponsor_posts'        => $sponsor_posts,
 			// Sponsor Collaboration Agreements waiting for review, and those out of force (S4, 1.96.1).
-			'sponsor_agreements'   => self::sponsor_agreements(),
+			'sponsor_agreements'   => $sponsor_agreements,
 			// Sponsor applications waiting for a decision (Sponsors module, S5): the facts, never
 			// the posts. The full card with the answers and the base matches is S6; this phase
 			// draws the decisions, which spec 9.2 puts on this page.
-			'sponsor_applications' => class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::queue_facts( self::LIMIT ) : array(),
+			'sponsor_applications' => $sponsor_applications,
+			// How many wait in each of the three, which its tile and its card print.
+			'sponsor_totals'       => self::sponsor_totals( $sponsor_posts, $sponsor_agreements['review'], $sponsor_applications ),
 			// Pools under their own threshold, what sponsors said lately, and the sponsors'
 			// figures (Sponsors module, S6): read through the owning classes, never their rows.
 			'offers_low'           => self::offers_low(),
@@ -161,10 +175,30 @@ final class WPCPM_Administrators_Cards {
 	/**
 	 * The thirteen tiles of the attention strip, from the arrays the cards draw.
 	 *
+	 * `n` is a number on every tile, which a reader may compare with zero or with another. The three
+	 * sponsor queues' tiles say how many wait, as `collect()` read them apart from their cards' rows.
+	 * The posts' and the agreements' tiles carry beside it `shown`, the number as
+	 * `WPCPM_Sponsors::queue_count()` prints it: past the Sponsors screen's ceiling, the ceiling and
+	 * a plus sign. Every other tile prints its number as it stands, the applications' at any size.
+	 *
+	 * Past that ceiling a posts or agreements tile's `n` is what the count's read returned, one more
+	 * than the ceiling: a lower bound, not the count. A sum of tiles that holds one is a lower bound
+	 * too, and is not a number to print as a total.
+	 *
 	 * @param array $data What `collect()` returned.
-	 * @return array[] `label`, `n`, `card`, keyed in the strip's order.
+	 * @return array[] `label`, `n`, `card`, and `shown` on the sponsor posts' and agreements' tiles,
+	 *                 keyed in the strip's order.
 	 */
 	public static function counts( array $data ) {
+		$totals = array_merge(
+			array(
+				'posts'        => 0,
+				'agreements'   => 0,
+				'applications' => 0,
+			),
+			isset( $data['sponsor_totals'] ) ? (array) $data['sponsor_totals'] : array()
+		);
+
 		return array(
 			'applications'         => array(
 				'label' => __( 'Applications waiting', 'wpcredits-program-manager' ),
@@ -211,17 +245,19 @@ final class WPCPM_Administrators_Cards {
 			),
 			'sponsor_posts'        => array(
 				'label' => __( 'Sponsor posts to review', 'wpcredits-program-manager' ),
-				'n'     => isset( $data['sponsor_posts'] ) ? count( (array) $data['sponsor_posts'] ) : 0,
+				'n'     => (int) $totals['posts'],
+				'shown' => WPCPM_Sponsors::queue_count( $totals['posts'] ),
 				'card'  => 'sponsor-posts',
 			),
 			'sponsor_agreements'   => array(
 				'label' => __( 'Sponsor agreements to review', 'wpcredits-program-manager' ),
-				'n'     => isset( $data['sponsor_agreements']['review'] ) ? count( (array) $data['sponsor_agreements']['review'] ) : 0,
+				'n'     => (int) $totals['agreements'],
+				'shown' => WPCPM_Sponsors::queue_count( $totals['agreements'] ),
 				'card'  => 'sponsor-agreements',
 			),
 			'sponsor_applications' => array(
 				'label' => __( 'Sponsor applications waiting', 'wpcredits-program-manager' ),
-				'n'     => isset( $data['sponsor_applications'] ) ? count( (array) $data['sponsor_applications'] ) : 0,
+				'n'     => (int) $totals['applications'],
 				'card'  => 'sponsor-applications',
 			),
 			'offers_low'           => array(
@@ -275,6 +311,32 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * How many wait in each sponsor queue, the number its tile and its card print.
+	 *
+	 * Read apart from the rows the cards draw, each as the Sponsors screen counts the same queue: the
+	 * applications in full, as its applications card counts them, every open one as an ID
+	 * (`pending_count()` with no limit); the posts and the signed agreements as its cards for them
+	 * count them, one more than `WPCPM_Sponsors::COUNT_MAX`, so either past that ceiling prints the
+	 * ceiling and a plus sign. A class that is not there costs a zero. The rows and the count are two
+	 * queries, and a row decided between them must not leave a card listing more than it counts, so a
+	 * count is never fewer than its card's rows.
+	 *
+	 * @param array $posts        The rows the sponsor posts card draws.
+	 * @param array $agreements   The documents the sponsor agreements card lists as waiting.
+	 * @param array $applications The rows the sponsor applications card draws.
+	 * @return array{posts: int, agreements: int, applications: int}
+	 */
+	private static function sponsor_totals( array $posts, array $agreements, array $applications ) {
+		$read = WPCPM_Sponsors::COUNT_MAX + 1;
+
+		return array(
+			'posts'        => max( count( $posts ), class_exists( 'WPCPM_Sponsor_Posts' ) ? count( (array) WPCPM_Sponsor_Posts::pending_all( $read ) ) : 0 ),
+			'agreements'   => max( count( $agreements ), class_exists( 'WPCPM_Sponsor_Agreement' ) ? count( (array) WPCPM_Sponsor_Agreement::awaiting_review( $read ) ) : 0 ),
+			'applications' => max( count( $applications ), class_exists( 'WPCPM_Sponsor_Application' ) ? (int) WPCPM_Sponsor_Application::pending_count() : 0 ),
+		);
+	}
+
+	/**
 	 * Sponsor Collaboration Agreements: each document waiting for review with who uploaded it,
 	 * when, its size, what the scan noticed and how many accounts the company has, then the
 	 * decision drawn by the agreement class; below, the agreements out of force with the way
@@ -283,13 +345,19 @@ final class WPCPM_Administrators_Cards {
 	 * documents to be read, and reinstates one past this list under the same action and nonce (spec
 	 * 8.2; pulled forward from S6 at the owner's request, 1.96.1).
 	 *
-	 * @param array $data `review` and `revoked`, each a list of `review_facts()` rows.
+	 * The waiting documents listed are the oldest `LIMIT`. The card's count is every one waiting, as
+	 * that screen's Signed agreements card counts them, and while more wait than the list holds, the
+	 * line under it says how many more (`render_sponsor_more_line()`), above the agreements out of force.
+	 *
+	 * @param array    $data  `review` and `revoked`, each a list of `review_facts()` rows.
+	 * @param int|null $total How many documents wait, as `collect()` counted them; null counts `review`.
 	 */
-	public static function render_sponsor_agreements( array $data ) {
+	public static function render_sponsor_agreements( array $data, $total = null ) {
 		$review  = isset( $data['review'] ) ? (array) $data['review'] : array();
 		$revoked = isset( $data['revoked'] ) ? (array) $data['revoked'] : array();
+		$total   = null === $total ? count( $review ) : (int) $total;
 
-		self::card_open( 'sponsor-agreements', __( 'Sponsor Collaboration Agreements', 'wpcredits-program-manager' ), count( $review ) );
+		self::card_open( 'sponsor-agreements', __( 'Sponsor Collaboration Agreements', 'wpcredits-program-manager' ), $total, WPCPM_Sponsors::queue_count( $total ) );
 
 		if ( empty( $review ) ) {
 			self::empty_line( __( 'No sponsor agreement is waiting for review.', 'wpcredits-program-manager' ) );
@@ -298,6 +366,8 @@ final class WPCPM_Administrators_Cards {
 		foreach ( $review as $row ) {
 			self::render_sponsor_agreement_item( $row, __( 'Waiting for review', 'wpcredits-program-manager' ) );
 		}
+
+		self::render_sponsor_more_line( $total, count( $review ) );
 
 		if ( ! empty( $revoked ) ) {
 			printf( '<h4 class="wpcpm-administrator__subheading">%s</h4>', esc_html__( 'Out of force', 'wpcredits-program-manager' ) );
@@ -360,10 +430,17 @@ final class WPCPM_Administrators_Cards {
 	 * Sponsor posts waiting for review: each with its company and author, Preview, Publish and
 	 * the folded Return with a note, the decision drawn by the posts class (spec 7.4).
 	 *
-	 * @param array[] $rows What `WPCPM_Sponsor_Posts::pending_all()` returned.
+	 * The posts listed are the oldest `LIMIT`. The card's count is every post waiting, as the
+	 * Sponsors screen's card counts them, and while more wait than the list holds, the line under it
+	 * says how many more (`render_sponsor_more_line()`).
+	 *
+	 * @param array[]  $rows  What `WPCPM_Sponsor_Posts::pending_all()` returned.
+	 * @param int|null $total How many posts wait, as `collect()` counted them; null counts the rows.
 	 */
-	public static function render_sponsor_posts( array $rows ) {
-		self::card_open( 'sponsor-posts', __( 'Sponsor posts to review', 'wpcredits-program-manager' ), count( $rows ) );
+	public static function render_sponsor_posts( array $rows, $total = null ) {
+		$total = null === $total ? count( $rows ) : (int) $total;
+
+		self::card_open( 'sponsor-posts', __( 'Sponsor posts to review', 'wpcredits-program-manager' ), $total, WPCPM_Sponsors::queue_count( $total ) );
 
 		if ( empty( $rows ) ) {
 			self::empty_line( __( 'No sponsor post is waiting for review.', 'wpcredits-program-manager' ) );
@@ -395,6 +472,7 @@ final class WPCPM_Administrators_Cards {
 			echo '</article>';
 		}
 
+		self::render_sponsor_more_line( $total, count( $rows ) );
 		self::render_sponsors_line( 'queue', 'wpcpm-sponsor-posts' );
 		self::card_close();
 	}
@@ -407,10 +485,18 @@ final class WPCPM_Administrators_Cards {
 	 * opens the application on the wp-admin Sponsors screen. The decisions are the application
 	 * class's own, bound for this page (spec 9.2).
 	 *
-	 * @param array $rows What `WPCPM_Sponsor_Application::queue_facts()` returned.
+	 * The applications listed are the oldest `LIMIT`. The card's count is every open application, as
+	 * the Sponsors screen's applications card counts them, printed as it stands at any size, and while
+	 * more wait than the list holds, the line under it says exactly how many more, as the Institution
+	 * applications card's line does (`render_more_line()`).
+	 *
+	 * @param array    $rows  What `WPCPM_Sponsor_Application::queue_facts()` returned.
+	 * @param int|null $total How many applications wait, as `collect()` counted them; null counts the rows.
 	 */
-	public static function render_sponsor_applications( array $rows ) {
-		self::card_open( 'sponsor-applications', __( 'Sponsor applications', 'wpcredits-program-manager' ), count( $rows ) );
+	public static function render_sponsor_applications( array $rows, $total = null ) {
+		$total = null === $total ? count( $rows ) : (int) $total;
+
+		self::card_open( 'sponsor-applications', __( 'Sponsor applications', 'wpcredits-program-manager' ), $total );
 
 		if ( empty( $rows ) ) {
 			self::empty_line( __( 'No sponsor application is waiting.', 'wpcredits-program-manager' ) );
@@ -472,6 +558,10 @@ final class WPCPM_Administrators_Cards {
 			}
 
 			echo '</article>';
+		}
+
+		if ( $total > count( $rows ) ) {
+			self::render_more_line( $total - count( $rows ) );
 		}
 
 		self::render_sponsors_line( 'queue', 'wpcpm-sponsor-applications' );
@@ -1153,8 +1243,10 @@ final class WPCPM_Administrators_Cards {
 	 */
 
 	/**
-	 * The attention strip: twelve counts, each an anchor to its card. A zero is muted, not
-	 * hidden, so the strip always has the same shape and a manager learns where to look.
+	 * The attention strip: thirteen counts, each an anchor to its card. A zero is muted, not
+	 * hidden, so the strip always has the same shape and a manager learns where to look. A tile
+	 * prints the words it carries for its number (`shown`, a sponsor posts or agreements count as
+	 * `WPCPM_Sponsors::queue_count()` prints it), or its number as it stands.
 	 *
 	 * @param array $counts What `counts()` returned.
 	 */
@@ -1167,7 +1259,7 @@ final class WPCPM_Administrators_Cards {
 				'<li class="wpcpm-attention__tile%1$s"><a class="wpcpm-attention__link" href="#wpcpm-%2$s"><span class="wpcpm-attention__n">%3$s</span><span class="wpcpm-attention__l">%4$s</span></a></li>',
 				0 === (int) $tile['n'] ? ' wpcpm-attention__tile--zero' : '',
 				esc_attr( $tile['card'] ),
-				esc_html( number_format_i18n( (int) $tile['n'] ) ),
+				esc_html( isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] ) ),
 				esc_html( $tile['label'] )
 			);
 		}
@@ -1239,23 +1331,50 @@ final class WPCPM_Administrators_Cards {
 	 * of the oldest, so the rest reach a list as the ones above them are decided. Under the closed
 	 * fold, whose rejected and spam applications are decided already and which the screen does not
 	 * list: "N more are kept; they are listed here as these are deleted or put back in the queue".
+	 * The sponsor cards print the open list's line under theirs: the applications card as it stands,
+	 * the posts and agreements cards through `render_sponsor_more_line()`.
 	 *
-	 * @param int  $n      How many were left off the list.
-	 * @param bool $closed True for the closed fold (rejected and spam applications).
+	 * @param int    $n      How many were left off the list, which chooses the singular or the plural.
+	 *                       With `$shown`, the number those words stand for: past a count's ceiling,
+	 *                       the least that is known, which the words print with a plus sign.
+	 * @param bool   $closed True for the closed fold (rejected and spam applications).
+	 * @param string $shown  The words for `$n` when they are not the number as it stands: past a
+	 *                       count's ceiling, the least it vouches for with a plus sign.
 	 */
-	private static function render_more_line( $n, $closed = false ) {
+	private static function render_more_line( $n, $closed = false, $shown = '' ) {
 		if ( $closed ) {
 			/* translators: %s: a number of applications. */
 			$line = _n( '%s more is kept; it is listed here as these are deleted or put back in the queue.', '%s more are kept; they are listed here as these are deleted or put back in the queue.', $n, 'wpcredits-program-manager' );
 		} else {
-			/* translators: %s: a number of applications. */
+			/* translators: %s: a number of applications, sponsor posts or sponsor agreements, or past the count's ceiling the least of them with a plus sign, such as 150+. */
 			$line = _n( '%s more is waiting; it is listed here as these are decided.', '%s more are waiting; they are listed here as these are decided.', $n, 'wpcredits-program-manager' );
 		}
 
 		printf(
 			'<p class="wpcpm-administrator__more">%s</p>',
-			esc_html( sprintf( $line, number_format_i18n( $n ) ) )
+			esc_html( sprintf( $line, '' !== (string) $shown ? (string) $shown : number_format_i18n( $n ) ) )
 		);
+	}
+
+	/**
+	 * Under the sponsor posts or the sponsor agreements card's list, while more wait than it holds, the
+	 * line `render_more_line()` prints under the institution applications' open list.
+	 *
+	 * How many wait is the count's read, which stops one past `WPCPM_Sponsors::COUNT_MAX`, so past
+	 * that ceiling the line says no more than the read vouches for: the ceiling less the rows drawn,
+	 * with the plus sign `WPCPM_Sponsors::queue_count()` prints. The singular or the plural follows
+	 * the number the line prints: both come from `WPCPM_Sponsors::queue_number()`, so they cannot
+	 * part.
+	 *
+	 * @param int $total How many wait, as `collect()` counted them.
+	 * @param int $drawn How many rows the card's list holds.
+	 */
+	private static function render_sponsor_more_line( $total, $drawn ) {
+		if ( (int) $total <= (int) $drawn ) {
+			return;
+		}
+
+		self::render_more_line( WPCPM_Sponsors::queue_number( $total, $drawn ), false, WPCPM_Sponsors::queue_count( $total, $drawn ) );
 	}
 
 	/**
@@ -1848,15 +1967,20 @@ final class WPCPM_Administrators_Cards {
 	 *
 	 * @param string $id    The anchor, one of WPCPM_Return::ANCHORS.
 	 * @param string $title The heading.
-	 * @param int    $count What the badge says; open when above zero.
+	 * @param int    $count How many the card counts: the badge prints it, and the card is open when
+	 *                      it is above zero. With `$shown`, the badge prints those words instead and
+	 *                      `$count` only opens the card; past the ceiling it is the count's read, a
+	 *                      lower bound.
+	 * @param string $shown The badge's words when they are not the number as it stands: a sponsor
+	 *                      posts or agreements count as `WPCPM_Sponsors::queue_count()` prints it.
 	 */
-	private static function card_open( $id, $title, $count ) {
+	private static function card_open( $id, $title, $count, $shown = '' ) {
 		printf( '<section class="wpcpm-administrator__card" id="wpcpm-%s">', esc_attr( $id ) );
 		printf( '<details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"%s>', (int) $count > 0 ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html( $title ),
-			esc_html( number_format_i18n( (int) $count ) )
+			esc_html( '' !== (string) $shown ? (string) $shown : number_format_i18n( (int) $count ) )
 		);
 		echo '<div class="wpcpm-group__body">';
 	}

@@ -2301,7 +2301,9 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * How many applications are waiting for somebody: the menu bubble's number.
+	 * How many applications are waiting for somebody, read as IDs. Under a limit it is the menu
+	 * bubble's number; with none it is every one of them, the Administrator Dashboard's count of
+	 * the queue, which agrees with the Sponsors screen's applications card.
 	 *
 	 * @param int $limit Most rows to count, or 0 for every one of them.
 	 * @return int

@@ -2806,6 +2806,10 @@ final class WPCPM_Semester_Report_Screen {
 	 * who has just been told their words were not saved is looking at the page that offers
 	 * them back rather than opening a second report.
 	 *
+	 * Written as a slashed copy (`wp_slash()`): core's metadata API unslashes every value it
+	 * writes and the words read from the form are unslashed already, so a backslash typed in
+	 * them would otherwise be gone from the words the page hands back.
+	 *
 	 * @param WP_Post $post   The report.
 	 * @param array   $values What `submitted_values()` read.
 	 */
@@ -2819,11 +2823,13 @@ final class WPCPM_Semester_Report_Screen {
 		update_user_meta(
 			$user_id,
 			self::META_STASH,
-			array(
-				'report'   => (int) $post->ID,
-				'at'       => time(),
-				'sections' => isset( $values['sections'] ) ? (array) $values['sections'] : array(),
-				'choices'  => isset( $values['choices'] ) ? (array) $values['choices'] : array(),
+			wp_slash(
+				array(
+					'report'   => (int) $post->ID,
+					'at'       => time(),
+					'sections' => isset( $values['sections'] ) ? (array) $values['sections'] : array(),
+					'choices'  => isset( $values['choices'] ) ? (array) $values['choices'] : array(),
+				)
 			)
 		);
 	}

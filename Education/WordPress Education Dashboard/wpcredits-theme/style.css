@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.8
+Version: 1.24.9
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -202,8 +202,14 @@ body .skip-link.screen-reader-text:focus {
 	z-index: 50;
 }
 
+/* A signed-in reader's admin bar is fixed above 600px, and the stuck header sits right under it.
+   The bar is 32px tall above 782px and 46px tall from 782px down, and core's admin bar CSS
+   declares whichever applies as `--wp-admin--admin-bar--height`, so the offset reads that
+   instead of assuming one height. The fallback is the desktop height, for a page that carries
+   the `admin-bar` class while nothing has declared the variable. At 600px and below the bar
+   scrolls away with the page, and the `max-width: 600px` block below takes the room back. */
 .admin-bar .wpc-header-part {
-	top: 32px;
+	top: var( --wp-admin--admin-bar--height, 32px );
 }
 
 .wpc-header {
@@ -1168,8 +1174,14 @@ p.is-style-pill {
 		z-index: 55;
 	}
 
+	/* The panel's offset adds the admin bar's height to the header's, so it moves down with the
+	   header stuck under the bar. The bar's height comes from `--wp-admin--admin-bar--height`,
+	   as it does in the header's own offset, and the fallback is the same: 32px, the desktop
+	   height, for a page where nothing has declared the variable. This rule places the panel
+	   from 641px to 960px. At 640px and below the panel is positioned against the header by the
+	   rules below, and at 600px and below there is no fixed bar to make room for. */
 	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
-		top: calc( var( --wpc-header-height ) + 32px );
+		top: calc( var( --wpc-header-height ) + var( --wp-admin--admin-bar--height, 32px ) );
 	}
 
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container {

@@ -176,17 +176,22 @@ class WPCPM_Program {
 
 /* ---- the sponsors' queues --------------------------------------------------- */
 
+// Each read answers at most the rows its limit asks for, oldest first, as the real ones do: the
+// cards read a sponsor queue's rows at their own limit and how many wait, the posts and the
+// agreements at one more than the Sponsors screen's ceiling and the applications in full, so a
+// queue longer than the cards' limit counts more than they draw.
+
 /** Sponsor posts waiting for review. */
 class WPCPM_Sponsor_Posts {
 	public static function pending_all( $limit = 50 ) {
-		return (array) wpcpm_overview_holds( 'sponsor_posts', array() );
+		return array_slice( (array) wpcpm_overview_holds( 'sponsor_posts', array() ), 0, max( 1, (int) $limit ) );
 	}
 }
 
 /** Sponsor Collaboration Agreements: the documents waiting for review, and none out of force. */
 class WPCPM_Sponsor_Agreement {
 	public static function awaiting_review( $limit = 50 ) {
-		return array_keys( (array) wpcpm_overview_holds( 'sponsor_agreements', array() ) );
+		return array_slice( array_keys( (array) wpcpm_overview_holds( 'sponsor_agreements', array() ) ), 0, max( 1, (int) $limit ) );
 	}
 
 	public static function revoked_all( $limit = 50 ) {
@@ -203,12 +208,14 @@ class WPCPM_Sponsor_Agreement {
 /** Sponsor applications waiting for a decision. */
 class WPCPM_Sponsor_Application {
 	public static function queue_facts( $limit = 50 ) {
-		return (array) wpcpm_overview_holds( 'sponsor_applications', array() );
+		return array_slice( (array) wpcpm_overview_holds( 'sponsor_applications', array() ), 0, max( 1, (int) $limit ) );
 	}
 
-	/** The Sponsors entry's bubble: the applications that wait. */
+	/** The Sponsors entry's bubble and the cards' count: the applications that wait, at most `$limit`, or every one for 0. */
 	public static function pending_count( $limit = 0 ) {
-		return count( self::queue_facts() );
+		$waiting = (array) wpcpm_overview_holds( 'sponsor_applications', array() );
+
+		return count( (int) $limit > 0 ? array_slice( $waiting, 0, (int) $limit ) : $waiting );
 	}
 }
 

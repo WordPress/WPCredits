@@ -23,6 +23,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * transient keyed by session, because these flows all require a logged-in user and user
  * meta cannot be read by the wrong person.
  *
+ * A string, an array of them at any depth, or any other scalar comes back exactly as it was
+ * given. Core's metadata API unslashes every value it writes (`update_metadata()` passes it
+ * through `wp_unslash()`), and the values handed in here are unslashed already, so both writes
+ * hand it a slashed copy (`wp_slash()`). Written as it stands, a value would lose a backslash
+ * on every write, and one that waits while another channel is taken is written again: a path,
+ * or what somebody typed into a form that was refused, would come back altered and still look
+ * right. An object's strings are not covered: `wp_slash()` leaves an object as it is, while
+ * core's unslash reaches the strings inside it.
+ *
  * View state - which mentor a manager is inspecting, which student card is focused - stays
  * in the URL, where it belongs: that is a description of the page, and it *should* survive
  * a reload.
@@ -50,7 +59,7 @@ class WPCPM_Flash {
 
 		$pending[ (string) $channel ] = $value;
 
-		update_user_meta( $user_id, self::META, $pending );
+		update_user_meta( $user_id, self::META, wp_slash( $pending ) );
 	}
 
 	/**
@@ -97,7 +106,7 @@ class WPCPM_Flash {
 		if ( empty( $pending ) ) {
 			delete_user_meta( $user_id, self::META );
 		} else {
-			update_user_meta( $user_id, self::META, $pending );
+			update_user_meta( $user_id, self::META, wp_slash( $pending ) );
 		}
 
 		$taken[ $memo ] = $value;

@@ -166,6 +166,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
+// The Sponsors screen's class, which the cards count the sponsor posts and agreements to and print
+// those counts through, with what declaring it needs, as the plugin's loader requires them.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 
 // Required when it is there, so a check against a screen that is missing fails as a check rather
 // than ending the run.
@@ -642,6 +648,42 @@ ck( 'and the sponsor posts open the Sponsors screen at their card on Waiting for
 		)
 	),
 	array( array( esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts' ), 'Sponsor posts to review', '1' ) ) );
+
+// A sponsor queue counts everything waiting, and not the oldest fifty the Administrator Dashboard's
+// card lists: the applications in full, as the Sponsors screen's applications card counts them, and
+// the posts and the agreements up to that screen's ceiling, past which each reads as the screen's own
+// printer prints it, the ceiling with a plus sign. The agreements and the applications hold as many
+// as the posts unless a check gives them sizes of their own.
+$sponsor_chips  = static function ( $posts, $agreements = null, $applications = null ) {
+	$agreements   = null === $agreements ? $posts : $agreements;
+	$applications = null === $applications ? $posts : $applications;
+	$world        = array(
+		'sponsor_posts'        => array_fill( 0, $posts, array( 'id' => 905 ) ),
+		'sponsor_agreements'   => array_fill_keys( range( 3001, 3000 + $agreements ), array( 'post_id' => 3001, 'state' => 'submitted' ) ),
+		'sponsor_applications' => array_fill( 0, $applications, array( 'id' => 950 ) ),
+	);
+
+	return chips_of( card( draw( $world ), 'Waiting for a decision' ) );
+};
+$sponsor_queues = static function ( $posts, $agreements, $applications ) {
+	return array(
+		array( target_of( 'sponsor_posts' ), 'Sponsor posts to review', $posts ),
+		array( target_of( 'sponsor_agreements' ), 'Sponsor agreements to review', $agreements ),
+		array( target_of( 'sponsor_applications' ), 'Sponsor applications waiting', $applications ),
+	);
+};
+
+ck( 'a sponsor queue longer than the dashboard\'s card lists counts every one waiting, and past the Sponsors screen\'s ceiling the posts and the agreements read the ceiling with a plus sign and the applications their number',
+	array( $sponsor_chips( WPCPM_Administrators_Cards::LIMIT + 7 ), $sponsor_chips( WPCPM_Sponsors::COUNT_MAX + 50 ) ),
+	array(
+		$sponsor_queues( (string) ( WPCPM_Administrators_Cards::LIMIT + 7 ), (string) ( WPCPM_Administrators_Cards::LIMIT + 7 ), (string) ( WPCPM_Administrators_Cards::LIMIT + 7 ) ),
+		$sponsor_queues( WPCPM_Sponsors::COUNT_MAX . '+', WPCPM_Sponsors::COUNT_MAX . '+', (string) ( WPCPM_Sponsors::COUNT_MAX + 50 ) ),
+	) );
+
+// Three sizes at once, so a count wired to another queue's chip cannot pass.
+ck( 'with the three queues of three sizes, each chip counts its own queue',
+	$sponsor_chips( WPCPM_Administrators_Cards::LIMIT + 7, WPCPM_Administrators_Cards::LIMIT + 1, 3 ),
+	$sponsor_queues( (string) ( WPCPM_Administrators_Cards::LIMIT + 7 ), (string) ( WPCPM_Administrators_Cards::LIMIT + 1 ), '3' ) );
 
 // The map is the class's, read as the class holds it: a tile the strip gains without a screen here
 // fails this check until it is given one.

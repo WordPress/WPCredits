@@ -368,8 +368,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * the invitations read (`WPCPM_Sponsor_Members::send_invite()`), in place of the accounts screen's
 	 * default (`WPCPM_Accounts_Screen::invite_one()`).
 	 *
-	 * Reached from a row's invitation, or a form that posts the account, once the capability and the
-	 * nonce keyed to the account have both been checked (`handle_invite()`).
+	 * Reached from a row's invitation, once the capability and the nonce keyed to the account have
+	 * both been checked (`handle_invite()`).
 	 *
 	 * @param int $user_id The account.
 	 * @return true|WP_Error
@@ -1986,23 +1986,46 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * A queue card's count as its heading and its window line print it: the number, or, once the
-	 * card's read, which asks for one more than `COUNT_MAX`, returns more, the menu bubble's form,
-	 * `COUNT_MAX` and a plus sign.
+	 * A sponsor queue's count as it is printed: the number, or, once the count's read, which asks
+	 * for one more than `COUNT_MAX`, returns more, the menu bubble's form, `COUNT_MAX` and a plus
+	 * sign. The posts and signed agreements cards on the Waiting for review tab print it in their
+	 * headings and window lines, and so do the Administrator Dashboard's tiles and cards for the same
+	 * two queues and the Overview's counts of them. The applications are counted in full and print
+	 * their number as it stands, on the applications card here and on those pages alike.
 	 *
-	 * @param int $count How many the card's count read returned.
+	 * Less the rows a list draws, it is the number a line under that list gives for the rest: past
+	 * the ceiling, `COUNT_MAX` less those rows with the plus sign, the least the read vouches for.
+	 * The number itself is `queue_number()`'s, which is the one the line's singular or plural
+	 * follows, so the words and the grammar cannot part.
+	 *
+	 * @param int $count How many the count's read returned.
+	 * @param int $less  How many of them a list draws, for a line that counts the rest; 0 for the count.
 	 * @return string
 	 */
-	private static function queue_count( $count ) {
+	public static function queue_count( $count, $less = 0 ) {
+		$number = number_format_i18n( self::queue_number( $count, $less ) );
+
 		if ( (int) $count <= self::COUNT_MAX ) {
-			return number_format_i18n( (int) $count );
+			return $number;
 		}
 
 		return sprintf(
-			/* translators: %s: the largest number the menu bubble counts to. */
+			/* translators: %s: the largest number the menu bubble counts to, or that number less the rows a list draws. */
 			__( '%s+', 'wpcredits-program-manager' ),
-			number_format_i18n( self::COUNT_MAX )
+			$number
 		);
+	}
+
+	/**
+	 * The number a sponsor queue's count prints, less the rows a list draws: the count's read, or
+	 * past `COUNT_MAX` the ceiling, less those rows. `queue_count()` puts it into words.
+	 *
+	 * @param int $count How many the count's read returned.
+	 * @param int $less  How many of them a list draws; 0 for the count itself.
+	 * @return int
+	 */
+	public static function queue_number( $count, $less = 0 ) {
+		return min( (int) $count, self::COUNT_MAX ) - (int) $less;
 	}
 
 	/**

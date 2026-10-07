@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.2
+Stable tag: 1.122.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.3 =
+
+* Administrator Dashboard: the sponsor applications, sponsor posts and sponsor agreements cards, their tiles in the strip and their counts on the Overview count everything waiting, where they stopped at fifty, and give the number the Sponsors screen gives for the same queue: the applications in full at any size, the posts and the agreements up to 200, past which they read 200+ as their cards on the Sponsors screen do. A card that lists only the fifty oldest says under its list how many more are waiting.
+* Track Builder: what was typed into a track's boxes or a question's, kept when a press is refused so that nothing has to be typed again, comes back with its backslashes, as does anything else a message carries across a redirect.
+* Semester reports: when a save is refused because somebody saved the report first, the words handed back in the editor's boxes keep their backslashes.
 
 = 1.122.2 =
 
