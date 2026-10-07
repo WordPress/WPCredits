@@ -187,6 +187,7 @@ class WPCPM_CLI {
 		}
 
 		$promote  = ! empty( $assoc_args['promote'] );
+		$began    = time();
 		$settings = WPCPM_Mentor_Checker::config();
 		$runner   = new WPCPM_Mentor_Checker_Runner( $settings );
 		$seen     = 0;
@@ -226,8 +227,9 @@ class WPCPM_CLI {
 			WP_CLI::log( sprintf( '%-12s %s', $key, $value ) );
 		}
 
-		// The run's end sent what it promoted to Slack (`WPCPM_Mentor_Checker_Slack`); say how that went.
-		$slack = WPCPM_Mentor_Checker_Slack::status_sentence();
+		// The run's end sent what it promoted to Slack (`WPCPM_Mentor_Checker_Slack`); say how that went,
+		// nothing about a message older than the run, and how many wait if its send could not go.
+		$slack = WPCPM_Mentor_Checker_Slack::status_sentence( $began );
 
 		if ( '' !== $slack ) {
 			WP_CLI::log( $slack );

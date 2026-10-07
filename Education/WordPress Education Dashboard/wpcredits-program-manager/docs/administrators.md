@@ -612,9 +612,10 @@ a long list goes in messages of 25. The message is in the site's language, whoev
 
 A message Slack refuses, or that cannot reach Slack, is not lost. Its mentors are kept and sent with
 the next message, and every run sends what is kept even when it promotes nobody, so with the daily
-check on a mentor waits a day at most. A promotion never waits on Slack: Airtable is written first.
-The line under the buttons says when the last message went and how many it named, or why it failed
-and how many wait. Promotions made while no webhook is saved are not announced later.
+check on a mentor waits a day at most. A mentor promoted while another message was being sent goes
+in a message of its own about a minute later. A promotion never waits on Slack: Airtable is written
+first. The line under the buttons says when the last message went and how many it named, or why it
+failed, and how many still wait. Promotions made while no webhook is saved are not announced later.
 
 ### Student Duplicate Finder
 

@@ -64,7 +64,8 @@ class WPCPM_Mentor_Checker_Runner {
 }
 class WPCPM_Mentor_Checker_Slack {
 	public static $sentence = '';
-	public static function status_sentence() { return self::$sentence; }
+	public static $since    = null;
+	public static function status_sentence( $since = 0 ) { self::$since = $since; return self::$sentence; }
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
@@ -147,11 +148,14 @@ echo "\n=== wp wpcredits check-mentors ===\n";
 // sees how that went, after the counts and before the last word.
 WP_CLI::$lines                       = array();
 WPCPM_Mentor_Checker_Slack::$sentence = 'Last Slack message sent 1 min ago, naming 1 mentor.';
+$before                              = time();
 ( new WPCPM_CLI() )->check_mentors( array(), array( 'promote' => true ) );
 
 ck( 'a run says how the Slack message went, after the counts and before the last word',
     array_slice( WP_CLI::$lines, -2 ),
     array( 'log: Last Slack message sent 1 min ago, naming 1 mentor.', 'success: Mentor status check complete.' ) );
+ck( 'and asks only about a send since the run began, so an older message is not reported as this run\'s',
+    is_int( WPCPM_Mentor_Checker_Slack::$since ) && WPCPM_Mentor_Checker_Slack::$since >= $before && WPCPM_Mentor_Checker_Slack::$since <= time(), true );
 
 WP_CLI::$lines                       = array();
 WPCPM_Mentor_Checker_Slack::$sentence = '';

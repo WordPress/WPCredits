@@ -24,6 +24,7 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
@@ -73,7 +74,8 @@ function human_time_diff( $from, $to = 0 ) { return '5 mins'; }
 function wp_parse_args( $args, $defaults = array() ) { return array_merge( (array) $defaults, (array) $args ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_generate_password( $n = 12, $s = true, $e = false ) { return 'tok' . ( ++$GLOBALS['runs'] ); }
-function add_action() {}
+$GLOBALS['actions'] = array();
+function add_action( $hook, $callback = null, $priority = 10, $args = 1 ) { $GLOBALS['actions'][ $hook ][] = $callback; return true; }
 function do_action( $tag, ...$args ) {}
 function sanitize_text_field( $s ) { return trim( (string) $s ); }
 function wp_unslash( $v ) { return $v; }
@@ -114,7 +116,8 @@ function add_option( $k, $v = '', $dep = '', $a = null ) {
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 
 /**
- * `$wpdb`, for the one question asked of it: the names of the options under a prefix, oldest first.
+ * `$wpdb`, for the one question asked of it: the options under a prefix, oldest first, each row as
+ * MySQL hands it back - the name, and the value serialized. Every question is kept with its argument.
  */
 class Options_Table {
 	public $options = 'wp_options';
@@ -124,20 +127,28 @@ class Options_Table {
 
 	public function prepare( $query, ...$args ) { return array( $query, $args ); }
 
-	public function get_col( $prepared ) {
+	public function get_results( $prepared, $output = 'OBJECT' ) {
 		list( $query, $args ) = $prepared;
-		$this->asked[]        = $query;
+		$this->asked[]        = array( $query, $args );
 		$prefix               = stripcslashes( substr( $args[0], 0, -1 ) );
+		$rows                 = array();
 
-		return array_values(
-			array_filter(
-				array_keys( $GLOBALS['opts'] ),
-				function ( $name ) use ( $prefix ) {
-					return 0 === strpos( $name, $prefix );
-				}
-			)
-		);
+		foreach ( $GLOBALS['opts'] as $name => $value ) {
+			if ( 0 === strpos( $name, $prefix ) ) {
+				$rows[] = array( 'option_name' => $name, 'option_value' => is_array( $value ) ? serialize( $value ) : (string) $value );
+			}
+		}
+
+		return $rows;
 	}
+}
+// Core's: a serialized string comes back as what was stored, anything else as it is.
+function maybe_unserialize( $data ) {
+	if ( is_string( $data ) && preg_match( '/^(a|s|i|b|d|O|N):/', $data ) ) {
+		$value = @unserialize( $data );
+		return false === $value && 'b:0;' !== $data ? $data : $value;
+	}
+	return $data;
 }
 $GLOBALS['wpdb'] = new Options_Table();
 
@@ -152,6 +163,8 @@ function wp_next_scheduled( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) 
 function wp_get_scheduled_event( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) ? (object) array_merge( array( 'hook' => $hook ), $GLOBALS['cron'][ $hook ] ) : false; }
 function wp_schedule_event( $ts, $recurrence, $hook ) { $GLOBALS['cron'][ $hook ] = array( 'timestamp' => $ts, 'schedule' => $recurrence ); return true; }
 function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ] ); return 1; }
+function wp_schedule_single_event( $ts, $hook ) { $GLOBALS['cron'][ $hook ] = array( 'timestamp' => $ts, 'schedule' => false ); $GLOBALS['singles'][] = $hook; return true; }
+$GLOBALS['singles'] = array();
 $GLOBALS['doing_cron'] = false;
 function wp_doing_cron() { return $GLOBALS['doing_cron']; }
 
@@ -371,6 +384,9 @@ function reset_world() {
 	$GLOBALS['opts']          = array();
 	$GLOBALS['transients']    = array();
 	$GLOBALS['cron']          = array();
+	$GLOBALS['singles']       = array();
+	$GLOBALS['actions']       = array();
+	$GLOBALS['wpdb']->asked   = array();
 	$GLOBALS['posted']        = array();
 	$GLOBALS['slack_answers'] = array();
 	$GLOBALS['during_post']   = null;
@@ -569,12 +585,57 @@ ck( 'each promotion is kept in a row of its own, with the username its profile r
 echo "\n=== Sending ===\n";
 
 reset_world();
+promoted( 'one' );
+WPCPM_Mentor_Checker_Slack::waiting();
+
+ck( 'the waiting rows are asked for by their prefix, escaped for LIKE, with their values, oldest first',
+    $GLOBALS['wpdb']->asked,
+    array( array( 'SELECT option_name, option_value FROM wp_options WHERE option_name LIKE %s ORDER BY option_id ASC', array( 'wpcpm\\_checker\\_slack\\_pending\\_%' ) ) ) );
+
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recBROKEN000000009'] = 'not an entry';
+
+ck( 'a row that is not an entry is no mentor', count( WPCPM_Mentor_Checker_Slack::waiting() ), 1 );
+
+// Rows written by something other than the plugin, under its prefix: one naming another record than
+// its own name does, which a send could never delete, so the retry would post it every minute; and
+// one with nothing but an ID, which must read without a PHP warning.
+reset_world();
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recAAAA0000000001'] = array( 'record_id' => 'recBBBB0000000002', 'name' => 'Elsewhere', 'username' => 'mentor-seven', 'via' => 'user', 'by' => 'X' );
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recCCCC0000000003'] = array( 'record_id' => 'recCCCC0000000003' );
+$warnings = array();
+set_error_handler(
+	function ( $no, $str ) use ( &$warnings ) {
+		$warnings[] = $str;
+		return true;
+	}
+);
+$entries = WPCPM_Mentor_Checker_Slack::waiting();
+WPCPM_Mentor_Checker_Slack::flush();
+restore_error_handler();
+
+ck( 'a row that names another record than its own name is no mentor, so it is never sent and never retried',
+    array( array_column( $entries, 'record_id' ), count( $GLOBALS['posted'] ), substr_count( texts()[0] ?? '', 'Elsewhere' ), $GLOBALS['singles'] ) ,
+    array( array( 'recCCCC0000000003' ), 1, 0, array() ) );
+ck( 'a row with nothing but its ID is read whole, sent as an unnamed mentor with no profile, without a warning',
+    array( $entries[0], explode( "\n", texts()[0] )[1], last_line( texts()[0] ), $warnings ),
+    array(
+        array( 'record_id' => 'recCCCC0000000003', 'name' => '', 'username' => '', 'via' => 'user', 'by' => '' ),
+        '• (unnamed) - no WordPress.org profile',
+        'Promoted by an administrator.',
+        array(),
+    ) );
+
+reset_world();
 
 ck( 'nothing waiting: Slack is not asked', array( WPCPM_Mentor_Checker_Slack::flush(), $GLOBALS['posted'] ), array( null, array() ) );
 
 WPCPM_WPorg_Profile::$slack = array( 'mentor-one' => 'mentor.one' );
 promoted( 'one' );
-$sent = WPCPM_Mentor_Checker_Slack::flush();
+$began = microtime( true );
+$sent  = WPCPM_Mentor_Checker_Slack::flush();
+$took  = microtime( true ) - $began;
+
+ck( 'one message is sent without a pause', $took < 1.0, true );
 $post = $GLOBALS['posted'][0];
 
 ck( 'one request, to the webhook, as JSON, following no redirect, with the message and no link previews',
@@ -585,9 +646,9 @@ ck( 'the message names the mentor with the Slack name read from their profile',
     "<!channel> 1 mentor was moved to Active. Please add them to #mentors:\n"
     . "• Mentor One - <https://profiles.wordpress.org/mentor-one/|@mentor-one> - Slack: `mentor.one`\n"
     . 'Promoted by Ada Admin.' );
-ck( 'a sent message forgets its mentors and is remembered as sent, with how many it named',
-    array( $sent, waiting(), get_option( WPCPM_Mentor_Checker_Slack::LAST )['ok'], get_option( WPCPM_Mentor_Checker_Slack::LAST )['count'] ),
-    array( true, array(), true, 1 ) );
+ck( 'a sent message forgets its mentors and is remembered as sent, with how many it named, and asks for no other send',
+    array( $sent, waiting(), get_option( WPCPM_Mentor_Checker_Slack::LAST )['ok'], get_option( WPCPM_Mentor_Checker_Slack::LAST )['count'], $GLOBALS['singles'] ),
+    array( true, array(), true, 1, array() ) );
 ck( 'and the lock is let go', get_option( WPCPM_Mentor_Checker_Slack::LOCK, 'free' ), 'free' );
 
 reset_world();
@@ -597,9 +658,9 @@ $GLOBALS['slack_answers'] = array( array( 'response' => array( 'code' => 404 ), 
 $refused                  = WPCPM_Mentor_Checker_Slack::flush();
 $last                     = get_option( WPCPM_Mentor_Checker_Slack::LAST );
 
-ck( 'a message Slack refuses is an error, the mentor stays waiting, and the failure is remembered',
-    array( is_wp_error( $refused ), waiting(), $last['ok'], $last['error'] ),
-    array( true, array( 'recMENTOR00000001' ), false, 'HTTP 404: no_service' ) );
+ck( 'a message Slack refuses is an error, the mentor stays waiting for the next run or press rather than a retry a minute on, and the failure is remembered',
+    array( is_wp_error( $refused ), waiting(), $last['ok'], $last['error'], $GLOBALS['singles'] ),
+    array( true, array( 'recMENTOR00000001' ), false, 'HTTP 404: no_service', array() ) );
 
 promoted( 'two' );
 WPCPM_Mentor_Checker_Slack::flush();
@@ -633,8 +694,8 @@ WPCPM_WPorg_Profile::$reading = function () {
 };
 WPCPM_Mentor_Checker_Slack::flush();
 
-ck( 'a mentor promoted by another request while a profile is read is not lost: not in this message, waiting for the next',
-    array( substr_count( texts()[0], '• ' ), waiting() ), array( 1, array( 'recMENTOR00000002' ) ) );
+ck( 'a mentor promoted by another request while a profile is read is not lost: not in this message, waiting for the next, which is asked for in about a minute',
+    array( substr_count( texts()[0], '• ' ), waiting(), $GLOBALS['singles'] ), array( 1, array( 'recMENTOR00000002' ), array( WPCPM_Mentor_Checker_Slack::RETRY_HOOK ) ) );
 
 reset_world();
 promoted( 'one' );
@@ -664,11 +725,13 @@ for ( $i = 1; $i <= 30; $i++ ) {
 }
 
 $GLOBALS['slack_answers'] = array( 'ok', 'ok' );
+$began                    = microtime( true );
 WPCPM_Mentor_Checker_Slack::flush();
+$took                     = microtime( true ) - $began;
 
-ck( 'a long list goes in messages of 25, each counting its own',
-    array( count( $GLOBALS['posted'] ), substr_count( texts()[0], '• ' ), substr_count( texts()[1], '• ' ), strtok( texts()[1], "\n" ), waiting(), get_option( WPCPM_Mentor_Checker_Slack::LAST )['count'] ),
-    array( 2, 25, 5, '<!channel> 5 mentors were moved to Active. Please add them to #mentors:', array(), 30 ) );
+ck( 'a long list goes in messages of 25, each counting its own, a second apart for Slack\'s limit of one a second',
+    array( count( $GLOBALS['posted'] ), substr_count( texts()[0], '• ' ), substr_count( texts()[1], '• ' ), strtok( texts()[1], "\n" ), waiting(), get_option( WPCPM_Mentor_Checker_Slack::LAST )['count'], $took >= 1.0 ),
+    array( 2, 25, 5, '<!channel> 5 mentors were moved to Active. Please add them to #mentors:', array(), 30, true ) );
 
 reset_world();
 
@@ -691,10 +754,24 @@ ck( 'while another request is sending, this one sends nothing and leaves the lis
     array( WPCPM_Mentor_Checker_Slack::flush(), $GLOBALS['posted'], waiting() ),
     array( null, array(), array( 'recMENTOR00000001' ) ) );
 
+$retry = $GLOBALS['cron'][ WPCPM_Mentor_Checker_Slack::RETRY_HOOK ] ?? null;
+WPCPM_Mentor_Checker_Slack::flush();
+
+ck( 'but asks for a send of its own in about a minute, once however often it finds the lock held, so its mentor does not wait for the next run',
+    array( is_array( $retry ), false === ( $retry['schedule'] ?? null ), abs( ( $retry['timestamp'] ?? 0 ) - ( time() + 60 ) ) <= 2, $GLOBALS['singles'] ),
+    array( true, true, true, array( WPCPM_Mentor_Checker_Slack::RETRY_HOOK ) ) );
+
 update_option( WPCPM_Mentor_Checker_Slack::LOCK, ( time() - 3600 ) . '|other' );
 WPCPM_Mentor_Checker_Slack::flush();
 
 ck( 'a lock left by a request that died is taken over', count( $GLOBALS['posted'] ), 1 );
+
+reset_world();
+promoted( 'one' );
+update_option( WPCPM_Mentor_Checker_Slack::LOCK, ( time() + 3600 ) . '|other' );
+WPCPM_Mentor_Checker_Slack::flush();
+
+ck( 'and so is one dated more than its timeout ahead, which no request of this site wrote', count( $GLOBALS['posted'] ), 1 );
 
 reset_world();
 promoted( 'one' );
@@ -730,6 +807,23 @@ ck( 'never sent: nothing to say', WPCPM_Mentor_Checker_Slack::status_sentence(),
 update_option( WPCPM_Mentor_Checker_Slack::LAST, array( 'time' => time() - 300, 'ok' => true, 'count' => 2, 'error' => '' ) );
 
 ck( 'sent', WPCPM_Mentor_Checker_Slack::status_sentence(), 'Last Slack message sent 5 mins ago, naming 2 mentors.' );
+
+promoted( 'two' );
+
+ck( 'sent, with somebody promoted since and waiting', WPCPM_Mentor_Checker_Slack::status_sentence(), 'Last Slack message sent 5 mins ago, naming 2 mentors. 1 mentor waits for the next one.' );
+
+delete_option( WPCPM_Mentor_Checker_Slack::PENDING_PREFIX . 'recMENTOR00000002' );
+
+ck( 'asked about what happened since a moment, a send before it is not this run\'s to report; one at or after it is',
+    array( WPCPM_Mentor_Checker_Slack::status_sentence( time() - 60 ), WPCPM_Mentor_Checker_Slack::status_sentence( time() - 600 ) ),
+    array( '', 'Last Slack message sent 5 mins ago, naming 2 mentors.' ) );
+
+promoted( 'two' );
+
+ck( 'but with nothing sent since and somebody waiting, it says they wait, as a run whose send found the lock held must',
+    WPCPM_Mentor_Checker_Slack::status_sentence( time() - 60 ), '1 mentor waits for the next Slack message.' );
+
+delete_option( WPCPM_Mentor_Checker_Slack::PENDING_PREFIX . 'recMENTOR00000002' );
 
 update_option( WPCPM_Mentor_Checker_Slack::LAST, array( 'time' => time() - 300, 'ok' => false, 'count' => 1, 'error' => 'HTTP 404: no_service' ) );
 promoted( 'one' );
@@ -887,6 +981,19 @@ WPCPM_Mentor_Checker_Runner::register_cron();
 
 ck( 'switched off: nothing is scheduled', isset( $GLOBALS['cron'][ WPCPM_Mentor_Checker_Runner::CRON_HOOK ] ), false );
 
+echo "\n=== The retry ===\n";
+
+reset_world();
+( new WPCPM_Mentor_Checker() )->boot();
+
+ck( 'the tool listens for the retry, which sends what waits',
+    $GLOBALS['actions'][ WPCPM_Mentor_Checker_Slack::RETRY_HOOK ] ?? null, array( array( 'WPCPM_Mentor_Checker_Slack', 'flush' ) ) );
+
+$GLOBALS['cron'][ WPCPM_Mentor_Checker_Slack::RETRY_HOOK ] = array( 'timestamp' => time() + 60, 'schedule' => false );
+( new WPCPM_Mentor_Checker() )->deactivate();
+
+ck( 'deactivation takes a waiting retry away with the daily check', array_keys( $GLOBALS['cron'] ), array() );
+
 echo "\n=== Uninstall ===\n";
 
 reset_world();
@@ -895,10 +1002,12 @@ promoted( 'two' );
 update_option( WPCPM_Mentor_Checker_Slack::LAST, array( 'time' => 1, 'ok' => true, 'count' => 1, 'error' => '' ) );
 update_option( WPCPM_Mentor_Checker_Slack::LOCK, '1|x' );
 update_option( 'wpcpm_checker_other', 'kept' );
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recBROKEN000000009']   = 'not an entry';
+$GLOBALS['cron'][ WPCPM_Mentor_Checker_Slack::RETRY_HOOK ]           = array( 'timestamp' => time() + 60, 'schedule' => false );
 ( new WPCPM_Mentor_Checker() )->uninstall();
 
-ck( 'uninstall forgets every waiting mentor, the last send and the lock, and nothing else of the checker\'s that it does not own',
-    array_keys( $GLOBALS['opts'] ), array( 'wpcpm_checker_other' ) );
+ck( 'uninstall forgets every waiting row, one that is no entry included, the last send, the lock and a waiting retry, and nothing else of the checker\'s',
+    array( array_keys( $GLOBALS['opts'] ), array_keys( $GLOBALS['cron'] ) ), array( array( 'wpcpm_checker_other' ), array() ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S) of $total\n" : "ALL PASS ($total)\n" );
 exit( $fail ? 1 : 0 );

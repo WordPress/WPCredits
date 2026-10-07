@@ -113,6 +113,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	 */
 	public function boot() {
 		WPCPM_Mentor_Checker_Runner::register_cron();
+		add_action( WPCPM_Mentor_Checker_Slack::RETRY_HOOK, array( 'WPCPM_Mentor_Checker_Slack', 'flush' ) );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_wpcpm_checker_flush_cache', array( $this, 'handle_flush_cache' ) );
@@ -125,10 +126,11 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * Deactivation: drop the daily schedule.
+	 * Deactivation: drop the daily schedule and a waiting retry of the Slack message.
 	 */
 	public function deactivate() {
 		wp_clear_scheduled_hook( WPCPM_Mentor_Checker_Runner::CRON_HOOK );
+		wp_clear_scheduled_hook( WPCPM_Mentor_Checker_Slack::RETRY_HOOK );
 	}
 
 	/**

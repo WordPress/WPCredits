@@ -60,6 +60,19 @@ final class WPCPM_Mentor_Checker_Slack {
 	const PER_MESSAGE = 25;
 
 	/**
+	 * Seconds between two messages of one send: an incoming webhook takes about one message a second,
+	 * and a refused part would leave the rest waiting.
+	 */
+	const PAUSE = 1;
+
+	/**
+	 * A one-off send, a minute after a request that could not send what it recorded: it found another
+	 * request sending, or recorded a mentor after that send had read its names (1.122.5). Without it
+	 * the mentor would wait for the next action or daily run.
+	 */
+	const RETRY_HOOK = 'wpcpm_checker_slack_retry';
+
+	/**
 	 * Whether an address is a Slack incoming webhook.
 	 *
 	 * Only `https://hooks.slack.com/services/...`, to the end of the string: the message carries
@@ -149,6 +162,8 @@ final class WPCPM_Mentor_Checker_Slack {
 		$token = self::acquire_lock();
 
 		if ( false === $token ) {
+			self::schedule_retry();
+
 			return null;
 		}
 
@@ -165,7 +180,11 @@ final class WPCPM_Mentor_Checker_Slack {
 		$result = null;
 		$sent   = 0;
 
-		foreach ( array_chunk( $entries, self::PER_MESSAGE ) as $chunk ) {
+		foreach ( array_chunk( $entries, self::PER_MESSAGE ) as $part => $chunk ) {
+			if ( $part > 0 ) {
+				sleep( self::PAUSE );
+			}
+
 			$result = self::post( $webhook, self::message( $chunk ) );
 
 			if ( true !== $result ) {
@@ -194,7 +213,23 @@ final class WPCPM_Mentor_Checker_Slack {
 
 		self::release_lock( $token );
 
+		// Sent, and somebody recorded meanwhile still waits: they go in a minute rather than at the
+		// next action. Not after a refusal, which the next run or press retries without a request a
+		// minute that Slack would refuse again.
+		if ( true === $result && array() !== self::waiting() ) {
+			self::schedule_retry();
+		}
+
 		return $result;
+	}
+
+	/**
+	 * Ask for a send in about a minute, unless one is asked for already.
+	 */
+	private static function schedule_retry() {
+		if ( ! wp_next_scheduled( self::RETRY_HOOK ) ) {
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::RETRY_HOOK );
+		}
 	}
 
 	/**
@@ -367,37 +402,51 @@ final class WPCPM_Mentor_Checker_Slack {
 	}
 
 	/**
-	 * A sentence for the tool's screen and WP-CLI about the last attempt to send, or '' when there is
-	 * none to make: no webhook saved, or nothing ever sent.
+	 * A sentence for the tool's screen and WP-CLI about the last attempt to send, and how many still
+	 * wait, or '' when there is none to make: no webhook saved, nothing ever sent, or nothing sent
+	 * since the moment asked about.
 	 *
+	 * @param int $since Only an attempt at or after this time counts; 0, any. WP-CLI passes the
+	 *                   moment its run began, so an older message is not reported as the run's.
 	 * @return string
 	 */
-	public static function status_sentence() {
-		$last = get_option( self::LAST, array() );
-
-		if ( '' === self::webhook() || ! is_array( $last ) || empty( $last['time'] ) ) {
+	public static function status_sentence( $since = 0 ) {
+		if ( '' === self::webhook() ) {
 			return '';
+		}
+
+		$last    = get_option( self::LAST, array() );
+		$waiting = count( self::waiting() );
+
+		// Nothing to report since the moment asked about, but somebody waits: a run whose send found
+		// another request sending still says so, rather than nothing.
+		if ( ! is_array( $last ) || empty( $last['time'] ) || (int) $last['time'] < (int) $since ) {
+			return $waiting > 0 ? sprintf(
+				/* translators: %s: number of mentors waiting. */
+				_n( '%s mentor waits for the next Slack message.', '%s mentors wait for the next Slack message.', $waiting, 'wpcredits-program-manager' ),
+				number_format_i18n( $waiting )
+			) : '';
 		}
 
 		$ago = human_time_diff( (int) $last['time'], time() );
 
 		if ( ! empty( $last['ok'] ) ) {
-			return sprintf(
+			$sentence = sprintf(
 				/* translators: 1: how long ago, e.g. "5 mins", 2: number of mentors named. */
 				_n( 'Last Slack message sent %1$s ago, naming %2$s mentor.', 'Last Slack message sent %1$s ago, naming %2$s mentors.', (int) $last['count'], 'wpcredits-program-manager' ),
 				$ago,
 				number_format_i18n( (int) $last['count'] )
 			);
+		} else {
+			$sentence = sprintf(
+				/* translators: 1: how long ago, e.g. "5 mins", 2: why, e.g. "HTTP 404: no_service". */
+				__( 'The last Slack message could not be sent %1$s ago (%2$s).', 'wpcredits-program-manager' ),
+				$ago,
+				(string) $last['error']
+			);
 		}
 
-		$waiting = count( self::waiting() );
-
-		return sprintf(
-			/* translators: 1: how long ago, e.g. "5 mins", 2: why, e.g. "HTTP 404: no_service". */
-			__( 'The last Slack message could not be sent %1$s ago (%2$s).', 'wpcredits-program-manager' ),
-			$ago,
-			(string) $last['error']
-		) . ( $waiting > 0 ? ' ' . sprintf(
+		return $sentence . ( $waiting > 0 ? ' ' . sprintf(
 			/* translators: %s: number of mentors waiting. */
 			_n( '%s mentor waits for the next one.', '%s mentors wait for the next one.', $waiting, 'wpcredits-program-manager' ),
 			number_format_i18n( $waiting )
@@ -405,27 +454,60 @@ final class WPCPM_Mentor_Checker_Slack {
 	}
 
 	/**
-	 * The mentors waiting, oldest first.
+	 * The mentors waiting, oldest first, each with every key a message reads.
+	 *
+	 * Only a row named for the record it holds counts: a send deletes the row by that name, so a row
+	 * written under the prefix by something else, naming another record, could never be deleted and
+	 * the retry would post it every minute. A row missing a key reads it as empty, not as a warning.
 	 *
 	 * @return array[]
 	 */
 	public static function waiting() {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Each mentor is a row addressable only by exact name, so the rows are found by their prefix; read only when a promotion was recorded or a run ends.
-		$names   = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC", $wpdb->esc_like( self::PENDING_PREFIX ) . '%' ) );
 		$entries = array();
 
-		foreach ( (array) $names as $name ) {
-			$entry = get_option( (string) $name );
-
-			// A row another request sent and deleted since the names were read is gone.
-			if ( is_array( $entry ) && ! empty( $entry['record_id'] ) ) {
-				$entries[] = $entry;
+		foreach ( self::rows() as $name => $value ) {
+			if ( ! is_array( $value ) || ! isset( $value['record_id'] ) || ! is_string( $value['record_id'] ) || '' === $value['record_id'] || self::PENDING_PREFIX . $value['record_id'] !== $name ) {
+				continue;
 			}
+
+			$text = function ( $key ) use ( $value ) {
+				return isset( $value[ $key ] ) && is_scalar( $value[ $key ] ) ? (string) $value[ $key ] : '';
+			};
+
+			$entries[] = array(
+				'record_id' => $value['record_id'],
+				'name'      => $text( 'name' ),
+				'username'  => $text( 'username' ),
+				'via'       => in_array( $text( 'via' ), array( 'cron', 'cli' ), true ) ? $text( 'via' ) : 'user',
+				'by'        => $text( 'by' ),
+			);
 		}
 
 		return $entries;
+	}
+
+	/**
+	 * Every waiting row, name to value, oldest first, read with its value in the one query.
+	 *
+	 * Not through `get_option()`: under a persistent object cache, core's cached list of options
+	 * that do not exist can name a row that does, which would hide that mentor from every send.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function rows() {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Each mentor is a row addressable only by exact name, so the rows are found by their prefix, values and all, past the object cache; read by every send (each run's end, each Promote and Promote all, the retry), by the screen's line after a refused send, and on uninstall.
+		$found = $wpdb->get_results( $wpdb->prepare( "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC", $wpdb->esc_like( self::PENDING_PREFIX ) . '%' ), ARRAY_A );
+		$rows  = array();
+
+		foreach ( (array) $found as $row ) {
+			if ( is_array( $row ) && isset( $row['option_name'] ) ) {
+				$rows[ (string) $row['option_name'] ] = maybe_unserialize( $row['option_value'] );
+			}
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -435,14 +517,15 @@ final class WPCPM_Mentor_Checker_Slack {
 		self::drop_waiting();
 		delete_option( self::LAST );
 		delete_option( self::LOCK );
+		wp_clear_scheduled_hook( self::RETRY_HOOK );
 	}
 
 	/**
-	 * Forget every mentor waiting.
+	 * Forget every waiting row, by its name, so a row that holds no entry goes too.
 	 */
 	private static function drop_waiting() {
-		foreach ( self::waiting() as $entry ) {
-			delete_option( self::PENDING_PREFIX . $entry['record_id'] );
+		foreach ( array_keys( self::rows() ) as $name ) {
+			delete_option( $name );
 		}
 	}
 
@@ -502,7 +585,9 @@ final class WPCPM_Mentor_Checker_Slack {
 
 		$held = (int) explode( '|', (string) get_option( self::LOCK ) )[0];
 
-		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
+		// Held while it is younger than the timeout. A time further ahead than the timeout was never
+		// written by a request of this site, and taken as held it would block every send for good.
+		if ( $held > time() - self::LOCK_TIMEOUT && $held <= time() + self::LOCK_TIMEOUT ) {
 			return false;
 		}
 

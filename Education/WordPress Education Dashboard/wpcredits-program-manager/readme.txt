@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.4
+Stable tag: 1.122.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.5 =
+
+* Mentor Status Checker: a mentor promoted while another Slack message was being sent goes in a message about a minute later, rather than with the next run or press, and the line under the buttons says how many still wait even after a message that went. The mentors waiting are read in one query with their values, past the object cache, so a stale cache cannot hide one, and uninstall forgets every waiting row and the retry.
+* Mentor Status Checker: messages of 25 go a second apart, Slack's limit for an incoming webhook, and `wp wpcredits check-mentors` reports only a Slack message sent during its own run, or that mentors wait when its send could not go.
+* Mentor Status Checker: a row under the Slack message's prefix that the plugin did not write is ignored unless it is named for the record it holds (otherwise the retry could post it every minute), a row missing a name reads as empty without a warning, and a send lock dated in the future no longer blocks every send.
 
 = 1.122.4 =
 

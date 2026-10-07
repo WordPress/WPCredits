@@ -33,6 +33,15 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'ARRAY_A', 'ARRAY_A' );
+// Core's: a serialized string comes back as what was stored, anything else as it is.
+function maybe_unserialize( $data ) {
+	if ( is_string( $data ) && preg_match( '/^(a|s|i|b|d|O|N):/', $data ) ) {
+		$value = @unserialize( $data );
+		return false === $value && 'b:0;' !== $data ? $data : $value;
+	}
+	return $data;
+}
 
 // WordPress defines these in `wp_initial_constants()`, before any plugin code runs, the uninstall
 // request included, and the clean-up reads one of them: the Sponsors module reads each offer on
@@ -148,6 +157,38 @@ class WPCPM_Test_Wpdb {
 		}
 
 		$GLOBALS['unmodeled'][] = 'get_col: ' . $query;
+
+		return array();
+	}
+
+	/**
+	 * The Mentor Status Checker's waiting rows (1.122.5): names and values under a prefix, oldest
+	 * first, each value as MySQL hands it back, serialized.
+	 *
+	 * @param string $query  The statement.
+	 * @param string $output Core's output shape.
+	 * @return array
+	 */
+	public function get_results( $query, $output = 'OBJECT' ) {
+		$this->queries[] = $query;
+
+		if ( preg_match( '/^SELECT option_name, option_value FROM wp_options WHERE (.+?) ORDER BY option_id ASC$/s', $query, $m ) ) {
+			$patterns = like_patterns( $m[1] );
+
+			if ( null !== $patterns ) {
+				$rows = array();
+
+				foreach ( $GLOBALS['opts'] as $name => $value ) {
+					if ( like_any( $patterns, (string) $name ) ) {
+						$rows[] = array( 'option_name' => (string) $name, 'option_value' => is_scalar( $value ) ? (string) $value : serialize( $value ) );
+					}
+				}
+
+				return $rows;
+			}
+		}
+
+		$GLOBALS['unmodeled'][] = 'get_results: ' . $query;
 
 		return array();
 	}
@@ -709,7 +750,7 @@ $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts'
 // The cron schedule: the ten hooks the file clears itself, every hook the modules and the tools
 // clear, and one of core's.
 $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick' );
-$other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge' );
+$other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge' );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -914,6 +955,7 @@ $names = array(
 	'WPCPM_Sponsors_Sync::CRON_DAILY'               => 'wpcpm_sponsors_daily',
 	'WPCPM_Sponsors_Sync::CRON_TICK'                => 'wpcpm_sponsors_sync_tick',
 	'WPCPM_Mentor_Checker_Runner::CRON_HOOK'        => 'wpcpm_checker_weekly_check',
+	'WPCPM_Mentor_Checker_Slack::RETRY_HOOK'        => 'wpcpm_checker_slack_retry',
 	'WPCPM_Duplicates_Scan::CRON_SCAN'              => 'wpcpm_duplicates_scan',
 	'WPCPM_Duplicates_Scan::CRON_TICK'              => 'wpcpm_duplicates_tick',
 	'WPCPM_Duplicate_Vault::CRON_PURGE'             => 'wpcpm_duplicates_purge',
