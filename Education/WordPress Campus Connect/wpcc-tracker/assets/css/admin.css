@@ -1,0 +1,39 @@
+/**
+ * WPCC-Tracker admin screen: manual-sync progress bar.
+ *
+ * Loaded only on the plugin's own top-level page (see
+ * WPCCT_Settings::enqueue_assets()).
+ */
+
+.wpcct-sync-progress {
+	max-width: 600px;
+	margin: 12px 0 20px;
+}
+
+.wpcct-sync-progress__bar {
+	background: #dcdcde;
+	border-radius: 4px;
+	height: 16px;
+	overflow: hidden;
+	width: 100%;
+}
+
+.wpcct-sync-progress__fill {
+	background: #2271b1;
+	height: 100%;
+	width: 0;
+	transition: width 0.3s ease;
+}
+
+.wpcct-sync-progress__fill--error {
+	background: #d63638;
+}
+
+.wpcct-sync-progress__stage {
+	margin: 8px 0 0;
+}
+
+.wpcct-sync-progress__stage--error {
+	color: #d63638;
+	font-weight: 600;
+}

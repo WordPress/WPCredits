@@ -1,0 +1,86 @@
+/* WordCamp Airtable Connector — admin screen. */
+
+.wcac .wcac-status {
+	max-width: 42rem;
+	margin-bottom: 1rem;
+}
+
+.wcac .wcac-status th {
+	width: 16rem;
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	font-weight: 600;
+}
+
+.wcac .wcac-status td {
+	padding: 0.5rem 0.75rem;
+}
+
+.wcac .wcac-status .description {
+	margin-left: 0.5rem;
+	color: #646970;
+}
+
+.wcac .wcac-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 1rem 0;
+}
+
+.wcac .wcac-log {
+	max-width: 60rem;
+}
+
+.wcac .wcac-log-when {
+	width: 10rem;
+	white-space: nowrap;
+}
+
+.wcac .wcac-log-level {
+	width: 6rem;
+}
+
+.wcac .wcac-level {
+	display: inline-block;
+	min-width: 3.5rem;
+	padding: 0.1rem 0.4rem;
+	border-radius: 3px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.wcac .wcac-level-info {
+	background: #edf3ff;
+	color: #1d4ed8;
+}
+
+.wcac .wcac-level-warn {
+	background: #fdf3e0;
+	color: #8a5a00;
+}
+
+.wcac .wcac-level-error {
+	background: #fce8e8;
+	color: #a4262c;
+}
+
+@media (prefers-color-scheme: dark) {
+	.wcac .wcac-level-info {
+		background: #1e293b;
+		color: #93b4ff;
+	}
+
+	.wcac .wcac-level-warn {
+		background: #3a2c10;
+		color: #f0c060;
+	}
+
+	.wcac .wcac-level-error {
+		background: #3b1c1e;
+		color: #f4a3a6;
+	}
+}
