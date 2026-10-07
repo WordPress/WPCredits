@@ -80,7 +80,10 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
 function get_current_user_id() { return $GLOBALS['uid']; }
@@ -108,8 +111,9 @@ function wp_insert_post( $a, $error = false ) {
 	static $next = 500;
 	$post                = new WP_Post();
 	$post->ID            = ++$next;
-	$post->post_title    = $a['post_title'] ?? '';
-	$post->post_content  = $a['post_content'] ?? '';
+	// The words unslashed, as core's insert unslashes them.
+	$post->post_title    = stripslashes( (string) ( $a['post_title'] ?? '' ) );
+	$post->post_content  = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$post->post_type     = $a['post_type'] ?? 'post';
 	$post->post_status   = $a['post_status'] ?? 'publish';
 	$post->post_author   = (int) ( $a['post_author'] ?? 0 );
@@ -122,7 +126,7 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	$rows = $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? array();
 	return $single ? ( $rows ? $rows[0] : '' ) : $rows;
 }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
  * `get_posts()` by type and one meta clause, newest first, honouring `numberposts` and
@@ -485,6 +489,21 @@ ck( 'there are rows to delete', $total > 5, true );
 WPCPM_Institution_Audit::delete_all();
 ck( 'delete_all() removes every row and its meta', array( $GLOBALS['posts'], $GLOBALS['pmeta'] ), array( array(), array() ) );
 ck( 'and the log reads empty', audit_rows( $A ), array() );
+
+echo "\n=== The institution's profile keeps its backslashes ===\n";
+
+// User meta unslashes what it is handed, as core's does, and the profile is copied from the
+// index row as the base holds it: a name or a contact keeps a backslash only as a slashed copy.
+$C           = 'recSEED0000000003';
+$typed_name  = 'Instituto C:\drafts, two \\\\ in a row, "Norte"';
+$typed_who   = 'Ana C:\drafts, two \\\\ in a row, "Ruiz"';
+$GLOBALS['index'][ $C ] = array( 'record_id' => $C, 'name' => $typed_name, 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Costa Rica', 'website' => '', 'contact_person' => $typed_who, 'contact_email' => '' );
+$GLOBALS['users'][30]   = new WP_User( 30, 'Gil Typed', 'gil@example.test', array( 'subscriber' ) );
+
+ck( 'an account attaches to it', WPCPM_Institution_Members::attach( 30, $C, 'manager', 1 ), true );
+ck( 'and its profile keeps the name and the contact exactly as the base holds them',
+	array( meta( 30, 'wpcpm_institution_profile' )['name'] ?? null, meta( 30, 'wpcpm_institution_profile' )['contact_person'] ?? null ),
+	array( $typed_name, $typed_who ) );
 
 /* ---- the structural rules ------------------------------------------------ */
 

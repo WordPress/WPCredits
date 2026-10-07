@@ -196,7 +196,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			'heading_list'       => __( 'Student accounts list', 'wpcredits-program-manager' ),
 			'not_connected'      => __( 'Airtable is not connected yet, so no students can be synced.', 'wpcredits-program-manager' ),
 			'list_heading'       => __( 'Student accounts', 'wpcredits-program-manager' ),
-			'page_label'         => __( 'Student page:', 'wpcredits-program-manager' ),
+			'page_label'         => __( 'Student Report Card:', 'wpcredits-program-manager' ),
 			'page_missing'       => __( 'The student page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
 			'search'             => __( 'Search students', 'wpcredits-program-manager' ),
 			'list_note'          => __( 'Accounts are created with a random password and no email. Usernames come from the student\'s WordPress.org profile where Airtable has one, and from their email address otherwise.', 'wpcredits-program-manager' ),

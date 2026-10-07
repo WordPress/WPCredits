@@ -30,7 +30,7 @@ $wpcredits_audiences = array(
 		'icon'  => 'home',
 		'tone'  => 'amber',
 		'title' => __( 'Institutions', 'wpcredits-theme' ),
-		'text'  => __( 'Recognise open-source work as coursework and place your students with mentors.', 'wpcredits-theme' ),
+		'text'  => __( 'Recognize open-source work as coursework and place your students with mentors.', 'wpcredits-theme' ),
 	),
 	array(
 		'icon'  => 'cog',

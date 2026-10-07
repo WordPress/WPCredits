@@ -192,7 +192,7 @@ class WPCPM_Institution_Request {
 	const KIND_ADD = 'add';
 	public static function raise( $k, $i, $s, $a, $g = '' ) { $GLOBALS['requests'][] = array( $k, $i, $s, $a, $g ); return 1; }
 }
-class WPCPM_Roles { const CAP_MANAGE = 'wpcpm_manage'; }
+class WPCPM_Roles { const CAP_MANAGE = 'wpcpm_manage_program'; }
 class WPCPM_Settings {
 	public static function get() { return array( 'students_table' => 'tblS', 'reports_table' => 'tblR' ); }
 	public static function get_value( $k ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : false; }
@@ -224,6 +224,9 @@ class WPCPM_Institution_Policy {
 	}
 }
 class WPCPM_Institution_Roster {
+	// The switcher argument, copied and checked against the real class below: a manager's way back
+	// from a press carries it, and without it they land on whichever institution is their fallback.
+	const ARG_VIEW = 'wpcpm_institution_view';
 	public static function resolve_institution( $viewer, $can_manage ) { $GLOBALS['calls'][] = array( 'resolve' ); return (string) $GLOBALS['resolved']; }
 }
 class WPCPM_Institutions_Dashboard { public static function page_url() { return 'https://example.test/institution-dashboard/'; } }
@@ -239,6 +242,9 @@ function wp_insert_post( $args, $e = false ) {
 function wp_delete_post( $id, $f = false ) { $g = isset( $GLOBALS['posts'][ (int) $id ] ); unset( $GLOBALS['posts'][ (int) $id ] ); return $g; }
 function get_post( $id ) { return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// Post meta here keeps what it is handed, so the slash is the identity (bin/test-institution-import.php
+// holds the batch's writes to core's, whose meta unslashes).
+function wp_slash( $v ) { return $v; }
 function get_post_meta( $id, $k, $s = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
 function get_posts( $args ) {
 	$out = array();
@@ -782,6 +788,145 @@ ck( 'a batch staged with a program that is later ungated produces program-ungate
     post_batch( 'handle_confirm', $batch_id ), 'program-ungated' );
 
 WPCPM_Institutions::$gated = array();
+
+echo "\n=== An administrator's press comes back to the institution they were viewing ===\n";
+
+// The switcher is what puts an administrator on an institution's page, and the page they are sent
+// back to has to carry it again: without it `resolve_institution()` falls through to the first
+// institution with a member. The institution is the one the press acted on - the one the page
+// resolved, or the one the batch was staged for - and never the switcher the form posted, which
+// these presses post as another school.
+$OTHER = 'recOTHER00000002';
+$VIEW  = WPCPM_Institution_Roster::ARG_VIEW;
+
+ck( 'the argument the suite copies is the real class\'s', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' ), "const ARG_VIEW = '" . $VIEW . "';" ), true );
+
+/**
+ * Press one control and report where it left the reader.
+ *
+ * @param string $handler The handler's method name.
+ * @param array  $post    What the form posts.
+ * @param array  $get     What the address carries.
+ * @return string The redirect.
+ */
+function press_to( $handler, array $post, array $get = array() ) {
+	$GLOBALS['referer']  = array();
+	$GLOBALS['calls']    = array();
+	$GLOBALS['flash']    = array();
+	$GLOBALS['redirect'] = '';
+	$_POST               = $post;
+	$_GET                = $get;
+	$_FILES              = array();
+
+	try {
+		call_user_func( array( 'WPCPM_Institution_Import_Form', $handler ) );
+	} catch ( Left $e ) {
+		// Ended where it meant to.
+	}
+
+	return (string) $GLOBALS['redirect'];
+}
+
+/** The status the last press flashed. */
+function said_now() {
+	$flash = isset( $GLOBALS['flash']['institution_import'] ) ? $GLOBALS['flash']['institution_import'] : array();
+
+	return isset( $flash['status'] ) ? $flash['status'] : '';
+}
+
+$other_view = array( $VIEW => $OTHER );
+
+foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $manager ) {
+	$GLOBALS['manage']   = $manager;
+	$GLOBALS['resolved'] = $HERE;
+	$GLOBALS['allowed']  = true;
+	$GLOBALS['created']  = array();
+	$GLOBALS['settings'] = array( 'import_enabled' => true );
+	fresh_world();
+
+	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+
+	ck( $who . ': checking a list stages it', said_now(), 'checked' );
+	ck( $who . ': and the address ' . ( $manager ? 'is the institution they were viewing' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': never the one the posted switcher named', false === strpos( $went, $OTHER ), true );
+	ck( $who . ': on the card the press was made on', '#wpcpm-import' === substr( $went, -13 ), true );
+	ck( $who . ': with the batch to open', false !== strpos( $went, WPCPM_Institution_Import_Form::ARG_BATCH . '=' ), true );
+
+	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+
+	ck( $who . ': a second list is refused while one is waiting', said_now(), 'already-staged' );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
+
+	// Every control on a staged list reads its institution off the batch, whoever is resolved.
+	$GLOBALS['resolved'] = $OTHER;
+	$batch_id            = WPCPM_Institution_Import::staged_for( $HERE );
+
+	ck( $who . ': there is a list to act on', $batch_id > 0, true );
+
+	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
+
+	ck( $who . ': confirming creates the list', said_now(), 'created' );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': never the one the posted switcher named', false === strpos( $went, $OTHER ), true );
+
+	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
+
+	ck( $who . ': confirming twice is refused', said_now(), 'not-staged-now' );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+
+	$went = press_to( 'handle_continue', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
+
+	ck( $who . ': carrying on with a list that is not running is refused', said_now(), 'not-creating-now' );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the batch\'s institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+
+	// A list that is part way through is carried on from the batch too.
+	fresh_world();
+	$GLOBALS['resolved'] = $HERE;
+	press_to( 'handle_check', batch_fields(), array() );
+	$running = WPCPM_Institution_Import::staged_for( $HERE );
+	WPCPM_Institution_Create::claim( $running, 7, 'member' );
+	update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+	$GLOBALS['resolved'] = $OTHER;
+
+	$went = press_to( 'handle_continue', array( 'batch' => (string) $running ) + $other_view, $other_view );
+
+	ck( $who . ': carrying on with a running list creates the rest', said_now(), 'created' );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+
+	// Throwing a list away.
+	fresh_world();
+	$GLOBALS['resolved'] = $HERE;
+	press_to( 'handle_check', batch_fields(), array() );
+	$staged_now = WPCPM_Institution_Import::staged_for( $HERE );
+	$GLOBALS['resolved'] = $OTHER;
+
+	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
+
+	ck( $who . ': throwing a list away says so', said_now(), 'cancelled' );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+
+	// A list that is already gone has no institution to go back to, and none is made up.
+	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
+
+	ck( $who . ': throwing away a list that is gone says so', said_now(), 'no-batch' );
+	ck( $who . ': and adds no institution of its own', false === strpos( $went, $VIEW ) && false === strpos( $went, $OTHER ), true );
+}
+
+$GLOBALS['manage']   = false;
+$GLOBALS['resolved'] = $HERE;
+
+// The check form itself: its handler works out the institution from the request alone, and a
+// post to `admin-post.php` carries the form's fields and none of the page's query string, so an
+// administrator's form names the institution on the action address, as the panel's do.
+fresh_world();
+$GLOBALS['manage'] = true;
+$mine              = draw_section( $HERE );
+$GLOBALS['manage'] = false;
+$theirs            = draw_section( $HERE );
+
+ck( 'an administrator\'s form posts to the institution they are viewing', false !== strpos( $mine, 'admin-post.php?' . $VIEW . '=' . $HERE ), true );
+ck( 'a member\'s form posts to admin-post.php as it did', false !== strpos( $theirs, 'action="https://example.test/wp-admin/admin-post.php"' ), true );
+ck( 'and carries no switcher argument anywhere', false === strpos( $theirs, $VIEW ), true );
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.6
+Stable tag: 1.122.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,20 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.8 =
+
+* Institution Dashboard: an administrator who presses a button on an institution's page now comes back to that institution. Before, the page came back on the first institution with a representative, with the message about the press on it, and the next press landed on a school nobody chose. This holds for the semester report (**Write the first draft**, **Save the report**, **Check the students' answers again**, **Approve this report**, **Reopen for editing**, **Put this version back**), for enrolling students (checking a list, creating the records, carrying on, throwing a list away), and for the representatives (removing one, and inviting, resending or canceling an invitation). A representative's own pages are unchanged.
+* Enroll students: an administrator can check a list for any institution they are viewing. The form did not say which school it was for, so for every school but the first one with a representative the check was refused.
+
+= 1.122.7 =
+
+* Saved text keeps its backslashes. A backslash typed on the site, or held in Airtable, was taken out whenever the text was saved, so `C:\drafts` came back as `C:drafts` and two backslashes in a row as one. It now stays, in every place below. Nothing goes back over text already saved: what lost a backslash before this update stays as it was saved until it is typed again.
+* Semester reports: the sections and the quote translations, also in a saved version, so a restored version brings them back as they were typed; and the students' quotes and the institution's name a report is made with, which also stops a regeneration from dropping the translation of a quote whose words had not changed. That holds for reports saved from this version on: a report stored before the update, whose quote had already lost a backslash, clears that quote's translation once more, at its first regeneration or consent re-read.
+* Notes: a mentor's or an institution's note on a student and a note on a group session, a call's topic and a group session's, a mentor's availability note, the notes on a Collaboration Agreement and on a sponsor agreement, an institution request's closing note, a sponsor post's return note, the questions and reasons on an application, and the messages in the audit log.
+* Forms: the answers to the institution and sponsor application forms, the name typed for a Collaboration Agreement, an offer's title, text and instructions, the quote in a student's permissions box, and the names and columns of a student import.
+* From Airtable: the names, Slack names and other details the students and mentors syncs keep for the Student Report Card and the Mentor Report Card, a mentor's profile address, an institution's details on its members' accounts, a country's name and contact on an application, an agreement's template version, the names on every account the plugin creates, a sponsor's category name, and the title of a sponsor's logo in the Media Library. A track's history and its record of the columns it created keep the column names as they were typed.
+* Toolbar: the **Dashboards** menu names the two pages *Student Report Card* and *Mentor Report Card* for everyone, administrators included, as the pages themselves are titled. The Students and Mentors screens name them the same way above their lists.
 
 = 1.122.6 =
 

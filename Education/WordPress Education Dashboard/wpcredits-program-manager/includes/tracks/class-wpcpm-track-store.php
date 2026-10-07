@@ -689,7 +689,9 @@ final class WPCPM_Track_Store {
 
 		$entries[] = $entry;
 
-		update_post_meta( (int) $post_id, self::META_LOG, $entries );
+		// Slashed, as the definitions are: a line's detail can carry the column names a manager
+		// typed, and post meta unslashes what it is handed.
+		update_post_meta( (int) $post_id, self::META_LOG, wp_slash( $entries ) );
 	}
 
 	/**

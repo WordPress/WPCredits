@@ -94,6 +94,9 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; retur
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function wp_upload_dir() { $dir = wpcpm_test_temp_dir() . 'uploads'; if ( ! is_dir( $dir ) ) { mkdir( $dir ); } return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
+// The attachment stand-in keeps what it is handed, so the slash is the identity
+// (bin/test-image-upload.php holds the store's slashed copy to core's, which unslashes it).
+function wp_slash( $v ) { return $v; }
 function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $id = 200 + count( $GLOBALS['attachments'] ); $GLOBALS['attachments'][ $id ] = array_merge( $a, array( 'file' => $file ) ); return $id; }
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
 function wp_update_attachment_metadata( $id, $data ) { return true; }

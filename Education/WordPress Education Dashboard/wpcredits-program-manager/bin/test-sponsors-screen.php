@@ -353,6 +353,9 @@ function wp_delete_attachment( $id, $force = false ) { $GLOBALS['deleted_attachm
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// Post meta here keeps what it is handed, so the slash is the identity (bin/test-sponsor-offers.php
+// holds the offers' writes to core's, whose meta unslashes).
+function wp_slash( $v ) { return $v; }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function get_posts( array $args ) {
 	$GLOBALS['queries'] = ( isset( $GLOBALS['queries'] ) ? (int) $GLOBALS['queries'] : 0 ) + 1;

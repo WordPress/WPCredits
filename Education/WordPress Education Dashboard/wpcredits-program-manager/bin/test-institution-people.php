@@ -205,6 +205,9 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect:' . $to ); }
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die:' . $m ); }
+function add_query_arg( $args, $url = '' ) {
+	return (string) $url . ( false === strpos( (string) $url, '?' ) ? '?' : '&' ) . http_build_query( (array) $args );
+}
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
@@ -217,6 +220,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
+if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
+	/** Only the switcher argument, copied and checked against the real class by a test below. */
+	class WPCPM_Institution_Roster {
+		const ARG_VIEW = 'wpcpm_institution_view';
+	}
+}
 if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	class WPCPM_Mentors_Sync {
 		const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
@@ -639,7 +648,7 @@ WPCPM_Institution_Members::attach( 14, $A, 'manager', 1 );
 $GLOBALS['uid'] = 14;
 $_POST          = array( 'member' => 14 );
 
-ck( 'they may leave', run( 'handle_remove_member' ), 'redirect:https://example.test/#wpcpm-people' );
+ck( 'they may leave, and come back to the institution they were viewing', run( 'handle_remove_member' ), 'redirect:https://example.test/?wpcpm_institution_view=' . $A . '#wpcpm-people' );
 ck( 'they stop being a member', WPCPM_Institution_Members::institution_of( 14 ), '' );
 ck( 'and the outcome is queued for them', flash_status(), 'left' );
 ck( 'on the card of the institution they left', has( render_card( 14, $A, true ), 'You have left this institution' ), true );
@@ -934,6 +943,55 @@ WPCPM_Institution_People::render_manager( $A );
 ck( 'a member is drawn nothing by it', (string) ob_get_clean(), '' );
 
 /* ---- structure ----------------------------------------------------------- */
+
+echo "\n=== An administrator's press comes back to the institution they were viewing ===\n";
+
+// The switcher is what puts an administrator on an institution's dashboard, and the address a
+// press returns to has to carry it again: without it `resolve_institution()` falls through to
+// the first institution with a member. The institution is the subject's own, read off the
+// member's stamp, and never the switcher the form happened to post.
+$VIEW = WPCPM_Institution_Roster::ARG_VIEW;
+
+ck( 'the argument the suite copies is the real class\'s', has( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' ), "const ARG_VIEW = '" . $VIEW . "';" ), true );
+
+WPCPM_Institution_Members::attach( 13, $A, 'invited', 7 );
+WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 );
+
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'member' => 13, $VIEW => $B );
+$_GET           = array( $VIEW => $B );
+
+ck( 'an administrator removing a member comes back to that member\'s institution', run( 'handle_remove_member' ), 'redirect:https://example.test/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'having removed them', WPCPM_Institution_Members::institution_of( 13 ), '' );
+clear_flash();
+
+$_POST = array( 'member' => 13, $VIEW => $B );
+ck( 'and pressing Remove on the row that has already ended comes back to the institution it left', run( 'handle_remove_member' ), 'redirect:https://example.test/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+clear_flash();
+
+$_POST = array( 'record' => $A, 'email' => 'not an address', $VIEW => $B );
+ck( 'the backstop posted without the Institutions screen\'s flag comes back to the institution it names', run( 'handle_add_account' ), 'redirect:https://example.test/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+clear_flash();
+
+$_POST = array( 'member' => 99999, 'record' => $A, $VIEW => $B );
+ck( 'and so does a re-add of somebody who was never a member', run( 'handle_readd' ), 'redirect:https://example.test/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+clear_flash();
+
+// A member's address is what it always was, whatever they post.
+WPCPM_Institution_Members::attach( 13, $A, 'invited', 7 );
+$GLOBALS['uid'] = 7;
+$_POST          = array( 'member' => 13, $VIEW => $B );
+$_GET           = array( $VIEW => $B );
+
+ck( 'a member removing a colleague comes back to the card, with no switcher argument', run( 'handle_remove_member' ), 'redirect:https://example.test/#wpcpm-people' );
+clear_flash();
+
+$_POST = array( 'member' => 13, $VIEW => $B );
+ck( 'and so does the press that finds the row already ended', run( 'handle_remove_member' ), 'redirect:https://example.test/#wpcpm-people' );
+clear_flash();
+
+$_POST = array();
+$_GET  = array();
 
 echo "\n=== The rules that are invisible at runtime ===\n";
 

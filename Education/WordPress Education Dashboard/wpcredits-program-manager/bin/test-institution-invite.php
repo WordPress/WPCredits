@@ -235,6 +235,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
+if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
+	/** Only the switcher argument, copied and checked against the real class by a test below. */
+	class WPCPM_Institution_Roster {
+		const ARG_VIEW = 'wpcpm_institution_view';
+	}
+}
 if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	class WPCPM_Mentors_Sync {
 		const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
@@ -883,6 +889,61 @@ $cancelled      = run( 'handle_cancel' );
 
 ck( 'a Resend, then a Cancel, posted with the Institutions screen\'s flag each land on the institution\'s Manage members view, on the members block', array( $resent, $cancelled ), array_fill( 0, 2, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' ) );
 ck( 'having done what each was pressed for', array( flash_status( 1 ), pmeta( $from_screen, '_wpcpm_inv_state' ), count( $GLOBALS['sent'] ) ), array( 'invite-cancelled', 'cancelled', 2 ) );
+
+echo "\n=== An administrator's press comes back to the institution they were viewing ===\n";
+
+// The switcher is what puts an administrator on an institution's dashboard, and the address a
+// press returns to has to carry it again: without it `resolve_institution()` falls through to
+// the first institution with a member. The institution is the one the press acted on - the one
+// the form names for a new invitation, the invitation's own for Cancel and Resend - and never
+// the switcher the form happened to post, which these presses post as another school.
+$VIEW   = WPCPM_Institution_Roster::ARG_VIEW;
+$posted = array( $VIEW => $B );
+
+ck( 'the argument the suite copies is the real class\'s', has( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' ), "const ARG_VIEW = '" . $VIEW . "';" ), true );
+
+reset_world();
+
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'record' => $A, 'email' => 'viewed@example.test' ) + $posted;
+$_GET           = $posted;
+
+ck( 'an administrator inviting someone comes back to the institution the invitation is for', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'having sent it', flash_status( 1 ), 'invite-sent' );
+
+$_POST = array( 'record' => $A, 'email' => 'not an address' ) + $posted;
+ck( 'and so does the refusal', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+
+$viewed = newest_invite();
+$_POST  = array( 'invite' => $viewed ) + $posted;
+ck( 'Resend comes back to the invitation\'s own institution', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+
+$_POST = array( 'invite' => $viewed ) + $posted;
+ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+
+$_POST = array( 'invite' => $viewed ) + $posted;
+ck( 'and the press that finds the invitation gone', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'saying so', flash_status( 1 ), 'invite-gone' );
+
+// A member's address is what it always was, whatever they post.
+reset_world();
+
+$GLOBALS['uid'] = 7;
+$_POST          = array( 'record' => $A, 'email' => 'sidekick@example.test' ) + $posted;
+$_GET           = $posted;
+
+ck( 'a member inviting someone comes back to the card, with no switcher argument', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+ck( 'having sent it', flash_status( 7 ), 'invite-sent' );
+
+$mine  = newest_invite();
+$_POST = array( 'invite' => $mine ) + $posted;
+ck( 'and so do Resend', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+
+$_POST = array( 'invite' => $mine ) + $posted;
+ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+
+$_POST = array();
+$_GET  = array();
 
 echo "\n=== A program manager passes, and a lost record stops an acceptance ===\n";
 

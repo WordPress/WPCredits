@@ -105,10 +105,11 @@ function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta stand-ins that unslash what they are handed as core's do: the flash and
+// every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
@@ -124,8 +125,9 @@ function wp_insert_post( $a, $error = false ) {
 	static $next = 500;
 	$post                          = new WP_Post();
 	$post->ID                      = ++$next;
-	$post->post_title              = $a['post_title'] ?? '';
-	$post->post_content            = $a['post_content'] ?? '';
+	// The words unslashed, as core's insert unslashes them: the audit row's message arrives slashed.
+	$post->post_title              = stripslashes( (string) ( $a['post_title'] ?? '' ) );
+	$post->post_content            = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$post->post_type               = $a['post_type'] ?? 'post';
 	$post->post_status             = $a['post_status'] ?? 'publish';
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
@@ -141,7 +143,8 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	$rows = $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? array();
 	return $single ? ( $rows ? $rows[0] : '' ) : $rows;
 }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth.
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
@@ -959,6 +962,19 @@ ck( 'the cap counts both halves together', WPCPM_Institution_Request::closed_req
 $GLOBALS['queries'] = array();
 
 ck( 'and when the stamped rows fill the cap the legacy half is not asked for at all', array( WPCPM_Institution_Request::closed_requests( 2 ), count( $GLOBALS['queries'] ) ), array( array( $declined, $late ), 1 ) );
+
+echo "\n=== A closing note keeps its backslashes ===\n";
+
+// Post meta unslashes what it is handed, as core's does, and the note is read from the form
+// unslashed: it keeps a backslash only when it is written as a slashed copy.
+$typed_note = 'Filed under C:\drafts\mentors, two \\\\ in a row, as "reassigned".';
+$typed_req  = WPCPM_Institution_Request::raise( 'mentor', $A, $S1, 7 );
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'request' => (int) $typed_req, 'state' => 'done', 'wpcpm_request_note' => $typed_note );
+run( 'handle_resolve' );
+
+ck( 'a request is raised for the check', is_int( $typed_req ) && $typed_req > 0, true );
+ck( 'and its closing note is kept exactly as typed', get_post_meta( (int) $typed_req, WPCPM_Institution_Request::META_NOTE, true ), $typed_note );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

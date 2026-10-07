@@ -742,18 +742,21 @@ class WPCPM_Group_Sessions {
 			$start_ts = (int) $start_ts;
 
 			// `private`, like every call: see `WPCPM_Mentor_Calls::register_post_type()`. A
-			// `publish` row here handed out the mentor's login through `?author=N`.
+			// `publish` row here handed out the mentor's login through `?author=N`. A slashed
+			// copy, because core unslashes what it is handed and the topic was read unslashed.
 			$post_id = wp_insert_post(
-				array(
-					'post_type'    => WPCPM_Mentor_Calls::POST_TYPE,
-					'post_status'  => 'private',
-					'post_author'  => get_current_user_id(),
-					'post_content' => $topic,
-					'post_title'   => sprintf(
-						/* translators: %s: session date and time. */
-						__( 'Group session - %s', 'wpcredits-program-manager' ),
-						wp_date( 'Y-m-d H:i', $start_ts )
-					),
+				wp_slash(
+					array(
+						'post_type'    => WPCPM_Mentor_Calls::POST_TYPE,
+						'post_status'  => 'private',
+						'post_author'  => get_current_user_id(),
+						'post_content' => $topic,
+						'post_title'   => sprintf(
+							/* translators: %s: session date and time. */
+							__( 'Group session - %s', 'wpcredits-program-manager' ),
+							wp_date( 'Y-m-d H:i', $start_ts )
+						),
+					)
 				),
 				true
 			);
@@ -942,15 +945,18 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-clash' );
 		}
 
+		// A slashed copy, as `create_sessions()` writes one: the topic was read unslashed.
 		wp_update_post(
-			array(
-				'ID'           => $call->ID,
-				'post_content' => $topic,
-				'post_title'   => sprintf(
-					/* translators: %s: session date and time. */
-					__( 'Group session - %s', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d H:i', $start_ts )
-				),
+			wp_slash(
+				array(
+					'ID'           => $call->ID,
+					'post_content' => $topic,
+					'post_title'   => sprintf(
+						/* translators: %s: session date and time. */
+						__( 'Group session - %s', 'wpcredits-program-manager' ),
+						wp_date( 'Y-m-d H:i', $start_ts )
+					),
+				)
 			)
 		);
 

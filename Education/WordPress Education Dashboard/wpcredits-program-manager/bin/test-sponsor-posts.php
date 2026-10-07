@@ -127,7 +127,10 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; retur
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_post( $p = null ) { if ( null === $p ) { return isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null; } if ( $p instanceof WP_Post ) { return $p; } return isset( $GLOBALS['posts'][ (int) $p ] ) ? $GLOBALS['posts'][ (int) $p ] : null; }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; $GLOBALS['calls'][] = array( 'update_post_meta', (int) $id, $k, $v ); return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); $GLOBALS['calls'][] = array( 'update_post_meta', (int) $id, $k, $v ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function wp_insert_post( $a, $e = false ) { $id = $GLOBALS['next_post']++; $a['ID'] = $id; $GLOBALS['posts'][ $id ] = new WP_Post( $a ); return $id; }
 // `edit_date` is an instruction to wp_update_post, never a column: core reads it and drops it.
@@ -151,15 +154,17 @@ function get_posts( array $args ) {
 function term_exists( $slug, $tax = '', $parent = null ) { foreach ( $GLOBALS['terms'] as $id => $t ) { if ( $t['slug'] === $slug ) { return array( 'term_id' => $id, 'term_taxonomy_id' => $id ); } } return null; }
 function get_term_by( $f, $v, $tax = 'category' ) { foreach ( $GLOBALS['terms'] as $id => $t ) { if ( ( 'slug' === $f && $t['slug'] === $v ) || ( 'id' === $f && $id === (int) $v ) ) { return (object) array_merge( array( 'term_id' => $id ), $t ); } } return false; }
 function get_term( $id, $tax = 'category' ) { return get_term_by( 'id', (int) $id, $tax ); }
+// The name unslashed, as core's insert and update unslash it (and the description, which no call
+// here passes); the call log keeps what was handed over.
 function wp_insert_term( $name, $tax, $args = array() ) {
-	$slug = isset( $args['slug'] ) ? $args['slug'] : sanitize_title( $name );
+	$slug = isset( $args['slug'] ) ? $args['slug'] : sanitize_title( stripslashes( $name ) );
 	if ( term_exists( $slug ) ) { return new WP_Error( 'term_exists', 'A term with the name provided already exists.', term_exists( $slug )['term_id'] ); }
 	$id = $GLOBALS['next_term']++;
-	$GLOBALS['terms'][ $id ] = array( 'name' => $name, 'slug' => $slug, 'parent' => isset( $args['parent'] ) ? (int) $args['parent'] : 0 );
+	$GLOBALS['terms'][ $id ] = array( 'name' => stripslashes( $name ), 'slug' => $slug, 'parent' => isset( $args['parent'] ) ? (int) $args['parent'] : 0 );
 	$GLOBALS['calls'][] = array( 'wp_insert_term', $name, $slug );
 	return array( 'term_id' => $id, 'term_taxonomy_id' => $id );
 }
-function wp_update_term( $id, $tax, $args = array() ) { foreach ( $args as $k => $v ) { $GLOBALS['terms'][ (int) $id ][ $k ] = $v; } $GLOBALS['calls'][] = array( 'wp_update_term', (int) $id, $args ); return array( 'term_id' => (int) $id ); }
+function wp_update_term( $id, $tax, $args = array() ) { foreach ( $args as $k => $v ) { $GLOBALS['terms'][ (int) $id ][ $k ] = in_array( $k, array( 'name', 'description' ), true ) ? stripslashes( (string) $v ) : $v; } $GLOBALS['calls'][] = array( 'wp_update_term', (int) $id, $args ); return array( 'term_id' => (int) $id ); }
 function wp_set_post_terms( $id, $terms, $tax, $append = false ) { $GLOBALS['obj_terms'][ (int) $id ] = array_values( array_map( 'intval', (array) $terms ) ); $GLOBALS['calls'][] = array( 'wp_set_post_terms', (int) $id, $GLOBALS['obj_terms'][ (int) $id ], $append ); return $GLOBALS['obj_terms'][ (int) $id ]; }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_action', $h, $p, $n ); }
 function add_filter( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_filter', $h, $p, $n ); }
@@ -318,6 +323,16 @@ WPCPM_Sponsor_Posts::rename_terms(
 ck( 'a renamed company renames its child term and keeps the slug', array( count( calls( 'wp_update_term' ) ), get_term( $child )->name, get_term( $child )->slug ), array( 1, 'TEST Sponsor Renamed', 'test-sponsor' ) );
 WPCPM_Sponsor_Posts::delete_all();
 ck( 'delete_all() removes the flags and the term records and keeps the terms', array( array_filter( array_keys( $GLOBALS['opts'] ), static function ( $k ) { return 0 === strpos( $k, 'wpcpm_sponsor_flags_' ) || 0 === strpos( $k, 'wpcpm_sponsor_term_' ); } ), count( $GLOBALS['terms'] ) ), array( array(), 3 ) );
+// Core unslashes a term's name, and the company's name is the base's, read unslashed: the
+// category keeps a backslash only when the name is handed over as a slashed copy.
+$S3                      = 'recSPN00000000003';
+$typed_company           = 'Gadgets C:\drafts, two \\\\ in a row, "Quoted"';
+$typed_renamed           = 'Gadgets C:\drafts\later, two more \\\\, "Renamed"';
+$GLOBALS['index'][ $S3 ] = array( 'record_id' => $S3, 'name' => $typed_company, 'website' => '', 'status' => 'Approved' );
+$child3                  = WPCPM_Sponsor_Posts::ensure_terms( $S3 );
+ck( 'a company\'s category is named exactly as the base names the company', $child3 > 0 ? get_term( $child3 )->name : null, $typed_company );
+WPCPM_Sponsor_Posts::rename_terms( array( $S3 => array( 'name' => $typed_company ) ), array( $S3 => array( 'name' => $typed_renamed ) ) );
+ck( 'and renamed exactly as the base renames it', $child3 > 0 ? get_term( $child3 )->name : null, $typed_renamed );
 
 echo "\n=== The fence ===\n";
 reset_calls();
@@ -464,6 +479,12 @@ ck( 'publishing clears an earlier return note', array( press( 1, array( 'wpcpm_p
 $GLOBALS['posts'][ $draft ]->post_status = 'pending';
 press( 1, array( 'wpcpm_post' => $draft ) );
 ck( 'once pending it publishes and the note is gone', array( get_post( $draft )->post_status, get_post_meta( $draft, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'publish', '' ) );
+// Post meta unslashes what it is handed, as core's does, and the note is read from the form
+// unslashed: it keeps a backslash only when it is written as a slashed copy.
+$typed_note = 'Put the screenshot from C:\drafts\shots, two \\\\ in a row, under "Setup".';
+$pending3   = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 20, 'post_title' => 'Third guide' ) );
+$GLOBALS['pmeta'][ $pending3 ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
+ck( 'a return note is kept exactly as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $pending3, 'wpcpm_note' => $typed_note ) ), get_post_meta( $pending3, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', $typed_note ) );
 $stranger = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post' ) );
 ck( 'a post with no sponsor stamp is not this handler\'s to publish', press( 1, array( 'wpcpm_post' => $stranger ) ), 'refused|posts||' );
 ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-not-pending', 'post-failed' ) );

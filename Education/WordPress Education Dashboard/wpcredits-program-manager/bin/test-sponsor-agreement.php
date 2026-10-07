@@ -177,8 +177,11 @@ function get_post_meta( $id, $k, $single = false ) {
 	$v = isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : '';
 	return is_array( $v ) && isset( $v[0] ) && ! isset( $v['path'] ) ? $v[0] : $v;
 }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
-function add_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ][] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function add_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ][] = stripslashes_deep( $v ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function wp_insert_post( $a, $e = false ) { if ( ! empty( $GLOBALS['insert_fails'] ) ) { return new WP_Error( 'db_insert_error', 'Could not insert post into the database.' ); } $id = $GLOBALS['next_post']++; $a['ID'] = $id; $GLOBALS['posts'][ $id ] = new WP_Post( $a ); return $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
@@ -1171,6 +1174,38 @@ wp_delete_post( $gone, true );
 $GLOBALS['patched'] = array();
 $_POST              = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboard' );
 ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'agreement-accepted' ) ) );
+$_POST = array();
+
+echo "\n=== Notes keep their backslashes ===\n";
+// Post meta unslashes what it is handed, as core's does, and a note is read from the form
+// unslashed: it keeps a backslash only when it is written as a slashed copy.
+$V                    = 'recSPN00000000003';
+$typed_note           = 'Page 4 is in C:\drafts\scans, two \\\\ in a row, and the "signed" copy is missing.';
+$GLOBALS['users'][22] = new WP_User( 22, array( 'wpcpm_sponsor' ), 'Member Three', 'maciej@a8c.com' );
+$GLOBALS['umeta'][22] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $V, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+seed_index( $V, 'Third Sponsor' );
+
+$GLOBALS['uid'] = 22;
+$_POST          = array( 'wpcpm_sponsor' => $V, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$typed_doc      = (int) WPCPM_Sponsor_Agreement::posts_for( $V )[0]->ID;
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $typed_doc, 'wpcpm_sponsor_agr_note' => $typed_note );
+ran( 'handle_return' );
+ck( 'a return note is kept exactly as typed', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $typed_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) ), array( 'agreement-returned', $typed_note ) );
+
+$GLOBALS['uid'] = 22;
+$_POST          = array( 'wpcpm_sponsor' => $V, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$typed_doc      = (int) WPCPM_Sponsor_Agreement::posts_for( $V )[0]->ID;
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $typed_doc );
+ran( 'handle_accept' );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $typed_doc, 'wpcpm_sponsor_agr_note' => $typed_note );
+ran( 'handle_revoke' );
+ck( 'and so is a revocation note', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $typed_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) ), array( 'agreement-revoked', $typed_note ) );
 $_POST = array();
 
 echo "\n=== House rules ===\n";

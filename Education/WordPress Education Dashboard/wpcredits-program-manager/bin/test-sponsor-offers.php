@@ -106,7 +106,7 @@ function add_option( $k, $v, $deprecated = '', $autoload = 'yes' ) {
 	$GLOBALS['opts'][ $k ] = $v; $GLOBALS['autoload'][ $k ] = ( 'yes' === $autoload || true === $autoload ); return true;
 }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function delete_metadata( $type, $id, $k, $v = '', $all = false ) { foreach ( $GLOBALS['umeta'] as $uid => $m ) { unset( $GLOBALS['umeta'][ $uid ][ $k ] ); } return true; }
 function get_user_by( $field, $value ) {
@@ -146,14 +146,18 @@ function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https
 // The post store: enough of posts, meta and get_posts() for the offers to live in.
 function wp_insert_post( array $args, $wp_error = false ) {
 	$id = $GLOBALS['next_post']++;
-	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	// The title unslashed, as core's insert unslashes it.
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => stripslashes( (string) ( $args['post_title'] ?? '' ) ), 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
 	return $id;
 }
-function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = $args['post_title']; } return $id; }
+function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = stripslashes( (string) $args['post_title'] ); } return $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function get_posts( array $args ) {
 	$out = array();
@@ -726,6 +730,19 @@ ck( 'nothing about a claim ever reaches Airtable', preg_match( '/WPCPM_Airtable|
 ck( 'the claim looks the person up before it takes the lock', strpos( $claims_src, 'self::claims_of( $user->ID )' ) < strpos( $claims_src, 'WPCPM_Sponsor_Codes::lock( $offer[' ), true );
 ck( 'every rewrite of the pool but the two claim() makes under its lock takes the lock itself', substr_count( $codes_src, 'self::lock( $offer_id )' ) >= 5, true );
 ck( 'and the claims class no longer keeps a lock of its own', preg_match( '/function (un)?lock\(/', $claims_src ), 0 );
+
+echo "\n=== Words keep their backslashes ===\n";
+// `wp_insert_post()`, `wp_update_post()` and post meta unslash what they are handed, as core's do,
+// and an offer's title, text and instructions reach them unslashed: each keeps a backslash only
+// when it is written as a slashed copy.
+$typed      = 'Keep C:\drafts\codes.csv, two \\\\ in a row, and say "thanks"';
+$typed_edit = 'Edited in C:\drafts\later, two more \\\\ of them, "again"';
+$typed_id   = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $typed, 'kind' => 'shared', 'text' => $typed, 'instructions' => $typed, 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$typed_got  = WPCPM_Sponsor_Offers::read( $typed_id );
+ck( 'a new offer keeps its title, text and instructions exactly as typed', array( $typed_got['title'] ?? null, $typed_got['text'] ?? null, $typed_got['instructions'] ?? null ), array( $typed, $typed, $typed ) );
+WPCPM_Sponsor_Offers::save( $typed_id, array( 'title' => $typed_edit, 'text' => $typed_edit, 'instructions' => $typed_edit ) );
+$typed_got = WPCPM_Sponsor_Offers::read( $typed_id );
+ck( 'and a saved one the new words', array( $typed_got['title'] ?? null, $typed_got['text'] ?? null, $typed_got['instructions'] ?? null ), array( $typed_edit, $typed_edit, $typed_edit ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

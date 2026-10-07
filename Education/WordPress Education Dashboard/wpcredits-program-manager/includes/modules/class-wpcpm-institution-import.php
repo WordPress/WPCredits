@@ -758,8 +758,10 @@ final class WPCPM_Institution_Import {
 		update_post_meta( $post_id, self::META_INSTITUTION, $institution );
 		update_post_meta( $post_id, self::META_STATE, self::STATE_STAGED );
 		update_post_meta( $post_id, self::META_VALUES, $values );
-		update_post_meta( $post_id, self::META_ROWS, $rows );
-		update_post_meta( $post_id, self::META_UNKNOWN, array_values( $unknown ) );
+		// The file's words as slashed copies: post meta unslashes what it is handed and the rows
+		// and headers were read unslashed, so a backslash in a name would otherwise be gone.
+		update_post_meta( $post_id, self::META_ROWS, wp_slash( $rows ) );
+		update_post_meta( $post_id, self::META_UNKNOWN, wp_slash( array_values( $unknown ) ) );
 
 		return (int) $post_id;
 	}

@@ -1243,9 +1243,7 @@ class WPCPM_Students_Dashboard {
 		$admin_bar->add_node(
 			array(
 				'id'    => 'wpcpm-my-program',
-				'title' => $is_student
-					? __( 'Student Report Card', 'wpcredits-program-manager' )
-					: __( 'Student Dashboard', 'wpcredits-program-manager' ),
+				'title' => __( 'Student Report Card', 'wpcredits-program-manager' ),
 				'href'  => $page,
 			)
 		);

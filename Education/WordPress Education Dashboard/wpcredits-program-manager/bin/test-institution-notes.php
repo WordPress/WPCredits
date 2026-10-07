@@ -100,10 +100,11 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta and post stand-ins that unslash what they are handed as core's do: the
+// flash and every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
@@ -120,8 +121,9 @@ function wp_insert_post( $a, $error = false ) {
 	static $next = 500;
 	$post                          = new WP_Post();
 	$post->ID                      = ++$next;
-	$post->post_title              = $a['post_title'] ?? '';
-	$post->post_content            = $a['post_content'] ?? '';
+	// The words unslashed, as core's insert unslashes them.
+	$post->post_title              = stripslashes( (string) ( $a['post_title'] ?? '' ) );
+	$post->post_content            = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$post->post_type               = $a['post_type'] ?? 'post';
 	$post->post_status             = $a['post_status'] ?? 'private';
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
@@ -135,8 +137,9 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	$rows = $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? array();
 	return $single ? ( $rows ? $rows[0] : '' ) : $rows;
 }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
-function add_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
+// As core's: what is written is unslashed first, at any depth.
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
+function add_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
@@ -663,6 +666,25 @@ ck( 'the mentor saves a note', has( $outcome, 'redirect:https://example.test/men
 ck( 'and it names its audience rather than leaning on the default', get_post_meta( $mentor_note, WPCPM_Mentor_Notes::META_AUDIENCE, true ), WPCPM_Mentor_Notes::AUDIENCE_MENTOR );
 ck( 'the mentor\'s count is the mentor\'s', WPCPM_Mentor_Notes::count_notes( $rec_s, WPCPM_Mentor_Notes::AUDIENCE_MENTOR ), 2 );
 ck( 'and the school\'s is the school\'s', WPCPM_Mentor_Notes::count_notes( $rec_s, WPCPM_Mentor_Notes::AUDIENCE_INSTITUTION ), 1 );
+
+echo "\n=== A note and a name keep their backslashes ===\n";
+
+// Post meta and `wp_insert_post()` unslash what they are handed, as core's do, and the note and
+// the student's name reach them unslashed: each keeps a backslash only when it is written as a
+// slashed copy.
+$typed_note = 'Her tutor filed it in C:\drafts\june, two \\\\ in a row, under "extensions".';
+$typed_name = 'Anna C:\drafts, two \\\\ in a row, "Kowalska"';
+$kept_name  = $GLOBALS['users'][ $student ]->display_name;
+
+$GLOBALS['users'][ $student ]->display_name = $typed_name;
+$_POST          = array( 'student' => $student, 'note' => $typed_note );
+$GLOBALS['uid'] = 3;
+run( 'WPCPM_Institution_Notes', 'handle_add' );
+$typed_id = last_note();
+$GLOBALS['users'][ $student ]->display_name = $kept_name;
+
+ck( 'a school\'s note is kept exactly as typed', get_post( $typed_id )->post_content, $typed_note );
+ck( 'and the student\'s name beside it, and in its title', array( get_post_meta( $typed_id, WPCPM_Mentor_Notes::META_STUDENT_NAME, true ), has( get_post( $typed_id )->post_title, $typed_name ) ), array( $typed_name, true ) );
 
 /* ---- the stand-ins agree with the real files ---------------------------- */
 

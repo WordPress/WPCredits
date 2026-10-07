@@ -198,9 +198,11 @@ function add_option( $k, $v, $deprecated = '', $autoload = 'yes' ) { if ( array_
 function update_option( $k, $v, $autoload = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_post_meta( $post_id, $key, $single = false ) { return $GLOBALS['meta'][ $post_id ][ $key ] ?? ( $single ? '' : array() ); }
-function update_post_meta( $post_id, $key, $value ) { $GLOBALS['meta'][ $post_id ][ $key ] = $value; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $post_id, $key, $value ) { $GLOBALS['meta'][ $post_id ][ $key ] = stripslashes_deep( $value ); return true; }
 function delete_post_meta( $post_id, $key ) { unset( $GLOBALS['meta'][ $post_id ][ $key ] ); return true; }
-function wp_slash( $v ) { return $v; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function wp_unslash( $v ) { return $v; }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function get_current_user_id() { return 5; }
@@ -1200,6 +1202,28 @@ foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Tra
 ck( 'one of the four original tracks is refused before anybody is counted, and the store is never asked to take it down',
     $originals,
     array_fill_keys( array_keys( $originals ), array( 'wpcpm_track_reserved', 'The program\'s original tracks always run: edit the track and publish the change instead.', array(), array() ) ) );
+
+echo "\n=== A column name keeps its backslashes on the post ===\n";
+
+// Post meta unslashes what it is handed, as core's does, and a question's column name is the
+// manager's typing, which may hold any character: the record of what landed keeps a backslash
+// only when it is written as a slashed copy.
+$typed_column = 'Notes C:\drafts, two \\\\ in a row, "kept"';
+
+fresh_run();
+WPCPM_Track_Store::$definitions = array(
+	7 => track(
+		array(
+			$typed_column => array( 'label' => 'Notes', 'type' => 'text', 'group' => 'project' ),
+			'Two'         => array( 'label' => 'Two', 'type' => 'text', 'group' => 'project' ),
+		)
+	),
+);
+WPCPM_Airtable::$answers = array( null, new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 500)' ) );
+WPCPM_Track_Publish::run( 7, 5 );
+
+ck( 'the column that landed is recorded exactly as it was named',
+    get_post_meta( 7, WPCPM_Track_Publish::META_RUN, true ), array( 'columns' => array( $typed_column ) ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

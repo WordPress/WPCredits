@@ -189,7 +189,7 @@ class WPCPM_Sponsors_Dashboard {
 	}
 }
 
-/** The Mentor Dashboard's page, which a mentor's invitation names. */
+/** The Mentor Report Card's page, which a mentor's invitation names. */
 class WPCPM_Mentors_Dashboard {
 	public static function page_url() { return 'https://example.test/mentor-dashboard/'; }
 	public static function get_mentee_count( $user_id ) { return 0; }

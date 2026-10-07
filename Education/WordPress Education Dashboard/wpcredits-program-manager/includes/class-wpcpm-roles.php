@@ -268,14 +268,26 @@ class WPCPM_Roles {
 	 * This is the only place in the plugin that may call `wp_insert_user()`;
 	 * bin/test-insert-user.php refuses any other.
 	 *
-	 * @param array $userdata As for `wp_insert_user()`.
+	 * Core expects its input slashed: it unslashes the row's columns and writes the nickname, the
+	 * first and last name and the description through user meta, which unslashes too. Every
+	 * caller hands this the values as they are, a name from the base or a form among them, so
+	 * core is handed a slashed copy (`wp_slash()`) here, once, and a backslash in a name stays.
+	 *
+	 * The password goes over slashed with the rest, on purpose. Core hashes `user_pass` as it is
+	 * handed, and its own routes all hand it slashed: `wp_signon()` checks the posted password
+	 * without unslashing it, and `edit_user()` and `reset_password()` hash the posted value as it
+	 * arrives. A password typed with a quote or a backslash signs in only if it was hashed
+	 * slashed, so a caller passes it as typed, like every other field. Every caller today passes
+	 * `wp_generate_password()`, whose characters `wp_slash()` leaves alone.
+	 *
+	 * @param array $userdata As for `wp_insert_user()`, unslashed, the password included.
 	 * @return int|WP_Error User ID, or the error core returned.
 	 */
 	public static function insert_user( array $userdata ) {
 		add_filter( 'atomic_bkismet_client_key', '__return_false', PHP_INT_MAX );
 
 		try {
-			return wp_insert_user( $userdata );
+			return wp_insert_user( wp_slash( $userdata ) );
 		} finally {
 			remove_filter( 'atomic_bkismet_client_key', '__return_false', PHP_INT_MAX );
 		}

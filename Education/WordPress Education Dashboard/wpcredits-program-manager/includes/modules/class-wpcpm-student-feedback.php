@@ -1435,14 +1435,18 @@ class WPCPM_Student_Feedback {
 			return;
 		}
 
+		// A slashed copy: user meta unslashes what it is handed, and the quote typed in the box
+		// was read unslashed, so a backslash in it would otherwise be gone from the record.
 		update_user_meta(
 			$student_id,
 			self::META_REPORT_PERMISSIONS,
-			array(
-				'v'       => 1,
-				'time'    => time(),
-				'answers' => $answers,
-				'wording' => $wording,
+			wp_slash(
+				array(
+					'v'       => 1,
+					'time'    => time(),
+					'answers' => $answers,
+					'wording' => $wording,
+				)
 			)
 		);
 

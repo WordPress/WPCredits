@@ -50,7 +50,11 @@ function wp_upload_dir() {
 	if ( ! is_dir( $dir ) ) { mkdir( $dir ); }
 	return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false );
 }
-function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $GLOBALS['insert_attachment_calls'][] = $file; if ( ! empty( $GLOBALS['insert_fails'] ) ) { return new WP_Error( 'attachment_insert_failed', 'The row could not be written.' ); } $GLOBALS['attachments'][] = array_merge( $a, array( 'file' => $file ) ); return count( $GLOBALS['attachments'] ) + 100; }
+// As core's: the arguments go to `wp_insert_post()`, which unslashes them, so words reach it as a
+// slashed copy; the file is kept as it is handed over, the way core's own callers pass it.
+function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $GLOBALS['insert_attachment_calls'][] = $file; if ( ! empty( $GLOBALS['insert_fails'] ) ) { return new WP_Error( 'attachment_insert_failed', 'The row could not be written.' ); } $GLOBALS['attachments'][] = array_merge( stripslashes_deep( $a ), array( 'file' => $file ) ); return count( $GLOBALS['attachments'] ) + 100; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
 function wp_update_attachment_metadata( $id, $data ) { $GLOBALS['meta'][ $id ] = $data; return true; }
 function wp_delete_file( $p ) { $GLOBALS['deleted_files'][] = $p; if ( file_exists( $p ) ) { unlink( $p ); } }
@@ -179,11 +183,25 @@ ck( 'asked for them, store() writes a private attachment under a generated name'
 	$att['post_title'],
 ), array( 'private', true, 'Gadgetry Inc logo (color)' ) );
 
+echo "\n=== A title keeps its backslashes, and the file its path ===\n";
+// The title carries the company's name, from the base or a form; core unslashes the arguments,
+// so the title keeps a backslash only as a slashed copy. The file is handed over as it is: a
+// folder named with a quote stays the folder it is.
+$typed_title                    = 'Gadgets C:\drafts, two \\\\ in a row, "Quoted" logo (color)';
+$quoted_dir                     = wpcpm_test_temp_dir() . "it's";
+if ( ! is_dir( $quoted_dir ) ) { mkdir( $quoted_dir ); }
+$GLOBALS['upload_dir_override'] = $quoted_dir;
+WPCPM_Image_Upload::store( WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'logo.png' ) ), 'gadgets', 0, $typed_title );
+unset( $GLOBALS['upload_dir_override'] );
+$att = end( $GLOBALS['attachments'] );
+ck( 'an attachment\'s title keeps the company\'s name exactly', $att['post_title'], $typed_title );
+ck( 'and its file is handed over unslashed, in the folder it was written to', dirname( (string) $att['file'] ), $quoted_dir );
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/class-wpcpm-image-upload.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never trusted here', strpos( $src, 'wp_handle_upload' ), false );
 ck( 'SVG is named nowhere as a type it takes', strpos( $src, "'image/svg+xml' =>" ), false );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 36 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 38 );
 exit( $fail ? 1 : 0 );

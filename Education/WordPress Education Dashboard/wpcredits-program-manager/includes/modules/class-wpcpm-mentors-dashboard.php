@@ -260,9 +260,7 @@ class WPCPM_Mentors_Dashboard {
 				// Named for the page it opens, the way the student side's link is. A mentor
 				// following "My Students" and landing on "Mentor Report Card" has to work
 				// out for themselves that they are in the right place.
-				'title' => $is_mentor
-					? __( 'Mentor Report Card', 'wpcredits-program-manager' )
-					: __( 'Mentor Dashboard', 'wpcredits-program-manager' ),
+				'title' => __( 'Mentor Report Card', 'wpcredits-program-manager' ),
 				'href'  => $page,
 				'meta'  => array(
 					'title' => $is_mentor

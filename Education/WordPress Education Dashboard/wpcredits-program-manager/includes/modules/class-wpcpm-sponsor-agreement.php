@@ -31,6 +31,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * `add_option()` lock every transition takes, the daily upload ceiling, `WPCPM_Pdf_Check` over
  * the bytes before anything is stored, `WPCPM_Private_Files` for the bytes themselves, and a
  * download that is always an attachment and never named by the uploader.
+ *
+ * A note is written as a slashed copy (`wp_slash()`): post meta unslashes what it is handed and
+ * the note read from the form is unslashed already, so a backslash in it would otherwise be gone.
  */
 final class WPCPM_Sponsor_Agreement {
 
@@ -1298,7 +1301,7 @@ final class WPCPM_Sponsor_Agreement {
 		$today = wp_date( 'Y-m-d' );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_RETURNED );
-		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
 		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
 
@@ -1395,7 +1398,7 @@ final class WPCPM_Sponsor_Agreement {
 		self::clear_pending( $post_id );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_REVOKED );
-		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
 		update_post_meta( $post_id, self::META_DECIDED_AT, wp_date( 'Y-m-d' ) );
 

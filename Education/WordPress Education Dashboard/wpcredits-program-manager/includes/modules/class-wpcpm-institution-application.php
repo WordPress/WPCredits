@@ -1957,6 +1957,10 @@ class WPCPM_Institution_Application {
 	 * fields meta is what an approval writes to Airtable unchanged, so anything in it is a cell
 	 * the site is claiming an applicant typed.
 	 *
+	 * The words are written as slashed copies (`wp_slash()`): `wp_insert_post()` and post meta
+	 * unslash what they are handed, and the answers, the browser's name and the country's row
+	 * were read unslashed, so a backslash in them would otherwise be gone.
+	 *
 	 * @param array  $values  Cleaned values, keyed by Airtable column name.
 	 * @param string $state   One of the `STATE_*` values.
 	 * @param array  $signals Why it is in that state.
@@ -1973,15 +1977,17 @@ class WPCPM_Institution_Application {
 		}
 
 		$post_id = wp_insert_post(
-			array(
-				'post_type'   => self::POST_TYPE,
-				'post_status' => 'private',
-				// Zero for a logged-out submission, which is every real one. WordPress
-				// substitutes the current user when there is one, and a program manager testing
-				// the form from their own browser leaving their name on the row is a fact worth
-				// having rather than one worth hiding.
-				'post_author' => 0,
-				'post_title'  => '' !== $name ? $name : __( 'Application with no name', 'wpcredits-program-manager' ),
+			wp_slash(
+				array(
+					'post_type'   => self::POST_TYPE,
+					'post_status' => 'private',
+					// Zero for a logged-out submission, which is every real one. WordPress
+					// substitutes the current user when there is one, and a program manager testing
+					// the form from their own browser leaving their name on the row is a fact worth
+					// having rather than one worth hiding.
+					'post_author' => 0,
+					'post_title'  => '' !== $name ? $name : __( 'Application with no name', 'wpcredits-program-manager' ),
+				)
 			),
 			true
 		);
@@ -1993,15 +1999,15 @@ class WPCPM_Institution_Application {
 		$post_id = (int) $post_id;
 		$routing = '' !== $country ? WPCPM_Countries::routing( $country ) : null;
 
-		update_post_meta( $post_id, self::META_FIELDS, $fields );
+		update_post_meta( $post_id, self::META_FIELDS, wp_slash( $fields ) );
 		update_post_meta( $post_id, self::META_STATE, $state );
 		update_post_meta( $post_id, self::META_REFERENCE, self::reference( $post_id ) );
 		update_post_meta( $post_id, self::META_COUNTRY, $country );
-		update_post_meta( $post_id, self::META_COUNTRY_NAME, '' !== $country ? WPCPM_Countries::name_of( $country ) : '' );
+		update_post_meta( $post_id, self::META_COUNTRY_NAME, '' !== $country ? wp_slash( WPCPM_Countries::name_of( $country ) ) : '' );
 		// A snapshot, not a lookup: who the country routed to on the day it was sent is what a
 		// queue row means by "for information", and the map is rebuilt by every sync.
-		update_post_meta( $post_id, self::META_MANAGER, is_array( $routing ) ? $routing : array() );
-		update_post_meta( $post_id, self::META_CONSENT, self::consent_record() );
+		update_post_meta( $post_id, self::META_MANAGER, is_array( $routing ) ? wp_slash( $routing ) : array() );
+		update_post_meta( $post_id, self::META_CONSENT, wp_slash( self::consent_record() ) );
 		update_post_meta( $post_id, self::META_SIGNALS, array_values( array_unique( $signals ) ) );
 		update_post_meta( $post_id, self::META_EMAIL, '' !== $email ? wp_hash( mb_strtolower( $email ) ) : '' );
 
@@ -2040,7 +2046,8 @@ class WPCPM_Institution_Application {
 	 * Append one row to an application's event log.
 	 *
 	 * Repeating meta rather than one array, so two writes in the same second cannot lose each
-	 * other's row the way a read-modify-write would.
+	 * other's row the way a read-modify-write would. Written as a slashed copy, as `store()`
+	 * writes, so a note keeps a backslash.
 	 *
 	 * @param int    $post_id Application post ID.
 	 * @param string $event   What happened, as a short slug or phrase.
@@ -2051,11 +2058,13 @@ class WPCPM_Institution_Application {
 		add_post_meta(
 			(int) $post_id,
 			self::META_EVENT,
-			array(
-				'event' => sanitize_text_field( (string) $event ),
-				'at'    => time(),
-				'actor' => absint( $actor ),
-				'note'  => sanitize_textarea_field( (string) $note ),
+			wp_slash(
+				array(
+					'event' => sanitize_text_field( (string) $event ),
+					'at'    => time(),
+					'actor' => absint( $actor ),
+					'note'  => sanitize_textarea_field( (string) $note ),
+				)
 			)
 		);
 	}

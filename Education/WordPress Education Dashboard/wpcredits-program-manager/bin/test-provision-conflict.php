@@ -109,6 +109,9 @@ function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); r
 
 function get_user_meta( $id, $key, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $key ] ?? ''; }
 function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = $value; return true; }
+// User meta here keeps what it is handed, so the slash is the identity (bin/test-students-sync.php
+// holds the sync's writes to core's, whose meta unslashes).
+function wp_slash( $v ) { return $v; }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
 
 function get_user_by( $field, $value ) {

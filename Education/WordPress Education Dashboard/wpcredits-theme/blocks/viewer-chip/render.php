@@ -6,9 +6,11 @@
  * mentor page exists are all request-time facts, which is why the header carries
  * a dynamic block here rather than static links.
  *
- * The link's label follows the plugin's own wording - "My Students" for mentors,
- * "Mentor Dashboard" for program managers inspecting it - so the header and the admin
- * bar never disagree about what the same page is called.
+ * Each link names its page by its product name, Student Report Card and Mentor
+ * Report Card, whoever is signed in, as the plugin's toolbar does, so the header and
+ * the admin bar never disagree about what the same page is called. An administrator
+ * looking at somebody else's page is told whose it is by the page's own "Viewing as"
+ * switcher.
  *
  * @package WPCredits_Theme
  */
@@ -52,13 +54,7 @@ $wpcredits_on_student   = wpcredits_is_student_page();
 			href="<?php echo esc_url( $wpcredits_student_page ); ?>"
 			<?php echo $wpcredits_on_student ? 'aria-current="page"' : ''; ?>
 		>
-			<?php
-			echo esc_html(
-				$wpcredits_is_student
-					? __( 'My Program', 'wpcredits-theme' )
-					: __( 'Student Dashboard', 'wpcredits-theme' )
-			);
-			?>
+			<?php esc_html_e( 'Student Report Card', 'wpcredits-theme' ); ?>
 		</a>
 	<?php endif; ?>
 
@@ -68,13 +64,7 @@ $wpcredits_on_student   = wpcredits_is_student_page();
 			href="<?php echo esc_url( $wpcredits_page ); ?>"
 			<?php echo $wpcredits_on_page ? 'aria-current="page"' : ''; ?>
 		>
-			<?php
-			echo esc_html(
-				$wpcredits_is_mentor
-					? __( 'My Students', 'wpcredits-theme' )
-					: __( 'Mentor Dashboard', 'wpcredits-theme' )
-			);
-			?>
+			<?php esc_html_e( 'Mentor Report Card', 'wpcredits-theme' ); ?>
 		</a>
 	<?php endif; ?>
 

@@ -350,6 +350,9 @@ final class WPCPM_Sponsor_Offers {
 	/**
 	 * Make an offer.
 	 *
+	 * The title, here and in `save()`, and the fields in `write_fields()` are written as slashed
+	 * copies (`wp_slash()`): core unslashes what it is handed and the cleaned fields are not.
+	 *
 	 * @param string $record  Sponsor record ID.
 	 * @param array  $fields  Cleaned fields (clean()'s `fields`).
 	 * @param bool   $primary Whether this is the one mirrored to the base.
@@ -363,11 +366,13 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		$post_id = wp_insert_post(
-			array(
-				'post_type'   => self::POST_TYPE,
-				'post_status' => 'private',
-				'post_title'  => isset( $fields['title'] ) ? (string) $fields['title'] : '',
-				'post_author' => 0,
+			wp_slash(
+				array(
+					'post_type'   => self::POST_TYPE,
+					'post_status' => 'private',
+					'post_title'  => isset( $fields['title'] ) ? (string) $fields['title'] : '',
+					'post_author' => 0,
+				)
 			),
 			true
 		);
@@ -403,9 +408,11 @@ final class WPCPM_Sponsor_Offers {
 
 		if ( array_key_exists( 'title', $fields ) ) {
 			wp_update_post(
-				array(
-					'ID'         => $offer['id'],
-					'post_title' => (string) $fields['title'],
+				wp_slash(
+					array(
+						'ID'         => $offer['id'],
+						'post_title' => (string) $fields['title'],
+					)
 				)
 			);
 			unset( $fields['title'] );
@@ -436,7 +443,7 @@ final class WPCPM_Sponsor_Offers {
 
 		foreach ( $map as $key => $meta_key ) {
 			if ( array_key_exists( $key, $fields ) ) {
-				update_post_meta( $post_id, $meta_key, $fields[ $key ] );
+				update_post_meta( $post_id, $meta_key, wp_slash( $fields[ $key ] ) );
 			}
 		}
 

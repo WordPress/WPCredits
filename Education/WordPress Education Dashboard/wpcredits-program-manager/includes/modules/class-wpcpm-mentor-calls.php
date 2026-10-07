@@ -928,18 +928,22 @@ class WPCPM_Mentor_Calls {
 			? (string) $row['name']
 			: ( $student instanceof WP_User ? $student->display_name : '' );
 
+		// The topic and the name are written as slashed copies (`wp_slash()`): core unslashes
+		// what it is handed and both were read unslashed, so a backslash would otherwise go.
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $topic,
-				'post_title'   => sprintf(
-					/* translators: 1: student name, 2: call date and time. */
-					__( 'Call with %1$s - %2$s', 'wpcredits-program-manager' ),
-					'' !== $name ? $name : $record,
-					wp_date( 'Y-m-d H:i', $slot['start'] )
-				),
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_content' => $topic,
+					'post_title'   => sprintf(
+						/* translators: 1: student name, 2: call date and time. */
+						__( 'Call with %1$s - %2$s', 'wpcredits-program-manager' ),
+						'' !== $name ? $name : $record,
+						wp_date( 'Y-m-d H:i', $slot['start'] )
+					),
+				)
 			),
 			true
 		);
@@ -954,7 +958,7 @@ class WPCPM_Mentor_Calls {
 		update_post_meta( $post_id, self::META_MENTOR, (int) $mentor->ID );
 		update_post_meta( $post_id, self::META_STUDENT, (int) $student_id );
 		update_post_meta( $post_id, self::META_RECORD, $record );
-		update_post_meta( $post_id, self::META_NAME, $name );
+		update_post_meta( $post_id, self::META_NAME, wp_slash( $name ) );
 		update_post_meta( $post_id, self::META_ZONE, WPCPM_Mentor_Availability::viewer_timezone( $student_id )->getName() );
 
 		// Belt and braces over the lock. The lock reads through the object cache, which

@@ -892,6 +892,8 @@ ck( 'the list is one form, sent to the screen by GET with its page and its tab, 
 	array( has( $form, '<input type="hidden" name="page" value="wpcpm-students" />' ), has( $form, '<input type="hidden" name="tab" value="accounts" />' ), has( $form, 'name="users[]"' ), has( $form, '<select name="action"' ), has( $form, 'value="' . wp_create_nonce( 'bulk-students' ) . '"' ) ),
 	array( true, true, true, true, true ) );
 ck( 'with the search box, and no form left in a row', array( has( $form, 'name="s"' ), substr_count( $html, '<form' ) ), array( true, 1 ) );
+ck( 'above it the Student Report Card\'s address, under the page\'s own name',
+	has( $html, '<p>Student Report Card: <a href="https://example.test/student-dashboard/">https://example.test/student-dashboard/</a></p>' ), true );
 
 $never = html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) );
 

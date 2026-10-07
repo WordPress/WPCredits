@@ -44,12 +44,11 @@ class WPCPM_Dashboards {
 		if ( '' !== $student_page && ( $is_student || $can_manage ) ) {
 			$links[] = array(
 				'id'    => 'wpcpm-student-dashboard',
-				// The student's own page is their Student Report Card; a manager opening it looks at
-				// somebody else's, so the toolbar calls it the Student Dashboard, as the mentor link
-				// below does for a manager.
-				'title' => $is_student
-					? __( 'Student Report Card', 'wpcredits-program-manager' )
-					: __( 'Student Dashboard', 'wpcredits-program-manager' ),
+				// The page's own name for everyone, a manager included, as the mentor link below:
+				// the page is titled Student Report Card whoever opens it. The toolbar draws nothing
+				// from `own`; it is there for callers of `links()` and of the `wpcpm_dashboard_links`
+				// filter, and on the page the switcher says whose card it is.
+				'title' => __( 'Student Report Card', 'wpcredits-program-manager' ),
 				'href'  => $student_page,
 				'own'   => $is_student,
 			);
@@ -61,9 +60,7 @@ class WPCPM_Dashboards {
 		if ( '' !== $mentor_page && ( $is_mentor || $can_manage ) ) {
 			$links[] = array(
 				'id'    => 'wpcpm-mentor-dashboard',
-				'title' => $is_mentor
-					? __( 'Mentor Report Card', 'wpcredits-program-manager' )
-					: __( 'Mentor Dashboard', 'wpcredits-program-manager' ),
+				'title' => __( 'Mentor Report Card', 'wpcredits-program-manager' ),
 				'href'  => $mentor_page,
 				'own'   => $is_mentor,
 			);
@@ -79,13 +76,10 @@ class WPCPM_Dashboards {
 			if ( '' !== $institution_page && ( $is_member || $can_manage ) ) {
 				$links[] = array(
 					'id'    => 'wpcpm-institution-dashboard',
-					// Membership, never the role: an account keeps the Institution role until a
-					// manager takes it away, so "My Institution" would go on telling somebody the
-					// page is theirs after their access ended. A manager arriving through the
-					// switcher is looking at somebody else's students and is told so.
-					'title' => $is_member
-						? __( 'Institution Dashboard', 'wpcredits-program-manager' )
-						: __( 'Institution Dashboard', 'wpcredits-program-manager' ),
+					// Membership, never the role, decides the link and its `own` flag: an account
+					// keeps the Institution role after its access has ended, until an administrator
+					// takes it away. The title is the page's own name for everyone, as the two above.
+					'title' => __( 'Institution Dashboard', 'wpcredits-program-manager' ),
 					'href'  => $institution_page,
 					'own'   => $is_member,
 				);

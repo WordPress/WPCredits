@@ -28,6 +28,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * record, `provision` joins each report to those rows by email and stamps the account
  * with its institution's record ID, and `finish()` writes the per-institution roster
  * index through `WPCPM_Roster_Index`. Nothing else pages that table for the roster.
+ *
+ * The cached rows (`META_PROGRAM`, `META_MENTOR`, a mentor's `META_MENTEES`) are written as
+ * slashed copies (`wp_slash()`): user meta unslashes what it is handed, and the base's words,
+ * a student's own answers and a row read back are all unslashed, so a backslash in a name or
+ * an answer would otherwise be gone from the card.
  */
 class WPCPM_Students_Sync {
 
@@ -1188,8 +1193,8 @@ class WPCPM_Students_Sync {
 
 			update_user_meta( $user_id, self::META_RECORD_ID, $student['record_id'] );
 			update_user_meta( $user_id, self::META_ACTIVE, $student['is_past'] ? 0 : 1 );
-			update_user_meta( $user_id, self::META_PROGRAM, $program );
-			update_user_meta( $user_id, self::META_MENTOR, $mentor );
+			update_user_meta( $user_id, self::META_PROGRAM, wp_slash( $program ) );
+			update_user_meta( $user_id, self::META_MENTOR, wp_slash( $mentor ) );
 			update_user_meta( $user_id, self::META_UPDATED, time() );
 
 			// The stamp the institution fence reads. Deleted, never written empty: see the
@@ -2580,7 +2585,7 @@ class WPCPM_Students_Sync {
 		$program = get_user_meta( $user_id, self::META_PROGRAM, true );
 
 		if ( is_array( $program ) && ! empty( $program ) ) {
-			update_user_meta( $user_id, self::META_PROGRAM, array_merge( $program, $changed ) );
+			update_user_meta( $user_id, self::META_PROGRAM, wp_slash( array_merge( $program, $changed ) ) );
 		}
 
 		$record    = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
@@ -2603,7 +2608,7 @@ class WPCPM_Students_Sync {
 		}
 
 		if ( $found ) {
-			update_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, $rows );
+			update_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, wp_slash( $rows ) );
 		}
 
 		return true;
@@ -2632,7 +2637,7 @@ class WPCPM_Students_Sync {
 		}
 
 		unset( $program['report_files'][ $column ] );
-		update_user_meta( (int) $user_id, self::META_PROGRAM, $program );
+		update_user_meta( (int) $user_id, self::META_PROGRAM, wp_slash( $program ) );
 
 		return true;
 	}

@@ -670,7 +670,8 @@ class WPCPM_Mentor_Availability {
 			$schedule['blocked'] = $clean;
 		}
 
-		update_user_meta( $mentor, self::META, self::normalize( $schedule ) );
+		// Slashed, because user meta unslashes what it is handed and the typed note is not.
+		update_user_meta( $mentor, self::META, wp_slash( self::normalize( $schedule ) ) );
 
 		// The mentor's own display timezone follows the schedule's, so the calls they
 		// are shown are in the clock they just said they work in.

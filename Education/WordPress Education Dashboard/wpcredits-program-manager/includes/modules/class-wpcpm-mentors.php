@@ -221,7 +221,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			'heading_list'       => __( 'Mentor accounts list', 'wpcredits-program-manager' ),
 			'not_connected'      => __( 'Airtable is not connected yet, so no mentors can be synced.', 'wpcredits-program-manager' ),
 			'list_heading'       => __( 'Mentor accounts', 'wpcredits-program-manager' ),
-			'page_label'         => __( 'Mentor Dashboard:', 'wpcredits-program-manager' ),
+			'page_label'         => __( 'Mentor Report Card:', 'wpcredits-program-manager' ),
 			'page_missing'       => __( 'The mentor page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
 			'search'             => __( 'Search mentors', 'wpcredits-program-manager' ),
 			'list_note'          => __( 'Accounts are created with a random password and no email. "Send invite" emails that mentor a password-reset link so they can set their own.', 'wpcredits-program-manager' ),

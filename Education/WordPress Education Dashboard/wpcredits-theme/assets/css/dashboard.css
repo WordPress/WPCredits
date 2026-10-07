@@ -120,22 +120,21 @@
    straight to an item ("Open on the Administrator Dashboard"), and a decision's
    way back lands on its card. Every anchor the program links to on these pages
    is one of the plugin's ids. The offset is the one the guides' headings use,
-   `--wpc-landing-offset`: the header's height and some air, more on a phone,
-   where the bar is taller. The admin bar's own height is reserved by WordPress.
+   `--wpc-landing-offset`: the header's real height and some air, so more on a
+   phone, where the bar is taller. The admin bar's own height is reserved by
+   WordPress.
 
    A student's row on the Mentor Report Card has one more sticky layer to clear,
    the group heading pinned below the bar, so it lands a little lower, enough to
-   show whole below that heading. On a phone the heading sits behind the taller
-   bar and there is nothing more to clear.
+   show whole below that heading. That holds at every width, a phone's included,
+   since the heading is pinned at the bar's real height there too.
    ========================================================================== */
 .wpc-dashboard-page [id^="wpcpm-"] {
 	scroll-margin-top: var( --wpc-landing-offset );
 }
 
-@media ( min-width: 641px ) {
-	.wpc-dashboard-page .wpcpm-mentee[id] {
-		scroll-margin-top: calc( var( --wpc-landing-offset ) + 24px );
-	}
+.wpc-dashboard-page .wpcpm-mentee[id] {
+	scroll-margin-top: calc( var( --wpc-landing-offset ) + 24px );
 }
 
 /* ==========================================================================
@@ -206,10 +205,9 @@
 	min-width: 0;
 }
 
-/* The mentor's name is the heading of this page now - the plugin renders it as an
-   `<h1>`, and the page's own title ("My Students") has been dropped from the template
-   because it said less than the name does. So this takes the size the page title had,
-   and the facts about the list sit under it as one quiet line. */
+/* The mentor's name sits under the page's title, Mentor Report Card, as a paragraph the
+   plugin prints: 22px, the title's size, above 900px, and a little smaller below it. The
+   facts about the list sit under it as one quiet line. */
 .wpcpm-dashboard__mentor-name {
 	color: var( --wpc-ink );
 	flex-basis: 100%;
@@ -561,7 +559,10 @@
    Group headers
    ========================================================================== */
 /* Sticky, but below the site's own sticky bar - otherwise the group a mentor is
-   scrolling through disappears behind it. */
+   scrolling through disappears behind it. It sticks at the bar's real height,
+   which assets/js/header-height.js keeps current, so it meets the bar's lower edge
+   however many rows the bar has. Until the bar has been measured the 76px constant
+   stands in, and a taller bar covers the top of the heading. */
 .wpc-group {
 	display: flex;
 	font: 500 12px/18px var( --wpc-font );
@@ -570,23 +571,23 @@
 	padding: 8px 32px;
 	position: sticky;
 	text-transform: uppercase;
-	top: var( --wpc-header-height );
+	top: var( --wpc-header-live, var( --wpc-header-height ) );
 	z-index: 2;
 }
 
 /* A signed-in reader's header sits right under the admin bar, so the heading's offset is the
-   header's constant height plus the bar's, and the heading moves down with the header by the
+   header's real height plus the bar's, and the heading moves down with the header by the
    bar's height. The bar's height is read from the variable core's admin bar CSS declares
    (32px above 782px, 46px from 782px down), as the header's own offset is, and the fallback
    is the desktop height, for a page where nothing has declared it. */
 .admin-bar .wpc-group {
-	top: calc( var( --wpc-header-height ) + var( --wp-admin--admin-bar--height, 32px ) );
+	top: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + var( --wp-admin--admin-bar--height, 32px ) );
 }
 
 /* The admin bar is not fixed below 600px, so nothing has to make room for it. */
 @media screen and ( max-width: 600px ) {
 	.admin-bar .wpc-group {
-		top: var( --wpc-header-height );
+		top: var( --wpc-header-live, var( --wpc-header-height ) );
 	}
 }
 
@@ -891,7 +892,7 @@
 	text-transform: uppercase;
 }
 
-/* The student's identity card, inside the "My program" section and built like the mentor
+/* The student's identity card, inside the "My profile" section and built like the mentor
    card in the column beside it - portrait, then body, then that section's table. It used
    to be a full-width `<header>` above both columns, which is why it carried the card's
    32px inset and a page-header's type size; inside a section it needs neither. */

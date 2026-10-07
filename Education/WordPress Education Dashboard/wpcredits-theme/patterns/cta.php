@@ -3,13 +3,13 @@
  * Title: Mentor call to action
  * Slug: wpcredits/cta
  * Categories: wpcredits, call-to-action
- * Description: A brand-blue band pointing mentors at their students page.
+ * Description: A brand-blue band pointing mentors at their Mentor Report Card.
  * Keywords: cta, mentors, sign in
  * Viewport Width: 1400
  *
  * The button goes to the mentor page for someone already signed in, and to the
- * login form for everyone else - the plugin sends mentors to "My Students" on
- * login, so both routes end in the same place. With the plugin inactive there is
+ * login form for everyone else - the plugin sends mentors to their Mentor Report
+ * Card on login, so both routes end in the same place. With the plugin inactive there is
  * no page to point at, so the band links home rather than to a 404.
  *
  * @package WPCredits_Theme
@@ -40,7 +40,7 @@ $wpcredits_lede = is_user_logged_in()
 
 <!-- wp:buttons -->
 <div class="wp-block-buttons"><!-- wp:button {"className":"wpc-button--light wpc-button--large"} -->
-<div class="wp-block-button wpc-button--light wpc-button--large"><a class="wp-block-button__link wp-element-button" href="<?php echo esc_url( $wpcredits_target ); ?>"><?php esc_html_e( 'Open My Students', 'wpcredits-theme' ); ?></a></div>
+<div class="wp-block-button wpc-button--light wpc-button--large"><a class="wp-block-button__link wp-element-button" href="<?php echo esc_url( $wpcredits_target ); ?>"><?php esc_html_e( 'Open your Mentor Report Card', 'wpcredits-theme' ); ?></a></div>
 <!-- /wp:button --></div>
 <!-- /wp:buttons --></div>
 <!-- /wp:group -->

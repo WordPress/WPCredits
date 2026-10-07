@@ -193,6 +193,9 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
  */
 function add_filter() { return true; }
 function remove_filter() { return true; }
+// The account's fields here are kept as they are handed over, so the slash is the identity
+// (bin/test-insert-user.php holds the helper's slashed copy to core's, which unslashes it).
+function wp_slash( $v ) { return $v; }
 function wp_insert_user( $a ) {
 	if ( $GLOBALS['insert_dies'] ) {
 		$GLOBALS['insert_dies'] = false;

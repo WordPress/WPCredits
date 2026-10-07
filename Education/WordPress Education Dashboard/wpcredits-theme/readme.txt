@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.9
+Stable tag: 1.24.10
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -14,7 +14,7 @@ A block theme and the front end for the WPCredits Program Manager plugin.
 == Description ==
 
 WPCredits gives the WordPress Credits Program a landing page, a branded login, and
-a full-width "My Students" page that dresses the plugin's own mentor dashboard as a
+a full-width "Mentor Report Card" page that dresses what the plugin draws there as a
 compact, triaged, printable list.
 
 = The chrome =
@@ -36,8 +36,9 @@ Three details are the theme's rather than the reference's, and are deliberate:
 * The navigation marks the current menu item in brand blue. The reference's nav is
   hard-coded anchors with no such state; a real menu on a multi-page site needs one.
 * The reference's blue "Join the Initiative" button is the account chip here - a
-  sign-in button for visitors, and "My Students" plus a log-out link and profile
-  photo once someone is signed in. It keeps the button's shape and position.
+  sign-in button for visitors, and a link to each of the Student Report Card and the
+  Mentor Report Card that the reader can open, plus a log-out link and profile photo
+  once someone is signed in. It keeps the button's shape and position.
 * The sign-in button stays in the bar below 960px rather than folding into the menu
   panel, because it is the way in to everything else on the site.
 
@@ -156,6 +157,13 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.10 =
+* Header: the Mentor Report Card's pinned group heading and the open menu sit right below the header however tall it grows, and anchored cards, items and guide headings land 28px below it, a student's row 24px more. On a phone the open menu spans the screen, not a strip under its button. With JavaScript off, the heading and the menu above 640px sit 76px down and anchors land 104px down, 208px on a phone, as in 1.24.9 (a student's row 24px more at every width, now 232px on a phone).
+* Header: where the account chip does not fit whole beside the site's name, the header takes two rows, spaced as on a phone (with JavaScript on), and every link keeps its whole label. With the site's mark and name together about 340px wide, that is up to about 900px for a chip with links to both pages, as an administrator's has, and up to about 720px for a student's or a mentor's. A visitor's header is as before.
+* Header: on phones up to about 343px wide, for a site name about 253px wide at the phone's 17px, the name breaks onto a second line instead of running into the right margin or, below about 323px, pushing the page sideways.
+* Header: the account chip names each page it links to by its product name, Student Report Card or Mentor Report Card, for everyone, as the plugin's toolbar does (plugin 1.122.7 and later). A student read My Program, a mentor My Students and an administrator Student Dashboard and Mentor Dashboard. The login screen's link and the mentor call to action's button read Open your Mentor Report Card.
+* Landing page: the audiences pattern's line for institutions says "Recognize", in US English.
 
 = 1.24.9 =
 * Header: signed in on a tablet-width window (601px to 782px), where WordPress makes the admin bar 46px tall instead of 32px, the sticky header now sits right under the bar. Its top 14px used to be behind the bar, because the theme left room for a 32px bar.

@@ -21,7 +21,7 @@
 			return el(
 				'div',
 				props,
-				el( 'span', { className: 'wpc-viewer__link is-current' }, __( 'My Students', 'wpcredits-theme' ) ),
+				el( 'span', { className: 'wpc-viewer__link is-current' }, __( 'Mentor Report Card', 'wpcredits-theme' ) ),
 				el( 'span', { className: 'wpc-viewer__logout' }, __( 'Log out', 'wpcredits-theme' ) ),
 				el( 'span', { className: 'wpc-viewer__avatar', 'data-initials': 'MP' } )
 			);

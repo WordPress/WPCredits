@@ -1894,27 +1894,29 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_GENERATE . '_' . $institution );
 
+		// From here every way out comes back to `$institution`: the one the page resolved and the
+		// nonce above is keyed to, which is what this press acted on whatever else was posted.
 		$cohort = WPCPM_Request::posted_text( 'cohort' );
 
 		// `is_key()` admits NONE, and NONE is not a semester: it is the students whose start
 		// date the base does not hold. A report about them would be a report nobody can name,
 		// so the picker never offers it and the handler refuses it as well.
 		if ( ! WPCPM_Cohort::is_key( $cohort ) || WPCPM_Cohort::NONE === $cohort ) {
-			self::bounce( 'bad-cohort' );
+			self::bounce( 'bad-cohort', array(), '', $institution );
 		}
 
 		if ( WPCPM_Semester_Report::find( $institution, $cohort ) instanceof WP_Post ) {
-			self::bounce( 'already-generated', array(), $cohort );
+			self::bounce( 'already-generated', array(), $cohort, $institution );
 		}
 
 		// The dashboard's button is a manager's second drafting route since decision 1, and the
 		// log below and this ceiling count a press here exactly as a Draft now press would.
 		if ( ! WPCPM_Ceiling::claim( 'report-draft:' . get_current_user_id(), self::DRAFTS_PER_DAY, DAY_IN_SECONDS ) ) {
-			self::bounce( 'draft-refused', array(), $cohort );
+			self::bounce( 'draft-refused', array(), $cohort, $institution );
 		}
 
 		if ( ! self::lock( $institution, $cohort ) ) {
-			self::bounce( 'locked', array(), $cohort );
+			self::bounce( 'locked', array(), $cohort, $institution );
 		}
 
 		$generated = WPCPM_Semester_Report::generate( $institution, $cohort );
@@ -1926,12 +1928,12 @@ final class WPCPM_Semester_Report_Screen {
 		// the reader has to be told which half of the world was unreachable so they know
 		// whether to try again or to ask somebody.
 		if ( is_wp_error( $generated ) ) {
-			self::bounce( 'generate-failed', array( 'why' => self::why_for_viewer( $generated ) ), $cohort );
+			self::bounce( 'generate-failed', array( 'why' => self::why_for_viewer( $generated ) ), $cohort, $institution );
 		}
 
 		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFTED, $institution, $cohort, get_current_user_id() );
 
-		self::leave( 'generated', array(), $cohort );
+		self::leave( 'generated', array(), $cohort, $institution );
 	}
 
 	/**
@@ -1969,8 +1971,11 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $post->ID );
 
+		// The report's own institution is where every way out from here goes back to.
+		$record = WPCPM_Semester_Report::institution_of( $post );
+
 		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'is-approved', array(), self::cohort_of( $post ) );
+			self::bounce( 'is-approved', array(), self::cohort_of( $post ), $record );
 		}
 
 		$values = self::submitted_values( $post );
@@ -1981,7 +1986,7 @@ final class WPCPM_Semester_Report_Screen {
 		// reader gets their own words back in the boxes, above the version that won.
 		if ( WPCPM_Request::posted_text( 'modified' ) !== (string) $post->post_modified_gmt ) {
 			self::stash( $post, $values );
-			self::bounce( 'stale', array(), self::cohort_of( $post ) );
+			self::bounce( 'stale', array(), self::cohort_of( $post ), $record );
 		}
 
 		// **The meta is written before the post, and the order is load-bearing.** WordPress
@@ -1989,22 +1994,28 @@ final class WPCPM_Semester_Report_Screen {
 		// registered with `revisions_enabled` as they stand at that moment. Written the other
 		// way round, every revision would hold the previous save's sections and choices, and
 		// a restore would put back a version nobody ever saw.
-		update_post_meta( $post->ID, WPCPM_Semester_Report::META_SECTIONS, $values['sections'] );
-		update_post_meta( $post->ID, WPCPM_Semester_Report::META_CHOICES, $values['choices'] );
+		//
+		// Both writes, and the post's below, hand core a slashed copy (`wp_slash()`): core
+		// unslashes what it is given and the words read from the form are unslashed already,
+		// as the stash's docblock says, so a backslash typed in them would otherwise be gone.
+		update_post_meta( $post->ID, WPCPM_Semester_Report::META_SECTIONS, wp_slash( $values['sections'] ) );
+		update_post_meta( $post->ID, WPCPM_Semester_Report::META_CHOICES, wp_slash( $values['choices'] ) );
 
 		// `post_content` holds a plain-text rendering of the narrative, for one reason: it is
 		// what the revision diff screen compares. Meta registered with `revisions_enabled` is
 		// restored with a revision but is not shown in the diff, so a report whose content
 		// never changed would offer a list of versions that all looked identical.
 		wp_update_post(
-			array(
-				'ID'           => $post->ID,
-				'post_content' => self::narrative_text( $values['sections'] ),
+			wp_slash(
+				array(
+					'ID'           => $post->ID,
+					'post_content' => self::narrative_text( $values['sections'] ),
+				)
 			)
 		);
 
 		self::clear_stash();
-		self::leave( 'saved', array(), self::cohort_of( $post ) );
+		self::leave( 'saved', array(), self::cohort_of( $post ), $record );
 	}
 
 	/**
@@ -2036,13 +2047,14 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_REFRESH_CONSENT . '_' . $post->ID );
 
+		$record    = WPCPM_Semester_Report::institution_of( $post );
 		$refreshed = WPCPM_Semester_Report::refresh_consent( $post );
 
 		if ( is_wp_error( $refreshed ) ) {
-			self::bounce( 'consent-failed', array( 'why' => self::why_for_viewer( $refreshed ) ), self::cohort_of( $post ) );
+			self::bounce( 'consent-failed', array( 'why' => self::why_for_viewer( $refreshed ) ), self::cohort_of( $post ), $record );
 		}
 
-		self::leave( 'consent-refreshed', array(), self::cohort_of( $post ) );
+		self::leave( 'consent-refreshed', array(), self::cohort_of( $post ), $record );
 	}
 
 	/**
@@ -2211,20 +2223,19 @@ final class WPCPM_Semester_Report_Screen {
 	public static function handle_approve() {
 		$post   = self::state_target( self::ACTION_APPROVE );
 		$cohort = self::cohort_of( $post );
+		$record = WPCPM_Semester_Report::institution_of( $post );
 
 		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'is-approved', array(), $cohort );
+			self::bounce( 'is-approved', array(), $cohort, $record );
 		}
 
 		$consent = WPCPM_Semester_Report::consent_check( $post );
 
 		if ( is_wp_error( $consent ) ) {
-			self::bounce( 'approve-failed', array( 'why' => self::why_for_viewer( $consent ) ), $cohort );
+			self::bounce( 'approve-failed', array( 'why' => self::why_for_viewer( $consent ) ), $cohort, $record );
 		}
 
 		WPCPM_Semester_Report::approve( $post, get_current_user_id() );
-
-		$record = WPCPM_Semester_Report::institution_of( $post );
 
 		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_APPROVED, $record, $cohort, get_current_user_id() );
 
@@ -2239,7 +2250,7 @@ final class WPCPM_Semester_Report_Screen {
 			}
 		}
 
-		self::leave( 'approved', array( 'detail' => array( 'notified' => $notified ) ), $cohort );
+		self::leave( 'approved', array( 'detail' => array( 'notified' => $notified ) ), $cohort, $record );
 	}
 
 	/**
@@ -2249,6 +2260,7 @@ final class WPCPM_Semester_Report_Screen {
 	public static function handle_reopen() {
 		$post   = self::state_target( self::ACTION_REOPEN );
 		$cohort = self::cohort_of( $post );
+		$record = WPCPM_Semester_Report::institution_of( $post );
 
 		// Only an approved report can be reopened, the way `handle_approve()` refuses a second
 		// approval. `set_state()` refuses a value that is neither draft nor approved and this
@@ -2258,13 +2270,13 @@ final class WPCPM_Semester_Report_Screen {
 		// reaches here is a stale page or a double submit - and a nonce is good for its whole
 		// lifetime, so a stale page's press verifies (deep check FADMN-4).
 		if ( WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'not-approved', array(), $cohort );
+			self::bounce( 'not-approved', array(), $cohort, $record );
 		}
 
 		WPCPM_Semester_Report::reopen( $post );
-		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, WPCPM_Semester_Report::institution_of( $post ), $cohort, get_current_user_id() );
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, $record, $cohort, get_current_user_id() );
 
-		self::leave( 'reopened', array(), $cohort );
+		self::leave( 'reopened', array(), $cohort, $record );
 	}
 
 	/**
@@ -2411,13 +2423,16 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_RESTORE . '_' . $revision->ID );
 
+		// The report's institution, read off the parent the revision belongs to, as the decision was.
+		$record = WPCPM_Semester_Report::institution_of( $post );
+
 		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'is-approved', array(), self::cohort_of( $post ) );
+			self::bounce( 'is-approved', array(), self::cohort_of( $post ), $record );
 		}
 
 		$restored = wp_restore_post_revision( $revision->ID );
 
-		self::leave( $restored ? 'restored' : 'not-restored', array(), self::cohort_of( $post ) );
+		self::leave( $restored ? 'restored' : 'not-restored', array(), self::cohort_of( $post ), $record );
 	}
 
 	/**
@@ -3457,14 +3472,18 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * Leave a message and go back to the report.
 	 *
-	 * `$record` is for the one handler a program manager reaches from outside the dashboard.
-	 * A member never needs it: `resolve_institution()` already puts them on their own
-	 * institution, and the argument would be their own record ID either way.
+	 * `$record` is the institution the press acted on: the report's own, or the one the
+	 * handler resolved, and never the switcher the form happened to carry. It is added to the
+	 * address for a viewer who holds `CAP_MANAGE` and for nobody else, because
+	 * `resolve_institution()` reads the argument on that branch alone: an administrator comes
+	 * back to the institution they were viewing instead of to the first one with a member, and
+	 * a member's address is what it always was, since their own membership already places them.
+	 * Every handler passes the record it has, so the rule is written here and in no handler.
 	 *
 	 * @param string $status What happened.
 	 * @param array  $extra  Anything the message needs.
 	 * @param string $cohort The semester to reopen, when there is one.
-	 * @param string $record Institutions record ID to switch to, for a manager.
+	 * @param string $record Institutions record ID the press acted on, or ''.
 	 */
 	private static function leave( $status, array $extra = array(), $cohort = '', $record = '' ) {
 		self::set_flash( $status, $extra );
@@ -3476,8 +3495,8 @@ final class WPCPM_Semester_Report_Screen {
 			$url  = ( '' === $page ? home_url( '/' ) : $page ) . '#wpcpm-report';
 		}
 
-		if ( '' !== (string) $record ) {
-			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $url );
+		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record ), $url );
 		}
 
 		wp_safe_redirect( $url );
@@ -3509,7 +3528,7 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param string $status Why.
 	 * @param array  $detail Anything the sentence needs.
 	 * @param string $cohort The semester to reopen, when there is one.
-	 * @param string $record Institutions record ID to switch to, for a manager.
+	 * @param string $record Institutions record ID the press acted on, or ''; see `leave()`.
 	 */
 	private static function bounce( $status, array $detail = array(), $cohort = '', $record = '' ) {
 		$extra = empty( $detail ) ? array() : array( 'detail' => $detail );

@@ -200,8 +200,11 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	if ( $single ) { return $rows ? $rows[0] : ''; }
 	return $rows;
 }
-function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 
 function wp_insert_post( $a, $error = false ) {
 	if ( ! empty( $GLOBALS['post_fails'] ) ) {
@@ -212,7 +215,8 @@ function wp_insert_post( $a, $error = false ) {
 	$post->post_type               = $a['post_type'] ?? 'post';
 	$post->post_status             = $a['post_status'] ?? 'publish';
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
-	$post->post_title              = $a['post_title'] ?? '';
+	// Unslashed as core's insert unslashes it, so a title handed over as it stands loses a backslash.
+	$post->post_title              = stripslashes( (string) ( $a['post_title'] ?? '' ) );
 	$post->post_date               = gmdate( 'Y-m-d H:i:s', $GLOBALS['clock'] );
 	$post->post_modified_gmt       = $post->post_date;
 	$GLOBALS['clock']             += 60;
@@ -1703,6 +1707,37 @@ ck( 'past the ceiling the application is still stored', $row instanceof WP_Post,
 ck( 'and still new, not held or spammed for it', get_post_meta( $row->ID, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Institution_Application::STATE_NEW );
 ck( 'the queue is told why', in_array( 'mail-ceiling', (array) get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ), true ), true );
 ck( 'and the applicant is told plainly rather than promised a message that will not come', $capped['outcome'], 'sent-quiet' );
+
+echo "\n=== Words keep their backslashes ===\n";
+
+// Post meta and `wp_insert_post()` unslash what they are handed, as core's do, and what reaches
+// these writes is unslashed already: the answers and the browser's name (WordPress hands them
+// over slashed, as posted here), the country's row from the base, a manager's note. Each keeps
+// a backslash only when it is written as a slashed copy.
+reset_world();
+$typed       = 'Universidad C:\drafts, two \\\\ in a row, "Sede Norte"';
+$typed_agent = 'Mozilla/5.0 (C:\drafts, two \\\\ in a row, "test")';
+$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ]['rows']['recXX000000000003'] = array(
+	'name'     => 'Pais C:\drafts, two \\\\ in a row, "Norte"',
+	'manager'  => 'Ana C:\drafts, two \\\\ in a row, "Ruiz"',
+	'email'    => 'manager@example.test',
+	'calendly' => 'https://calendly.com/wpcredits-xx',
+);
+$_SERVER['HTTP_USER_AGENT'] = wp_slash( $typed_agent );
+$sent   = submit( wp_slash( answers( array( 'Name' => $typed, 'Country' => 'recXX000000000003', 'Comments' => $typed ) ) ) );
+$row    = only_row();
+$fields = $row ? get_post_meta( $row->ID, WPCPM_Institution_Application::META_FIELDS, true ) : array();
+
+ck( 'an application with backslashes in it is sent', $sent['outcome'], 'sent' );
+ck( 'its title is the institution\'s name exactly as typed', $row ? $row->post_title : null, $typed );
+ck( 'and the answers are stored exactly as typed', array( $fields['Name'] ?? null, $fields['Comments'] ?? null ), array( $typed, $typed ) );
+ck( 'the country\'s name is kept exactly as the base holds it', get_post_meta( $row->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ), 'Pais C:\drafts, two \\\\ in a row, "Norte"' );
+ck( 'and so is who it routed to', get_post_meta( $row->ID, WPCPM_Institution_Application::META_MANAGER, true )['manager'], 'Ana C:\drafts, two \\\\ in a row, "Ruiz"' );
+ck( 'and the browser in the consent evidence', get_post_meta( $row->ID, WPCPM_Institution_Application::META_CONSENT, true )['agent'], $typed_agent );
+
+WPCPM_Institution_Application::add_event( $row->ID, 'information requested', 3, $typed );
+$events = get_post_meta( $row->ID, WPCPM_Institution_Application::META_EVENT );
+ck( 'a manager\'s note is kept in the history exactly as typed', end( $events )['note'], $typed );
 
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );

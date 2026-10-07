@@ -212,6 +212,9 @@ function wp_new_user_notification( $user_id, $deprecated = null, $notify = '' ) 
  * throws, which is a request that never came back, so nothing after it in that tick runs and
  * the run state stays as the last completed slice left it.
  */
+// The account's fields here are kept as they are handed over, so the slash is the identity
+// (bin/test-insert-user.php holds the helper's slashed copy to core's, which unslashes it).
+function wp_slash( $v ) { return $v; }
 function wp_insert_user( $args ) {
 	$GLOBALS['calls']['wp_insert_user'][] = $args;
 	$n = count( $GLOBALS['calls']['wp_insert_user'] );

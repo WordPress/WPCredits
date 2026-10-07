@@ -100,10 +100,11 @@ function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $f, $v ) { return new WP_User( (int) $v, 'User ' . (int) $v ); }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta and post stand-ins that unslash what they are handed as core's do: the
+// flash and every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_time( $f, $gmt = false, $post = null ) { return time() - DAY_IN_SECONDS; }
@@ -160,8 +161,9 @@ function wp_insert_post( $a, $error = false ) {
 	static $next = 500;
 	$post               = new WP_Post();
 	$post->ID           = ++$next;
-	$post->post_title   = $a['post_title'] ?? '';
-	$post->post_content = $a['post_content'] ?? '';
+	// The words unslashed, as core's insert unslashes them.
+	$post->post_title   = stripslashes( (string) ( $a['post_title'] ?? '' ) );
+	$post->post_content = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$post->post_type    = $a['post_type'] ?? 'post';
 	$post->post_status  = $a['post_status'] ?? 'publish';
 	$GLOBALS['posts'][ $post->ID ] = $post;
@@ -183,12 +185,13 @@ function get_post_meta( $id, $key = '', $single = false ) {
 
 	return $rows;
 }
+// As core's: what is written is unslashed first, at any depth.
 function add_post_meta( $id, $key, $value, $unique = false ) {
-	$GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value;
+	$GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value );
 	return true;
 }
 function update_post_meta( $id, $key, $value ) {
-	$GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value );
+	$GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) );
 	return true;
 }
 function delete_post_meta( $id, $key, $value = '' ) {
@@ -351,6 +354,12 @@ ck( 'it is one post carrying one record row per attendee',
 
 ck( 'and it remembers which session it came from',
     (int) get_post_meta( (int) $note, WPCPM_Mentor_Notes::META_SESSION, true ), $group );
+
+// `wp_insert_post()` unslashes what it is handed, as core's does, and the note reaches it
+// unslashed: it keeps a backslash only when the post is written as a slashed copy.
+$typed_note = 'We went through C:\drafts\release, two \\\\ in a row, and the "freeze"';
+$typed_id   = WPCPM_Mentor_Notes::add_for_records( $group, $typed_note, WPCPM_Mentor_Calls::attendee_records( $group ) );
+ck( 'a session note is kept exactly as typed', is_wp_error( $typed_id ) ? $typed_id->get_error_code() : get_post( (int) $typed_id )->post_content, $typed_note );
 
 $empty = WPCPM_Mentor_Notes::add_for_records( $group, '   ', array( 'recSTUDENT0000001' ) );
 ck( 'an empty note is refused', is_wp_error( $empty ) ? $empty->get_error_code() : '', 'wpcpm_note_empty' );

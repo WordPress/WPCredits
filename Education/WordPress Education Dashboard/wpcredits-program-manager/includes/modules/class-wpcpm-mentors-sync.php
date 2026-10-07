@@ -1332,7 +1332,8 @@ class WPCPM_Mentors_Sync {
 		$was_linked = '' !== (string) get_user_meta( $user->ID, self::META_RECORD_ID, true );
 
 		update_user_meta( $user->ID, self::META_RECORD_ID, $mentor['record_id'] );
-		update_user_meta( $user->ID, self::META_PROFILE, $mentor['profile'] );
+		// Slashed, because user meta unslashes what it is handed and the base's cell is not.
+		update_user_meta( $user->ID, self::META_PROFILE, wp_slash( $mentor['profile'] ) );
 		update_user_meta( $user->ID, self::META_ACTIVE, 1 );
 
 		$is_admin  = in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true );
@@ -1350,11 +1351,15 @@ class WPCPM_Mentors_Sync {
 			);
 		}
 
+		// A slashed copy: core slashes the stored user, merges what it is handed and unslashes the
+		// result, so it expects slashed input.
 		if ( $mentor['profile'] && $mentor['profile'] !== $user->user_url ) {
 			wp_update_user(
-				array(
-					'ID'       => $user->ID,
-					'user_url' => esc_url_raw( $mentor['profile'] ),
+				wp_slash(
+					array(
+						'ID'       => $user->ID,
+						'user_url' => esc_url_raw( $mentor['profile'] ),
+					)
 				)
 			);
 		}
@@ -1409,7 +1414,8 @@ class WPCPM_Mentors_Sync {
 		}
 
 		update_user_meta( $user_id, self::META_RECORD_ID, $mentor['record_id'] );
-		update_user_meta( $user_id, self::META_PROFILE, $mentor['profile'] );
+		// Slashed, as `link_existing_user()` writes it.
+		update_user_meta( $user_id, self::META_PROFILE, wp_slash( $mentor['profile'] ) );
 		update_user_meta( $user_id, self::META_ACTIVE, 1 );
 
 		++$state['stats']['created'];
@@ -1744,7 +1750,8 @@ class WPCPM_Mentors_Sync {
 					}
 				}
 
-				update_user_meta( $user_id, self::META_MENTEES, $rows );
+				// Slashed: the rows are the base's words, and user meta unslashes what it is handed.
+				update_user_meta( $user_id, self::META_MENTEES, wp_slash( $rows ) );
 				// Stored separately so the admin list can show count columns without
 				// unserializing every mentor's full student array. META_COUNT stays
 				// the *current* count, which is what it has always meant.

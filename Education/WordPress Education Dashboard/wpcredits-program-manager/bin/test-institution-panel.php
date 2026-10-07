@@ -182,10 +182,11 @@ function add_option( $k, $v, $x = '', $a = null ) {
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta stand-ins that unslash what they are handed as core's do: the flash and
+// every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 
 function get_post_meta( $id, $key = '', $single = false ) {
@@ -193,8 +194,9 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	if ( $single ) { return $rows ? $rows[0] : ''; }
 	return $rows;
 }
-function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth.
+function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 
 function wp_insert_post( $a, $error = false ) {
 	if ( ! empty( $GLOBALS['post_fails'] ) ) {
@@ -2491,6 +2493,19 @@ $panel_messages = WPCPM_Institution_Panel::messages();
 ck( 'a record the site could not write after Airtable took it sends the manager to the institutions sync, on the tab that runs it', $panel_messages['agreement-not-saved'][1], 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.' );
 ck( 'and a state that was being rebuilt says the account opens after the next institutions sync', $panel_messages['agreement-later'][1], 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.' );
 ck( 'and no outcome names a Refresh control', array_values( array_filter( array_keys( $panel_messages ), function ( $slug ) use ( $panel_messages ) { return false !== stripos( (string) $panel_messages[ $slug ][1], 'Refresh' ); } ) ), array() );
+
+echo "\n=== The location note is kept as it was typed ===\n";
+
+// Post meta unslashes what it is handed, as core's does, and the form's note is read unslashed:
+// it keeps a backslash only when it is written as a slashed copy.
+reset_world();
+seed_index( $rec_a, $country );
+$GLOBALS['uid']     = 9;
+$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
+$where_typed        = 'Shelf C:\drafts\2025, two \\\\ in a row, the "blue" folder';
+
+ck( 'the recording goes through', on_file( $rec_a, $drive, '', $where_typed ), 'redirect: https://example.test/institution-dashboard/' );
+ck( 'and the note is kept exactly as typed', get_post_meta( array_key_first( $GLOBALS['posts'] ), WPCPM_Institution_Agreement::META_NOTE, true ), $where_typed );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -71,7 +71,7 @@ class WP_Error {
  * stub that kept roles on the object alone would show the sync a stale list.
  */
 class WP_User {
-	public $ID = 0, $user_login = '', $user_email = '', $display_name = '', $roles = array();
+	public $ID = 0, $user_login = '', $user_email = '', $display_name = '', $user_url = '', $roles = array();
 	public function __construct( $id = 0 ) {
 		$this->ID = (int) $id;
 		$data     = $GLOBALS['users'][ $this->ID ] ?? array();
@@ -79,6 +79,7 @@ class WP_User {
 		$this->user_login   = $data['login'] ?? '';
 		$this->user_email   = $data['email'] ?? '';
 		$this->display_name = $data['name'] ?? '';
+		$this->user_url     = $data['url'] ?? '';
 		$this->roles        = $data['roles'] ?? array();
 	}
 	public function exists() { return $this->ID > 0; }
@@ -137,7 +138,10 @@ function wp_schedule_single_event( $when, $hook ) { $GLOBALS['cron'][ $hook ] = 
 function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); return 1; }
 
 function get_user_meta( $id, $key, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $key ] ?? ''; }
-function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = $value; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
 
 function get_user_by( $field, $value ) {
@@ -162,6 +166,14 @@ function username_exists( $login ) {
 
 	return false;
 }
+// The mentors sync's link to an existing account sets the address the profile names. As core's, it
+// expects its input slashed (it slashes the stored user, merges, and the insert unslashes the row);
+// what it was handed is kept as well, for the check that it was handed a slashed copy.
+function wp_update_user( array $data ) {
+	$GLOBALS['user_updates'][] = $data;
+	if ( isset( $data['user_url'] ) ) { $GLOBALS['users'][ (int) $data['ID'] ]['url'] = stripslashes( (string) $data['user_url'] ); }
+	return (int) $data['ID'];
+}
 function wp_insert_user( array $data ) {
 	static $next = 500;
 
@@ -171,10 +183,11 @@ function wp_insert_user( array $data ) {
 
 	$id = ++$next;
 
+	// Unslashed, as core's insert unslashes the row: the helper hands it a slashed copy.
 	$GLOBALS['users'][ $id ] = array(
 		'login' => $data['user_login'],
-		'email' => $data['user_email'],
-		'name'  => $data['display_name'] ?? '',
+		'email' => stripslashes( $data['user_email'] ),
+		'name'  => stripslashes( $data['display_name'] ?? '' ),
 		'roles' => array( $data['role'] ),
 	);
 
@@ -1578,6 +1591,77 @@ ck( 'every entry has every key', array_keys( (array) ( $by_row[ $s_lonely ] ?? a
 $report = get_option( WPCPM_Students_Sync::OPT_REPORT );
 ck( 'the run report says so, once, with the count and where to look',
 	substr_count( implode( "\n", (array) ( $report['notices'] ?? array() ) ), '3 students have a mentor but no report record under their address. The Reconciliation card on the Institutions screen\'s Sync and storage tab names each row and the address to fix.' ), 1 );
+
+echo "\n=== What the base holds is what the cached rows keep ===\n";
+
+// User meta unslashes what it is handed, as core's does, and the rows are decoded from Airtable's
+// answer unslashed: a name, a Slack name or a mentor's name keeps a backslash only when the
+// student's cached rows are written as slashed copies.
+$typed_name   = 'Zoe C:\drafts, two \\\\ in a row, "Slash"';
+$typed_slack  = '@zoe C:\drafts \\\\ "dm me"';
+$typed_mentor = 'Mia C:\drafts, two \\\\ in a row, "Mentor"';
+
+$GLOBALS['airtable'][ $mentors_table ][] = array( 'id' => 'recMENTOR00000009', 'fields' => array( $fields['mentor_name'] => $typed_mentor, $fields['mentor_email'] => 'mia@example.test' ) );
+student_row( $typed_name, 'zoe.slash@example.test', 'In Sensei', $dee, '2026-08-03' );
+report_row( $typed_name, 'zoe.slash@example.test', 'In Sensei', $dee, array( $fields['report_slack'] => $typed_slack, $fields['report_mentor'] => array( 'recMENTOR00000009' ) ) );
+
+run_sync();
+$typed_id = user_id_for( 'zoe.slash@example.test' );
+
+ck( 'the student has an account', $typed_id > 0, true );
+ck( 'and the cached program row keeps the name and the Slack name exactly',
+	array( get_user_meta( $typed_id, WPCPM_Students_Sync::META_PROGRAM, true )['name'] ?? null, get_user_meta( $typed_id, WPCPM_Students_Sync::META_PROGRAM, true )['slack'] ?? null ),
+	array( $typed_name, $typed_slack ) );
+ck( 'and the cached mentor row the mentor\'s name', get_user_meta( $typed_id, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? null, $typed_mentor );
+ck( 'and the account it made carries the name exactly', $GLOBALS['users'][ $typed_id ]['name'] ?? null, $typed_name );
+
+echo "\n=== What the base holds is what the mentors sync keeps ===\n";
+
+// The mentors sync's writers, called as its phases call them: no suite runs that sync end to end
+// (its schema and profile reads have no stand-in here), and these three are where it writes words.
+// User meta unslashes what it is handed, so the profile cell and the mentees' rows keep a backslash
+// only as slashed copies.
+$typed_profile = 'https://profiles.wordpress.org/mia-example/ C:\drafts \\\\ "x"';
+$mentor_calls  = static function ( $method, array $args ) {
+	$m = new ReflectionMethod( 'WPCPM_Mentors_Sync', $method );
+
+	// Before PHP 8.1 a private method has to be made accessible first, or the call is refused.
+	if ( PHP_VERSION_ID < 80100 ) {
+		$m->setAccessible( true );
+	}
+
+	return $m->invokeArgs( null, $args );
+};
+$mentor_state  = array( 'mentors' => array(), 'reports' => array(), 'tutors' => array(), 'study' => array(), 'access' => array(), 'notices' => array(), 'stats' => WPCPM_Mentors_Sync::empty_stats() );
+$typed_mentor_row = array( 'record_id' => 'recMENTOR0000000A', 'name' => 'Mia Typed', 'profile' => $typed_profile );
+
+$args       = array( 'miatyped', 'mia.typed@example.test', $typed_mentor_row );
+$args[]     = &$mentor_state;
+$created_id = (int) $mentor_calls( 'create_mentor_user', $args );
+
+ck( 'a mentor account the sync creates keeps the profile exactly as the base holds it', $created_id > 0 ? get_user_meta( $created_id, WPCPM_Mentors_Sync::META_PROFILE, true ) : null, $typed_profile );
+
+$GLOBALS['users'][700] = array( 'login' => 'linked', 'email' => 'linked@example.test', 'name' => 'Linked Mentor', 'roles' => array( WPCPM_Roles::ROLE_MENTOR ) );
+$args   = array( new WP_User( 700 ), array_merge( $typed_mentor_row, array( 'record_id' => 'recMENTOR0000000B' ) ), 'email' );
+$args[] = &$mentor_state;
+$mentor_calls( 'link_existing_user', $args );
+
+ck( 'and so does one it links to an existing account', get_user_meta( 700, WPCPM_Mentors_Sync::META_PROFILE, true ), $typed_profile );
+// The address it sets is `esc_url_raw()`'s, which on a site drops a backslash but keeps a quote:
+// core is handed it slashed, once, and keeps it as it was.
+ck( 'the account\'s address is handed to core as a slashed copy, once', end( $GLOBALS['user_updates'] )['user_url'] ?? null, wp_slash( esc_url_raw( $typed_profile ) ) );
+// This suite's `esc_url_raw()` keeps everything (it is the identity), so the check below pins
+// the stand-in's path only: on a site `esc_url_raw()` has dropped the backslash before the update
+// sees it, and the check above, the slashed copy handed over once, is the one that holds there.
+ck( 'and kept as the profile names it', $GLOBALS['users'][700]['url'] ?? null, esc_url_raw( $typed_profile ) );
+
+$mentor_state['mentors'] = array( 'recMENTOR0000000A' => array( 'user_id' => $created_id ) );
+$mentor_state['reports'] = array( array( 'record_id' => 'recRTYPED00000001', 'name' => $typed_name, 'email_key' => 'zoe.slash@example.test', 'mentor_ids' => array( 'recMENTOR0000000A' ), 'is_past' => false ) );
+$args = array();
+$args[] = &$mentor_state;
+$mentor_calls( 'phase_assign', $args );
+
+ck( 'and the mentee row it assigns keeps the student\'s name', get_user_meta( $created_id, WPCPM_Mentors_Sync::META_MENTEES, true )[0]['name'] ?? null, $typed_name );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

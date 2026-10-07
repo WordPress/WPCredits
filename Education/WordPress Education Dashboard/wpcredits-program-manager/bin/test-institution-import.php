@@ -199,8 +199,11 @@ function wp_insert_post( $args, $wp_error = false ) {
 }
 function wp_delete_post( $id, $force = false ) { $gone = isset( $GLOBALS['posts'][ (int) $id ] ); unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return $gone; }
 function get_post( $id ) { return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null; }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 /**
  * `$wpdb` far enough to answer the one query `delete_all()` makes.
  *
@@ -813,6 +816,22 @@ ck( 'and another institution has none', WPCPM_Institution_Import::staged_for( $E
 
 ck( 'a staged batch can be cancelled', WPCPM_Institution_Import::cancel( $staged ), true );
 ck( 'and is gone afterwards', WPCPM_Institution_Import::batch( $staged ), null );
+
+// Post meta unslashes what it is handed, as core's does, and the file's rows and headers reach
+// it unslashed: a name or a header keeps a backslash only when the batch is written slashed.
+$typed_name   = 'Anna C:\drafts, two \\\\ in a row, "Kowalska"';
+$typed_header = 'Notes C:\drafts, two \\\\ in a row, "extra"';
+$typed_batch  = WPCPM_Institution_Import::stage(
+	$HERE,
+	7,
+	array( 'status' => 'In Sensei', 'start' => '2026-09-07', 'end' => '', 'confirmed' => true ),
+	WPCPM_Institution_Import::clean_rows( array( array( 'line' => 2, 'name' => $typed_name, 'email' => 'anna@institution-3.example' ) ) ),
+	array( $typed_header )
+);
+$typed_read   = WPCPM_Institution_Import::batch( $typed_batch );
+ck( 'a staged row keeps the name exactly as the file holds it', $typed_read['rows'][0]['name'] ?? null, $typed_name );
+ck( 'and the columns nobody read keep theirs', $typed_read['unknown'] ?? null, array( $typed_header ) );
+WPCPM_Institution_Import::cancel( $typed_batch );
 
 // A batch being created has records in Airtable behind it. Deleting the post would leave them
 // with nothing on this site that remembers why they exist, and their Site import key pointing

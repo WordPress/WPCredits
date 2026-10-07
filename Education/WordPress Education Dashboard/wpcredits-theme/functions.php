@@ -74,9 +74,22 @@ add_action( 'after_setup_theme', 'wpcredits_setup' );
  * The dashboard skin is not here: inc/dashboard.php owns it, because only that
  * file knows whether the plugin is rendering on this request and which of the
  * plugin's own stylesheets it has to load after.
+ *
+ * The header height script goes wherever the stylesheet does: every template
+ * draws the sticky header part, and on a page without one the script does
+ * nothing. Deferred, so it never holds up the page, and it needs nothing else
+ * loaded first.
  */
 function wpcredits_assets() {
 	wp_enqueue_style( 'wpcredits-style', get_stylesheet_uri(), array(), WPCREDITS_VERSION );
+
+	wp_enqueue_script(
+		'wpcredits-header-height',
+		get_theme_file_uri( 'assets/js/header-height.js' ),
+		array(),
+		WPCREDITS_VERSION,
+		array( 'strategy' => 'defer' )
+	);
 }
 add_action( 'wp_enqueue_scripts', 'wpcredits_assets' );
 

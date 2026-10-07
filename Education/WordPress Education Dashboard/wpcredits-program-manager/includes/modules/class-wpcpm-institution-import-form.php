@@ -167,6 +167,13 @@ final class WPCPM_Institution_Import_Form {
 	 * rather than of a student: the program somebody is joining and the term they start are
 	 * chosen once, and a file carrying its own copy of either may only agree.
 	 *
+	 * The switcher travels on the action address for an administrator, and only for one: the
+	 * check works out which institution it is acting for from the request, and a post to
+	 * `admin-post.php` carries the form's fields and none of the query string of the page it
+	 * was on. Without it an administrator viewing any institution but their fallback meets a
+	 * nonce keyed to a different record. A member's own membership places them, and the
+	 * address stays what it was.
+	 *
 	 * @param string $record Institutions record ID.
 	 */
 	private static function render_form( $record ) {
@@ -175,9 +182,15 @@ final class WPCPM_Institution_Import_Form {
 			esc_html__( 'Add one student, or a list of them. Nothing is created until you have seen what the list was understood to say.', 'wpcredits-program-manager' )
 		);
 
+		$action = admin_url( 'admin-post.php' );
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$action = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $action );
+		}
+
 		printf(
 			'<form class="wpcpm-import__form" method="post" enctype="multipart/form-data" action="%s">',
-			esc_url( admin_url( 'admin-post.php' ) )
+			esc_url( $action )
 		);
 
 		wp_nonce_field( self::ACTION_CHECK . '_' . $record );
@@ -799,40 +812,42 @@ final class WPCPM_Institution_Import_Form {
 
 		check_admin_referer( self::ACTION_CHECK . '_' . $institution );
 
+		// From here every way out comes back to `$institution`: the one the page resolved and the
+		// nonce above is keyed to, which is what this press acted on whatever else was posted.
 		// Staged or being created: either is a list this school already has in hand, and a
 		// second one would put two imports on one roster behind one lock.
 		if ( WPCPM_Institution_Import::active_for( $institution ) > 0 ) {
-			self::bounce( 'already-staged' );
+			self::bounce( 'already-staged', array(), $institution );
 		}
 
 		$allowed = WPCPM_Institution_Import::may_check( $institution );
 
 		if ( empty( $allowed['ok'] ) ) {
-			self::bounce( $allowed['problem'] );
+			self::bounce( $allowed['problem'], array(), $institution );
 		}
 
 		$batch = self::batch_values();
 
 		if ( '' !== $batch['problem'] ) {
-			self::bounce( $batch['problem'] );
+			self::bounce( $batch['problem'], array(), $institution );
 		}
 
 		$text = self::submitted_text();
 
 		if ( '' === $text ) {
-			self::bounce( 'nothing-sent' );
+			self::bounce( 'nothing-sent', array(), $institution );
 		}
 
 		$parsed = WPCPM_Institution_Import::parse( $text, $batch['values'] );
 
 		if ( empty( $parsed['ok'] ) ) {
-			self::bounce( 'parse-' . $parsed['problem'], $parsed['detail'] );
+			self::bounce( 'parse-' . $parsed['problem'], $parsed['detail'], $institution );
 		}
 
 		$claimed = WPCPM_Institution_Import::claim_rows( $institution, count( $parsed['rows'] ) );
 
 		if ( empty( $claimed['ok'] ) ) {
-			self::bounce( $claimed['problem'] );
+			self::bounce( $claimed['problem'], array(), $institution );
 		}
 
 		$rows = WPCPM_Institution_Import::clean_rows( $parsed['rows'] );
@@ -844,19 +859,19 @@ final class WPCPM_Institution_Import_Form {
 		if ( is_wp_error( $checked ) ) {
 			// The base being unreachable is not a refusal, and saying so keeps a school from
 			// looking for a permissions fault that does not exist.
-			self::bounce( 'unreadable' );
+			self::bounce( 'unreadable', array(), $institution );
 		}
 
 		$staged = WPCPM_Institution_Import::stage( $institution, get_current_user_id(), $batch['values'], $checked, $parsed['unknown'] );
 
 		if ( ! $staged ) {
-			self::bounce( 'not-staged' );
+			self::bounce( 'not-staged', array(), $institution );
 		}
 
 		$counts = self::counts( $checked );
 		WPCPM_Institution_Import::log_check( $institution, get_current_user_id(), count( $checked ), $counts['blocked'] );
 
-		self::leave( 'checked', array( 'batch' => $staged ) );
+		self::leave( 'checked', array( 'batch' => $staged ), $institution );
 	}
 
 	/**
@@ -885,7 +900,7 @@ final class WPCPM_Institution_Import_Form {
 			self::bounce( 'refused' );
 		}
 
-		self::bounce( WPCPM_Institution_Import::cancel( $batch_id ) ? 'cancelled' : 'not-cancelled' );
+		self::bounce( WPCPM_Institution_Import::cancel( $batch_id ) ? 'cancelled' : 'not-cancelled', array(), (string) $batch['institution'] );
 	}
 
 	/**
@@ -925,10 +940,14 @@ final class WPCPM_Institution_Import_Form {
 
 		check_admin_referer( WPCPM_Institution_Create::confirm_action( $batch_id ) );
 
+		// The batch's institution is where every way out from here goes back to, as it is the
+		// one the decision above was made about.
+		$record = (string) $batch['institution'];
+
 		// A second Confirm of a batch that has been created, or that stopped, creates nothing.
 		// This is the browser's back button, and it has to be free.
 		if ( WPCPM_Institution_Import::STATE_STAGED !== $batch['state'] ) {
-			self::bounce( 'not-staged-now' );
+			self::bounce( 'not-staged-now', array(), $record );
 		}
 
 		// A program may have been unticked between staging and confirming, which this phase's
@@ -937,12 +956,12 @@ final class WPCPM_Institution_Import_Form {
 		// and give that reason instead (decision 10, and 2.4 for the automation itself).
 		$status = isset( $batch['values'], $batch['values']['status'] ) ? (string) $batch['values']['status'] : '';
 		if ( '' !== $status && ! isset( WPCPM_Institutions::offered_programs()[ $status ] ) ) {
-			self::bounce( 'program-ungated' );
+			self::bounce( 'program-ungated', array(), $record );
 		}
 
 		WPCPM_Institution_Create::claim( $batch_id, get_current_user_id(), $decision['ground'] );
 
-		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id );
+		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id, $record );
 	}
 
 	/**
@@ -980,11 +999,13 @@ final class WPCPM_Institution_Import_Form {
 
 		check_admin_referer( WPCPM_Institution_Create::continue_action( $batch_id ) );
 
+		$record = (string) $batch['institution'];
+
 		if ( WPCPM_Institution_Import::STATE_CREATING !== $batch['state'] ) {
-			self::bounce( 'not-creating-now' );
+			self::bounce( 'not-creating-now', array(), $record );
 		}
 
-		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id );
+		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id, $record );
 	}
 
 	/**
@@ -994,10 +1015,11 @@ final class WPCPM_Institution_Import_Form {
 	 * created; the counts travel with it so the sentence can name them rather than saying that
 	 * something happened.
 	 *
-	 * @param array $outcome  From `WPCPM_Institution_Create::create_slice()`.
-	 * @param int   $batch_id The batch.
+	 * @param array  $outcome  From `WPCPM_Institution_Create::create_slice()`.
+	 * @param int    $batch_id The batch.
+	 * @param string $record   Institutions record ID the batch belongs to.
 	 */
-	private static function report( array $outcome, $batch_id ) {
+	private static function report( array $outcome, $batch_id, $record ) {
 		self::leave(
 			(string) $outcome['problem'],
 			array(
@@ -1008,7 +1030,8 @@ final class WPCPM_Institution_Import_Form {
 					'failed'    => (int) $outcome['failed'],
 					'remaining' => (int) $outcome['remaining'],
 				),
-			)
+			),
+			$record
 		);
 	}
 
@@ -1197,10 +1220,19 @@ final class WPCPM_Institution_Import_Form {
 	/**
 	 * Leave a message and go back to the dashboard.
 	 *
+	 * `$record` is the institution the press acted on: the one the page resolved, or the one the
+	 * batch belongs to, and never the switcher the form happened to carry. It is added to the
+	 * address for a viewer who holds `CAP_MANAGE` and for nobody else, because
+	 * `resolve_institution()` reads the argument on that branch alone: an administrator comes
+	 * back to the institution they were viewing instead of to the first one with a member, and
+	 * a member's address is what it always was. A press with no institution to name, such as one
+	 * on a batch that is gone, passes none.
+	 *
 	 * @param string $status What happened.
 	 * @param array  $extra  Anything the message needs, such as the batch to open.
+	 * @param string $record Institutions record ID the press acted on, or ''.
 	 */
-	private static function leave( $status, array $extra = array() ) {
+	private static function leave( $status, array $extra = array(), $record = '' ) {
 		WPCPM_Flash::set(
 			self::FLASH,
 			array_merge( array( 'status' => (string) $status ), $extra )
@@ -1212,6 +1244,10 @@ final class WPCPM_Institution_Import_Form {
 			$url = add_query_arg( self::ARG_BATCH, (int) $extra['batch'], $url );
 		}
 
+		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record ), $url );
+		}
+
 		wp_safe_redirect( $url . '#wpcpm-import' );
 		exit;
 	}
@@ -1221,9 +1257,10 @@ final class WPCPM_Institution_Import_Form {
 	 *
 	 * @param string $status Why.
 	 * @param array  $detail Anything the sentence needs.
+	 * @param string $record Institutions record ID the press acted on, or ''; see `leave()`.
 	 */
-	private static function bounce( $status, array $detail = array() ) {
-		self::leave( $status, empty( $detail ) ? array() : array( 'detail' => $detail ) );
+	private static function bounce( $status, array $detail = array(), $record = '' ) {
+		self::leave( $status, empty( $detail ) ? array() : array( 'detail' => $detail ), $record );
 	}
 
 	/**

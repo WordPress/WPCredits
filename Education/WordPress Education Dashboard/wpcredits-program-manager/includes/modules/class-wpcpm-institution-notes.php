@@ -532,19 +532,23 @@ class WPCPM_Institution_Notes {
 		$name    = $student instanceof WP_User ? (string) $student->display_name : '';
 
 		// `private`, like every note: see `WPCPM_Mentor_Notes::register_post_type()`. A
-		// `publish` row here handed out the member's login through `?author=N`.
+		// `publish` row here handed out the member's login through `?author=N`. The note and
+		// the name are written as slashed copies (`wp_slash()`): core unslashes what it is
+		// handed and both were read unslashed, so a backslash would otherwise go.
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => WPCPM_Mentor_Notes::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $note,
-				'post_title'   => sprintf(
-					/* translators: 1: student name, 2: date and time. */
-					__( 'Institution note on %1$s - %2$s', 'wpcredits-program-manager' ),
-					'' !== $name ? $name : $record,
-					wp_date( 'Y-m-d H:i' )
-				),
+			wp_slash(
+				array(
+					'post_type'    => WPCPM_Mentor_Notes::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_content' => $note,
+					'post_title'   => sprintf(
+						/* translators: 1: student name, 2: date and time. */
+						__( 'Institution note on %1$s - %2$s', 'wpcredits-program-manager' ),
+						'' !== $name ? $name : $record,
+						wp_date( 'Y-m-d H:i' )
+					),
+				)
 			),
 			true
 		);
@@ -558,7 +562,7 @@ class WPCPM_Institution_Notes {
 		update_post_meta( $post_id, self::META_INSTITUTION, $institution );
 
 		if ( '' !== $name ) {
-			update_post_meta( $post_id, WPCPM_Mentor_Notes::META_STUDENT_NAME, $name );
+			update_post_meta( $post_id, WPCPM_Mentor_Notes::META_STUDENT_NAME, wp_slash( $name ) );
 		}
 
 		self::log( self::KIND_NOTE_ADDED, $decision, $subject, $record, (int) $post_id, $student_id );

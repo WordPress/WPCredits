@@ -124,7 +124,8 @@ class WP_Post {
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
-function __( $s, $d = null ) { return $s; }
+// A translation where a check sets one, the string itself otherwise.
+function __( $s, $d = null ) { return isset( $GLOBALS['translations'][ $s ] ) ? $GLOBALS['translations'][ $s ] : $s; }
 function _x( $s, $c = '', $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
@@ -279,12 +280,14 @@ function get_user_by( $by, $value ) {
 }
 function get_users( $args = array() ) { return array(); }
 
+// As core writes a post: `wp_insert_post()` unslashes the fields it is handed (and
+// `wp_update_post()` hands it what it was handed), so a field written as given loses a backslash.
 function wp_insert_post( $args, $error = false ) {
 	$id   = ++$GLOBALS['next_id'];
 	$post = new WP_Post();
 
 	foreach ( (array) $args as $key => $value ) {
-		if ( property_exists( $post, $key ) ) { $post->$key = $value; }
+		if ( property_exists( $post, $key ) ) { $post->$key = stripslashes_deep( $value ); }
 	}
 
 	$post->ID                = $id;
@@ -306,7 +309,7 @@ function wp_update_post( $args, $error = false ) {
 
 	foreach ( (array) $args as $key => $value ) {
 		if ( 'ID' !== $key && property_exists( $GLOBALS['posts'][ $id ], $key ) ) {
-			$GLOBALS['posts'][ $id ]->$key = $value;
+			$GLOBALS['posts'][ $id ]->$key = stripslashes_deep( $value );
 		}
 	}
 
@@ -314,7 +317,41 @@ function wp_update_post( $args, $error = false ) {
 	// copy of the form stale rather than merely equal.
 	$GLOBALS['posts'][ $id ]->post_modified_gmt = gmdate( 'Y-m-d H:i:s', $GLOBALS['modified']++ );
 
+	// Only where a check asks for it, so no other block's post IDs move: a revision filed as core
+	// files one from inside this call, holding the fields as they now stand and each meta key
+	// registered with `revisions_enabled`, copied the way `_wp_copy_post_meta()` copies it.
+	if ( ! empty( $GLOBALS['file_revisions'] ) && 'revision' !== $GLOBALS['posts'][ $id ]->post_type ) {
+		$revision = wp_insert_post(
+			wp_slash(
+				array(
+					'post_type'    => 'revision',
+					'post_status'  => 'inherit',
+					'post_parent'  => $id,
+					'post_title'   => $GLOBALS['posts'][ $id ]->post_title,
+					'post_content' => $GLOBALS['posts'][ $id ]->post_content,
+				)
+			)
+		);
+
+		foreach ( revisioned_keys( $GLOBALS['posts'][ $id ]->post_type ) as $key ) {
+			if ( isset( $GLOBALS['pmeta'][ $id ][ $key ] ) ) {
+				add_post_meta( $revision, $key, wp_slash( get_post_meta( $id, $key, true ) ) );
+			}
+		}
+	}
+
 	return $id;
+}
+
+/** The meta keys a post type registered with `revisions_enabled`, as core lists them. */
+function revisioned_keys( $type ) {
+	$keys = array();
+
+	foreach ( isset( $GLOBALS['post_meta'][ $type ] ) ? (array) $GLOBALS['post_meta'][ $type ] : array() as $key => $args ) {
+		if ( ! empty( $args['revisions_enabled'] ) ) { $keys[] = $key; }
+	}
+
+	return $keys;
 }
 
 function get_post( $id = null ) {
@@ -345,7 +382,8 @@ function date_i18n( $format, $stamp = false, $gmt = false ) { return gmdate( (st
 function wp_list_pluck( $list, $field ) { return array_column( (array) $list, $field ); }
 function get_permalink( $id = 0 ) { return 'https://example.test/?p=' . (int) $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ] ); return true; }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core writes it, the same as user meta above: every string unslashed, at any depth.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function add_post_meta( $id, $k, $v, $unique = false ) { return update_post_meta( $id, $k, $v ); }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function get_post_meta( $id, $k = '', $single = false ) {
@@ -391,7 +429,41 @@ function register_post_type( $type, $args = array() ) { $GLOBALS['post_types'][ 
 function register_post_meta( $type, $key, $args = array() ) { $GLOBALS['post_meta'][ $type ][ $key ] = $args; return true; }
 function wp_get_post_revisions( $id, $args = array() ) { return array(); }
 function wp_get_post_revision( $id ) { $p = get_post( $id ); return ( $p && 'revision' === $p->post_type ) ? $p : null; }
-function wp_restore_post_revision( $id ) { $GLOBALS['restored'][] = (int) $id; $p = get_post( $id ); return $p ? (int) $p->post_parent : false; }
+/**
+ * Core's restore, as far as it writes: the revision's fields go back through `wp_update_post()`
+ * slashed ("since data is from DB"), and each revisioned meta key is cleared and copied back with
+ * `wp_slash()`. So a restore brings back exactly what the revision holds.
+ */
+function wp_restore_post_revision( $id ) {
+	$GLOBALS['restored'][] = (int) $id;
+	$p = get_post( $id );
+
+	if ( ! $p ) { return false; }
+
+	$parent = (int) $p->post_parent;
+
+	if ( 'revision' === $p->post_type && isset( $GLOBALS['posts'][ $parent ] ) ) {
+		wp_update_post(
+			wp_slash(
+				array(
+					'ID'           => $parent,
+					'post_title'   => $p->post_title,
+					'post_content' => $p->post_content,
+				)
+			)
+		);
+
+		foreach ( revisioned_keys( $GLOBALS['posts'][ $parent ]->post_type ) as $key ) {
+			delete_post_meta( $parent, $key );
+
+			if ( isset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ) ) {
+				add_post_meta( $parent, $key, wp_slash( get_post_meta( $id, $key, true ) ) );
+			}
+		}
+	}
+
+	return $parent;
+}
 
 function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
 	$html = '<input type="hidden" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />';
@@ -2448,6 +2520,92 @@ $GLOBALS['manage'] = $prev_manage;
 $kept = WPCPM_Semester_Report::choices( get_post( $e_post ) );
 ck( 'and an unticked box on a form that drew the quote does exclude it', empty( $kept[ $ewa_quote ]['include'] ), true );
 
+echo "\n=== What was typed is what is kept, backslashes and all ===\n";
+
+/**
+ * The newest revision of a post, or 0.
+ *
+ * @param int $parent Post ID.
+ * @return int
+ */
+function latest_revision( $parent ) {
+	$found = 0;
+
+	foreach ( $GLOBALS['posts'] as $id => $post ) {
+		if ( 'revision' === $post->post_type && (int) $parent === (int) $post->post_parent ) { $found = max( $found, (int) $id ); }
+	}
+
+	return $found;
+}
+
+// Post meta and `wp_update_post()` unslash what they are handed, as core's do (the stand-ins above),
+// and what the form posts arrives unslashed: so a paragraph, a translation and the plain-text body
+// keep a backslash only if the save hands core a slashed copy. A refused save hands back the words
+// from the stash, and a restore puts back what the revision holds, which is what the save stored.
+$typed         = 'Kept in C:\drafts\semester, two in a row \\\\ here, and a "quoted" word.';
+$typed_refused = 'Refused from C:\drafts\later, two more \\\\ of them, and "another" quote.';
+$prev_manage   = $GLOBALS['manage'];
+$prev_acting   = $GLOBALS['acting'];
+
+$GLOBALS['manage']         = true;
+$GLOBALS['transients']     = array();
+$GLOBALS['file_revisions'] = true;
+
+$typed_form  = form_fields( form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) );
+$typed_areas = array_keys( $typed_form['textareas'] );
+$typed_area  = $typed_areas[0];
+$typed_box   = 'quote_translation_' . sanitize_key( $ewa_quote );
+
+ck( 'the form has a translation box for the quote, so the check below is about one', isset( $typed_form['textareas'][ $typed_box ] ), true );
+
+$typed_post = $typed_form['fields'];
+set_posted( $typed_post, $typed_area, $typed );
+set_posted( $typed_post, $typed_box, $typed );
+set_posted( $typed_post, 'quote_include_' . sanitize_key( $ewa_quote ), '1' );
+
+$_POST = $typed_post;
+$_GET  = array();
+run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+
+$typed_revision = latest_revision( $e_post );
+$kept_sections  = array_column( WPCPM_Semester_Report::narratives( get_post( $e_post ) ), 'text' );
+$kept_choices   = WPCPM_Semester_Report::choices( get_post( $e_post ) );
+
+ck( 'an ordinary save keeps the paragraph exactly as typed', in_array( $typed, $kept_sections, true ), true );
+ck( 'and the translation', isset( $kept_choices[ $ewa_quote ]['translation'] ) ? $kept_choices[ $ewa_quote ]['translation'] : null, $typed );
+ck( 'and the plain-text body the revision screen compares', has( get_post( $e_post )->post_content, $typed ), true );
+ck( 'and the form drawn next hands the paragraph back whole', form_fields( form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) )['textareas'][ $typed_area ], $typed );
+
+// The same copy of the form again, now stale: refused, and the words come back from the stash.
+set_posted( $typed_post, $typed_area, $typed_refused );
+$_POST = $typed_post;
+run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+
+ck( 'a refused save hands back exactly what was typed', form_fields( form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) )['textareas'][ $typed_area ], $typed_refused );
+ck( 'and stores none of it', in_array( $typed, array_column( WPCPM_Semester_Report::narratives( get_post( $e_post ) ), 'text' ), true ), true );
+
+// A later version with no backslash in it, then the earlier one restored.
+$later_post = form_fields( form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) )['fields'];
+set_posted( $later_post, $typed_area, 'A later version.' );
+set_posted( $later_post, $typed_box, 'A later translation.' );
+set_posted( $later_post, 'quote_include_' . sanitize_key( $ewa_quote ), '1' );
+$_POST = $later_post;
+run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+
+ck( 'the later version is the one stored', in_array( 'A later version.', array_column( WPCPM_Semester_Report::narratives( get_post( $e_post ) ), 'text' ), true ), true );
+ck( 'the earlier version was filed as a revision', $typed_revision > 0 && $typed_revision !== latest_revision( $e_post ), true );
+ck( 'restoring it is allowed', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $typed_revision ) ), 'restored' );
+
+$kept_choices = WPCPM_Semester_Report::choices( get_post( $e_post ) );
+
+ck( 'a restore brings the paragraph back exactly as typed', in_array( $typed, array_column( WPCPM_Semester_Report::narratives( get_post( $e_post ) ), 'text' ), true ), true );
+ck( 'and the translation', isset( $kept_choices[ $ewa_quote ]['translation'] ) ? $kept_choices[ $ewa_quote ]['translation'] : null, $typed );
+ck( 'and the plain-text body', has( get_post( $e_post )->post_content, $typed ), true );
+
+$GLOBALS['file_revisions'] = false;
+$GLOBALS['manage']         = $prev_manage;
+$GLOBALS['acting']         = $prev_acting;
+
 // One answer for "not yours" and "not here", on every POST handler, not only print.
 function flash_status_after( $action, array $post ) {
 	$GLOBALS['flash'] = array();
@@ -3134,6 +3292,259 @@ foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
 
 ck( 'at least one field belongs to a single track, or the check above proves nothing', count( $track_only ) > 0, true );
 ck( 'and every one of those is in the merge', array_values( array_diff( $track_only, array_keys( $have_labels ) ) ), array() );
+
+echo "\n=== What the base holds is what the report keeps ===\n";
+
+// The snapshot is the base's words byte for byte, and the title carries the institution's name:
+// both go through post meta and `wp_insert_post()`, which unslash what they are handed, so a
+// backslash the base holds survives only a slashed write. So does a translation, through the
+// model's own save, a regeneration over the stored report and a consent re-read, and a
+// regeneration drops a translation whose quote reads back changed.
+$F       = 'recINSTF000000006';
+$f_name  = 'Instituto "Norte" C:\campus, two \\\\ in a row';
+$f_says  = 'Built in C:\drafts\wp, two in a row \\\\ again, and a "quoted" line.';
+$f_typed = 'Translated in C:\drafts\es, two more \\\\ of them, and "comillas".';
+
+$GLOBALS['manage']          = true;
+$GLOBALS['acting']          = '';
+$GLOBALS['uid']             = 3;
+$GLOBALS['transients']      = array();
+$GLOBALS['fail_table']      = '';
+$GLOBALS['inst_rows'][ $F ] = array( 'record_id' => $F, 'name' => $f_name, 'stage' => 'Confirmed' );
+$GLOBALS['index'][ $F ]     = array(
+	'read' => 1756900006,
+	'rows' => array(
+		'recSTUF0000000001' => row( 'recSTUF0000000001', 'Zofia Slash', 'In Sensei', '2026-02-01', array( 'institution' => $F, 'user_id' => 61 ) ),
+	),
+);
+$GLOBALS['rows']['tblFeedback'][] = feedback_row( 'recFDBF0000000001', 'zofia.slash@example.test', 'Zofia Slash', array( $F ), 'Yes, with my name', 'Yes, with my name', $f_says );
+
+$f_post  = WPCPM_Semester_Report::generate( $F, $COHORT );
+$f_quote = report_id_of( 'zofia.slash@example.test' );
+
+/** The fixture student's quote as the stored snapshot holds it, or null. */
+function f_said( $post_id, $quote ) {
+	$entry = entry_by_id( WPCPM_Semester_Report::snapshot( get_post( $post_id ) )['quotes'], $quote );
+	return is_array( $entry ) ? $entry['text'] : null;
+}
+
+/** The fixture quote's stored translation, or null. */
+function f_translated( $post_id, $quote ) {
+	$choices = WPCPM_Semester_Report::choices( get_post( $post_id ) );
+	return isset( $choices[ $quote ]['translation'] ) ? $choices[ $quote ]['translation'] : null;
+}
+
+ck( 'a new report is written', is_int( $f_post ) && $f_post > 0, true );
+ck( 'it keeps the student\'s words exactly as the base holds them', f_said( $f_post, $f_quote ), $f_says );
+ck( 'and is titled with the institution\'s name exactly', has( get_post( $f_post )->post_title, $f_name ), true );
+
+WPCPM_Semester_Report::save(
+	get_post( $f_post ),
+	array( 'overview' => array( 'text' => $f_typed ) ),
+	array( $f_quote => array( 'include' => true, 'translation' => $f_typed, 'show_name' => true ) )
+);
+
+ck( 'the model\'s own save keeps a narrative exactly', WPCPM_Semester_Report::narratives( get_post( $f_post ) )['overview']['text'], $f_typed );
+ck( 'and a translation', f_translated( $f_post, $f_quote ), $f_typed );
+ck( 'and the plain-text body', has( get_post( $f_post )->post_content, $f_typed ), true );
+
+$GLOBALS['transients'] = array();
+WPCPM_Semester_Report::generate( $F, $COHORT );
+
+ck( 'a regeneration over it keeps the student\'s words', f_said( $f_post, $f_quote ), $f_says );
+ck( 'and the translation of words that did not change', f_translated( $f_post, $f_quote ), $f_typed );
+ck( 'and the title', has( get_post( $f_post )->post_title, $f_name ), true );
+
+$GLOBALS['transients'] = array();
+WPCPM_Semester_Report::refresh_consent( get_post( $f_post ) );
+
+ck( 'a consent re-read keeps the student\'s words', f_said( $f_post, $f_quote ), $f_says );
+ck( 'and the translation', f_translated( $f_post, $f_quote ), $f_typed );
+
+// A new report's sections hold the default narratives, and a translation of one may hold a
+// backslash: the sections keep it as the plain-text body beside them does.
+$G                          = 'recINSTG000000007';
+$g_default                  = WPCPM_Semester_Report::sections()['overview']['default'];
+$g_translated               = 'Programa C:\drafts, two \\\\ in a row, "traducido".';
+$GLOBALS['translations']    = array( $g_default => $g_translated );
+$GLOBALS['transients']      = array();
+$GLOBALS['inst_rows'][ $G ] = array( 'record_id' => $G, 'name' => 'Instituto Gamma', 'stage' => 'Confirmed' );
+$GLOBALS['index'][ $G ]     = array(
+	'read' => 1756900007,
+	'rows' => array(
+		'recSTUG0000000001' => row( 'recSTUG0000000001', 'Gil Gamma', 'In Sensei', '2026-02-01', array( 'institution' => $G, 'user_id' => 71 ) ),
+	),
+);
+$g_post                  = WPCPM_Semester_Report::generate( $G, $COHORT );
+$GLOBALS['translations'] = array();
+
+ck( 'a new report\'s default narrative keeps a translation\'s backslashes', is_int( $g_post ) ? WPCPM_Semester_Report::narratives( get_post( $g_post ) )['overview']['text'] : null, $g_translated );
+ck( 'as its plain-text body does', is_int( $g_post ) && has( get_post( $g_post )->post_content, $g_translated ), true );
+
+echo "\n=== An administrator's press returns to the institution they were viewing ===\n";
+
+// The switcher is what puts an administrator on an institution's page, and the page they are
+// sent back to after a press has to carry it again: without it `resolve_institution()` falls
+// through to the first institution with a member, and the next press lands on a school nobody
+// chose. The institution is the one the press acted on - the report's own, or the one the
+// handler resolved - and never the posted switcher, which these presses post as another school.
+
+/**
+ * Where a press left to, after posting `$post` with `$get` on the query string.
+ *
+ * @param string $action The `admin_post_` action name.
+ * @param array  $post   What the form posts.
+ * @param array  $get    What the address carries.
+ * @return string The redirect, or '' when the handler did not leave.
+ */
+function leaves_to( $action, array $post, array $get = array() ) {
+	$GLOBALS['flash'] = array();
+	$_POST            = $post;
+	$_GET             = $get;
+
+	run_handler( $action );
+
+	return (string) $GLOBALS['redirect'];
+}
+
+/** Whether an address sends the reader to this institution through the switcher. */
+function views( $url, $record ) {
+	return has( $url, WPCPM_Institution_Roster::ARG_VIEW . '=' . $record );
+}
+
+/** The status the last press flashed. */
+function said_last() {
+	$got = isset( $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ] ) ? $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ] : array();
+
+	return is_array( $got ) && isset( $got['status'] ) ? (string) $got['status'] : '';
+}
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_LOG ]             = array();
+$GLOBALS['transients']      = array();
+$GLOBALS['ceiling']         = array();
+$GLOBALS['mail']            = array();
+$GLOBALS['restored']        = array();
+$GLOBALS['manage']          = true;
+$GLOBALS['uid']             = 3;
+$GLOBALS['index'][ $A ]     = array( 'read' => 1756000000, 'rows' => $finished );
+$GLOBALS['index'][ $B ]     = array( 'read' => 1756000000, 'rows' => $finished );
+
+// The dashboard's own generate button. Its handler resolves the institution the way the page
+// did (the stand-in answers with `$GLOBALS['acting']`), and the posted switcher says another.
+$GLOBALS['acting'] = $A;
+$other_view        = array( WPCPM_Institution_Roster::ARG_VIEW => $B );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => $COHORT ) + $other_view, $other_view );
+ck( 'generating: the report is written for the institution the handler resolved', WPCPM_Semester_Report::find( $A, $COHORT ) instanceof WP_Post, true );
+ck( 'an administrator comes back to that institution', views( $went, $A ), true );
+ck( 'and never to the one the posted switcher named', has( $went, $B ), false );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => $COHORT ) + $other_view, $other_view );
+ck( 'generating again says the report is there', said_last(), 'already-generated' );
+ck( 'and still comes back to that institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => 'none' ) + $other_view, $other_view );
+ck( 'a refusal of the semester says so', said_last(), 'bad-cohort' );
+ck( 'and comes back to that institution as well', views( $went, $A ) && ! has( $went, $B ), true );
+
+// Two reports, A's and B's, and an administrator pressing on A's with B's switcher posted along.
+$GLOBALS['acting'] = '';
+$a_post            = WPCPM_Semester_Report::find( $A, $COHORT );
+$b_post            = get_post( WPCPM_Semester_Report::generate( $B, $COHORT ) );
+
+ck( 'the two reports are two posts', $a_post instanceof WP_Post && $b_post instanceof WP_Post && $a_post->ID !== $b_post->ID, true );
+
+$editor = screen_html( $A, $COHORT );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_SAVE ) )['fields'] + $other_view, $other_view );
+ck( 'saving says it saved', said_last(), 'saved' );
+ck( 'and an administrator comes back to the report\'s own institution', views( $went, $A ), true );
+ck( 'never to the one the posted switcher named', has( $went, $B ), false );
+ck( 'on the semester they were reading', has( $went, 'wpcpm_report=' . $COHORT ), true );
+
+// The same copy of the form again is stale: the refusal comes back to the same place.
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_SAVE ) )['fields'] + $other_view, $other_view );
+ck( 'a stale save is refused', said_last(), 'stale' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+$editor = screen_html( $A, $COHORT );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT ) )['fields'] + $other_view, $other_view );
+ck( 'checking the students\' answers again says so', said_last(), 'consent-refreshed' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_APPROVE, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_APPROVE ) )['fields'] + $other_view, $other_view );
+ck( 'approving says so', said_last(), 'approved' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_APPROVE, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_APPROVE ) )['fields'] + $other_view, $other_view );
+ck( 'approving twice is refused', said_last(), 'is-approved' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+$editor = screen_html( $A, $COHORT );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_REOPEN, form_fields( form_for( $editor, WPCPM_Semester_Report_Screen::ACTION_REOPEN ) )['fields'] + $other_view, $other_view );
+ck( 'reopening says the report is a draft again', said_last(), 'reopened' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ), true );
+ck( 'never to the one the posted switcher named', has( $went, $B ), false );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_REOPEN, array( 'report' => $a_post->ID ) + $other_view, $other_view );
+ck( 'reopening a draft is refused', said_last(), 'not-approved' );
+ck( 'and comes back to the report\'s own institution', views( $went, $A ) && ! has( $went, $B ), true );
+
+// A restore names a revision; the report, and so the institution, is the revision's parent.
+$rev_of_a = wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'inherit', 'post_parent' => $a_post->ID ) );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_of_a ) + $other_view, $other_view );
+ck( 'putting a version back says so', said_last(), 'restored' );
+ck( 'and comes back to the institution the revision\'s report belongs to', views( $went, $A ), true );
+ck( 'never to the one the posted switcher named', has( $went, $B ), false );
+
+// The two presses that already carried the argument, held to the same account.
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_ASK, array( 'report' => $a_post->ID ) + $other_view, $other_view );
+ck( 'asking the students leaves a message', '' !== said_last(), true );
+ck( 'and comes back to the report\'s own institution, as it always did', views( $went, $A ) && ! has( $went, $B ), true );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $A, 'cohort' => $COHORT ) + $other_view, $other_view );
+ck( 'drafting an existing semester says the report is there', said_last(), 'draft-exists' );
+ck( 'and comes back to the institution the form named', views( $went, $A ) && ! has( $went, $B ), true );
+
+// Somebody the policy lets in who does not hold the capability gets the address as it was: no
+// argument, so nothing about where they go depends on a value they posted. (The policy stand-in
+// reads any non-empty `manage` as a manager's ground; the capability stand-in reads the list.)
+$GLOBALS['manage'] = array( 99 );
+$GLOBALS['acting'] = $A;
+$GLOBALS['uid']    = 7;
+
+ck( 'the account is not a manager', current_user_can( WPCPM_Roles::CAP_MANAGE ), false );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => '2025-H2' ) + $other_view, $other_view );
+ck( 'generating, without the capability, still leaves', '' !== $went, true );
+ck( 'with no switcher argument at all', has( $went, WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => 'none' ) + $other_view, $other_view );
+ck( 'and so does its refusal', has( $went, WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+foreach ( array(
+	'save'    => WPCPM_Semester_Report_Screen::ACTION_SAVE,
+	'refresh' => WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT,
+	'approve' => WPCPM_Semester_Report_Screen::ACTION_APPROVE,
+	'reopen'  => WPCPM_Semester_Report_Screen::ACTION_REOPEN,
+) as $what => $action ) {
+	$went = leaves_to( $action, array( 'report' => $a_post->ID, 'modified' => (string) get_post( $a_post->ID )->post_modified_gmt ) + $other_view, $other_view );
+	ck( $what . ': without the capability the address has no switcher argument', '' !== $went && ! has( $went, WPCPM_Institution_Roster::ARG_VIEW ), true );
+}
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_of_a ) + $other_view, $other_view );
+ck( 'restore: without the capability the address has no switcher argument', '' !== $went && ! has( $went, WPCPM_Institution_Roster::ARG_VIEW ), true );
+
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 3;
+$_POST             = array();
+$_GET              = array();
 
 echo "\n=== House rules ===\n";
 

@@ -409,7 +409,8 @@ class WPCPM_Institution_Request {
 		$kind        = (string) get_post_meta( $post_id, self::META_KIND, true );
 
 		update_post_meta( $post_id, self::META_STATE, $state );
-		update_post_meta( $post_id, self::META_NOTE, $note );
+		// Slashed, because post meta unslashes what it is handed and the note is not.
+		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 		update_post_meta( $post_id, self::META_CLOSED_AT, time() );
 
 		$message = self::STATE_DONE === $state

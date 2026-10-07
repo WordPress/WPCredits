@@ -46,6 +46,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - **Mentor names.** A mentor is a volunteer who agreed to mentor, not to be listed in a
  *   university's semester report.
  *
+ * **Every write of words is a slashed copy (`wp_slash()`).** Post meta and `wp_insert_post()`
+ * unslash what they are handed, and what reaches them here is unslashed already: the base's
+ * words, the institution's name, a narrative or a translation somebody typed, and a new
+ * report's default narratives. Written as it stands, a quote would lose a backslash it holds
+ * in the base, and a regeneration would then drop the translation of a quote whose stored
+ * words no longer match the base's.
+ *
  * All static, no state. Every decision that turns rows into a document lives in a pure function
  * that takes arrays and returns arrays (`shape_reports_rows()`, `shape_feedback_rows()`,
  * `assemble()`, `consent_view()`), so the joining rules can be driven from fixtures without a
@@ -611,15 +618,17 @@ final class WPCPM_Semester_Report {
 		$post_id    = (int) $post->ID;
 		$narratives = self::shape_narratives( $narratives );
 
-		update_post_meta( $post_id, self::META_SECTIONS, $narratives );
-		update_post_meta( $post_id, self::META_CHOICES, self::shape_choices( $choices ) );
+		update_post_meta( $post_id, self::META_SECTIONS, wp_slash( $narratives ) );
+		update_post_meta( $post_id, self::META_CHOICES, wp_slash( self::shape_choices( $choices ) ) );
 
 		$updated = wp_update_post(
-			array(
-				'ID'           => $post_id,
-				// The narrative as words, so the revision diff screen shows a paragraph that
-				// changed instead of two serialised arrays. Nothing reads it back.
-				'post_content' => self::narrative_text( $narratives ),
+			wp_slash(
+				array(
+					'ID'           => $post_id,
+					// The narrative as words, so the revision diff screen shows a paragraph that
+					// changed instead of two serialised arrays. Nothing reads it back.
+					'post_content' => self::narrative_text( $narratives ),
+				)
 			),
 			true
 		);
@@ -1270,12 +1279,12 @@ final class WPCPM_Semester_Report {
 			$post_id  = (int) $post->ID;
 			$previous = self::snapshot( $post );
 
-			update_post_meta( $post_id, self::META_DATA, $snapshot );
+			update_post_meta( $post_id, self::META_DATA, wp_slash( $snapshot ) );
 			update_post_meta( $post_id, self::META_GENERATED, (int) $snapshot['generated'] );
 			update_post_meta(
 				$post_id,
 				self::META_CHOICES,
-				self::prune_choices( self::choices( $post ), $snapshot['quotes'], isset( $previous['quotes'] ) ? $previous['quotes'] : array() )
+				wp_slash( self::prune_choices( self::choices( $post ), $snapshot['quotes'], isset( $previous['quotes'] ) ? $previous['quotes'] : array() ) )
 			);
 
 			// The title is rewritten because an institution can be renamed in Airtable, and the
@@ -1283,9 +1292,11 @@ final class WPCPM_Semester_Report {
 			// anybody who has the editing screen open: that is exactly what the stale-save
 			// check on `post_modified_gmt` is there to notice.
 			$updated = wp_update_post(
-				array(
-					'ID'         => $post_id,
-					'post_title' => $title,
+				wp_slash(
+					array(
+						'ID'         => $post_id,
+						'post_title' => $title,
+					)
 				),
 				true
 			);
@@ -1296,12 +1307,14 @@ final class WPCPM_Semester_Report {
 		$narratives = self::shape_narratives( array() );
 
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_title'   => $title,
-				'post_content' => self::narrative_text( $narratives ),
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_title'   => $title,
+					'post_content' => self::narrative_text( $narratives ),
+				)
 			),
 			true
 		);
@@ -1318,8 +1331,8 @@ final class WPCPM_Semester_Report {
 
 		update_post_meta( $post_id, self::META_INSTITUTION, $institution );
 		update_post_meta( $post_id, self::META_COHORT, $cohort );
-		update_post_meta( $post_id, self::META_DATA, $snapshot );
-		update_post_meta( $post_id, self::META_SECTIONS, $narratives );
+		update_post_meta( $post_id, self::META_DATA, wp_slash( $snapshot ) );
+		update_post_meta( $post_id, self::META_SECTIONS, wp_slash( $narratives ) );
 		update_post_meta( $post_id, self::META_CHOICES, array() );
 		update_post_meta( $post_id, self::META_GENERATED, (int) $snapshot['generated'] );
 		update_post_meta( $post_id, self::META_STATE, self::STATE_DRAFT );
@@ -2829,8 +2842,8 @@ final class WPCPM_Semester_Report {
 		// the post's modified time does not move: a student withdrawing is not an edit by
 		// anybody at the institution, and it must not read as one in the history or refuse the
 		// next save as stale.
-		update_post_meta( $post_id, self::META_DATA, $snapshot );
-		update_post_meta( $post_id, self::META_CHOICES, self::prune_choices( self::choices( $post ), $snapshot['quotes'], $previous ) );
+		update_post_meta( $post_id, self::META_DATA, wp_slash( $snapshot ) );
+		update_post_meta( $post_id, self::META_CHOICES, wp_slash( self::prune_choices( self::choices( $post ), $snapshot['quotes'], $previous ) ) );
 
 		return $post_id;
 	}

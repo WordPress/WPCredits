@@ -98,8 +98,11 @@ function wp_insert_post( $args, $e = false ) {
 }
 function wp_delete_post( $id, $f = false ) { $g = isset( $GLOBALS['posts'][ (int) $id ] ); unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return $g; }
 function get_post( $id ) { return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null; }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function get_post_meta( $id, $k, $s = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function get_posts( $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
@@ -1094,6 +1097,17 @@ WPCPM_Institutions::$gated = array();
 ck( 'and the same batch creates once the item is ticked again',
     array() !== WPCPM_Institution_Create::fields_for( $batch, $batch['rows'][0], 0 ),
     true );
+
+echo "\n=== A name keeps its backslashes through a slice ===\n";
+
+// Post meta unslashes what it is handed, as core's does, and the rows are written back after each
+// one is created: a name keeps a backslash only when every write of the rows is a slashed copy.
+fresh();
+$typed_name = 'Anna C:\drafts, two \\\\ in a row, "Kowalska"';
+$batch_id   = stage( $HERE, array( row( 2, $typed_name, 'anna@institution-3.example' ) ) );
+WPCPM_Institution_Create::create_slice( $batch_id );
+ck( 'the row was created', WPCPM_Institution_Create::state_of( rows_of( $batch_id )[0] ), 'created' );
+ck( 'and keeps the name exactly as the file held it', rows_of( $batch_id )[0]['name'], $typed_name );
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

@@ -160,10 +160,11 @@ function add_option( $k, $v, $x = '', $a = null ) {
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta stand-ins that unslash what they are handed as core's do: the flash and
+// every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 
 function get_post_meta( $id, $key = '', $single = false ) {
@@ -171,8 +172,9 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	if ( $single ) { return $rows ? $rows[0] : ''; }
 	return $rows;
 }
-function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth.
+function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 
 function wp_insert_post( $a, $error = false ) {
 	if ( ! empty( $GLOBALS['post_fail'] ) ) {
@@ -1229,6 +1231,18 @@ $_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = str_repeat( "\u{00e9}", 260 );
 WPCPM_Agreement_Generate::generate();
 
 ck( 'a long name is cut in characters, not bytes', mb_strlen( (string) get_post_meta( 500, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, true ) ), WPCPM_Agreement_Generate::MAX_NAME );
+
+// Post meta unslashes what it is handed, as core's does, and the name is read from the form
+// unslashed: it keeps a backslash only when it is written as a slashed copy.
+reset_world();
+seed_index( 'recMEMBEROWN00001' );
+sign_in( 31, false, 'recMEMBEROWN00001' );
+$typed_name = 'Universidad C:\drafts, two \\\\ in a row, "Sede Norte"';
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = $typed_name;
+
+WPCPM_Agreement_Generate::generate();
+
+ck( 'the name on the document is kept exactly as typed', get_post_meta( 500, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, true ), $typed_name );
 
 /* ---- the handler: T2's From set ----------------------------------------- */
 

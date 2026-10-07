@@ -1257,7 +1257,11 @@ class WPCPM_Institution_People {
 	 * Manage members view of the institution the outcome is about (`manager_url()`), the list
 	 * the press changed; anything else is the institution dashboard, reached as an array
 	 * callable so this file loads and its tests run whether or not the dashboard shell has
-	 * landed yet.
+	 * landed yet. On the dashboard an administrator comes back to the institution the outcome
+	 * is about, through the switcher argument, because `resolve_institution()` would otherwise
+	 * put them on the first institution with a member; that argument is added for a viewer who
+	 * holds `CAP_MANAGE` and for nobody else, and the institution is the subject's own, never
+	 * the switcher a form posted.
 	 *
 	 * **This does not return.** Every call to it ends the request, which is why a refusal in a
 	 * handler above reads as one line and not as an early return with a branch around it.
@@ -1294,7 +1298,13 @@ class WPCPM_Institution_People {
 			exit;
 		}
 
-		wp_safe_redirect( self::dashboard_url() . '#' . self::ANCHOR );
+		$url = self::dashboard_url();
+
+		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url );
+		}
+
+		wp_safe_redirect( $url . '#' . self::ANCHOR );
 		exit;
 	}
 

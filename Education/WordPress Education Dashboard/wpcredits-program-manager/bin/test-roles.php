@@ -197,6 +197,20 @@ function toolbar() {
 	return $out;
 }
 
+// Each page is named by its product name for everyone, a manager included: the page a manager
+// opens is titled Student Report Card or Mentor Report Card like anybody's, and whose it is is
+// the `own` flag's to say, and on the page the switcher's.
+$GLOBALS['own']['student'] = true;
+ck( 'a student gets the Student Report Card, as theirs', toolbar(), array( 'wpcpm-student-dashboard|Student Report Card|own' ) );
+$GLOBALS['own']['student'] = false;
+$GLOBALS['own']['mentor']  = true;
+ck( 'a mentor gets the Mentor Report Card, as theirs', toolbar(), array( 'wpcpm-mentor-dashboard|Mentor Report Card|own' ) );
+$GLOBALS['own']['mentor'] = false;
+$GLOBALS['can_manage']    = true;
+ck( 'and a manager gets both, by the same names, as somebody else\'s',
+    toolbar(),
+    array( 'wpcpm-student-dashboard|Student Report Card|other', 'wpcpm-mentor-dashboard|Mentor Report Card|other' ) );
+
 // The institution dashboard is a later class in the same module, and this suite loads
 // neither it nor the loader, so this is the real "not installed yet" state, asserted before
 // anything declares the stand-in. A guard that only *looks* right is a menu item that
@@ -204,7 +218,7 @@ function toolbar() {
 $GLOBALS['can_manage'] = true;
 ck( 'without the institution dashboard class the toolbar holds the two it always had',
     toolbar(),
-    array( 'wpcpm-student-dashboard|Student Dashboard|other', 'wpcpm-mentor-dashboard|Mentor Dashboard|other' ) );
+    array( 'wpcpm-student-dashboard|Student Report Card|other', 'wpcpm-mentor-dashboard|Mentor Report Card|other' ) );
 
 $GLOBALS['can_manage']         = false;
 $GLOBALS['own']['institution'] = true;
@@ -230,8 +244,8 @@ $GLOBALS['can_manage']         = true;
 ck( 'a manager gets all three, and is told the institution one is not theirs',
     toolbar(),
     array(
-        'wpcpm-student-dashboard|Student Dashboard|other',
-        'wpcpm-mentor-dashboard|Mentor Dashboard|other',
+        'wpcpm-student-dashboard|Student Report Card|other',
+        'wpcpm-mentor-dashboard|Mentor Report Card|other',
         'wpcpm-institution-dashboard|Institution Dashboard|other',
     ) );
 
@@ -240,7 +254,7 @@ ck( 'a manager gets all three, and is told the institution one is not theirs',
 $GLOBALS['pages']['institution'] = '';
 ck( 'no page, no entry, not even for a manager',
     toolbar(),
-    array( 'wpcpm-student-dashboard|Student Dashboard|other', 'wpcpm-mentor-dashboard|Mentor Dashboard|other' ) );
+    array( 'wpcpm-student-dashboard|Student Report Card|other', 'wpcpm-mentor-dashboard|Mentor Report Card|other' ) );
 
 $GLOBALS['pages']['institution'] = 'https://example.test/institution-dashboard/';
 $GLOBALS['can_manage']           = false;

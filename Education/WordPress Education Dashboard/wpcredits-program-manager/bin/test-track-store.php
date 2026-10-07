@@ -1648,6 +1648,19 @@ ck( 'compile() indexes the track under its status and sets nothing aside, and ne
 		),
 	) );
 
+echo "\n=== A log line keeps the column names it carries ===\n";
+
+// Post meta unslashes what it is handed, as WordPress does (the stand-in above), and the columns a
+// publish logs are question names a manager typed: the log keeps a backslash only when it is
+// written as a slashed copy.
+$typed_column = 'Notes C:\drafts, two \\\\ in a row, "kept"';
+$logged       = WPCPM_Track_Store::create( track( 'Logged Track', 'logged' ) );
+WPCPM_Track_Store::log( $logged, 'columns', 5, array( 'columns' => array( $typed_column ) ) );
+$logged_line = WPCPM_Track_Store::log_entries( $logged );
+$logged_line = end( $logged_line );
+
+ck( 'a logged column name reads back exactly as it was named', $logged_line['detail']['columns'] ?? null, array( $typed_column ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

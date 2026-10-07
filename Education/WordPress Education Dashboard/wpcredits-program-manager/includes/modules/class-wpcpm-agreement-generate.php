@@ -735,7 +735,8 @@ class WPCPM_Agreement_Generate {
 		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_KIND, WPCPM_Institution_Agreement::KIND_TEMPLATE );
 		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_LANGUAGE, $language );
 		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_TEMPLATE_VERSION, $version );
-		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, $name );
+		// Slashed, because post meta unslashes what it is handed and the typed name is not.
+		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, wp_slash( $name ) );
 		update_post_meta( $post_id, WPCPM_Institution_Agreement::META_DECIDED_BY, get_current_user_id() );
 
 		add_post_meta(

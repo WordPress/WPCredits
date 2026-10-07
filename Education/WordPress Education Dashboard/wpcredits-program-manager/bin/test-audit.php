@@ -37,13 +37,18 @@ function register_post_type() {}
 $GLOBALS['posts'] = array();
 $GLOBALS['pmeta'] = array();
 $GLOBALS['next']  = 100;
+// As core's insert: the fields unslashed, so words reach it as slashed copies.
 function wp_insert_post( array $a, $wp_error = false ) {
 	$id = $GLOBALS['next']++;
+	$a = stripslashes_deep( $a );
 	$a['ID'] = $id;
 	$GLOBALS['posts'][ $id ] = new WP_Post( $a );
 	return $id;
 }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ $id ][ $k ] ) ? $GLOBALS['pmeta'][ $id ][ $k ] : ''; }
 function wp_delete_post( $id ) { unset( $GLOBALS['posts'][ $id ], $GLOBALS['pmeta'][ $id ] ); }
 // Enough of get_posts() for the readers: post type, status, numberposts, a meta_query of
@@ -124,8 +129,18 @@ ck( 'and every kind when none is named', count( WPCPM_Institution_Audit::sponsor
 ck( 'capped', count( WPCPM_Institution_Audit::sponsor_entries( '', 2 ) ), 2 );
 ck( 'and none of them is the institution row', in_array( $I, array_column( WPCPM_Institution_Audit::sponsor_entries(), 'institution' ), true ), false );
 
+echo "\n=== A row's words keep their backslashes ===\n";
+// The message goes into `wp_insert_post()` and the data into post meta, which unslash what they
+// are handed, as core's do: a typed note or a name a row carries keeps a backslash only when both
+// are written as slashed copies.
+$typed = 'Filed in C:\drafts\log, two \\\\ in a row, under "kept".';
+$typed_row = WPCPM_Institution_Audit::record( array_merge( $base, array( 'kind' => 'note_added', 'institution' => $I, 'message' => $typed, 'data' => array( 'name' => $typed ) ) ) );
+$typed_entry = WPCPM_Institution_Audit::entries_for( $I )[0];
+ck( 'a row\'s message is kept exactly as written', $typed_entry['message'], $typed );
+ck( 'and so are the words in its data', $typed_entry['data']['name'] ?? null, $typed );
+
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash in the class', preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php' ) ), 0 );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 21 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 23 );
 exit( $fail ? 1 : 0 );

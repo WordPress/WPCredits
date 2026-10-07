@@ -97,8 +97,10 @@ function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 // Valid UTF-8 comes back as it went in, as core's does; the request reader's column names need it.
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function wp_unslash( $v ) { return $v; }
-// Slashing is not modeled here, either way: `update_post_meta()` below keeps what it is handed.
-function wp_slash( $v ) { return $v; }
+// Core's own, beside meta and post stand-ins that unslash what they are handed as core's do: the
+// flash and every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_kses_post( $s ) { return $s; }
 // The two the Settings screen needs as well, drawn whole for the BUILDER-3 check below.
@@ -214,7 +216,7 @@ function get_users( $a = array() ) {
 	return array_values( $GLOBALS['users'] );
 }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 function delete_metadata() { return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 /**
@@ -259,9 +261,10 @@ function wp_insert_post( $a, $err = false ) {
 	$p->ID = $id;
 	$p->post_type = $a['post_type'] ?? '';
 	$p->post_status = $a['post_status'] ?? 'publish';
-	$p->post_content = $a['post_content'] ?? '';
+	// The words unslashed, as core's insert unslashes them.
+	$p->post_content = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$p->post_author = $a['post_author'] ?? 0;
-	$p->post_title = $a['post_title'] ?? '';
+	$p->post_title = stripslashes( (string) ( $a['post_title'] ?? '' ) );
 	$GLOBALS['posts'][ $id ] = $p;
 	return $id;
 }
@@ -299,7 +302,7 @@ function wp_update_post( $a, $err = false ) {
 	$id = (int) ( $a['ID'] ?? 0 );
 	if ( ! isset( $GLOBALS['posts'][ $id ] ) ) { return 0; }
 	foreach ( array( 'post_content', 'post_title', 'post_status' ) as $field ) {
-		if ( isset( $a[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = $a[ $field ]; }
+		if ( isset( $a[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = stripslashes( (string) $a[ $field ] ); }
 	}
 	return $id;
 }
@@ -321,9 +324,10 @@ function get_post_meta( $id, $k, $single = false ) {
 
 	return '' === $v ? array() : array( $v );
 }
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// As core's: what is written is unslashed first, at any depth.
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 // Repeated rows, as WordPress keeps them: the attendee list of a group session is one row a student.
-function add_post_meta( $id, $k, $v, $unique = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array(); $rows[] = $v; $GLOBALS['pmeta'][ (int) $id ][ $k ] = $rows; $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] = true; return true; }
+function add_post_meta( $id, $k, $v, $unique = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array(); $rows[] = stripslashes_deep( $v ); $GLOBALS['pmeta'][ (int) $id ][ $k ] = $rows; $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] = true; return true; }
 // When a call was booked: now, unless a check says otherwise in `$GLOBALS['booked_at']`, as the
 // reminder sweep's checks do - a call booked inside the reminder window is not reminded at all.
 function get_post_time( $f, $gmt = false, $p = null ) { return ( is_object( $p ) && isset( $GLOBALS['booked_at'][ $p->ID ] ) ) ? $GLOBALS['booked_at'][ $p->ID ] : time(); }
@@ -3048,6 +3052,82 @@ check( 'while the question pressed is still refused on its own hours error, and 
     array( 'error', 'Intruder: Total hours holds the Hours question alone. The Student Report Card draws that group as the hours box, which shows nothing else, so this question would reach no student. Put it in Onboarding, Project or Wrap-up.', 'success', array() ) );
 
 unset( $GLOBALS['posts'][ $repair_saved ], $GLOBALS['pmeta'][ $repair_saved ], $GLOBALS['posts'][ $repair_removed ], $GLOBALS['pmeta'][ $repair_removed ] );
+$_POST = array();
+
+echo "\n=== Words keep their backslashes ===\n";
+
+// Post meta, `wp_insert_post()` and `wp_update_post()` unslash what they are handed, as core's do
+// (the stand-ins above), and a topic, a note or a student's name reaches them unslashed: each keeps
+// a backslash only when it is written as a slashed copy. A student of their own, so the one call
+// each student may hold is not taken from the fixtures above.
+$typed      = 'Bring C:\drafts\plan.txt, two \\\\ in a row, and the "first" patch';
+$typed_edit = 'Moved to C:\drafts\later, two more \\\\ of them, and "office hours"';
+$typed_name = 'Zoe C:\drafts, two \\\\ in a row, "Slash"';
+
+/**
+ * The newest post of one type, or null.
+ *
+ * @param string $type Post type.
+ * @return WP_Post|null
+ */
+function newest_of( $type ) {
+	$found = null;
+
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( $type === $post->post_type && ( null === $found || $post->ID > $found->ID ) ) { $found = $post; }
+	}
+
+	return $found;
+}
+
+$GLOBALS['query_result'] = array();
+$GLOBALS['users'][32]    = new WP_User( 32, 'Zoe Slash', 'zoe@example.test' );
+$GLOBALS['users'][32]->roles = array( WPCPM_Roles::ROLE_STUDENT );
+$GLOBALS['umeta'][32][ WPCPM_Students_Sync::META_RECORD_ID ] = 'recSTUDENT7654321';
+$GLOBALS['umeta'][32][ WPCPM_Students_Sync::META_MENTOR ]    = array( 'record_id' => $mentor_rec, 'name' => 'Mia Mentor' );
+$GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ][]  = array( 'record_id' => 'recSTUDENT7654321', 'name' => $typed_name, 'is_past' => false, 'email' => 'zoe@example.test' );
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ]     = $mentor_schedule;
+
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$typed_slots     = WPCPM_Mentor_Availability::slots( 20 );
+$_POST           = array( 'student' => 32, 'start' => $typed_slots[0]['start'], 'topic' => $typed );
+run( 'handle_book (a topic and a name holding backslashes)', array( 'WPCPM_Mentor_Calls', 'handle_book' ) );
+$typed_call = newest_of( WPCPM_Mentor_Calls::POST_TYPE );
+
+check( 'a booked call keeps the topic exactly as typed', $typed_call ? $typed_call->post_content : null, $typed );
+check( 'and the student\'s name, on the call and in its title',
+    array( $typed_call ? get_post_meta( $typed_call->ID, WPCPM_Mentor_Calls::META_NAME, true ) : null, $typed_call && false !== strpos( $typed_call->post_title, $typed_name ) ),
+    array( $typed_name, true ) );
+
+$GLOBALS['uid']  = 20;
+$GLOBALS['caps'] = false;
+$_POST           = array( 'mentor' => 20, 'date' => weeks_on( 31 ), 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'topic' => $typed );
+run( 'handle_create (a topic holding backslashes)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$typed_session = newest_of( WPCPM_Mentor_Calls::POST_TYPE );
+
+check( 'a planned session keeps the topic exactly as typed', $typed_session ? $typed_session->post_content : null, $typed );
+
+$_POST = array( 'session' => $typed_session ? $typed_session->ID : 0, 'date' => weeks_on( 31 ), 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'topic' => $typed_edit );
+run( 'handle_edit (a topic holding backslashes)', array( 'WPCPM_Group_Sessions', 'handle_edit' ) );
+
+check( 'and an edited one the new topic', $typed_session ? get_post( $typed_session->ID )->post_content : null, $typed_edit );
+
+$_POST = array( 'student' => $student_rec, 'mentor' => 20, 'note' => $typed, 'student_name' => $typed_name );
+run( 'handle_add (a note and a name holding backslashes)', array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+$typed_note = newest_of( WPCPM_Mentor_Notes::POST_TYPE );
+
+check( 'a mentor\'s note is kept exactly as typed', $typed_note ? $typed_note->post_content : null, $typed );
+check( 'and the student\'s name beside it, and in its title',
+    array( $typed_note ? get_post_meta( $typed_note->ID, WPCPM_Mentor_Notes::META_STUDENT_NAME, true ) : null, $typed_note && false !== strpos( $typed_note->post_title, $typed_name ) ),
+    array( $typed_name, true ) );
+
+$_POST = array( 'mentor' => 20, 'availability' => array( 'timezone' => 'UTC', 'note' => $typed ) );
+run( 'handle_save (a schedule note holding backslashes)', array( 'WPCPM_Mentor_Availability', 'handle_save' ) );
+$typed_schedule = get_user_meta( 20, WPCPM_Mentor_Availability::META, true );
+
+check( 'a mentor\'s schedule note is kept exactly as typed', is_array( $typed_schedule ) ? $typed_schedule['note'] : null, $typed );
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $mentor_schedule;
 $_POST = array();
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL HANDLERS REACHED A NORMAL OUTCOME\n" );

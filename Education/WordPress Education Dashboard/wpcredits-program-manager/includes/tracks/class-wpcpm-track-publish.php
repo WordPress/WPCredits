@@ -798,7 +798,8 @@ final class WPCPM_Track_Publish {
 			return;
 		}
 
-		update_post_meta( (int) $post_id, self::META_RUN, array( 'columns' => array_values( $columns ) ) );
+		// Slashed: the column names are a manager's typing, and post meta unslashes what it is handed.
+		update_post_meta( (int) $post_id, self::META_RUN, wp_slash( array( 'columns' => array_values( $columns ) ) ) );
 	}
 
 	/**

@@ -2003,6 +2003,10 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Store one submission and everything known about it.
 	 *
+	 * The words are written as slashed copies (`wp_slash()`): `wp_insert_post()` and post meta
+	 * unslash what they are handed, and the answers and the browser's name were read unslashed,
+	 * so a backslash in them would otherwise be gone.
+	 *
 	 * @param array  $values  Cleaned values, keyed by Airtable column name.
 	 * @param string $state   One of the `STATE_*` values.
 	 * @param array  $signals Why it is in that state.
@@ -2018,16 +2022,18 @@ class WPCPM_Sponsor_Application {
 		}
 
 		$post_id = wp_insert_post(
-			array(
-				'post_type'   => self::POST_TYPE,
-				'post_status' => 'private',
-				// Nobody, always, and on purpose. The handler is on `admin_post_` as well as
-				// `admin_post_nopriv_`, so a manager can post the form; core takes the author
-				// it is given, and a row authored by a manager would read on every screen as
-				// though they were the applicant. The applicant is the address on the row.
-				// FANON-6 found this comment claiming the opposite of what the literal does.
-				'post_author' => 0,
-				'post_title'  => '' !== $name ? $name : __( 'Application with no name', 'wpcredits-program-manager' ),
+			wp_slash(
+				array(
+					'post_type'   => self::POST_TYPE,
+					'post_status' => 'private',
+					// Nobody, always, and on purpose. The handler is on `admin_post_` as well as
+					// `admin_post_nopriv_`, so a manager can post the form; core takes the author
+					// it is given, and a row authored by a manager would read on every screen as
+					// though they were the applicant. The applicant is the address on the row.
+					// FANON-6 found this comment claiming the opposite of what the literal does.
+					'post_author' => 0,
+					'post_title'  => '' !== $name ? $name : __( 'Application with no name', 'wpcredits-program-manager' ),
+				)
 			),
 			true
 		);
@@ -2039,10 +2045,10 @@ class WPCPM_Sponsor_Application {
 		$post_id = (int) $post_id;
 		$specs   = self::fields();
 
-		update_post_meta( $post_id, self::META_FIELDS, $fields );
+		update_post_meta( $post_id, self::META_FIELDS, wp_slash( $fields ) );
 		update_post_meta( $post_id, self::META_STATE, $state );
 		update_post_meta( $post_id, self::META_REFERENCE, self::reference( $post_id ) );
-		update_post_meta( $post_id, self::META_CONSENT, WPCPM_Form_Guard::consent_evidence( (string) $specs[ self::COL_CONSENT ]['label'] ) );
+		update_post_meta( $post_id, self::META_CONSENT, wp_slash( WPCPM_Form_Guard::consent_evidence( (string) $specs[ self::COL_CONSENT ]['label'] ) ) );
 		update_post_meta( $post_id, self::META_SIGNALS, array_values( array_unique( $signals ) ) );
 		update_post_meta( $post_id, self::META_EMAIL, '' !== $email ? wp_hash( mb_strtolower( $email ) ) : '' );
 		update_post_meta(
@@ -2063,7 +2069,7 @@ class WPCPM_Sponsor_Application {
 	 * Append one row to an application's event log.
 	 *
 	 * Repeating meta rather than one array, so two writes in the same second cannot lose each
-	 * other's row.
+	 * other's row. Written as a slashed copy, as `store()` writes, so a note keeps a backslash.
 	 *
 	 * @param int    $post_id Application post ID.
 	 * @param string $event   What happened, as a short slug or phrase.
@@ -2074,11 +2080,13 @@ class WPCPM_Sponsor_Application {
 		add_post_meta(
 			(int) $post_id,
 			self::META_EVENT,
-			array(
-				'event' => sanitize_text_field( (string) $event ),
-				'at'    => time(),
-				'actor' => absint( $actor ),
-				'note'  => sanitize_textarea_field( (string) $note ),
+			wp_slash(
+				array(
+					'event' => sanitize_text_field( (string) $event ),
+					'at'    => time(),
+					'actor' => absint( $actor ),
+					'note'  => sanitize_textarea_field( (string) $note ),
+				)
 			)
 		);
 

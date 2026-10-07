@@ -193,6 +193,9 @@ class WPCPM_Institution_Audit {
 	 * the meta is the record: WordPress substitutes the current user for an empty author, and a
 	 * sync running under cron has none.
 	 *
+	 * The post and the data are written as slashed copies (`wp_slash()`): core unslashes what it
+	 * is handed, and a message or data built around a typed note or a name is unslashed.
+	 *
 	 * @param array  $entry    The entry, its record already validated by the caller.
 	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
 	 * @param string $record   The record ID the row is about.
@@ -224,18 +227,20 @@ class WPCPM_Institution_Audit {
 		$data    = self::clean_data( isset( $entry['data'] ) && is_array( $entry['data'] ) ? $entry['data'] : array(), 1 );
 
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => $actor,
-				'post_content' => $message,
-				'post_title'   => sprintf(
-					/* translators: 1: event kind, 2: the record ID the row is about, 3: date and time. */
-					__( '%1$s on %2$s - %3$s', 'wpcredits-program-manager' ),
-					$kind,
-					$record,
-					wp_date( 'Y-m-d H:i' )
-				),
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => $actor,
+					'post_content' => $message,
+					'post_title'   => sprintf(
+						/* translators: 1: event kind, 2: the record ID the row is about, 3: date and time. */
+						__( '%1$s on %2$s - %3$s', 'wpcredits-program-manager' ),
+						$kind,
+						$record,
+						wp_date( 'Y-m-d H:i' )
+					),
+				)
 			),
 			true
 		);
@@ -250,7 +255,7 @@ class WPCPM_Institution_Audit {
 		update_post_meta( $post_id, self::META_ACTOR, $actor );
 		update_post_meta( $post_id, self::META_GROUND, $ground );
 		update_post_meta( $post_id, self::META_EVIDENCE, $evidence );
-		update_post_meta( $post_id, self::META_DATA, $data );
+		update_post_meta( $post_id, self::META_DATA, wp_slash( $data ) );
 
 		return (int) $post_id;
 	}

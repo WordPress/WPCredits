@@ -167,8 +167,9 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	if ( $single ) { return $rows ? $rows[0] : ''; }
 	return $rows;
 }
-function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth.
+function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
 
 function wp_insert_post( $a, $error = false ) {
@@ -270,10 +271,11 @@ function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside meta stand-ins that unslash what they are handed as core's do: the flash and
+// every write of words hand them a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function wp_get_referer() { return '' !== $GLOBALS['referer'] ? $GLOBALS['referer'] : false; }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonces'][] = $a; return true; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }
@@ -3015,6 +3017,28 @@ ck( 'the institutions sync, which runs every three hours, is what calls it, behi
 	false !== strpos( $sync_src, "method_exists( 'WPCPM_Institution_Agreement', 'retry_airtable' )" ),
 	false !== strpos( method_body( $sync_src, 'phase_revoke' ), 'self::retry_agreements( $state )' ),
 ), array( true, true ) );
+
+echo "\n=== A note and a version keep their backslashes ===\n";
+
+// Post meta unslashes what it is handed, as core's does, and what reaches these writes is
+// unslashed already: a note read from the form, the version the base holds. Each keeps a
+// backslash only when it is written as a slashed copy.
+$typed_note    = 'Page 3 is in C:\drafts\scans, two \\\\ in a row, and the rector\'s "final" copy.';
+$typed_version = 'v2 C:\drafts, two \\\\ in a row, "final"';
+
+$id                            = review_world();
+$_POST['wpcpm_agreement_note'] = $typed_note;
+ck( 'a return with a note holding backslashes goes through', run( 'handle_return' ), 'agreement-returned' );
+ck( 'and the note is kept exactly as typed', get_post_meta( $id, '_wpcpm_agr_note', true ), $typed_note );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = $typed_note;
+ck( 'a revocation with one goes through', run( 'handle_revoke' ), 'agreement-revoked' );
+ck( 'and its note is kept exactly as typed', get_post_meta( $id, '_wpcpm_agr_note', true ), $typed_note );
+
+reset_world();
+$option = WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'On file', $drive, array( 'kind' => 'Legacy', 'template_version' => $typed_version ) ) );
+ck( 'a legacy row from the base keeps the template version it holds exactly', get_post_meta( $option['agreement_id'], '_wpcpm_agr_template_version', true ), $typed_version );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

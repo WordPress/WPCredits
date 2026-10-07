@@ -560,8 +560,10 @@ class WPCPM_Sponsor_Posts {
 			}
 		}
 
+		// The name as a slashed copy: core unslashes a term's name, and the company's name is
+		// the base's, read unslashed. The slug is `sanitize_title()`'s, which core reads as given.
 		$made = wp_insert_term(
-			$name,
+			wp_slash( $name ),
 			'category',
 			array(
 				'slug'   => $slug,
@@ -615,7 +617,9 @@ class WPCPM_Sponsor_Posts {
 			$term_id = self::term_of( (string) $record );
 
 			if ( $term_id > 0 ) {
-				wp_update_term( $term_id, 'category', array( 'name' => $new ) );
+				// Slashed, as `ensure_terms()` hands it over: core merges the arguments with the
+				// stored term, which it slashes, and unslashes the name.
+				wp_update_term( $term_id, 'category', wp_slash( array( 'name' => $new ) ) );
 			}
 		}
 	}
@@ -1286,7 +1290,8 @@ class WPCPM_Sponsor_Posts {
 			self::leave( 'post-failed', $opened['record'] );
 		}
 
-		update_post_meta( $post->ID, self::META_RETURN_NOTE, $note );
+		// Slashed, because post meta unslashes what it is handed and the note is not.
+		update_post_meta( $post->ID, self::META_RETURN_NOTE, wp_slash( $note ) );
 		update_post_meta( $post->ID, self::META_RETURNED, time() );
 
 		$title = (string) $post->post_title;

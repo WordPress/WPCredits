@@ -115,10 +115,13 @@ function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; 
 function get_user_meta( $id, $key, $single = false ) {
 	return $GLOBALS['umeta'][ (int) $id ][ $key ] ?? '';
 }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
 function update_user_meta( $id, $key, $value ) {
-	$GLOBALS['umeta'][ (int) $id ][ $key ] = $value;
+	$GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value );
 	return true;
 }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
 
 /**
@@ -459,6 +462,26 @@ ck( 'a report with none of these five columns changes nothing',
     false );
 ck( 'and leaves the row as it was',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['team'], 'Core' );
+
+// User meta unslashes what it is handed, as core's does, and the answers carried over and the row
+// read back to forget a file are unslashed: each keeps a backslash only when the cached rows are
+// written as slashed copies.
+$typed_slack = '@rio C:\drafts, two \\\\ in a row, "dm me"';
+$typed_name  = 'Rio C:\drafts, two \\\\ in a row, "Example"';
+
+$id = seed( array( 'name' => 'Rio Example', 'slack' => '' ), array( 'name' => 'Rio Example' ) );
+WPCPM_Students_Sync::apply_report( $id, array( $fields['report_slack'] => $typed_slack ) );
+
+ck( 'a Slack name carried over from a report keeps its backslashes on the card row',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['slack'], $typed_slack );
+ck( 'and on the mentor\'s copy of that student',
+    $GLOBALS['umeta'][ $id + 1 ][ WPCPM_Mentors_Sync::META_MENTEES ][1]['slack'] ?? null, $typed_slack );
+
+$id = seed( array( 'name' => $typed_name, 'report_files' => array( 'Screenshot' => 1 ) ), array() );
+
+ck( 'a file is forgotten', WPCPM_Students_Sync::forget_report_file( $id, 'Screenshot' ), true );
+ck( 'and the rest of the row is written back exactly as it was',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['name'], $typed_name );
 
 echo "\n=== When the sync runs ===\n";
 

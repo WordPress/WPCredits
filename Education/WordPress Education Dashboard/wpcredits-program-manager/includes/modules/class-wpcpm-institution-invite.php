@@ -2014,7 +2014,12 @@ class WPCPM_Institution_Invite {
 	 * request, so no form can bounce a member somewhere else. The Institutions screen draws no
 	 * invitation control, but a post that carries `wpcpm_from=admin` lands where the People
 	 * class's presses on that screen do, on the institution's Manage members view
-	 * (`WPCPM_Institution_People::manager_url()`), which prints this channel for it.
+	 * (`WPCPM_Institution_People::manager_url()`), which prints this channel for it. On the
+	 * dashboard an administrator comes back to the institution the outcome is about, through
+	 * the switcher argument, because `resolve_institution()` would otherwise put them on the
+	 * first institution with a member; that argument is added for a viewer who holds
+	 * `CAP_MANAGE` and for nobody else, and the institution is the one the press acted on, never
+	 * the switcher a form posted.
 	 *
 	 * **This does not return.**
 	 *
@@ -2039,7 +2044,13 @@ class WPCPM_Institution_Invite {
 			exit;
 		}
 
-		wp_safe_redirect( self::dashboard_url() . $anchor );
+		$url = self::dashboard_url();
+
+		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url );
+		}
+
+		wp_safe_redirect( $url . $anchor );
 		exit;
 	}
 

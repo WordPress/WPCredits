@@ -183,13 +183,18 @@ final class WPCPM_Image_Upload {
 		// A temporary file that may already be gone; wp_delete_file() is a no-op either way.
 		wp_delete_file( $accepted['path'] );
 
+		// The arguments as a slashed copy: core hands them to `wp_insert_post()`, which unslashes
+		// them, and the title carries a company's name as it was read. The file is passed as it
+		// is, as core's own callers pass it.
 		$id = wp_insert_attachment(
-			array(
-				'post_mime_type' => $accepted['mime'],
-				'post_title'     => sanitize_text_field( (string) $title ),
-				'post_content'   => '',
-				'post_status'    => empty( $options['private'] ) ? 'inherit' : 'private',
-				'post_author'    => (int) $author,
+			wp_slash(
+				array(
+					'post_mime_type' => $accepted['mime'],
+					'post_title'     => sanitize_text_field( (string) $title ),
+					'post_content'   => '',
+					'post_status'    => empty( $options['private'] ) ? 'inherit' : 'private',
+					'post_author'    => (int) $author,
+				)
 			),
 			$dest,
 			0,

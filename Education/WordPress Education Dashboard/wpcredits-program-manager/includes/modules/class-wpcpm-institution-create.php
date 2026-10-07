@@ -1167,11 +1167,15 @@ final class WPCPM_Institution_Create {
 	 * makes a slice that is killed part way lose one row's worth of certainty instead of
 	 * twelve seconds of it.
 	 *
+	 * A slashed copy, as `WPCPM_Institution_Import::stage()` writes them: post meta unslashes what
+	 * it is handed, and these rows were read back unslashed, so every save would take one
+	 * backslash more out of a name.
+	 *
 	 * @param int   $batch_id Batch post ID.
 	 * @param array $rows     The rows.
 	 */
 	private static function save_rows( $batch_id, array $rows ) {
-		update_post_meta( (int) $batch_id, WPCPM_Institution_Import::META_ROWS, $rows );
+		update_post_meta( (int) $batch_id, WPCPM_Institution_Import::META_ROWS, wp_slash( $rows ) );
 	}
 
 	/**

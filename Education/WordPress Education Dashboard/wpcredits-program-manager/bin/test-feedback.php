@@ -83,10 +83,11 @@ function get_transient( $k ) { return $GLOBALS['opts'][ 'T_' . $k ] ?? false; }
 function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-// The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $v ) { return $v; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Core's own, beside a user meta stand-in that unslashes what it is handed as core's does: the
+// flash and the permissions stamp hand it a slashed copy, and it reads back as it was given.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function get_users( $a = array() ) { return array(); }
 function get_user_by( $f, $v ) { return new WP_User( (int) $v ); }
 function get_current_user_id() { return $GLOBALS['uid'] ?? 0; }
@@ -1087,6 +1088,17 @@ ck( 'and the page says why, rather than leaving grey boxes to be puzzled over',
 // permissions box is the one place an answer here reaches the institution.
 ck( 'the intro names the exception to "your institution does not see them"',
     false !== strpos( $own, 'The one exception is the permissions box' ), true );
+
+echo "\n=== The quote in the permissions box keeps its backslashes ===\n";
+
+// User meta unslashes what it is handed, as core's does, and the box is read unslashed (WordPress
+// hands it over slashed, as posted here): the stamp keeps a backslash only as a slashed copy.
+$share = 'F3 - May we share a quote about your experience publicly? If so, please share your thoughts below';
+$typed = 'I kept my notes in C:\drafts\wp, two \\\\ in a row, and called it "the patch".';
+
+unset( $GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions'] );
+ck( 'a save with the quote goes through', post_form( STUDENT, false, array_merge( $answers, array( $share => wp_slash( $typed ) ) ) ), 'feedback-saved' );
+ck( 'and the stamp keeps it exactly as typed', $GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions']['answers'][ $share ] ?? null, $typed );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

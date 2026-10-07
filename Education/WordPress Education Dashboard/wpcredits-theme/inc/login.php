@@ -9,7 +9,7 @@
  * "Lost your password?".
  *
  * Nothing changes how authentication works. The plugin already sends mentors to
- * "My Students" after login; this page only says so.
+ * their Mentor Report Card after login; this page only says so.
  *
  * @package WPCredits_Theme
  */
@@ -118,7 +118,7 @@ function wpcredits_login_message( $message ) {
 			'<p class="message wpc-login__signed-in">%1$s <a href="%2$s">%3$s</a></p>',
 			esc_html__( 'You are already logged in.', 'wpcredits-theme' ),
 			esc_url( $page ),
-			esc_html__( 'Open My Students', 'wpcredits-theme' )
+			esc_html__( 'Open your Mentor Report Card', 'wpcredits-theme' )
 		);
 	}
 

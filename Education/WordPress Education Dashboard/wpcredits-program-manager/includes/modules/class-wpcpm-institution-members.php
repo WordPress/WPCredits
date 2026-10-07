@@ -304,7 +304,8 @@ class WPCPM_Institution_Members {
 				'invite' => $invite_id,
 			)
 		);
-		update_user_meta( $user->ID, self::META_PROFILE, self::profile_of( $record_id ) );
+		// Slashed, because user meta unslashes what it is handed and the base's words are not.
+		update_user_meta( $user->ID, self::META_PROFILE, wp_slash( self::profile_of( $record_id ) ) );
 
 		if ( $readded ) {
 			delete_user_meta( $user->ID, self::META_RECORD_ID_WAS );

@@ -189,8 +189,11 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	if ( $single ) { return $rows ? $rows[0] : ''; }
 	return $rows;
 }
-function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
-function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
+function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value ); return true; }
+function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
+function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
 
 function wp_insert_post( $a, $error = false ) {
@@ -205,8 +208,9 @@ function wp_insert_post( $a, $error = false ) {
 	// WordPress runs a title through kses on the way in for anybody without `unfiltered_html`,
 	// which every applicant is, and kses normalizes a bare `&` to `&amp;`. Modeled here since
 	// the S5 fix wave, because the duplicate and in-base comparisons used to read this field
-	// and so missed every company with an ampersand in its name.
-	$post->post_title              = str_replace( '&', '&amp;', (string) ( $a['post_title'] ?? '' ) );
+	// and so missed every company with an ampersand in its name. Unslashed as core's insert
+	// unslashes it, so a title handed over as it stands loses a backslash.
+	$post->post_title              = str_replace( '&', '&amp;', stripslashes( (string) ( $a['post_title'] ?? '' ) ) );
 	$post->post_date               = gmdate( 'Y-m-d H:i:s', $GLOBALS['clock'] );
 	$post->post_modified_gmt       = $post->post_date;
 	$GLOBALS['clock']             += 60;
@@ -282,7 +286,8 @@ function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_
 function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) {
 	if ( ! empty( $GLOBALS['store_fails'] ) ) { return new WP_Error( 'wpcpm_test_attach', 'refused' ); }
 	$id = 200 + count( $GLOBALS['attachments'] );
-	$GLOBALS['attachments'][ $id ] = array_merge( $a, array( 'file' => $file ) );
+	// The arguments unslashed, as core's insert unslashes them; the file as it is handed over.
+	$GLOBALS['attachments'][ $id ] = array_merge( stripslashes_deep( $a ), array( 'file' => $file ) );
 	return $id;
 }
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
@@ -1970,6 +1975,31 @@ delete_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED );
 delete_option( WPCPM_Sponsor_Application::OPT_BACKFILL );
 WPCPM_Sponsor_Application::maybe_backfill_decided();
 ck( 'the one-time backfill stamps a decided row that predates the meta from its history, and marks itself done', array( (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, get_option( WPCPM_Sponsor_Application::OPT_BACKFILL ) ), array( true, 1 ) );
+
+echo "\n-- words keep their backslashes ------------------------------------------\n";
+
+// Post meta and `wp_insert_post()` unslash what they are handed, as core's do, and what the
+// form and the browser send is read unslashed (WordPress hands it over slashed, as posted here):
+// the title, the answers, the browser in the consent evidence and a manager's question keep a
+// backslash only when they are written as slashed copies.
+reset_world();
+$typed                      = 'Gadgets C:\drafts, two \\\\ in a row, "Quoted" Inc';
+$typed_agent                = 'Mozilla/5.0 (C:\drafts, two \\\\ in a row, "test")';
+$_SERVER['HTTP_USER_AGENT'] = wp_slash( $typed_agent );
+$sent                       = submit( wp_slash( answers( array( 'Company Name' => $typed, "Anything else you'd like to share." => $typed ) ) ) );
+$row                        = only_row();
+$fields                     = $row ? get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_FIELDS, true ) : array();
+
+ck( 'an application with backslashes in it is sent', $sent['outcome'], 'sent' );
+ck( 'its title is the company name exactly as typed', $row ? $row->post_title : null, $typed );
+ck( 'and the answers are stored exactly as typed', array( $fields['Company Name'] ?? null, $fields["Anything else you'd like to share."] ?? null ), array( $typed, $typed ) );
+ck( 'and so is the browser in the consent evidence', $row ? get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_CONSENT, true )['agent'] : null, $typed_agent );
+
+as_manager();
+$typed_question = 'Which plan sits in C:\drafts, two \\\\ in a row, and what does "students" mean?';
+decide( 'handle_info', $row->ID, array( 'wpcpm_question' => wp_slash( $typed_question ) ) );
+$events = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a manager\'s question is kept in the history exactly as typed', end( $events )['note'], $typed_question );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

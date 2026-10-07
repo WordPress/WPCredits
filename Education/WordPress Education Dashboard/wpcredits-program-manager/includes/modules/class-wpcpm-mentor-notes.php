@@ -382,18 +382,22 @@ class WPCPM_Mentor_Notes {
 
 		$name = isset( $_POST['student_name'] ) ? sanitize_text_field( wp_unslash( $_POST['student_name'] ) ) : '';
 
+		// The note and the name are written as slashed copies (`wp_slash()`): core unslashes what
+		// it is handed and both were read unslashed, so a backslash would otherwise go.
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $note,
-				'post_title'   => sprintf(
-					/* translators: 1: student name, 2: date and time. */
-					__( 'Note on %1$s - %2$s', 'wpcredits-program-manager' ),
-					'' !== $name ? $name : $student,
-					wp_date( 'Y-m-d H:i' )
-				),
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_content' => $note,
+					'post_title'   => sprintf(
+						/* translators: 1: student name, 2: date and time. */
+						__( 'Note on %1$s - %2$s', 'wpcredits-program-manager' ),
+						'' !== $name ? $name : $student,
+						wp_date( 'Y-m-d H:i' )
+					),
+				)
 			),
 			true
 		);
@@ -410,7 +414,7 @@ class WPCPM_Mentor_Notes {
 		update_post_meta( $post_id, self::META_AUDIENCE, self::AUDIENCE_MENTOR );
 
 		if ( '' !== $name ) {
-			update_post_meta( $post_id, self::META_STUDENT_NAME, $name );
+			update_post_meta( $post_id, self::META_STUDENT_NAME, wp_slash( $name ) );
 		}
 
 		self::redirect_back( $student, 'saved' );
@@ -463,18 +467,21 @@ class WPCPM_Mentor_Notes {
 			return new WP_Error( 'wpcpm_note_nobody', __( 'Nobody joined that session, so there is nobody to note.', 'wpcredits-program-manager' ) );
 		}
 
+		// A slashed copy, as `handle_add()` writes one.
 		$post_id = wp_insert_post(
-			array(
-				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $note,
-				'post_title'   => sprintf(
-					/* translators: 1: number of students, 2: date and time. */
-					__( 'Group session note, %1$s students - %2$s', 'wpcredits-program-manager' ),
-					number_format_i18n( count( $clean ) ),
-					wp_date( 'Y-m-d H:i' )
-				),
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_content' => $note,
+					'post_title'   => sprintf(
+						/* translators: 1: number of students, 2: date and time. */
+						__( 'Group session note, %1$s students - %2$s', 'wpcredits-program-manager' ),
+						number_format_i18n( count( $clean ) ),
+						wp_date( 'Y-m-d H:i' )
+					),
+				)
 			),
 			true
 		);

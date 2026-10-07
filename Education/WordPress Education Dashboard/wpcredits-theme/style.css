@@ -3,8 +3,8 @@ Theme Name: WPCredits
 Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
-Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.9
+Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
+Version: 1.24.10
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -87,18 +87,27 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 	--wpc-shadow-card: var( --wp--custom--shadow--card );
 	--wpc-shadow-float: var( --wp--custom--shadow--float );
 
-	/* The sticky bar's height - the reference site's 76px - so anything else that
-	   sticks knows where to stop. Kept here rather than in theme.json because it is
-	   a measurement the layout depends on, not a value anyone should be offered in
-	   the editor. */
+	/* The sticky bar's height on a wide window - the reference site's 76px. It is the
+	   bar's `min-height` above 640px, and only this constant can be, since a minimum fed
+	   by the bar's own measured height could only ever grow. It also stands in for the
+	   real height below until that has been measured. Kept here rather than in theme.json
+	   because it is a measurement the layout depends on, not a value anyone should be
+	   offered in the editor. */
 	--wpc-header-height: 76px;
 
+	/* The bar's real height. assets/js/header-height.js measures the header part, rounds the
+	   height up to a whole pixel and writes it here, inline on the root element, keeping it
+	   current as the bar changes height. Declared unset, so that before the script has run, and
+	   where it cannot, every rule that reads it falls back to the constant above:
+	   `var( --wpc-header-live, var( --wpc-header-height ) )`. */
+	--wpc-header-live: initial;
+
 	/* How far below the sticky bar's top edge an anchored heading, card or item lands, so the bar
-	   does not cover it: the bar's height and some air (the bar is taller than its 76px once its
-	   links wrap to a second row, which they do on a mid-width window). WordPress reserves the
-	   admin bar's own height above this for a signed-in reader. On a phone the bar is two to four
-	   rows tall, and the offset grows with it (below). */
-	--wpc-landing-offset: calc( var( --wpc-header-height ) + 28px );
+	   does not cover it: the bar's real height and 28px of air, so the offset grows with the bar
+	   when its links wrap to a second row on a mid-width window, and to two to four rows on a
+	   phone. WordPress reserves the admin bar's own height above this for a signed-in reader. A
+	   phone has its own stand-in for a bar not yet measured (below). */
+	--wpc-landing-offset: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + 28px );
 }
 
 /* ==========================================================================
@@ -184,7 +193,7 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* ==========================================================================
-   Site header - sticky white bar, 76px, centered navigation
+   Site header - sticky white bar, 76px or taller, centered navigation
    ========================================================================== */
 /* The bar sticks from its wrapper, not from itself.
 
@@ -262,12 +271,24 @@ body .skip-link.screen-reader-text:focus {
 	margin-block-start: 0;
 }
 
+/* One row while the brand and the group holding the navigation and the viewer chip fit side by
+   side inside the bar's gutters, and two where they do not. The group is never narrower than its
+   widest item, the chip, so where the chip will not sit whole beside the brand within the gutters
+   the group wraps to a row of its own under it, and every link keeps its whole label. With the
+   site's mark and name together about 340px wide that happens up to about 900px to a chip
+   carrying links to both pages, as an administrator's or a student-and-mentor's does, and up to
+   about 720px to a student's or a mentor's alone. Wider than that, and for a visitor at any
+   width, the bar is the one row it always was, and the row gap, which only shows between
+   wrapped rows, changes nothing. How a wrapped bar is spaced is further down, beside the
+   phone's two rows. */
 .wpc-header__inner {
-	gap: 40px;
+	column-gap: 40px;
+	flex-wrap: wrap;
 	margin: 0 auto;
 	max-width: var( --wpc-chrome-shell );
 	min-height: var( --wpc-header-height );
 	padding: 0 var( --wpc-chrome-gutter );
+	row-gap: 4px;
 	width: 100%;
 }
 
@@ -1104,7 +1125,7 @@ p.is-style-pill {
    ========================================================================== */
 @media ( max-width: 960px ) {
 	.wpc-header__inner {
-		gap: 16px;
+		column-gap: 16px;
 	}
 
 	/* Brand left, toggle right. */
@@ -1159,8 +1180,11 @@ p.is-style-pill {
 	}
 
 	/* The open panel drops under the bar rather than covering the screen, which is
-	   what the reference does. Pinned with `fixed` and the bar's own height: the
-	   header is sticky at the top, so the two always meet. */
+	   what the reference does. Pinned with `fixed` at the bar's real height, which
+	   assets/js/header-height.js keeps current: with the header stuck at the top of
+	   the window, the panel meets its lower edge however many rows the bar has.
+	   Until the bar has been measured the 76px constant stands in, and a taller bar
+	   overlaps the top of the panel. */
 	.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
 		background: var( --wpc-surface );
 		border-bottom: 1px solid var( --wpc-chrome-rule );
@@ -1170,18 +1194,19 @@ p.is-style-pill {
 		left: 0;
 		padding: 12px 24px 20px;
 		right: 0;
-		top: var( --wpc-header-height );
+		top: var( --wpc-header-live, var( --wpc-header-height ) );
 		z-index: 55;
 	}
 
-	/* The panel's offset adds the admin bar's height to the header's, so it moves down with the
-	   header stuck under the bar. The bar's height comes from `--wp-admin--admin-bar--height`,
-	   as it does in the header's own offset, and the fallback is the same: 32px, the desktop
-	   height, for a page where nothing has declared the variable. This rule places the panel
-	   from 641px to 960px. At 640px and below the panel is positioned against the header by the
-	   rules below, and at 600px and below there is no fixed bar to make room for. */
+	/* The panel's offset adds the admin bar's height to the header's real height, so it moves
+	   down with the header stuck under the bar. The bar's height comes from
+	   `--wp-admin--admin-bar--height`, as it does in the header's own offset, and the fallback is
+	   the same: 32px, the desktop height, for a page where nothing has declared the variable. This
+	   rule places the panel from 641px to 960px. At 640px and below the panel hangs off the header
+	   itself, as wide as it and at its foot (the rules below), and at 600px and below there is no
+	   fixed bar to make room for. */
 	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
-		top: calc( var( --wpc-header-height ) + var( --wp-admin--admin-bar--height, 32px ) );
+		top: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + var( --wp-admin--admin-bar--height, 32px ) );
 	}
 
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container {
@@ -1249,9 +1274,13 @@ p.is-style-pill {
 }
 
 @media ( max-width: 640px ) {
+	/* The landing offset is the bar's measured height and the same 28px of air here as at any
+	   other width. Only the stand-in for a bar not yet measured differs: the 76px constant would
+	   leave an anchored target under a bar two to four rows tall, so until the script has written
+	   the real height, and without it, a phone keeps the 208px it had, 180px of bar and the air. */
 	:root {
 		--wpc-chrome-gutter: 20px;
-		--wpc-landing-offset: 208px;
+		--wpc-landing-offset: calc( var( --wpc-header-live, 180px ) + 28px );
 	}
 
 	.wpc-brand__name {
@@ -1283,9 +1312,14 @@ p.is-style-pill {
 		min-width: 0;
 	}
 
+	/* The name may break onto a second line here, between words first and inside one only if a
+	   word alone is too wide: the wide bar's `nowrap` would otherwise keep it on one line past the
+	   window's edge on the narrowest phones. Wherever the name fits on one line, nothing
+	   changes. */
 	.wpc-brand__name {
 		min-width: 0;
 		overflow-wrap: anywhere;
+		white-space: normal;
 	}
 
 	.wpc-nav__center {
@@ -1302,12 +1336,22 @@ p.is-style-pill {
 		row-gap: 4px;
 	}
 
-	/* The dropdown hangs off the header itself rather than a fixed distance down the viewport.
-	 * `--wpc-header-height` is a constant, and the moment the bar is two rows tall the panel
-	 * either overlaps the header or floats below it. Anchoring to the element keeps them
-	 * together whatever the bar ends up being. */
+	/* The dropdown hangs off the header itself here rather than a fixed distance down the
+	 * viewport: the header is its containing block, so it is as wide as the header and its top
+	 * sits at the header's foot, over the bar's 1px rule, however tall the bar is, whether or not
+	 * the script has measured it, and for a signed-in reader as much as for anyone else.
+	 *
+	 * The navigation is made static for that. Core gives it `position: relative`, which would
+	 * make the 44px box around the menu button the containing block instead: a panel as narrow as
+	 * the button, its top at the navigation's foot, over whatever row of the bar lies below it.
+	 * Its submenus hang off their own items, which core positions, and a lone item shown inline
+	 * has nothing placed against the navigation, so neither moves. */
 	.wpc-header {
 		position: relative;
+	}
+
+	.wpc-header .wpc-nav.wp-block-navigation {
+		position: static;
 	}
 
 	.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open,
@@ -1331,15 +1375,30 @@ p.is-style-pill {
 	}
 }
 
+/* A bar that has wrapped above 640px, the brand on one row and the navigation and the viewer chip
+   under it, is spaced as the phone's two rows are: 10px above and below, 4px between rows, and the
+   second row starting under the brand. Only the browser knows whether the row has wrapped, so
+   assets/js/header-height.js marks the header `wpc-header--stacked` while it is; a bar on one row
+   never carries the class and keeps its own spacing. Without the script a wrapped bar keeps the
+   4px between the brand and the rest, with no padding above or below. */
+@media ( min-width: 641px ) {
+	.wpc-header--stacked .wpc-header__inner {
+		padding-bottom: 10px;
+		padding-top: 10px;
+	}
+
+	.wpc-header--stacked .wpc-nav__center {
+		justify-content: flex-start;
+		row-gap: 4px;
+	}
+}
+
 /* Below 600px WordPress stops fixing the admin bar, so the header has nothing to
-   make room for. */
+   make room for. The open panel has nothing to undo here either: from 640px down it
+   hangs off the header's own foot (above), admin bar or not. */
 @media screen and ( max-width: 600px ) {
 	.admin-bar .wpc-header-part {
 		top: 0;
-	}
-
-	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
-		top: var( --wpc-header-height );
 	}
 }
 

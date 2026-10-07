@@ -161,7 +161,9 @@ function get_user_by( $field, $value ) {
 /*
  * The part of core's `wp_insert_user()` that matters here, in its own order: the login checks, then
  * the `wp_pre_insert_user_data` filter, then the `empty_data` refusal when the filter returned
- * nothing usable, then the row.
+ * nothing usable, then the row. As core's, it expects its input slashed: the row's columns are
+ * unslashed (`wp_unslash( $compacted )`), and the nickname, the first and last name and the
+ * description go to user meta, which unslashes what it is handed.
  */
 function wp_insert_user( array $userdata ) {
 	static $next = 100;
@@ -178,8 +180,8 @@ function wp_insert_user( array $userdata ) {
 
 	$data = array(
 		'user_login'   => $login,
-		'user_email'   => (string) ( $userdata['user_email'] ?? '' ),
-		'display_name' => (string) ( $userdata['display_name'] ?? $login ),
+		'user_email'   => stripslashes( (string) ( $userdata['user_email'] ?? '' ) ),
+		'display_name' => stripslashes( (string) ( $userdata['display_name'] ?? $login ) ),
 	);
 
 	$data = apply_filters( 'wp_pre_insert_user_data', $data, false, null, $userdata );
@@ -193,11 +195,24 @@ function wp_insert_user( array $userdata ) {
 	$GLOBALS['users'][ $id ] = array(
 		'login' => $data['user_login'],
 		'email' => $data['user_email'],
+		'name'  => $data['display_name'],
 		'roles' => array( (string) ( $userdata['role'] ?? '' ) ),
 	);
 
+	// Core hashes the password exactly as it is handed and never unslashes it.
+	$GLOBALS['handed_pass'][ $id ] = $userdata['user_pass'] ?? null;
+
+	foreach ( array( 'nickname', 'first_name', 'last_name', 'description' ) as $key ) {
+		if ( isset( $userdata[ $key ] ) ) {
+			$GLOBALS['umeta'][ $id ][ $key ] = stripslashes( (string) $userdata[ $key ] );
+		}
+	}
+
 	return $id;
 }
+
+// Core's own: the helper hands `wp_insert_user()` a slashed copy.
+function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 
 /*
  * The host's callback, as it reads in /wordpress/mu-plugins/atomic-platform.php: nothing on an
@@ -305,6 +320,41 @@ $elsewhere = WPCPM_Roles::insert_user( mentor( 'nadia' ) );
 
 ck( 'on a host without the check the helper creates the account', is_int( $elsewhere ) && $elsewhere > 0, true );
 ck( 'and leaves the key filter empty as it found it', has_filter( 'atomic_bkismet_client_key' ), false );
+
+// --- The names reach the account as they were given.
+
+// A name is the base's or a form's, unslashed; core unslashes the row's columns and the user meta
+// it writes, so the helper hands it a slashed copy, once.
+$typed_name = 'Ola C:\drafts, two \\\\ in a row, "Mentor"';
+$typed_id   = WPCPM_Roles::insert_user(
+	array_merge(
+		mentor( 'ola' ),
+		array(
+			'display_name' => $typed_name,
+			'nickname'     => $typed_name,
+			'first_name'   => $typed_name,
+			'last_name'    => $typed_name,
+			'description'  => $typed_name,
+		)
+	)
+);
+
+ck( 'an account is created with a name holding backslashes and a quote', is_int( $typed_id ) && $typed_id > 0, true );
+ck( 'its display name is kept exactly', $GLOBALS['users'][ $typed_id ]['name'] ?? null, $typed_name );
+ck( 'and so are the nickname, the first and last name and the description',
+	array_values( $GLOBALS['umeta'][ $typed_id ] ?? array() ),
+	array( $typed_name, $typed_name, $typed_name, $typed_name ) );
+
+// The password goes over slashed with the rest. Core hashes it as it is handed, and its own sign-in
+// checks the posted password without unslashing it (`wp_signon()`), as `edit_user()` and
+// `reset_password()` hash the posted value as it arrives: a password typed with a quote or a
+// backslash signs in only if it was hashed slashed. Kept out of the slash, it never could.
+$typed_pass = "it's a \\ pass";
+$pass_id    = WPCPM_Roles::insert_user( array_merge( mentor( 'pia' ), array( 'user_pass' => $typed_pass ) ) );
+
+ck( 'a password holding a quote and a backslash is handed to core slashed, as its sign-in checks it',
+	$GLOBALS['handed_pass'][ $pass_id ] ?? null,
+	addslashes( $typed_pass ) );
 
 // --- Every account path in the plugin goes through the helper.
 

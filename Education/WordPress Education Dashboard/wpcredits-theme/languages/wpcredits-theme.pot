@@ -1,78 +1,99 @@
-# Copyright (C) 2026 WPCredits Theme
-# This file is distributed under the GPL-2.0-or-later license.
+# Copyright (C) 2026 Maciej Pilarski
+# This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Theme\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme/\n"
+"Project-Id-Version: WPCredits 1.24.10\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-02T09:27:17+00:00\n"
+"POT-Creation-Date: 2026-10-07T23:11:58+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: bin/make-pot.sh (GNU gettext)\n"
+"X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
+
+#. Theme Name of the theme
+#: style.css
+msgid "WPCredits"
+msgstr ""
+
+#. Theme URI of the theme
+#: style.css
+msgid "https://example.com/wpcredits-theme"
+msgstr ""
+
+#. Description of the theme
+#: style.css
+msgid "A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width \"Mentor Report Card\" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native."
+msgstr ""
+
+#. Author of the theme
+#: style.css
+msgid "Maciej Pilarski"
+msgstr ""
+
+#. Author URI of the theme
+#: style.css
+msgid "https://example.com"
+msgstr ""
+
 #: blocks/guide-toc/render.php:27
 msgid "On this page"
 msgstr ""
 
 #: blocks/handbook-launcher/render.php:28
+#: blocks/handbook-launcher/index.js:21
 msgid "Need help?"
 msgstr ""
 
-#: blocks/viewer-chip/render.php:27 inc/login.php:106
+#: blocks/viewer-chip/render.php:29
+#: inc/login.php:106
 msgid "Log in"
 msgstr ""
 
-#: blocks/viewer-chip/render.php:58
-msgid "My Program"
+#: blocks/viewer-chip/render.php:57
+msgid "Student Report Card"
 msgstr ""
 
-#: blocks/viewer-chip/render.php:59
-msgid "Student Dashboard"
+#: blocks/viewer-chip/render.php:67
+#: blocks/viewer-chip/index.js:24
+msgid "Mentor Report Card"
 msgstr ""
 
-#: blocks/viewer-chip/render.php:74
-msgid "My Students"
-msgstr ""
-
-#: blocks/viewer-chip/render.php:75
-msgid "Mentor Dashboard"
-msgstr ""
-
-#: blocks/viewer-chip/render.php:82
+#: blocks/viewer-chip/render.php:72
+#: blocks/viewer-chip/index.js:25
 msgid "Log out"
 msgstr ""
 
 #. translators: %s: the signed-in person's name.
-#: blocks/viewer-chip/render.php:92
+#: blocks/viewer-chip/render.php:82
 #, php-format
 msgid "Profile photo of %s"
 msgstr ""
 
-#: functions.php:106
+#: functions.php:119
 msgid "WPCredits program"
 msgstr ""
 
-#: functions.php:107
+#: functions.php:120
 msgid "Sections for the program’s landing page."
 msgstr ""
 
-#: functions.php:122
+#: functions.php:135
 msgid "Card"
 msgstr ""
 
-#: functions.php:130
+#: functions.php:143
 msgid "Pale band"
 msgstr ""
 
-#: functions.php:138
+#: functions.php:151
 msgid "Eyebrow"
 msgstr ""
 
-#: functions.php:146
+#: functions.php:159
 msgid "Pill"
 msgstr ""
 
@@ -80,16 +101,15 @@ msgstr ""
 msgid "You are already logged in."
 msgstr ""
 
-#: inc/login.php:121 patterns/cta.php:43
-msgid "Open My Students"
+#: inc/login.php:121
+#: patterns/cta.php:43
+msgid "Open your Mentor Report Card"
 msgstr ""
 
 #. translators: %s: the "Lost your password?" link text, wrapped for emphasis.
 #: inc/login.php:143
 #, php-format
-msgid ""
-"Your account was created by the program. If you have never set a password, "
-"use %s with the email address in your Airtable record."
+msgid "Your account was created by the program. If you have never set a password, use %s with the email address in your Airtable record."
 msgstr ""
 
 #: inc/login.php:144
@@ -100,8 +120,18 @@ msgstr ""
 msgid "Code is poetry."
 msgstr ""
 
-#: inc/template-tags.php:165
+#: inc/template-tags.php:264
 msgid "Education"
+msgstr ""
+
+#: patterns/audiences.php
+msgctxt "Pattern title"
+msgid "Four audiences"
+msgstr ""
+
+#: patterns/audiences.php
+msgctxt "Pattern description"
+msgid "A pale band with one column per audience the program serves - students, mentors, institutions and program managers."
 msgstr ""
 
 #: patterns/audiences.php:20
@@ -109,9 +139,7 @@ msgid "Students"
 msgstr ""
 
 #: patterns/audiences.php:21
-msgid ""
-"Join an internship track - In Sensei or In Sensei 50h - with a mentor "
-"assigned to you."
+msgid "Join an internship track - In Sensei or In Sensei 50h - with a mentor assigned to you."
 msgstr ""
 
 #: patterns/audiences.php:26
@@ -119,9 +147,7 @@ msgid "Mentors"
 msgstr ""
 
 #: patterns/audiences.php:27
-msgid ""
-"Guide your students, keep a note of every call, and file their reports on "
-"time."
+msgid "Guide your students, keep a note of every call, and file their reports on time."
 msgstr ""
 
 #: patterns/audiences.php:32
@@ -129,9 +155,7 @@ msgid "Institutions"
 msgstr ""
 
 #: patterns/audiences.php:33
-msgid ""
-"Recognise open-source work as coursework and place your students with "
-"mentors."
+msgid "Recognize open-source work as coursework and place your students with mentors."
 msgstr ""
 
 #: patterns/audiences.php:38
@@ -139,8 +163,17 @@ msgid "Program managers"
 msgstr ""
 
 #: patterns/audiences.php:39
-msgid ""
-"Run the program: sync Airtable, provision accounts, promote vetted mentors."
+msgid "Run the program: sync Airtable, provision accounts, promote vetted mentors."
+msgstr ""
+
+#: patterns/cta.php
+msgctxt "Pattern title"
+msgid "Mentor call to action"
+msgstr ""
+
+#: patterns/cta.php
+msgctxt "Pattern description"
+msgid "A brand-blue band pointing mentors at their Mentor Report Card."
 msgstr ""
 
 #: patterns/cta.php:26
@@ -148,13 +181,21 @@ msgid "Your students, their details and your call notes are on one page."
 msgstr ""
 
 #: patterns/cta.php:27
-msgid ""
-"Your students, their details and your call notes are on one page. Sign in "
-"and it opens straight away."
+msgid "Your students, their details and your call notes are on one page. Sign in and it opens straight away."
 msgstr ""
 
 #: patterns/cta.php:33
 msgid "Already mentoring?"
+msgstr ""
+
+#: patterns/hero.php
+msgctxt "Pattern title"
+msgid "Program hero"
+msgstr ""
+
+#: patterns/hero.php
+msgctxt "Pattern description"
+msgid "Headline, standfirst and two calls to action beside a photo with a floating statistic."
 msgstr ""
 
 #: patterns/hero.php:24
@@ -170,10 +211,7 @@ msgid "real academic credit"
 msgstr ""
 
 #: patterns/hero.php:32
-msgid ""
-"Students contribute to WordPress as part of their degree. Institutions award "
-"the credit. Mentors guide every internship, from first commit to final "
-"report."
+msgid "Students contribute to WordPress as part of their degree. Institutions award the credit. Mentors guide every internship, from first commit to final report."
 msgstr ""
 
 #: patterns/hero.php:37
@@ -190,6 +228,16 @@ msgstr ""
 
 #: patterns/hero.php:55
 msgid "mentors currently active in the program"
+msgstr ""
+
+#: patterns/steps.php
+msgctxt "Pattern title"
+msgid "How an internship runs"
+msgstr ""
+
+#: patterns/steps.php
+msgctxt "Pattern description"
+msgid "Four numbered cards walking through an internship, from placement to the final report."
 msgstr ""
 
 #: patterns/steps.php:15
@@ -213,8 +261,7 @@ msgid "Check-ins"
 msgstr ""
 
 #: patterns/steps.php:24
-msgid ""
-"Mentor and student meet regularly. Every call is noted on the student’s card."
+msgid "Mentor and student meet regularly. Every call is noted on the student’s card."
 msgstr ""
 
 #: patterns/steps.php:27
@@ -222,8 +269,7 @@ msgid "Report"
 msgstr ""
 
 #: patterns/steps.php:28
-msgid ""
-"The student files their report form and the institution awards the credit."
+msgid "The student files their report form and the institution awards the credit."
 msgstr ""
 
 #: patterns/steps.php:36
@@ -234,50 +280,149 @@ msgstr ""
 msgid "Read the handbook"
 msgstr ""
 
-#: patterns/audiences.php
-msgctxt "Pattern title"
-msgid "Four audiences"
+#: blocks/guide-toc/block.json
+msgctxt "block title"
+msgid "Table of contents"
 msgstr ""
 
-#: patterns/audiences.php
-msgctxt "Pattern description"
-msgid ""
-"A pale band with one column per audience the program serves - students, "
-"mentors, institutions and program managers."
+#: blocks/guide-toc/block.json
+msgctxt "block description"
+msgid "The headings of the page being viewed, as jump links. Built for the Documentation template's sidebar, where the core Table of Contents block cannot work."
 msgstr ""
 
-#: patterns/cta.php
-msgctxt "Pattern title"
-msgid "Mentor call to action"
+#: blocks/guide-toc/block.json
+msgctxt "block keyword"
+msgid "contents"
 msgstr ""
 
-#: patterns/cta.php
-msgctxt "Pattern description"
-msgid "A brand-blue band pointing mentors at their students page."
+#: blocks/guide-toc/block.json
+msgctxt "block keyword"
+msgid "toc"
 msgstr ""
 
-#: patterns/hero.php
-msgctxt "Pattern title"
-msgid "Program hero"
+#: blocks/guide-toc/block.json
+msgctxt "block keyword"
+msgid "outline"
 msgstr ""
 
-#: patterns/hero.php
-msgctxt "Pattern description"
-msgid ""
-"Headline, standfirst and two calls to action beside a photo with a floating "
-"statistic."
+#: blocks/guide-toc/block.json
+msgctxt "block keyword"
+msgid "headings"
 msgstr ""
 
-#: patterns/steps.php
-msgctxt "Pattern title"
-msgid "How an internship runs"
+#: blocks/guide-toc/block.json
+msgctxt "block keyword"
+msgid "documentation"
 msgstr ""
 
-#: patterns/steps.php
-msgctxt "Pattern description"
-msgid ""
-"Four numbered cards walking through an internship, from placement to the "
-"final report."
+#: blocks/handbook-launcher/block.json
+msgctxt "block title"
+msgid "Need help? button"
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block description"
+msgid "A header button that opens the handbook assistant. Renders nothing when the plugin is inactive, the assistant is switched off, or the reader is not allowed to use it."
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block keyword"
+msgid "handbook"
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block keyword"
+msgid "help"
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block keyword"
+msgid "ask"
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block keyword"
+msgid "assistant"
+msgstr ""
+
+#: blocks/handbook-launcher/block.json
+msgctxt "block keyword"
+msgid "search"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block title"
+msgid "Program figure"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block description"
+msgid "A live count from the program: mentors, students, institutions or sponsors. Falls back to the number written into the block when the plugin is not available."
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block keyword"
+msgid "count"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block keyword"
+msgid "mentors"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block keyword"
+msgid "students"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block keyword"
+msgid "statistic"
+msgstr ""
+
+#: blocks/program-stat/block.json
+msgctxt "block keyword"
+msgid "number"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block title"
+msgid "Account chip"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block description"
+msgid "The signed-in reader's chip for the header: a link to each of the Student Report Card and the Mentor Report Card that the reader can open, a log-out link and their profile photo. Shows a sign-in button to visitors."
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "account"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "student"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "mentor"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "login"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "logout"
+msgstr ""
+
+#: blocks/viewer-chip/block.json
+msgctxt "block keyword"
+msgid "avatar"
 msgstr ""
 
 #: theme.json
@@ -317,7 +462,7 @@ msgstr ""
 
 #: theme.json
 msgctxt "Color name"
-msgid "Placeholder text"
+msgid "Icon gray"
 msgstr ""
 
 #: theme.json
@@ -338,6 +483,16 @@ msgstr ""
 #: theme.json
 msgctxt "Color name"
 msgid "White"
+msgstr ""
+
+#: theme.json
+msgctxt "Font family name"
+msgid "System"
+msgstr ""
+
+#: theme.json
+msgctxt "Font family name"
+msgid "Monospace"
 msgstr ""
 
 #: theme.json
@@ -376,16 +531,6 @@ msgid "Display"
 msgstr ""
 
 #: theme.json
-msgctxt "Font family name"
-msgid "System"
-msgstr ""
-
-#: theme.json
-msgctxt "Font family name"
-msgid "Monospace"
-msgstr ""
-
-#: theme.json
 msgctxt "Space size name"
 msgid "1"
 msgstr ""
@@ -421,16 +566,6 @@ msgid "7"
 msgstr ""
 
 #: theme.json
-msgctxt "Custom template name"
-msgid "Full width page"
-msgstr ""
-
-#: theme.json
-msgctxt "Custom template name"
-msgid "Documentation"
-msgstr ""
-
-#: theme.json
 msgctxt "Template part name"
 msgid "Header"
 msgstr ""
@@ -445,30 +580,12 @@ msgctxt "Template part name"
 msgid "WordPress.org global footer"
 msgstr ""
 
-#: style.css
-msgctxt "Name of the theme"
-msgid "WPCredits"
+#: theme.json
+msgctxt "Custom template name"
+msgid "Full width page"
 msgstr ""
 
-#: style.css
-msgctxt "Description of the theme"
-msgid ""
-"A block theme and the front end for the WPCredits Program Manager plugin. "
-"Gives the program a landing page built from patterns, a branded login, and a "
-"full-width \"My Students\" template that dresses the plugin's own mentor "
-"dashboard as a compact, triaged, printable list. Chrome follows the "
-"WordPress Education Initiatives site; inside the dashboard the patterns are "
-"wp-admin native."
-msgstr ""
-
-#: style.css
-msgctxt "Author of the theme"
-msgid "Maciej Pilarski"
-msgstr ""
-
-#: style.css
-msgctxt "Tags of the theme"
-msgid ""
-"education, full-site-editing, block-patterns, custom-colors, custom-logo, "
-"custom-menu, translation-ready, full-width-template, block-styles"
+#: theme.json
+msgctxt "Custom template name"
+msgid "Documentation"
 msgstr ""

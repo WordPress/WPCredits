@@ -50,6 +50,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * here so the base's spelling is asserted once, in the fixture, and `handle_accept()` is the
  * one write that reads them: a revoke leaves the stage alone, because the plugin does not
  * guess `Not Moving Forward`.
+ *
+ * **Words are written as slashed copies (`wp_slash()`).** Post meta unslashes what it is
+ * handed, and a note read from the form or a version read from the base is unslashed already,
+ * so written as it stands a backslash in either would be gone.
  */
 class WPCPM_Institution_Agreement {
 
@@ -975,7 +979,7 @@ class WPCPM_Institution_Agreement {
 		// document and this is the only note a legacy row can carry, so it goes there rather
 		// than earning a meta key of its own; nothing an institution sees ever prints it.
 		if ( '' !== $where ) {
-			update_post_meta( $post_id, self::META_NOTE, $where );
+			update_post_meta( $post_id, self::META_NOTE, wp_slash( $where ) );
 		}
 
 		add_post_meta(
@@ -1703,7 +1707,7 @@ class WPCPM_Institution_Agreement {
 		$today = wp_date( 'Y-m-d' );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_RETURNED );
-		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
 		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
 
@@ -1849,7 +1853,7 @@ class WPCPM_Institution_Agreement {
 		// manager's own "second folder, the 2025 copy". That is the right way round: section
 		// 9 keeps one note per document, the panel prints it to the institution, and a note
 		// written for a colleague is not one an institution should be reading.
-		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 
 		// The line that closes the gate, and it is here rather than after the log or the mail
 		// for the same reason it is a delete and not a rewrite: nothing between this request
@@ -2865,7 +2869,7 @@ class WPCPM_Institution_Agreement {
 		update_post_meta( $post_id, self::META_DECIDED_AT, '' !== $accepted ? $accepted : wp_date( 'Y-m-d' ) );
 
 		if ( '' !== $airtable['template_version'] ) {
-			update_post_meta( $post_id, self::META_TEMPLATE_VERSION, sanitize_text_field( $airtable['template_version'] ) );
+			update_post_meta( $post_id, self::META_TEMPLATE_VERSION, wp_slash( sanitize_text_field( $airtable['template_version'] ) ) );
 		}
 
 		add_post_meta(
