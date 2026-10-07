@@ -72,10 +72,16 @@
 	 * `mousedown` rather than `click`, because `click` on a submit button and the form's `submit`
 	 * event race in some browsers.
 	 *
+	 * One tracker per form, shared by the guard and the confirm reader.
+	 *
 	 * @param {HTMLFormElement} form The form to watch.
 	 * @return {Function} Returns the last control pressed, or null.
 	 */
 	function watchPressed( form ) {
+		if ( form.wpcpmPressed ) {
+			return form.wpcpmPressed;
+		}
+
 		var pressed = null;
 
 		form.addEventListener( 'mousedown', function ( event ) {
@@ -100,9 +106,11 @@
 			}
 		} );
 
-		return function () {
+		form.wpcpmPressed = function () {
 			return pressed;
 		};
+
+		return form.wpcpmPressed;
 	}
 
 	/**
@@ -112,13 +120,12 @@
 		var lastPressed = watchPressed( form );
 
 		form.addEventListener( 'submit', function ( event ) {
-			// The confirm reader, bound before this guard - the Administrator Dashboard's Approve,
-			// Reject, Reject as spam and Delete for good all carry a sentence - has already run by
-			// the time this listener does. When the manager presses Cancel, it already called
-			// preventDefault() and nothing was submitted; locking the form "Working" and
-			// disabling its buttons for a press that never went anywhere misreports the page's
-			// state, and the decisions with a confirm are exactly the destructive ones, where a
-			// wrong "Working" is worst.
+			/*
+			 * The confirm reader, bound before this guard, has already run: a Cancel has called
+			 * preventDefault() and nothing was submitted. Locking the form "Working" for a press
+			 * that went nowhere misreports the page, and the decisions with a confirm are exactly
+			 * the destructive ones, where a wrong "Working" is worst.
+			 */
 			if ( event.defaultPrevented ) {
 				return;
 			}
@@ -437,8 +444,8 @@
 		var lastPressed = watchPressed( form );
 
 		form.addEventListener( 'submit', function ( event ) {
-			// The control the browser says was pressed; where it cannot say, the last one pressed.
-			var control = 'submitter' in event ? event.submitter : lastPressed();
+			// The browser's word on what was pressed, else the last one tracked, else the one marked.
+			var control = event.submitter || lastPressed() || form.querySelector( '[data-wpcpm-confirm]' );
 			var question = control ? control.getAttribute( 'data-wpcpm-confirm' ) : null;
 
 			if ( null === question ) {

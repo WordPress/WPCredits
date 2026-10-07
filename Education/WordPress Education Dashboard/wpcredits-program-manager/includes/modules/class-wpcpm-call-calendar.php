@@ -896,8 +896,10 @@ class WPCPM_Call_Calendar {
 				printf(
 					'<button type="submit" class="wpcpm-call__cancel-button" data-wpcpm-confirm="%1$s">%2$s</button>',
 					esc_attr(
-						// A session is canceled for everybody on it, and its question says so, as
-						// the sessions list's own Cancel does (SESSIONS-12).
+						/*
+						 * A session is canceled for everybody on it, and its question says so, as
+						 * the sessions list's own Cancel does (SESSIONS-12).
+						 */
 						$facts['is_group']
 							? __( 'Cancel this session for everybody on it?', 'wpcredits-program-manager' )
 							: __( 'Cancel this call? The slot goes back on the calendar.', 'wpcredits-program-manager' )
