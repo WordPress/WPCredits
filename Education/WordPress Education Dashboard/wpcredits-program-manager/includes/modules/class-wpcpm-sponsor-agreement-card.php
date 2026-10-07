@@ -240,10 +240,10 @@ final class WPCPM_Sponsor_Agreement_Card {
 		}
 
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm(%3$s);">',
+			'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Withdrawing', 'wpcredits-program-manager' ),
-			esc_attr( wp_json_encode( __( 'Withdraw the agreement you uploaded? The file is deleted from this site at once, and you can upload another whenever you are ready.', 'wpcredits-program-manager' ) ) )
+			esc_attr__( 'Withdraw the agreement you uploaded? The file is deleted from this site at once, and you can upload another whenever you are ready.', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( WPCPM_Sponsor_Agreement::ACTION_WITHDRAW . '_' . (int) $post_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Sponsor_Agreement::ACTION_WITHDRAW ) );

@@ -894,15 +894,15 @@ class WPCPM_Call_Calendar {
 				echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Mentor_Calls::ACTION_CANCEL ) . '" />';
 				printf( '<input type="hidden" name="call" value="%d" />', (int) $call->ID );
 				printf(
-					'<button type="submit" class="wpcpm-call__cancel-button" onclick="return confirm(%1$s)">%2$s</button>',
+					'<button type="submit" class="wpcpm-call__cancel-button" data-wpcpm-confirm="%1$s">%2$s</button>',
 					esc_attr(
-						wp_json_encode(
-							// A session is canceled for everybody on it, and its question says so, as
-							// the sessions list's own Cancel does (SESSIONS-12).
-							$facts['is_group']
-								? __( 'Cancel this session for everybody on it?', 'wpcredits-program-manager' )
-								: __( 'Cancel this call? The slot goes back on the calendar.', 'wpcredits-program-manager' )
-						)
+						/*
+						 * A session is canceled for everybody on it, and its question says so, as
+						 * the sessions list's own Cancel does (SESSIONS-12).
+						 */
+						$facts['is_group']
+							? __( 'Cancel this session for everybody on it?', 'wpcredits-program-manager' )
+							: __( 'Cancel this call? The slot goes back on the calendar.', 'wpcredits-program-manager' )
 					),
 					esc_html__( 'Cancel', 'wpcredits-program-manager' )
 				);

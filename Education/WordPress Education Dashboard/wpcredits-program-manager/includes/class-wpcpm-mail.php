@@ -1013,9 +1013,9 @@ class WPCPM_Mail {
 			// worth more than the confirmation dialog, because it is the only remedy that exists
 			// after the mistake rather than before it.
 			printf(
-				'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+				'<form method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
 				$post, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
-				esc_js( __( 'Stop sending? Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) )
+				esc_attr__( 'Stop sending? Invitations already sent cannot be recalled.', 'wpcredits-program-manager' )
 			);
 			wp_nonce_field( self::ACTION_STOP );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_STOP ) );
@@ -1085,9 +1085,9 @@ class WPCPM_Mail {
 		// **The count is in the button, not only in the prose above it.** What makes a bulk send
 		// safe is that nobody can press it without having read how many people it reaches.
 		printf(
-			'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+			'<form method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
 			$post, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
-			esc_js(
+			esc_attr(
 				sprintf(
 					/* translators: 1: how many people, 2: the people, e.g. "students". */
 					_n( 'Send an invitation to %1$d of the %2$s? It cannot be recalled once sent.', 'Send an invitation to %1$d of the %2$s? They cannot be recalled once sent.', $count, 'wpcredits-program-manager' ),

@@ -424,11 +424,11 @@ class WPCPM_Institutions {
 		echo '<button type="submit" class="button button-primary">Approve</button></form>';
 		// The real class's render_decision_form() also draws confirm-guarded decisions (Reject
 		// as spam, Delete for good); mirrored here for the 'new' state only, so the applications
-		// card's HTML really does carry an onsubmit="return confirm(" for the guard to yield to.
+		// card's HTML really does carry a data-wpcpm-confirm sentence for the guard to yield to.
 		if ( 'new' === $state ) {
 			// Attribute order as the real render_decision_form() prints it: the guard's two
 			// attributes first, the confirm appended last.
-			echo '<form class="wpcpm-app-action" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Working" onsubmit="return confirm(&#039;Mark as spam?&#039;);">';
+			echo '<form class="wpcpm-app-action" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Working" data-wpcpm-confirm="Mark as spam?">';
 			echo '<input type="hidden" name="action" value="wpcpm_app_spam" /><input type="hidden" name="wpcpm_application" value="' . (int) $post->ID . '" />';
 			WPCPM_Return::field( (string) $return, 'applications' );
 			echo '<button type="submit" class="button">Mark as spam</button></form>';
@@ -939,7 +939,7 @@ ck( 'the answers are the module\'s, behind a disclosure', has( $apps, 'data-app=
 ck( 'the decisions are the module\'s, and come back here', substr_count( $apps, 'name="wpcpm_return" value="dashboard"' ), 4 );
 // Reject, Reject as spam and Delete for good carry a confirm; a cancelled dialog must not
 // leave the guard thinking a submit is on its way (final review, Critical 1).
-preg_match( '/<form[^>]*onsubmit="return confirm\([^>]*>/', $apps, $confirm_form );
+preg_match( '/<form[^>]*data-wpcpm-confirm="[^>]*>/', $apps, $confirm_form );
 ck( 'a decision drawn with a confirm still carries the double-submit guard', isset( $confirm_form[0] ) && has( $confirm_form[0], 'data-wpcpm-once' ) && has( $confirm_form[0], 'data-wpcpm-busy=' ), true );
 ck( 'the closed ones sit in a second, closed disclosure', has( $apps, 'Uni Rejected' ) && has( $apps, 'wpcpm-administrator__closed' ), true );
 

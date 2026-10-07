@@ -3496,7 +3496,7 @@ class WPCPM_Sponsor_Application {
 		printf(
 			'<form class="wpcpm-app-action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%3$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : '',
+			'' !== $args['confirm'] ? ' data-wpcpm-confirm="' . esc_attr( $args['confirm'] ) . '"' : '',
 			esc_attr__( 'Working', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );

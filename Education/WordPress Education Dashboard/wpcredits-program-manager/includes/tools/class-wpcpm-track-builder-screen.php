@@ -179,9 +179,9 @@ final class WPCPM_Track_Builder_Screen {
 		);
 
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-tracks__delete" onsubmit="return confirm(\'%2$s\');">',
+			'<form method="post" action="%1$s" class="wpcpm-tracks__delete" data-wpcpm-confirm="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_js( $confirm )
+			esc_attr( $confirm )
 		);
 		wp_nonce_field( WPCPM_Track_Editor::ACTION_DELETE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Editor::ACTION_DELETE ) . '" />';

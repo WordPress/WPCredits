@@ -614,9 +614,9 @@ final class WPCPM_Sponsor_Agreement {
 
 		if ( '' !== (string) $confirm ) {
 			printf(
-				'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+				'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
 				esc_attr( $css ),
-				esc_attr( wp_json_encode( (string) $confirm ) ),
+				esc_attr( (string) $confirm ),
 				esc_html( $label )
 			);
 		} else {

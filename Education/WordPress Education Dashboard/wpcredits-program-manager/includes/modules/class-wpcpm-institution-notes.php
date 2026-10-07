@@ -361,8 +361,8 @@ class WPCPM_Institution_Notes {
 			printf( '<input type="hidden" name="note_id" value="%d" />', (int) $note->ID );
 			printf( '<input type="hidden" name="student" value="%d" />', (int) $user_id );
 			printf(
-				'<button type="submit" class="wpcpm-note__delete-button" onclick="return confirm(%1$s)">%2$s</button>',
-				esc_attr( wp_json_encode( __( 'Delete this note? This cannot be undone.', 'wpcredits-program-manager' ) ) ),
+				'<button type="submit" class="wpcpm-note__delete-button" data-wpcpm-confirm="%1$s">%2$s</button>',
+				esc_attr__( 'Delete this note? This cannot be undone.', 'wpcredits-program-manager' ),
 				esc_html__( 'Delete', 'wpcredits-program-manager' )
 			);
 			echo '</form>';

@@ -540,6 +540,13 @@ class WPCPM_Mentors_Dashboard {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
+		// A note's Delete asks through forms.js, and the mentee page draws no calendar to carry it.
+		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
+			wp_register_script( 'wpcpm-forms', WPCPM_PLUGIN_URL . 'assets/js/forms.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-forms' );
+
 		// The triage, the counts and the search. Enqueued only for the mentor whose list this
 		// is: it is the rendered list that is being grouped, so there is nothing to hand over
 		// when the card is a notice rather than a list.

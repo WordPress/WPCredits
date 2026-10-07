@@ -286,5 +286,44 @@ ck( 'the Settings > Mail sample forms, Create the track and Make the copy each c
 ck( 'and the Mail tab draws its one form once for each of the four audiences',
     (bool) preg_match( '/foreach \( array\(\s*\'student\'\s+=>.*?\'mentor\'\s+=>.*?\'institution\'\s+=>.*?\'sponsor\'\s+=>.*?\) as \$kind => \$label \) \{\s*printf\(\s*\'<form /s', $mail_card ) );
 
+/*
+ * Every confirm is a `data-wpcpm-confirm` sentence forms.js asks (1.122.6), so nothing under
+ * includes/ prints a value into an inline handler; the icon's constant onerror is the only one left.
+ */
+$handlers = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/includes' ) ) as $source ) {
+	if ( 'php' === $source->getExtension() && preg_match_all( '/\bon[a-z]+=["\'][^"\']*["\']/i', (string) file_get_contents( $source->getPathname() ), $found ) ) {
+		$handlers = array_merge( $handlers, array_map( 'trim', $found[0] ) );
+	}
+}
+
+ck( 'no file under includes/ prints a value into an inline event handler; the icon\'s constant onerror is the only one left',
+    array_values( array_unique( $handlers ) ),
+    array( 'onerror="this.remove()"' ) );
+ck( 'the reader takes the sentence off the pressed control, else off the form itself, and binds the form a marked control submits, which `form="<id>"` can place outside it',
+    array(
+        (bool) strpos( $confirm, "form.getAttribute( 'data-wpcpm-confirm' )" ),
+        (bool) preg_match( '/function confirmFirst\(\) \{.*?\'\[data-wpcpm-confirm\]\'.*?marked\[ i \]\.form/s', $js ),
+    ),
+    array( true, true ) );
+/*
+ * Without `event.submitter` the reader asks the control the person pressed, as the guard tracks it,
+ * before the first marked control in the form: the offer form marks End alone among its buttons.
+ */
+ck( 'and without event.submitter it asks the last control pressed, tracked as the guard tracks it, before the one marked',
+    array(
+        (bool) strpos( $confirm, "event.submitter || lastPressed() || form.querySelector( '[data-wpcpm-confirm]' )" ),
+        substr_count( $js, '= watchPressed( form );' ),
+        (bool) strpos( $js, "if ( form.wpcpmPressed ) {" ),
+    ),
+    array( true, 2, true ) );
+ck( 'the institution and sponsor application decisions carry their sentence as data-wpcpm-confirm, escaped with esc_attr()',
+    array(
+        substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-institutions.php' ), '\' data-wpcpm-confirm="\' . esc_attr( $args[\'confirm\'] ) . \'"\'' ),
+        substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-sponsor-application.php' ), '\' data-wpcpm-confirm="\' . esc_attr( $args[\'confirm\'] ) . \'"\'' ),
+    ),
+    array( 1, 1 ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

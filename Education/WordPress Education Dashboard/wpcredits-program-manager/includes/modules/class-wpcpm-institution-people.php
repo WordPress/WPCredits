@@ -332,9 +332,9 @@ class WPCPM_Institution_People {
 		// In wp-admin only core's button classes dress a button, as they do Re-add and Add account
 		// there; on the dashboard the card's own class is the one its stylesheet dresses.
 		printf(
-			'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+			'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
 			esc_attr( self::RETURN_ADMIN === $origin ? 'button button-secondary wpcpm-people__remove' : 'wpcpm-people__remove' ),
-			esc_attr( wp_json_encode( self::confirm_text( $member, $name, $is_self, $is_contact, $others ) ) ),
+			esc_attr( self::confirm_text( $member, $name, $is_self, $is_contact, $others ) ),
 			esc_html(
 				$is_self
 					? __( 'Leave', 'wpcredits-program-manager' )

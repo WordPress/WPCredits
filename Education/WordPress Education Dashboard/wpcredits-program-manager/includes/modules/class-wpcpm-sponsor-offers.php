@@ -1638,9 +1638,8 @@ final class WPCPM_Sponsor_Offers {
 				'<button type="submit" class="wpcpm-button%1$s" name="wpcpm_state" value="%2$s"%3$s>%4$s</button>',
 				self::STATE_LIVE === $state ? '' : ' wpcpm-button--secondary',
 				esc_attr( $state ),
-				// A cancelled confirm on the pressed button stops the submit, and forms.js yields to a
-				// prevented submit (1.92.0), so the form is not left reading "Switching".
-				self::STATE_ENDED === $state ? ' onclick="return confirm( \'' . esc_js( __( 'End this offer for good? Codes already claimed stay with the people who hold them.', 'wpcredits-program-manager' ) ) . '\' );"' : '',
+				// forms.js's guard yields to a prevented submit (1.92.0), so a No is not left "Switching".
+				self::STATE_ENDED === $state ? ' data-wpcpm-confirm="' . esc_attr__( 'End this offer for good? Codes already claimed stay with the people who hold them.', 'wpcredits-program-manager' ) . '"' : '',
 				esc_html( $labels[ $state ] )
 			);
 		}
@@ -1737,10 +1736,10 @@ final class WPCPM_Sponsor_Offers {
 
 		if ( $counts['available'] > 0 ) {
 			printf(
-				'<form method="post" action="%1$s" id="wpcpm-offer-void-%4$d" class="wpcpm-inline-form wpcpm-offer__void-form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm( \'%3$s\' );">',
+				'<form method="post" action="%1$s" id="wpcpm-offer-void-%4$d" class="wpcpm-inline-form wpcpm-offer__void-form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 				esc_url( admin_url( 'admin-post.php' ) ),
 				esc_attr__( 'Voiding', 'wpcredits-program-manager' ),
-				esc_js( __( 'Void every code nobody has claimed yet? They cannot be brought back.', 'wpcredits-program-manager' ) ),
+				esc_attr__( 'Void every code nobody has claimed yet? They cannot be brought back.', 'wpcredits-program-manager' ),
 				(int) $offer['id']
 			);
 			wp_nonce_field( self::ACTION_CODES_VOID . '_' . $offer['id'] );

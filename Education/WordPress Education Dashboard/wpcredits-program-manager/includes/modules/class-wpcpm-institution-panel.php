@@ -290,14 +290,12 @@ class WPCPM_Institution_Panel {
 		);
 
 		printf(
-			'<button type="submit" class="wpcpm-button" onclick="return confirm(%1$s)">%2$s</button>',
+			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
 			esc_attr(
-				wp_json_encode(
-					sprintf(
-						/* translators: %s: institution name. */
-						__( 'Record a signed agreement on file for %s? This opens their account on the site and sets Agreement Status to On file in Airtable.', 'wpcredits-program-manager' ),
-						$name
-					)
+				sprintf(
+					/* translators: %s: institution name. */
+					__( 'Record a signed agreement on file for %s? This opens their account on the site and sets Agreement Status to On file in Airtable.', 'wpcredits-program-manager' ),
+					$name
 				)
 			),
 			esc_html__( 'Record it', 'wpcredits-program-manager' )
@@ -700,20 +698,18 @@ class WPCPM_Institution_Panel {
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
 
 		printf(
-			'<button type="submit" class="wpcpm-button" onclick="return confirm(%1$s)">%2$s</button>',
+			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
 			esc_attr(
-				wp_json_encode(
-					sprintf(
-						/* translators: 1: institution name, 2: number of people emailed. */
-						_n(
-							'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it from here later.',
-							'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it from here later.',
-							(int) $members,
-							'wpcredits-program-manager'
-						),
-						$name,
-						number_format_i18n( (int) $members )
-					)
+				sprintf(
+					/* translators: 1: institution name, 2: number of people emailed. */
+					_n(
+						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it from here later.',
+						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it from here later.',
+						(int) $members,
+						'wpcredits-program-manager'
+					),
+					$name,
+					number_format_i18n( (int) $members )
 				)
 			),
 			esc_html__( 'Accept it', 'wpcredits-program-manager' )
@@ -1301,9 +1297,9 @@ class WPCPM_Institution_Panel {
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
 
 		printf(
-			'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+			'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
 			esc_attr( (string) $button ),
-			esc_attr( wp_json_encode( self::withdraw_confirm( $post_id, $as_manager ) ) ),
+			esc_attr( self::withdraw_confirm( $post_id, $as_manager ) ),
 			esc_html(
 				$as_manager
 					? __( 'Withdraw it on the institution\'s behalf', 'wpcredits-program-manager' )

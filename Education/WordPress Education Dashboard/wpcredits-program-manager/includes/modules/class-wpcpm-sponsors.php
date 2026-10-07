@@ -1286,7 +1286,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 						/* translators: %s: the code's last four characters. */
 						esc_html( sprintf( __( 'ending %s', 'wpcredits-program-manager' ), $who['last4'] ) )
 					);
-					printf( '<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm( \'%3$s\' );">', esc_url( admin_url( 'admin-post.php' ) ), esc_attr__( 'Voiding', 'wpcredits-program-manager' ), esc_js( __( 'Void this claim? The person may then claim again.', 'wpcredits-program-manager' ) ) );
+					printf( '<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">', esc_url( admin_url( 'admin-post.php' ) ), esc_attr__( 'Voiding', 'wpcredits-program-manager' ), esc_attr__( 'Void this claim? The person may then claim again.', 'wpcredits-program-manager' ) );
 					wp_nonce_field( self::ACTION_CLAIM_VOID . '_' . $offer['id'] . '_' . $who['user_id'] );
 					printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CLAIM_VOID ) );
 					printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
@@ -1703,10 +1703,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				echo '<li>';
 				printf( '%1$s (%2$s) ', esc_html( $member->display_name ), esc_html( $member->user_email ) );
 				printf(
-					'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm(%3$s);">',
+					'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 					esc_url( admin_url( 'admin-post.php' ) ),
 					esc_attr__( 'Removing', 'wpcredits-program-manager' ),
-					esc_attr( wp_json_encode( __( 'Remove this account from the sponsor?', 'wpcredits-program-manager' ) ) )
+					esc_attr__( 'Remove this account from the sponsor?', 'wpcredits-program-manager' )
 				);
 				wp_nonce_field( self::ACTION_MEMBERS );
 				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_MEMBERS ) );
@@ -2634,8 +2634,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		if ( '' !== $confirm ) {
 			printf(
-				'<button type="submit" class="button button-primary" onclick="return confirm(%1$s)">%2$s</button>',
-				esc_attr( wp_json_encode( $confirm ) ),
+				'<button type="submit" class="button button-primary" data-wpcpm-confirm="%1$s">%2$s</button>',
+				esc_attr( $confirm ),
 				esc_html( $label )
 			);
 		} else {

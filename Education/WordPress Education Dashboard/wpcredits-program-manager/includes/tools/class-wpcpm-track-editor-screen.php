@@ -758,9 +758,9 @@ class WPCPM_Track_Editor_Screen {
 	 */
 	private static function render_remover( $track, $column ) {
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-question__remover" onsubmit="return confirm(\'%2$s\');">',
+			'<form method="post" action="%1$s" class="wpcpm-question__remover" data-wpcpm-confirm="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_js( __( 'Remove this question from the track? Its column, and whatever students wrote in it, stay in Airtable.', 'wpcredits-program-manager' ) )
+			esc_attr__( 'Remove this question from the track? Its column, and whatever students wrote in it, stay in Airtable.', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( WPCPM_Track_Editor::ACTION_REMOVE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Editor::ACTION_REMOVE ) . '" />';

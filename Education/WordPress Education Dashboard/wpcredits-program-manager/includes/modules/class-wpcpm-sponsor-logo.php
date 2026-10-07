@@ -420,10 +420,10 @@ final class WPCPM_Sponsor_Logo {
 
 		if ( 'site' === (string) $logo['source'] ) {
 			printf(
-				'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm(%3$s);">',
+				'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 				esc_url( admin_url( 'admin-post.php' ) ),
 				esc_attr__( 'Removing', 'wpcredits-program-manager' ),
-				esc_attr( wp_json_encode( __( 'Remove the logo you uploaded? It goes from this site and from the program records. The files stay in the Media Library, so anything that already shows them keeps working.', 'wpcredits-program-manager' ) ) )
+				esc_attr__( 'Remove the logo you uploaded? It goes from this site and from the program records. The files stay in the Media Library, so anything that already shows them keeps working.', 'wpcredits-program-manager' )
 			);
 			wp_nonce_field( self::ACTION_REMOVE . '_' . $record );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE ) );

@@ -28,8 +28,8 @@
  * - `data-wpcpm-needs="<name>"` on a control makes it required, and open, only while the form's
  *   one control of that name holds a value (the count of a repeat rule on the planning form);
  *   a name shared by radios is not a control and is left alone;
- * - `data-wpcpm-confirm` on a submit control is a question asked with `window.confirm()` before
- *   its form posts, and a No posts nothing (a group session's Cancel and Leave).
+ * - `data-wpcpm-confirm` on a form or on a submit control is a question asked with
+ *   `window.confirm()` before the form posts, and a No posts nothing.
  */
 ( function () {
 	'use strict';
@@ -67,14 +67,23 @@
 	}
 
 	/**
-	 * @param {HTMLFormElement} form Form to guard.
+	 * Track the last control pressed in a form, for browsers without `event.submitter`.
+	 *
+	 * `mousedown` rather than `click`, because `click` on a submit button and the form's `submit`
+	 * event race in some browsers.
+	 *
+	 * One tracker per form, shared by the guard and the confirm reader.
+	 *
+	 * @param {HTMLFormElement} form The form to watch.
+	 * @return {Function} Returns the last control pressed, or null.
 	 */
-	function guardForm( form ) {
+	function watchPressed( form ) {
+		if ( form.wpcpmPressed ) {
+			return form.wpcpmPressed;
+		}
+
 		var pressed = null;
 
-		// `submitter` is not available everywhere, so the last control pressed is tracked
-		// too. `mousedown` rather than `click`, because `click` on a submit button and the
-		// form's `submit` event race in some browsers.
 		form.addEventListener( 'mousedown', function ( event ) {
 			var target = event.target;
 
@@ -97,14 +106,26 @@
 			}
 		} );
 
+		form.wpcpmPressed = function () {
+			return pressed;
+		};
+
+		return form.wpcpmPressed;
+	}
+
+	/**
+	 * @param {HTMLFormElement} form Form to guard.
+	 */
+	function guardForm( form ) {
+		var lastPressed = watchPressed( form );
+
 		form.addEventListener( 'submit', function ( event ) {
-			// An inline `onsubmit="return confirm(...)"` - the Administrator Dashboard's Approve,
-			// Reject, Reject as spam and Delete for good all carry one - has already run by the
-			// time this listener does. When the manager presses Cancel, that handler already
-			// called preventDefault() and nothing was submitted; locking the form "Working" and
-			// disabling its buttons for a press that never went anywhere misreports the page's
-			// state, and the decisions with a confirm are exactly the destructive ones, where a
-			// wrong "Working" is worst.
+			/*
+			 * The confirm reader, bound before this guard, has already run: a Cancel has called
+			 * preventDefault() and nothing was submitted. Locking the form "Working" for a press
+			 * that went nowhere misreports the page, and the decisions with a confirm are exactly
+			 * the destructive ones, where a wrong "Working" is worst.
+			 */
 			if ( event.defaultPrevented ) {
 				return;
 			}
@@ -119,7 +140,7 @@
 			form.setAttribute( 'aria-busy', 'true' );
 			form.className += ' is-sending';
 
-			var button = event.submitter || pressed;
+			var button = event.submitter || lastPressed();
 			var busy = form.getAttribute( 'data-wpcpm-busy' );
 			var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
 			var i;
@@ -389,8 +410,9 @@
 	}
 
 	/**
-	 * Ask before a destructive press goes: a submit control marked `data-wpcpm-confirm` posts its
-	 * form only once the person has said yes to the question the mark carries.
+	 * Ask before a destructive press goes: a form marked `data-wpcpm-confirm`, or one holding a
+	 * submit control marked with it, posts only once the person has said yes to the question the
+	 * mark carries.
 	 *
 	 * "Cancel the session" and "Leave the session" carried the mark and nothing read it, so one
 	 * press canceled a session for everybody on it (the deep check of 1.109.1, SESSIONS-6). Bound
@@ -400,25 +422,35 @@
 	 * press that went nowhere. A convenience, never a control: with JavaScript off the form posts.
 	 */
 	function confirmFirst() {
-		var forms = document.querySelectorAll( 'form' );
-		var i;
+		var marked = document.querySelectorAll( '[data-wpcpm-confirm]' );
+		var bound = [];
+		var i, form;
 
-		for ( i = 0; i < forms.length; i++ ) {
-			if ( forms[ i ].querySelector( '[data-wpcpm-confirm]' ) ) {
-				bindConfirm( forms[ i ] );
+		for ( i = 0; i < marked.length; i++ ) {
+			// `.form` follows `form="<id>"`, which can place a control outside its form.
+			form = 'FORM' === marked[ i ].tagName ? marked[ i ] : marked[ i ].form;
+
+			if ( form && -1 === bound.indexOf( form ) ) {
+				bound.push( form );
+				bindConfirm( form );
 			}
 		}
 	}
 
 	/**
-	 * @param {HTMLFormElement} form A form holding a control marked `data-wpcpm-confirm`.
+	 * @param {HTMLFormElement} form A form marked `data-wpcpm-confirm`, or holding a control that is.
 	 */
 	function bindConfirm( form ) {
+		var lastPressed = watchPressed( form );
+
 		form.addEventListener( 'submit', function ( event ) {
-			// The control the browser says was pressed; where it cannot say, the form's marked one,
-			// since each form that carries a mark holds a single button.
-			var control = 'submitter' in event ? event.submitter : form.querySelector( '[data-wpcpm-confirm]' );
+			// The browser's word on what was pressed, else the last one tracked, else the one marked.
+			var control = event.submitter || lastPressed() || form.querySelector( '[data-wpcpm-confirm]' );
 			var question = control ? control.getAttribute( 'data-wpcpm-confirm' ) : null;
+
+			if ( null === question ) {
+				question = form.getAttribute( 'data-wpcpm-confirm' );
+			}
 
 			if ( question && ! window.confirm( question ) ) {
 				event.preventDefault();
