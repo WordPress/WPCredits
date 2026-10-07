@@ -226,6 +226,13 @@ class WPCPM_CLI {
 			WP_CLI::log( sprintf( '%-12s %s', $key, $value ) );
 		}
 
+		// The run's end sent what it promoted to Slack (`WPCPM_Mentor_Checker_Slack`); say how that went.
+		$slack = WPCPM_Mentor_Checker_Slack::status_sentence();
+
+		if ( '' !== $slack ) {
+			WP_CLI::log( $slack );
+		}
+
 		WP_CLI::success( __( 'Mentor status check complete.', 'wpcredits-program-manager' ) );
 	}
 

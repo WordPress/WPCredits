@@ -26,8 +26,8 @@ each sync sees its own event still on the daily schedule, clears it and puts it 
 three-hour one. The housekeeping jobs are not syncs and stay daily - the two application retention
 runs, the two agreement discards, the reviewer's digest, invitation expiry, the semester report
 drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
-down must not stop a file being forgotten on time. The Mentor Status Checker stays weekly: it reads
-WordPress.org profiles rather than Airtable.
+down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
+reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
 account is ever deleted by a sync** - the most it will do is remove a role.

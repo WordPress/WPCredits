@@ -49,6 +49,24 @@ class WPCPM_Track_Store {
 	public static function compile() { ++self::$compiled; }
 }
 
+/** The Mentor Status Checker, for `wp wpcredits check-mentors`: one mentor promoted, and a sentence about the Slack message. */
+class WPCPM_Mentor_Checker {
+	public static function is_configured() { return true; }
+	public static function config() { return array( 'source_status' => 'Vetted - positive', 'target_status' => 'Active', 'course_title' => 'The course' ); }
+}
+class WPCPM_Mentor_Checker_Runner {
+	public function __construct( $settings = null ) {}
+	public function run_all( $apply = false, $progress = null ) {
+		$row = array( 'name' => 'Mentor One', 'state' => 'completed', 'action_note' => 'Moved from "Vetted - positive" to "Active".' );
+		call_user_func( $progress, $row );
+		return array( 'rows' => array( $row ), 'summary' => array( 'checked' => 1, 'promoted' => 1 ) );
+	}
+}
+class WPCPM_Mentor_Checker_Slack {
+	public static $sentence = '';
+	public static function status_sentence() { return self::$sentence; }
+}
+
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
 
 $fails = 0;
@@ -122,6 +140,24 @@ ck( 'a seed that fails is warned about, the rest are still tried and compiled on
         ),
         1,
     ) );
+
+echo "\n=== wp wpcredits check-mentors ===\n";
+
+// Since 1.122.4 a promoting run sends the Slack message as it ends, and whoever ran it from a shell
+// sees how that went, after the counts and before the last word.
+WP_CLI::$lines                       = array();
+WPCPM_Mentor_Checker_Slack::$sentence = 'Last Slack message sent 1 min ago, naming 1 mentor.';
+( new WPCPM_CLI() )->check_mentors( array(), array( 'promote' => true ) );
+
+ck( 'a run says how the Slack message went, after the counts and before the last word',
+    array_slice( WP_CLI::$lines, -2 ),
+    array( 'log: Last Slack message sent 1 min ago, naming 1 mentor.', 'success: Mentor status check complete.' ) );
+
+WP_CLI::$lines                       = array();
+WPCPM_Mentor_Checker_Slack::$sentence = '';
+( new WPCPM_CLI() )->check_mentors( array(), array() );
+
+ck( 'and says nothing of Slack when there is nothing to say', array_slice( WP_CLI::$lines, -2 ), array( 'log: promoted     1', 'success: Mentor status check complete.' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

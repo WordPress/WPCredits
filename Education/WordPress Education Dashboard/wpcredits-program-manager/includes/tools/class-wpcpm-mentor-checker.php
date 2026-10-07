@@ -125,18 +125,19 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * Deactivation: drop the weekly schedule.
+	 * Deactivation: drop the daily schedule.
 	 */
 	public function deactivate() {
 		wp_clear_scheduled_hook( WPCPM_Mentor_Checker_Runner::CRON_HOOK );
 	}
 
 	/**
-	 * Uninstall: drop stored results and cached profile reads.
+	 * Uninstall: drop stored results, cached profile reads and what the Slack message keeps.
 	 */
 	public function uninstall() {
 		WPCPM_Mentor_Checker_Runner::clear_last_run();
 		WPCPM_Mentor_Checker_Profile::flush_cache();
+		WPCPM_Mentor_Checker_Slack::forget();
 		wp_clear_scheduled_hook( WPCPM_Mentor_Checker_Runner::CRON_HOOK );
 	}
 
@@ -188,13 +189,15 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			'checker_cache_ttl',
 			'checker_cron_enabled',
 			'checker_cron_promotes',
+			'checker_slack_webhook',
+			'checker_slack_channel',
 		);
 	}
 
 	/**
 	 * The rows of the checker's Settings section, in the order a run asks its questions: whose
-	 * status, to what, which course by which signal, how a profile's history is read, and the weekly
-	 * check.
+	 * status, to what, which course by which signal, how a profile's history is read, the daily
+	 * check, and who is told on Slack.
 	 */
 	protected function render_settings_rows() {
 		$settings = WPCPM_Settings::get();
@@ -229,13 +232,27 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		printf(
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="checker_cron_enabled" value="1"%2$s> %3$s</label><br><label><input type="checkbox" name="checker_cron_promotes" value="1"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'Weekly check', 'wpcredits-program-manager' ),
+			esc_html__( 'Daily check', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['checker_cron_enabled'] ), true, false ),
-			esc_html__( 'Run the check automatically once a week', 'wpcredits-program-manager' ),
+			esc_html__( 'Run the check automatically once a day', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['checker_cron_promotes'] ), true, false ),
-			esc_html__( 'Let the weekly check also promote mentors', 'wpcredits-program-manager' ),
+			esc_html__( 'Let the daily check also promote mentors', 'wpcredits-program-manager' ),
 			esc_html__( 'Both off by default: an unattended promotion writes to the shared Airtable base, so turn the second one on deliberately.', 'wpcredits-program-manager' )
 		);
+
+		// The webhook is a secret like the Airtable token: shown masked, blank keeps it, "remove"
+		// takes it away (`WPCPM_Settings::write()`).
+		WPCPM_Settings_Rows::text_row(
+			'checker_slack_webhook',
+			__( 'Slack webhook', 'wpcredits-program-manager' ),
+			WPCPM_Settings::masked_slack_webhook(),
+			__( 'Where the message after each promotion goes: leave blank to keep the current webhook, or type remove to take it away.', 'wpcredits-program-manager' ),
+			'password',
+			'',
+			'https://hooks.slack.com/services/…',
+			__( 'Create a Slack app in the workspace, switch on Incoming Webhooks, add a webhook for the administrators\' channel and paste its address here; only an address on hooks.slack.com/services/ is accepted, and it is stored in the database and never sent to the browser. After every promotion one message names the mentors moved, with their WordPress.org profiles and Slack names. A message Slack refuses is kept and sent with the next one: with the daily check on, at the latest after the next daily check.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::text_row( 'checker_slack_channel', __( 'Channel to add them to', 'wpcredits-program-manager' ), $settings['checker_slack_channel'], __( 'Named in the message, e.g. #mentors, so the administrators know where to add the mentors.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -396,6 +413,8 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			wp_send_json_error( array( 'message' => $row->get_error_message() ) );
 		}
 
+		WPCPM_Mentor_Checker_Slack::flush();
+
 		wp_send_json_success( array( 'row' => $this->prepare_row_for_js( $row ) ) );
 	}
 
@@ -439,6 +458,9 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 			$updated[] = $this->prepare_row_for_js( $result );
 		}
+
+		// One message naming everyone this press moved, not one per mentor.
+		WPCPM_Mentor_Checker_Slack::flush();
 
 		wp_send_json_success( array( 'rows' => $updated ) );
 	}
@@ -628,7 +650,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	/**
 	 * Whether the plugin this tool replaces is still active.
 	 *
-	 * Both would schedule their own weekly check and scrape the same profiles, so
+	 * Both would schedule their own automatic check and scrape the same profiles, so
 	 * it is worth saying out loud rather than letting the work silently double.
 	 *
 	 * @return bool
@@ -665,11 +687,15 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Stored results cleared.', 'wpcredits-program-manager' ); ?></p></div>
 			<?php endif; ?>
 
+			<?php if ( WPCPM_Flash::take( 'checker-webhook-refused' ) ) : ?>
+				<div class="notice notice-error"><p><?php esc_html_e( 'The Slack webhook was not saved: only an incoming webhook address starting https://hooks.slack.com/services/ is accepted. The one saved before is kept.', 'wpcredits-program-manager' ); ?></p></div>
+			<?php endif; ?>
+
 			<?php if ( self::standalone_plugin_is_active() ) : ?>
 				<div class="notice notice-warning">
 					<p>
 						<strong><?php esc_html_e( 'The standalone Credits Program Mentor Checker plugin is still active.', 'wpcredits-program-manager' ); ?></strong>
-						<?php esc_html_e( 'This tool replaces it. Both will run their own weekly check and read the same WordPress.org profiles twice, so deactivate the standalone plugin.', 'wpcredits-program-manager' ); ?>
+						<?php esc_html_e( 'This tool replaces it. Both will run their own automatic check and read the same WordPress.org profiles twice, so deactivate the standalone plugin.', 'wpcredits-program-manager' ); ?>
 						<a href="<?php echo esc_url( admin_url( 'plugins.php' ) ); ?>"><?php esc_html_e( 'Open plugins', 'wpcredits-program-manager' ); ?></a>
 					</p>
 				</div>
@@ -764,6 +790,12 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					if ( ! empty( $run['is_partial'] ) ) {
 						echo ' <strong>' . esc_html__( 'This run did not finish.', 'wpcredits-program-manager' ) . '</strong>';
 					}
+				}
+
+				$slack = WPCPM_Mentor_Checker_Slack::status_sentence();
+
+				if ( '' !== $slack ) {
+					echo ' ' . esc_html( $slack );
 				}
 				?>
 			</p>

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.3
+Stable tag: 1.122.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -224,7 +224,7 @@ If a run genuinely stops advancing for more than two minutes, the screen says so
 
 = Tools: Mentor Status Checker =
 
-Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program > Tools > Mentor Status Checker**. Folded in so there is one Airtable connection, one store of settings and one place to look; its settings are in the Settings section at the top of its screen. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own weekly check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
+Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program > Tools > Mentor Status Checker**. Folded in so there is one Airtable connection, one store of settings and one place to look; its settings are in the Settings section at the top of its screen. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own automatic check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
 
 It reads every mentor whose Airtable status is `Vetted - positive`, looks up their WordPress.org contribution history, and moves those who have completed the *WordPress Credits Mentor's Course* to `Active`.
 
@@ -233,7 +233,8 @@ It reads every mentor whose Airtable status is `Vetted - positive`, looks up the
 * A mentor whose history is longer than the page cap is reported as *could not check*, never as *not completed* - a false negative would leave them waiting.
 * The completion phrase and the course link must appear in the **same** history entry, so a mentor who merely blogged about the course is not counted as having taken it.
 * Runs are batched, with a progress bar, live counts and an ETA. The whole queue is listed up front and each row resolves in place, so the screen is never blank while work is happening.
-* A weekly automatic run is available, off by default - as is letting that run promote.
+* A daily automatic run is available, off by default - as is letting that run promote.
+* **A Slack message after every promotion**, once a Slack incoming webhook is saved in the tool's settings: one message per run or press, calling the channel and naming each mentor moved, with their WordPress.org profile and, where their profile shows one, their Slack name, so an administrator adds them to the mentors' channel. A message Slack refuses is kept and sent with the next one.
 
 Promoting writes to Airtable, so it needs the `data.records:write` scope. Everything else is read-only.
 
@@ -288,6 +289,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.4 =
+
+* Mentor Status Checker: the automatic check runs every day instead of every week. A site that had the weekly run moves to the daily one by itself on its first request after the update, the next run within the hour; the two boxes now read *Run the check automatically once a day* and *Let the daily check also promote mentors*.
+* Mentor Status Checker: a Slack message after every promotion. With a Slack incoming webhook saved in the tool's new **Slack webhook** setting, each action that promotes - a run, **Promote all eligible**, or **Promote** on one row - sends one message once it has finished, calling the channel and naming each mentor moved with a link to their WordPress.org profile and, where the profile shows one, their Slack name, and the channel to add them to (the new **Channel to add them to** setting). Only mentors whose status was actually written are named. A message Slack refuses is kept and sent with the next one, at the latest after the next daily check when it is on; a promotion never waits on Slack. Each Slack name is shown as code, so an address typed into a profile is not a link, and a long list goes in messages of 25. The webhook is shown masked and never sent to the browser, and only an address on hooks.slack.com/services/ is taken.
 
 = 1.122.3 =
 

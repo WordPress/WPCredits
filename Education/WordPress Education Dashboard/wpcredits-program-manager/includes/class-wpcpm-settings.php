@@ -217,6 +217,11 @@ class WPCPM_Settings {
 			// Off by default: promoting a mentor is a write to a shared base.
 			'checker_cron_enabled'          => false,
 			'checker_cron_promotes'         => false,
+			// The Slack incoming webhook the message after a promotion goes to, and the channel the
+			// message asks administrators to add the mentors to. Empty: no message. The channel has no
+			// default because this code is published and the channel is private.
+			'checker_slack_webhook'         => '',
+			'checker_slack_channel'         => '',
 		);
 	}
 
@@ -316,6 +321,8 @@ class WPCPM_Settings {
 				'checker_cache_ttl',
 				'checker_cron_enabled',
 				'checker_cron_promotes',
+				'checker_slack_webhook',
+				'checker_slack_channel',
 			),
 			'tool:duplicate-finder'      => array(
 				'duplicate_delete_enabled',
@@ -413,7 +420,7 @@ class WPCPM_Settings {
 	 * for it. A scope this version does not have writes nothing. Given none, the save is every
 	 * scope's, by the rules the screen's single form was saved by: every setting is read, ten are
 	 * written whatever the input holds (the four leaving rules, four switches of the Students and
-	 * mentors tab and the weekly check's two), and every other setting only when the input holds it.
+	 * mentors tab and the daily check's two), and every other setting only when the input holds it.
 	 * Code outside the Settings screen that changes a setting or two writes through `patch()`.
 	 *
 	 * @param array  $input Raw input, typically from $_POST.
@@ -453,7 +460,7 @@ class WPCPM_Settings {
 	 * they are handed, so a one-setting save switches those six off and puts each rule at its
 	 * fallback answer. A patch fills in nothing absent. It writes the settings it holds, puts back a
 	 * setting that cannot be blank only when it holds that one, stamps the settings version only
-	 * when it holds "Currently mentoring", reschedules the weekly check only when it changed one
+	 * when it holds "Currently mentoring", reschedules the daily check only when it changed one
 	 * of the checker's settings, and compiles the tracks only when it changed a status list, the
 	 * question the settings handler asks after a save (decision 14).
 	 *
@@ -682,9 +689,27 @@ class WPCPM_Settings {
 		}
 
 		// Mentor Status Checker.
-		foreach ( array( 'checker_source_status', 'checker_target_status', 'checker_course_slug', 'checker_course_title', 'checker_completion_phrase' ) as $key ) {
+		foreach ( array( 'checker_source_status', 'checker_target_status', 'checker_course_slug', 'checker_course_title', 'checker_completion_phrase', 'checker_slack_channel' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
+			}
+		}
+
+		// The Slack webhook is a secret like the schema token: blank or the mask keeps it, "remove"
+		// clears it. Anything else must be a Slack incoming webhook, or the one saved stays and the
+		// checker's screen says why (`WPCPM_Mentor_Checker::render_admin_page()`).
+		// A value that is not a string, which no form of the plugin's posts, is refused the same way.
+		if ( isset( $input['checker_slack_webhook'] ) ) {
+			$webhook = is_string( $input['checker_slack_webhook'] ) ? trim( wp_unslash( $input['checker_slack_webhook'] ) ) : null;
+
+			if ( is_string( $webhook ) && 'remove' === strtolower( $webhook ) ) {
+				$clean['checker_slack_webhook'] = '';
+			} elseif ( '' !== $webhook && ! ( is_string( $webhook ) && self::is_mask( $webhook ) ) ) {
+				if ( class_exists( 'WPCPM_Mentor_Checker_Slack' ) && WPCPM_Mentor_Checker_Slack::is_webhook( $webhook ) ) {
+					$clean['checker_slack_webhook'] = $webhook;
+				} else {
+					WPCPM_Flash::set( 'checker-webhook-refused', true );
+				}
 			}
 		}
 
@@ -764,7 +789,7 @@ class WPCPM_Settings {
 			update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
 		}
 
-		// Keep the weekly schedule in step with the setting that governs it. Only a write that changed
+		// Keep the daily schedule in step with the setting that governs it. Only a write that changed
 		// one of the checker's settings can have moved it, so any other leaves it alone.
 		if ( class_exists( 'WPCPM_Mentor_Checker_Runner' ) && self::changed( $current, $clean, self::scope_keys( 'tool:mentor-status-checker' ) ) ) {
 			WPCPM_Mentor_Checker_Runner::sync_cron( $clean['checker_cron_enabled'] );
@@ -1283,6 +1308,22 @@ class WPCPM_Settings {
 		}
 
 		return str_repeat( '•', 12 ) . substr( $token, -4 );
+	}
+
+	/**
+	 * The Mentor Status Checker's Slack webhook as the screen may show it: a mask, never the address,
+	 * which is all anyone needs to post into the channel.
+	 *
+	 * @return string
+	 */
+	public static function masked_slack_webhook() {
+		$webhook = (string) self::get_value( 'checker_slack_webhook', '' );
+
+		if ( '' === $webhook ) {
+			return '';
+		}
+
+		return str_repeat( '•', 12 ) . substr( $webhook, -4 );
 	}
 
 	/**

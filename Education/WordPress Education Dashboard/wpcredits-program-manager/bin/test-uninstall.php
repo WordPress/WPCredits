@@ -125,7 +125,9 @@ class WPCPM_Test_Wpdb {
 	public function get_col( $query ) {
 		$this->queries[] = $query;
 
-		if ( preg_match( '/^SELECT option_name FROM wp_options WHERE (.+)$/s', $query, $m ) ) {
+		// A list may ask for its rows oldest first (the Mentor Status Checker's waiting mentors,
+		// 1.122.4), which the order the rows were stored in already is.
+		if ( preg_match( '/^SELECT option_name FROM wp_options WHERE (.+?)(?: ORDER BY option_id ASC)?$/s', $query, $m ) ) {
 			$patterns = like_patterns( $m[1] );
 
 			if ( null !== $patterns ) {
@@ -607,6 +609,12 @@ $swept_options = array( 'wpcpm_institution_modules_recSEED0000000001', 'wpcpm_in
 foreach ( $swept_options as $name ) {
 	$GLOBALS['opts'][ $name ] = array( 'seeded' => true );
 }
+
+// Two mentors the Mentor Status Checker promoted and has not announced on Slack yet (1.122.4), a row
+// each, which the tool's own uninstall forgets.
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recSEED0000000003'] = array( 'record_id' => 'recSEED0000000003' );
+$GLOBALS['opts']['wpcpm_checker_slack_pending_recSEED0000000004'] = array( 'record_id' => 'recSEED0000000004' );
+$GLOBALS['opts']['wpcpm_checker_slack_last']                     = array( 'time' => 1, 'ok' => true, 'count' => 1, 'error' => '' );
 
 // What the Track Builder keeps outside its posts (SURFACES-7): the lock a publish run holds while
 // it creates columns, which a run killed halfway leaves behind for good; the claim a request holds

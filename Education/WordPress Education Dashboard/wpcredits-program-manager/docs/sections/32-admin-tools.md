@@ -48,7 +48,27 @@ settings**:
 | **Maximum history pages per mentor** | From 1 to 100, 15 by default. A mentor whose history is longer is reported as "could not check", never as "not completed", since a false negative would leave them waiting. |
 | **Mentors per batch** and **Delay between requests (ms)** | How hard a run reads WordPress.org, from 1 to 25 mentors a batch, three by default, and from 0 to 5000 ms between requests, none by default: each mentor can cost several requests, so smaller batches keep the screen responsive. |
 | **Cache profile results for (seconds)** | How long a settled answer is kept, up to thirty days, twelve hours by default. A failed read is always tried again, and `0` keeps nothing. |
-| **Weekly check** | Two boxes, **Run the check automatically once a week** and **Let the weekly check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately. |
+| **Daily check** | Two boxes, **Run the check automatically once a day** and **Let the daily check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately. The check ran once a week until 1.122.4; a site that had the weekly run moves to the daily one by itself, its next run within the hour. |
+| **Slack webhook** | The Slack incoming webhook the message after a promotion goes to, which decides the channel it lands in. Shown masked and never sent to the browser: leave it blank to keep the one saved, or type `remove` to take it away. Only an address starting `https://hooks.slack.com/services/` is taken; anything else is refused with an error on the screen, and the one saved before stays. Its fold says how to get one: a Slack app in the workspace, with Incoming Webhooks switched on and a webhook added for the administrators' channel. |
+| **Channel to add them to** | The channel the message asks the administrators to add the mentors to, as it is named in Slack, such as `#mentors`. Left empty, the message says "the mentors channel". |
+
+#### The Slack message after a promotion
+
+With a webhook saved, every action that promotes sends **one** message once it has finished: a run,
+whether the daily one, **Run check and promote** or `wp wpcredits check-mentors --promote`; **Promote
+all eligible**; or **Promote** on one row. It calls the channel (`@channel`), says how many mentors
+were moved to the status they were promoted to and which channel to add them to, and lists each one
+with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is
+the name to type when adding them, shown as code so that an address typed there is not a link. The last
+line says who promoted: *the daily check*, *WP-CLI* or the administrator who pressed the button. Only
+mentors whose status was actually written are named; an action that moved nobody sends nothing, and
+a long list goes in messages of 25. The message is in the site's language, whoever pressed the button.
+
+A message Slack refuses, or that cannot reach Slack, is not lost. Its mentors are kept and sent with
+the next message, and every run sends what is kept even when it promotes nobody, so with the daily
+check on a mentor waits a day at most. A promotion never waits on Slack: Airtable is written first.
+The line under the buttons says when the last message went and how many it named, or why it failed
+and how many wait. Promotions made while no webhook is saved are not announced later.
 
 ### Student Duplicate Finder
 

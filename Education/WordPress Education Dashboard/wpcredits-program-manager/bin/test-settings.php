@@ -227,6 +227,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.ph
 // under, and whose own screens draw those settings: the real classes, since a scope named from a
 // stand-in's ID would prove nothing.
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-slack.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
@@ -455,6 +456,9 @@ $probe = array(
 	'checker_batch_size'            => '4',
 	'checker_request_delay'         => '250',
 	'checker_cache_ttl'             => '7200',
+	// Put together, not written out: GitHub's push protection reads a webhook-shaped literal as a secret.
+	'checker_slack_webhook'         => 'https://hooks.slack.com/services/' . 'T0PROBE/B0PROBE/probeprobeprobe',
+	'checker_slack_channel'         => '#probe-channel',
 	// Institutions module.
 	'countries_table'               => 'tblPROBE0000000008',
 	'countries_name_field'          => 'Probe country',
@@ -568,6 +572,35 @@ ck( 'posting the masked key back leaves the real one alone',
 
 $saved = WPCPM_Settings::save( array( 'handbook_key' => '' ) );
 ck( 'and so does posting nothing', array( $saved['handbook_key'] ), array( 'AQ.the-real-key' ) );
+
+// The checker's Slack webhook is a secret of the same kind (7 October 2026): the screen shows a
+// mask, blank and the mask keep it, the word "remove" takes it away, and only an incoming webhook
+// on hooks.slack.com is taken - the message names mentors, so a typo must not send it elsewhere.
+$hook  = 'https://hooks.slack.com/services/' . 'T00000000/B00000000/' . 'therealsecretpart';
+$saved = WPCPM_Settings::save( array( 'checker_slack_webhook' => '  ' . $hook . ' ' ), 'tool:mentor-status-checker' );
+ck( 'a Slack incoming webhook is saved, trimmed', $saved['checker_slack_webhook'], $hook );
+ck( 'and the screen is only ever given a mask of it, ending as it ends',
+    array( false === strpos( WPCPM_Settings::masked_slack_webhook(), 'services' ), substr( WPCPM_Settings::masked_slack_webhook(), -4 ) ),
+    array( true, 'part' ) );
+
+$saved = WPCPM_Settings::save( array( 'checker_slack_webhook' => WPCPM_Settings::masked_slack_webhook() ), 'tool:mentor-status-checker' );
+$blank = WPCPM_Settings::save( array( 'checker_slack_webhook' => '' ), 'tool:mentor-status-checker' );
+ck( 'posting the mask back, or nothing, keeps it', array( $saved['checker_slack_webhook'], $blank['checker_slack_webhook'] ), array( $hook, $hook ) );
+
+$refused = WPCPM_Settings::save( array( 'checker_slack_webhook' => 'https://example.test/services/T0/B0/x' ), 'tool:mentor-status-checker' );
+ck( 'an address that is not a Slack incoming webhook is refused: the one saved stays, and the screen is told',
+    array( $refused['checker_slack_webhook'], WPCPM_Flash::take( 'checker-webhook-refused' ) ), array( $hook, true ) );
+
+$listed = WPCPM_Settings::save( array( 'checker_slack_webhook' => array( $hook . 'x' ) ), 'tool:mentor-status-checker' );
+ck( 'a webhook posted as a list, which no form of the plugin\'s sends, is refused like any other bad value rather than ending the save',
+    array( $listed['checker_slack_webhook'], WPCPM_Flash::take( 'checker-webhook-refused' ) ), array( $hook, true ) );
+
+$removed = WPCPM_Settings::save( array( 'checker_slack_webhook' => 'Remove' ), 'tool:mentor-status-checker' );
+ck( 'the word remove takes it away, and then there is no mask to show',
+    array( $removed['checker_slack_webhook'], WPCPM_Settings::masked_slack_webhook() ), array( '', '' ) );
+
+$channel = WPCPM_Settings::save( array( 'checker_slack_channel' => ' #mentors ' ), 'tool:mentor-status-checker' );
+ck( 'the channel the message names is saved as typed, trimmed', $channel['checker_slack_channel'], '#mentors' );
 
 // Only providers the plugin can actually talk to.
 $saved = WPCPM_Settings::save( array( 'handbook_provider' => 'nonsense' ) );
@@ -1516,9 +1549,9 @@ $sorted = static function ( array $map ) {
 	return $map;
 };
 
-ck( 'each scope holds the settings the design gives its tab or tool, twelve for the Mentor Status Checker and six for Need help?',
+ck( 'each scope holds the settings the design gives its tab or tool, fourteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4) and six for Need help?',
     array( $sorted( $scopes ), count( $by_design['tool:mentor-status-checker'] ), count( $by_design['tool:handbook'] ) ),
-    array( $sorted( $by_design ), 12, 6 ) );
+    array( $sorted( $by_design ), 14, 6 ) );
 
 // Every setting stored at its default with every switch on, and a save handed the round-trip probe
 // with every switch off: every setting the save may write shows as a change.
@@ -3799,6 +3832,23 @@ ck( 'and its one link to the Settings screen is the token\'s, which is kept ther
     array( 1, 1, 1 ) );
 
 unset( $GLOBALS['signed_in'] );
+
+// A webhook refused by a save is said on the screen the save lands on, once.
+store_settings( $defaults );
+$GLOBALS['signed_in'] = 34;
+WPCPM_Settings::save( array( 'checker_slack_webhook' => 'https://example.test/hook' ), 'tool:mentor-status-checker' );
+$refused_screen = draw_tool_screen( 'mentor-status-checker' );
+$GLOBALS['signed_in'] = 35;
+$next_screen          = draw_tool_screen( 'mentor-status-checker' );
+unset( $GLOBALS['signed_in'] );
+
+ck( 'a Slack webhook that was not saved is said on the checker\'s screen, as an error, before its Settings section',
+    array(
+        in_order( offsets_of( $refused_screen, array( '<h1>Mentor Status Checker</h1>', 'The Slack webhook was not saved', '<h2 id="settings">Settings</h2>' ) ) ),
+        substr_count( $refused_screen, '<div class="notice notice-error"><p>The Slack webhook was not saved' ),
+        substr_count( $next_screen, 'The Slack webhook was not saved' ),
+    ),
+    array( true, 1, 0 ) );
 
 // A tool is called by its name, as the menu and the Overview call it, and its section by what it is.
 ck( 'on each tool\'s screen the title is the tool\'s name, the section is called Settings, with no "Tool:" and no "Tool" pill, and none of the section\'s ids is another element\'s',

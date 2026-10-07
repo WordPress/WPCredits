@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.3\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.4\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-05T00:15:05+00:00\n"
+"POT-Creation-Date: 2026-10-07T16:49:50+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -190,9 +190,9 @@ msgstr ""
 #: includes/tools/class-wpcpm-handbook.php:418
 #: includes/tools/class-wpcpm-header-notices.php:107
 #: includes/tools/class-wpcpm-header-notices.php:131
-#: includes/tools/class-wpcpm-mentor-checker.php:453
-#: includes/tools/class-wpcpm-mentor-checker.php:464
-#: includes/tools/class-wpcpm-mentor-checker.php:649
+#: includes/tools/class-wpcpm-mentor-checker.php:475
+#: includes/tools/class-wpcpm-mentor-checker.php:486
+#: includes/tools/class-wpcpm-mentor-checker.php:671
 #: includes/tools/class-wpcpm-track-builder.php:1584
 #: includes/tools/class-wpcpm-track-editor.php:633
 msgid "You do not have permission to manage the program."
@@ -395,15 +395,15 @@ msgstr ""
 msgid "Mentor sync complete."
 msgstr ""
 
-#: includes/class-wpcpm-cli.php:229
+#: includes/class-wpcpm-cli.php:236
 msgid "Mentor status check complete."
 msgstr ""
 
-#: includes/class-wpcpm-cli.php:247
+#: includes/class-wpcpm-cli.php:254
 msgid "Roles registered."
 msgstr ""
 
-#: includes/class-wpcpm-cli.php:284
+#: includes/class-wpcpm-cli.php:291
 msgid "The four original tracks are in the Track Builder, and every published track is compiled."
 msgstr ""
 
@@ -1136,7 +1136,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-table.php:71
 #: includes/modules/class-wpcpm-students-table.php:83
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
-#: includes/tools/class-wpcpm-mentor-checker.php:796
+#: includes/tools/class-wpcpm-mentor-checker.php:828
 msgid "Mentor"
 msgstr ""
 
@@ -1579,7 +1579,7 @@ msgid "The Airtable statuses that make a student current or past, and the one th
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:965
-#: includes/class-wpcpm-settings.php:1157
+#: includes/class-wpcpm-settings.php:1182
 #: includes/modules/class-wpcpm-mentors-dashboard.php:697
 msgid "Currently mentoring"
 msgstr ""
@@ -1602,7 +1602,7 @@ msgid "With none, only current students are shown. A status in both lists counts
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:986
-#: includes/class-wpcpm-settings.php:1156
+#: includes/class-wpcpm-settings.php:1181
 msgid "Mentor status to sync"
 msgstr ""
 
@@ -2290,7 +2290,7 @@ msgid "The Airtable stages of an institution's pipeline: the one an approved app
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1779
-#: includes/class-wpcpm-settings.php:1159
+#: includes/class-wpcpm-settings.php:1184
 msgid "Institution starting stage"
 msgstr ""
 
@@ -2299,7 +2299,7 @@ msgid "The Current Stage an institution is created at in Airtable when its appli
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1783
-#: includes/class-wpcpm-settings.php:1158
+#: includes/class-wpcpm-settings.php:1183
 msgid "Institution pipeline stages"
 msgstr ""
 
@@ -2403,26 +2403,26 @@ msgid "A settled invitation stays listed this many days, so a program manager ca
 msgstr ""
 
 #. translators: 1: setting label, 2: its default value.
-#: includes/class-wpcpm-settings.php:1190
+#: includes/class-wpcpm-settings.php:1215
 #, php-format
 msgid "%1$s (now %2$s)"
 msgstr ""
 
 #. translators: %s: the settings that were reset, with their defaults.
-#: includes/class-wpcpm-settings.php:1202
+#: includes/class-wpcpm-settings.php:1227
 #, php-format
 msgid "These settings cannot be left blank, so their defaults were put back: %s."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1210
+#: includes/class-wpcpm-settings.php:1235
 msgid "With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1214
+#: includes/class-wpcpm-settings.php:1239
 msgid "With no stage in the pipeline, the institutions sync would count every institution as having left it."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1218
+#: includes/class-wpcpm-settings.php:1243
 msgid "An approved application's institution is created in Airtable at the starting stage, so there has to be one."
 msgstr ""
 
@@ -4470,7 +4470,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1152
 #: includes/modules/class-wpcpm-students-dashboard.php:737
 #: includes/modules/class-wpcpm-students-dashboard.php:1009
-#: includes/tools/class-wpcpm-mentor-checker.php:797
+#: includes/tools/class-wpcpm-mentor-checker.php:829
 msgid "WordPress.org"
 msgstr ""
 
@@ -6197,7 +6197,7 @@ msgid "Current"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:227
-#: includes/tools/class-wpcpm-mentor-checker.php:287
+#: includes/tools/class-wpcpm-mentor-checker.php:304
 msgid "Finished"
 msgstr ""
 
@@ -8284,7 +8284,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:4941
 #: includes/modules/class-wpcpm-institutions.php:5722
-#: includes/tools/class-wpcpm-mentor-checker.php:587
+#: includes/tools/class-wpcpm-mentor-checker.php:609
 msgid "(empty)"
 msgstr ""
 
@@ -14062,7 +14062,7 @@ msgid "Sending stopped. Invitations already sent cannot be recalled."
 msgstr ""
 
 #: includes/modules/trait-wpcpm-accounts-screen.php:602
-#: includes/tools/class-wpcpm-mentor-checker.php:685
+#: includes/tools/class-wpcpm-mentor-checker.php:711
 msgid "Open settings"
 msgstr ""
 
@@ -15183,37 +15183,100 @@ msgstr ""
 msgid "No \"%s\" completion in the profile history."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:211
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:212
 msgid "This run has expired. Start the check again."
 msgstr ""
 
 #. translators: %s: target status name.
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:279
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:284
 #, php-format
 msgid "Ready to move to %s."
 msgstr ""
 
 #. translators: %s: target status name.
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:322
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:327
 #, php-format
 msgid "Already %s in Airtable; left unchanged."
 msgstr ""
 
 #. translators: 1: current status in Airtable, 2: expected source status.
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:334
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:339
 #, php-format
 msgid "Status is now \"%1$s\", not \"%2$s\"; left unchanged."
 msgstr ""
 
 #. translators: 1: source status, 2: target status.
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:352
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:360
 #, php-format
 msgid "Moved from \"%1$s\" to \"%2$s\"."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker-runner.php:379
+#: includes/tools/class-wpcpm-mentor-checker-runner.php:387
 msgid "Re-check did not find the course completion; nothing was changed."
 msgstr ""
+
+#. translators: 1: number of mentors, 2: the status they were moved to, e.g. Active, 3: a Slack channel such as #mentors.
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:269
+#, php-format
+msgid "%1$s mentor was moved to %2$s. Please add them to %3$s:"
+msgid_plural "%1$s mentors were moved to %2$s. Please add them to %3$s:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:272
+msgid "the mentors channel"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:280
+#: includes/tools/class-wpcpm-mentor-checker.php:601
+msgid "(unnamed)"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:283
+msgid "no WordPress.org profile"
+msgstr ""
+
+#. translators: %s: a person's Slack name, as code.
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:295
+#, php-format
+msgid "Slack: %s"
+msgstr ""
+
+#. translators: %s: who promoted the mentors, e.g. "the daily check and Ada Admin".
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:308
+#, php-format
+msgid "Promoted by %s."
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:357
+msgid "the daily check"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:366
+msgid "an administrator"
+msgstr ""
+
+#. translators: 1: how long ago, e.g. "5 mins", 2: number of mentors named.
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:387
+#, php-format
+msgid "Last Slack message sent %1$s ago, naming %2$s mentor."
+msgid_plural "Last Slack message sent %1$s ago, naming %2$s mentors."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: how long ago, e.g. "5 mins", 2: why, e.g. "HTTP 404: no_service".
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:397
+#, php-format
+msgid "The last Slack message could not be sent %1$s ago (%2$s)."
+msgstr ""
+
+#. translators: %s: number of mentors waiting.
+#: includes/tools/class-wpcpm-mentor-checker-slack.php:402
+#, php-format
+msgid "%s mentor waits for the next one."
+msgid_plural "%s mentors wait for the next one."
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/tools/class-wpcpm-mentor-checker.php:40
 msgid "Mentor Status Checker"
@@ -15225,362 +15288,382 @@ msgstr ""
 msgid "Checks every mentor whose Airtable status is \"%1$s\" against their WordPress.org profile, and moves those who have completed \"%2$s\" to \"%3$s\"."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:158
+#: includes/tools/class-wpcpm-mentor-checker.php:159
 msgid "Never run."
 msgstr ""
 
 #. translators: 1: human-readable time difference, 2: number checked, 3: number awaiting promotion.
-#: includes/tools/class-wpcpm-mentor-checker.php:165
+#: includes/tools/class-wpcpm-mentor-checker.php:166
 #, php-format
 msgid "Last run %1$s ago - %2$s checked, %3$s awaiting promotion."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:204
+#: includes/tools/class-wpcpm-mentor-checker.php:207
 msgid "Check mentors with status"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:204
+#: includes/tools/class-wpcpm-mentor-checker.php:207
 msgid "Only mentors holding this status are looked up."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:205
+#: includes/tools/class-wpcpm-mentor-checker.php:208
 msgid "Promote them to"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:205
+#: includes/tools/class-wpcpm-mentor-checker.php:208
 msgid "Writing this status needs the <code>data.records:write</code> scope on the token."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:208
+#: includes/tools/class-wpcpm-mentor-checker.php:211
 msgid "Course title"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:209
+#: includes/tools/class-wpcpm-mentor-checker.php:212
 msgid "Course slug"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:209
+#: includes/tools/class-wpcpm-mentor-checker.php:212
 msgid "The slug in the learn.wordpress.org course URL, and the reliable signal: the title is only a fallback."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:210
+#: includes/tools/class-wpcpm-mentor-checker.php:213
 msgid "Completion phrase"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:210
+#: includes/tools/class-wpcpm-mentor-checker.php:213
 msgid "Both this phrase and the course must appear in the same profile history entry, so someone who merely blogged about the course is not counted."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:212
+#: includes/tools/class-wpcpm-mentor-checker.php:215
 msgid "Profile history filter"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:218
+#: includes/tools/class-wpcpm-mentor-checker.php:221
 msgid "Milestones only (faster)"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:220
+#: includes/tools/class-wpcpm-mentor-checker.php:223
 msgid "All contributions"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:221
+#: includes/tools/class-wpcpm-mentor-checker.php:224
 msgid "Course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:223
+#: includes/tools/class-wpcpm-mentor-checker.php:226
 msgid "Switch to all contributions only if WordPress.org changes and completions stop being found."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:225
+#: includes/tools/class-wpcpm-mentor-checker.php:228
 msgid "Maximum history pages per mentor"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:225
+#: includes/tools/class-wpcpm-mentor-checker.php:228
 msgid "A mentor whose history is longer than this is reported as \"could not check\", never as \"not completed\" - a false negative would leave them waiting."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:226
+#: includes/tools/class-wpcpm-mentor-checker.php:229
 msgid "Mentors per batch"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:226
+#: includes/tools/class-wpcpm-mentor-checker.php:229
 msgid "Each mentor can cost several requests to WordPress.org, so smaller batches keep the screen responsive."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:227
+#: includes/tools/class-wpcpm-mentor-checker.php:230
 msgid "Delay between requests (ms)"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:228
+#: includes/tools/class-wpcpm-mentor-checker.php:231
 msgid "Cache profile results for (seconds)"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:228
+#: includes/tools/class-wpcpm-mentor-checker.php:231
 msgid "Only settled answers are cached and a failed read is always retried; set to 0 to disable."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:232
-msgid "Weekly check"
-msgstr ""
-
-#: includes/tools/class-wpcpm-mentor-checker.php:234
-msgid "Run the check automatically once a week"
-msgstr ""
-
-#: includes/tools/class-wpcpm-mentor-checker.php:236
-msgid "Let the weekly check also promote mentors"
+#: includes/tools/class-wpcpm-mentor-checker.php:235
+msgid "Daily check"
 msgstr ""
 
 #: includes/tools/class-wpcpm-mentor-checker.php:237
+msgid "Run the check automatically once a day"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:239
+msgid "Let the daily check also promote mentors"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:240
 msgid "Both off by default: an unattended promotion writes to the shared Airtable base, so turn the second one on deliberately."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:275
+#: includes/tools/class-wpcpm-mentor-checker.php:247
+msgid "Slack webhook"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:249
+msgid "Where the message after each promotion goes: leave blank to keep the current webhook, or type remove to take it away."
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:253
+msgid "Create a Slack app in the workspace, switch on Incoming Webhooks, add a webhook for the administrators' channel and paste its address here; only an address on hooks.slack.com/services/ is accepted, and it is stored in the database and never sent to the browser. After every promotion one message names the mentors moved, with their WordPress.org profiles and Slack names. A message Slack refuses is kept and sent with the next one: with the daily check on, at the latest after the next daily check."
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:255
+msgid "Channel to add them to"
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:255
+msgid "Named in the message, e.g. #mentors, so the administrators know where to add the mentors."
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:292
 msgid "Reading mentors from Airtable…"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:276
+#: includes/tools/class-wpcpm-mentor-checker.php:293
 msgid "Reading WordPress.org profiles…"
 msgstr ""
 
 #. translators: 1: mentors checked so far, 2: mentors in the run.
-#: includes/tools/class-wpcpm-mentor-checker.php:278
+#: includes/tools/class-wpcpm-mentor-checker.php:295
 #, php-format
 msgid "Checked %1$d of %2$d mentors."
 msgstr ""
 
 #. translators: 1: mentors checked so far, 2: mentors in the run, 3: percentage complete.
-#: includes/tools/class-wpcpm-mentor-checker.php:280
+#: includes/tools/class-wpcpm-mentor-checker.php:297
 #, php-format
 msgid "%1$d of %2$d · %3$d%%"
 msgstr ""
 
 #. translators: 1: number who completed the course, 2: number needing attention, 3: elapsed time as m:ss.
-#: includes/tools/class-wpcpm-mentor-checker.php:282
+#: includes/tools/class-wpcpm-mentor-checker.php:299
 #, php-format
 msgid "%1$d completed the course · %2$d need attention · %3$s elapsed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:283
+#: includes/tools/class-wpcpm-mentor-checker.php:300
 msgid "about 1 minute left"
 msgstr ""
 
 #. translators: %d: whole minutes remaining.
-#: includes/tools/class-wpcpm-mentor-checker.php:285
+#: includes/tools/class-wpcpm-mentor-checker.php:302
 #, php-format
 msgid "about %d minutes left"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:286
+#: includes/tools/class-wpcpm-mentor-checker.php:303
 msgid "almost done"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:288
+#: includes/tools/class-wpcpm-mentor-checker.php:305
 msgid "Stopped"
 msgstr ""
 
 #. translators: %d: number of mentors checked.
-#: includes/tools/class-wpcpm-mentor-checker.php:290
+#: includes/tools/class-wpcpm-mentor-checker.php:307
 #, php-format
 msgid "Finished. Checked %d mentors."
 msgstr ""
 
 #. translators: %s: the error that stopped the run.
-#: includes/tools/class-wpcpm-mentor-checker.php:292
+#: includes/tools/class-wpcpm-mentor-checker.php:309
 #, php-format
 msgid "The run stopped: %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:293
+#: includes/tools/class-wpcpm-mentor-checker.php:310
 msgid "Promoting…"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:294
-#: includes/tools/class-wpcpm-mentor-checker.php:619
+#: includes/tools/class-wpcpm-mentor-checker.php:311
+#: includes/tools/class-wpcpm-mentor-checker.php:641
 msgid "Promote"
 msgstr ""
 
 #. translators: %s: target status name, e.g. "Active".
-#: includes/tools/class-wpcpm-mentor-checker.php:297
+#: includes/tools/class-wpcpm-mentor-checker.php:314
 #, php-format
 msgid "This changes mentor statuses to \"%s\" in the shared Airtable base. Continue?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:300
+#: includes/tools/class-wpcpm-mentor-checker.php:317
 msgid "Re-check this mentor and update their Airtable status?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:365
+#: includes/tools/class-wpcpm-mentor-checker.php:382
 msgid "Missing run identifier."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:389
+#: includes/tools/class-wpcpm-mentor-checker.php:406
 msgid "That does not look like an Airtable record ID."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:419
+#: includes/tools/class-wpcpm-mentor-checker.php:438
 msgid "No mentors are waiting to be promoted."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:524
+#: includes/tools/class-wpcpm-mentor-checker.php:546
 msgid "Queued"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:528
+#: includes/tools/class-wpcpm-mentor-checker.php:550
 msgid "Completed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:532
+#: includes/tools/class-wpcpm-mentor-checker.php:554
 msgid "Not completed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:536
+#: includes/tools/class-wpcpm-mentor-checker.php:558
 msgid "No username"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:540
+#: includes/tools/class-wpcpm-mentor-checker.php:562
 msgid "Profile not found"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:544
+#: includes/tools/class-wpcpm-mentor-checker.php:566
 msgid "Could not check"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:555
+#: includes/tools/class-wpcpm-mentor-checker.php:577
 msgid "Awaiting promotion"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:559
+#: includes/tools/class-wpcpm-mentor-checker.php:581
 msgid "Promoted"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:563
+#: includes/tools/class-wpcpm-mentor-checker.php:585
 msgid "Skipped"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:567
+#: includes/tools/class-wpcpm-mentor-checker.php:589
 msgid "Failed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:579
-msgid "(unnamed)"
-msgstr ""
-
-#: includes/tools/class-wpcpm-mentor-checker.php:597
+#: includes/tools/class-wpcpm-mentor-checker.php:619
 msgid "Checking…"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:663
+#: includes/tools/class-wpcpm-mentor-checker.php:685
 msgid "Cached profile results cleared."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:665
+#: includes/tools/class-wpcpm-mentor-checker.php:687
 msgid "Stored results cleared."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:671
+#: includes/tools/class-wpcpm-mentor-checker.php:691
+msgid "The Slack webhook was not saved: only an incoming webhook address starting https://hooks.slack.com/services/ is accepted. The one saved before is kept."
+msgstr ""
+
+#: includes/tools/class-wpcpm-mentor-checker.php:697
 msgid "The standalone Credits Program Mentor Checker plugin is still active."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:672
-msgid "This tool replaces it. Both will run their own weekly check and read the same WordPress.org profiles twice, so deactivate the standalone plugin."
+#: includes/tools/class-wpcpm-mentor-checker.php:698
+msgid "This tool replaces it. Both will run their own automatic check and read the same WordPress.org profiles twice, so deactivate the standalone plugin."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:673
+#: includes/tools/class-wpcpm-mentor-checker.php:699
 msgid "Open plugins"
 msgstr ""
 
 #. translators: %s: link to the settings screen.
-#: includes/tools/class-wpcpm-mentor-checker.php:684
+#: includes/tools/class-wpcpm-mentor-checker.php:710
 #, php-format
 msgid "Add an Airtable Personal Access Token before running a check. %s"
 msgstr ""
 
 #. translators: 1: source status, 2: course title, 3: target status.
-#: includes/tools/class-wpcpm-mentor-checker.php:696
+#: includes/tools/class-wpcpm-mentor-checker.php:722
 #, php-format
 msgid "Every mentor whose Airtable status is %1$s is looked up on WordPress.org. If their contribution history records completing %2$s, their status is changed to %3$s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:711
+#: includes/tools/class-wpcpm-mentor-checker.php:737
 msgid "Promoting writes to the shared Airtable base, so the token also needs the \"data.records:write\" scope. \"Report only\" never writes anything."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:716
+#: includes/tools/class-wpcpm-mentor-checker.php:742
 msgid "Run check (report only)"
 msgstr ""
 
 #. translators: %s: target status name.
-#: includes/tools/class-wpcpm-mentor-checker.php:722
+#: includes/tools/class-wpcpm-mentor-checker.php:748
 #, php-format
 msgid "Run check and promote to %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:728
+#: includes/tools/class-wpcpm-mentor-checker.php:754
 msgid "Promote all eligible"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:741
+#: includes/tools/class-wpcpm-mentor-checker.php:767
 msgid "Clear cached profile results"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:749
+#: includes/tools/class-wpcpm-mentor-checker.php:775
 msgid "Clear results"
 msgstr ""
 
 #. translators: 1: human-readable time difference, 2: "report only" or "promoting" mode label.
-#: includes/tools/class-wpcpm-mentor-checker.php:759
+#: includes/tools/class-wpcpm-mentor-checker.php:785
 #, php-format
 msgid "Last run %1$s ago (%2$s)."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:761
+#: includes/tools/class-wpcpm-mentor-checker.php:787
 msgid "report only"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:761
+#: includes/tools/class-wpcpm-mentor-checker.php:787
 msgid "promoting"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:765
+#: includes/tools/class-wpcpm-mentor-checker.php:791
 msgid "This run did not finish."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:786
+#: includes/tools/class-wpcpm-mentor-checker.php:818
 msgid "checked"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:787
+#: includes/tools/class-wpcpm-mentor-checker.php:819
 msgid "completed the course"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:788
+#: includes/tools/class-wpcpm-mentor-checker.php:820
 msgid "awaiting promotion"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:789
+#: includes/tools/class-wpcpm-mentor-checker.php:821
 msgid "promoted"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:790
+#: includes/tools/class-wpcpm-mentor-checker.php:822
 msgid "need attention"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:798
+#: includes/tools/class-wpcpm-mentor-checker.php:830
 msgid "Course"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:799
+#: includes/tools/class-wpcpm-mentor-checker.php:831
 #: includes/tools/class-wpcpm-track-builder-screen.php:868
 #: includes/tools/class-wpcpm-track-builder-screen.php:963
 msgid "Airtable status"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:800
+#: includes/tools/class-wpcpm-mentor-checker.php:832
 msgid "Outcome"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:806
+#: includes/tools/class-wpcpm-mentor-checker.php:838
 msgid "No results yet. Run a check to see where each vetted mentor stands."
 msgstr ""
 

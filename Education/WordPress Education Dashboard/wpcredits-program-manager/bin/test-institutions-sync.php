@@ -1469,7 +1469,9 @@ $housekeeping = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class
 $checker      = file_get_contents( dirname( __DIR__ ) . '/includes/tools/class-wpcpm-mentor-checker-runner.php' );
 
 ck( 'the application-purge sweep is still daily', false !== strpos( $housekeeping, "'daily', WPCPM_Ceiling::CRON_SWEEP" ), true );
-ck( 'and the mentor checker is still weekly', false !== strpos( $checker, "'weekly', self::CRON_HOOK" ), true );
+// The checker moved too, on its own and later: from weekly to daily in 1.122.4, at the owner's
+// request, and still not onto the syncs' three hours.
+ck( 'and the mentor checker runs daily, not on the syncs\' three hours', 1 === preg_match( "#const RECURRENCE\s*=\s*'daily';#", $checker ), true );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

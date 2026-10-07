@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Mentor_Checker_Runner {
 
 	const CRON_HOOK    = 'wpcpm_checker_weekly_check';
+	const RECURRENCE   = 'daily';
 	const QUEUE_PREFIX = 'wpcpm_checker_queue_';
 	const RESULT_KEY   = 'wpcpm_checker_last_run';
 	const QUEUE_TTL    = 3 * HOUR_IN_SECONDS;
@@ -231,6 +232,10 @@ class WPCPM_Mentor_Checker_Runner {
 		if ( $done ) {
 			$this->finish( $run_id );
 			delete_transient( self::QUEUE_PREFIX . $run_id );
+
+			// One message for the whole run, whichever started it, and with it anything an earlier
+			// message failed to deliver - so a run that promoted nobody still sends that.
+			WPCPM_Mentor_Checker_Slack::flush();
 		}
 
 		return array(
@@ -343,6 +348,9 @@ class WPCPM_Mentor_Checker_Runner {
 		if ( is_wp_error( $updated ) ) {
 			return $updated;
 		}
+
+		// Kept for the Slack message the action that called this sends when it has finished.
+		WPCPM_Mentor_Checker_Slack::record( $record );
 
 		return array(
 			'promoted' => true,
@@ -560,35 +568,61 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Hook the weekly cron event.
+	 * Hook the daily cron event, and schedule it while the check is switched on.
 	 */
 	public static function register_cron() {
 		add_action( self::CRON_HOOK, array( __CLASS__, 'run_cron' ) );
 
 		$settings = WPCPM_Mentor_Checker::config();
 
-		if ( ! empty( $settings['cron_enabled'] ) && ! wp_next_scheduled( self::CRON_HOOK ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'weekly', self::CRON_HOOK );
+		if ( ! empty( $settings['cron_enabled'] ) ) {
+			self::schedule();
 		}
 	}
 
 	/**
-	 * Schedule or unschedule the weekly event to match the setting.
+	 * Schedule or unschedule the daily event to match the setting.
 	 *
 	 * @param bool $enabled Whether the schedule should exist.
 	 */
 	public static function sync_cron( $enabled ) {
-		$scheduled = wp_next_scheduled( self::CRON_HOOK );
-
-		if ( $enabled && ! $scheduled ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'weekly', self::CRON_HOOK );
-		} elseif ( ! $enabled && $scheduled ) {
+		if ( $enabled ) {
+			self::schedule();
+		} elseif ( wp_next_scheduled( self::CRON_HOOK ) ) {
 			wp_clear_scheduled_hook( self::CRON_HOOK );
 		}
 	}
 
 	/**
-	 * The weekly cron callback.
+	 * Ensure the event exists on the daily recurrence.
+	 *
+	 * The check ran weekly until 1.122.4, when the owner asked for it every day. **The recurrence is
+	 * checked, not just the existence**, as `WPCPM_Mentors_Sync::schedule()` checks its own: an event
+	 * keeps the schedule it was created with, so a site that has been running the check weekly would
+	 * go on running it weekly with the code saying daily. `register_cron()` calls this on every
+	 * request, so the first one after the update moves the event, and the next run comes within the
+	 * hour rather than at the end of the old week.
+	 *
+	 * The hook keeps its name, `wpcpm_checker_weekly_check`, as the mentors sync kept
+	 * `wpcpm_mentors_daily` when it moved to three hours: renaming it would leave the old event to be
+	 * found and cleared on every site, uninstall included, for no change in behavior.
+	 */
+	private static function schedule() {
+		$event = wp_get_scheduled_event( self::CRON_HOOK );
+
+		if ( $event && isset( $event->schedule ) && self::RECURRENCE === $event->schedule ) {
+			return;
+		}
+
+		if ( $event ) {
+			wp_clear_scheduled_hook( self::CRON_HOOK );
+		}
+
+		wp_schedule_event( time() + HOUR_IN_SECONDS, self::RECURRENCE, self::CRON_HOOK );
+	}
+
+	/**
+	 * The daily cron callback.
 	 */
 	public static function run_cron() {
 		$settings = WPCPM_Mentor_Checker::config();
