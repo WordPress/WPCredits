@@ -1610,7 +1610,7 @@ ck( 'each row offers Edit by column name, two arrows in a background-ready form,
         substr_count( $list, 'class="wpcpm-question__mover" data-wpcpm-refused="The move was not saved. The question is back where it was."' ),
         substr_count( $list, 'name="wpcpm_direction" value="up"' ),
         substr_count( $list, 'name="wpcpm_direction" value="down"' ),
-        substr_count( $list, 'onsubmit="return confirm(\'Remove this question from the track? Its column, and whatever students wrote in it, stay in Airtable.\');"' ),
+        substr_count( $list, 'data-wpcpm-confirm="Remove this question from the track? Its column, and whatever students wrote in it, stay in Airtable."' ),
     ),
     array( 1, 4, 4, 4, 4 ) );
 
@@ -2031,8 +2031,8 @@ ck( 'Delete is drawn for every track never published, a draft on one of the four
 ck( 'nor for a track in publish status whose log has no publish line, which the store refuses all the same',
     substr_count( $delete_list, '<input type="hidden" name="track" value="24" />' ), 0 );
 
-ck( 'its confirmation names the track, encoded for the script it sits in, and says what deleting means',
-    false !== strpos( $delete_list, 'onsubmit="return confirm(\'Delete Sam\\\'s &quot;Never&quot; Track? It was never published, so nothing in Airtable or on the live site refers to it. This cannot be undone.\');"' ),
+ck( 'its confirmation names the track, escaped for the attribute it sits in, and says what deleting means',
+    false !== strpos( $delete_list, 'data-wpcpm-confirm="Delete Sam&#039;s &quot;Never&quot; Track? It was never published, so nothing in Airtable or on the live site refers to it. This cannot be undone."' ),
     true );
 
 

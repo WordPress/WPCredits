@@ -934,7 +934,7 @@ ck( 'Gil is Invited and counted so, his row offers Resend invite, and the invita
 	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2' ), array( 'edit', 'view', 'reinvite' ), true ) );
 // The card's question is shared by every audience's screen, so its words fit any audience's noun.
 ck( 'the card asks before it sends, of the two, in the plural',
-	has( $both_page, 'onsubmit="return confirm(\'Send an invitation to 2 of the students? They cannot be recalled once sent.\');"' ),
+	has( $both_page, 'data-wpcpm-confirm="Send an invitation to 2 of the students? They cannot be recalled once sent."' ),
 	true );
 ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
 	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),

@@ -1337,7 +1337,7 @@ ck( 'every form on it posts the Accounts tab and the sponsor beside its own fiel
 ck( 'each is an inline form posting to admin-post.php, with the once attribute and its busy word: Remove with its confirm, Attach account with the address it asks for, and the switch', array(
 	post_forms( $view_b ),
 	post_forms( $view_b, true ),
-	false !== strpos( $view_b, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Removing" onsubmit="return confirm(&quot;Remove this account from the sponsor?&quot;);">' ),
+	false !== strpos( $view_b, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Removing" data-wpcpm-confirm="Remove this account from the sponsor?">' ),
 	false !== strpos( $view_b, '<button type="submit" class="button-link-delete">Remove</button></form></li></ul>' ),
 	false !== strpos( $view_b, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Attaching">' ),
 	false !== strpos( $view_b, '<label class="screen-reader-text" for="wpcpm-attach-' . $B . '">Email address</label><input type="email" id="wpcpm-attach-' . $B . '" name="wpcpm_email" placeholder="name@company.example" required /> <button type="submit" class="button">Attach account</button></form>' ),
@@ -1448,7 +1448,7 @@ ck( 'a claimant is listed to the manager with name, address, the last four chara
 $void_form = form_fields_of( $screen, WPCPM_Sponsors::ACTION_CLAIM_VOID );
 ck( 'Void carries the once attribute too, saying it is voiding, keeps its confirm, and names the tab its press comes back to', array(
 	post_forms( $screen, true ),
-	false !== strpos( $screen, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Voiding" onsubmit="return confirm( \'Void this claim? The person may then claim again.\' );">' ),
+	false !== strpos( $screen, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Voiding" data-wpcpm-confirm="Void this claim? The person may then claim again.">' ),
 	isset( $void_form[0][ WPCPM_Sponsors::TAB_FIELD ] ) ? $void_form[0][ WPCPM_Sponsors::TAB_FIELD ] : '',
 ), array( array(), true, 'offers' ) );
 $GLOBALS['uid'] = 1;
@@ -1740,7 +1740,7 @@ ck( 'one more and it is past that list: reinstated here, under the sentence that
 	post_forms( $past ),
 	post_forms( $past, true ),
 	isset( $reinstate_fields[0] ) ? $reinstate_fields[0] : array(),
-	false !== strpos( $past, 'onclick="return confirm(&quot;The agreement class asks before it reinstates.&quot;)">Reinstate</button></form>' ),
+	false !== strpos( $past, 'data-wpcpm-confirm="The agreement class asks before it reinstates.">Reinstate</button></form>' ),
 	substr_count( $past, 'Open on the Administrator Dashboard' ),
 	strpos( $past, 'It is reinstated on the Administrator Dashboard, under Out of force in its Sponsor Collaboration Agreements card.' ),
 ), array( true, array( 'wpcpm_sponsor_agr_reinstate' ), array(), array( '_wpnonce' => 'nonce-wpcpm_sponsor_agr_reinstate_902', 'action' => 'wpcpm_sponsor_agr_reinstate', 'wpcpm_sponsor_agr_post' => '902' ), true, 0, false ) );

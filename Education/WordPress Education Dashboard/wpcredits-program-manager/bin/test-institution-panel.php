@@ -1739,9 +1739,9 @@ WPCPM_Institution_Panel::render_withdraw_form( $waiting );
 $withdraw_elsewhere = (string) ob_get_clean();
 
 ck( 'the manager\'s Withdraw is core\'s secondary button, and the one the dashboard draws keeps the dashboard\'s class', array(
-	substr_count( $row_busy, '<button type="submit" class="button button-secondary" onclick=' ),
+	substr_count( $row_busy, '<button type="submit" class="button button-secondary" data-wpcpm-confirm=' ),
 	substr_count( $row_busy, 'wpcpm-button' ),
-	substr_count( $withdraw_elsewhere, '<button type="submit" class="wpcpm-button" onclick=' ),
+	substr_count( $withdraw_elsewhere, '<button type="submit" class="wpcpm-button" data-wpcpm-confirm=' ),
 	substr_count( $withdraw_elsewhere, 'button-secondary' ),
 ), array( 1, 0, 1, 0 ) );
 

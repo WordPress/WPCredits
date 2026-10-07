@@ -1084,8 +1084,7 @@ class WPCPM_Institutions_Dashboard {
 			// and a university that answers Warsaw in 40ms can time out from anywhere else. An
 			// `<img>` that fails leaves a browser's broken-image glyph beside the name, which
 			// is worse than the nothing this feature promises when there is no icon. Removing
-			// itself takes the gap with it. The handler is the same shape as the confirm on
-			// the People card: one expression, no script file, nothing to load.
+			// itself takes the gap with it. One constant expression, nothing to load.
 			printf(
 				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="48" height="48" loading="lazy" decoding="async" onerror="this.remove()" />',
 				esc_url( $icon )

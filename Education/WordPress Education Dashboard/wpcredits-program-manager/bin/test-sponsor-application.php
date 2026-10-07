@@ -1447,9 +1447,9 @@ $amp = get_post( seed_application( array( 'Company Name' => 'Smith & Jones Ltd' 
 ob_start();
 WPCPM_Sponsor_Application::render_actions( $amp, 'new' );
 $amp_html = (string) ob_get_clean();
-// The stub esc_js() is addslashes(), so the typed name comes out raw and the kses-filtered title comes out as its entity: the two spellings differ, and only the typed one may appear.
-$amp_fixed = 'Smith ' . esc_js( '&' ) . ' Jones Ltd';
-$amp_buggy = 'Smith ' . esc_js( '&amp;' ) . ' Jones Ltd';
+// The stub esc_attr() encodes twice, so the typed name comes out as one entity and the kses-filtered title as two: only the typed one may appear.
+$amp_fixed = 'Smith ' . esc_attr( '&' ) . ' Jones Ltd';
+$amp_buggy = 'Smith ' . esc_attr( '&amp;' ) . ' Jones Ltd';
 ck( 'a company name with an ampersand is printed from the stored fields as typed, never from the kses-filtered title (S5 review)', array( false !== strpos( $amp_html, $amp_fixed ), $amp_fixed === $amp_buggy || false === strpos( $amp_html, $amp_buggy ), $amp_fixed !== $amp_buggy ), array( true, true, true ) );
 ob_start();
 WPCPM_Sponsor_Application::render_details( $amp );
@@ -1518,7 +1518,7 @@ $forms = (string) ob_get_clean();
 ck( 'an open application offers four decisions, each keyed to itself', array( substr_count( $forms, '<form' ), false !== strpos( $forms, 'nonce-wpcpm_sapp_approve_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_info_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_reject_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_spam_' . $id ) ), array( 4, true, true, true, true ) );
 ck( 'every form names the application, is guarded against a second press, and stays on the screen', array( substr_count( $forms, 'name="wpcpm_sapp" value="' . $id . '"' ), substr_count( $forms, 'data-wpcpm-once' ), strpos( $forms, 'wpcpm_return' ) ), array( 4, 4, false ) );
 ck( 'the question is required and says so in the label\'s voice; the reason is not', array( 1 === preg_match( '/name="wpcpm_question"[^>]*required/', $forms ), false !== strpos( $forms, 'wpcpm-field__required' ), preg_match( '/name="wpcpm_reason"[^>]*required/', $forms ) ), array( true, true, 0 ) );
-ck( 'Approve, Reject, Reject as spam carry a confirm naming the company and the address', array( substr_count( $forms, 'onsubmit="return confirm(' ), false !== strpos( $forms, 'Gadgetry Inc' ), false !== strpos( $forms, 'maciej@a8c.com' ) ), array( 3, true, true ) );
+ck( 'Approve, Reject, Reject as spam carry a confirm naming the company and the address', array( substr_count( $forms, 'data-wpcpm-confirm="' ), false !== strpos( $forms, 'Gadgetry Inc' ), false !== strpos( $forms, 'maciej@a8c.com' ) ), array( 3, true, true ) );
 ob_start();
 WPCPM_Sponsor_Application::render_actions( $post, 'new', WPCPM_Return::DASHBOARD );
 $dashboard_forms = (string) ob_get_clean();
@@ -1529,7 +1529,7 @@ WPCPM_Sponsor_Application::render_actions( get_post( $id ), 'new' );
 $flagged = (string) ob_get_clean();
 ck( 'a company already in the base is warned about on Approve, and sent to Create account on the Sponsors screen\'s Accounts tab instead', array(
 	false !== strpos( $flagged, 'already holds a sponsor with this name or website' ),
-	false !== strpos( $flagged, esc_js( "If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
+	false !== strpos( $flagged, esc_attr( "If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
 	strpos( $flagged, 'Sponsors card' ),
 ), array( true, true, false ) );
 ob_start();

@@ -867,9 +867,9 @@ ck( 'while every form on the dashboard\'s card comes back to the dashboard: none
 $dash_card = render_card( 1, $A, true );
 
 ck( 'the block\'s Remove is a core button on every member\'s row, and the Institution Dashboard card\'s Remove keeps its own class alone', array(
-	substr_count( $block, '<button type="submit" class="button button-secondary wpcpm-people__remove" onclick=' ),
+	substr_count( $block, '<button type="submit" class="button button-secondary wpcpm-people__remove" data-wpcpm-confirm=' ),
 	substr_count( $block, 'class="wpcpm-people__remove"' ),
-	substr_count( $dash_card, '<button type="submit" class="wpcpm-people__remove" onclick=' ),
+	substr_count( $dash_card, '<button type="submit" class="wpcpm-people__remove" data-wpcpm-confirm=' ),
 	substr_count( $dash_card, 'button-secondary wpcpm-people__remove' ),
 ), array(
 	count( WPCPM_Institution_Members::members_of( $A ) ),

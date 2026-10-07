@@ -2280,7 +2280,7 @@ ck( 'the invitations card counts the three accounts never sent an invitation und
 	array( true, 'accounts', true ) );
 // The card's question is shared by every audience's screen, so its words fit any audience's noun.
 ck( 'it asks before it sends, of the three, in the plural',
-	has( $tab_page, 'onsubmit="return confirm(\'Send an invitation to 3 of the sponsor accounts? They cannot be recalled once sent.\');"' ),
+	has( $tab_page, 'data-wpcpm-confirm="Send an invitation to 3 of the sponsor accounts? They cannot be recalled once sent."' ),
 	true );
 
 // The press is the manager's next request. WPCPM_Flash remembers within one run of PHP what it took
@@ -2323,7 +2323,7 @@ ck( 'with one left, the button says so in the singular',
 	has( isset( $one_card['wpcpm_sponsors_bulk_invite'] ) ? $one_card['wpcpm_sponsors_bulk_invite'] : '', '>Invite 1 sponsor account that has never been invited</button>' ),
 	true );
 ck( 'and the card asks about the one, in the singular',
-	has( $one_page, 'onsubmit="return confirm(\'Send an invitation to 1 of the sponsor accounts? It cannot be recalled once sent.\');"' ),
+	has( $one_page, 'data-wpcpm-confirm="Send an invitation to 1 of the sponsor accounts? It cannot be recalled once sent."' ),
 	true );
 
 echo "\n=== Manage accounts: one sponsor's accounts, a view of the Accounts tab ===\n";

@@ -562,8 +562,8 @@ final class WPCPM_Institution_Students {
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_STATE ), esc_attr( $state ) );
 
 		printf(
-			'<button type="submit" class="wpcpm-button" onclick="return confirm(%1$s)">%2$s</button>',
-			esc_attr( wp_json_encode( self::confirm( $state, $name ) ) ),
+			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
+			esc_attr( self::confirm( $state, $name ) ),
 			esc_html( isset( $labels[ $state ] ) ? $labels[ $state ] : $state )
 		);
 

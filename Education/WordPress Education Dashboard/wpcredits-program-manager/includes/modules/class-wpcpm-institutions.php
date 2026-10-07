@@ -3653,7 +3653,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		printf(
 			'<form class="wpcpm-app-action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%3$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : '',
+			'' !== $args['confirm'] ? ' data-wpcpm-confirm="' . esc_attr( $args['confirm'] ) . '"' : '',
 			esc_attr__( 'Working', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );
@@ -4699,9 +4699,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		);
 
 		printf(
-			' <form class="wpcpm-inst-link" method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+			' <form class="wpcpm-inst-link" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_js( $confirm )
+			esc_attr( $confirm )
 		);
 		wp_nonce_field( self::ACTION_LINK . '_' . $record_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LINK ) );

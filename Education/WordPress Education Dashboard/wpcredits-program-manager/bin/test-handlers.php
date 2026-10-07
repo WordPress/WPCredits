@@ -2229,7 +2229,7 @@ check( 'the mentor\'s diary names a session a group session with its places, nev
         substr_count( $diary, 'Unnamed student' ),
         substr_count( $diary, '<p class="wpcpm-call__who">Group session</p>' ),
         substr_count( $diary, '1 of 6 places taken' ),
-        substr_count( $diary, esc_attr( wp_json_encode( 'Cancel this session for everybody on it?' ) ) ),
+        substr_count( $diary, 'data-wpcpm-confirm="' . esc_attr( 'Cancel this session for everybody on it?' ) . '"' ),
         substr_count( $diary, 'Cancel this call? The slot goes back on the calendar.' ),
     ),
     array( 0, 1, 1, 1, 0 ) );

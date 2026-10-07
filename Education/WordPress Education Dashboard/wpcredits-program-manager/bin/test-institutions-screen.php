@@ -3481,8 +3481,18 @@ $module->render_application_actions( get_post( 501 ), WPCPM_Institution_Applicat
 $as_admin = (string) ob_get_clean();
 ck( 'the wp-admin return is this screen too, with no decision on an open application', array( decisions_on( $as_admin, 501 ), false !== strpos( $as_admin, '<h3>Where it is decided</h3>' ) ), array( $no_decision, true ) );
 // The one address the decisions print, and design spec 7.3 asks for it by name.
-ck( 'the Approve confirm names the record, the account and the address it will write to', false !== strpos( $on_dashboard[501], esc_js( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ), true );
+ck( 'the Approve confirm names the record, the account and the address it will write to', false !== strpos( $on_dashboard[501], esc_attr( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ), true );
 
+$odd_name = "Acme&#092;'s College";
+seed_application( 509, $odd_name, WPCPM_Institution_Application::STATE_NEW, time() - DAY_IN_SECONDS );
+ob_start();
+$module->render_application_actions( get_post( 509 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$odd_forms = (string) ob_get_clean();
+ck( 'a name holding an apostrophe and a character reference reaches the decisions as the attribute\'s escaping gives it, and no form prints an inline handler', array(
+	preg_match( '/\son[a-z]+=/i', $odd_forms ),
+	substr_count( $odd_forms, 'data-wpcpm-confirm="' ),
+	substr_count( $odd_forms, esc_attr( $odd_name ) ),
+), array( 0, 3, 3 ) );
 // Put back in the queue and Delete for good name no tab: pressed from the view that drew them, each
 // comes back to the screen's own address, which is the queue, with an outcome the queue's own map
 // words. The log row the purge writes is put back after it, for the log's own checks further down.

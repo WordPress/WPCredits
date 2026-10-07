@@ -2125,7 +2125,7 @@ ck( 'the members\' addresses are printed on the view, as the Institution Dashboa
 	array( true, true, true, true ) );
 ck( 'with no signed copy waiting, every button on the view is one of core\'s: Nora\'s and Ben\'s Remove as Re-add and Add account are, and Upload the signed agreement as the primary one, the Institution Dashboard\'s own button classes nowhere on it',
 	array(
-		substr_count( $view_body, '<button type="submit" class="button button-secondary wpcpm-people__remove" onclick=' ),
+		substr_count( $view_body, '<button type="submit" class="button button-secondary wpcpm-people__remove" data-wpcpm-confirm=' ),
 		has( $view_body, '<button type="submit" class="button button-primary">Upload the signed agreement</button>' ),
 		has( $view_body, 'class="wpcpm-people__remove"' ),
 		has( $view_body, 'class="wpcpm-button"' ),
@@ -2144,11 +2144,11 @@ $GLOBALS['pmeta']           = array();
 
 ck( 'and with a signed copy waiting, Withdraw it on the institution\'s behalf is core\'s secondary button where the upload form was, beside the two Remove buttons, the Institution Dashboard\'s own button classes nowhere on it',
 	array(
-		substr_count( $pending_view, '<button type="submit" class="button button-secondary" onclick=' ),
+		substr_count( $pending_view, '<button type="submit" class="button button-secondary" data-wpcpm-confirm=' ),
 		has( $pending_view, '>Withdraw it on the institution&#039;s behalf</button>' ),
 		has( $pending_view, 'value="' . wp_create_nonce( 'wpcpm_agreement_withdraw_950' ) . '"' ),
 		has( $pending_view, 'Upload the signed agreement</button>' ),
-		substr_count( $pending_view, '<button type="submit" class="button button-secondary wpcpm-people__remove" onclick=' ),
+		substr_count( $pending_view, '<button type="submit" class="button button-secondary wpcpm-people__remove" data-wpcpm-confirm=' ),
 		has( $pending_view, 'class="wpcpm-button"' ),
 	),
 	array( 1, true, true, false, 2, false ) );
@@ -2494,7 +2494,7 @@ ck( 'the invitations card counts the three accounts never sent an invitation und
 	array( true, 'accounts', true ) );
 // The card's question is shared by every audience's screen, so its words fit any audience's noun.
 ck( 'it asks before it sends, of the three, in the plural',
-	has( $tab_page, 'onsubmit="return confirm(\'Send an invitation to 3 of the institution accounts? They cannot be recalled once sent.\');"' ),
+	has( $tab_page, 'data-wpcpm-confirm="Send an invitation to 3 of the institution accounts? They cannot be recalled once sent."' ),
 	true );
 
 // The press is the manager's next request. WPCPM_Flash remembers within one run of PHP what it took
@@ -2517,7 +2517,7 @@ ck( 'with one left, the button says so in the singular',
 	has( isset( $one_card['wpcpm_institutions_bulk_invite'] ) ? $one_card['wpcpm_institutions_bulk_invite'] : '', '>Invite 1 institution account that has never been invited</button>' ),
 	true );
 ck( 'and the card asks about the one, in the singular',
-	has( $one_page, 'onsubmit="return confirm(\'Send an invitation to 1 of the institution accounts? It cannot be recalled once sent.\');"' ),
+	has( $one_page, 'data-wpcpm-confirm="Send an invitation to 1 of the institution accounts? It cannot be recalled once sent."' ),
 	true );
 
 echo "\n=== The screen's names, and the Accounts tab top to bottom ===\n";

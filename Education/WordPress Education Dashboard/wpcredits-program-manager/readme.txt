@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.5
+Stable tag: 1.122.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.6 =
+
+* Every question a destructive press asks first - Approve, Reject, Reject as spam and Delete for good on an application, a note's Delete, Remove on a person, Void on a claim or a code pool, Withdraw or Accept on an agreement - goes the one way the session buttons already went: a `data-wpcpm-confirm` sentence on the form or its button that `forms.js` asks with `window.confirm()`, in place of the inline `onsubmit` and `onclick` handlers the other forms carried. One reader, one escaping, and a test that keeps the forms on it. The Mentor Dashboard loads `forms.js` so a note's Delete asks there too.
 
 = 1.122.5 =
 

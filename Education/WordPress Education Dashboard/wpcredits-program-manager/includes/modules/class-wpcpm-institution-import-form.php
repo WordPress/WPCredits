@@ -465,9 +465,9 @@ final class WPCPM_Institution_Import_Form {
 		);
 
 		printf(
-			'<form class="wpcpm-import__actions" method="post" action="%1$s" onsubmit="return window.confirm(%2$s);">',
+			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr( wp_json_encode( $says ) )
+			esc_attr( $says )
 		);
 		wp_nonce_field( WPCPM_Institution_Create::confirm_action( $batch_id ) );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONFIRM ) );

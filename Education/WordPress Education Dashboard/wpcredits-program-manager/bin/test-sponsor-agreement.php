@@ -1123,7 +1123,7 @@ ck( 'a document waiting for review gets Download, Accept and the folded Return, 
 // note under the fold, whose summary keeps its own words. Accept it asks first, as the institution
 // side's Accept on the same page does, and in the same place, the button: a No posts nothing, so the
 // page's double-submit guard never sees a press that went nowhere.
-$accept_asks = 'onclick="return confirm(&quot;Accept the signed agreement from Other Sponsor? Airtable is set to Accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab.&quot;)"';
+$accept_asks = 'data-wpcpm-confirm="Accept the signed agreement from Other Sponsor? Airtable is set to Accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab."';
 ck( 'its buttons read Accept it and, under the fold Return with a note, Return it with this note, as the institution side\'s do', array(
 	false !== strpos( $row, '<button type="submit" class="button button-primary" ' . $accept_asks . '>Accept it</button>' ),
 	false !== strpos( $row, '<summary class="button">Return with a note</summary>' ),
@@ -1132,7 +1132,7 @@ ck( 'its buttons read Accept it and, under the fold Return with a note, Return i
 	strpos( $row, 'Send back with this note' ),
 ), array( true, true, true, false, false ) );
 ck( 'Accept it asks before it acts, naming the company, what Airtable is set to, how many people at the company are emailed and where it can be taken out of force; Return asks nothing, its note is the press', array(
-	substr_count( $row, 'onclick="return confirm(' ),
+	substr_count( $row, 'data-wpcpm-confirm="' ),
 	false !== strpos( $row, $accept_asks ),
 	false !== strpos( $row, '<form class="wpcpm-sponsor-agreement__form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once>' ),
 ), array( 1, true, true ) );
@@ -1163,7 +1163,7 @@ ob_start();
 WPCPM_Sponsor_Agreement::render_decision( $gone, WPCPM_Return::DASHBOARD );
 $row = (string) ob_get_clean();
 ck( 'an agreement out of force gets the way back and, being a Drive copy, no download', array( false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ), false !== strpos( $row, 'wpcpm_sponsor_agr_download' ), false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ) ), array( true, false, false ) );
-ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" onclick="return confirm(&quot;Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.&quot;)">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
+ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" data-wpcpm-confirm="Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
 ck( 'the question is the one the class keeps for every page that reinstates, the Sponsors screen\'s Agreements tab included', WPCPM_Sponsor_Agreement::reinstate_question(), 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.' );
 ck( 'revoked_all() lists it', in_array( $gone, WPCPM_Sponsor_Agreement::revoked_all(), true ), true );
 wp_delete_post( $gone, true );

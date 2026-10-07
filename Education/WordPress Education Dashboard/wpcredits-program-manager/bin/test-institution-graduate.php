@@ -841,7 +841,7 @@ $html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 ck( 'a member sees both controls', substr_count( $html, '<form' ), 2 );
 ck( 'the graduate button is there', has( $html, 'Mark as graduated' ), true );
 ck( 'and the dropped out button', has( $html, 'Mark as dropped out' ), true );
-ck( 'each carries its confirm', substr_count( $html, 'onclick="return confirm(' ), 2 );
+ck( 'each carries its confirm', substr_count( $html, 'data-wpcpm-confirm="' ), 2 );
 ck( 'and the confirm on the card names the student', has( $html, 'Anna Nowak' ), true );
 // The nonce is keyed to the record and the state together, so a token for graduating somebody is
 // not a token for dropping them out.

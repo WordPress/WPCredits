@@ -458,8 +458,8 @@ class WPCPM_Institution_Invite {
 			printf( '<button type="submit" class="button button-link">%s</button>', esc_html( $label ) );
 		} else {
 			printf(
-				'<button type="submit" class="button button-link" onclick="return confirm(%1$s)">%2$s</button>',
-				esc_attr( wp_json_encode( $confirm ) ),
+				'<button type="submit" class="button button-link" data-wpcpm-confirm="%1$s">%2$s</button>',
+				esc_attr( $confirm ),
 				esc_html( $label )
 			);
 		}
