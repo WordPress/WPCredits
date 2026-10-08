@@ -65,7 +65,11 @@ class WPCPM_Test_Redirect extends Exception {}
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
-function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+// Core's escapes leave an entity they recognize as it is: `esc_html( 'a &gt; b' )` and
+// `esc_attr( 'a &gt; b' )` are `a &gt; b`, which a browser reads back as `a > b`. Only
+// `esc_textarea()` escapes the ampersand again. A stand-in that escaped every ampersand would
+// show a "&gt;" drawn through `esc_attr()` as four characters and hide the box that loses words.
+function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8', false ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
@@ -73,10 +77,50 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-/** Core's own last step in _sanitize_text_fields(): every `%XX` is removed (finding 1). */
-function wpcpm_test_strip_percent( $s ) { while ( preg_match( '/%[a-f0-9]{2}/i', $s, $m ) ) { $s = str_replace( $m[0], '', $s ); } return $s; }
-function sanitize_text_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
-function sanitize_textarea_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
+/**
+ * Core's `_sanitize_text_fields()` behind `sanitize_text_field()` and `sanitize_textarea_field()`,
+ * as 7.1.2 writes it: invalid UTF-8 read as nothing; a "<" with no ">" before the next "<" or the
+ * end escaped as `esc_html()` escapes it (`wp_pre_kses_less_than()`); every tag stripped and the
+ * ends trimmed; a "<" a line feed follows written `&lt;`; for a one-line field every run of white
+ * space one space; and every percent octet removed. One thing of core's is left out:
+ * in the stretch it escapes, core also writes a numeric entity typed out with fewer than three
+ * digits with three (`&#62;` as `&#062;`); no typing here holds one.
+ * A stand-in on `strip_tags()` alone writes no `&lt;` and would pass every rule whatever it did.
+ */
+function wpcpm_test_clean( $str, $keep_newlines ) {
+	$filtered = (string) $str;
+	if ( ! mb_check_encoding( $filtered, 'UTF-8' ) ) { return ''; }
+	if ( false !== strpos( $filtered, '<' ) ) {
+		$filtered = preg_replace_callback( '%<[^>]*?((?=<)|>|$)%', function ( $matches ) { return false === strpos( $matches[0], '>' ) ? htmlspecialchars( $matches[0], ENT_QUOTES, 'UTF-8', false ) : $matches[0]; }, $filtered );
+		$filtered = trim( strip_tags( preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $filtered ) ) );
+		$filtered = str_replace( "<\n", "&lt;\n", $filtered );
+	}
+	if ( ! $keep_newlines ) { $filtered = preg_replace( '/[\r\n\t ]+/', ' ', $filtered ); }
+	$filtered = trim( $filtered );
+	$found    = false;
+	while ( preg_match( '/%[a-f0-9]{2}/i', $filtered, $match ) ) { $filtered = str_replace( $match[0], '', $filtered ); $found = true; }
+	if ( $found ) { $filtered = trim( preg_replace( '/ +/', ' ', $filtered ) ); }
+	return $filtered;
+}
+function sanitize_text_field( $s ) { return wpcpm_test_clean( $s, false ); }
+function sanitize_textarea_field( $s ) { return wpcpm_test_clean( $s, true ); }
+/**
+ * What WordPress does to the title of a post a person without `unfiltered_html` saves
+ * (`wp_filter_kses()` on `title_save_pre`), for the text that reaches it after the cleaner: a "&"
+ * that opens no entity kses knows is written `&amp;`; a "<" with the words up to the next ">" (or
+ * the end) is a tag and is dropped; a ">" on its own is written `&gt;`. Compared with core 7.1.2
+ * on 100,000 random texts of the kind this suite types, and the three forms of each (as typed,
+ * cleaned, cleaned and handed over by `insert_text()`): 0 differ. Two things of core's are not
+ * modeled. kses knows every entity name in `$allowedentitynames` and pads a numeric one (`&#62;`
+ * as `&#062;`), where this knows six names and leaves numbers as they are, so a typed-out
+ * `&eacute;` or `&#62;` would differ; no typing here holds one. And a tag kses allows (`<b>`,
+ * `<a>`, `<q>`) would be kept by core: the cleaner has taken every such tag out before a title
+ * gets here.
+ */
+function wpcpm_test_kses_title( $s ) {
+	$s = preg_replace( '/&(?!(?:lt|gt|amp|quot|copy|nbsp|#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6});)/', '&amp;', (string) $s );
+	return preg_replace_callback( '%<[^>]*(?:>|$)|>%', function ( $m ) { return '>' === $m[0] ? '&gt;' : ''; }, $s );
+}
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_delete_file_stub( $f ) { if ( is_file( $f ) ) { unlink( $f ); } }
@@ -143,13 +187,19 @@ function nocache_headers() {}
 function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https://example.test/logo-' . (int) $id . '.png'; }
 
 // The post store: enough of posts, meta and get_posts() for the offers to live in.
+// A title is unslashed, as core's insert unslashes it, and for a person without `unfiltered_html`
+// it first meets kses (`kses_init()` adds `wp_filter_kses()` on `title_save_pre` for them only).
+function wpcpm_test_title( $slashed ) { $title = stripslashes( (string) $slashed ); return current_user_can( 'unfiltered_html' ) ? $title : wpcpm_test_kses_title( $title ); }
 function wp_insert_post( array $args, $wp_error = false ) {
 	$id = $GLOBALS['next_post']++;
-	// The title unslashed, as core's insert unslashes it.
-	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => stripslashes( (string) ( $args['post_title'] ?? '' ) ), 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => wpcpm_test_title( $args['post_title'] ?? '' ), 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
 	return $id;
 }
-function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = stripslashes( (string) $args['post_title'] ); } return $id; }
+function wp_update_post( array $args ) {
+	$id = (int) $args['ID'];
+	if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = wpcpm_test_title( $args['post_title'] ); $GLOBALS['title_writes'] = ( $GLOBALS['title_writes'] ?? 0 ) + 1; }
+	return $id;
+}
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
@@ -253,6 +303,7 @@ class WPCPM_Institution_Export {
 	public static function csv( array $matrix ) { $out = "\xEF\xBB\xBF"; foreach ( $matrix as $row ) { $out .= implode( ',', array_map( array( __CLASS__, 'cell' ), $row ) ) . "\r\n"; } return $out; }
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
@@ -261,6 +312,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
@@ -289,6 +341,8 @@ $GLOBALS['users'] = array(
 	31 => new WP_User( 31, array( 'wpcpm_student' ), 'Student Unsynced', 'maciej@a8c.com' ),
 );
 $GLOBALS['manage'] = array( 1 );
+// The administrator holds `unfiltered_html`; a sponsor member does not, so kses meets what the member saves.
+$GLOBALS['grants'] = array( 1 => array( 'unfiltered_html' ) );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['umeta'][6] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $B, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 // The shape the students sync writes: the status under `program`, with `is_past` beside it.
@@ -356,7 +410,7 @@ ck( 'a kind that is not one is refused', WPCPM_Sponsor_Offers::clean( array( 'ti
 ck( 'an impossible day is refused', WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'expires' => '2026-02-30' ) )['reason'], 'expires' );
 ck( 'and so is a day in another format', WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'expires' => '31/12/2026' ) )['reason'], 'expires' );
 ck( 'an empty threshold takes the setting', WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'low' => '' ) )['fields']['low'], 10 );
-ck( 'text is capped at MAX_OFFER and instructions at MAX_TEXT', array( mb_strlen( WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'text' => str_repeat( 'a', 600 ) ) )['fields']['text'] ), mb_strlen( WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'instructions' => str_repeat( 'a', 5000 ) ) )['fields']['instructions'] ) ), array( 500, 4000 ) );
+ck( 'a title, a text and instructions at their limits are cleaned whole; one character more is refused, not cut, and the reason names the field', array( WPCPM_Sponsor_Offers::clean( array( 'title' => str_repeat( 'a', 120 ) ) )['ok'], WPCPM_Sponsor_Offers::clean( array( 'title' => str_repeat( 'a', 121 ) ) )['reason'], WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'text' => str_repeat( 'a', 500 ) ) )['ok'], WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'text' => str_repeat( 'a', 501 ) ) )['reason'], WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'instructions' => str_repeat( 'a', 4000 ) ) )['ok'], WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'instructions' => str_repeat( 'a', 4001 ) ) )['reason'] ), array( true, 'title_long', true, 'text_long', true, 'instructions_long' ) );
 
 echo "\n=== The pool ===\n";
 $parsed = WPCPM_Sponsor_Codes::parse( "CODE-1\r\n  CODE-2  \n\nCODE-3,unused column\nhttps://shop.example/buy?a=1,b=2\n" . str_repeat( 'x', 201 ) . "\nCODE-1\n" );
@@ -774,6 +828,190 @@ ck( 'a new offer keeps its title, text and instructions exactly as typed', array
 WPCPM_Sponsor_Offers::save( $typed_id, array( 'title' => $typed_edit, 'text' => $typed_edit, 'instructions' => $typed_edit ) );
 $typed_got = WPCPM_Sponsor_Offers::read( $typed_id );
 ck( 'and a saved one the new words', array( $typed_got['title'] ?? null, $typed_got['text'] ?? null, $typed_got['instructions'] ?? null ), array( $typed_edit, $typed_edit, $typed_edit ) );
+
+echo "\n=== Text people type keeps every word ===\n";
+
+// What the box shows is the stored text read back by typed_text(), and what a person types is not
+// what the cleaner hands back: `<` becomes `&lt;` and the quotes and ampersands after it entities
+// too, and kses writes every other `>` as `&gt;`. These are the phrases that lose words if a box,
+// a count or a save forgets that.
+$t_team     = 'Save <3 on <b>hosting</b> > plans';
+$t_team_cl  = 'Save &lt;3 on hosting > plans';
+$t_team_mem = 'Save &lt;3 on hosting &gt; plans';
+$t_team_box = 'Save <3 on hosting &gt; plans';
+$t_ages     = 'Ages 8 < 12 welcome, adults > 18 pay';
+$t_ages_mem = 'Ages 8 &lt; 12 welcome, adults &gt; 18 pay';
+$t_qa       = 'Q&A: "blocks" & themes, it\'s free.';
+$t_qa_after = 'Ages 8 < 12. ' . $t_qa;
+// Instructions with a held ">" in the first line and a plain one in the second, and a line break.
+$t_instr    = $t_team . "\r\n" . $t_ages . "\r\n" . $t_qa;
+$t_instr_cl = $t_team_cl . "\r\n" . $t_ages . "\r\n" . $t_qa;
+
+/** The edit form of an offer as a browser shows it and posts it: each box's markup, what it shows, what it posts, its maxlength. */
+function wpcpm_test_boxes( $html, $offer_id ) {
+	$start = strpos( $html, 'id="wpcpm-offer-form-' . (int) $offer_id . '"' );
+	if ( false === $start ) { return array(); }
+	$form  = substr( $html, $start, strpos( $html, '</form>', $start ) - $start );
+	$out   = array();
+	// The parser reads CR LF in the markup as LF, then each entity once.
+	$shows = static function ( $markup ) { return html_entity_decode( str_replace( "\r\n", "\n", $markup ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ); };
+	if ( preg_match( '/<input type="text" id="wpcpm-offer-' . (int) $offer_id . '-title" name="wpcpm_title" value="([^"]*)" maxlength="(\d+)"/', $form, $m ) ) {
+		$out['title'] = array( 'markup' => $m[1], 'shown' => $shows( $m[1] ), 'posts' => $shows( $m[1] ), 'maxlength' => (int) $m[2] );
+	}
+	foreach ( array( 'text', 'instructions' ) as $key ) {
+		if ( preg_match( '/<textarea id="wpcpm-offer-' . (int) $offer_id . '-' . $key . '" name="wpcpm_' . $key . '" rows="\d+" maxlength="(\d+)">(.*?)<\/textarea>/s', $form, $m ) ) {
+			$shown       = $shows( $m[2] );
+			$out[ $key ] = array( 'markup' => $m[2], 'shown' => $shown, 'posts' => str_replace( "\n", "\r\n", $shown ), 'maxlength' => (int) $m[1] );
+		}
+	}
+	return $out;
+}
+/** The edit form posted back as it is drawn, with the fields in $change replaced. */
+function wpcpm_test_unedited( $record, $offer_id, array $change = array() ) {
+	$html  = card( 'WPCPM_Sponsor_Offers', $record, array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][ $GLOBALS['uid'] ] ) );
+	$boxes = wpcpm_test_boxes( $html, $offer_id );
+	$offer = WPCPM_Sponsor_Offers::read( $offer_id );
+	return array_merge( array( 'wpcpm_sponsor' => $record, 'wpcpm_offer' => $offer_id, 'wpcpm_title' => $boxes['title']['posts'], 'wpcpm_text' => $boxes['text']['posts'], 'wpcpm_instructions' => $boxes['instructions']['posts'], 'wpcpm_url' => $offer['url'], 'wpcpm_kind' => $offer['kind'], 'wpcpm_audience' => $offer['audience'], 'wpcpm_low' => (string) $offer['low'], 'wpcpm_expires' => $offer['expires'] ), $change );
+}
+/** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
+function wpcpm_test_filled( $unit, $limit ) {
+	$one  = mb_strlen( str_replace( "\r\n", "\n", $unit ) );
+	$text = str_repeat( $unit, intdiv( $limit, $one ) );
+	return $text . str_repeat( 'x', $limit - mb_strlen( str_replace( "\r\n", "\n", $text ) ) );
+}
+/** The newest offer of a sponsor. */
+function wpcpm_test_newest( $record ) { return max( array_keys( WPCPM_Sponsor_Offers::offers_of( $record ) ) ); }
+$ctx = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][5] );
+
+ck( 'the stand-ins are core\'s: the cleaner leaves "<3 on" as an entity and the lone ">" as typed, kses drops "< 12 welcome, adults >" and writes the lone ">" as an entity, and only esc_textarea() escapes an ampersand again',
+	array( sanitize_text_field( $t_team ), wpcpm_test_kses_title( $t_ages ), wpcpm_test_kses_title( $t_team_cl ), wpcpm_test_kses_title( $t_qa ), esc_attr( 'a &gt; b' ), esc_textarea( 'a &gt; b' ) ),
+	array( $t_team_cl, 'Ages 8  18 pay', $t_team_mem, 'Q&amp;A: "blocks" &amp; themes, it\'s free.', 'a &gt; b', 'a &amp;gt; b' ) );
+
+echo "\n--- A member's words: the title is a post title, so kses meets it; the text and the instructions are post meta, so it does not ---\n";
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_team, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-1', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => $t_instr, 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$mem_id = wpcpm_test_newest( $A );
+$mem    = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'a member creates an offer titled "Save <3 on <b>hosting</b> > plans" and it keeps every word: the title as the post holds it after kses, the text as the cleaner left it', array( $r[0], $mem['title'], $mem['text'] ), array( 'offer-created', $t_team_mem, $t_team_cl ) );
+ck( 'the instructions, with the same words and a "<" and ">" that stay as typed, quotes, "&" and line breaks, are stored as the cleaner left them', $mem['instructions'], $t_instr_cl );
+$html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'the new-offer form takes the plain limits, 120, 500 and 4,000 characters', array( false !== strpos( $html, 'id="wpcpm-offer-new-title" name="wpcpm_title" value="" maxlength="120" required' ), false !== strpos( $html, 'id="wpcpm-offer-new-text" name="wpcpm_text" rows="2" maxlength="500"></textarea>' ), false !== strpos( $html, 'id="wpcpm-offer-new-instructions" name="wpcpm_instructions" rows="4" maxlength="4000"></textarea>' ) ), array( true, true, true ) );
+$boxes = wpcpm_test_boxes( $html, $mem_id );
+ck( 'its title box shows the title as typed with the held "&gt;" and no tag, and takes 3 characters more than the limit', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_team_box, 123 ) );
+ck( 'and is escaped in full, so a browser shows the held "&gt;" as four characters: esc_attr() would show ">" and post back "Save plans"', array( $boxes['title']['markup'], sanitize_text_field( $boxes['title']['posts'] ) ), array( 'Save &lt;3 on hosting &amp;gt; plans', $t_team_mem ) );
+ck( 'its text box shows the same words, its instructions box shows what was typed, line break and all', array( $boxes['text']['shown'], $boxes['text']['maxlength'], $boxes['instructions']['shown'], $boxes['instructions']['maxlength'] ), array( $t_team_box, 503, $t_team_box . "\n" . $t_ages . "\n" . $t_qa, 4003 ) );
+$GLOBALS['title_writes'] = 0; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_expires' => '2026-12-31' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$after = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'saved again with only the last day changed, nothing is lost: the title, the text and the instructions are the bytes they were', array( $r[0], $after['title'], $after['text'], $after['instructions'], $after['expires'] ), array( 'offer-saved', $t_team_mem, $t_team_cl, $t_instr_cl, '2026-12-31' ) );
+ck( 'and the unchanged title is not written to the post again', $GLOBALS['title_writes'], 0 );
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_expires' => '2026-12-31' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$again = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'and again: the same bytes', array( $again['title'], $again['text'], $again['instructions'] ), array( $t_team_mem, $t_team_cl, $t_instr_cl ) );
+
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => $t_ages ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$ages_got = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'a member retitles it "Ages 8 < 12 welcome, adults > 18 pay": kses would have taken "< 12 welcome, adults >" and the words in it, and the post holds every word', array( $r[0], $ages_got['title'], mb_strlen( $ages_got['title'] ) ), array( 'offer-saved', $t_ages_mem, 42 ) );
+$boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
+ck( 'its box shows it as typed and takes the limit, nothing held', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_ages, 120 ) );
+$GLOBALS['title_writes'] = 0;
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_low' => '7' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'saved unedited, the title is the bytes it was and is not written', array( WPCPM_Sponsor_Offers::read( $mem_id )['title'], $GLOBALS['title_writes'] ), array( $t_ages_mem, 0 ) );
+
+echo "\n--- An administrator holds unfiltered_html: kses never meets the words, so the save is as it was ---\n";
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_ages, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-2', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$adm_id = wpcpm_test_newest( $A );
+$adm    = WPCPM_Sponsor_Offers::read( $adm_id );
+ck( 'the title is what the cleaner left, the "<" and ">" as typed, and the text is the same as a member\'s', array( $r[0], $adm['title'], $adm['text'] ), array( 'offer-created', $t_ages, $t_team_cl ) );
+$ctx_admin = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
+$boxes     = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $adm_id );
+ck( 'its title box shows it as typed and takes the limit', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_ages, 120 ) );
+$GLOBALS['title_writes'] = 0;
+$r = post( wpcpm_test_unedited( $A, $adm_id, array( 'wpcpm_expires' => '2026-11-30' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'saved unedited it keeps its bytes', array( WPCPM_Sponsor_Offers::read( $adm_id )['title'], WPCPM_Sponsor_Offers::read( $adm_id )['text'], $GLOBALS['title_writes'] ), array( $t_ages, $t_team_cl, 0 ) );
+$GLOBALS['uid'] = 5;
+$r = post( wpcpm_test_unedited( $A, $adm_id, array( 'wpcpm_expires' => '2026-11-29' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'and a member who saves it unedited does not rewrite it in the entity form either', array( WPCPM_Sponsor_Offers::read( $adm_id )['title'], $GLOBALS['title_writes'] ), array( $t_ages, 0 ) );
+
+echo "\n--- The limits are counted as the person typed: at the limit it is kept whole, one more is refused ---\n";
+$line      = $t_qa_after . "\r\n" . $t_ages . "\r\n";
+$text_at   = wpcpm_test_filled( $line, WPCPM_Sponsor_Offers::MAX_OFFER );
+$instr_at  = wpcpm_test_filled( $line, WPCPM_Sponsor_Offers::MAX_TEXT );
+$title_at  = wpcpm_test_filled( $t_qa_after . ' ' . $t_ages . ' ', WPCPM_Sponsor_Offers::MAX_TITLE );
+$typed_len = static function ( $v ) { return mb_strlen( str_replace( "\r\n", "\n", $v ) ); };
+ck( 'the typings are exactly 500, 4,000 and 120 characters, with "<", ">", quotes, "&" and line breaks', array( $typed_len( $text_at ), $typed_len( $instr_at ), $typed_len( $title_at ), substr_count( $text_at, "\r\n" ) > 5, substr_count( $instr_at, "\r\n" ) > 40 ), array( 500, 4000, 120, true, true ) );
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => $title_at, 'wpcpm_text' => $text_at, 'wpcpm_instructions' => $instr_at ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$full = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'a member saves all three at their limits and the save is accepted', $r[0], 'offer-saved' );
+ck( 'each is stored longer than its limit and counted at it: nothing was cut', array( mb_strlen( $full['title'] ) > 120, mb_strlen( $full['text'] ) > 500, mb_strlen( $full['instructions'] ) > 4000, WPCPM_Typed_Text::typed_length( $full['title'] ), WPCPM_Typed_Text::typed_length( $full['text'] ), WPCPM_Typed_Text::typed_length( $full['instructions'] ) ), array( true, true, true, 120, 500, 4000 ) );
+$boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
+ck( 'and each comes back to its box exactly as typed, with the box\'s own limit', array( $boxes['title']['shown'] === $title_at, $boxes['text']['shown'] === str_replace( "\r\n", "\n", $text_at ), $boxes['instructions']['shown'] === str_replace( "\r\n", "\n", $instr_at ), $boxes['title']['maxlength'], $boxes['text']['maxlength'], $boxes['instructions']['maxlength'] ), array( true, true, true, 120, 500, 4000 ) );
+$before = array( $full['title'], $full['text'], $full['instructions'] );
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_expires' => '2027-01-31' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$full = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'saved again with only the last day changed, the three keep their bytes', array( $r[0], array( $full['title'], $full['text'], $full['instructions'] ), $full['expires'] ), array( 'offer-saved', $before, '2027-01-31' ) );
+
+$GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => $title_at . 'x' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'a title one character over is refused with the field, the limit and what to do', array( $r[0], $r[3] ), array( 'offer-rejected', 'The title is 1 character over the limit of 120. Shorten it and save again.' ) );
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_text' => $text_at . 'x' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'a text one character over is refused the same way', array( $r[0], $r[3] ), array( 'offer-rejected', 'What you get is 1 character over the limit of 500. Shorten it and save again.' ) );
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_instructions' => $instr_at . 'xyz' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'and instructions three over, in the plural', array( $r[0], $r[3] ), array( 'offer-rejected', 'How to redeem it is 3 characters over the limit of 4000. Shorten it and save again.' ) );
+$left_as = WPCPM_Sponsor_Offers::read( $mem_id );
+ck( 'a refused save writes nothing: the offer, the log and the program records are as they were', array( array( $left_as['title'], $left_as['text'], $left_as['instructions'] ), $GLOBALS['audit'], $GLOBALS['patched'] ), array( $before, array(), array() ) );
+$offers_before = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Too wordy', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-3', 'wpcpm_text' => $text_at . 'x', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'a new offer with a text one over creates nothing', array( $r[0], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-rejected', $offers_before ) );
+$r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => str_repeat( 'é', 120 ) . "\xF0\x9F\x98\x80" ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'an emoji is one character to the count, as typed: 121 characters is refused by one', array( $r[0], $r[3] ), array( 'offer-rejected', 'The title is 1 character over the limit of 120. Shorten it and save again.' ) );
+
+echo "\n--- A row imported from the program records keeps its stored form ---\n";
+$E = 'recSPONSOR0000005'; $F = 'recSPONSOR0000006'; $G = 'recSPONSOR0000007';
+$row = static function ( $name, $offer, $instructions ) { return array( 'name' => $name, 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ); };
+$whole_text  = str_repeat( '&amp;', 200 ) . str_repeat( 'x', 300 );
+$whole_instr = str_repeat( '&quot;', 800 ) . str_repeat( 'x', 3200 );
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array(
+	$E => $row( 'Entity Example', $whole_text, $whole_instr ),
+	$F => $row( 'Held Example', $t_team_mem, $t_ages_mem ),
+	$G => $row( str_repeat( 'n', 130 ), str_repeat( 'x', 600 ), str_repeat( 'y', 5000 ) ),
+) ), time() );
+$GLOBALS['uid'] = 1;
+$e_id = WPCPM_Sponsor_Offers::seed( $E );
+$e    = WPCPM_Sponsor_Offers::read( $e_id );
+ck( 'a text of 500 characters and instructions of 4,000, each longer than that in the form the records hold them, are imported whole, byte for byte', array( $e['text'] === $whole_text, $e['instructions'] === $whole_instr, WPCPM_Typed_Text::typed_length( $e['text'] ), WPCPM_Typed_Text::typed_length( $e['instructions'] ) ), array( true, true, 500, 4000 ) );
+$f_id = WPCPM_Sponsor_Offers::seed( $F );
+$f    = WPCPM_Sponsor_Offers::read( $f_id );
+ck( 'the form the records hold a "<3" and a ">" in is imported as it is, and its boxes draw it as typed', array( $f['text'], $f['instructions'] ), array( $t_team_mem, $t_ages_mem ) );
+$GLOBALS['uid'] = 5;
+$f_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $F, $ctx ), $f_id );
+ck( 'the imported text\'s box shows what was meant and takes the limit and the 3 held', array( $f_boxes['text']['shown'], $f_boxes['text']['maxlength'], $f_boxes['instructions']['shown'], $f_boxes['instructions']['maxlength'] ), array( $t_team_box, 503, $t_ages, 4000 ) );
+$GLOBALS['uid'] = 1;
+$g_id = WPCPM_Sponsor_Offers::seed( $G );
+$g    = WPCPM_Sponsor_Offers::read( $g_id );
+ck( 'an import over the limit is cut to it, as it always was: nobody is there to refuse it to', array( mb_strlen( $g['title'] ), mb_strlen( $g['text'] ), mb_strlen( $g['instructions'] ) ), array( 120, 500, 4000 ) );
+// Cut on a whole character as typed: an entity or a line break that straddles the limit is kept or
+// left out whole, never split into a stray "&q" or a lone CR.
+$K = 'recSPONSOR0000008';
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $K => $row( 'Cut Example', str_repeat( 'x', 498 ) . '&quot;yy', str_repeat( 'x', 3999 ) . "\r\nyy" ) ) ), time() );
+$k = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $K ) );
+ck( 'an import over the limit is cut on a whole character as typed: an entity and a line break at the limit stay whole', array( $k['text'], WPCPM_Typed_Text::typed_length( $k['text'] ), $k['instructions'] === str_repeat( 'x', 3999 ) . "\r\n", WPCPM_Typed_Text::typed_length( $k['instructions'] ) ), array( str_repeat( 'x', 498 ) . '&quot;y', 500, true, 4000 ) );
+
+echo "\n--- The post write: only the title meets kses, and only a member's needs insert_text() ---\n";
+$GLOBALS['uid'] = 5;
+$made = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $t_ages, 'kind' => 'shared', 'text' => $t_ages, 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+ck( 'create() hands a member\'s title to the post write as entities, and keeps the text in meta as it was given', array( WPCPM_Sponsor_Offers::read( $made )['title'], WPCPM_Sponsor_Offers::read( $made )['text'] ), array( $t_ages_mem, $t_ages ) );
+$GLOBALS['uid'] = 1;
+$made_admin = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $t_ages, 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+ck( 'and an administrator\'s as it was given', WPCPM_Sponsor_Offers::read( $made_admin )['title'], $t_ages );
+$GLOBALS['uid'] = 5; $GLOBALS['title_writes'] = 0;
+WPCPM_Sponsor_Offers::save( $made, array( 'title' => $t_ages_mem ) );
+$no_write = $GLOBALS['title_writes'];
+WPCPM_Sponsor_Offers::save( $made, array( 'title' => 'Ages 9 < 13 welcome, adults > 19 pay' ) );
+ck( 'save() writes a title only when it is not the stored one, and then as entities for a member', array( $no_write, $GLOBALS['title_writes'], WPCPM_Sponsor_Offers::read( $made )['title'] ), array( 0, 1, 'Ages 9 &lt; 13 welcome, adults &gt; 19 pay' ) );
+$GLOBALS['uid'] = 5;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

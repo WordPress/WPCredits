@@ -261,6 +261,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
@@ -319,6 +321,42 @@ ck( 'the pool and its ledger are where the first press left them', array( WPCPM_
 ck( 'the person still holds exactly the one claim, at the index the first press wrote', array( array_keys( WPCPM_Sponsor_Claims::claims_of( 20 ) ), WPCPM_Sponsor_Claims::claims_of( 20 )[ $g1 ]['i'] ), array( array( $g1 ), 0 ) );
 ck( 'and the lock the second press took is released', isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $g1 ] ), false );
 ck( 'the guard refuses that person and nobody else: the next claimant gets the next code', array_map( static function ( $v ) { return is_array( $v ) ? array( $v['new'], $v['code'] ) : $v; }, array( WPCPM_Sponsor_Claims::claim( $g1, $GLOBALS['users'][23] ) ) ), array( array( true, 'G-2' ) ) );
+
+echo "\n=== The offer's title in a mail reads as typed ===\n";
+// A member typed "Q&A: save <3 on <b>hosting</b> > plans". The cleaner wrote the "<" that opens no
+// tag as `&lt;` and took the tags; for a member, insert_text() wrote the ">" as `&gt;` before the
+// post write, and kses wrote the "&" as `&amp;`: this is the title WordPress keeps. A mail is plain
+// text and its subject goes through the mail layer's cleaner, so both carry it read back, and the
+// subject is marked plain text.
+$q_stored = 'Q&amp;A: save &lt;3 on hosting &gt; plans';
+$q_typed  = 'Q&A: save <3 on hosting > plans';
+$GLOBALS['uid'] = 5;
+$g2 = WPCPM_Sponsor_Offers::create( $G, array( 'title' => 'Q&A: save &lt;3 on hosting > plans', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 5, 'expires' => '' ) );
+// kses, which this suite's post store does not run, writes the "&" of a member's title as `&amp;`.
+$GLOBALS['posts'][ $g2 ]->post_title = str_replace( 'Q&A', 'Q&amp;A', $GLOBALS['posts'][ $g2 ]->post_title );
+WPCPM_Sponsor_Offers::add_codes( $g2, "Q-1\nQ-2" );
+WPCPM_Sponsor_Offers::set_state( $g2, 'live' );
+ck( 'the title is stored as a member\'s post holds it', WPCPM_Sponsor_Offers::read( $g2 )['title'], $q_stored );
+$GLOBALS['sent'] = array(); $GLOBALS['audit'] = array();
+WPCPM_Sponsor_Claims::claim( $g2, $GLOBALS['users'][20] );
+$low = array_map( static function ( $row ) { return array( $row[1], $row[3]['subject'], $row[3]['plain_subject'] ?? null, false !== strpos( $row[3]['body'], 'The offer "' . $GLOBALS['q_typed'] . '" has 1 codes left' ) ); }, $GLOBALS['sent'] );
+ck( 'below the threshold the member and the manager are mailed the title as typed, the subject marked plain text', $low, array( array( 5, '[WP Credits] ' . $q_typed . ': 1 codes left', true, true ), array( 1, '[WP Credits] ' . $q_typed . ': 1 codes left', true, true ) ) );
+$GLOBALS['sent'] = array();
+$problem = WPCPM_Sponsor_Claims::report_problem( $g2, $GLOBALS['users'][20] );
+$p_mail  = isset( $GLOBALS['sent'][0][3] ) ? $GLOBALS['sent'][0][3] : array();
+ck( 'a reported problem is mailed with the title as typed, the subject marked plain text', array( $problem, $p_mail['subject'] ?? null, $p_mail['plain_subject'] ?? null, isset( $p_mail['body'] ) && 0 === strpos( $p_mail['body'], 'Student One reports that their code for "' . $q_typed . '" (ending Q-1) did not work.' ) ), array( array( 'mailed' => 1 ), '[WP Credits] A code from ' . $q_typed . ' did not work', true, true ) );
+// The audit row is not a mail. Its writer cleans the message as a text area and stores it as a
+// post, where "<3 on hosting >" read back would be taken for a tag: it keeps the stored form, which
+// every screen that prints it escapes as it is.
+ck( 'the audit row keeps the title as stored', end( $GLOBALS['audit'] )['message'], 'A claimant reported a problem with their code for "' . $q_stored . '" (ending Q-1); 1 mail sent.' );
+
+echo "\n=== The usage CSV reads as typed ===\n";
+// A CSV is plain text too: a spreadsheet shows `&lt;` as four characters. The writer it goes through
+// already puts an apostrophe before a cell that starts like a formula (WPCPM_Institution_Export::cell(),
+// pinned with "=SUM(1)" in bin/test-sponsor-offers.php), and no entity read back is a formula's first
+// character.
+$q_csv = WPCPM_Sponsor_Claims::csv( WPCPM_Sponsor_Claims::stats( $G ) );
+ck( 'the offer\'s title is written as typed, with no entity in the file', array( false !== strpos( $q_csv, $q_typed . ',' ), preg_match( '/&(?:lt|gt|amp|quot|#0?39);/', $q_csv ) ), array( true, 0 ) );
 
 echo "\n=== House rules ===\n";
 $claims_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php' );

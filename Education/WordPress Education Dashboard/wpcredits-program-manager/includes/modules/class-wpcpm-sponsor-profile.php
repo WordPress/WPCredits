@@ -112,6 +112,8 @@ final class WPCPM_Sponsor_Profile {
 			'profile-saved'     => array( 'success', __( 'Your profile was saved to the program records.', 'wpcredits-program-manager' ) ),
 			'profile-unchanged' => array( 'info', __( 'Nothing changed.', 'wpcredits-program-manager' ) ),
 			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the links and the product type.', 'wpcredits-program-manager' ) ),
+			// The sentence after it names the field and how far over it is (long_sentence()).
+			'profile-long'      => array( 'error', __( 'Nothing was saved.', 'wpcredits-program-manager' ) ),
 			'profile-failed'    => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'           => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
@@ -144,9 +146,17 @@ final class WPCPM_Sponsor_Profile {
 	/**
 	 * Clean one posted value by its field's kind.
 	 *
+	 * A typed text, one line (the Contact person, the offer line) or a text area (How students
+	 * use it, Anything else you would like to share), is counted as the person typed it
+	 * (`WPCPM_Typed_Text::typed_length()`): the entities the cleaner writes for a "<" and the quote
+	 * marks and ampersands after it, and a line break's two bytes, count as the one character each
+	 * stands for. One over its limit (`limit_of()`) is refused rather than cut: a name cut short is
+	 * a different name, and a text cut short reaches the program missing its end.
+	 *
 	 * @param string $key A key of `FIELDS`.
 	 * @param string $raw The posted value.
-	 * @return array `ok` (bool) and `value` (the cleaned value, or null to clear a select).
+	 * @return array `ok` (bool) and `value` (the cleaned value, or null to clear a select); for a
+	 *               typed text over its limit, `over` too: how many characters, as typed.
 	 */
 	public static function clean( $key, $raw ) {
 		if ( ! isset( self::FIELDS[ $key ] ) ) {
@@ -201,16 +211,79 @@ final class WPCPM_Sponsor_Profile {
 					'ok'    => in_array( $raw, self::CHOICES[ $name ], true ),
 					'value' => $raw,
 				);
-			case 'text':
-				return array(
-					'ok'    => true,
-					'value' => mb_substr( sanitize_textarea_field( $raw ), 0, self::MAX_TEXT ),
-				);
+		}
+
+		$value = 'text' === $kind ? sanitize_textarea_field( $raw ) : sanitize_text_field( $raw );
+		$over  = WPCPM_Typed_Text::typed_length( $value ) - self::limit_of( $key );
+
+		if ( $over > 0 ) {
+			return array(
+				'ok'    => false,
+				'value' => $value,
+				'over'  => $over,
+			);
 		}
 
 		return array(
 			'ok'    => true,
-			'value' => mb_substr( sanitize_text_field( $raw ), 0, self::MAX_LINE ),
+			'value' => $value,
+		);
+	}
+
+	/**
+	 * The longest a typed text may be, in characters as typed: `MAX_TEXT` for a text area,
+	 * `MAX_LINE` for one line.
+	 *
+	 * @param string $key A key of `FIELDS`.
+	 * @return int
+	 */
+	private static function limit_of( $key ) {
+		return isset( self::FIELDS[ $key ] ) && 'text' === self::FIELDS[ $key ]['kind'] ? self::MAX_TEXT : self::MAX_LINE;
+	}
+
+	/**
+	 * Whether a posted value is the stored one.
+	 *
+	 * A typed text is drawn back by `WPCPM_Typed_Text`, so a box posted back unedited can come back
+	 * in other bytes than the stored ones: with a ">" the card held as `&gt;`, say, or a text
+	 * area's every break as CR LF where the base keeps LF. Read the same, it is the stored text,
+	 * and is not written. Every other kind is the stored value only byte for byte.
+	 *
+	 * @param string $kind    The field's kind.
+	 * @param string $next    The value as cleaned from the post.
+	 * @param string $current The value as stored.
+	 * @return bool
+	 */
+	private static function unchanged( $kind, $next, $current ) {
+		if ( $next === $current ) {
+			return true;
+		}
+
+		if ( 'line' === $kind ) {
+			return WPCPM_Typed_Text::same_text( $next, $current );
+		}
+
+		return 'text' === $kind && WPCPM_Typed_Text::same_lines( $next, $current );
+	}
+
+	/**
+	 * The sentence after `profile-long`: the field, and how far over its limit it is, so the
+	 * sponsor knows how much to take out.
+	 *
+	 * @param string $key  A key of `FIELDS`.
+	 * @param int    $over How many characters, as typed, it is over `limit_of()`.
+	 * @return string
+	 */
+	private static function long_sentence( $key, $over ) {
+		$labels = self::labels();
+		$over   = max( 1, (int) $over );
+
+		return sprintf(
+			/* translators: 1: the field's label, 2: how many characters over, 3: the longest value allowed. */
+			_n( '"%1$s" is %2$s character over the limit of %3$s. Shorten it and save again.', '"%1$s" is %2$s characters over the limit of %3$s. Shorten it and save again.', $over, 'wpcredits-program-manager' ),
+			isset( $labels[ $key ] ) ? $labels[ $key ] : $key,
+			number_format_i18n( $over ),
+			number_format_i18n( self::limit_of( $key ) )
 		);
 	}
 
@@ -258,16 +331,29 @@ final class WPCPM_Sponsor_Profile {
 				continue;
 			}
 
-			$cleaned = self::clean( $key, WPCPM_Request::posted_text( 'wpcpm_' . $key ) );
+			// A text area is read with its line breaks; every other field as one line.
+			$posted  = 'text' === $spec['kind'] ? WPCPM_Request::posted_lines( 'wpcpm_' . $key ) : WPCPM_Request::posted_text( 'wpcpm_' . $key );
+			$cleaned = self::clean( $key, $posted );
+			$current = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
 
 			if ( ! $cleaned['ok'] ) {
+				if ( isset( $cleaned['over'] ) ) {
+					// Over its limit and read as the stored text: the base holds it so, written in
+					// its grid, which bounds neither column, and the box posted it back untouched.
+					// A save that did not touch it is not refused for it.
+					if ( self::unchanged( $spec['kind'], (string) $cleaned['value'], $current ) ) {
+						continue;
+					}
+
+					self::leave( 'profile-long', $record, self::long_sentence( $key, $cleaned['over'] ) );
+				}
+
 				self::leave( 'profile-rejected', $record );
 			}
 
-			$current = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
-			$next    = null === $cleaned['value'] ? '' : (string) $cleaned['value'];
+			$next = null === $cleaned['value'] ? '' : (string) $cleaned['value'];
 
-			if ( $next === $current ) {
+			if ( self::unchanged( $spec['kind'], $next, $current ) ) {
 				continue;
 			}
 
@@ -390,15 +476,28 @@ final class WPCPM_Sponsor_Profile {
 				}
 				echo '</select>';
 			} elseif ( 'text' === $spec['kind'] ) {
-				printf( '<textarea id="%1$s" name="wpcpm_%2$s" rows="4" maxlength="%3$d">%4$s</textarea>', esc_attr( $id ), esc_attr( $key ), (int) self::MAX_TEXT, esc_textarea( $value ) );
+				// Drawn as the person typed it, with room for each ">" held as `&gt;`
+				// (`WPCPM_Typed_Text`): drawn as stored, the box would show the cleaner's entities.
+				printf(
+					'<textarea id="%1$s" name="wpcpm_%2$s" rows="4" maxlength="%3$d">%4$s</textarea>',
+					esc_attr( $id ),
+					esc_attr( $key ),
+					(int) WPCPM_Typed_Text::drawn_limit( $value, self::MAX_TEXT ),
+					esc_textarea( WPCPM_Typed_Text::typed_text( $value ) )
+				);
 			} else {
+				// A one-line text is drawn as the person typed it, with room for each ">" held as
+				// `&gt;` (`WPCPM_Typed_Text`): drawn as stored, "We <3 our team > all" would post
+				// back as "We all". A link and an address are not typed text the cleaner escapes.
+				$typed = 'line' === $spec['kind'];
+
 				printf(
 					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d" />',
 					esc_attr( 'email' === $spec['kind'] ? 'email' : ( 'url' === $spec['kind'] ? 'url' : 'text' ) ),
 					esc_attr( $id ),
 					esc_attr( $key ),
-					esc_attr( $value ),
-					(int) self::MAX_LINE
+					esc_attr( $typed ? WPCPM_Typed_Text::attr_text( $value ) : $value ),
+					(int) ( $typed ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE )
 				);
 			}
 
@@ -434,9 +533,10 @@ final class WPCPM_Sponsor_Profile {
 	 *
 	 * @param string $status A key of `messages()`.
 	 * @param string $record The sponsor, for the manager switcher; '' to land on the page as is.
+	 * @param string $detail A sentence after the status's own, or ''.
 	 */
-	private static function leave( $status, $record ) {
-		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record );
+	private static function leave( $status, $record, $detail = '' ) {
+		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record, $detail );
 		exit;
 	}
 }

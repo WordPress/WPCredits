@@ -94,8 +94,6 @@ function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES )
 function wp_kses( $html, $allowed = array() ) { return strip_tags( (string) $html, '<a>' ); }
 function esc_url( $u ) { return (string) $u; }
 function esc_url_raw( $u, $protocols = null ) { return preg_match( '#^https?://[^\s<>"]+$#i', (string) $u ) ? (string) $u : ''; }
-function sanitize_text_field( $s ) { return trim( preg_replace( '/[\r\n\t]+/', ' ', wp_strip_all_tags( (string) $s ) ) ); }
-function sanitize_textarea_field( $s ) { return trim( wp_strip_all_tags( (string) $s ) ); }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function sanitize_email( $s ) { return trim( (string) $s ); }
 function is_email( $s ) { return (bool) preg_match( '/^[^@\s]+@[^@\s.]+\.[^@\s]+$/', (string) $s ); }
@@ -126,6 +124,8 @@ function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/specialchars.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
@@ -342,6 +342,7 @@ class WPCPM_Institutions {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
@@ -1359,6 +1360,46 @@ $unsent = decide( 'handle_info', $id, array( 'wpcpm_question' => 'And one more q
 $GLOBALS['mail_fails'] = false;
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'a question that could not be handed off moves nothing and says so', array( flashed( $unsent ), count( $events ) ), array( 'sapp-not-sent', 3 ) );
+
+echo "\n-- a question, counted and mailed as typed ------------------------------\n";
+
+/** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
+function app_filled( $unit, $limit ) {
+	$one  = mb_strlen( str_replace( "\r\n", "\n", $unit ) );
+	$text = str_repeat( $unit, intdiv( $limit, $one ) );
+	return $text . str_repeat( 'x', $limit - mb_strlen( str_replace( "\r\n", "\n", $text ) ) );
+}
+reset_world();
+as_manager();
+$id = seed_application();
+// A "<" that opens no tag is written `&lt;` by the cleaner, and the quote marks and ampersands after
+// it entities too: 103 characters as typed, 120 as stored.
+$q_typed  = 'Do your student plans start at fewer than < 10 seats? We would also like the "terms" & conditions page.';
+$q_stored = 'Do your student plans start at fewer than &lt; 10 seats? We would also like the &quot;terms&quot; &amp; conditions page.';
+ck( 'the stand-in is core\'s cleaner: it hands the question back in this form', array( sanitize_textarea_field( $q_typed ), mb_strlen( $q_typed ), mb_strlen( $q_stored ) ), array( $q_stored, 103, 120 ) );
+$GLOBALS['mail'] = array();
+$asked = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_typed ) );
+ck( 'the applicant, an outside company, is mailed the question as typed', array( flashed( $asked ), mail_said( 0, 'body' ) ), array( 'sapp-info', "Thank you for offering to sponsor the WordPress Credits Program. Before a program manager can take your application further, they have one question:\r\n\r\n" . $q_typed . "\r\n\r\nReply to this message and your answer reaches them directly." ) );
+$events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'and the history keeps it as the cleaner stored it', end( $events )['note'], $q_stored );
+// The history's writer cleans its note again, so a question read back to "<3 our students >" would
+// be taken for a tag there: it is handed the stored form.
+$GLOBALS['mail'] = array();
+decide( 'handle_info', $id, array( 'wpcpm_question' => 'Do you <3 our <b>students</b> > all the others?' ) );
+$events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a question with "<3" and a ">" is mailed as typed and kept in the history with every word', array( false !== strpos( mail_said( 0, 'body' ), "\r\nDo you <3 our students > all the others?\r\n" ), end( $events )['note'] ), array( true, 'Do you &lt;3 our students > all the others?' ) );
+$GLOBALS['mail'] = array();
+ck( 'nine characters as typed are under ten, though the cleaner stores them in sixteen: nothing is sent', array( mb_strlen( sanitize_textarea_field( 'a < b & c' ) ), flashed( decide( 'handle_info', $id, array( 'wpcpm_question' => 'a < b & c' ) ) ), count( $GLOBALS['mail'] ) ), array( 16, 'sapp-question', 0 ) );
+$q_at = app_filled( "Do plans start at fewer than < 10 seats? Q&A: \"terms\" & conditions.\r\n", 2000 );
+$GLOBALS['mail'] = array();
+$asked = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_at ) );
+$events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a question of 2,000 characters as typed, longer as stored, is sent whole and kept whole', array( mb_strlen( sanitize_textarea_field( $q_at ) ) > 2000, flashed( $asked ), false !== strpos( mail_said( 0, 'body' ), "\r\n\r\n" . $q_at . "\r\n\r\n" ), end( $events )['note'] === sanitize_textarea_field( $q_at ) ), array( true, 'sapp-info', true, true ) );
+$GLOBALS['mail'] = array();
+$before = count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) );
+$long   = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_at . 'x' ) );
+ck( 'one character more is refused with its own sentence, and nothing is sent or written', array( flashed( $long ), count( $GLOBALS['mail'] ), count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) ) - $before ), array( 'sapp-too-long', 0, 0 ) );
+ck( 'the sentence says the limit and what to do', WPCPM_Sponsor_Application::manager_messages()['sapp-too-long'] ?? null, array( 'error', 'Nothing was sent. The question is longer than 2000 characters: shorten it and send it again.' ) );
 
 echo "\n-- a rejection and a spam mark ------------------------------------------\n";
 

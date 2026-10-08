@@ -234,9 +234,9 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * A manager's question or reason: long enough to be a sentence, short enough to read.
 	 *
-	 * The question is the whole of what an applicant is told, so an empty one is refused; the
-	 * reason on a rejection is never sent anywhere, so it is optional and only the ceiling
-	 * applies to it.
+	 * The question is the whole of what an applicant is told, so an empty one is refused, and so is
+	 * one over the ceiling, both counted as typed (`WPCPM_Typed_Text::typed_length()`); the reason
+	 * on a rejection is never sent anywhere, so it is optional and only the ceiling applies to it.
 	 */
 	const MIN_NOTE = 10;
 	const MAX_NOTE = 2000;
@@ -2681,6 +2681,8 @@ class WPCPM_Sponsor_Application {
 			'sapp-state'        => array( 'error', __( 'That application is not in a state this decision applies to. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
 			'sapp-half-done'    => array( 'error', __( 'This application\'s approval is half done: an Airtable record already exists for it. Press Approve again to finish, then decide what you like.', 'wpcredits-program-manager' ) ),
 			'sapp-question'     => array( 'error', __( 'Nothing was sent. The question has to be at least 10 characters: it is the whole of what the applicant is told.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the longest question allowed, in characters. */
+			'sapp-too-long'     => array( 'error', sprintf( __( 'Nothing was sent. The question is longer than %s characters: shorten it and send it again.', 'wpcredits-program-manager' ), number_format_i18n( self::MAX_NOTE ) ) ),
 			'sapp-no-email'     => array( 'error', __( 'That application holds no address WordPress can write to.', 'wpcredits-program-manager' ) ),
 			'sapp-not-sent'     => array( 'error', __( 'The message could not be handed off, so the application was left as it was. The Mail section on Settings says why.', 'wpcredits-program-manager' ) ),
 			'sapp-busy'         => array( 'error', __( 'That application is being approved right now. Give it a minute, then look at it again.', 'wpcredits-program-manager' ) ),
@@ -2931,10 +2933,19 @@ class WPCPM_Sponsor_Application {
 			self::leave( 'sapp-state' );
 		}
 
+		// Counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the entities the
+		// cleaner writes for a "<" and the quote marks and ampersands after it, and a line break's
+		// two bytes, are one character each, as the box counts them. Refused rather than cut on
+		// both sides, because the question is the whole of what the applicant is told.
 		$question = self::posted_note( 'wpcpm_question' );
+		$length   = WPCPM_Typed_Text::typed_length( $question );
 
-		if ( mb_strlen( $question ) < self::MIN_NOTE ) {
+		if ( $length < self::MIN_NOTE ) {
 			self::leave( 'sapp-question' );
+		}
+
+		if ( $length > self::MAX_NOTE ) {
+			self::leave( 'sapp-too-long' );
 		}
 
 		$email = self::email_of_post( $post );
@@ -2946,11 +2957,15 @@ class WPCPM_Sponsor_Application {
 		$manager   = wp_get_current_user();
 		$site      = WPCPM_Mail::site_name();
 		$reference = self::reference_of( $post );
+		// A mail is plain text, so the question is read back to what was typed: the applicant
+		// reads "<" and "&", never `&lt;` and `&amp;`. The history keeps it as stored. The subject
+		// carries no typed text.
+		$said = WPCPM_Typed_Text::mail_text( $question );
 
-		$build = static function () use ( $site, $reference, $question, $manager ) {
+		$build = static function () use ( $site, $reference, $said, $manager ) {
 			$lines = array(
 				__( 'Thank you for offering to sponsor the WordPress Credits Program. Before a program manager can take your application further, they have one question:', 'wpcredits-program-manager' ),
-				$question,
+				$said,
 				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
 			);
 
@@ -2998,7 +3013,8 @@ class WPCPM_Sponsor_Application {
 			self::leave( 'sapp-half-done' );
 		}
 
-		$reason = self::posted_note( 'wpcpm_reason' );
+		// The reason is never sent anywhere, and is kept to the ceiling as it always was.
+		$reason = trim( mb_substr( self::posted_note( 'wpcpm_reason' ), 0, self::MAX_NOTE ) );
 		$email  = self::email_of_post( $post );
 		$site   = WPCPM_Mail::site_name();
 
@@ -3189,7 +3205,8 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * A posted note, trimmed to the ceiling.
+	 * A posted note, cleaned and trimmed. Each caller measures it: the question is refused over
+	 * `MAX_NOTE`, the rejection's reason is kept to it.
 	 *
 	 * `sanitize_textarea_field()` and not `WPCPM_Request::posted_text()`: a question to an
 	 * applicant has paragraphs in it, and `sanitize_text_field()` would fold them into one line.
@@ -3204,9 +3221,7 @@ class WPCPM_Sponsor_Application {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
-		$note = sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) );
-
-		return trim( mb_substr( $note, 0, self::MAX_NOTE ) );
+		return trim( sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) ) );
 	}
 
 	/**
@@ -3524,7 +3539,8 @@ class WPCPM_Sponsor_Application {
 				(int) $post->ID,
 				esc_html( $args['prompt'] ),
 				$required_mark, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
-				(int) self::MAX_NOTE,
+				// Drawn empty, so there is nothing to read back and the room is the limit.
+				(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
 				$args['required'] ? ' minlength="' . (int) self::MIN_NOTE . '" required="required"' : ''
 			);
 		}

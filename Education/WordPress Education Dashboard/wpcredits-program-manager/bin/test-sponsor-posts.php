@@ -81,8 +81,6 @@ function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
 function esc_textarea( $s ) { return esc_html( $s ); }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_title( $s ) { $s = strtolower( trim( (string) $s ) ); $s = preg_replace( '/[^a-z0-9]+/', '-', $s ); return trim( $s, '-' ); }
 function absint( $n ) { return abs( (int) $n ); }
 function wp_unslash( $v ) { return $v; }
@@ -242,6 +240,9 @@ class WPCPM_Sponsors_Dashboard {
 class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { return 0; } }
 
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 // The real gate, not a stand-in: three of its five surfaces could be made no-ops with the whole
 // battery green (FSUIT-3), and a stand-in whose can_view() answers a flag is exactly what hid
 // them. Everything below that asks "what does a reader the level refuses see" now says so by
@@ -487,7 +488,7 @@ $GLOBALS['pmeta'][ $pending3 ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
 ck( 'a return note is kept exactly as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $pending3, 'wpcpm_note' => $typed_note ) ), get_post_meta( $pending3, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', $typed_note ) );
 $stranger = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post' ) );
 ck( 'a post with no sponsor stamp is not this handler\'s to publish', press( 1, array( 'wpcpm_post' => $stranger ) ), 'refused|posts||' );
-ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-not-pending', 'post-failed' ) );
+ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-note-long', 'post-not-pending', 'post-failed' ) );
 
 echo "\n=== The posting switch (wp-admin) ===\n";
 function flags( $uid, $post ) { $GLOBALS['uid'] = $uid; $_POST = $post; try { WPCPM_Sponsor_Posts::handle_flags(); } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
@@ -632,6 +633,51 @@ $GLOBALS['is_admin'] = false;
 $GLOBALS['uid'] = 1;
 ck( 'a manager keeps every category and the filter', array( WPCPM_Sponsor_Posts::scope_categories( array( 'per_page' => 100 ), null ), WPCPM_Sponsor_Posts::hide_category_filter( false, 'post' ) ), array( array( 'per_page' => 100 ), false ) );
 $GLOBALS['uid'] = 20;
+
+echo "\n=== The return note: counted, kept and mailed as typed ===\n";
+// A manager's words, and the form the cleaner hands them back in: "<3 our " is a "<" that opens no
+// tag, written `&lt;`; the tags go; the lone ">" stays; "< 12 welcome, adults >" is kept as typed;
+// and after a "<" with no ">" to close it the quote marks and ampersands are entities too. A post
+// title as WordPress stores a member's: each "&" written `&amp;` by kses, and a "<" typed as `&lt;`.
+$r_note    = "We <3 our <b>team</b> > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+$r_note_cl = "We &lt;3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.";
+$r_note_as = "We <3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+$r_title   = 'Q&amp;A: "blocks" &amp; themes, we &lt;3 them';
+$r_title_as = 'Q&A: "blocks" & themes, we <3 them';
+/** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
+function posts_filled( $unit, $limit ) {
+	$one  = mb_strlen( str_replace( "\r\n", "\n", $unit ) );
+	$text = str_repeat( $unit, intdiv( $limit, $one ) );
+	return $text . str_repeat( 'x', $limit - mb_strlen( str_replace( "\r\n", "\n", $text ) ) );
+}
+/** A pending post of the sponsor's, by member 20, with the title given. */
+function posts_pending( $title ) {
+	$id = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 20, 'post_title' => $title ) );
+	$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $GLOBALS['S'];
+	return $id;
+}
+$GLOBALS['S'] = $S;
+ck( 'the stand-in is core\'s cleaner: it hands the note back in this form', sanitize_textarea_field( $r_note ), $r_note_cl );
+
+$GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$typed_post = posts_pending( $r_title );
+ck( 'a note with line breaks, a "<3", a "<" and the ampersands after one returns the post, and is kept as the cleaner left it', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $typed_post, 'wpcpm_note' => $r_note ) ), get_post( $typed_post )->post_status, get_post_meta( $typed_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', 'draft', $r_note_cl ) );
+$r_mail = isset( $GLOBALS['mail'][0]['mail'] ) ? $GLOBALS['mail'][0]['mail'] : array();
+ck( 'the mail\'s subject carries the title as it reads, "Q&A" and "<3", and is marked plain text so the mail layer keeps them', array( $r_mail['subject'] ?? null, $r_mail['plain_subject'] ?? null ), array( 'Your post "' . $r_title_as . '" needs a change before it is published', true ) );
+ck( 'and its body carries the title and the note as typed, line by line, with no entity in either', $r_mail['body'] ?? null, "Hello Member One,\n\nA program manager read your post \"" . $r_title_as . "\" and sent it back as a draft with this note:\n\n" . $r_note_as . "\n\nEdit it here and submit it for review again: https://example.test/wp-admin/edit.php\n\nThe WordPress Credits program" );
+
+$r_at = posts_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 2000 );
+$GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$at_post = posts_pending( 'Fourth guide' );
+ck( 'a note of 2,000 characters as typed, with 41 line breaks, is longer than that as the cleaner stores it', array( substr_count( $r_at, "\r\n" ), mb_strlen( sanitize_textarea_field( $r_at ) ) > 2000 ), array( 41, true ) );
+ck( 'and returns the post whole: kept, mailed every character as typed, and its length logged as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $at_post, 'wpcpm_note' => $r_at ) ), get_post_meta( $at_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) === sanitize_textarea_field( $r_at ), isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], "this note:\n\n" . $r_at . "\n\nEdit it" ), end( $GLOBALS['audit'] )['data']['note_length'] ?? null ), array( 'post-returned|posts|' . $S . '|', true, true, 2000 ) );
+$GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$over_post = posts_pending( 'Fifth guide' );
+ck( 'one character more is refused with its own sentence, and the post waits as it was: no note, no mail, no audit row', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $over_post, 'wpcpm_note' => $r_at . 'x' ) ), get_post( $over_post )->post_status, get_post_meta( $over_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), $GLOBALS['mail'], $GLOBALS['audit'] ), array( 'post-note-long|posts|' . $S . '|', 'pending', '', array(), array() ) );
+ck( 'the sentence says what the limit is and what to do', WPCPM_Sponsor_Posts::messages()['post-note-long'] ?? null, array( 'error', 'The note is longer than 2000 characters. Shorten it and return the post again.' ) );
+$GLOBALS['uid'] = 1;
+ob_start(); WPCPM_Sponsor_Posts::render_decision( $over_post, WPCPM_Return::DASHBOARD ); $r_box = ob_get_clean();
+ck( 'the note\'s box holds no more than that', 1 === preg_match( '/<textarea id="wpcpm-post-note-' . $over_post . '" name="wpcpm_note" rows="2" maxlength="2000" required placeholder="/', $r_box ), true );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );

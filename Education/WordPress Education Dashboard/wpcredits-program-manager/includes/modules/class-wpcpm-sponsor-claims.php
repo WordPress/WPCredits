@@ -250,20 +250,25 @@ final class WPCPM_Sponsor_Claims {
 			return new WP_Error( 'wpcpm_problem_limit', __( 'You have reported three problems today. Try again tomorrow, or write to your program contact.', 'wpcredits-program-manager' ) );
 		}
 
-		$last  = mb_substr( self::code_for( $user->ID, $offer ), -4 );
-		$build = static function ( $recipient ) use ( $user, $offer, $last ) {
+		$last = mb_substr( self::code_for( $user->ID, $offer ), -4 );
+		// A mail is plain text: the title as WordPress stored it is read back to what the sponsor
+		// typed, and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in
+		// it as they are.
+		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
+		$build = static function ( $recipient ) use ( $user, $title, $last ) {
 			return array(
 				/* translators: 1: site name, 2: offer title. */
-				'subject' => sprintf( __( '[%1$s] A code from %2$s did not work', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $offer['title'] ),
-				'body'    => sprintf(
+				'subject'       => sprintf( __( '[%1$s] A code from %2$s did not work', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $title ),
+				'body'          => sprintf(
 					/* translators: 1: the claimant's name, 2: offer title, 3: the code's last four characters, 4: the Sponsors screen's address. */
 					__( "%1\$s reports that their code for \"%2\$s\" (ending %3\$s) did not work.\n\nThe sponsor's offers and the people who claimed from them are on the Sponsors screen: %4\$s\n\nReply to this person from your own mailbox. The site never sends a code by mail.", 'wpcredits-program-manager' ),
 					$user->display_name,
-					$offer['title'],
+					$title,
 					$last,
 					admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' )
 				),
-				'headers' => WPCPM_Mail::reply_to( $user ),
+				'headers'       => WPCPM_Mail::reply_to( $user ),
+				'plain_subject' => true,
 			);
 		};
 
@@ -271,6 +276,9 @@ final class WPCPM_Sponsor_Claims {
 
 		// Ground `system`: the log knows manager, member and system, and a claimant is neither
 		// of the first two (plan ruling 11). The claimant is the subject, so the row says who.
+		// The title goes in as stored, not read back as the mail's is: the log cleans its message
+		// and keeps it as a post, where "<3 on hosting >" read back would be taken for a tag, and
+		// every screen that prints the row escapes the stored form as it is.
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
 				'kind'     => self::LOG_PROBLEM,
@@ -485,6 +493,11 @@ final class WPCPM_Sponsor_Claims {
 	/**
 	 * The same numbers as a CSV, through the neutralised writer the institution exports use.
 	 *
+	 * A CSV is plain text, so each offer's title is read back to what the sponsor typed
+	 * (`WPCPM_Typed_Text::mail_text()`): a spreadsheet would show `&lt;` as four characters. The
+	 * writer still puts an apostrophe before a cell that starts like a formula, and no entity read
+	 * back is a formula's first character.
+	 *
 	 * @param array $stats stats()'s answer.
 	 * @return string
 	 */
@@ -506,7 +519,7 @@ final class WPCPM_Sponsor_Claims {
 
 		foreach ( $stats['offers'] as $offer ) {
 			$matrix[] = array_merge(
-				array( $offer['title'], $offer['state'], $offer['total'], $offer['month'], $offer['available'], $offer['claimed'], $offer['void'] ),
+				array( WPCPM_Typed_Text::mail_text( $offer['title'] ), $offer['state'], $offer['total'], $offer['month'], $offer['available'], $offer['claimed'], $offer['void'] ),
 				array_values( $offer['series'] )
 			);
 		}
@@ -542,18 +555,21 @@ final class WPCPM_Sponsor_Claims {
 		// The same address for everyone: a member's page ignores the switcher argument, and
 		// a manager's needs it to land on this sponsor.
 		$link  = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $offer['sponsor'], WPCPM_Sponsors_Dashboard::page_url() ) . '#wpcpm-sponsor-offers';
-		$build = static function ( $recipient ) use ( $offer, $available, $link ) {
+		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
+		$build = static function ( $recipient ) use ( $offer, $title, $available, $link ) {
 			return array(
 				/* translators: 1: site name, 2: offer title, 3: codes left. */
-				'subject' => sprintf( __( '[%1$s] %2$s: %3$d codes left', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $offer['title'], $available ),
-				'body'    => sprintf(
+				'subject'       => sprintf( __( '[%1$s] %2$s: %3$d codes left', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $title, $available ),
+				'body'          => sprintf(
 					/* translators: 1: offer title, 2: codes left, 3: the threshold, 4: the Offers card's address. */
 					__( "The offer \"%1\$s\" has %2\$d codes left; it warns below %3\$d.\n\nAdd more codes, or pause the offer, from the Offers card: %4\$s\n\nThis is sent once. Adding codes arms it again.", 'wpcredits-program-manager' ),
-					$offer['title'],
+					$title,
 					$available,
 					(int) $offer['low'],
 					$link
 				),
+				// The title read back as in report_problem(), so the subject is plain text.
+				'plain_subject' => true,
 			);
 		};
 

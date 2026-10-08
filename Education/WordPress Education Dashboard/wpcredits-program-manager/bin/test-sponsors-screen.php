@@ -621,6 +621,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';

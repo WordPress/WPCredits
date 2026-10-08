@@ -50,6 +50,9 @@ final class WPCPM_Sponsor_Offers {
 	/** Students are always in; these two are opt-in per offer. */
 	const AUDIENCES = array( 'mentors', 'managers' );
 
+	// The most characters each box holds, counted as the person typed them: WPCPM_Typed_Text::typed_length().
+	// The cleaners write a "<" and the quotes and ampersands after it as longer entities, so a count of
+	// the stored bytes would turn away text that fits its box.
 	const MAX_TITLE = 120;
 	const MAX_OFFER = 500;
 	const MAX_TEXT  = 4000;
@@ -353,6 +356,10 @@ final class WPCPM_Sponsor_Offers {
 	 * The title, here and in `save()`, and the fields in `write_fields()` are written as slashed
 	 * copies (`wp_slash()`): core unslashes what it is handed and the cleaned fields are not.
 	 *
+	 * Only the title is a post field, so only it meets kses, for a member without `unfiltered_html`:
+	 * it goes to the post write through `WPCPM_Typed_Text::insert_text()`. The text and the
+	 * instructions are post meta, which no filter reads, and are stored as the cleaner left them.
+	 *
 	 * @param string $record  Sponsor record ID.
 	 * @param array  $fields  Cleaned fields (clean()'s `fields`).
 	 * @param bool   $primary Whether this is the one mirrored to the base.
@@ -370,7 +377,7 @@ final class WPCPM_Sponsor_Offers {
 				array(
 					'post_type'   => self::POST_TYPE,
 					'post_status' => 'private',
-					'post_title'  => isset( $fields['title'] ) ? (string) $fields['title'] : '',
+					'post_title'  => WPCPM_Typed_Text::insert_text( isset( $fields['title'] ) ? (string) $fields['title'] : '' ),
 					'post_author' => 0,
 				)
 			),
@@ -407,14 +414,20 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		if ( array_key_exists( 'title', $fields ) ) {
-			wp_update_post(
-				wp_slash(
-					array(
-						'ID'         => $offer['id'],
-						'post_title' => (string) $fields['title'],
+			// The title the offer already has is not written again: a form posted back as it was
+			// drawn hands over the stored title, and writing it through the post filters would
+			// change a title that nobody edited.
+			if ( (string) $fields['title'] !== $offer['title'] ) {
+				wp_update_post(
+					wp_slash(
+						array(
+							'ID'         => $offer['id'],
+							'post_title' => WPCPM_Typed_Text::insert_text( (string) $fields['title'] ),
+						)
 					)
-				)
-			);
+				);
+			}
+
 			unset( $fields['title'] );
 		}
 
@@ -471,29 +484,59 @@ final class WPCPM_Sponsor_Offers {
 	/**
 	 * Clean a posted offer.
 	 *
+	 * The title, the text and the instructions are measured as the person typed them
+	 * (`WPCPM_Typed_Text::typed_length()`) and refused over their limits, never cut. One that reads the
+	 * same as the stored one (`WPCPM_Typed_Text::same_text()`, `same_lines()`) is the stored one, so a
+	 * form posted back as it was drawn changes none of the three, whatever form the store holds them in,
+	 * unless one holds an entity of an entity (`&amp;lt;`), which each unedited save reads one level
+	 * further (see `WPCPM_Typed_Text::typed_text()`).
+	 *
 	 * @param array      $raw      Posted values: title, text, instructions, url, kind, audience (array), low, expires.
 	 * @param array|null $existing The offer being edited, or null for a new one.
-	 * @return array `ok`, `fields`, `reason` ('' or the field that failed: title, url, kind, expires).
+	 * @return array `ok`, `fields`, `reason` ('' or the field that failed: title, title_long, text_long,
+	 *               instructions_long, url, kind, expires) and `over` (how many characters a long field is over).
 	 */
 	public static function clean( array $raw, $existing = null ) {
-		$refuse = static function ( $reason ) {
+		$refuse = static function ( $reason, $over = 0 ) {
 			return array(
 				'ok'     => false,
 				'fields' => array(),
 				'reason' => $reason,
+				'over'   => (int) $over,
 			);
 		};
 
 		$fields = array();
-		$title  = trim( mb_substr( sanitize_text_field( isset( $raw['title'] ) ? (string) $raw['title'] : '' ), 0, self::MAX_TITLE ) );
+		$title  = trim( sanitize_text_field( isset( $raw['title'] ) ? (string) $raw['title'] : '' ) );
 
 		if ( '' === $title ) {
 			return $refuse( 'title' );
 		}
 
+		$text         = sanitize_textarea_field( isset( $raw['text'] ) ? (string) $raw['text'] : '' );
+		$instructions = sanitize_textarea_field( isset( $raw['instructions'] ) ? (string) $raw['instructions'] : '' );
+
+		if ( is_array( $existing ) ) {
+			$title        = WPCPM_Typed_Text::same_text( $title, $existing['title'] ) ? (string) $existing['title'] : $title;
+			$text         = WPCPM_Typed_Text::same_lines( $text, $existing['text'] ) ? (string) $existing['text'] : $text;
+			$instructions = WPCPM_Typed_Text::same_lines( $instructions, $existing['instructions'] ) ? (string) $existing['instructions'] : $instructions;
+		}
+
+		foreach ( array(
+			'title_long'        => array( $title, self::MAX_TITLE ),
+			'text_long'         => array( $text, self::MAX_OFFER ),
+			'instructions_long' => array( $instructions, self::MAX_TEXT ),
+		) as $reason => $typed ) {
+			$over = WPCPM_Typed_Text::typed_length( $typed[0] ) - $typed[1];
+
+			if ( $over > 0 ) {
+				return $refuse( $reason, $over );
+			}
+		}
+
 		$fields['title']        = $title;
-		$fields['text']         = mb_substr( sanitize_textarea_field( isset( $raw['text'] ) ? (string) $raw['text'] : '' ), 0, self::MAX_OFFER );
-		$fields['instructions'] = mb_substr( sanitize_textarea_field( isset( $raw['instructions'] ) ? (string) $raw['instructions'] : '' ), 0, self::MAX_TEXT );
+		$fields['text']         = $text;
+		$fields['instructions'] = $instructions;
 
 		$url = trim( isset( $raw['url'] ) ? (string) $raw['url'] : '' );
 
@@ -597,8 +640,8 @@ final class WPCPM_Sponsor_Offers {
 		$fields = array(
 			'title'        => mb_substr( '' !== $title ? $title : __( 'Offer', 'wpcredits-program-manager' ), 0, self::MAX_TITLE ),
 			'kind'         => $shared ? self::KIND_SHARED : self::KIND_CODES,
-			'text'         => mb_substr( sanitize_textarea_field( (string) $row['offer'] ), 0, self::MAX_OFFER ),
-			'instructions' => mb_substr( sanitize_textarea_field( (string) $row['instructions'] ), 0, self::MAX_TEXT ),
+			'text'         => self::imported_text( (string) $row['offer'], self::MAX_OFFER ),
+			'instructions' => self::imported_text( (string) $row['instructions'], self::MAX_TEXT ),
 			'url'          => WPCPM_Field_Value::clean_url( (string) $row['more_info'] ),
 			'audience'     => array(),
 			'low'          => max( 1, (int) WPCPM_Settings::get_value( 'offer_low_stock', 10 ) ),
@@ -622,6 +665,47 @@ final class WPCPM_Sponsor_Offers {
 		self::touch( $id, 'seeded' );
 
 		return $id;
+	}
+
+	/**
+	 * A text taken from the program records, which are not a person typing: cleaned the way a posted
+	 * one is and kept in the form the records hold it, whole when a person could have typed it into
+	 * its box (`WPCPM_Typed_Text::typed_length()` within the limit), whatever entities that form
+	 * holds. Only a text longer than the box allows is cut, as the import always cut it; there is
+	 * nobody at an import to refuse it to.
+	 *
+	 * The cut is on a whole character as typed: an entity (`&quot;`, `&#039;`, `&copy;`) and a line
+	 * break's CR LF are each one piece, kept or left out whole, so the text never ends in a stray
+	 * "&q" or a lone CR. It keeps as many pieces as fit within the limit, counted as
+	 * `typed_length()` counts them; a piece that would carry it over is left out, with all after it.
+	 *
+	 * @param string $value The records' text.
+	 * @param int    $limit The box's limit.
+	 * @return string
+	 */
+	private static function imported_text( $value, $limit ) {
+		$text = sanitize_textarea_field( (string) $value );
+
+		if ( WPCPM_Typed_Text::typed_length( $text ) <= $limit ) {
+			return $text;
+		}
+
+		$kept  = '';
+		$count = 0;
+
+		preg_match_all( '/&#?[a-z0-9]+;|\r\n|./isu', $text, $pieces );
+
+		foreach ( $pieces[0] as $piece ) {
+			$count += WPCPM_Typed_Text::typed_length( $piece );
+
+			if ( $count > $limit ) {
+				break;
+			}
+
+			$kept .= $piece;
+		}
+
+		return $kept;
 	}
 
 	/**
@@ -839,6 +923,10 @@ final class WPCPM_Sponsor_Offers {
 	 * Write the primary offer's three fields to Airtable and the index. A non-primary offer
 	 * has nothing to mirror and answers true.
 	 *
+	 * The three go as stored, as every writer to the base sends its text. The sponsors sync reads
+	 * the cell back into the index as it stands, and `seed()` cleans what it finds there, so a cell
+	 * read back to "<3 on hosting >" would lose those words on a later import.
+	 *
 	 * @param array $offer An offer.
 	 * @return bool Whether the base has it.
 	 */
@@ -929,12 +1017,31 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The sentence for a clean() reason.
+	 * The sentence for a clean() reason. A field over its limit names the field, the limit and how far
+	 * over it is, so the sponsor knows how much to take out.
 	 *
 	 * @param string $reason A reason.
+	 * @param int    $over   How many characters a long field is over its limit.
 	 * @return string
 	 */
-	private static function reason_sentence( $reason ) {
+	private static function reason_sentence( $reason, $over = 0 ) {
+		$over = max( 1, (int) $over );
+
+		if ( 'title_long' === $reason ) {
+			/* translators: 1: how many characters over, 2: the longest title allowed. */
+			return sprintf( _n( 'The title is %1$s character over the limit of %2$s. Shorten it and save again.', 'The title is %1$s characters over the limit of %2$s. Shorten it and save again.', $over, 'wpcredits-program-manager' ), number_format_i18n( $over ), number_format_i18n( self::MAX_TITLE ) );
+		}
+
+		if ( 'text_long' === $reason ) {
+			/* translators: 1: how many characters over, 2: the longest text allowed. */
+			return sprintf( _n( 'What you get is %1$s character over the limit of %2$s. Shorten it and save again.', 'What you get is %1$s characters over the limit of %2$s. Shorten it and save again.', $over, 'wpcredits-program-manager' ), number_format_i18n( $over ), number_format_i18n( self::MAX_OFFER ) );
+		}
+
+		if ( 'instructions_long' === $reason ) {
+			/* translators: 1: how many characters over, 2: the longest instructions allowed. */
+			return sprintf( _n( 'How to redeem it is %1$s character over the limit of %2$s. Shorten it and save again.', 'How to redeem it is %1$s characters over the limit of %2$s. Shorten it and save again.', $over, 'wpcredits-program-manager' ), number_format_i18n( $over ), number_format_i18n( self::MAX_TEXT ) );
+		}
+
 		$sentences = array(
 			'title'   => __( 'Give the offer a title.', 'wpcredits-program-manager' ),
 			'url'     => __( 'The link could not be accepted: check it has no name or password in it.', 'wpcredits-program-manager' ),
@@ -1021,7 +1128,7 @@ final class WPCPM_Sponsor_Offers {
 		$cleaned = self::clean( $raw, $existing );
 
 		if ( ! $cleaned['ok'] ) {
-			self::leave( 'offer-rejected', $record, self::reason_sentence( $cleaned['reason'] ) );
+			self::leave( 'offer-rejected', $record, self::reason_sentence( $cleaned['reason'], $cleaned['over'] ) );
 		}
 
 		// The shared code is checked before the offer is written, so a refusal here leaves
@@ -1460,9 +1567,12 @@ final class WPCPM_Sponsor_Offers {
 			);
 		};
 
-		$field( 'title', __( 'Title', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), esc_attr( $offer['title'] ), (int) self::MAX_TITLE ), true );
-		$field( 'text', __( 'What you get, in a sentence or two', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) self::MAX_OFFER, esc_textarea( $offer['text'] ) ) );
-		$field( 'instructions', __( 'How to redeem it', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) self::MAX_TEXT, esc_textarea( $offer['instructions'] ) ) );
+		// The boxes draw the text a person typed, not the form it is stored in: a text input through
+		// `esc_attr( attr_text() )` and a text area through `esc_textarea( typed_text() )`, each with
+		// the `maxlength` that leaves the store's room (`drawn_limit()`).
+		$field( 'title', __( 'Title', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), esc_attr( WPCPM_Typed_Text::attr_text( $offer['title'] ) ), (int) WPCPM_Typed_Text::drawn_limit( $offer['title'], self::MAX_TITLE ) ), true );
+		$field( 'text', __( 'What you get, in a sentence or two', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['text'], self::MAX_OFFER ), esc_textarea( WPCPM_Typed_Text::typed_text( $offer['text'] ) ) ) );
+		$field( 'instructions', __( 'How to redeem it', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['instructions'], self::MAX_TEXT ), esc_textarea( WPCPM_Typed_Text::typed_text( $offer['instructions'] ) ) ) );
 		$field( 'url', __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ), sprintf( '<input type="url" id="wpcpm-offer-%1$s-url" name="wpcpm_url" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), esc_attr( $offer['url'] ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
 
 		if ( $fixed ) {

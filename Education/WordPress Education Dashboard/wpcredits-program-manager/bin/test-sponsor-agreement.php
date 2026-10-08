@@ -117,8 +117,6 @@ function esc_url( $s ) { return (string) $s; }
 function esc_textarea( $s ) { return esc_html( $s ); }
 function esc_url_raw( $s, $p = null ) { return (string) $s; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $n ); }
 function sanitize_title( $s ) { $s = strtolower( trim( (string) $s ) ); $s = preg_replace( '/[^a-z0-9]+/', '-', $s ); return trim( $s, '-' ); }
 function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
@@ -318,6 +316,9 @@ class WPCPM_Sponsors_Dashboard {
 
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/class-wpcpm-request.php';
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
@@ -1206,6 +1207,73 @@ ran( 'handle_accept' );
 $_POST = array( 'wpcpm_sponsor_agr_post' => $typed_doc, 'wpcpm_sponsor_agr_note' => $typed_note );
 ran( 'handle_revoke' );
 ck( 'and so is a revocation note', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $typed_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) ), array( 'agreement-revoked', $typed_note ) );
+$_POST = array();
+
+echo "\n=== Notes are counted and mailed as typed ===\n";
+// A manager's words, and the form the cleaner hands them back in: "<3 our " is a "<" that opens no
+// tag, written `&lt;`; the tags go; the lone ">" stays; "< 12 welcome, adults >" is kept as typed;
+// and after a "<" with no ">" to close it the quote marks and ampersands are entities too.
+$n_note    = "We <3 our <b>team</b> > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+$n_note_cl = "We &lt;3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.";
+$n_note_as = "We <3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+/** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
+function agr_filled( $unit, $limit ) {
+	$one  = mb_strlen( str_replace( "\r\n", "\n", $unit ) );
+	$text = str_repeat( $unit, intdiv( $limit, $one ) );
+	return $text . str_repeat( 'x', $limit - mb_strlen( str_replace( "\r\n", "\n", $text ) ) );
+}
+/** Upload a signed copy as the member, and answer the document waiting. */
+function agr_upload( $record, $member ) {
+	$GLOBALS['uid'] = $member;
+	$_POST          = array( 'wpcpm_sponsor' => $record, 'wpcpm_sponsor_agr_signed' => '1' );
+	post_file( $GLOBALS['good'] );
+	ran( 'handle_upload' );
+	$GLOBALS['uid'] = 1;
+	return (int) WPCPM_Sponsor_Agreement::posts_for( $record )[0]->ID;
+}
+/** A sponsor of its own in the index, with one member, so each case below starts with nothing in review. */
+function agr_sponsor( $record, $member, $name ) {
+	$GLOBALS['users'][ $member ] = new WP_User( $member, array( 'wpcpm_sponsor' ), 'Member ' . $member, 'maciej@a8c.com' );
+	$GLOBALS['umeta'][ $member ] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $record, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+	seed_index( $record, $name );
+}
+$GLOBALS['good'] = $good;
+ck( 'the stand-in is core\'s cleaner: it hands the note back in this form', sanitize_textarea_field( $n_note ), $n_note_cl );
+
+agr_sponsor( 'recSPN00000000009', 25, 'Sponsor Nine' );
+$n_doc = agr_upload( 'recSPN00000000009', 25 );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc, 'wpcpm_sponsor_agr_note' => 'Page 4 < 5 & 6 too.' );
+ran( 'handle_return' );
+ck( 'nineteen characters as typed are under twenty, though the cleaner stores them in twenty-six: nothing is returned', array( mb_strlen( sanitize_textarea_field( 'Page 4 < 5 & 6 too.' ) ), end( $GLOBALS['flash'] )[1], (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 26, 'agreement-note', 'submitted' ) );
+
+agr_sponsor( 'recSPN00000000010', 26, 'Sponsor Ten' );
+$n_doc = agr_upload( 'recSPN00000000010', 26 );
+$n_at  = agr_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 2000 );
+$GLOBALS['mail'] = array();
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc, 'wpcpm_sponsor_agr_note' => $n_at . 'x' );
+ran( 'handle_return' );
+ck( 'one character over 2,000 as typed is refused, and nothing is mailed', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), $GLOBALS['mail'] ), array( 'agreement-note', 'submitted', array() ) );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc, 'wpcpm_sponsor_agr_note' => $n_at );
+ran( 'handle_return' );
+ck( 'a note of 2,000 characters as typed, with 41 line breaks and longer as the cleaner stores it, returns the document', array( substr_count( $n_at, "\r\n" ), mb_strlen( sanitize_textarea_field( $n_at ) ) > 2000, end( $GLOBALS['flash'] )[1], (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) === sanitize_textarea_field( $n_at ) ), array( 41, true, 'agreement-returned', 'returned', true ) );
+ck( 'and the company is mailed every character of it as typed', isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], "\r\n\r\n" . $n_at . "\r\n\r\n" ), true );
+
+agr_sponsor( 'recSPN00000000011', 27, 'Sponsor Eleven' );
+$n_doc = agr_upload( 'recSPN00000000011', 27 );
+$GLOBALS['mail'] = array();
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc, 'wpcpm_sponsor_agr_note' => $n_note );
+ran( 'handle_return' );
+ck( 'a returned document keeps the note as the cleaner left it', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) ), array( 'agreement-returned', $n_note_cl ) );
+ck( 'and the mail says what was typed, line by line, with no entity in it', isset( $GLOBALS['mail'][0]['mail']['body'] ) ? $GLOBALS['mail'][0]['mail']['body'] : null, "Manager read your Collaboration Agreement and sent it back, with this note:\r\n\r\n" . $n_note_as . "\r\n\r\nUpload the corrected document from the agreement card on your dashboard, or reply to this message.\r\n\r\nhttps://example.test/sponsor-dashboard/" );
+
+agr_sponsor( 'recSPN00000000012', 28, 'Sponsor Twelve' );
+$n_doc = agr_upload( 'recSPN00000000012', 28 );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc );
+ran( 'handle_accept' );
+$GLOBALS['mail'] = array();
+$_POST = array( 'wpcpm_sponsor_agr_post' => $n_doc, 'wpcpm_sponsor_agr_note' => $n_note );
+ran( 'handle_revoke' );
+ck( 'a revocation note is mailed as typed too', array( end( $GLOBALS['flash'] )[1], isset( $GLOBALS['mail'][0]['mail']['body'] ) ? $GLOBALS['mail'][0]['mail']['body'] : null ), array( 'agreement-revoked', "Your Collaboration Agreement is no longer in force, with this note from the program:\r\n\r\n" . $n_note_as . "\r\n\r\nYour dashboard, your offers and your codes are unchanged: they never depended on an agreement. Reply to this message if you would like to talk about a new one." ) );
 $_POST = array();
 
 echo "\n=== House rules ===\n";

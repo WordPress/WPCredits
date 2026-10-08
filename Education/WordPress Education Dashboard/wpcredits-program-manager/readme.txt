@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.10
+Stable tag: 1.122.11
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,19 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.11 =
+
+* Text typed on the sponsor screens keeps its words. Before, a member's offer title lost the words between a "<" and a ">" when it was first saved: "Ages 8 < 12 welcome, adults > 18 pay" was saved as "Ages 8 18 pay". And a "<" that opens no tag, as in "Ages 8 < 12" or "We <3 our team", with the quote marks and ampersands after it, was counted as several characters each, shown in some boxes and in the emails as `&lt;`, `&quot;` and `&amp;`, and could be taken out with the words after it when a box was saved again unchanged. In the places below a text is now counted as it was typed, shown in its box and its email as it was typed, and kept as it is when its box is saved again without a change, within the limits under *What this does not change* below. Nothing saved before this update is rewritten.
+* Too long is refused rather than cut. A text over its limit in the places below is sent back with a sentence that says so, and nothing is saved or sent until it is shorter. Before, most were cut off at the limit without a word.
+* Offers card: an offer's title, *What you get* and *How to redeem it*. When an offer is imported from the program records, its text and instructions are still cut to their limits if they are longer than their boxes allow, now never in the middle of a character.
+* *What else would you like to support?* card: *Anything else* keeps its line breaks in the email to the program contact. Each event is counted as typed, up to 120 characters, and ten at most: an eleventh is refused with a sentence that says so, where before the events after the tenth were left out without a word. The events box says how many and how long.
+* Your company profile: the *Contact person*, *Your offer, in one line*, *How students use it* and *Anything else you would like to share*. The last two keep their line breaks. A value over its limit that was written straight into the program records is left as it is by a save that does not change it; before, that save cut it.
+* Return notes: the note an Administrator returns a sponsor post with, up to 2,000 characters, in a box that now stops there; and the note on a returned or revoked Collaboration Agreement, counted as typed between 20 and 2,000 characters.
+* Emails, as typed: the email returning a sponsor post, its subject and the post's title included, so "Q&A" arrives as "Q&A"; the agreement emails with their notes; the low-stock and code-problem emails with the offer's title; the *What else would you like to support?* card's email to the program contact; and an Administrator's question to a sponsor applicant, which is also counted as typed, from 10 to 2,000 characters.
+* Sponsor Dashboard: **Download as CSV** writes each offer's title as typed.
+* What this does not change, on every save, an edit of a saved text included. A "<" followed by anything but white space, with a ">" before the next "<", is read as a tag and taken out with what lies between them: "We <3 our team > all" typed as such is saved as "We all". So a saved text that holds such a "<" loses the words up to any ">" typed later before the next "<": "Free for teams <10 seats", edited to add ", then -> sign up at our site", is saved as "Free for teams sign up at our site". A box can show a ">" after such a "<" as `&gt;`, kept so the words survive; typing ">" in its place takes them. When a quote mark or an apostrophe stands between the "<" and the ">", everything from the "<" to the end of the text can be taken: "Students <18 don't pay > adults pay full price. Ask us." is saved as "Students". A "%" followed by two hexadecimal digits is dropped: "Get 10%cashback on every plan" is saved as "Get 10shback on every plan". An entity typed out is shown and mailed as the character it stands for: "Use &lt;b&gt; for bold" shows in its box as "Use <b&gt; for bold" and is mailed as "Use <b> for bold". One typed out inside another, such as `&amp;lt;` written to show HTML, is read one level further each time the text is saved without a change. The program records in Airtable keep the text as the site stores it, so a "<" can show there as `&lt;`.
+* For developers: `WPCPM_Typed_Text` (`includes/class-wpcpm-typed-text.php`) holds the rules these places share: `typed_length()`, `typed_text()`, `attr_text()`, `same_text()`, `same_lines()`, `drawn_limit()`, `mail_text()` and `insert_text()`. A `WPCPM_Mail` builder can mark its subject `plain_subject`: a "<" and an "&" in it then go out as they are, with CR and LF still stripped, and a `wpcpm_mail` filter sees the key.
 
 = 1.122.10 =
 

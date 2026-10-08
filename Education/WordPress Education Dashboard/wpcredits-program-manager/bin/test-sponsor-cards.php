@@ -74,7 +74,9 @@ class WPCPM_Test_Redirect extends Exception {}
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
-function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+// Core's escapes leave an entity they recognize as it is: `esc_attr( 'a &gt; b' )` is `a &gt; b`,
+// which a browser reads back as `a > b`. Only `esc_textarea()` escapes the ampersand again.
+function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8', false ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
@@ -83,8 +85,6 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_email( $e ) { return trim( (string) $e ); }
 function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
@@ -191,40 +191,11 @@ class WPCPM_Request {
 	// Both methods read $_POST directly, exactly as the real class does (includes/class-wpcpm-request.php):
 	// the cards' own direct `isset( $_POST[...] )` presence checks (verbatim from the brief, matching
 	// the codebase's established pattern of checking $_POST before reading it through this class) must
-	// see the same field this class reads, which only holds if both read the one superglobal.
-	public static function posted_text( $n, $f = '' ) { return isset( $_POST[ $n ] ) ? trim( (string) $_POST[ $n ] ) : $f; }
-
-	/**
-	 * The real `WPCPM_Request::posted_lines()` (includes/class-wpcpm-request.php) hands back
-	 * one trimmed string with its line breaks kept, not an array: every other caller
-	 * (class-wpcpm-institution-import-form.php, class-wpcpm-semester-report-screen.php) treats
-	 * the result as a block of text, never as a list to iterate. This stand-in mirrors that
-	 * contract - it cleans the posted value the same way (split on newlines, trim each line,
-	 * drop the empty ones) and joins the survivors back into one string - so a card that wants a
-	 * list of individual lines splits the result itself, exactly as it would have to against the
-	 * real class.
-	 *
-	 * @param string $n Key in the posted fields.
-	 * @param string $f Fallback when the key is absent.
-	 * @return string
-	 */
-	public static function posted_lines( $n, $f = '' ) {
-		if ( ! isset( $_POST[ $n ] ) ) {
-			return $f;
-		}
-
-		$lines = array();
-
-		foreach ( preg_split( '/\r\n|\r|\n/', (string) $_POST[ $n ] ) as $line ) {
-			$line = trim( $line );
-
-			if ( '' !== $line ) {
-				$lines[] = $line;
-			}
-		}
-
-		return implode( "\n", $lines );
-	}
+	// see the same field this class reads, which only holds if both read the one superglobal. Each
+	// body is the real one: the one-line cleaner folds a line break into a space, and the text area
+	// reader keeps every break as it was posted, CR LF included, and every line as it was written.
+	public static function posted_text( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? trim( sanitize_text_field( wp_unslash( $_POST[ $n ] ) ) ) : $f; }
+	public static function posted_lines( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST[ $n ] ) ) ) : $f; }
 }
 class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 
@@ -251,7 +222,8 @@ class WPCPM_Sponsor_Offers { public static function offers_of( $record ) { retur
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
-	public static function leave( $status, $card, $record = '' ) { $GLOBALS['left'] = array( $status, $card, $record ); throw new WPCPM_Test_Redirect( $status ); }
+	// The sentence after the status's own is kept apart, so every check of where a press landed reads as it did.
+	public static function leave( $status, $card, $record = '', $detail = '' ) { $GLOBALS['left'] = array( $status, $card, $record ); $GLOBALS['left_detail'] = $detail; throw new WPCPM_Test_Redirect( $status ); }
 	/* The real class's own merge loop (class-wpcpm-sponsors-dashboard.php, messages()), scoped to
 	   the one card this file stubs in below: enough to prove the loop finds this card's words
 	   without pulling in every other card's own suite. */
@@ -320,6 +292,9 @@ class WPCPM_Sponsor_Agreement {
 	}
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
@@ -379,7 +354,7 @@ ck( 'a URL with a user is refused', WPCPM_Sponsor_Profile::clean( 'website', 'ht
 ck( 'and a URL with a password too', WPCPM_Sponsor_Profile::clean( 'more_info', 'https://user:pw@host.test/x' )['ok'], false );
 ck( 'a choice spelled another way is refused', WPCPM_Sponsor_Profile::clean( 'product_type', 'hosting' )['ok'], false );
 ck( 'an empty choice clears the cell', WPCPM_Sponsor_Profile::clean( 'product_type', '' ), array( 'ok' => true, 'value' => null ) );
-ck( 'text is capped at MAX_TEXT', mb_strlen( WPCPM_Sponsor_Profile::clean( 'instructions', str_repeat( 'x', 5000 ) )['value'] ), 4000 );
+ck( 'a text over MAX_TEXT is refused, with how far over it is, not cut', WPCPM_Sponsor_Profile::clean( 'instructions', str_repeat( 'x', 5000 ) ), array( 'ok' => false, 'value' => str_repeat( 'x', 5000 ), 'over' => 1000 ) );
 ck( 'an address that is not one is refused', WPCPM_Sponsor_Profile::clean( 'contact_email', 'not-an-address' )['ok'], false );
 ck( 'a field outside the allowlist is refused', WPCPM_Sponsor_Profile::clean( 'status', 'Approved' )['ok'], false );
 
@@ -634,7 +609,7 @@ $all = '';
 foreach ( array( 'profile', 'interests', 'mentors' ) as $f ) { $all .= file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-' . $f . '.php' ); }
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $all ), 0 );
 ck( 'every handler claims before it writes', substr_count( $all, 'WPCPM_Sponsor_Roster::claim(' ) >= 3, true );
-ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-failed', 'interest-sent', 'interest-unsent', 'interest-empty', 'interest-ceiling', 'interest-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Interests::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
+ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-long', 'profile-failed', 'interest-sent', 'interest-unsent', 'interest-empty', 'interest-long', 'interest-ceiling', 'interest-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Interests::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
 
 
 $GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '' ) );
@@ -643,6 +618,177 @@ ck( 'the card names the product, and both upload fields carry the Required mark 
 	substr_count( $none, '>Collaboration Agreement<' ),
 	substr_count( $none, '<span class="wpcpm-field__required">Required</span>' ),
 ), array( 1, 2 ) );
+
+echo "\n=== Text people type: what the cleaner hands back, and what was meant ===\n";
+// A person's words, and the form core's cleaners hand them back in: "<3 our " is a "<" that opens
+// no tag, written `&lt;`; "<b>" and "</b>" go; the lone ">" stays; "< 12 welcome, adults >" is
+// kept as typed, because white space follows its "<"; and after a "<" with no ">" to close it,
+// the quote marks and the ampersands are entities too. These lose words, or read as entities in
+// a mail, if a count, a box or a mail forgets that.
+$t_team    = 'We <3 our <b>team</b> > all';
+$t_team_cl = 'We &lt;3 our team > all';
+$t_note    = "We <3 our <b>team</b> > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+$t_note_cl = "We &lt;3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.";
+$t_note_as = "We <3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+/** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
+function cards_filled( $unit, $limit ) {
+	$one  = mb_strlen( str_replace( "\r\n", "\n", $unit ) );
+	$text = str_repeat( $unit, intdiv( $limit, $one ) );
+	return $text . str_repeat( 'x', $limit - mb_strlen( str_replace( "\r\n", "\n", $text ) ) );
+}
+/** The Contact person's box as the card draws it: its markup, what a browser shows in it, and its maxlength. */
+function cards_contact_box( $html ) {
+	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-contact_person" name="wpcpm_contact_person" value="([^"]*)" maxlength="(\d+)" \/>/', $html, $m ) ) {
+		return array();
+	}
+	return array( 'markup' => $m[1], 'shown' => html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'maxlength' => (int) $m[2] );
+}
+ck( 'the stand-ins are core\'s: the cleaner hands back these forms, and only esc_textarea() escapes an ampersand again', array( sanitize_text_field( $t_team ), sanitize_textarea_field( $t_note ), esc_attr( 'a &gt; b' ), esc_textarea( 'a &gt; b' ) ), array( $t_team_cl, $t_note_cl, 'a &gt; b', 'a &amp;gt; b' ) );
+
+echo "\n=== Anything else: every word and every line, counted as typed ===\n";
+$GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+unset( $GLOBALS['managers_reachable'] );
+WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
+$GLOBALS['live_fields'] = array( 'Sponsorship interests' => '2026-09-01 by Rep One: Sponsor tools or services' );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => $t_note ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'a note with line breaks, a "<3", a "<" and the ampersands after one is sent', $r, array( 'interest-sent', 'interests', $A ) );
+ck( 'and its mail says what was typed, line by line, with no entity in it', isset( $GLOBALS['sent'][0][3]['body'] ) ? $GLOBALS['sent'][0][3]['body'] : null, "Mango Example said on the Sponsor Dashboard:\n\n1970-01-01 by Rep One: note: " . $t_note_as . "\n\nThe full history is in the Sponsorship interests column of the Sponsors table." );
+$i_line = '1970-01-01 by Rep One: note: ' . str_replace( "\r\n", ' ', $t_note_cl );
+$cells  = end( $GLOBALS['patched'] )[1][0]['fields'];
+ck( 'the program records keep one dated line for it, in the form the cleaner stored it, its line breaks one space each: the history is read line by line', array( $cells['Sponsorship interests'], substr_count( $cells['Sponsorship interests'], "\n" ) ), array( $GLOBALS['live_fields']['Sponsorship interests'] . "\n" . $i_line, 1 ) );
+ck( 'the audit row carries that one line', end( $GLOBALS['audit'] )['message'], $i_line );
+ck( 'and the card lists it as one entry, under the one before it', substr_count( card( 'WPCPM_Sponsor_Interests', $A, $context ), '<li>' ), 2 );
+
+$n_at = cards_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 4000 );
+$GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => $n_at ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'a note of 4,000 characters as typed, with 83 line breaks, is longer than that as the cleaner stores it', array( substr_count( $n_at, "\r\n" ), mb_strlen( sanitize_textarea_field( $n_at ) ) > 4000 ), array( 83, true ) );
+ck( 'and is sent whole: the mail carries every character as typed', array( $r[0], isset( $GLOBALS['sent'][0][3]['body'] ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'note: ' . $n_at . "\n\n" ) ), array( 'interest-sent', true ) );
+ck( 'and so does the history, in the stored form', false !== strpos( end( $GLOBALS['patched'] )[1][0]['fields']['Sponsorship interests'], 'note: ' . str_replace( "\r\n", ' ', sanitize_textarea_field( $n_at ) ) ), true );
+$GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
+$before_five = $GLOBALS['buckets'];
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => $n_at . 'x' ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'one character more is refused, with a sentence that says how much to take out', array( $r, $GLOBALS['left_detail'] ), array( array( 'interest-long', 'interests', $A ), 'Your note is 1 character over the limit of 4000. Shorten it and send it again.' ) );
+ck( 'and nothing is written, mailed or logged, and none of the day\'s five is spent', array( $GLOBALS['patched'], $GLOBALS['sent'], $GLOBALS['audit'], $GLOBALS['buckets'] ), array( array(), array(), array(), $before_five ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => $n_at . 'xyz' ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'three more says three', $GLOBALS['left_detail'], 'Your note is 3 characters over the limit of 4000. Shorten it and send it again.' );
+ck( 'the messages map words the refusal', WPCPM_Sponsor_Interests::messages()['interest-long'] ?? null, array( 'error', 'Nothing was sent.' ) );
+unset( $GLOBALS['live_fields'] );
+
+echo "\n=== The Contact person: counted, drawn and kept as typed ===\n";
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => $t_team ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a contact person with a "<3" and a ">" is saved as the cleaner leaves it', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'] ), array( 'profile-saved', $t_team_cl ) );
+$box = cards_contact_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+ck( 'its box shows "We <3 our team &gt; all", the ">" held as four characters, and leaves room for the three', array( $box['markup'] ?? null, $box['shown'] ?? null, $box['maxlength'] ?? null ), array( 'We &lt;3 our team &amp;gt; all', 'We <3 our team &gt; all', 203 ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => $box['shown'] ?? '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'posted back unedited it is the stored text: nothing is written, and every word stays', array( $r[0], count( $GLOBALS['patched'] ), WPCPM_Sponsors_Index::row( $A )['contact_person'] ), array( 'profile-unchanged', 1, $t_team_cl ) );
+
+$c_at = cards_filled( 'Ages 8 < 12. Q&A: "blocks" & themes, it\'s free. ', 200 );
+$GLOBALS['patched'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => $c_at ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a contact person of 200 characters as typed, longer than that as stored, is kept whole', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'] === sanitize_text_field( $c_at ), mb_strlen( sanitize_text_field( $c_at ) ) > 200, end( $GLOBALS['patched'] )[1][0]['fields'] === array( 'Contact Person Full Name' => sanitize_text_field( $c_at ) ) ), array( 'profile-saved', true, true, true ) );
+ck( 'and its box is drawn with the room it was counted in', cards_contact_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) )['maxlength'] ?? null, 200 );
+$GLOBALS['patched'] = array(); $GLOBALS['left_detail'] = null;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => $c_at . 'x', 'wpcpm_product_type' => 'Service' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'one character more refuses the whole save, with a sentence that names the field and how much to take out', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['product_type'] ), array( 'profile-long', '"Contact person" is 1 character over the limit of 200. Shorten it and save again.', array(), 'Plugin' ) );
+ck( 'the messages map words the refusal', WPCPM_Sponsor_Profile::messages()['profile-long'] ?? null, array( 'error', 'Nothing was saved.' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $c_at ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'the offer line, the card\'s other one-line text, is counted the same way', array( $r[0], WPCPM_Sponsors_Index::row( $A )['offer'] === sanitize_text_field( $c_at ) ), array( 'profile-saved', true ) );
+
+echo "\n=== The profile's two text areas: every line and word, counted, drawn and kept as typed ===\n";
+/** A text area of the profile card as the card draws it: its markup, what a browser shows and posts, and its maxlength. */
+function cards_profile_area( $html, $key ) {
+	if ( ! preg_match( '/<textarea id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" rows="4" maxlength="(\d+)">(.*?)<\/textarea>/s', $html, $m ) ) {
+		return array();
+	}
+	// The parser reads CR LF in the markup as LF, then each entity once; a browser posts every break as CR LF.
+	$shown = html_entity_decode( str_replace( "\r\n", "\n", $m[2] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+	return array( 'markup' => $m[2], 'shown' => $shown, 'posts' => str_replace( "\n", "\r\n", $shown ), 'maxlength' => (int) $m[1] );
+}
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $t_note ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a text with line breaks, a "<3", a "<" and the ampersands after one is saved with its lines, as the cleaner leaves it', array( $r[0], WPCPM_Sponsors_Index::row( $A )['anything'], end( $GLOBALS['patched'] )[1][0]['fields'] ?? null ), array( 'profile-saved', $t_note_cl, array( "Anything else you'd like to share." => $t_note_cl ) ) );
+$area = cards_profile_area( card( 'WPCPM_Sponsor_Profile', $A, $context ), 'anything' );
+ck( 'its box shows the words as typed, line by line, the ">" before the first "<" with no closing ">" held, with room for the three', array( $area['shown'] ?? null, $area['maxlength'] ?? null ), array( "We <3 our team &gt; all\nAges 8 < 12 welcome, adults > 18 pay.\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.", 4003 ) );
+$GLOBALS['patched'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $area['posts'] ?? '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'posted back unedited, every break as CR LF, it is the stored text: nothing is written', array( $r[0], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['anything'] ), array( 'profile-unchanged', array(), $t_note_cl ) );
+// The sponsors sync reads the base's cell as it stands, and the base can hand the break back as LF.
+WPCPM_Sponsors_Index::patch( $A, array( 'anything' => "Line one\nLine two" ) );
+$area = cards_profile_area( card( 'WPCPM_Sponsor_Profile', $A, $context ), 'anything' );
+$r    = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $area['posts'] ?? '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a text kept with LF and posted back with CR LF is the same text', array( $r[0], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['anything'] ), array( 'profile-unchanged', array(), "Line one\nLine two" ) );
+
+$p_at = cards_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 4000 );
+$r    = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $p_at ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a text of 4,000 characters as typed, with 83 line breaks and longer as stored, is kept whole', array( $r[0], WPCPM_Sponsors_Index::row( $A )['anything'] === sanitize_textarea_field( $p_at ), mb_strlen( sanitize_textarea_field( $p_at ) ) > 4000 ), array( 'profile-saved', true, true ) );
+ck( 'and its box is drawn with the room it was counted in', cards_profile_area( card( 'WPCPM_Sponsor_Profile', $A, $context ), 'anything' )['maxlength'] ?? null, 4000 );
+$GLOBALS['patched'] = array(); $GLOBALS['left_detail'] = null;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $p_at . 'x', 'wpcpm_product_type' => 'Service' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'one character more refuses the whole save, with a sentence that names the field and how much to take out', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['product_type'] ), array( 'profile-long', '"Anything else you would like to share" is 1 character over the limit of 4000. Shorten it and save again.', array(), 'Plugin' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_instructions' => $t_note ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'How students use it, the other text area, keeps its lines the same way', array( $r[0], WPCPM_Sponsors_Index::row( $A )['instructions'] ), array( 'profile-saved', $t_note_cl ) );
+
+echo "\n=== The events: each counted as typed, refused rather than cut, ten at most ===\n";
+$GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+unset( $GLOBALS['managers_reachable'] );
+WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
+$GLOBALS['live_fields'] = array( 'Sponsorship interests' => '2026-09-01 by Rep One: Sponsor tools or services' );
+// "<Penang>" is a tag the cleaner takes; "< 3 talks" is a "<" that opens none, written `&lt;`: 119
+// characters as typed, 122 as stored.
+$e_line = 'WordCamp Asia 2027 <Penang> & WordCamp Europe 2027 in Malaga, Q&A day < 3 talks, workshops, contributor day and the after party';
+$e_said = 'WordCamp Asia 2027 & WordCamp Europe 2027 in Malaga, Q&A day < 3 talks, workshops, contributor day and the after party';
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_events' => $e_line . "\r\nWordCamp US 2027" ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'an event of 119 characters as typed, 122 as stored, is sent whole: the mail names it as typed', array( $r[0], isset( $GLOBALS['sent'][0][3]['body'] ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'events: ' . $e_said . ', WordCamp US 2027' ) ), array( 'interest-sent', true ) );
+$e_at = cards_filled( 'Q&A < 3 talks, "Asia" & more, ok ', 120 );
+$GLOBALS['sent'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_events' => $e_at ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'an event of 120 characters as typed, longer as stored, is sent whole', array( $r[0], mb_strlen( sanitize_text_field( $e_at ) ) > 120, isset( $GLOBALS['sent'][0][3]['body'] ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'events: ' . $e_at ) ), array( 'interest-sent', true, true ) );
+$GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
+$before_five = $GLOBALS['buckets'];
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_events' => "WordCamp US 2027\r\n" . $e_at . 'x' ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'one character more is refused with a sentence that names the event and how much to take out', array( $r, $GLOBALS['left_detail'] ), array( array( 'interest-long', 'interests', $A ), 'Event 2 is 1 character over the limit of 120. Shorten it and send it again.' ) );
+ck( 'and nothing is written, mailed or logged, and none of the day\'s five is spent', array( $GLOBALS['patched'], $GLOBALS['sent'], $GLOBALS['audit'], $GLOBALS['buckets'] ), array( array(), array(), array(), $before_five ) );
+$ten = array();
+for ( $i = 1; $i <= 10; $i++ ) { $ten[] = 'WordCamp ' . $i; }
+$GLOBALS['sent'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_events' => implode( "\r\n", $ten ) . "\r\n\r\n" ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'ten events are sent, every one of them, a blank line counting for none', array( $r[0], isset( $GLOBALS['sent'][0][3]['body'] ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'events: ' . implode( ', ', $ten ) . "\n" ) ), array( 'interest-sent', true ) );
+$GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['left_detail'] = null;
+$before_five = $GLOBALS['buckets'];
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_events' => implode( "\r\n", $ten ) . "\r\nWordCamp 11" ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'an eleventh is refused, with a sentence that says how many, rather than dropped without a word', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['patched'], $GLOBALS['sent'], $GLOBALS['buckets'] ), array( 'interest-long', 'You named 11 events, and the limit is 10. Name the others in another message.', array(), array(), $before_five ) );
+ck( 'the box holds no more than ten events of 120 characters with their nine line breaks, and says so', 1 === preg_match( '#<textarea id="wpcpm-interest-events" name="wpcpm_events" rows="3" maxlength="1209" placeholder="WordCamp Europe 2027"></textarea><span class="wpcpm-student__note">One per line: up to 10 events of up to 120 characters each.</span>#', card( 'WPCPM_Sponsor_Interests', $A, $context ) ), true );
+
+echo "\n=== The history folds white space as the one-line read always did ===\n";
+$GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => "Tab\there\r\nTwo  spaces" ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+ck( 'a tab and a run of spaces are one space in the history, as a line break is; the mail keeps them', array( $r[0], end( $GLOBALS['audit'] )['message'], isset( $GLOBALS['sent'][0][3]['body'] ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], "note: Tab\there\r\nTwo  spaces" ) ), array( 'interest-sent', '1970-01-01 by Rep One: note: Tab here Two spaces', true ) );
+unset( $GLOBALS['live_fields'] );
+
+echo "\n=== A value the base holds over its limit does not refuse a save that did not touch it ===\n";
+/** A one-line box of the profile card as the card draws it: what a browser shows and posts, and its maxlength. */
+function cards_line_box( $html, $key ) {
+	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" value="([^"]*)" maxlength="(\d+)" \/>/', $html, $m ) ) {
+		return array();
+	}
+	return array( 'shown' => html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'maxlength' => (int) $m[2] );
+}
+// Written in the base's grid, which bounds neither column: an offer line of 251 characters, and a
+// text of 4,050. The browser posts a prefilled value as it is, whatever the box's maxlength.
+$o_251 = cards_filled( 'One year of hosting free. ', 251 );
+$a_4050 = cards_filled( "We can offer licenses.\n", 4050 );
+WPCPM_Sponsors_Index::patch( $A, array( 'offer' => $o_251, 'anything' => $a_4050 ) );
+$html  = card( 'WPCPM_Sponsor_Profile', $A, $context );
+$o_box = cards_line_box( $html, 'offer' );
+$a_box = cards_profile_area( $html, 'anything' );
+$GLOBALS['patched'] = array(); $GLOBALS['left_detail'] = null;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/new/', 'wpcpm_offer' => $o_box['shown'] ?? '', 'wpcpm_anything' => $a_box['posts'] ?? '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'posted back unedited, the offer line of 251 and the text of 4,050 are the stored ones: the website is saved and nothing else is written', array( $r[0], $GLOBALS['left_detail'], end( $GLOBALS['patched'] )[1][0]['fields'] ?? null, WPCPM_Sponsors_Index::row( $A )['offer'] === $o_251, WPCPM_Sponsors_Index::row( $A )['anything'] === $a_4050 ), array( 'profile-saved', '', array( 'Website' => 'https://plugins.mango-example.test/new/' ), true, true ) );
+$GLOBALS['patched'] = array();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => ( $o_box['shown'] ?? '' ) . 'y' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'edited, it is measured, and refused', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['patched'] ), array( 'profile-long', '"Your offer, in one line" is 52 characters over the limit of 200. Shorten it and save again.', array() ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

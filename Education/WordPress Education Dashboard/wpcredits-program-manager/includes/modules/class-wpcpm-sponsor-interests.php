@@ -56,6 +56,8 @@ final class WPCPM_Sponsor_Interests {
 			'interest-sent'    => array( 'success', __( 'Thank you. Your program contact has been told, and your interest is on record.', 'wpcredits-program-manager' ) ),
 			'interest-unsent'  => array( 'warning', __( 'Your interest is on record, but nobody at the program could be told right now. Write to your program contact as well.', 'wpcredits-program-manager' ) ),
 			'interest-empty'   => array( 'error', __( 'Tick at least one option, name an event or write a note.', 'wpcredits-program-manager' ) ),
+			// The sentence after it says how far over the note is (long_sentence()).
+			'interest-long'    => array( 'error', __( 'Nothing was sent.', 'wpcredits-program-manager' ) ),
 			'interest-ceiling' => array( 'error', __( 'Five a day is the limit. Try again tomorrow.', 'wpcredits-program-manager' ) ),
 			'interest-failed'  => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'          => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
@@ -116,33 +118,62 @@ final class WPCPM_Sponsor_Interests {
 		$row    = $claim['row'];
 		$viewer = wp_get_current_user();
 
+		// Anything else and the events are counted as the person typed them and refused rather
+		// than cut: a note cut short reaches the program missing its end, an event cut short names
+		// another event, and one past the tenth was dropped without a word. Read and refused before
+		// the ceiling is claimed, so a message sent back to be shortened costs none of the day's five.
+		$note = WPCPM_Request::posted_lines( 'wpcpm_note' );
+		$over = WPCPM_Typed_Text::typed_length( $note ) - self::MAX_TEXT;
+
+		if ( $over > 0 ) {
+			self::leave( 'interest-long', $record, self::long_sentence( $over ) );
+		}
+
+		$events = array();
+
+		// `posted_lines()` keeps a posted value's line breaks rather than collapsing them, but
+		// hands back one string (see its docblock in includes/class-wpcpm-request.php) - every
+		// other caller keeps it as one block of text. This is the one field in the plugin that
+		// wants a list of individual lines, so the split happens here rather than being assumed.
+		// A blank line names no event and counts for none.
+		foreach ( preg_split( '/\r\n|\r|\n/', WPCPM_Request::posted_lines( 'wpcpm_events' ) ) as $event ) {
+			$event = sanitize_text_field( $event );
+
+			if ( '' === $event ) {
+				continue;
+			}
+
+			$events[] = $event;
+			$over     = WPCPM_Typed_Text::typed_length( $event ) - self::MAX_EVENT_LEN;
+
+			if ( $over > 0 ) {
+				self::leave( 'interest-long', $record, self::event_sentence( count( $events ), $over ) );
+			}
+		}
+
+		if ( count( $events ) > self::MAX_EVENTS ) {
+			self::leave( 'interest-long', $record, self::events_sentence( count( $events ) ) );
+		}
+
 		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) $viewer->ID ), self::PER_DAY, DAY_IN_SECONDS ) ) {
 			self::leave( 'interest-ceiling', $record );
 		}
 
 		$posted  = isset( $_POST['wpcpm_support'] ) && is_array( $_POST['wpcpm_support'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['wpcpm_support'] ) ) : array();
 		$choices = array_values( array_intersect( self::CHOICES, $posted ) );
-		$events  = array();
-
-		// `posted_lines()` keeps a posted value's line breaks rather than collapsing them, but
-		// hands back one string (see its docblock in includes/class-wpcpm-request.php) - every
-		// other caller keeps it as one block of text. This is the one field in the plugin that
-		// wants a list of individual lines, so the split happens here rather than being assumed.
-		foreach ( array_slice( preg_split( '/\r\n|\r|\n/', WPCPM_Request::posted_lines( 'wpcpm_events' ) ), 0, self::MAX_EVENTS ) as $event ) {
-			$event = mb_substr( sanitize_text_field( $event ), 0, self::MAX_EVENT_LEN );
-
-			if ( '' !== $event ) {
-				$events[] = $event;
-			}
-		}
-
-		$note = mb_substr( sanitize_textarea_field( WPCPM_Request::posted_text( 'wpcpm_note' ) ), 0, self::MAX_TEXT );
 
 		if ( empty( $choices ) && empty( $events ) && '' === $note ) {
 			self::leave( 'interest-empty', $record );
 		}
 
-		$line = self::line( $choices, $events, $note, $viewer->display_name, wp_date( 'Y-m-d' ) );
+		// Two forms of the one dated line. The history holds one line per message, and the card
+		// lists it line by line, so there the note's white space is folded as the one-line
+		// cleaner folds it (each run of line breaks, tabs and spaces one space), and the text is
+		// kept as the cleaner stored it, as every line before it was. The mail carries the note as
+		// it was typed: its lines, and the characters the cleaner wrote as entities.
+		$date = wp_date( 'Y-m-d' );
+		$line = self::line( $choices, $events, (string) preg_replace( '/[\r\n\t ]+/', ' ', $note ), $viewer->display_name, $date );
+		$said = WPCPM_Typed_Text::mail_text( self::line( $choices, $events, $note, $viewer->display_name, $date ) );
 
 		$table    = (string) WPCPM_Settings::get_value( 'sponsors_table', '' );
 		$airtable = new WPCPM_Airtable();
@@ -190,7 +221,7 @@ final class WPCPM_Sponsor_Interests {
 		WPCPM_Sponsors_Index::patch( $record, $patch );
 
 		$sponsor = '' === trim( $row['name'] ) ? $record : trim( $row['name'] );
-		$build   = static function ( $user ) use ( $sponsor, $line ) {
+		$build   = static function ( $user ) use ( $sponsor, $said ) {
 			return array(
 				'subject' => sprintf(
 					/* translators: %s: company name. */
@@ -201,7 +232,7 @@ final class WPCPM_Sponsor_Interests {
 					/* translators: 1: company name, 2: the dated line. */
 					__( "%1\$s said on the Sponsor Dashboard:\n\n%2\$s\n\nThe full history is in the Sponsorship interests column of the Sponsors table.", 'wpcredits-program-manager' ),
 					$sponsor,
-					$line
+					$said
 				),
 			);
 		};
@@ -296,16 +327,28 @@ final class WPCPM_Sponsor_Interests {
 		}
 
 		echo '</fieldset>';
+		// One box of lines, so its maxlength bounds the whole: ten events of the longest a line may
+		// be, and the nine line breaks between them, each one character to the browser. Drawn empty,
+		// so the room is that. A line over its limit, or an eleventh, is refused on the way in.
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-events">%1$s</label><textarea id="wpcpm-interest-events" name="wpcpm_events" rows="3" placeholder="%2$s"></textarea><span class="wpcpm-student__note">%3$s</span></p>',
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-events">%1$s</label><textarea id="wpcpm-interest-events" name="wpcpm_events" rows="3" maxlength="%4$d" placeholder="%2$s"></textarea><span class="wpcpm-student__note">%3$s</span></p>',
 			esc_html__( 'Flagship events you would sponsor students to attend', 'wpcredits-program-manager' ),
 			esc_attr__( 'WordCamp Europe 2027', 'wpcredits-program-manager' ),
-			esc_html__( 'One per line.', 'wpcredits-program-manager' )
+			esc_html(
+				sprintf(
+					/* translators: 1: the most events one message may name, 2: the longest an event may be, in characters. */
+					__( 'One per line: up to %1$s events of up to %2$s characters each.', 'wpcredits-program-manager' ),
+					number_format_i18n( self::MAX_EVENTS ),
+					number_format_i18n( self::MAX_EVENT_LEN )
+				)
+			),
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_EVENTS * self::MAX_EVENT_LEN + self::MAX_EVENTS - 1 )
 		);
 		printf(
 			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-note">%1$s</label><textarea id="wpcpm-interest-note" name="wpcpm_note" rows="4" maxlength="%2$d"></textarea></p>',
 			esc_html__( 'Anything else', 'wpcredits-program-manager' ),
-			(int) self::MAX_TEXT
+			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_TEXT )
 		);
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Tell the program', 'wpcredits-program-manager' ) );
 		echo '</form>';
@@ -329,13 +372,54 @@ final class WPCPM_Sponsor_Interests {
 	}
 
 	/**
+	 * The sentence after `interest-long`: how far over its limit the note is, so the sponsor knows
+	 * how much to take out.
+	 *
+	 * @param int $over How many characters, as typed, the note is over `MAX_TEXT`.
+	 * @return string
+	 */
+	private static function long_sentence( $over ) {
+		$over = max( 1, (int) $over );
+
+		/* translators: 1: how many characters over, 2: the longest note allowed. */
+		return sprintf( _n( 'Your note is %1$s character over the limit of %2$s. Shorten it and send it again.', 'Your note is %1$s characters over the limit of %2$s. Shorten it and send it again.', $over, 'wpcredits-program-manager' ), number_format_i18n( $over ), number_format_i18n( self::MAX_TEXT ) );
+	}
+
+	/**
+	 * The sentence after `interest-long` for an event over its limit: which one, counted among the
+	 * events named, and how far over it is.
+	 *
+	 * @param int $which The event's place among those named, from 1.
+	 * @param int $over  How many characters, as typed, it is over `MAX_EVENT_LEN`.
+	 * @return string
+	 */
+	private static function event_sentence( $which, $over ) {
+		$over = max( 1, (int) $over );
+
+		/* translators: 1: the event's place among those named, 2: how many characters over, 3: the longest an event may be. */
+		return sprintf( _n( 'Event %1$s is %2$s character over the limit of %3$s. Shorten it and send it again.', 'Event %1$s is %2$s characters over the limit of %3$s. Shorten it and send it again.', $over, 'wpcredits-program-manager' ), number_format_i18n( (int) $which ), number_format_i18n( $over ), number_format_i18n( self::MAX_EVENT_LEN ) );
+	}
+
+	/**
+	 * The sentence after `interest-long` for more events than one message may name.
+	 *
+	 * @param int $named How many events were named.
+	 * @return string
+	 */
+	private static function events_sentence( $named ) {
+		/* translators: 1: how many events were named, 2: the most one message may name. */
+		return sprintf( _n( 'You named %1$s event, and the limit is %2$s. Name the others in another message.', 'You named %1$s events, and the limit is %2$s. Name the others in another message.', (int) $named, 'wpcredits-program-manager' ), number_format_i18n( (int) $named ), number_format_i18n( self::MAX_EVENTS ) );
+	}
+
+	/**
 	 * Flash and go back to the dashboard, through the dashboard's own method (see the profile card).
 	 *
 	 * @param string $status A key of `messages()`.
 	 * @param string $record The sponsor, or ''.
+	 * @param string $detail A sentence after the status's own, or ''.
 	 */
-	private static function leave( $status, $record ) {
-		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record );
+	private static function leave( $status, $record, $detail = '' ) {
+		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record, $detail );
 		exit;
 	}
 }

@@ -179,7 +179,7 @@ final class WPCPM_Sponsor_Agreement {
 	const LOG_REINSTATE = 'sponsor_agreement_reinstate';
 	const LOG_ON_FILE   = 'sponsor_agreement_on_file';
 
-	/** A manager's note, in characters. */
+	/** A manager's note, in characters as typed (`WPCPM_Typed_Text::typed_length()`). */
 	const MIN_NOTE = 20;
 	const MAX_NOTE = 2000;
 
@@ -581,7 +581,8 @@ final class WPCPM_Sponsor_Agreement {
 			esc_html__( 'A note for the company', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_NOTE ),
 			(int) self::MIN_NOTE,
-			(int) self::MAX_NOTE,
+			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
 			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' )
 		);
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
@@ -2197,11 +2198,16 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Whether a note is long enough to be worth mailing and short enough to be one.
 	 *
-	 * @param string $note The note, as typed.
+	 * Counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the entities the
+	 * cleaner writes for a "<" and the quote marks and ampersands after it, and the two bytes of a
+	 * line break, are one character each, as the box counts them. A note the box took is never
+	 * refused for what the cleaner made of it, and a short one is not let through for it either.
+	 *
+	 * @param string $note The note, as the cleaner left it.
 	 * @return bool
 	 */
 	private static function note_fits( $note ) {
-		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $note ) : strlen( $note );
+		$length = WPCPM_Typed_Text::typed_length( $note );
 
 		return $length >= self::MIN_NOTE && $length <= self::MAX_NOTE;
 	}
@@ -2562,8 +2568,11 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Send the company the manager's note, word for word.
 	 *
+	 * A mail is plain text, so the note is read back to what was typed (`mail_text()`): a "<" the
+	 * cleaner wrote as `&lt;` arrives as "<", "Q&amp;A" as "Q&A".
+	 *
 	 * @param string $record Sponsors record ID.
-	 * @param string $note   The note, as typed.
+	 * @param string $note   The note, as the cleaner left it.
 	 * @return int How many accounts were mailed.
 	 */
 	private static function mail_returned( $record, $note ) {
@@ -2571,6 +2580,7 @@ final class WPCPM_Sponsor_Agreement {
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
 		$page    = WPCPM_Sponsors_Dashboard::page_url();
+		$note    = WPCPM_Typed_Text::mail_text( $note );
 
 		$build = function () use ( $site, $note, $named, $page, $manager ) {
 			$lines = array(
@@ -2606,13 +2616,16 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Tell the company one document is out of force, and why.
 	 *
+	 * The note is read back to what was typed, as in `mail_returned()`.
+	 *
 	 * @param string $record Sponsors record ID.
-	 * @param string $note   The note, as typed.
+	 * @param string $note   The note, as the cleaner left it.
 	 * @return int How many accounts were mailed.
 	 */
 	private static function mail_revoked( $record, $note ) {
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
+		$note    = WPCPM_Typed_Text::mail_text( $note );
 
 		$build = function () use ( $site, $note, $manager ) {
 			$lines = array(

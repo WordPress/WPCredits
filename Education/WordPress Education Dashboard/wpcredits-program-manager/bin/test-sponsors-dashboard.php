@@ -275,6 +275,8 @@ function get_users( array $args ) {
 // stubs/caps.php provides user_can() and current_user_can() reading $GLOBALS['manage'];
 // this suite carries no user_can()/current_user_can() of its own, in place of both.
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dashboards.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';

@@ -41,6 +41,9 @@ class WPCPM_Sponsor_Posts {
 	/** When it went back, Unix time. */
 	const META_RETURNED = '_wpcpm_sponsor_returned';
 
+	/** A return note's longest, in characters as the manager typed it (`WPCPM_Typed_Text::typed_length()`). */
+	const MAX_NOTE = 2000;
+
 	/** A manager switches posting for a sponsor, from wp-admin. Nonce `wpcpm_sponsor_flags_<record>`. */
 	const ACTION_FLAGS = 'wpcpm_sponsor_flags';
 
@@ -1077,9 +1080,11 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" required placeholder="%3$s"></textarea>',
+			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" maxlength="%3$d" required placeholder="%4$s"></textarea>',
 			(int) $post->ID,
 			esc_html__( 'A note for the author', 'wpcredits-program-manager' ),
+			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
 			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' )
 		);
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
@@ -1141,6 +1146,8 @@ class WPCPM_Sponsor_Posts {
 			'post-published'    => array( 'success', __( 'The post is published. It appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card.', 'wpcredits-program-manager' ) ),
 			'post-returned'     => array( 'success', __( 'The post went back to its author as a draft, with your note.', 'wpcredits-program-manager' ) ),
 			'post-note-missing' => array( 'error', __( 'Write a note for the author before returning the post.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the longest note allowed, in characters. */
+			'post-note-long'    => array( 'error', sprintf( __( 'The note is longer than %s characters. Shorten it and return the post again.', 'wpcredits-program-manager' ), number_format_i18n( self::MAX_NOTE ) ) ),
 			'post-not-pending'  => array( 'error', __( 'Only a post waiting for review can be published or returned here.', 'wpcredits-program-manager' ) ),
 			'post-failed'       => array( 'error', __( 'The post could not be changed right now. Try again later.', 'wpcredits-program-manager' ) ),
 		);
@@ -1267,15 +1274,24 @@ class WPCPM_Sponsor_Posts {
 	/**
 	 * A manager returns a pending post to its author as a draft, with a note that is kept on
 	 * the post and mailed to the author.
+	 *
+	 * The note is counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the
+	 * entities the cleaner writes for a "<" and the quote marks and ampersands after it, and the
+	 * two bytes of a line break, are one character each, as the box counts them. One over
+	 * `MAX_NOTE` is refused rather than cut, because a note cut short reaches the author missing
+	 * its end. It is kept as the cleaner left it, and mailed as it was typed.
 	 */
 	public static function handle_return() {
 		$opened = self::begin( self::ACTION_POST_RETURN );
 		$post   = $opened['post'];
-		$note   = isset( $_POST['wpcpm_note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$note   = trim( mb_substr( $note, 0, 2000 ) );
+		$note   = isset( $_POST['wpcpm_note'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
 		if ( '' === $note ) {
 			self::leave( 'post-note-missing', $opened['record'] );
+		}
+
+		if ( WPCPM_Typed_Text::typed_length( $note ) > self::MAX_NOTE ) {
+			self::leave( 'post-note-long', $opened['record'] );
 		}
 
 		$moved = wp_update_post(
@@ -1294,23 +1310,29 @@ class WPCPM_Sponsor_Posts {
 		update_post_meta( $post->ID, self::META_RETURN_NOTE, wp_slash( $note ) );
 		update_post_meta( $post->ID, self::META_RETURNED, time() );
 
-		$title = (string) $post->post_title;
+		// A mail is plain text: the title as WordPress stored it (kses writes each "&" of a
+		// member's title as `&amp;`) and the note as the cleaner left it are read back to what was
+		// typed, and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in
+		// it as they are: "Q&A" arrives as "Q&A".
+		$title = WPCPM_Typed_Text::mail_text( (string) $post->post_title );
+		$said  = WPCPM_Typed_Text::mail_text( $note );
 
 		WPCPM_Mail::send(
 			(int) $post->post_author,
 			self::MAIL_RETURNED,
-			static function ( WP_User $author ) use ( $title, $note ) {
+			static function ( WP_User $author ) use ( $title, $said ) {
 				return array(
 					/* translators: %s: the post title. */
-					'subject' => sprintf( __( 'Your post "%s" needs a change before it is published', 'wpcredits-program-manager' ), $title ),
-					'body'    => sprintf(
+					'subject'       => sprintf( __( 'Your post "%s" needs a change before it is published', 'wpcredits-program-manager' ), $title ),
+					'body'          => sprintf(
 						/* translators: 1: the author's name, 2: the post title, 3: the manager's note, 4: the wp-admin posts list URL. */
 						__( "Hello %1\$s,\n\nA program manager read your post \"%2\$s\" and sent it back as a draft with this note:\n\n%3\$s\n\nEdit it here and submit it for review again: %4\$s\n\nThe WordPress Credits program", 'wpcredits-program-manager' ),
 						$author->display_name,
 						$title,
-						$note,
+						$said,
 						admin_url( 'edit.php' )
 					),
+					'plain_subject' => true,
 				);
 			}
 		);
@@ -1327,7 +1349,7 @@ class WPCPM_Sponsor_Posts {
 				// The note's length, never the note: the audit is about the act.
 				'data'     => array(
 					'post'        => (int) $post->ID,
-					'note_length' => mb_strlen( $note ),
+					'note_length' => WPCPM_Typed_Text::typed_length( $note ),
 				),
 			)
 		);

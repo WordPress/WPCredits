@@ -51,6 +51,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-teams.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-typed-text.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php';

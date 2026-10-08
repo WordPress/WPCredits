@@ -58,7 +58,47 @@ function esc_url_raw( $u, $p = null ) {
 	$u = trim( (string) $u );
 	return preg_match( '#^https?://#i', $u ) ? $u : '';
 }
-function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n" ), '', strip_tags( (string) $s ) ) ); }
+/**
+ * Core's `sanitize_text_field()`, as 7.1.2 writes it, because every subject goes through it and a
+ * subject's words are what the checks read: a "<" with no ">" before the next "<" or the end is
+ * escaped as `esc_html()` escapes it, an entity it finds kept (`wp_pre_kses_less_than()`); every tag
+ * is stripped (`wp_strip_all_tags()`); every run of white space, CR and LF among it, is one space;
+ * the ends are trimmed; and every percent octet is removed. A `strip_tags()` that writes no entity
+ * and deletes a line break could not show a subject losing words to a "<3", nor gaining `&lt;`.
+ * Left out: in the stretch it escapes, core also writes a typed-out numeric entity of fewer than
+ * three digits with three (`&#62;` as `&#062;`), which no subject here holds.
+ *
+ * @param string $s What the builder handed over.
+ * @return string
+ */
+function sanitize_text_field( $s ) {
+	$s = (string) $s;
+
+	if ( ! mb_check_encoding( $s, 'UTF-8' ) ) {
+		return '';
+	}
+
+	if ( false !== strpos( $s, '<' ) ) {
+		$s = preg_replace_callback(
+			'%<[^>]*?((?=<)|>|$)%',
+			function ( $m ) {
+				return false === strpos( $m[0], '>' ) ? htmlspecialchars( $m[0], ENT_QUOTES, 'UTF-8', false ) : $m[0];
+			},
+			$s
+		);
+		$s = str_replace( "<\n", "&lt;\n", trim( strip_tags( preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $s ) ) ) );
+	}
+
+	$s     = trim( preg_replace( '/[\r\n\t ]+/', ' ', $s ) );
+	$found = false;
+
+	while ( preg_match( '/%[a-f0-9]{2}/i', $s, $m ) ) {
+		$s     = str_replace( $m[0], '', $s );
+		$found = true;
+	}
+
+	return $found ? trim( preg_replace( '/ +/', ' ', $s ) ) : $s;
+}
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $n ); }
@@ -356,6 +396,119 @@ ck( 'newlines are stripped from its subject too',
 $GLOBALS['mail'] = array();
 $sent = WPCPM_Mail::send_to( 'not-an-address', 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
 ck( 'something that is not an address is refused', array( $sent, count( $GLOBALS['mail'] ) ), array( false, 0 ) );
+
+/* ---- a subject marked as plain text ------------------------------------- */
+
+echo "\n=== A subject marked as plain text ===\n";
+
+/**
+ * The subject `wp_mail()` is handed for one message whose builder answers this subject.
+ *
+ * @param string    $subject What the builder hands over.
+ * @param bool|null $plain   Its `plain_subject`, or null for a builder that does not say.
+ * @param string    $to      An address for `send_to()`, or '' to send to the student through `send()`.
+ * @return string|null Null when nothing was sent.
+ */
+function subject_sent( $subject, $plain = null, $to = '' ) {
+	$GLOBALS['mail'] = array();
+	$build           = function () use ( $subject, $plain ) {
+		$mail = array( 'subject' => $subject, 'body' => 'x' );
+
+		if ( null !== $plain ) {
+			$mail['plain_subject'] = $plain;
+		}
+
+		return $mail;
+	};
+
+	if ( '' === $to ) {
+		WPCPM_Mail::send( 30, 'test', $build );
+	} else {
+		WPCPM_Mail::send_to( $to, 'test', $build );
+	}
+
+	return isset( $GLOBALS['mail'][0] ) ? $GLOBALS['mail'][0]['subject'] : null;
+}
+
+// A subject that carries what a person typed is plain text, and a "<" in it is a character. The
+// cleaner every subject goes through reads "<3 our team >" as a tag and drops it, words and all,
+// and writes a "<" with no ">" after it as `&lt;`, with the quote marks and the ampersands after it.
+ck( 'a subject marked as plain text keeps "<3" and the words up to the ">", which the cleaner drops from one that is not',
+    array( subject_sent( '[Site] Returned: We <3 our team > all', true ), subject_sent( '[Site] Returned: We <3 our team > all' ) ),
+    array( '[Site] Returned: We <3 our team > all', '[Site] Returned: We all' ) );
+ck( 'and a "<" with no ">" after it goes out as typed, with the quote marks and the ampersands, where the cleaner writes entities',
+    array(
+        subject_sent( 'Ages 8 < 12. Q&A: "blocks" & themes, it\'s free.', true ),
+        subject_sent( 'Ages 8 < 12. Q&A: "blocks" & themes, it\'s free.' ),
+        subject_sent( 'Ages 8 < 12 welcome, adults > 18 pay', true ),
+    ),
+    array(
+        'Ages 8 < 12. Q&A: "blocks" & themes, it\'s free.',
+        'Ages 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.',
+        'Ages 8 < 12 welcome, adults > 18 pay',
+    ) );
+ck( 'a typed-out entity goes out as typed, read back once and no deeper',
+    array( subject_sent( 'Write &lt;b&gt; for bold', true ), subject_sent( 'R&amp;D update', true ) ),
+    array( 'Write &lt;b&gt; for bold', 'R&amp;D update' ) );
+ck( 'send_to() reads the mark the same way', subject_sent( 'Received: We <3 our team > all', true, 'applicant@example.test' ), 'Received: We <3 our team > all' );
+
+// A subject is a header, marked or not: the read-back writes a "<" and an "&" and nothing else, so a
+// CR or an LF can never reach one, and a typed-out line feed stays the five characters it was typed.
+$no_breaks = array();
+$breaking  = array(
+	"Returned: We <3\r\nBcc: attacker@example.test" => 'Returned: We <3 Bcc: attacker@example.test',
+	"Ages 8 <\n12 welcome"                          => 'Ages 8 < 12 welcome',
+	"Line one\rLine two\tthree"                     => 'Line one Line two three',
+	'Note&#10;Bcc: attacker@example.test'           => 'Note&#10;Bcc: attacker@example.test',
+);
+
+foreach ( $breaking as $subject => $want ) {
+	foreach ( array( '', 'applicant@example.test' ) as $to ) {
+		$sent        = (string) subject_sent( $subject, true, $to );
+		$no_breaks[] = array( $sent, false === strpos( $sent, "\r" ) && false === strpos( $sent, "\n" ) );
+	}
+}
+
+ck( 'a marked subject holds no CR or LF, through send() and send_to() alike, and keeps its words on one line',
+    $no_breaks,
+    array_merge( ...array_map( function ( $want ) { return array( array( $want, true ), array( $want, true ) ); }, array_values( $breaking ) ) ) );
+
+// Every other subject is the cleaner's, as before: a builder that says nothing and one that says
+// false are cleaned alike, and the mark changes how a "<" is read and nothing else.
+$others = array( '[Site] We <3 our team > all', 'a < b', "Booked\r\nBcc: attacker@example.test", 'Q&A: "blocks" & themes, it\'s free.', "Tab\tand  spaces", '100%25 done', 'Thanks 🎉', 'Write &lt;b&gt; for bold', '' );
+$cleaned = array();
+$same    = array();
+
+foreach ( $others as $subject ) {
+	$cleaned[] = array( subject_sent( $subject ), subject_sent( $subject, false ) );
+	$same[]    = array( '' === trim( sanitize_text_field( $subject ) ) ? null : sanitize_text_field( $subject ), '' === trim( sanitize_text_field( $subject ) ) ? null : sanitize_text_field( $subject ) );
+}
+
+ck( 'a subject not marked is cleaned exactly as before, whether the builder says false or nothing', $cleaned, $same );
+
+$without_lt = array();
+
+foreach ( array( 'Q&A: "blocks" & themes, it\'s free.', "Booked\r\nBcc: attacker@example.test", "Tab\tand  spaces", '100%25 done', 'Thanks 🎉', 'Write &lt;b&gt; for bold', 'Adults > 18 pay' ) as $subject ) {
+	$without_lt[] = subject_sent( $subject, true ) === subject_sent( $subject );
+}
+
+ck( 'and without a "<" a marked subject goes out as one not marked', $without_lt, array_fill( 0, count( $without_lt ), true ) );
+ck( 'a marked subject of nothing but spaces is still not sent', subject_sent( '   ', true ), null );
+
+$seen_plain = array();
+
+$GLOBALS['filters']['wpcpm_mail'][] = function ( $mail ) use ( &$seen_plain ) {
+	$seen_plain[] = array_key_exists( 'plain_subject', $mail ) ? $mail['plain_subject'] : 'missing';
+
+	return $mail;
+};
+
+subject_sent( 'x' );
+subject_sent( 'x', true );
+
+unset( $GLOBALS['filters']['wpcpm_mail'] );
+
+ck( 'the wpcpm_mail filter is handed plain_subject: false unless the builder marked the subject', $seen_plain, array( false, true ) );
 
 /* ---- Reply-To ----------------------------------------------------------- */
 

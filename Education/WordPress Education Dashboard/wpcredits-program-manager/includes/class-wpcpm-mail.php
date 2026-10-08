@@ -157,7 +157,8 @@ class WPCPM_Mail {
 	 * @param string      $context   Short label for the log, e.g. `call-booked`.
 	 * @param callable    $build     Receives the recipient as a `WP_User` and returns an
 	 *                               array with `subject`, `body`, and optionally `headers`,
-	 *                               `attachments` and `cleanup`.
+	 *                               `attachments`, `cleanup` and `plain_subject` (see
+	 *                               `subject()`).
 	 * @return bool Whether the message was handed off successfully.
 	 */
 	public static function send( $recipient, $context, $build ) {
@@ -252,11 +253,12 @@ class WPCPM_Mail {
 		$mail = wp_parse_args(
 			(array) $mail,
 			array(
-				'subject'     => '',
-				'body'        => '',
-				'headers'     => array(),
-				'attachments' => array(),
-				'cleanup'     => array(),
+				'subject'       => '',
+				'body'          => '',
+				'headers'       => array(),
+				'attachments'   => array(),
+				'cleanup'       => array(),
+				'plain_subject' => false,
 			)
 		);
 
@@ -267,7 +269,8 @@ class WPCPM_Mail {
 		 * language, or the one a caller named for an address with no account - so anything
 		 * added here is translated the same way the template was.
 		 *
-		 * @param array        $mail      Subject, body, headers, attachments.
+		 * @param array        $mail      Subject, body, headers, attachments, and whether the
+		 *                                subject is plain text (`plain_subject`, see `subject()`).
 		 * @param string       $context   Message context.
 		 * @param WP_User|null $recipient Recipient. Null when the message goes to an address
 		 *                                that has no account yet, as an applicant's does, so
@@ -283,11 +286,7 @@ class WPCPM_Mail {
 
 			$sent = wp_mail(
 				$to,
-				// A subject is a header: the CR and LF that would turn one into several are
-				// stripped here rather than at each template, because the names that reach a
-				// subject come from Airtable columns and WordPress profiles and are not
-				// constants this code controls.
-				sanitize_text_field( (string) $mail['subject'] ),
+				self::subject( $mail ),
 				(string) $mail['body'],
 				(array) $mail['headers'],
 				array_filter( (array) $mail['attachments'] )
@@ -301,6 +300,45 @@ class WPCPM_Mail {
 		}
 
 		return (bool) $sent;
+	}
+
+	/**
+	 * A message's subject as it goes out, cleaned by one rule for every message.
+	 *
+	 * A subject is a header: the CR and LF that would turn one into several are stripped here
+	 * rather than at each template, because the names that reach a subject come from Airtable
+	 * columns and WordPress profiles and are not constants this code controls. Core's text cleaner
+	 * does it, and folds every other run of white space into one space.
+	 *
+	 * The cleaner also takes out whatever it reads as a tag: a "<" followed by anything but white
+	 * space, with the words up to the next ">", or, when a quote mark opens inside it and does not
+	 * close before a ">", to the end of the subject. A "<" with no ">" after it, before the next
+	 * "<" or the end, it writes as `&lt;` and keeps, with the quote marks and the ampersands after
+	 * it as entities. A builder whose subject carries what a person typed, its entities read back
+	 * (`WPCPM_Typed_Text::mail_text()`), says the subject is plain text (`plain_subject`): "We <3
+	 * our team > all" would otherwise go out as "We all". Such a subject goes through the cleaner
+	 * with each "&" and "<" held as an entity, so it finds no tag, and the two are read back after,
+	 * once and no deeper: a typed-out `&lt;` goes out as typed. The cleaner reads no markup without
+	 * a "<", so the line is cleaned as every other subject is, and the "<" is kept as text. The
+	 * read-back writes no CR or LF.
+	 *
+	 * @param array $mail The message: its `subject`, and `plain_subject`.
+	 * @return string
+	 */
+	private static function subject( array $mail ) {
+		$subject = (string) $mail['subject'];
+
+		if ( empty( $mail['plain_subject'] ) ) {
+			return sanitize_text_field( $subject );
+		}
+
+		return strtr(
+			sanitize_text_field( strtr( $subject, array( '&' => '&amp;', '<' => '&lt;' ) ) ),
+			array(
+				'&lt;'  => '<',
+				'&amp;' => '&',
+			)
+		);
 	}
 
 	/**
