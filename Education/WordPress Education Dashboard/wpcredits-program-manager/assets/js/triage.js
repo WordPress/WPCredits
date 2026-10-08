@@ -500,8 +500,7 @@
 	}
 
 	/**
-	 * Gather the page title, the plugin's mentor header and the triage counts into
-	 * one band, and fold "Last updated…" into the identity line where it belongs.
+	 * Gather the plugin's mentor header and the triage counts into one band.
 	 *
 	 * @param {Element} root   Dashboard root.
 	 * @param {Object}  counts Group key => count.
@@ -520,18 +519,10 @@
 			root.insertBefore( band, root.firstChild );
 		}
 
-		var identity = root.querySelector( '.wpcpm-dashboard__mentor-identity' );
-
 		// The page title is *not* moved in here, though it once was. It sits above the card
 		// as "Mentor Report Card", matching the student page, and the mentor's name is the
 		// identity line beneath it - two different things, and folding one into the other
 		// made the page's own title read as a label on the mentor.
-		var updated = root.querySelector( '.wpcpm-dashboard__updated' );
-
-		if ( identity && updated ) {
-			identity.appendChild( updated );
-		}
-
 		var triage = document.createElement( 'div' );
 
 		triage.className = 'wpc-triage';

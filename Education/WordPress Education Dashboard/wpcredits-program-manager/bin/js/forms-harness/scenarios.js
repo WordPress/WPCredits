@@ -13,7 +13,7 @@
  * control pressed in the form.
  */
 const path = require( 'path' );
-const { mk, load, flush, dispatch, reset, registry } = require( './run.js' );
+const { mk, load, flush, pageshow, dispatch, reset, registry, doc } = require( './run.js' );
 
 const FORMS = path.resolve( process.argv[ 2 ] || path.join( __dirname, '..', '..', '..', 'assets', 'js', 'forms.js' ) );
 
@@ -781,6 +781,242 @@ scenario(
 		asked.unmarked = log.confirms.splice( 0 );
 
 		return asked;
+	}
+);
+
+/* ---- A form that arrives after the script ran is guarded too. ---- */
+
+// The slot list of the booking calendar, inserted into the page after the script ran: one form, a time
+// per button, and the live region the form's status sentence goes in. The script is loaded first, so
+// nothing was bound to this form when it was made.
+function lateSlots() {
+	const { log, state } = load( FORMS );
+	const form = mk( 'form', { 'data-wpcpm-once': '', 'data-wpcpm-busy': 'Booking', 'data-wpcpm-status': 'Booking your call' } );
+	const slot = control( 'button', { type: 'submit', name: 'start', value: '9' }, '9:00' );
+	const other = control( 'button', { type: 'submit', name: 'start', value: '10' }, '10:00' );
+	const status = mk( 'p', { 'data-wpcpm-busy-status': '' } );
+
+	form.add( slot, other, status );
+
+	return { log, state, form, slot, other, status };
+}
+
+function slotsLeft( { form, slot, other, status } ) {
+	return {
+		sent: form.getAttribute( 'data-wpcpm-sent' ),
+		busy: form.getAttribute( 'aria-busy' ),
+		className: form.className,
+		slotReads: slot.textContent,
+		slotSavedLabel: slot.getAttribute( 'data-wpcpm-label' ),
+		slotDisabled: slot.disabled,
+		otherDisabled: other.disabled,
+		status: status.textContent,
+	};
+}
+
+scenario(
+	'a guarded form inserted after the script ran: one press locks it, the pressed slot reads its busy label and is disabled once the request is built, and the form posts once',
+	{
+		prevented: false,
+		scheduled: 1,
+		locked: { sent: '1', busy: 'true', className: ' is-sending', slotReads: 'Booking', slotSavedLabel: '9:00', slotDisabled: false, otherDisabled: true, status: 'Booking your call' },
+		settled: { slotDisabled: true },
+	},
+	() => {
+		const late = lateSlots();
+
+		press( late.slot );
+
+		const event = submit( late.form, late.slot );
+		const scheduled = late.log.timeouts.length;
+		const locked = slotsLeft( late );
+
+		flush( late.log );
+
+		return { prevented: event.defaultPrevented, scheduled, locked, settled: { slotDisabled: late.slot.disabled } };
+	}
+);
+
+scenario(
+	'a second press on a guarded form inserted after the script ran is dropped: one post in all, nothing more scheduled, and the busy label is not saved over the real one',
+	{ posts: 1, secondPrevented: true, scheduled: 0, left: { slotReads: 'Booking', slotSavedLabel: '9:00' } },
+	() => {
+		const late = lateSlots();
+
+		press( late.slot );
+
+		const first = submit( late.form, late.slot );
+
+		flush( late.log );
+
+		// Enter in a field, or a second tap, with the browser naming no submitter this time.
+		const second = submit( late.form, null );
+		const left = slotsLeft( late );
+
+		return {
+			posts: posts( [ first, second ] ),
+			secondPrevented: second.defaultPrevented,
+			scheduled: late.log.timeouts.length,
+			left: { slotReads: left.slotReads, slotSavedLabel: left.slotSavedLabel },
+		};
+	}
+);
+
+scenario(
+	'a guarded form inserted after the script ran is restored after Back, and only from the cache: the labels, the buttons, the lock and the status come back, and it can be pressed again',
+	{
+		stays: { sent: '1', slotReads: 'Booking' },
+		restored: { sent: null, busy: null, className: '', slotReads: '9:00', slotSavedLabel: null, slotDisabled: false, otherDisabled: false, status: '' },
+		again: { prevented: false, sent: '1', scheduled: 1 },
+	},
+	() => {
+		const late = lateSlots();
+
+		press( late.slot );
+		submit( late.form, late.slot );
+		flush( late.log );
+
+		// A page shown again without having been in the cache is left alone.
+		pageshow( late.log, false );
+
+		const stays = { sent: late.form.getAttribute( 'data-wpcpm-sent' ), slotReads: late.slot.textContent };
+
+		pageshow( late.log, true );
+
+		const restored = slotsLeft( late );
+		const event = submit( late.form, late.slot );
+
+		return { stays, restored, again: { prevented: event.defaultPrevented, sent: late.form.getAttribute( 'data-wpcpm-sent' ), scheduled: late.log.timeouts.length } };
+	}
+);
+
+scenario(
+	'a guarded form inserted after the script ran, posted through a control outside it: that control reads its busy label and is disabled, and after Back it is released',
+	{
+		asked: [],
+		locked: { voidFormLocked: true, voidReads: 'Voiding', voidDisabled: true, addDisabled: false },
+		restored: { voidFormLocked: false, voidReads: 'Void', voidDisabled: false },
+	},
+	() => {
+		const { log } = load( FORMS );
+		const add = mk( 'form', { 'data-wpcpm-once': '', 'data-wpcpm-busy': 'Adding' } );
+		const addButton = control( 'button', { type: 'submit' }, 'Add codes' );
+		const voidButton = control( 'button', { type: 'submit', form: 'wpcpm-offer-void-7' }, 'Void' );
+		const target = mk( 'form', { id: 'wpcpm-offer-void-7', 'data-wpcpm-once': '', 'data-wpcpm-busy': 'Voiding' } );
+
+		add.add( addButton, voidButton );
+		press( voidButton );
+		submit( target, null );
+		flush( log );
+
+		const locked = { voidFormLocked: '1' === target.getAttribute( 'data-wpcpm-sent' ), voidReads: voidButton.textContent, voidDisabled: voidButton.disabled, addDisabled: addButton.disabled };
+
+		pageshow( log, true );
+
+		return {
+			asked: log.confirms.slice(),
+			locked,
+			restored: { voidFormLocked: null !== target.getAttribute( 'data-wpcpm-sent' ), voidReads: voidButton.textContent, voidDisabled: voidButton.disabled },
+		};
+	}
+);
+
+// The reader runs first and the guard second, for a form made after the script ran as for any other: a
+// No must leave the form as it was, with nothing scheduled, and a Yes must be asked before the form is
+// locked, since a locked form is never asked again.
+scenario(
+	'a guarded form with a question, inserted after the script ran: a No leaves it unlocked with nothing scheduled, the Yes after it is asked and locks it, and a repeat is swallowed without a third question',
+	{
+		asked: [ 'Delete?', 'Delete?' ],
+		afterNo: { prevented: true, scheduled: 0, left: { sent: null, busy: null, className: '', deleteDisabled: false, keepDisabled: false, deleteReads: 'Delete', deleteSavedLabel: null } },
+		afterYes: { prevented: false, scheduled: 1, left: { sent: '1', busy: 'true', className: ' is-sending', deleteDisabled: false, keepDisabled: true, deleteReads: 'Deleting', deleteSavedLabel: 'Delete' } },
+		repeat: { prevented: true, scheduled: 1 },
+	},
+	() => {
+		const { log, state } = load( FORMS );
+		const { form, del, keep } = guardedForm();
+
+		state.answer = false;
+
+		const no = submit( form, del );
+		const afterNo = { prevented: no.defaultPrevented, scheduled: log.timeouts.length, left: leftBehind( form, del, keep ) };
+
+		state.answer = true;
+
+		const yes = submit( form, del );
+		const afterYes = { prevented: yes.defaultPrevented, scheduled: log.timeouts.length, left: leftBehind( form, del, keep ) };
+		const again = submit( form, del );
+
+		return { asked: log.confirms.slice(), afterNo, afterYes, repeat: { prevented: again.defaultPrevented, scheduled: log.timeouts.length } };
+	}
+);
+
+scenario(
+	'a form inserted after the script ran without data-wpcpm-once is never locked: every press posts and nothing is scheduled',
+	{ posts: 2, sent: null, scheduled: 0, reads: 'Save', disabled: false },
+	() => {
+		const { log } = load( FORMS );
+		const form = mk( 'form', { 'data-wpcpm-busy': 'Saving' } );
+		const save = control( 'button', { type: 'submit' }, 'Save' );
+
+		form.add( save );
+
+		const first = submit( form, save );
+		const second = submit( form, save );
+
+		return { posts: posts( [ first, second ] ), sent: form.getAttribute( 'data-wpcpm-sent' ), scheduled: log.timeouts.length, reads: save.textContent, disabled: save.disabled };
+	}
+);
+
+scenario(
+	'a submit another listener on the document had already prevented does not lock a guarded form inserted after the script ran',
+	{ prevented: true, scheduled: 0, left: { sent: null, busy: null, className: '', slotReads: '9:00', slotSavedLabel: null, slotDisabled: false, otherDisabled: false, status: '' } },
+	() => {
+		doc.addEventListener( 'submit', ( event ) => event.preventDefault(), true );
+
+		const late = lateSlots();
+		const event = submit( late.form, late.slot );
+
+		flush( late.log );
+
+		return { prevented: event.defaultPrevented, scheduled: late.log.timeouts.length, left: slotsLeft( late ) };
+	}
+);
+
+/* ---- A handler that stops the event does not hide the submit from the script. ---- */
+
+// Another script's listener on a guarded form, added before forms.js ran, stops the submit event from
+// travelling on: one with stopPropagation(), one with stopImmediatePropagation(). A listener on the
+// document in the bubble phase would never hear of the submit, and the question would go unasked and
+// the form unlocked; in the capture phase it is first in line.
+scenario(
+	'a listener on a guarded form that stops the submit event from bubbling does not hide it from the script: the question is asked, a No stops the post, and a Yes locks the form',
+	{
+		no: { asked: [ 'Delete?' ], prevented: true, sent: null, scheduled: 0 },
+		yes: { asked: [ 'Delete?' ], prevented: false, sent: '1', scheduled: 1, deleteReads: 'Deleting' },
+	},
+	() => {
+		const stopped = guardedForm();
+		const stoppedNow = guardedForm();
+
+		stopped.form.addEventListener( 'submit', ( event ) => event.stopPropagation() );
+		stoppedNow.form.addEventListener( 'submit', ( event ) => event.stopImmediatePropagation() );
+
+		const { log, state } = load( FORMS );
+
+		state.answer = false;
+
+		const refused = submit( stopped.form, stopped.del );
+		const no = { asked: log.confirms.splice( 0 ), prevented: refused.defaultPrevented, sent: stopped.form.getAttribute( 'data-wpcpm-sent' ), scheduled: log.timeouts.length };
+
+		state.answer = true;
+
+		const allowed = submit( stoppedNow.form, stoppedNow.del );
+
+		return {
+			no,
+			yes: { asked: log.confirms.splice( 0 ), prevented: allowed.defaultPrevented, sent: stoppedNow.form.getAttribute( 'data-wpcpm-sent' ), scheduled: log.timeouts.length, deleteReads: stoppedNow.del.textContent },
+		};
 	}
 );
 

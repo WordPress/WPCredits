@@ -25,6 +25,24 @@ class El {
 		this.textContent = '';
 	}
 
+	// A label read back as it was written, either way: setting one is setting the other, as it is on a
+	// page for a label that holds no markup, so a control the script re-labels and restores reads as it did.
+	get innerHTML() {
+		return this.label;
+	}
+
+	set innerHTML( value ) {
+		this.label = value;
+	}
+
+	get textContent() {
+		return this.label;
+	}
+
+	set textContent( value ) {
+		this.label = value;
+	}
+
 	// The type a browser reports: lower case, and the default of a button or an input.
 	get type() {
 		const given = this.attrs.type;
@@ -152,9 +170,10 @@ function reset() {
 
 // Run forms.js in a fresh context, as a page that has just loaded it. `state.answer` is what
 // window.confirm() answers; `log.confirms` holds every question asked; `log.timeouts` holds the
-// callbacks handed to setTimeout(), which flush() runs.
+// callbacks handed to setTimeout(), which flush() runs; `log.windowListeners` holds the listeners the
+// script put on the window, which pageshow() fires.
 function load( path ) {
-	const log = { confirms: [], timeouts: [] };
+	const log = { confirms: [], timeouts: [], windowListeners: [] };
 	const state = { answer: true };
 	const win = {
 		confirm: ( question ) => {
@@ -165,7 +184,9 @@ function load( path ) {
 		setTimeout: ( fn ) => {
 			log.timeouts.push( fn );
 		},
-		addEventListener() {},
+		addEventListener( type, fn ) {
+			log.windowListeners.push( { type, fn } );
+		},
 		getSelection() {},
 		CSS: undefined,
 	};
@@ -179,6 +200,12 @@ function load( path ) {
 
 function flush( log ) {
 	log.timeouts.splice( 0 ).forEach( ( fn ) => fn() );
+}
+
+// The browser shows a page again: `persisted` is true when it comes back from the back-forward cache,
+// the case the script undoes a form's busy state for.
+function pageshow( log, persisted ) {
+	log.windowListeners.filter( ( l ) => 'pageshow' === l.type ).forEach( ( l ) => l.fn( { type: 'pageshow', persisted: !! persisted } ) );
 }
 
 // Dispatch an event at `target` through the capture, target and bubble phases.
@@ -231,4 +258,4 @@ function dispatch( target, type, init ) {
 	return event;
 }
 
-module.exports = { El, mk, load, flush, dispatch, reset, registry, doc };
+module.exports = { El, mk, load, flush, pageshow, dispatch, reset, registry, doc };

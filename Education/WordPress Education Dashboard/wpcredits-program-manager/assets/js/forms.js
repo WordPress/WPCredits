@@ -18,7 +18,8 @@
  * Nothing here is a control. With JavaScript off every form posts exactly as before, only
  * without the "working" state. The markup it reads:
  *
- * - `data-wpcpm-once` on the form opts it in;
+ * - `data-wpcpm-once` on the form opts it in, and is read for any form on the page when that form is
+ *   submitted, including one inserted after the page loaded;
  * - `data-wpcpm-busy` is the label the pressed control shows while the request is in flight;
  * - `data-wpcpm-status`, optional, is a sentence for the form's `[data-wpcpm-busy-status]`
  *   live region, for a screen reader that cannot see the button change;
@@ -42,29 +43,6 @@
 		}
 
 		document.addEventListener( 'DOMContentLoaded', fn );
-	}
-
-	/**
-	 * Stop a form being submitted twice, and say that it is working.
-	 *
-	 * The trap this has to avoid: the slot buttons carry the value being submitted
-	 * (`name="start" value="..."`), and a *disabled* control is not serialized. Disabling the
-	 * pressed button inside the submit handler would therefore post the form with no slot
-	 * in it - booking would break outright, which is a good deal worse than the confusion
-	 * this fixes. So the pressed button is disabled from a `setTimeout`, after the browser
-	 * has already built the request; the buttons that were *not* pressed carry nothing and
-	 * are safe to disable immediately.
-	 *
-	 * Changing a button's text is always safe: for `<button name value>` the submitted
-	 * value is the `value` attribute, never the label.
-	 */
-	function guardForms() {
-		var forms = document.querySelectorAll( 'form[data-wpcpm-once]' );
-		var i;
-
-		for ( i = 0; i < forms.length; i++ ) {
-			guardForm( forms[ i ] );
-		}
 	}
 
 	/**
@@ -145,63 +123,84 @@
 	}
 
 	/**
-	 * @param {HTMLFormElement} form Form to guard.
+	 * Stop a form being submitted twice, and say that it is working.
+	 *
+	 * The trap this has to avoid: the slot buttons carry the value being submitted
+	 * (`name="start" value="..."`), and a *disabled* control is not serialized. Disabling the
+	 * pressed button inside the submit handler would therefore post the form with no slot
+	 * in it - booking would break outright, which is a good deal worse than the confusion
+	 * this fixes. So the pressed button is disabled from a `setTimeout`, after the browser
+	 * has already built the request; the buttons that were *not* pressed carry nothing and
+	 * are safe to disable immediately.
+	 *
+	 * Changing a button's text is always safe: for `<button name value>` the submitted
+	 * value is the `value` attribute, never the label.
+	 *
+	 * It reads the form off the event, so a form inserted after the page loaded is guarded as the
+	 * ones the page was drawn with are, and it stands aside for a form without the mark. It runs
+	 * inside the document's one submit listener, after the confirm reader (see watchSubmits()).
+	 *
+	 * @param {Event} event A submit event, on the document in the capture phase.
 	 */
-	function guardForm( form ) {
-		form.addEventListener( 'submit', function ( event ) {
-			/*
-			 * The confirm reader, a capture-phase listener on the document, has already run: a Cancel
-			 * has called preventDefault() and nothing was submitted. Locking the form "Working" for a press
-			 * that went nowhere misreports the page, and the decisions with a confirm are exactly
-			 * the destructive ones, where a wrong "Working" is worst.
-			 */
-			if ( event.defaultPrevented ) {
-				return;
+	function guardSubmit( event ) {
+		var form = event.target;
+
+		if ( ! form || 'FORM' !== form.tagName || null === form.getAttribute( 'data-wpcpm-once' ) ) {
+			return;
+		}
+
+		/*
+		 * The confirm reader has already run: a Cancel has called preventDefault() and nothing was
+		 * submitted. Locking the form "Working" for a press that went nowhere misreports the page,
+		 * and the decisions with a confirm are exactly the destructive ones, where a wrong "Working"
+		 * is worst. A submit some other listener on the document prevented first is left alone too.
+		 */
+		if ( event.defaultPrevented ) {
+			return;
+		}
+
+		if ( form.getAttribute( 'data-wpcpm-sent' ) ) {
+			// Already on its way. Swallow the repeat rather than posting twice.
+			event.preventDefault();
+			return;
+		}
+
+		form.setAttribute( 'data-wpcpm-sent', '1' );
+		form.setAttribute( 'aria-busy', 'true' );
+		form.className += ' is-sending';
+
+		var button = event.submitter || lastPressed( form );
+		var busy = form.getAttribute( 'data-wpcpm-busy' );
+		var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
+		var i;
+
+		for ( i = 0; i < buttons.length; i++ ) {
+			if ( buttons[ i ] !== button ) {
+				// Not the pressed control, so it contributes nothing to this request.
+				buttons[ i ].disabled = true;
 			}
+		}
 
-			if ( form.getAttribute( 'data-wpcpm-sent' ) ) {
-				// Already on its way. Swallow the repeat rather than posting twice.
-				event.preventDefault();
-				return;
-			}
+		if ( button && busy ) {
+			// `innerHTML` because a slot button is two spans - a time and an end time -
+			// and restoring a saved `textContent` would bring them back as one run-on
+			// string. It is this button's own markup, none of it from input.
+			button.setAttribute( 'data-wpcpm-label', button.innerHTML );
+			button.textContent = busy;
+		}
 
-			form.setAttribute( 'data-wpcpm-sent', '1' );
-			form.setAttribute( 'aria-busy', 'true' );
-			form.className += ' is-sending';
+		var status = form.querySelector( '[data-wpcpm-busy-status]' );
 
-			var button = event.submitter || lastPressed( form );
-			var busy = form.getAttribute( 'data-wpcpm-busy' );
-			var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
-			var i;
+		if ( status ) {
+			status.textContent = form.getAttribute( 'data-wpcpm-status' ) || busy || '';
+		}
 
-			for ( i = 0; i < buttons.length; i++ ) {
-				if ( buttons[ i ] !== button ) {
-					// Not the pressed control, so it contributes nothing to this request.
-					buttons[ i ].disabled = true;
-				}
-			}
-
-			if ( button && busy ) {
-				// `innerHTML` because a slot button is two spans - a time and an end time -
-				// and restoring a saved `textContent` would bring them back as one run-on
-				// string. It is this button's own markup, none of it from input.
-				button.setAttribute( 'data-wpcpm-label', button.innerHTML );
-				button.textContent = busy;
-			}
-
-			var status = form.querySelector( '[data-wpcpm-busy-status]' );
-
-			if ( status ) {
-				status.textContent = form.getAttribute( 'data-wpcpm-status' ) || busy || '';
-			}
-
-			// After the request has been built. See the note on guardForms().
-			if ( button ) {
-				window.setTimeout( function () {
-					button.disabled = true;
-				}, 0 );
-			}
-		} );
+		// After the request has been built. See the note above.
+		if ( button ) {
+			window.setTimeout( function () {
+				button.disabled = true;
+			}, 0 );
+		}
 	}
 
 	/**
@@ -439,21 +438,32 @@
 	}
 
 	/**
-	 * Ask before a destructive press goes: a form marked `data-wpcpm-confirm`, or one holding a
-	 * submit control marked with it, posts only once the person has said yes to the question the
-	 * mark carries.
+	 * Take every submit on the page: first ask before a destructive press goes, then guard the form
+	 * against a second press.
 	 *
-	 * "Cancel the session" and "Leave the session" carried the mark and nothing read it, so one
-	 * press canceled a session for everybody on it (the deep check of 1.109.1, SESSIONS-6). One
-	 * listener on the document, in the capture phase: it runs before any listener on a form, whichever
-	 * was added first, so a No has already called preventDefault() when the submit guard's listener
-	 * runs, and the guard, which stands aside for a prevented submit, leaves the form as it was
-	 * rather than showing it working for a press that went nowhere. It reads the mark off the form
-	 * being submitted, so a form inserted after the page loaded is asked too. A convenience, never a
-	 * control: with JavaScript off the form posts.
+	 * Asking: a form marked `data-wpcpm-confirm`, or one holding a submit control marked with it,
+	 * posts only once the person has said yes to the question the mark carries. "Cancel the session"
+	 * and "Leave the session" carried the mark and nothing read it, so one press canceled a session for
+	 * everybody on it (the deep check of 1.109.1, SESSIONS-6). A convenience, never a control: with
+	 * JavaScript off the form posts. Guarding: a form marked `data-wpcpm-once` is locked at its first
+	 * press and says it is working.
+	 *
+	 * One listener on the document, in the capture phase, for both, rather than a listener on each
+	 * form: it reads the form being submitted off the event, so a form inserted after the page loaded
+	 * is asked and guarded like one the page was drawn with, and it runs before any listener on a
+	 * form, whichever was added first. The two steps run in the order written below, and the order is
+	 * the point. A No has called preventDefault() when the guard looks, and the guard, which stands
+	 * aside for a prevented submit, leaves the form as it was rather than showing it working for a
+	 * press that went nowhere. And the reader leaves a form the guard has already sent alone, so a
+	 * guard that ran first would lock the form and its question would never be asked. A script that
+	 * cancels a guarded form's submit of its own accord runs after both and would find the form already
+	 * locked, so such a form does not carry the mark.
 	 */
-	function confirmFirst() {
-		document.addEventListener( 'submit', askConfirm, true );
+	function watchSubmits() {
+		document.addEventListener( 'submit', function ( event ) {
+			askConfirm( event );
+			guardSubmit( event );
+		}, true );
 	}
 
 	/**
@@ -521,8 +531,7 @@
 
 	ready( function () {
 		watchPressed();
-		confirmFirst();
-		guardForms();
+		watchSubmits();
 		releaseOnRestore();
 		selectOnClick();
 		showForKind();

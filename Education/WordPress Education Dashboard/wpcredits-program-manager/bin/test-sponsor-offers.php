@@ -660,6 +660,13 @@ echo "\n=== The Usage card ===\n";
 $html = card( 'WPCPM_Sponsor_Usage', $A, $context );
 ck( 'the card draws a table with a row per offer and a totals row, the twelve-month series, and the export form', array( false !== strpos( $html, 'id="wpcpm-sponsor-usage"' ), substr_count( $html, '<tr class="wpcpm-usage__offer">' ), false !== strpos( $html, 'wpcpm-usage__totals' ), false !== strpos( $html, gmdate( 'Y-m' ) ), false !== strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Usage::ACTION_EXPORT . '"' ) ), array( true, count( WPCPM_Sponsor_Offers::offers_of( $A ) ), true, true, true ) );
 ck( 'and says that nobody is named here', false !== strpos( $html, 'Nobody is named here' ), true );
+// The answer to the export is a file, so the page stays where it is: a form that locked itself at its first press
+// and read "Preparing" would stay locked and reading it, with the download already on the disk. The export only reads,
+// so a second press does no harm, and the form is left without the once-mark and its busy word.
+$export_at   = (int) strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Usage::ACTION_EXPORT . '"' );
+$export_open = (int) strrpos( substr( $html, 0, $export_at ), '<form ' );
+$export_form = substr( $html, $export_open, (int) strpos( $html, '</form>', $export_at ) - $export_open );
+ck( 'the export form is a plain post: no once-guard and no busy word, because its answer is a file and the page never unloads', array( 0 === strpos( $export_form, '<form method="post"' ), false === strpos( $export_form, 'data-wpcpm-once' ), false === strpos( $export_form, 'data-wpcpm-busy' ), false !== strpos( $export_form, 'Download as CSV' ) ), array( true, true, true, true ) );
 
 echo "\n=== The Offers and codes card in two columns (1.97.1) ===\n";
 $card_html = card( 'WPCPM_Sponsor_Offers', $A, $context );

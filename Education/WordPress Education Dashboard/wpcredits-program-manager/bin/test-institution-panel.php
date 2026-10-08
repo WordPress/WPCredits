@@ -2415,7 +2415,7 @@ ck( 'and that in wp-admin the admin class loads it on every plugin screen, the I
 	array( false !== strpos( $form_text, 'in wp-admin the admin class loads it on every plugin screen' ), false !== strpos( $form_text, 'the Institutions screen among them' ) ),
 	array( true, true ) );
 ck( 'and no longer says the Institutions screen goes without it', false === strpos( $form_text, 'still does not' ), true );
-ck( 'and the attribute is still the one that script reads', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' ), 'form[data-wpcpm-once]' ), true );
+ck( 'and the attribute is still the one that script reads', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' ), "getAttribute( 'data-wpcpm-once' )" ), true );
 
 // The tripwire on the sentences above: the Institution Dashboard enqueues the guard, the admin
 // class enqueues it for every plugin screen, and the Institutions screen leaves it to the admin

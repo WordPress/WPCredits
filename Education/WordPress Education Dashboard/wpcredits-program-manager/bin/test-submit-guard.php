@@ -46,31 +46,55 @@ function ck( $l, $a, $e = true ) {
 }
 
 // Where the guard lives: forms.js, and nowhere else.
-ck( 'forms.js exists and defines the guard',
-    (bool) strpos( $js, 'function guardForms()' ) && (bool) strpos( $js, 'function guardForm( form )' ) );
-ck( 'and wires it, after the press tracker and the confirm reader and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*watchPressed\(\);\s*confirmFirst\(\);\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+ck( 'forms.js exists and defines the guard, as a handler of the submit event and not as something bound to each form',
+    array(
+        (bool) strpos( $js, 'function guardSubmit( event )' ),
+        false !== strpos( $js, 'function guardForms()' ),
+        false !== strpos( $js, 'function guardForm(' ),
+        false !== strpos( $js, "querySelectorAll( 'form[data-wpcpm-once]' )" ),
+    ),
+    array( true, false, false, false ) );
+ck( 'and wires it, with the confirm reader in the one submit listener, after the press tracker and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
 
 // The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
 // `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.
-// The reader is one capture-phase listener on the document, so it runs before every listener on a
-// form, the guard's included, whichever was added first: a No has called preventDefault() by the
-// time the guard's own listener runs, and the guard, which stands aside for a prevented submit,
-// leaves the form as it was.
+// The reader and the guard are two steps of one capture-phase listener on the document, the reader
+// first, so it runs before every listener on a form whichever was added first, and the order is in the
+// listener and not in which call came first: a No has called preventDefault() by the time the guard
+// runs, and the guard, which stands aside for a prevented submit, leaves the form as it was. With the
+// guard first it would lock a form the reader then never asks.
 $confirm = substr( $js, (int) strpos( $js, 'function askConfirm( event )' ) );
 $confirm = substr( $confirm, 0, (int) strpos( $confirm, "\n\t}\n" ) );
-$first   = substr( $js, (int) strpos( $js, 'function confirmFirst()' ) );
+$first   = substr( $js, (int) strpos( $js, 'function watchSubmits()' ) );
 $first   = substr( $first, 0, (int) strpos( $first, "\n\t}\n" ) );
+$guard   = substr( $js, (int) strpos( $js, 'function guardSubmit( event )' ) );
+$guard   = substr( $guard, 0, (int) strpos( $guard, "\n\t}\n" ) );
 ck( 'a submit is asked the pressed control\'s data-wpcpm-confirm sentence with window.confirm(), and a No prevents it',
     array(
-        (bool) strpos( $js, 'function confirmFirst()' ),
-        (bool) strpos( $first, "document.addEventListener( 'submit', askConfirm, true );" ),
+        (bool) strpos( $js, 'function watchSubmits()' ),
+        (bool) preg_match( "/document\.addEventListener\( 'submit', function \( event \) \{\s*askConfirm\( event \);/", $first ),
         (bool) strpos( $confirm, "getAttribute( 'data-wpcpm-confirm' )" ),
         (bool) preg_match( '/if \( question && ! window\.confirm\( question \) \) \{\s*event\.preventDefault\(\);/', $confirm ),
     ),
     array( true, true, true, true ) );
-ck( 'and the guard stands aside for a submit already prevented',
-    (bool) preg_match( "/form\.addEventListener\( 'submit', function \( event \) \{.*?if \( event\.defaultPrevented \) \{\s*return;/s", $js ) );
+ck( 'the one submit listener is on the document, in the capture phase, and runs the reader and then the guard: no other listener of the script takes a submit',
+    array(
+        (bool) preg_match( "/^document\.addEventListener\( 'submit', function \( event \) \{\s*askConfirm\( event \);\s*guardSubmit\( event \);\s*\}, true \);$/m", preg_replace( '/^\s+/m', '', $first ) ),
+        substr_count( $js, "addEventListener( 'submit'" ),
+        substr_count( $js, 'askConfirm( event );' ),
+        substr_count( $js, 'guardSubmit( event );' ),
+    ),
+    array( true, 1, 1, 1 ) );
+ck( 'the guard reads the form off the event and acts only on a form carrying data-wpcpm-once, whenever it was added',
+    array(
+        (bool) strpos( $guard, 'var form = event.target;' ),
+        (bool) strpos( $guard, "'FORM' !== form.tagName" ),
+        (bool) strpos( $guard, "null === form.getAttribute( 'data-wpcpm-once' )" ),
+    ),
+    array( true, true, true ) );
+ck( 'and the guard stands aside for a submit already prevented, before it sets anything',
+    (bool) preg_match( "/data-wpcpm-once' \) \) \{\s*return;\s*\}.*?if \( event\.defaultPrevented \) \{\s*return;\s*\}.*?setAttribute\( 'data-wpcpm-sent'/s", $guard ) );
 ck( 'the session\'s Cancel and the Leave form carry the sentence the reader asks',
     substr_count( file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' ), 'data-wpcpm-confirm="%1$s"' ),
     2 );
@@ -86,13 +110,12 @@ ck( 'and sets required and disabled from that control\'s value, on change and af
     && (bool) strpos( $needs, "source.addEventListener( 'change', apply )" ) && (bool) strpos( $needs, "window.addEventListener( 'pageshow', apply )" ) );
 ck( 'the planning form marks its count box with the rule select\'s name',
     (bool) strpos( file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' ), 'name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat"' ) );
-ck( 'calendar.js no longer defines the guard', false === strpos( $calendar, 'function guardForm' ) );
+ck( 'calendar.js no longer defines the guard', false === strpos( $calendar, 'function guardForm' ) && false === strpos( $calendar, 'function guardSubmit' ) );
 ck( 'nor calls it',
-    false === strpos( $calendar, 'guardForms()' ) && false === strpos( $calendar, 'releaseOnRestore()' ) );
+    false === strpos( $calendar, 'guardForms()' ) && false === strpos( $calendar, 'guardSubmit(' ) && false === strpos( $calendar, 'releaseOnRestore()' ) );
 
 // The submit handler body.
-$at = strpos( $js, "form.addEventListener( 'submit'" );
-$handler = substr( $js, $at, strpos( $js, "\n\t\t} );", $at ) - $at );
+$handler = $guard;
 
 ck( 'the pressed button is disabled only inside a setTimeout',
     (bool) preg_match( '/setTimeout\(\s*function \(\) \{\s*button\.disabled = true;/', $handler ) );

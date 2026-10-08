@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.9
+Stable tag: 1.122.10
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.10 =
+
+* Sponsor Dashboard: **Download as CSV** can be pressed again for another copy. It used to stay grayed out, reading *Preparing*, until the page was reloaded.
+* For developers: `forms.js` guards a form marked `data-wpcpm-once` from the one listener on the document that already asks the confirm questions, so a form a page inserts after it has loaded is locked at its first press, shows its busy word and is restored after Back like a form drawn with the page. No screen inserts such a form today. `triage.js` no longer looks for a "Last updated" paragraph that the Mentor Report Card does not print.
 
 = 1.122.9 =
 

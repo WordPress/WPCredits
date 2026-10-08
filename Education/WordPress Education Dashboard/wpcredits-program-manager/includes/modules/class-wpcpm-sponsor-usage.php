@@ -94,10 +94,12 @@ final class WPCPM_Sponsor_Usage {
 
 		echo '</tr></tfoot></table>';
 
+		// Not guarded with `data-wpcpm-once`: the answer is a file, so the page stays where it is and a
+		// form locked at its first press would stay locked, reading its busy word, with the download
+		// already saved. The export only reads, so a second press for another copy does no harm.
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Preparing', 'wpcredits-program-manager' )
+			'<form method="post" action="%s" class="wpcpm-inline-form">',
+			esc_url( admin_url( 'admin-post.php' ) )
 		);
 		wp_nonce_field( self::ACTION_EXPORT . '_' . $record );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_EXPORT ) );
