@@ -1585,6 +1585,8 @@ class WPCPM_Sponsor_Agreement {
 	public static function summary( $record ) { return isset( $GLOBALS['summaries'][ $record ] ) ? $GLOBALS['summaries'][ $record ] : array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '', 'kind' => '', 'drive_url' => '', 'airtable_status' => '' ); }
 	public static function posts_for( $record ) { return isset( $GLOBALS['agr_posts'][ $record ] ) ? $GLOBALS['agr_posts'][ $record ] : array(); }
 	public static function manager_messages() { return array( 'agreement-accepted' => array( 'success', 'Accepted.' ) ); }
+	// What a refused Take it out of force typed, handed back once, as the real class does.
+	public static function kept_revoke_note( $post_id ) { $kept = $GLOBALS['kept_revoke'][ (int) $post_id ] ?? null; unset( $GLOBALS['kept_revoke'][ (int) $post_id ] ); return $kept; }
 	public static function delete_all() {}
 }
 
@@ -1684,6 +1686,19 @@ ck( 'an accepted agreement is offered Take it out of force, keyed to it, and no 
 	false !== strpos( $screen, '2026-09-06' ),
 ), array( true, true, true, false, true ) );
 ck( 'its note box carries the length the handler enforces', array( false !== strpos( $screen, 'minlength="20"' ), false !== strpos( $screen, 'maxlength="2000"' ) ), array( true, true ) );
+/** What Take it out of force's note box holds as a browser shows it: a CR LF is one LF, and the one line feed right after the opening tag is dropped. */
+$revoke_box = static function ( $html ) {
+	if ( ! preg_match( '#<textarea id="wpcpm-note-[^"]*" name="wpcpm_sponsor_agr_note"[^>]*>(.*?)</textarea>#s', (string) $html, $m ) ) {
+		return null;
+	}
+	return html_entity_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+};
+$revoke_typed = "\nKids <12 free & \"more\" </textarea> C:\\drafts\nline two";
+ck( 'drawn with nothing kept, the note box is empty', $revoke_box( $screen ), '' );
+$GLOBALS['kept_revoke'] = array( 901 => $revoke_typed );
+$screen_kept            = render_tab( 'agreements' );
+ck( 'after a refused press, the note box holds what was typed, exactly, a leading line break included, and nothing in it closes the box early', array( $revoke_box( $screen_kept ), substr_count( $screen_kept, '</textarea>' ) ), array( $revoke_typed, 1 ) );
+ck( 'and only once: drawn again, it is empty', $revoke_box( render_tab( 'agreements' ) ), '' );
 ck( 'and Take it out of force, the one form the tab draws for it, carries the once attribute', array( post_forms( $screen ), post_forms( $screen, true ) ), array( array( 'wpcpm_sponsor_agr_revoke' ), array() ) );
 $agreement_backs['out of force'] = $referer_of( $screen, WPCPM_Sponsor_Agreement::ACTION_REVOKE );
 $empty_queue = render_tab( 'queue' );

@@ -157,6 +157,38 @@ WPCPM_Flash::set( 'guest', 'nope' );
 ck( 'nothing is stored for a guest', isset( $GLOBALS['umeta'][0] ), false );
 ck( 'and a guest reads nothing', WPCPM_Flash::take( 'guest' ), '' );
 
+// A value worth something only for a while is cleared unread by the test a caller gives: every
+// channel it picks goes in one write, and what it leaves comes through that write as it was given.
+$GLOBALS['uid'] = 7;
+WPCPM_Flash::set( 'sweep-old', 'old' );
+WPCPM_Flash::set( 'sweep-keeps', 'two \\\\ in a row, C:\drafts' );
+WPCPM_Flash::set( 'sweep-also-old', array( 'note' => 'It\'s "typed" in C:\drafts' ) );
+WPCPM_Flash::sweep(
+	function ( $channel, $value ) {
+		return 0 === strpos( $channel, 'sweep-' ) && 'sweep-keeps' !== $channel;
+	}
+);
+ck( 'sweep() clears every channel its test picks, and only those', array_keys( $GLOBALS['umeta'][7]['wpcpm_flash'] ?? array() ), array( 'sweep-keeps' ) );
+ck( 'and what it leaves comes back as it was given', WPCPM_Flash::take( 'sweep-keeps' ), 'two \\\\ in a row, C:\drafts' );
+$GLOBALS['uid'] = 8;
+WPCPM_Flash::set( 'sweep-theirs', 'theirs' );
+$GLOBALS['uid'] = 7;
+WPCPM_Flash::set( 'sweep-last', 'last' );
+WPCPM_Flash::sweep(
+	function () {
+		return true;
+	}
+);
+ck( 'a sweep that clears every channel removes the meta row', isset( $GLOBALS['umeta'][7]['wpcpm_flash'] ), false );
+ck( 'and it reaches only its own user', $GLOBALS['umeta'][8]['wpcpm_flash'] ?? null, array( 'sweep-theirs' => 'theirs' ) );
+$GLOBALS['uid'] = 0;
+WPCPM_Flash::sweep(
+	function () {
+		return true;
+	}
+);
+ck( 'a guest has nothing to sweep, and nothing is written', isset( $GLOBALS['umeta'][0] ), false );
+
 // No status is left in the redirect URLs any more. Each file is asserted to be there first:
 // a check that reads a module which no longer exists passes on an empty string and warns on
 // every run, which is what the student profile row here did until the deep check of

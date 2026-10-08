@@ -2144,7 +2144,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-no-email'         => array( 'error', __( 'Nothing was sent. This application carries no usable address, so there is nobody to ask.', 'wpcredits-program-manager' ) ),
 			'app-not-sent'         => array( 'error', __( 'Nothing was sent and nothing moved. This site could not hand the question to its mail server, so the application is exactly where it was and the question is still yours to ask. Try again, and look at the recent mail on the settings screen if it keeps failing.', 'wpcredits-program-manager' ) ),
 			'app-info'             => array( 'success', __( 'The question is on its way, with your address to reply to. The application waits in the queue for their answer.', 'wpcredits-program-manager' ) ),
-			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next manager can read it.', 'wpcredits-program-manager' ) ),
+			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next Administrator can read it.', 'wpcredits-program-manager' ) ),
 			'app-spam'             => array( 'info', __( 'The application is marked as spam. Nothing was sent: the address is forged or is somebody else\'s, and either way a reply is wrong.', 'wpcredits-program-manager' ) ),
 			'app-reopened'         => array( 'info', __( 'The application is open again and back in the queue.', 'wpcredits-program-manager' ) ),
 			'app-purged'           => array( 'success', __( 'The application is deleted. The log keeps its reference and the date, and nothing else.', 'wpcredits-program-manager' ) ),
@@ -3554,7 +3554,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'action'  => self::ACTION_REJECT,
 				'label'   => __( 'Reject', 'wpcredits-program-manager' ),
 				'field'   => 'wpcpm_reason',
-				'prompt'  => __( 'Why, for the next manager who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+				'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
 				'confirm' => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),

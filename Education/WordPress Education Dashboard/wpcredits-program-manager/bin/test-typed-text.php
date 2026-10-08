@@ -12,11 +12,13 @@
  * every entity back hands the cleaner a tag it never saw typed. Each check below stands for one of
  * those, measured on the phrases a person types: "Ages 8 < 12 welcome, adults > 18 pay",
  * "We <3 our <b>team</b> > all", `Q&A: "blocks" & themes, it's free.`, a "<" at the end of a line,
- * an emoji.
+ * an emoji. And where the cleaner would take words away ("Kids <12 free, adults >18 pay", "Get
+ * 10%cashback"), `cleaner_loses()` says so, and says it of nothing else.
  *
- * The cleaners and the decoder are stood in for as core 7.1.2 writes them, not as a `strip_tags()`
- * that writes no entity: a stand-in that never writes `&lt;` would pass every rule here whatever it
- * did. This suite carries no kses, so what a member's post holds after kses is pinned as core 7.1.2
+ * The cleaners and the decoder are stood in for as core 7.1.2 writes them (bin/stubs/cleaners.php
+ * and bin/stubs/specialchars.php, which the sponsor suites load too), not as a `strip_tags()` that
+ * writes no entity: a stand-in that never writes `&lt;` would pass every rule here whatever it did.
+ * This suite carries no kses, so what a member's post holds after kses is pinned as core 7.1.2
  * stores it (measured on a copy of core), and the rule that hands such a post to kses is checked on
  * its own (`insert_text()`).
  *
@@ -33,109 +35,8 @@ $GLOBALS['uid']    = 0;
 $GLOBALS['grants'] = array();
 
 require_once __DIR__ . '/stubs/caps.php';
-
-/**
- * Core's `wp_specialchars_decode()`, as 7.1.2 writes it: the five entities `&lt;`, `&gt;`, `&amp;`,
- * `&quot;` and `&#039;`, with the numeric forms core lists for each, read back once, and no other
- * entity. A stand-in built on `html_entity_decode()` reads `&copy;` too, which core does not.
- *
- * @param string     $text        The text.
- * @param string|int $quote_style Which quote marks to read back.
- * @return string
- */
-function wp_specialchars_decode( $text, $quote_style = ENT_NOQUOTES ) {
-	$text = (string) $text;
-
-	if ( '' === $text || false === strpos( $text, '&' ) ) {
-		return $text;
-	}
-
-	if ( empty( $quote_style ) ) {
-		$quote_style = ENT_NOQUOTES;
-	} elseif ( ! in_array( $quote_style, array( 0, 2, 3, 'single', 'double' ), true ) ) {
-		$quote_style = ENT_QUOTES;
-	}
-
-	$single      = array( '&#039;' => '\'', '&#x27;' => '\'' );
-	$single_preg = array( '/&#0*39;/' => '&#039;', '/&#x0*27;/i' => '&#x27;' );
-	$double      = array( '&quot;' => '"', '&#034;' => '"', '&#x22;' => '"' );
-	$double_preg = array( '/&#0*34;/' => '&#034;', '/&#x0*22;/i' => '&#x22;' );
-	$others      = array( '&lt;' => '<', '&#060;' => '<', '&gt;' => '>', '&#062;' => '>', '&amp;' => '&', '&#038;' => '&', '&#x26;' => '&' );
-	$others_preg = array( '/&#0*60;/' => '&#060;', '/&#0*62;/' => '&#062;', '/&#0*38;/' => '&#038;', '/&#x0*26;/i' => '&#x26;' );
-
-	if ( ENT_QUOTES === $quote_style ) {
-		$translation      = array_merge( $single, $double, $others );
-		$translation_preg = array_merge( $single_preg, $double_preg, $others_preg );
-	} elseif ( ENT_COMPAT === $quote_style || 'double' === $quote_style ) {
-		$translation      = array_merge( $double, $others );
-		$translation_preg = array_merge( $double_preg, $others_preg );
-	} elseif ( 'single' === $quote_style ) {
-		$translation      = array_merge( $single, $others );
-		$translation_preg = array_merge( $single_preg, $others_preg );
-	} else {
-		$translation      = $others;
-		$translation_preg = $others_preg;
-	}
-
-	$text = preg_replace( array_keys( $translation_preg ), array_values( $translation_preg ), $text );
-
-	return strtr( $text, $translation );
-}
-
-/**
- * Core's `_sanitize_text_fields()`, as 7.1.2 writes it, which both cleaners call: invalid UTF-8
- * read as nothing; a "<" with no ">" before the next "<" or the end escaped as `esc_html()` escapes
- * it, an entity it finds kept (`wp_pre_kses_less_than()`); every tag stripped and the ends trimmed
- * (`wp_strip_all_tags()`); a "<" a line feed follows written `&lt;`; for a one-line field every run
- * of white space one space; and every percent octet removed. One thing of core's is left out: in
- * the stretch it escapes, core also writes a numeric entity typed out with fewer than three digits
- * with three (`&#62;` as `&#062;`). No typing here holds one; with none, this answers as core does
- * (measured on 100,000 random texts).
- *
- * @param string $str           What was posted.
- * @param bool   $keep_newlines Whether the field is a text area.
- * @return string
- */
-function wpcpm_test_clean( $str, $keep_newlines ) {
-	$filtered = (string) $str;
-
-	if ( ! mb_check_encoding( $filtered, 'UTF-8' ) ) {
-		return '';
-	}
-
-	if ( false !== strpos( $filtered, '<' ) ) {
-		$filtered = preg_replace_callback(
-			'%<[^>]*?((?=<)|>|$)%',
-			function ( $matches ) {
-				return false === strpos( $matches[0], '>' ) ? htmlspecialchars( $matches[0], ENT_QUOTES, 'UTF-8', false ) : $matches[0];
-			},
-			$filtered
-		);
-		$filtered = trim( strip_tags( preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $filtered ) ) );
-		$filtered = str_replace( "<\n", "&lt;\n", $filtered );
-	}
-
-	if ( ! $keep_newlines ) {
-		$filtered = preg_replace( '/[\r\n\t ]+/', ' ', $filtered );
-	}
-
-	$filtered = trim( $filtered );
-	$found    = false;
-
-	while ( preg_match( '/%[a-f0-9]{2}/i', $filtered, $match ) ) {
-		$filtered = str_replace( $match[0], '', $filtered );
-		$found    = true;
-	}
-
-	if ( $found ) {
-		$filtered = trim( preg_replace( '/ +/', ' ', $filtered ) );
-	}
-
-	return $filtered;
-}
-
-function sanitize_text_field( $str ) { return wpcpm_test_clean( $str, false ); }
-function sanitize_textarea_field( $str ) { return wpcpm_test_clean( $str, true ); }
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/cleaners.php';
 
 /**
  * Core's `esc_attr()` as 7.1.2 has it: `_wp_specialchars()` with `$double_encode` false, so an
@@ -160,6 +61,19 @@ function esc_textarea( $text ) {
 }
 
 /**
+ * Translation: the text as written, with the text domain it was asked through kept for a check.
+ *
+ * @param string $text   The text.
+ * @param string $domain The text domain.
+ * @return string
+ */
+function __( $text, $domain = 'default' ) {
+	$GLOBALS['domains'][] = $domain;
+
+	return $text;
+}
+
+/**
  * What a browser shows for the markup of a box: each entity read once, and for a text area a CR LF
  * in the markup read as LF.
  *
@@ -169,6 +83,35 @@ function esc_textarea( $text ) {
  */
 function browser_shows( $markup, $area = false ) {
 	return html_entity_decode( $area ? str_replace( "\r\n", "\n", (string) $markup ) : (string) $markup, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+}
+
+/**
+ * The flash a refused form's typing waits in: one value per user and channel, which `take()` hands
+ * back once and clears, and `sweep()` clears unread where its test says so, and nothing for a guest.
+ * The real class also remembers within a request what it handed back, and writes a slashed copy that
+ * core's user meta unslashes; bin/test-flash.php pins both on it.
+ */
+class WPCPM_Flash {
+	public static function set( $channel, $value, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : (int) $GLOBALS['uid'];
+		if ( $user_id ) {
+			$GLOBALS['flash'][ $user_id ][ (string) $channel ] = $value;
+		}
+	}
+	public static function take( $channel, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : (int) $GLOBALS['uid'];
+		$value   = $GLOBALS['flash'][ $user_id ][ (string) $channel ] ?? '';
+		unset( $GLOBALS['flash'][ $user_id ][ (string) $channel ] );
+		return $value;
+	}
+	public static function sweep( $stale, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : (int) $GLOBALS['uid'];
+		foreach ( $GLOBALS['flash'][ $user_id ] ?? array() as $channel => $value ) {
+			if ( $stale( (string) $channel, $value ) ) {
+				unset( $GLOBALS['flash'][ $user_id ][ $channel ] );
+			}
+		}
+	}
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
@@ -243,6 +186,14 @@ ck( 'it takes "<b>" and "</b>" out of "We <3 our <b>team</b> > all" and writes t
 ck( 'after a "<" with no ">" before the end it writes the quote marks and the ampersands as entities',
     sanitize_textarea_field( $qa_after ), $qa_clean );
 ck( 'and without a "<" it leaves them as typed', sanitize_textarea_field( $qa ), $qa );
+
+// A reference typed out after a "<" is not kept as typed: core's esc_html() writes each in its own
+// form. A comparison that read "&#9;" and "&#009;" differently would call this a loss on core, and
+// a stand-in that kept "&#9;" would never show it.
+$refs_typed = 'We <3 &amp; &lt;b&gt; it&#39;s it&#039;s &copy; &#9; &#x2E; &#X41; &#0; &#XD800; &COPY; &apos;';
+$refs_clean = 'We &lt;3 &amp; &lt;b&gt; it&#039;s it&#039;s &copy; &#009; &#x2E; &#x41; &amp;#0; &amp;#xD800; &amp;COPY; &amp;apos;';
+ck( 'after a "<" it writes a typed-out reference as core does: a number with three digits, a small "x", and the "&" of one core does not take as "&amp;"',
+    array( sanitize_text_field( $refs_typed ), sanitize_textarea_field( $refs_typed ) ), array( $refs_clean, $refs_clean ) );
 ck( 'the decoder reads the five entities and their numeric forms back once, and no other',
     array( wp_specialchars_decode( '&lt;&gt;&amp;&quot;&#039;&#62;&#x26;', ENT_QUOTES ), wp_specialchars_decode( '&amp;lt; &copy;', ENT_QUOTES ) ),
     array( '<>&"\'>&', '&lt; &copy;' ) );
@@ -476,6 +427,257 @@ as_person( true );
 ck( 'a person who holds unfiltered_html meets no kses, and their words are handed over as the cleaner left them',
     array( WPCPM_Typed_Text::insert_text( $ages ), WPCPM_Typed_Text::insert_text( $team_meta ) ), array( $ages, $team_meta ) );
 as_person( false );
+
+echo "\n=== cleaner_loses(): whether the cleaner takes away more than white space ===\n";
+
+// Each typing here loses words to the cleaner, and each cleaned value is core 7.1.2's, read off core.
+// A "<" with no white space after it and a ">" before the next "<" is a tag to the cleaner, dropped
+// with every word in it ("don't" opens a quote inside that tag, so the ">" after it closes nothing
+// and the rest goes too), and a "%" with two hexadecimal digits after it is a URL octet, dropped.
+$losses = array(
+	'Kids <12 free, adults >18 pay'       => array( 'Kids 18 pay', 'Kids 18 pay' ),
+	"Students <18 don't pay > adults pay" => array( 'Students', 'Students' ),
+	'Get 10%cashback'                     => array( 'Get 10shback', 'Get 10shback' ),
+	'We <3 our team > all'                => array( 'We all', 'We  all' ),
+	'a <b>bold</b> word'                  => array( 'a bold word', 'a bold word' ),
+);
+
+foreach ( $losses as $typed => $kept ) {
+	ck( sprintf( '"%s" is cleaned to "%s", and is a loss in a text input and in a text area', $typed, $kept[0] ),
+	    array( sanitize_text_field( $typed ), sanitize_textarea_field( $typed ), WPCPM_Typed_Text::cleaner_loses( $typed, 'line' ), WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ),
+	    array( $kept[0], $kept[1], true, true ) );
+}
+
+ck( 'text that is not valid UTF-8 is emptied whole by the cleaner, and is a loss',
+    array( sanitize_text_field( "Kids \xC0 free" ), WPCPM_Typed_Text::cleaner_loses( "Kids \xC0 free", 'line' ), WPCPM_Typed_Text::cleaner_loses( "Kids \xC0 free", 'lines' ) ),
+    array( '', true, true ) );
+
+// Each typing here keeps every word, though the cleaner may write it in other bytes: it writes a
+// "<" that opens no tag, and the quote marks and ampersands after it, as entities, writes a
+// reference typed out after a "<" in core's own form, and folds the white space of a text input.
+$keeps = array(
+	'a "<" a space follows'                       => 'Ages 8 < 12 welcome, adults > 18 pay',
+	'a "<" a tab follows'                         => "Ages 8 <\t12 welcome, adults > 18 pay",
+	'a "<" a line break follows'                  => "Ages 8 <\r\n12 welcome, adults > 18 pay\nand <\nmore",
+	'a "<" with no ">" after it'                  => 'We <3 WordPress',
+	'a lone "&"'                                  => 'Q&A, R & D, Tom & Jerry',
+	'a lone "&" after a "<"'                      => 'We <3 Q&A, R & D',
+	'quote marks without a "<"'                   => $qa,
+	'quote marks after a "<"'                     => $qa_after,
+	'line breaks'                                 => "Line one\r\nLine two\r\n\r\nLine four\r\n",
+	'tabs and runs of spaces the cleaner folds'   => "  Lots\tof\t\tspace    here  ",
+	'typed-out entities'                          => '&amp; &lt;b&gt; it&#39;s it&#039;s &copy; &#9;',
+	'typed-out entities after a "<"'              => $refs_typed,
+	'emoji'                                       => 'Thanks 🎉 We <3 WordPress 🎉',
+	'a "%" without two hexadecimal digits after it' => '50% off, 100% free, 5%-10%',
+	'a "<" at the very end'                       => 'a <',
+	'a "<" right after a run of spaces'           => 'Ages 8     < 12 welcome, adults > 18 pay',
+	'a "<" a form feed follows'                   => "Ages 8 <\f12 welcome, adults > 18 pay",
+	'a "<" a vertical tab follows'                => "Ages 8 <\v12 welcome, adults > 18 pay",
+);
+
+foreach ( $keeps as $what => $typed ) {
+	ck( sprintf( 'keeps every word: %s', $what ),
+	    array( WPCPM_Typed_Text::cleaner_loses( $typed, 'line' ), WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ), array( false, false ) );
+}
+
+ck( 'the typed-out entities after a "<" are written in other bytes, and that is not a loss',
+    array( sanitize_textarea_field( $refs_typed ) === $refs_typed, WPCPM_Typed_Text::cleaner_loses( $refs_typed, 'lines' ) ), array( false, false ) );
+ck( 'nothing typed, or white space alone, loses nothing',
+    array( WPCPM_Typed_Text::cleaner_loses( '', 'line' ), WPCPM_Typed_Text::cleaner_loses( null, 'lines' ), WPCPM_Typed_Text::cleaner_loses( " \r\n\t ", 'line' ), WPCPM_Typed_Text::cleaner_loses( " \r\n\t ", 'lines' ) ),
+    array( false, false, false, false ) );
+// An array or an object, as a crafted post can send, is not cast to a string: casting an array
+// warns, and casting an object without __toString() throws.
+$warned = 0;
+set_error_handler(
+	function () use ( &$warned ) {
+		++$warned;
+		return true;
+	}
+);
+$not_text = array(
+	WPCPM_Typed_Text::cleaner_loses( array( 'Kids <12 free, adults >18 pay' ), 'line' ),
+	WPCPM_Typed_Text::cleaner_loses( array( 'a <b>bold</b> word' ), 'lines' ),
+	WPCPM_Typed_Text::cleaner_loses( new stdClass(), 'line' ),
+);
+restore_error_handler();
+ck( 'a value that is not text, as a crafted post can send, is not read: no words of it are lost, and no warning is raised',
+    array( $not_text, $warned ), array( array( false, false, false ), 0 ) );
+
+echo "\n=== loss_message(): the refusal that names the box and the fix ===\n";
+
+$GLOBALS['domains'] = array();
+$said               = WPCPM_Typed_Text::loss_message( 'Offer text' );
+
+ck( 'it says nothing was saved, names the box, and says how to keep every word',
+    $said, 'Nothing was saved, because WordPress would remove part of what you typed in "Offer text". To keep every word, put a space after each "<" (or write "less than") and after each "%", then save again.' );
+ck( 'through the plugin\'s text domain', $GLOBALS['domains'], array( 'wpcredits-program-manager' ) );
+ck( 'it is plain text: a label goes in as given, and escaping it is the caller\'s',
+    false !== strpos( WPCPM_Typed_Text::loss_message( 'Q&A <b>' ), 'you typed in "Q&A <b>".' ), true );
+
+// A form whose button does something other than save says what did not happen and what to press
+// again, in a whole sentence of its own per action, so a translator never meets half of one.
+$GLOBALS['domains'] = array();
+$actions            = array(
+	'send'   => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
+	'return' => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
+	'revoke' => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
+	'reject' => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
+);
+ck( 'for a form that sends, it says nothing was sent and to send it again',
+    $actions['send'],
+    'Nothing was sent, because WordPress would remove part of what you typed in "Anything else". To keep every word, put a space after each "<" (or write "less than") and after each "%", then send it again.' );
+ck( 'for a return, that nothing was returned and to return it again',
+    $actions['return'],
+    'Nothing was returned, because WordPress would remove part of what you typed in "A note for the author". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' );
+ck( 'for Take it out of force, that nothing was revoked and to take it out of force again',
+    $actions['revoke'],
+    'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is out of force, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then take it out of force again.' );
+ck( 'for a rejection, that nothing was rejected and to reject the application again',
+    $actions['reject'],
+    'Nothing was rejected, because WordPress would remove part of what you typed in "Why, for the next Administrator who reads this". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' );
+ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array( 'wpcredits-program-manager', 'wpcredits-program-manager', 'wpcredits-program-manager', 'wpcredits-program-manager' ) );
+ck( 'and a form that saves, named or not, keeps the first sentence, as does an action the method does not know', array( WPCPM_Typed_Text::loss_message( 'Offer text', 'save' ), WPCPM_Typed_Text::loss_message( 'Offer text' ), WPCPM_Typed_Text::loss_message( 'Offer text', 'publish' ), WPCPM_Typed_Text::loss_message( 'Offer text', true ) ), array( $said, $said, $said, $said ) );
+// Each sentence is one msgid, with a translators comment right above it, never built from pieces.
+$tt_src  = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-typed-text.php' );
+$tt_body = substr( $tt_src, (int) strpos( $tt_src, 'public static function loss_message(' ) );
+$tt_body = substr( $tt_body, 0, (int) strpos( $tt_body, "\n\t}\n" ) );
+ck( 'the five sentences are five whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|returned|revoked|rejected), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 5, 5 ) );
+
+echo "\n=== keep(), kept() and forget(): a refused form gets back what was typed, once ===\n";
+
+// A typing with everything a box can hold: a "<" that would open a tag, quotes, an ampersand typed
+// out as an entity, a backslash, a tab, an emoji and a line break as a text area posts it.
+$GLOBALS['uid']   = 5;
+$GLOBALS['flash'] = array();
+$typed_line       = 'Q&amp;A <b>x</b> "quoted" it\'s C:\drafts' . "\t" . "\xF0\x9F\x98\x80";
+$typed_area       = "Kids <12 free,\r\nadults >18 pay & 10%cashback";
+
+WPCPM_Typed_Text::keep( 'test:one', array( 'title' => $typed_line, 'text' => $typed_area, 'audience' => array( 'mentors', 'managers' ) ), array( 'title' => 120, 'text' => 500 ) );
+$back = WPCPM_Typed_Text::kept( 'test:one' );
+ck( 'what was typed comes back exactly, a line break as the one LF a box counts', $back, array( 'title' => $typed_line, 'text' => "Kids <12 free,\nadults >18 pay & 10%cashback", 'audience' => array( 'mentors', 'managers' ) ) );
+ck( 'and only once: the form drawn again has nothing kept', WPCPM_Typed_Text::kept( 'test:one' ), array() );
+ck( 'nor is anything left waiting', $GLOBALS['flash'][5] ?? array(), array() );
+
+WPCPM_Typed_Text::keep( 'test:two', array( 'title' => 'Mine' ), array( 'title' => 120 ) );
+ck( 'another form never sees it', WPCPM_Typed_Text::kept( 'test:other' ), array() );
+$GLOBALS['uid'] = 6;
+ck( 'nor does another person, on the same form', WPCPM_Typed_Text::kept( 'test:two' ), array() );
+$GLOBALS['uid'] = 5;
+ck( 'while the one who typed it still has it', WPCPM_Typed_Text::kept( 'test:two' ), array( 'title' => 'Mine' ) );
+
+// Kept for its box, never more: counted in characters, as the box counts them, a line break one.
+$at_limit = str_repeat( "Ages 8 < 12 welcome.\r\n", 50 ) . str_repeat( "\xF0\x9F\x98\x80", 10 );
+WPCPM_Typed_Text::keep( 'test:room', array( 'text' => $at_limit . 'beyond the box', 'title' => str_repeat( 'é', 130 ) ), array( 'text' => 1060, 'title' => 120 ) );
+$back = WPCPM_Typed_Text::kept( 'test:room' );
+ck( 'a typing beyond its box is kept up to the box\'s limit, in characters, a line break and an emoji one each', array( $back['text'] === str_replace( "\r\n", "\n", $at_limit ), mb_strlen( $back['text'] ), $back['title'] === str_repeat( 'é', 120 ) ), array( true, 1060, true ) );
+
+WPCPM_Typed_Text::keep( 'test:bytes', array( 'title' => "Bad \xC3\x28 bytes", 'text' => 'Good words', 'note' => 'No room was given for it' ), array( 'title' => 120, 'text' => 500 ) );
+ck( 'a typing that is not valid UTF-8 is not kept at all, and neither is a box given no room, while the rest is', WPCPM_Typed_Text::kept( 'test:bytes' ), array( 'text' => 'Good words' ) );
+WPCPM_Typed_Text::keep( 'test:none', array( 'title' => "\xC3\x28" ), array( 'title' => 120 ) );
+ck( 'and when nothing is left to keep, nothing is stored', isset( $GLOBALS['flash'][5]['typed:test:none'] ), false );
+WPCPM_Typed_Text::keep( 'test:blank', array( 'title' => '', 'audience' => array() ), array( 'title' => 120 ) );
+ck( 'an empty box and an empty list are kept as what was typed: nothing', WPCPM_Typed_Text::kept( 'test:blank' ), array( 'title' => '', 'audience' => array() ) );
+
+// A refused form whose page never drew it must not bring the typing back the next day.
+WPCPM_Typed_Text::keep( 'test:stale', array( 'title' => 'An hour ago' ), array( 'title' => 120 ) );
+$GLOBALS['flash'][5]['typed:test:stale']['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
+ck( 'a typing kept longer ago than KEPT_FOR is not given back', WPCPM_Typed_Text::kept( 'test:stale' ), array() );
+ck( 'and is cleared all the same', isset( $GLOBALS['flash'][5]['typed:test:stale'] ), false );
+WPCPM_Typed_Text::keep( 'test:fresh', array( 'title' => 'Just now' ), array( 'title' => 120 ) );
+$GLOBALS['flash'][5]['typed:test:fresh']['at'] = time() - WPCPM_Typed_Text::KEPT_FOR + 5;
+ck( 'one kept within it is', WPCPM_Typed_Text::kept( 'test:fresh' ), array( 'title' => 'Just now' ) );
+ck( 'ten minutes, the time a refusal takes to land on its page many times over', WPCPM_Typed_Text::KEPT_FOR, 600 );
+
+// A typing whose form is never drawn again does not stay in the person's user meta, a contact
+// address or a note among it: the next keep(), for any form, clears every typing older than
+// KEPT_FOR, and leaves a fresh one, the person's other channels and anyone else's typing.
+$GLOBALS['flash'] = array();
+WPCPM_Typed_Text::keep( 'test:abandoned', array( 'email' => 'maciej@a8c.com' ), array( 'email' => 120 ) );
+WPCPM_Typed_Text::keep( 'test:waiting', array( 'note' => 'Still on its way' ), array( 'note' => 120 ) );
+$GLOBALS['flash'][5]['typed:test:abandoned']['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
+$GLOBALS['flash'][5]['typed:test:waiting']['at']   = time() - WPCPM_Typed_Text::KEPT_FOR + 5;
+$GLOBALS['flash'][5]['typed:test:odd']             = 'not a kept typing';
+$GLOBALS['flash'][5]['sponsor_dashboard']          = 'offer-saved';
+$GLOBALS['flash'][6]['typed:test:abandoned']       = array(
+	'at'    => time() - WPCPM_Typed_Text::KEPT_FOR - 1,
+	'typed' => array( 'email' => 'maciej+other@a8c.com' ),
+);
+WPCPM_Typed_Text::keep( 'test:next', array( 'title' => 'Next' ), array( 'title' => 120 ) );
+ck( 'the next keep() clears a typing older than KEPT_FOR, and a value on a typing\'s channel that is not one, whatever form they were kept for', array( isset( $GLOBALS['flash'][5]['typed:test:abandoned'] ), isset( $GLOBALS['flash'][5]['typed:test:odd'] ) ), array( false, false ) );
+ck( 'while a fresh one for another form, the person\'s other channels and its own typing stay, and so does another person\'s', array( array_keys( $GLOBALS['flash'][5] ), WPCPM_Typed_Text::kept( 'test:waiting' ), isset( $GLOBALS['flash'][6]['typed:test:abandoned'] ) ), array( array( 'typed:test:waiting', 'sponsor_dashboard', 'typed:test:next' ), array( 'note' => 'Still on its way' ), true ) );
+$GLOBALS['flash'] = array();
+
+// The form posted again, whatever comes of it, makes what an earlier refusal kept stale.
+WPCPM_Typed_Text::keep( 'test:posted', array( 'title' => 'Before' ), array( 'title' => 120 ) );
+WPCPM_Typed_Text::forget( 'test:posted' );
+ck( 'forget() drops what a form kept', WPCPM_Typed_Text::kept( 'test:posted' ), array() );
+$GLOBALS['flash']['5']['typed:test:odd'] = 'not a kept typing';
+ck( 'and a value that is not a kept typing reads as nothing kept', WPCPM_Typed_Text::kept( 'test:odd' ), array() );
+$GLOBALS['uid'] = 0;
+WPCPM_Typed_Text::keep( 'test:guest', array( 'title' => 'Nobody' ), array( 'title' => 120 ) );
+ck( 'a guest keeps nothing and reads nothing', array( $GLOBALS['flash'][0] ?? array(), WPCPM_Typed_Text::kept( 'test:guest' ) ), array( array(), array() ) );
+
+echo "\n=== kept_room() and kept_attr(): a kept typing drawn back into its box ===\n";
+
+ck( 'an empty box keeps up to its limit', WPCPM_Typed_Text::kept_room( '', 120 ), 120 );
+ck( 'a box that holds a ">" as `&gt;` keeps the room it was drawn with', array( WPCPM_Typed_Text::kept_room( $team_post, 120 ), WPCPM_Typed_Text::drawn_limit( $team_post, 120 ) ), array( 123, 123 ) );
+$grid = str_repeat( 'One year of hosting free. ', 10 );
+ck( 'and a box drawn with more than its limit, as the base can hold a text, keeps all it was drawn with', WPCPM_Typed_Text::kept_room( $grid, 200 ), 260 );
+ck( 'a text area drawn with line breaks counts each as one: fifty lines of "Line" are 250, not the 300 they post as', WPCPM_Typed_Text::kept_room( str_repeat( "Line\r\n", 50 ), 200 ), 250 );
+
+// `esc_attr()` keeps an entity it finds, so a typed-out "&amp;" drawn through it alone would come
+// back as "&". Each "&" written `&amp;` first, the box shows what was typed.
+$q_amp = 'Q&amp;A <b>x</b>';
+ck( 'a text input drawn with esc_attr( kept_attr() ) shows "Q&amp;A <b>x</b>" exactly as it was typed', browser_shows( esc_attr( WPCPM_Typed_Text::kept_attr( $q_amp ) ) ), $q_amp );
+ck( 'where esc_attr() alone would show "Q&A <b>x</b>"', browser_shows( esc_attr( $q_amp ) ), 'Q&A <b>x</b>' );
+ck( 'and a text area drawn with esc_textarea() shows it exactly with nothing more', browser_shows( esc_textarea( "Q&amp;A <b>x</b>\nline two" ), true ), "Q&amp;A <b>x</b>\nline two" );
+ck( 'kept_attr() reads nothing back: a typing is not a stored text', WPCPM_Typed_Text::kept_attr( 'a &gt; b &lt; c "d"' ), 'a &amp;gt; b &amp;lt; c "d"' );
+
+echo "\n=== Every typing, refused or kept ===\n";
+
+// Typings of the pieces that make the cleaner take words and of those that only look like it,
+// through both cleaners. A typing loses words exactly when the stand-in cleaner with its steps that
+// take text away switched off keeps something the real one does not: an answer that reads no
+// entity, so it checks cleaner_loses() from outside. Seeded, so a failure names the same typing on
+// every run.
+mt_srand( 1122013 );
+
+$loss_pieces = array( 'Kids', 'free', 'team', ' ', '  ', "\r\n", "\n", "\t", '<', ' < ', '>', ' > ', '<3', '<12', '<b>', '</b>', '->', "<\n", '%', '%20', '%ca', '10%', '&', '&amp;', '&lt;', '&#9;', '&#39;', '&#X41;', '&#0;', '&COPY;', '"', "'", '🎉' );
+$wrong_loss  = array( 'refused when nothing is lost' => 0, 'kept when words are lost' => 0 );
+$reached_l   = array( 'losses' => 0, 'keeps the cleaner writes in other bytes' => 0, 'keeps with a reference written in core\'s form' => 0 );
+$checked_l   = 0;
+
+for ( $i = 0; $i < 3000; ++$i ) {
+	$typed = '';
+
+	for ( $n = mt_rand( 1, 12 ); $n > 0; --$n ) {
+		$typed .= $loss_pieces[ mt_rand( 0, count( $loss_pieces ) - 1 ) ];
+	}
+
+	foreach ( array( 'line' => false, 'lines' => true ) as $kind => $area ) {
+		$cleaned = wpcpm_test_clean( $typed, $area );
+		$lost    = wpcpm_test_clean( $typed, $area, false ) !== $cleaned;
+		$says    = WPCPM_Typed_Text::cleaner_loses( $typed, $kind );
+
+		$wrong_loss['refused when nothing is lost'] += (int) ( $says && ! $lost );
+		$wrong_loss['kept when words are lost']     += (int) ( ! $says && $lost );
+
+		// What the typings reach, so the check cannot go green over nothing.
+		$folded = $area ? trim( $typed ) : trim( preg_replace( '/[\r\n\t ]+/', ' ', $typed ) );
+
+		$reached_l['losses']                                       += (int) $lost;
+		$reached_l['keeps the cleaner writes in other bytes']        += (int) ( ! $lost && $cleaned !== $folded );
+		$reached_l['keeps with a reference written in core\'s form'] += (int) ( ! $lost && preg_match( '/&#009;|&#x41;|&amp;#0;|&amp;COPY;/', $cleaned ) );
+		++$checked_l;
+	}
+}
+
+ck( sprintf( 'of %d typings, none is refused that loses nothing, and none is kept that loses words', $checked_l ),
+    $wrong_loss, array_fill_keys( array_keys( $wrong_loss ), 0 ) );
+ck( 'and they reach at least a hundred losses, a hundred keeps in other bytes and ten keeps with a reference in core\'s form',
+    array( $reached_l['losses'] >= 100, $reached_l['keeps the cleaner writes in other bytes'] >= 100, $reached_l['keeps with a reference written in core\'s form'] >= 10 ),
+    array( true, true, true ) );
 
 echo "\n=== Every typing, through the cleaner ===\n";
 

@@ -12,8 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * One set of rules for a text that went through `sanitize_text_field()` or
  * `sanitize_textarea_field()`: how long it is as the person typed it, how a box draws it back,
- * whether a box posted back changed it, the box's `maxlength`, how a plain-text mail reads it, and
- * what a post write hands kses.
+ * whether a box posted back changed it, the box's `maxlength`, how a plain-text mail reads it, what
+ * a post write hands kses, and whether the cleaner would take words from what was posted, with the
+ * sentence that refuses such a save and the typing the refused form gets back.
  *
  * The cleaners do not hand back what was typed. Each writes a "<" that opens no tag as `&lt;`, and
  * the quote marks and the ampersands after it as `&quot;`, `&#039;` and `&amp;`, up to the next "<"
@@ -28,8 +29,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * text and instructions, with the offer's mails and the usage CSV (`WPCPM_Sponsor_Offers`,
  * `WPCPM_Sponsor_Claims`); the interests card's Anything else and events
  * (`WPCPM_Sponsor_Interests`); the profile's typed texts (`WPCPM_Sponsor_Profile`); the question
- * to an applicant (`WPCPM_Sponsor_Application`); and the notes a sponsor post and a Collaboration
- * Agreement are returned with (`WPCPM_Sponsor_Posts`, `WPCPM_Sponsor_Agreement`). Each counts such a
+ * to an applicant and the reason a rejection is kept with (`WPCPM_Sponsor_Application`); and the
+ * notes a sponsor post and a Collaboration Agreement are returned with, and the note an agreement
+ * is taken out of force with (`WPCPM_Sponsor_Posts`, `WPCPM_Sponsor_Agreement`). Each counts such a
  * text the way it draws and mails it. A place that measures, draws, compares or mails one by other
  * rules, as the plugin's other screens still do, can count it one way and show or mail it another.
  * What goes to the program records goes as stored, as every writer to the base sends its text.
@@ -45,6 +47,21 @@ final class WPCPM_Typed_Text {
 	 * @var string
 	 */
 	const NOT_A_TAG = " \t\n\r\x0B\x0C";
+
+	/**
+	 * How long a refused form's typing waits for the form to be drawn again, in seconds: ten minutes,
+	 * many times what a refusal takes to land on its page (`kept()`).
+	 *
+	 * @var int
+	 */
+	const KEPT_FOR = 600;
+
+	/**
+	 * The flash channel a refused form's typing waits on, before the form's own name.
+	 *
+	 * @var string
+	 */
+	const KEPT_CHANNEL = 'typed:';
 
 	/**
 	 * How long a text is as the person who typed it counted it, which is what its box counts.
@@ -269,5 +286,282 @@ final class WPCPM_Typed_Text {
 		}
 
 		return str_replace( array( '<', '>' ), array( '&lt;', '&gt;' ), $value );
+	}
+
+	/**
+	 * Whether the cleaner would take away more than white space from what was posted, so a save
+	 * would lose words without a word said.
+	 *
+	 * The cleaner takes a "<" followed by anything but white space, with the words up to a ">" that
+	 * comes before the next "<", for a tag, and drops it: "Kids <12 free, adults >18 pay" is stored
+	 * as `Kids 18 pay`. It drops a "%" followed by two hexadecimal digits as a URL octet: "Get
+	 * 10%cashback" is stored as `Get 10shback`. And it empties a text that is not valid UTF-8, which
+	 * only a crafted post sends, whole. Whatever the cleaner takes away is a loss here, but for the
+	 * white space it folds and trims.
+	 *
+	 * The cleaner is run on what was posted, and the two are compared once each is read the same
+	 * way (`compared_as()`). What the cleaner keeps it can write in other bytes: a "<" that opens no
+	 * tag as `&lt;`, the quote marks and the ampersands after it as entities, a reference typed out
+	 * after it in core's own form (`&#9;` as `&#009;`, `&#X41;` as `&#x41;`, and the "&" of one core
+	 * does not take, `&#0;` or `&COPY;`, as `&amp;`), and in a text input every run of white space as
+	 * one space. Read that way, those changes leave the two sides the same, and only a character
+	 * the cleaner took away tells them apart.
+	 *
+	 * @param string $raw  What was posted, unslashed and not yet cleaned.
+	 * @param string $kind 'line' for a text input, cleaned by `sanitize_text_field()`, or 'lines'
+	 *                     for a text area, cleaned by `sanitize_textarea_field()`. Any other is read
+	 *                     as 'line'.
+	 * @return bool
+	 */
+	public static function cleaner_loses( $raw, $kind ) {
+		// An array or an object, which only a crafted post sends, is no typed text: the cleaner
+		// empties it, and there are no words of it to lose.
+		if ( ! is_scalar( $raw ) ) {
+			return false;
+		}
+
+		$raw   = (string) $raw;
+		$lines = 'lines' === $kind;
+		$kept  = $lines ? sanitize_textarea_field( $raw ) : sanitize_text_field( $raw );
+
+		return self::compared_as( $kept, $lines ) !== self::compared_as( $raw, $lines );
+	}
+
+	/**
+	 * A text as `cleaner_loses()` compares it: each entity read back once, by the decoder
+	 * `typed_length()` counts by, every numeric reference then written in one form, and the white
+	 * space the cleaner folds folded.
+	 *
+	 * The read-back alone leaves a numeric reference outside the five it reads as it is, so `&#9;`
+	 * as typed and the `&#009;` the cleaner writes for it would differ, and so would `&#X41;` and
+	 * `&#x41;`. In one form, with no leading zeros and in small letters, they read the same. A
+	 * reference the cleaner does not take (`&#0001;`, `&#XD800;`) comes back from the read-back as
+	 * typed but for a small "x", its "&amp;" read once, and the same rule makes the two alike. The
+	 * cleaner folds every run of white space in a text input to one space and trims the ends of
+	 * either box, so both sides are folded and trimmed the same way.
+	 *
+	 * No pattern here reads the text as UTF-8, so a text that is not valid UTF-8 is compared byte
+	 * for byte: the cleaner's empty answer differs from it.
+	 *
+	 * @param string $text  A text as posted, or as the cleaner left it.
+	 * @param bool   $lines Whether the box is a text area.
+	 * @return string
+	 */
+	private static function compared_as( $text, $lines ) {
+		$text = (string) preg_replace_callback(
+			'/&#(?:([0-9]+)|[xX]([0-9A-Fa-f]+));/',
+			static function ( $matches ) {
+				if ( '' !== $matches[1] ) {
+					$number = ltrim( $matches[1], '0' );
+
+					return '&#' . ( '' === $number ? '0' : $number ) . ';';
+				}
+
+				$number = strtolower( ltrim( $matches[2], '0' ) );
+
+				return '&#x' . ( '' === $number ? '0' : $number ) . ';';
+			},
+			wp_specialchars_decode( $text, ENT_QUOTES )
+		);
+
+		if ( ! $lines ) {
+			$text = (string) preg_replace( '/[\r\n\t ]+/', ' ', $text );
+		}
+
+		return trim( $text );
+	}
+
+	/**
+	 * What a save refused for `cleaner_loses()` says: that nothing was done, which box the cleaner
+	 * would have taken words from, and how to type them so that it keeps them.
+	 *
+	 * The sentence is plain text. The label goes in as given, and escaping the sentence for the page
+	 * it is shown on is the caller's.
+	 *
+	 * A form says what its own button does: a save, a send ("Tell the program", "Send this
+	 * question"), a return with a note, Take it out of force or Reject. Each action has a whole
+	 * sentence of its own, saying what did not happen and what to press again, so that none is
+	 * built from pieces a translator meets apart. An action this method does not know reads as a
+	 * save.
+	 *
+	 * @param string $label  The name of the box, as its form labels it.
+	 * @param string $action What the form's button does: `save`, `send`, `return`, `revoke` or
+	 *                       `reject`. Default `save`.
+	 * @return string
+	 */
+	public static function loss_message( $label, $action = 'save' ) {
+		switch ( is_string( $action ) ? $action : 'save' ) {
+			case 'send':
+				return sprintf(
+					/* translators: %s: the name of the box, such as Anything else. */
+					__( 'Nothing was sent, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then send it again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'return':
+				return sprintf(
+					/* translators: %s: the name of the box, such as A note for the author. */
+					__( 'Nothing was returned, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then return it again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'revoke':
+				return sprintf(
+					/* translators: %s: the name of the box, such as Why it is out of force, in your own words. */
+					__( 'Nothing was revoked, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then take it out of force again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'reject':
+				return sprintf(
+					/* translators: %s: the name of the box, such as Why, for the next Administrator who reads this. */
+					__( 'Nothing was rejected, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then reject the application again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+		}
+
+		return sprintf(
+			/* translators: %s: the name of the box, such as How to redeem it. */
+			__( 'Nothing was saved, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then save again.', 'wpcredits-program-manager' ),
+			(string) $label
+		);
+	}
+
+	/**
+	 * Keep what a person typed into a form that was refused, for the one time the form is drawn
+	 * again, so that they make the change the refusal names and lose nothing else.
+	 *
+	 * It waits in the flash (`WPCPM_Flash`), on a channel of its own per form: one entry per person
+	 * and form, which `kept()` hands back once and clears. The form's name says which record it
+	 * edits, so the typing comes back in the box it was typed in and in no other.
+	 *
+	 * Each text is kept as it was typed, a line break read as the one LF its box counts, and cut to
+	 * the room given for its box, in characters (`kept_room()`): a crafted post holds no more here
+	 * than its box would. A text that is not valid UTF-8 is not kept at all, and neither is a text
+	 * given no room. A list, the choices of a group of checkboxes, is kept as its strings, so the
+	 * caller hands over only values it has matched against its own choices. When nothing is left to
+	 * keep, nothing is stored.
+	 *
+	 * A typing whose form is never drawn again would stay in the person's user meta for good, hidden
+	 * by `kept()` but stored, and it can hold a contact's address or a note. So every keep first
+	 * clears, for whatever form, each of the person's kept typings older than `KEPT_FOR`, and any
+	 * value on such a channel that is not a kept typing at all (`WPCPM_Flash::sweep()`).
+	 *
+	 * @param string $form  The form, by what it is and the record it edits, such as
+	 *                      `offer:recXXXXXXXXXXXXXX:new`.
+	 * @param array  $typed Each field and what was posted for it, unslashed and not cleaned
+	 *                      (`WPCPM_Request::posted_raw()`), or a list of chosen values.
+	 * @param array  $room  Each text field and the most characters kept for it.
+	 */
+	public static function keep( $form, array $typed, array $room ) {
+		WPCPM_Flash::sweep(
+			static function ( $channel, $entry ) {
+				if ( 0 !== strpos( $channel, self::KEPT_CHANNEL ) ) {
+					return false;
+				}
+
+				return ! is_array( $entry ) || ! isset( $entry['at'] ) || time() - (int) $entry['at'] > self::KEPT_FOR;
+			}
+		);
+
+		$kept = array();
+
+		foreach ( $typed as $field => $value ) {
+			if ( is_array( $value ) ) {
+				$kept[ $field ] = array_values(
+					array_filter(
+						$value,
+						static function ( $item ) {
+							return is_string( $item ) && mb_check_encoding( $item, 'UTF-8' );
+						}
+					)
+				);
+
+				continue;
+			}
+
+			if ( ! is_scalar( $value ) || ! isset( $room[ $field ] ) || ! mb_check_encoding( (string) $value, 'UTF-8' ) ) {
+				continue;
+			}
+
+			$kept[ $field ] = mb_substr( str_replace( "\r\n", "\n", (string) $value ), 0, max( 0, (int) $room[ $field ] ), 'UTF-8' );
+		}
+
+		if ( empty( $kept ) ) {
+			return;
+		}
+
+		WPCPM_Flash::set(
+			self::KEPT_CHANNEL . $form,
+			array(
+				'at'    => time(),
+				'typed' => $kept,
+			)
+		);
+	}
+
+	/**
+	 * What a refused form kept for its redraw, handed back once and cleared.
+	 *
+	 * A typing older than `KEPT_FOR` is not handed back: a refusal lands on its page at once, so one
+	 * still waiting is from a page that never drew the form, and it must not turn up in the box on a
+	 * later visit. It is cleared all the same.
+	 *
+	 * @param string $form The form, named as `keep()` was given it.
+	 * @return array Each field and what was kept for it, or an empty array when nothing is.
+	 */
+	public static function kept( $form ) {
+		$entry = WPCPM_Flash::take( self::KEPT_CHANNEL . $form );
+
+		if ( ! is_array( $entry ) || ! isset( $entry['at'], $entry['typed'] ) || ! is_array( $entry['typed'] ) ) {
+			return array();
+		}
+
+		if ( time() - (int) $entry['at'] > self::KEPT_FOR ) {
+			return array();
+		}
+
+		return $entry['typed'];
+	}
+
+	/**
+	 * Drop what an earlier refusal of a form kept, because the form has been posted again.
+	 *
+	 * A refusal lands on its page, which draws the form and takes the typing. Should that page not
+	 * draw it, the typing would wait for the next time it does, after a save that went through, and
+	 * fill the boxes with what that save replaced. Every post of a form calls this first.
+	 *
+	 * @param string $form The form, named as `keep()` was given it.
+	 */
+	public static function forget( $form ) {
+		WPCPM_Flash::take( self::KEPT_CHANNEL . $form );
+	}
+
+	/**
+	 * The most characters `keep()` keeps for a box: the room the box was drawn with
+	 * (`drawn_limit()`), and never less than the text it was drawn with.
+	 *
+	 * A box posted back as it was drawn is so kept whole: one that holds a ">" as `&gt;`, and one
+	 * drawn with more than its limit, as the base can hold a text written in its grid. Cut there, the
+	 * box would come back short, and the next save would store it short.
+	 *
+	 * @param string $value The text the box was drawn from, as stored, or '' for an empty box.
+	 * @param int    $limit The box's limit, as `typed_length()` counts it.
+	 * @return int
+	 */
+	public static function kept_room( $value, $limit ) {
+		return max( self::drawn_limit( $value, $limit ), mb_strlen( str_replace( "\r\n", "\n", self::typed_text( $value ) ) ) );
+	}
+
+	/**
+	 * A kept typing as a text input's value, ready for `esc_attr()`: each "&" written `&amp;`.
+	 *
+	 * `esc_attr()` keeps an entity it finds, so "Q&amp;A" typed out and drawn through it alone would
+	 * come back as "Q&A". With each "&" written `&amp;` first, the box shows what was typed, a typed
+	 * entity included. `attr_text()` is not for this: it reads a stored text back first, and a typing
+	 * is not one. A text area needs nothing: `esc_textarea()` escapes every "&".
+	 *
+	 * @param string $value What was typed, as `kept()` hands it back.
+	 * @return string
+	 */
+	public static function kept_attr( $value ) {
+		return str_replace( '&', '&amp;', (string) $value );
 	}
 }

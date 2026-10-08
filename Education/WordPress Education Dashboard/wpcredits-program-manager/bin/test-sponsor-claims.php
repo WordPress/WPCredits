@@ -67,10 +67,11 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-/** Core's own last step in _sanitize_text_fields(): every `%XX` is removed (finding 1). */
-function wpcpm_test_strip_percent( $s ) { while ( preg_match( '/%[a-f0-9]{2}/i', $s, $m ) ) { $s = str_replace( $m[0], '', $s ); } return $s; }
-function sanitize_text_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
-function sanitize_textarea_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
+// Core's two cleaners as 7.1.2 writes them, every `%XX` removed among the rest, from the
+// one copy the sponsor suites share (bin/stubs/cleaners.php). The Offers and interests classes this
+// suite loads ask `WPCPM_Typed_Text::cleaner_loses()` of a typing, and a stand-in on `strip_tags()`
+// would make it refuse what core keeps, "We <3 WordPress" among them.
+require_once __DIR__ . '/stubs/cleaners.php';
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_delete_file_stub( $f ) { if ( is_file( $f ) ) { unlink( $f ); } }

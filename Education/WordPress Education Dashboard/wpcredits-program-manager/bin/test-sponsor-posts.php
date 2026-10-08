@@ -33,6 +33,7 @@ $GLOBALS['calls']     = array();
 $GLOBALS['audit']     = array();
 $GLOBALS['mail']      = array();
 $GLOBALS['flash']     = array();
+$GLOBALS['kept_typing'] = array();
 $GLOBALS['index']     = array();
 $GLOBALS['grants']    = array();
 $GLOBALS['now']       = '2026-09-06 10:00:00';
@@ -216,8 +217,36 @@ class WPCPM_Request {
 	public static function posted_text( $k ) { return isset( $_POST[ $k ] ) ? sanitize_text_field( $_POST[ $k ] ) : ''; }
 	public static function posted_key( $k ) { return isset( $_POST[ $k ] ) ? sanitize_key( $_POST[ $k ] ) : ''; }
 	public static function posted_id( $k ) { return isset( $_POST[ $k ] ) ? absint( $_POST[ $k ] ) : 0; }
+	public static function posted_raw( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? (string) wp_unslash( $_POST[ $n ] ) : $f; }
 }
-class WPCPM_Flash { public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][] = array( $channel, $value ); } }
+/**
+ * The flash: each outcome a press leaves is journalled in the order it was set, and a refused
+ * form's typing waits per user and channel, as user meta keeps it, until `take()` hands it back
+ * once and clears it, or `sweep()` clears it unread. bin/test-flash.php pins the real class.
+ */
+class WPCPM_Flash {
+	public static function set( $channel, $value, $user_id = 0 ) {
+		if ( 0 === strpos( (string) $channel, WPCPM_Typed_Text::KEPT_CHANNEL ) ) {
+			$GLOBALS['kept_typing'][ (int) ( $user_id ? $user_id : $GLOBALS['uid'] ) ][ (string) $channel ] = $value;
+			return;
+		}
+		$GLOBALS['flash'][] = array( $channel, $value );
+	}
+	public static function take( $channel, $user_id = 0 ) {
+		$uid   = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
+		$value = $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] ?? '';
+		unset( $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] );
+		return $value;
+	}
+	public static function sweep( $stale, $user_id = 0 ) {
+		$uid = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
+		foreach ( $GLOBALS['kept_typing'][ $uid ] ?? array() as $channel => $value ) {
+			if ( $stale( (string) $channel, $value ) ) {
+				unset( $GLOBALS['kept_typing'][ $uid ][ $channel ] );
+			}
+		}
+	}
+}
 class WPCPM_Return {
 	const FIELD = 'wpcpm_return'; const DASHBOARD = 'dashboard';
 	public static function field( $where, $anchor = '' ) { if ( self::DASHBOARD === $where ) { echo '<input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="' . $anchor . '" />'; } }
@@ -237,7 +266,7 @@ class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function leave( $status, $card, $record = '', $detail = '' ) { throw new WPCPM_Test_Redirect( $status . '|' . $card . '|' . $record . '|' . $detail ); }
 }
-class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { return 0; } }
+class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { $GLOBALS['metered'][] = $scope; return 0; } }
 
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/cleaners.php';
@@ -488,7 +517,7 @@ $GLOBALS['pmeta'][ $pending3 ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
 ck( 'a return note is kept exactly as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $pending3, 'wpcpm_note' => $typed_note ) ), get_post_meta( $pending3, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', $typed_note ) );
 $stranger = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post' ) );
 ck( 'a post with no sponsor stamp is not this handler\'s to publish', press( 1, array( 'wpcpm_post' => $stranger ) ), 'refused|posts||' );
-ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-note-long', 'post-not-pending', 'post-failed' ) );
+ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-note-long', 'post-note-loss', 'post-not-pending', 'post-failed' ) );
 
 echo "\n=== The posting switch (wp-admin) ===\n";
 function flags( $uid, $post ) { $GLOBALS['uid'] = $uid; $_POST = $post; try { WPCPM_Sponsor_Posts::handle_flags(); } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
@@ -641,7 +670,6 @@ echo "\n=== The return note: counted, kept and mailed as typed ===\n";
 // title as WordPress stores a member's: each "&" written `&amp;` by kses, and a "<" typed as `&lt;`.
 $r_note    = "We <3 our <b>team</b> > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
 $r_note_cl = "We &lt;3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.";
-$r_note_as = "We <3 our team > all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
 $r_title   = 'Q&amp;A: "blocks" &amp; themes, we &lt;3 them';
 $r_title_as = 'Q&A: "blocks" & themes, we <3 them';
 /** A typing of exactly $limit characters as a person counts them (a line break is one), made of $unit and padded with "x". */
@@ -661,10 +689,15 @@ ck( 'the stand-in is core\'s cleaner: it hands the note back in this form', sani
 
 $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
 $typed_post = posts_pending( $r_title );
-ck( 'a note with line breaks, a "<3", a "<" and the ampersands after one returns the post, and is kept as the cleaner left it', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $typed_post, 'wpcpm_note' => $r_note ) ), get_post( $typed_post )->post_status, get_post_meta( $typed_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', 'draft', $r_note_cl ) );
+ck( 'a note with "<b>team</b>" in it is refused now, because the cleaner would take "<b>" and "</b>", and the post waits as it was: no note, no mail', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $typed_post, 'wpcpm_note' => $r_note ) ), get_post( $typed_post )->post_status, get_post_meta( $typed_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), $GLOBALS['mail'] ), array( 'post-note-loss|posts|' . $S . '|', 'pending', '', array() ) );
+// The same words without the tag: a "<3" whose "<" opens no tag, a "<" that a ">" closes after a
+// space, and a "<" with no ">" after it, the quote marks and the ampersands after it entities too.
+$r_sent    = "We <3 our team, all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 < 12. Q&A: \"blocks\" & themes, it's free.";
+$r_sent_cl = "We &lt;3 our team, all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\nAges 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.";
+ck( 'a note with line breaks, a "<3", a "<" and the ampersands after one returns the post, and is kept as the cleaner left it', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $typed_post, 'wpcpm_note' => $r_sent ) ), get_post( $typed_post )->post_status, get_post_meta( $typed_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', 'draft', $r_sent_cl ) );
 $r_mail = isset( $GLOBALS['mail'][0]['mail'] ) ? $GLOBALS['mail'][0]['mail'] : array();
 ck( 'the mail\'s subject carries the title as it reads, "Q&A" and "<3", and is marked plain text so the mail layer keeps them', array( $r_mail['subject'] ?? null, $r_mail['plain_subject'] ?? null ), array( 'Your post "' . $r_title_as . '" needs a change before it is published', true ) );
-ck( 'and its body carries the title and the note as typed, line by line, with no entity in either', $r_mail['body'] ?? null, "Hello Member One,\n\nA program manager read your post \"" . $r_title_as . "\" and sent it back as a draft with this note:\n\n" . $r_note_as . "\n\nEdit it here and submit it for review again: https://example.test/wp-admin/edit.php\n\nThe WordPress Credits program" );
+ck( 'and its body carries the title and the note as typed, line by line, with no entity in either', $r_mail['body'] ?? null, "Hello Member One,\n\nA program manager read your post \"" . $r_title_as . "\" and sent it back as a draft with this note:\n\n" . $r_sent . "\n\nEdit it here and submit it for review again: https://example.test/wp-admin/edit.php\n\nThe WordPress Credits program" );
 
 $r_at = posts_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 2000 );
 $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
@@ -678,6 +711,65 @@ ck( 'the sentence says what the limit is and what to do', WPCPM_Sponsor_Posts::m
 $GLOBALS['uid'] = 1;
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $over_post, WPCPM_Return::DASHBOARD ); $r_box = ob_get_clean();
 ck( 'the note\'s box holds no more than that', 1 === preg_match( '/<textarea id="wpcpm-post-note-' . $over_post . '" name="wpcpm_note" rows="2" maxlength="2000" required placeholder="/', $r_box ), true );
+
+echo "\n=== The return note: a typing the cleaner would take words from is refused, and kept ===\n";
+/**
+ * One post's Return with a note as a browser shows it to the current user: what its box holds and
+ * whether its fold is open, or null when no form is drawn. The parser reads a CR LF as one LF and
+ * drops the one line feed right after a text area's opening tag.
+ */
+function posts_note_box( $post_id ) {
+	ob_start();
+	WPCPM_Sponsor_Posts::render_decision( $post_id, WPCPM_Return::DASHBOARD );
+	$html = (string) ob_get_clean();
+	if ( ! preg_match( '/<textarea id="wpcpm-post-note-' . (int) $post_id . '" name="wpcpm_note"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+		return null;
+	}
+	$shown = (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) );
+	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, '<details class="wpcpm-sponsor-post__return" open>' ) );
+}
+$GLOBALS['users'][2]    = new WP_User( 2, array( 'administrator' ), 'Manager Two' );
+$GLOBALS['manage']      = array( 1, 2 );
+$GLOBALS['kept_typing'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['metered'] = array();
+$k_note  = "Kids <12 free, adults >18 pay.\r\nA second line, \"quoted\" & C:\\drafts";
+$k_post  = posts_pending( 'Kept guide' );
+$k_other = posts_pending( 'Another kept guide' );
+$k_back  = array( 'wpcpm_action' => 'return', 'wpcpm_post' => $k_post, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' );
+reset_calls();
+$landed = press( 1, $k_back + array( 'wpcpm_note' => $k_note ) );
+ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Administrator Dashboard, with the sentence for a return, naming the box by its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Posts::messages()['post-note-loss'] ?? null ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-note-loss' ), array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "A note for the author". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) ) );
+ck( 'and nothing is done: the post waits as it was, with no note kept on it, no mail, no audit row, no write to the post at all, and nothing spent of the refusal meter', array( get_post( $k_post )->post_status, get_post_meta( $k_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), get_post_meta( $k_post, WPCPM_Sponsor_Posts::META_RETURNED, true ), $GLOBALS['mail'], $GLOBALS['audit'], calls( 'wp_update_post' ), calls( 'update_post_meta' ), $GLOBALS['metered'] ), array( 'pending', '', '', array(), array(), array(), array(), array() ) );
+ck( 'the post\'s Return with a note draws open, its box holding the note as it was typed, a line break as the box counts it', posts_note_box( $k_post ), array( 'shown' => str_replace( "\r\n", "\n", $k_note ), 'open' => true ) );
+ck( 'and only once: drawn again, the box is empty and the fold closed', posts_note_box( $k_post ), array( 'shown' => '', 'open' => false ) );
+press( 1, $k_back + array( 'wpcpm_note' => "\r\n" . $k_note ) );
+ck( 'a kept note that starts with a line break comes back with it: the box writes a line feed of its own for the one the parser drops', posts_note_box( $k_post )['shown'] ?? null, "\n" . str_replace( "\r\n", "\n", $k_note ) );
+
+press( 1, $k_back + array( 'wpcpm_note' => $k_note ) );
+$GLOBALS['uid'] = 2;
+$k_seen_two     = posts_note_box( $k_post );
+$GLOBALS['uid'] = 1;
+$k_seen_other   = posts_note_box( $k_other );
+ck( 'another manager never sees it on the same post, nor does another post\'s box, while the one who typed it does', array( $k_seen_two, $k_seen_other, posts_note_box( $k_post )['shown'] ), array( array( 'shown' => '', 'open' => false ), array( 'shown' => '', 'open' => false ), str_replace( "\r\n", "\n", $k_note ) ) );
+
+ck( 'posted without the way back, the refusal lands on the Sponsor Dashboard\'s card, as every other outcome there does', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $k_post, 'wpcpm_note' => 'Use code SAVE20<b></b>' ) ), get_post( $k_post )->post_status ), array( 'post-note-loss|posts|' . $S . '|', 'pending' ) );
+posts_note_box( $k_post );
+
+$k_long = $r_at . 'xyz';
+ck( 'a note over its limit is refused as before, and its box now comes back with it, kept up to the box\'s limit of 2,000', array( press( 1, $k_back + array( 'wpcpm_note' => $k_long ) ), end( $GLOBALS['flash'] ), posts_note_box( $k_post ) ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-note-long' ), array( 'shown' => str_replace( "\r\n", "\n", $r_at ), 'open' => true ) ) );
+ck( 'a note left empty keeps nothing: there is nothing to give back', array( press( 1, $k_back + array( 'wpcpm_note' => '   ' ) ), end( $GLOBALS['flash'] ), $GLOBALS['kept_typing'][1] ?? array() ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-note-missing' ), array() ) );
+
+// Refused and kept, then posted with the fix: the post goes back as a draft. When it is submitted
+// for review again, its box is empty, not filled with the typing the fix replaced.
+press( 1, $k_back + array( 'wpcpm_note' => $k_note ) );
+$k_fixed = press( 1, $k_back + array( 'wpcpm_note' => 'Kids under 12 free, adults over 18 pay.' ) );
+$GLOBALS['posts'][ $k_post ]->post_status = 'pending';
+ck( 'a typing a refusal kept goes when the form is posted again, so the post\'s next review draws its box empty', array( $k_fixed, get_post_meta( $k_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), posts_note_box( $k_post ) ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', 'Kids under 12 free, adults over 18 pay.', array( 'shown' => '', 'open' => false ) ) );
+
+$k_keeps = "We <3 WordPress.\r\nAges 8 < 12 welcome, adults > 18 pay, 100% of them, Q&A: \"blocks\" & themes, &amp; and &copy; typed out, and \xF0\x9F\x98\x80";
+$GLOBALS['mail'] = array();
+$k_clean = posts_pending( 'Clean guide' );
+ck( 'a note the cleaner keeps whole returns the post as before: kept as the cleaner left it, mailed as typed, and nothing kept for the form', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $k_clean, 'wpcpm_note' => $k_keeps ) ), get_post( $k_clean )->post_status, get_post_meta( $k_clean, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], WPCPM_Typed_Text::mail_text( sanitize_textarea_field( $k_keeps ) ) ), $GLOBALS['kept_typing'][1] ?? array() ), array( 'post-returned|posts|' . $S . '|', 'draft', sanitize_textarea_field( $k_keeps ), true, array() ) );
+$GLOBALS['manage'] = array( 1 );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );

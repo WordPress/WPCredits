@@ -298,11 +298,13 @@ final class WPCPM_Sponsor_Agreement {
 			'agreement-accepted'           => array( 'success', __( 'The agreement is accepted. Airtable says Accepted with today\'s date, and everybody at the company has been emailed.', 'wpcredits-program-manager' ) ),
 			'agreement-returned'           => array( 'success', __( 'The agreement is returned. Everybody at the company has been emailed your note, with your address to reply to.', 'wpcredits-program-manager' ) ),
 			'agreement-note'               => array( 'error', __( 'Nothing was returned. The note has to be between 20 and 2000 characters: it is the whole of what the company is told, so it has to say what to change.', 'wpcredits-program-manager' ) ),
+			'agreement-note-loss'          => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'return' ) ),
 			'agreement-gone'               => array( 'error', __( 'Nothing happened. That document is no longer waiting for review: somebody else has accepted, returned or withdrawn it since this page was drawn. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
 			'agreement-busy'               => array( 'error', __( 'Nothing was saved. Another change to this company\'s agreement was in flight. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the program\'s record of this state, and the site does not record a decision the base has not agreed to.', 'wpcredits-program-manager' ) ),
 			'agreement-revoked'            => array( 'success', __( 'The agreement is out of force. The company\'s dashboard is unchanged, because it was never gated on an agreement, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the company as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
+			'agreement-revoke-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::revoke_label(), 'revoke' ) ),
 			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this company.', 'wpcredits-program-manager' ) ),
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this company.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
@@ -563,7 +565,12 @@ final class WPCPM_Sponsor_Agreement {
 
 		self::render_decision_form( self::ACTION_ACCEPT, $post_id, __( 'Accept it', 'wpcredits-program-manager' ), 'button button-primary', $return, self::accept_question( $post_id ) );
 
-		echo '<details class="wpcpm-sponsor-agreement__return">';
+		// A refused return comes back with the note as it was typed, its fold open so the box is
+		// where it was left.
+		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post_id ) );
+		$note = isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
+
+		echo null === $note ? '<details class="wpcpm-sponsor-agreement__return">' : '<details class="wpcpm-sponsor-agreement__return" open>';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
 		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The document goes back to the company, and your note is emailed to everybody there, with your address to reply to.', 'wpcredits-program-manager' ) );
 		printf( '<form class="wpcpm-sponsor-agreement__form wpcpm-sponsor-agreement__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
@@ -576,14 +583,17 @@ final class WPCPM_Sponsor_Agreement {
 		}
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-agr-note-%1$d">%2$s</label><textarea id="wpcpm-agr-note-%1$d" name="%3$s" rows="2" minlength="%4$d" maxlength="%5$d" required placeholder="%6$s"></textarea>',
+			'<label class="screen-reader-text" for="wpcpm-agr-note-%1$d">%2$s</label><textarea id="wpcpm-agr-note-%1$d" name="%3$s" rows="2" minlength="%4$d" maxlength="%5$d" required placeholder="%6$s">%7$s</textarea>',
 			(int) $post_id,
-			esc_html__( 'A note for the company', 'wpcredits-program-manager' ),
+			esc_html( self::note_label() ),
 			esc_attr( self::FIELD_NOTE ),
 			(int) self::MIN_NOTE,
 			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
 			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
-			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' )
+			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' ),
+			// The parser drops one line feed right after the opening tag, so a kept note that
+			// begins with a line break keeps it.
+			null === $note ? '' : "\n" . esc_textarea( $note )
 		);
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
 		echo '</form>';
@@ -1250,6 +1260,10 @@ final class WPCPM_Sponsor_Agreement {
 	 * The note is required and mailed verbatim, with reply-to the manager who wrote it: a
 	 * company told only that its agreement came back learns nothing, and the person who can
 	 * answer the question it will ask is the one who sent it.
+	 *
+	 * A note the cleaner would take words from is refused before the lock and every write after
+	 * it: mailed, it would reach the company missing them without a word said. That refusal and a
+	 * note too short or too long give the form back the note as it was typed (`keep_note()`).
 	 */
 	public static function handle_return() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1270,12 +1284,24 @@ final class WPCPM_Sponsor_Agreement {
 			wp_die( esc_html( WPCPM_Sponsor_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$note = self::posted_note();
+		$form = self::typed_form( $post_id );
 
-		// Ahead of the lock, because this refusal needs nothing but the posted string, and a
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = WPCPM_Request::posted_raw( self::FIELD_NOTE );
+		$note  = self::posted_note();
+
+		// Both refusals ahead of the lock, because they need nothing but the posted string, and a
 		// manager who pressed the button with an empty box must not find the company's record
 		// locked for five minutes by their typo.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			self::keep_note( $form, $typed );
+			self::bounce( 'agreement-note-loss' );
+		}
+
 		if ( ! self::note_fits( $note ) ) {
+			self::keep_note( $form, $typed );
 			self::bounce( 'agreement-note' );
 		}
 
@@ -1348,6 +1374,11 @@ final class WPCPM_Sponsor_Agreement {
 	 * a sponsor's dashboard was never gated on an agreement, so what changes is the record of
 	 * which document is in force, and the message says exactly that rather than implying a
 	 * consequence that does not follow.
+	 *
+	 * A note the cleaner would take words from is refused before the lock and every write after
+	 * it, as the return's is: mailed, it would reach the company missing them without a word said.
+	 * That refusal and a note too short or too long give the form back the note as it was typed,
+	 * which the Sponsors screen's Agreements tab draws (`kept_revoke_note()`).
 	 */
 	public static function handle_revoke() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1368,9 +1399,22 @@ final class WPCPM_Sponsor_Agreement {
 			wp_die( esc_html( WPCPM_Sponsor_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$note = self::posted_note();
+		$form = self::typed_form( $post_id, 'revoke' );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = WPCPM_Request::posted_raw( self::FIELD_NOTE );
+		$note  = self::posted_note();
+
+		// Both refusals ahead of the lock and every write, as the return's are.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			self::keep_note( $form, $typed );
+			self::bounce( 'agreement-revoke-loss' );
+		}
 
 		if ( ! self::note_fits( $note ) ) {
+			self::keep_note( $form, $typed );
 			self::bounce( 'agreement-revoke-note' );
 		}
 
@@ -1557,7 +1601,10 @@ final class WPCPM_Sponsor_Agreement {
 			self::bounce( 'agreement-unknown' );
 		}
 
-		$drive = WPCPM_Request::posted_text( self::FIELD_DRIVE );
+		// A link is a code, not prose: the one-line cleaner removes every `%XX`, which would rewrite a
+		// Drive link with one in its query. Read as typed, and through esc_url_raw(), which keeps them,
+		// so the base and the post hold the same link.
+		$drive = esc_url_raw( WPCPM_Request::posted_verbatim( self::FIELD_DRIVE ) );
 
 		if ( ! self::is_drive_link( $drive ) ) {
 			self::bounce( 'agreement-link' );
@@ -2210,6 +2257,71 @@ final class WPCPM_Sponsor_Agreement {
 		$length = WPCPM_Typed_Text::typed_length( $note );
 
 		return $length >= self::MIN_NOTE && $length <= self::MAX_NOTE;
+	}
+
+	/**
+	 * The return note's box, by the words its form labels it with, so the form and the sentence
+	 * that refuses a note name it alike.
+	 *
+	 * @return string
+	 */
+	private static function note_label() {
+		return __( 'A note for the company', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Take it out of force's note box, by the first words of the label the Sponsors screen gives
+	 * it, so the sentence that refuses a note names the box the manager typed in. The label's other
+	 * two sentences say how the note is sent and what it does not change, and read as no part of a
+	 * name.
+	 *
+	 * @return string
+	 */
+	private static function revoke_label() {
+		/* translators: The name of the box a program manager types why an agreement is taken out of force in, the first words of its label. */
+		return __( 'Why it is out of force, in your own words', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The name a refused note keeps its typing under (`WPCPM_Typed_Text::keep()`): the form, a
+	 * return or Take it out of force, and the document it acts on, so a note typed for one
+	 * company's agreement comes back in that form's box for that document and in no other.
+	 *
+	 * @param int    $post_id The document.
+	 * @param string $which   `return` or `revoke`.
+	 * @return string
+	 */
+	private static function typed_form( $post_id, $which = 'return' ) {
+		return 'agreement-' . ( 'revoke' === $which ? 'revoke' : 'return' ) . ':' . absint( $post_id );
+	}
+
+	/**
+	 * What a refused Take it out of force typed into its note, handed back once for the one time
+	 * its form is drawn again, on the Sponsors screen's Agreements tab, or null when nothing is.
+	 *
+	 * @param int $post_id The agreement in force.
+	 * @return string|null
+	 */
+	public static function kept_revoke_note( $post_id ) {
+		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post_id, 'revoke' ) );
+
+		return isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
+	}
+
+	/**
+	 * Keep a refused note as it was typed, up to its box's room, for the one time the form is
+	 * drawn again. A note left empty has nothing to give back.
+	 *
+	 * @param string $form  The form, as `typed_form()` names it.
+	 * @param string $typed The note as posted, unslashed and not cleaned.
+	 */
+	private static function keep_note( $form, $typed ) {
+		if ( '' === trim( (string) $typed ) ) {
+			return;
+		}
+
+		// The box is drawn empty, so its room is the limit.
+		WPCPM_Typed_Text::keep( $form, array( 'note' => (string) $typed ), array( 'note' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
 	}
 
 	/**

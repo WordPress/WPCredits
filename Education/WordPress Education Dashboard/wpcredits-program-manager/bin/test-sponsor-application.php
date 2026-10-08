@@ -1196,9 +1196,39 @@ function get_user_by( $field, $value ) { return false; }
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) { $GLOBALS['nonce_checked'][] = $action; return true; }
 function wp_delete_attachment( $id, $force = false ) { $GLOBALS['deleted_attachments'][] = (int) $id; unset( $GLOBALS['attachments'][ (int) $id ] ); return true; }
+/**
+ * The flash: a press's outcome on each channel, which `decide()` reads and clears for every press,
+ * and apart from it a refused form's typing, which waits per user and channel, as user meta keeps
+ * it, across presses until `take()` hands it back once and clears it, or `sweep()` clears it
+ * unread. bin/test-flash.php pins the real class.
+ */
 class WPCPM_Flash {
-	public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][ $channel ] = $value; }
-	public static function take( $channel, $user_id = 0 ) { $v = isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : ''; unset( $GLOBALS['flash'][ $channel ] ); return $v; }
+	public static function set( $channel, $value, $user_id = 0 ) {
+		if ( 0 === strpos( (string) $channel, WPCPM_Typed_Text::KEPT_CHANNEL ) ) {
+			$GLOBALS['kept_typing'][ (int) ( $user_id ? $user_id : $GLOBALS['uid'] ) ][ (string) $channel ] = $value;
+			return;
+		}
+		$GLOBALS['flash'][ $channel ] = $value;
+	}
+	public static function take( $channel, $user_id = 0 ) {
+		if ( 0 === strpos( (string) $channel, WPCPM_Typed_Text::KEPT_CHANNEL ) ) {
+			$uid   = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
+			$value = $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] ?? '';
+			unset( $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] );
+			return $value;
+		}
+		$v = isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : '';
+		unset( $GLOBALS['flash'][ $channel ] );
+		return $v;
+	}
+	public static function sweep( $stale, $user_id = 0 ) {
+		$uid = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
+		foreach ( $GLOBALS['kept_typing'][ $uid ] ?? array() as $channel => $value ) {
+			if ( $stale( (string) $channel, $value ) ) {
+				unset( $GLOBALS['kept_typing'][ $uid ][ $channel ] );
+			}
+		}
+	}
 }
 class WPCPM_Sponsors {
 	const FLASH = 'sponsors_admin';
@@ -1382,12 +1412,17 @@ $asked = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_typed ) );
 ck( 'the applicant, an outside company, is mailed the question as typed', array( flashed( $asked ), mail_said( 0, 'body' ) ), array( 'sapp-info', "Thank you for offering to sponsor the WordPress Credits Program. Before a program manager can take your application further, they have one question:\r\n\r\n" . $q_typed . "\r\n\r\nReply to this message and your answer reaches them directly." ) );
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'and the history keeps it as the cleaner stored it', end( $events )['note'], $q_stored );
-// The history's writer cleans its note again, so a question read back to "<3 our students >" would
-// be taken for a tag there: it is handed the stored form.
 $GLOBALS['mail'] = array();
-decide( 'handle_info', $id, array( 'wpcpm_question' => 'Do you <3 our <b>students</b> > all the others?' ) );
+$before = count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) );
+$tagged = decide( 'handle_info', $id, array( 'wpcpm_question' => 'Do you <3 our <b>students</b> > all the others?' ) );
+ck( 'a question with "<b>students</b>" in it is refused now, because the cleaner would take "<b>" and "</b>", and nothing is sent or written', array( flashed( $tagged ), count( $GLOBALS['mail'] ), count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) ) - $before ), array( 'sapp-loss', 0, 0 ) );
+// The history's writer cleans its note again, so a question read back to "<3 our students >" would
+// be taken for a tag there: it is handed the stored form. A ">" typed out as "&gt;" after a "<3" is
+// one the cleaner keeps, and read back it closes the "<3".
+$GLOBALS['mail'] = array();
+decide( 'handle_info', $id, array( 'wpcpm_question' => 'Do you <3 our students &gt; all the others?' ) );
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
-ck( 'a question with "<3" and a ">" is mailed as typed and kept in the history with every word', array( false !== strpos( mail_said( 0, 'body' ), "\r\nDo you <3 our students > all the others?\r\n" ), end( $events )['note'] ), array( true, 'Do you &lt;3 our students > all the others?' ) );
+ck( 'a question with "<3" and a ">" is mailed as it reads and kept in the history with every word', array( false !== strpos( mail_said( 0, 'body' ), "\r\nDo you <3 our students > all the others?\r\n" ), end( $events )['note'] ), array( true, 'Do you &lt;3 our students &gt; all the others?' ) );
 $GLOBALS['mail'] = array();
 ck( 'nine characters as typed are under ten, though the cleaner stores them in sixteen: nothing is sent', array( mb_strlen( sanitize_textarea_field( 'a < b & c' ) ), flashed( decide( 'handle_info', $id, array( 'wpcpm_question' => 'a < b & c' ) ) ), count( $GLOBALS['mail'] ) ), array( 16, 'sapp-question', 0 ) );
 $q_at = app_filled( "Do plans start at fewer than < 10 seats? Q&A: \"terms\" & conditions.\r\n", 2000 );
@@ -1400,6 +1435,161 @@ $before = count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) );
 $long   = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_at . 'x' ) );
 ck( 'one character more is refused with its own sentence, and nothing is sent or written', array( flashed( $long ), count( $GLOBALS['mail'] ), count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) ) - $before ), array( 'sapp-too-long', 0, 0 ) );
 ck( 'the sentence says the limit and what to do', WPCPM_Sponsor_Application::manager_messages()['sapp-too-long'] ?? null, array( 'error', 'Nothing was sent. The question is longer than 2000 characters: shorten it and send it again.' ) );
+
+echo "\n-- a question the cleaner would take words from is refused, and kept ----\n";
+
+/**
+ * The question's box in one application's decisions as a browser shows it to the current user, or
+ * null when no question form is drawn: on the Administrator Dashboard's card, or as the Sponsors
+ * screen draws an opened application's decisions. The parser reads a CR LF as one LF and drops the
+ * one line feed right after a text area's opening tag.
+ */
+function app_question_box( $id, $return = WPCPM_Return::DASHBOARD ) {
+	ob_start();
+	if ( WPCPM_Return::DASHBOARD === $return ) {
+		WPCPM_Sponsor_Application::render_decision( $id, $return );
+	} else {
+		$post = get_post( $id );
+		WPCPM_Sponsor_Application::render_actions( $post, WPCPM_Sponsor_Application::state_of( $post ), '', false );
+	}
+	$html = (string) ob_get_clean();
+	if ( ! preg_match( '/<textarea id="wpcpm_question-' . (int) $id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+		return null;
+	}
+	return html_entity_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+}
+reset_world();
+as_manager();
+$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'maciej+four@a8c.com' );
+$GLOBALS['kept_typing'] = array();
+$k_id     = seed_application();
+$k_other  = seed_application( array( 'Company Name' => 'Other Co' ) );
+$k_q      = "Kids <12 free, adults >18 pay?\r\nA second line, \"quoted\" & C:\\drafts";
+$k_dash   = array( WPCPM_Return::FIELD => WPCPM_Return::DASHBOARD, WPCPM_Return::ANCHOR_FIELD => 'sponsor-applications' );
+$k_back   = 'https://example.test/administrator-dashboard/#wpcpm-sponsor-applications';
+$k_events = count( get_post_meta( $k_id, WPCPM_Sponsor_Application::META_EVENT ) );
+$GLOBALS['mail'] = array();
+// Posted as core hands a form over, slashed: the question holds a backslash.
+$k_r = decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => wp_slash( $k_q ) ) );
+ck( 'a question the cleaner would cut to "Kids 18 pay?" is refused, back on the Administrator Dashboard, with the sentence for a form that sends, naming the box by its label', array( $k_r['flash']['institutions'] ?? '', $k_r['url'], WPCPM_Sponsor_Application::manager_messages()['sapp-loss'] ?? null ), array( 'sapp-loss', $k_back, array( 'error', 'Nothing was sent, because WordPress would remove part of what you typed in "Ask the applicant something". To keep every word, put a space after each "<" (or write "less than") and after each "%", then send it again.' ) ) );
+ck( 'and nothing is done: the application waits as it was, nothing is sent, and its history has no new line', array( get_post_meta( $k_id, WPCPM_Sponsor_Application::META_STATE, true ), $GLOBALS['mail'], count( get_post_meta( $k_id, WPCPM_Sponsor_Application::META_EVENT ) ) - $k_events ), array( 'new', array(), 0 ) );
+ck( 'its question box on the card holds the question as it was typed, a line break as the box counts it', app_question_box( $k_id ), str_replace( "\r\n", "\n", $k_q ) );
+ck( 'and only once: drawn again, the box is empty', app_question_box( $k_id ), '' );
+decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => wp_slash( "\r\n" . $k_q ) ) );
+ck( 'a kept question that starts with a line break comes back with it: the box writes a line feed of its own for the one the parser drops', app_question_box( $k_id ), "\n" . str_replace( "\r\n", "\n", $k_q ) );
+
+decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => wp_slash( $k_q ) ) );
+$GLOBALS['uid'] = 4;
+$k_seen_four    = app_question_box( $k_id );
+$GLOBALS['uid'] = 3;
+$k_seen_other   = app_question_box( $k_other );
+ck( 'another manager never sees it on the same application, nor does another application\'s box, while the one who typed it does', array( $k_seen_four, $k_seen_other, app_question_box( $k_id ) ), array( '', '', str_replace( "\r\n", "\n", $k_q ) ) );
+
+$k_here = decide( 'handle_info', $k_id, array( 'wpcpm_question' => 'Use code SAVE20<b></b> on your plans?' ) );
+ck( 'pressed on the Sponsors screen, the refusal lands on the opened application, where its form is, and the form there draws the question back', array( flashed( $k_here ), $k_here['url'], app_question_box( $k_id, '' ) ), array( 'sapp-loss', WPCPM_Sponsor_Application::queue_url( $k_id ), 'Use code SAVE20<b></b> on your plans?' ) );
+
+$k_short = decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => 'Why?' ) );
+ck( 'a question under its least is refused as before, and its box now comes back with it', array( $k_short['flash']['institutions'] ?? '', app_question_box( $k_id ) ), array( 'sapp-question', 'Why?' ) );
+$k_long = decide( 'handle_info', $k_id, array( 'wpcpm_question' => $q_at . 'xyz' ) );
+ck( 'and so does a question over its limit, on the opened application, kept up to the box\'s limit of 2,000', array( flashed( $k_long ), $k_long['url'], app_question_box( $k_id, '' ) ), array( 'sapp-too-long', WPCPM_Sponsor_Application::queue_url( $k_id ), str_replace( "\r\n", "\n", $q_at ) ) );
+$k_blank = decide( 'handle_info', $k_id, array( 'wpcpm_question' => '   ' ) );
+ck( 'a question left empty keeps nothing: there is nothing to give back, though the press lands on the opened application all the same', array( flashed( $k_blank ), $k_blank['url'], $GLOBALS['kept_typing'][3] ?? array() ), array( 'sapp-question', WPCPM_Sponsor_Application::queue_url( $k_id ), array() ) );
+
+// Refused and kept, then pressed with the fix while the mail cannot be handed off: the application
+// still waits, and its box is not filled with the typing the fix replaced.
+decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => wp_slash( $k_q ) ) );
+$GLOBALS['mail_fails'] = true;
+$k_fixed               = decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => 'Kids under 12 free, adults over 18 pay?' ) );
+$GLOBALS['mail_fails'] = false;
+ck( 'a typing a refusal kept goes when the form is posted again, so a press whose mail could not be handed off draws the box empty, not with what the fix replaced', array( $k_fixed['flash']['institutions'] ?? '', get_post_meta( $k_id, WPCPM_Sponsor_Application::META_STATE, true ), app_question_box( $k_id ) ), array( 'sapp-not-sent', 'new', '' ) );
+
+$k_keeps = "We <3 WordPress.\r\nAges 8 < 12 welcome, adults > 18 pay, 100% of them, Q&A: \"blocks\" & themes, &amp; and &copy; typed out, and \xF0\x9F\x98\x80";
+$GLOBALS['mail'] = array();
+$k_sent  = decide( 'handle_info', $k_id, $k_dash + array( 'wpcpm_question' => $k_keeps ) );
+$events  = get_post_meta( $k_id, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a question the cleaner keeps whole is sent as before: mailed as typed, kept in the history as the cleaner left it, and nothing kept for the form', array( $k_sent['flash']['institutions'] ?? '', get_post_meta( $k_id, WPCPM_Sponsor_Application::META_STATE, true ), false !== strpos( mail_said( 0, 'body' ), "\r\n\r\n" . WPCPM_Typed_Text::mail_text( sanitize_textarea_field( $k_keeps ) ) . "\r\n\r\n" ), end( $events )['note'], $GLOBALS['kept_typing'][3] ?? array() ), array( 'sapp-info', 'info', true, sanitize_textarea_field( $k_keeps ), array() ) );
+
+echo "\n-- a rejection's reason, counted, kept and refused as typed ------------\n";
+
+/**
+ * The Reject reason's box in one application's decisions as a browser shows it to the current
+ * user, or null when no Reject form is drawn: on the Administrator Dashboard's card, or as the
+ * Sponsors screen draws an opened application's decisions.
+ */
+function app_reason_box( $id, $return = WPCPM_Return::DASHBOARD ) {
+	ob_start();
+	if ( WPCPM_Return::DASHBOARD === $return ) {
+		WPCPM_Sponsor_Application::render_decision( $id, $return );
+	} else {
+		$post = get_post( $id );
+		WPCPM_Sponsor_Application::render_actions( $post, WPCPM_Sponsor_Application::state_of( $post ), '', false );
+	}
+	$html = (string) ob_get_clean();
+	if ( ! preg_match( '/<textarea id="wpcpm_reason-' . (int) $id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+		return null;
+	}
+	return html_entity_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+}
+reset_world();
+as_manager();
+$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'maciej+four@a8c.com' );
+$GLOBALS['kept_typing'] = array();
+$j_id     = seed_application();
+$j_other  = seed_application( array( 'Company Name' => 'Other Co' ) );
+$j_why    = "Kids <12 free, adults >18 pay, they say.\r\nA second line, \"quoted\" & C:\\drafts";
+$j_label  = 'Why, for the next Administrator who reads this';
+$j_events = count( get_post_meta( $j_id, WPCPM_Sponsor_Application::META_EVENT ) );
+$GLOBALS['mail'] = array();
+$j_r = decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => wp_slash( $j_why ) ) );
+ck( 'a reason the cleaner would cut to "Kids 18 pay, they say." is refused, back on the Administrator Dashboard, with the sentence for a rejection, naming the box by the first words of its label', array( $j_r['flash']['institutions'] ?? '', $j_r['url'], WPCPM_Sponsor_Application::manager_messages()['sapp-reason-loss'] ?? null ), array( 'sapp-reason-loss', $k_back, array( 'error', 'Nothing was rejected, because WordPress would remove part of what you typed in "' . $j_label . '". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' ) ) );
+ck( 'and nothing is done: the application waits as it was, the applicant is sent nothing, and its history has no new line', array( get_post_meta( $j_id, WPCPM_Sponsor_Application::META_STATE, true ), $GLOBALS['mail'], count( get_post_meta( $j_id, WPCPM_Sponsor_Application::META_EVENT ) ) - $j_events ), array( 'new', array(), 0 ) );
+ck( 'its reason box on the card holds the reason as it was typed, a line break as the box counts it', app_reason_box( $j_id ), str_replace( "\r\n", "\n", $j_why ) );
+ck( 'and only once: drawn again, the box is empty', app_reason_box( $j_id ), '' );
+decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => wp_slash( "\r\n" . $j_why ) ) );
+ck( 'a kept reason that starts with a line break comes back with it: the box writes a line feed of its own for the one the parser drops', app_reason_box( $j_id ), "\n" . str_replace( "\r\n", "\n", $j_why ) );
+
+decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => wp_slash( $j_why ) ) );
+$GLOBALS['uid']  = 4;
+$j_seen_four     = app_reason_box( $j_id );
+$GLOBALS['uid']  = 3;
+$j_seen_other    = app_reason_box( $j_other );
+ob_start();
+WPCPM_Sponsor_Application::render_decision( $j_id, WPCPM_Return::DASHBOARD );
+$j_drawn = (string) ob_get_clean();
+preg_match( '/<textarea id="wpcpm_question-' . $j_id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_q );
+preg_match( '/<textarea id="wpcpm_reason-' . $j_id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_w );
+ck( 'another manager never sees it on the same application, nor does another application\'s box, nor the question box beside it, while the one who typed it does', array( $j_seen_four, $j_seen_other, $j_q[1] ?? null, html_entity_decode( (string) preg_replace( '/^\n/', '', $j_w[1] ?? '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), array( '', '', '', str_replace( "\r\n", "\n", $j_why ) ) );
+
+$j_here = decide( 'handle_reject', $j_id, array( 'wpcpm_reason' => 'Use code SAVE20<b></b> was their whole offer.' ) );
+ck( 'pressed on the Sponsors screen, the refusal lands on the opened application, where its form is, and the form there draws the reason back', array( flashed( $j_here ), $j_here['url'], app_reason_box( $j_id, '' ) ), array( 'sapp-reason-loss', WPCPM_Sponsor_Application::queue_url( $j_id ), 'Use code SAVE20<b></b> was their whole offer.' ) );
+
+$GLOBALS['mail'] = array();
+$j_long = decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => $q_at . 'xyz' ) );
+ck( 'a reason over its limit as typed is refused rather than cut, with a sentence naming the box and the limit, and nothing is done', array( $j_long['flash']['institutions'] ?? '', WPCPM_Sponsor_Application::manager_messages()['sapp-reason-long'] ?? null, get_post_meta( $j_id, WPCPM_Sponsor_Application::META_STATE, true ), $GLOBALS['mail'], count( get_post_meta( $j_id, WPCPM_Sponsor_Application::META_EVENT ) ) - $j_events ), array( 'sapp-reason-long', array( 'error', 'Nothing was rejected. The reason is longer than 2000 characters: shorten it and reject the application again.' ), 'new', array(), 0 ) );
+ck( 'and its box comes back with it, kept up to the box\'s limit of 2,000', app_reason_box( $j_id ), str_replace( "\r\n", "\n", $q_at ) );
+
+// Refused and kept, then pressed again while the approval is half done, which keeps nothing: the
+// box is not filled with the typing the press replaced.
+decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => wp_slash( $j_why ) ) );
+update_post_meta( $j_id, WPCPM_Sponsor_Application::META_RECORD, 'recSPN00000000099' );
+$j_half = decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => 'Their product is not GPL.' ) );
+delete_post_meta( $j_id, WPCPM_Sponsor_Application::META_RECORD );
+ck( 'a typing a refusal kept goes when the form is posted again, so a press refused for the half-done approval draws the box empty, not with what it replaced', array( $j_half['flash']['institutions'] ?? '', app_reason_box( $j_id ) ), array( 'sapp-half-done', '' ) );
+
+$j_at = app_filled( "Their plans start at fewer than < 10 seats; Q&A: \"terms\" & conditions.\r\n", 2000 );
+$GLOBALS['mail'] = array();
+$j_kept = decide( 'handle_reject', $j_id, $k_dash + array( 'wpcpm_reason' => $j_at ) );
+$events = get_post_meta( $j_id, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a reason of 2,000 characters as typed, longer as the cleaner stores it, rejects the application and is kept whole, never cut', array( mb_strlen( sanitize_textarea_field( $j_at ) ) > 2000, $j_kept['flash']['institutions'] ?? '', get_post_meta( $j_id, WPCPM_Sponsor_Application::META_STATE, true ), end( $events )['note'] === sanitize_textarea_field( $j_at ) ), array( true, 'sapp-rejected', 'rejected', true ) );
+ck( 'the history keeps it as the cleaner stored it, which reads back as typed, line by line; the applicant\'s mail carries none of it; nothing is kept for the form', array( WPCPM_Typed_Text::mail_text( end( $events )['note'] ), strpos( mail_said( 0, 'body' ), 'seats' ), $GLOBALS['kept_typing'][3] ?? array() ), array( $j_at, false, array() ) );
+
+$j_keeps = "We <3 WordPress.\r\nAges 8 < 12 welcome, adults > 18 pay, 100% of them, Q&A: \"blocks\" & themes, &amp; and &copy; typed out, and \xF0\x9F\x98\x80";
+$j_next  = seed_application( array( 'Company Name' => 'Third Co' ) );
+$j_whole = decide( 'handle_reject', $j_next, $k_dash + array( 'wpcpm_reason' => $j_keeps ) );
+$events  = get_post_meta( $j_next, WPCPM_Sponsor_Application::META_EVENT );
+$j_empty = decide( 'handle_reject', $j_other );
+$j_none  = get_post_meta( $j_other, WPCPM_Sponsor_Application::META_EVENT );
+ck( 'a reason the cleaner keeps whole rejects as before, kept as the cleaner left it, and an empty one still rejects: the reason is optional', array( $j_whole['flash']['institutions'] ?? '', end( $events )['note'], flashed( $j_empty ), end( $j_none )['note'], $GLOBALS['kept_typing'][3] ?? array() ), array( 'sapp-rejected', sanitize_textarea_field( $j_keeps ), 'sapp-rejected', '', array() ) );
 
 echo "\n-- a rejection and a spam mark ------------------------------------------\n";
 
@@ -1562,6 +1752,7 @@ WPCPM_Sponsor_Application::render_actions( $post, 'new' );
 $forms = (string) ob_get_clean();
 ck( 'an open application offers four decisions, each keyed to itself', array( substr_count( $forms, '<form' ), false !== strpos( $forms, 'nonce-wpcpm_sapp_approve_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_info_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_reject_' . $id ), false !== strpos( $forms, 'nonce-wpcpm_sapp_spam_' . $id ) ), array( 4, true, true, true, true ) );
 ck( 'every form names the application, is guarded against a second press, and stays on the screen', array( substr_count( $forms, 'name="wpcpm_sapp" value="' . $id . '"' ), substr_count( $forms, 'data-wpcpm-once' ), strpos( $forms, 'wpcpm_return' ) ), array( 4, 4, false ) );
+ck( 'the Reject box\'s label names the program\'s Administrators, and the sentence that refuses a reason names the box by the same first words', array( false !== strpos( $forms, '>Why, for the next Administrator who reads this. It is never sent to the applicant.<' ), strpos( $forms, 'next manager' ), false !== strpos( WPCPM_Sponsor_Application::manager_messages()['sapp-reason-loss'][1], '"Why, for the next Administrator who reads this"' ) ), array( true, false, true ) );
 ck( 'the question is required and says so in the label\'s voice; the reason is not', array( 1 === preg_match( '/name="wpcpm_question"[^>]*required/', $forms ), false !== strpos( $forms, 'wpcpm-field__required' ), preg_match( '/name="wpcpm_reason"[^>]*required/', $forms ) ), array( true, true, 0 ) );
 ck( 'Approve, Reject, Reject as spam carry a confirm naming the company and the address', array( substr_count( $forms, 'data-wpcpm-confirm="' ), false !== strpos( $forms, 'Gadgetry Inc' ), false !== strpos( $forms, 'maciej@a8c.com' ) ), array( 3, true, true ) );
 ob_start();

@@ -3322,6 +3322,10 @@ ck( 'the forms are the ones the card draws, each posting no return and no tab, s
 	true,
 	true,
 ) );
+ck( 'the Reject box names the program\'s Administrators, in the words of the sponsor application\'s Reject box', array(
+	false !== strpos( $first_past, '>Why, for the next Administrator who reads this. It is never sent to the applicant.<' ),
+	strpos( $first_past, 'next manager' ),
+), array( true, false ) );
 ck( 'while the dashboard page is missing one past the window keeps its four decisions, and nothing about the page', array(
 	decisions_on( $past_no_page, 501 ),
 	false !== strpos( $past_no_page, $past_window ),
@@ -3805,6 +3809,11 @@ ck( 'handle_reject mails a neutral acknowledgement with no reason anywhere in it
 	get_user_meta( 1, WPCPM_Flash::META ),
 ), array( 'send_to', 'someone.else@example.test', 'institution-declined', true, false, false, 'rejected', array( 'institutions' => 'app-rejected' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
+$rejected_notice = (string) ( WPCPM_Institutions::queue_messages()['app-rejected'][1] ?? '' );
+ck( 'the notice after Reject names the program\'s Administrators, as the Reject box does', array(
+	false !== strpos( $rejected_notice, 'Your reason is on the application\'s own history, where the next Administrator can read it.' ),
+	strpos( $rejected_notice, 'next manager' ),
+), array( true, false ) );
 
 $rejection = get_post_meta( 502, WPCPM_Institution_Application::META_EVENT, false );
 ck( 'and the reason is kept where only a manager reads it', array( $rejection[0]['event'] ?? '', $rejection[0]['note'] ?? '' ), array( 'rejected', $reason ) );

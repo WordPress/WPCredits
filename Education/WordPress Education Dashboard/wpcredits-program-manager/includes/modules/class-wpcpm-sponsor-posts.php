@@ -1067,7 +1067,12 @@ class WPCPM_Sponsor_Posts {
 		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Publish', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
-		echo '<details class="wpcpm-sponsor-post__return">';
+		// A refused return comes back with the note as it was typed, its fold open so the box is
+		// where it was left.
+		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post->ID ) );
+		$note = isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
+
+		echo null === $note ? '<details class="wpcpm-sponsor-post__return">' : '<details class="wpcpm-sponsor-post__return" open>';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
 		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The post goes back to the sponsor\'s account as a draft, and your note is sent to its author by email.', 'wpcredits-program-manager' ) );
 		printf( '<form class="wpcpm-sponsor-post__form wpcpm-sponsor-post__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
@@ -1080,12 +1085,15 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" maxlength="%3$d" required placeholder="%4$s"></textarea>',
+			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" maxlength="%3$d" required placeholder="%4$s">%5$s</textarea>',
 			(int) $post->ID,
-			esc_html__( 'A note for the author', 'wpcredits-program-manager' ),
+			esc_html( self::note_label() ),
 			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
 			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
-			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' )
+			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' ),
+			// The parser drops one line feed right after the opening tag, so a kept note that
+			// begins with a line break keeps it.
+			null === $note ? '' : "\n" . esc_textarea( $note )
 		);
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
 		echo '</form>';
@@ -1148,9 +1156,48 @@ class WPCPM_Sponsor_Posts {
 			'post-note-missing' => array( 'error', __( 'Write a note for the author before returning the post.', 'wpcredits-program-manager' ) ),
 			/* translators: %s: the longest note allowed, in characters. */
 			'post-note-long'    => array( 'error', sprintf( __( 'The note is longer than %s characters. Shorten it and return the post again.', 'wpcredits-program-manager' ), number_format_i18n( self::MAX_NOTE ) ) ),
+			'post-note-loss'    => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'return' ) ),
 			'post-not-pending'  => array( 'error', __( 'Only a post waiting for review can be published or returned here.', 'wpcredits-program-manager' ) ),
 			'post-failed'       => array( 'error', __( 'The post could not be changed right now. Try again later.', 'wpcredits-program-manager' ) ),
 		);
+	}
+
+	/**
+	 * The return note's box, by the words its form labels it with, so the form and the sentence
+	 * that refuses a note name it alike.
+	 *
+	 * @return string
+	 */
+	private static function note_label() {
+		return __( 'A note for the author', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The name a refused return keeps its typing under (`WPCPM_Typed_Text::keep()`): the form and
+	 * the post it returns, so a note typed for one post comes back in that post's box and in no
+	 * other.
+	 *
+	 * @param int $post_id The post.
+	 * @return string
+	 */
+	private static function typed_form( $post_id ) {
+		return 'post-return:' . (int) $post_id;
+	}
+
+	/**
+	 * Keep a refused return's note as it was typed, up to its box's room, for the one time the
+	 * form is drawn again. A note left empty has nothing to give back.
+	 *
+	 * @param string $form  The form, as `typed_form()` names it.
+	 * @param string $typed The note as posted, unslashed and not cleaned.
+	 */
+	private static function keep_note( $form, $typed ) {
+		if ( '' === trim( (string) $typed ) ) {
+			return;
+		}
+
+		// The box is drawn empty, so its room is the limit.
+		WPCPM_Typed_Text::keep( $form, array( 'note' => (string) $typed ), array( 'note' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
 	}
 
 	/*
@@ -1280,17 +1327,33 @@ class WPCPM_Sponsor_Posts {
 	 * two bytes of a line break, are one character each, as the box counts them. One over
 	 * `MAX_NOTE` is refused rather than cut, because a note cut short reaches the author missing
 	 * its end. It is kept as the cleaner left it, and mailed as it was typed.
+	 *
+	 * A note the cleaner would take words from is refused before anything is written or mailed:
+	 * returned, it would reach the author missing them without a word said. That refusal and the
+	 * one over `MAX_NOTE` give the form back the note as it was typed (`keep_note()`).
 	 */
 	public static function handle_return() {
 		$opened = self::begin( self::ACTION_POST_RETURN );
 		$post   = $opened['post'];
-		$note   = isset( $_POST['wpcpm_note'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$form   = self::typed_form( $post->ID );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = WPCPM_Request::posted_raw( 'wpcpm_note' );
+		$note  = isset( $_POST['wpcpm_note'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			self::keep_note( $form, $typed );
+			self::leave( 'post-note-loss', $opened['record'] );
+		}
 
 		if ( '' === $note ) {
 			self::leave( 'post-note-missing', $opened['record'] );
 		}
 
 		if ( WPCPM_Typed_Text::typed_length( $note ) > self::MAX_NOTE ) {
+			self::keep_note( $form, $typed );
 			self::leave( 'post-note-long', $opened['record'] );
 		}
 

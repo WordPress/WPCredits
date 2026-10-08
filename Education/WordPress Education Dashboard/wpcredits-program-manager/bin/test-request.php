@@ -92,6 +92,27 @@ ck( 'an absent argument is the fallback', WPCPM_Request::exact( 'missing', 'none
 $_POST = array();
 $_GET  = array();
 
+echo "\n=== posted_raw(): what was typed, before any cleaner has read it ===\n";
+
+// Whether the cleaner would take words from a typing can only be asked of the typing itself, and a
+// refused form gives back what was typed, not what the cleaner made of it.
+$_POST = array(
+	'tagged'  => 'Kids <12 free, adults >18 pay',
+	'octet'   => 'Get 10%cashback',
+	'spaced'  => "  two  lines\r\n\tand a tab  ",
+	'slashed' => "It\\'s \\\"typed\\\" in C:\\\\drafts",
+	'control' => "AB\x07C",
+	'arr'     => array( 'x' ),
+);
+
+ck( 'a "<" and the words after it are handed over as typed', WPCPM_Request::posted_raw( 'tagged' ), 'Kids <12 free, adults >18 pay' );
+ck( 'and so is a percent octet', WPCPM_Request::posted_raw( 'octet' ), 'Get 10%cashback' );
+ck( 'white space is neither folded nor trimmed', WPCPM_Request::posted_raw( 'spaced' ), "  two  lines\r\n\tand a tab  " );
+ck( 'it is unslashed like every other reader', WPCPM_Request::posted_raw( 'slashed' ), 'It\'s "typed" in C:\drafts' );
+ck( 'and nothing else is done to it: a control character stays', WPCPM_Request::posted_raw( 'control' ), "AB\x07C" );
+ck( 'a field that is not text is the fallback, and so is an absent one', array( WPCPM_Request::posted_raw( 'arr' ), WPCPM_Request::posted_raw( 'missing', 'none' ) ), array( '', 'none' ) );
+$_POST = array();
+
 echo "\n=== posted_list(): a ticked list, each value whole or not at all ===\n";
 
 $_POST = array(

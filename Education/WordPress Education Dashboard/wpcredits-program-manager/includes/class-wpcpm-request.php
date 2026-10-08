@@ -319,6 +319,33 @@ class WPCPM_Request {
 	}
 
 	/**
+	 * A posted value as it was typed: unslashed, and not cleaned, trimmed or folded at all.
+	 *
+	 * `posted_text()` and `posted_lines()` hand back what the cleaner kept, and whether the cleaner
+	 * took words away can only be told from what was typed. So this is for two jobs and no other:
+	 * `WPCPM_Typed_Text::cleaner_loses()`, which asks that of the typing, and the typing a refused
+	 * form keeps for the one time it is drawn again (`WPCPM_Typed_Text::keep()`). What it returns is
+	 * never stored as a field's value and never printed unescaped: a save stores what the cleaning
+	 * readers return, and a kept typing is drawn back through `esc_textarea()` or `esc_attr()`.
+	 *
+	 * Same standing as the rest of this class: the handler has already checked the nonce and the
+	 * capability.
+	 *
+	 * @param string $name     Key in the posted fields.
+	 * @param string $fallback Returned when the key is absent or not a scalar.
+	 * @return string
+	 */
+	public static function posted_raw( $name, $fallback = '' ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
+			return $fallback;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; read for the loss check and the kept typing only, never stored as a value or printed unescaped.
+		return (string) wp_unslash( $_POST[ $name ] );
+	}
+
+	/**
 	 * A posted value kept as typed: unslashed, valid UTF-8, control characters dropped, trimmed.
 	 *
 	 * No tag stripping and no percent-decoding or stripping, because this is for a value that

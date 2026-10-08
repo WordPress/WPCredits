@@ -109,6 +109,9 @@ final class WPCPM_Sponsor_Profile {
 	 */
 	public static function messages() {
 		return array(
+			// The sentence after it is the whole message: `WPCPM_Typed_Text::loss_message()` says that
+			// nothing was saved, which box, and how to keep every word.
+			'profile-loss'      => array( 'error', '' ),
 			'profile-saved'     => array( 'success', __( 'Your profile was saved to the program records.', 'wpcredits-program-manager' ) ),
 			'profile-unchanged' => array( 'info', __( 'Nothing changed.', 'wpcredits-program-manager' ) ),
 			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the links and the product type.', 'wpcredits-program-manager' ) ),
@@ -242,6 +245,35 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
+	 * The form, as `WPCPM_Typed_Text::keep()` names it: one sponsor's profile card.
+	 *
+	 * @param string $record Sponsor record ID.
+	 * @return string
+	 */
+	private static function typed_form( $record ) {
+		return 'profile:' . $record;
+	}
+
+	/**
+	 * Keep what a refused profile form held for the one time it is drawn again: every field that was
+	 * posted, as typed, each up to the room its box was drawn with (`limit_of()`, and never less than
+	 * the value the box was drawn with, so a text the base holds over its limit comes back whole).
+	 *
+	 * @param string $record Sponsor record ID.
+	 * @param array  $typed  Each posted field, as posted and not yet cleaned.
+	 * @param array  $row    The index row the form was drawn from.
+	 */
+	private static function keep_typing( $record, array $typed, array $row ) {
+		$room = array();
+
+		foreach ( array_keys( $typed ) as $key ) {
+			$room[ $key ] = WPCPM_Typed_Text::kept_room( isset( $row[ $key ] ) ? (string) $row[ $key ] : '', self::limit_of( $key ) );
+		}
+
+		WPCPM_Typed_Text::keep( self::typed_form( $record ), $typed, $room );
+	}
+
+	/**
 	 * Whether a posted value is the stored one.
 	 *
 	 * A typed text is drawn back by `WPCPM_Typed_Text`, so a box posted back unedited can come back
@@ -249,12 +281,22 @@ final class WPCPM_Sponsor_Profile {
 	 * area's every break as CR LF where the base keeps LF. Read the same, it is the stored text,
 	 * and is not written. Every other kind is the stored value only byte for byte.
 	 *
+	 * Both sides are read trimmed, as the cleaner trims what it reads. A value written in the base's
+	 * grid can end in a space or begin with a line break, and a box can hand it back without them:
+	 * a text area drops a line break its text begins with, and a link's or an address's box drops
+	 * the spaces at its ends. Such a box, posted back untouched, is still the stored value, and a
+	 * save would only take the white space off.
+	 *
 	 * @param string $kind    The field's kind.
-	 * @param string $next    The value as cleaned from the post.
+	 * @param string $next    The value as posted: as typed, for the test of a box posted back as
+	 *                        it was drawn, or as cleaned, for the over-limit rule and the save.
 	 * @param string $current The value as stored.
 	 * @return bool
 	 */
 	private static function unchanged( $kind, $next, $current ) {
+		$next    = trim( (string) $next );
+		$current = trim( (string) $current );
+
 		if ( $next === $current ) {
 			return true;
 		}
@@ -291,8 +333,11 @@ final class WPCPM_Sponsor_Profile {
 	 * Save the profile.
 	 *
 	 * The nonce, then the claim (which decides `ACT_EDIT_PROFILE` and meters a refusal), then
-	 * every posted field cleaned, then one PATCH of the cells that changed, then the index and
-	 * the log. Only fields that were posted are read, so a form missing one leaves it alone.
+	 * every posted typed text a person changed asked whether the cleaner would take words from it,
+	 * then every other posted field cleaned, then one PATCH of the cells that changed, then the
+	 * index and the log. Only fields that were posted are read, so a form missing one leaves it
+	 * alone, and a typed text or a link posted back as it was drawn is left as the base holds it. A
+	 * save refused for a loss or a length keeps what was typed for the form's redraw.
 	 */
 	public static function handle_save() {
 		check_admin_referer( self::ACTION_SAVE );
@@ -318,6 +363,46 @@ final class WPCPM_Sponsor_Profile {
 		$cells = array();
 		$keys  = array();
 		$owned = self::owned_by_offer( $record );
+		$typed = array();
+		$drawn = array();
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
+
+		// What was typed into each field that was posted and that this card writes, before the
+		// cleaner has read it.
+		foreach ( self::FIELDS as $key => $spec ) {
+			if ( ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) || ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
+				continue;
+			}
+
+			$typed[ $key ] = WPCPM_Request::posted_raw( 'wpcpm_' . $key );
+		}
+
+		// A typed text or a link posted back as it was drawn is the stored value, by the card's own test
+		// of an untouched box (`unchanged()`), asked of what was typed. It is neither asked about losses
+		// nor cleaned and written: the base can hold a tag or a percent octet the cleaner would take,
+		// or a link the card would complete or refuse, written in its grid, and only what a person
+		// changed is theirs to be told about. Cleaned and written back, it would lose those words
+		// without a word said.
+		foreach ( $typed as $key => $value ) {
+			$kind = self::FIELDS[ $key ]['kind'];
+
+			if ( in_array( $kind, array( 'line', 'text', 'url' ), true ) && self::unchanged( $kind, $value, isset( $row[ $key ] ) ? (string) $row[ $key ] : '' ) ) {
+				$drawn[ $key ] = true;
+			}
+		}
+
+		// A typed text the cleaner would take words from is refused before any field is cleaned, and
+		// the form gets back what was typed: saved, it would lose the words without a word said.
+		foreach ( $typed as $key => $value ) {
+			$kind = self::FIELDS[ $key ]['kind'];
+
+			if ( ! isset( $drawn[ $key ] ) && in_array( $kind, array( 'line', 'text' ), true ) && WPCPM_Typed_Text::cleaner_loses( $value, 'text' === $kind ? 'lines' : 'line' ) ) {
+				self::keep_typing( $record, $typed, $row );
+				self::leave( 'profile-loss', $record, WPCPM_Typed_Text::loss_message( self::labels()[ $key ] ) );
+			}
+		}
 
 		foreach ( self::FIELDS as $key => $spec ) {
 			// The primary offer writes these three cells on every save of the Offers card, so a
@@ -327,12 +412,22 @@ final class WPCPM_Sponsor_Profile {
 				continue;
 			}
 
-			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
+			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) || isset( $drawn[ $key ] ) ) {
 				continue;
 			}
 
-			// A text area is read with its line breaks; every other field as one line.
-			$posted  = 'text' === $spec['kind'] ? WPCPM_Request::posted_lines( 'wpcpm_' . $key ) : WPCPM_Request::posted_text( 'wpcpm_' . $key );
+			// A text area is read with its line breaks, and a link as typed: the one-line cleaner
+			// removes every `%XX`, which would rewrite an address in another alphabet or a query
+			// with a space in it, and clean() runs a link through clean_url(), whose esc_url_raw()
+			// keeps them. Every other field is read as one line.
+			if ( 'text' === $spec['kind'] ) {
+				$posted = WPCPM_Request::posted_lines( 'wpcpm_' . $key );
+			} elseif ( 'url' === $spec['kind'] ) {
+				$posted = WPCPM_Request::posted_verbatim( 'wpcpm_' . $key );
+			} else {
+				$posted = WPCPM_Request::posted_text( 'wpcpm_' . $key );
+			}
+
 			$cleaned = self::clean( $key, $posted );
 			$current = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
 
@@ -345,6 +440,8 @@ final class WPCPM_Sponsor_Profile {
 						continue;
 					}
 
+					// To be shortened, so the form comes back with what was typed.
+					self::keep_typing( $record, $typed, $row );
 					self::leave( 'profile-long', $record, self::long_sentence( $key, $cleaned['over'] ) );
 				}
 
@@ -423,6 +520,8 @@ final class WPCPM_Sponsor_Profile {
 		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
 		$owned  = self::owned_by_offer( $record );
 		$said   = false;
+		// A refused save: each field is drawn as it was left, in the room its box had.
+		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
 
 		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
@@ -447,6 +546,7 @@ final class WPCPM_Sponsor_Profile {
 		foreach ( self::FIELDS as $key => $spec ) {
 			$id    = 'wpcpm-profile-' . $key;
 			$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
+			$typed = isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : null;
 
 			if ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) {
 				// Said once, above the first of the three, rather than three times.
@@ -470,34 +570,41 @@ final class WPCPM_Sponsor_Profile {
 
 			if ( 'select' === $spec['kind'] ) {
 				printf( '<select id="%1$s" name="wpcpm_%2$s">', esc_attr( $id ), esc_attr( $key ) );
-				printf( '<option value=""%s>%s</option>', selected( '', $value, false ), esc_html__( 'Not set', 'wpcredits-program-manager' ) );
+				$chosen = null !== $typed ? $typed : $value;
+				printf( '<option value=""%s>%s</option>', selected( '', $chosen, false ), esc_html__( 'Not set', 'wpcredits-program-manager' ) );
 				foreach ( self::CHOICES[ $spec['name'] ] as $choice ) {
-					printf( '<option value="%1$s"%2$s>%1$s</option>', esc_attr( $choice ), selected( $choice, $value, false ) );
+					printf( '<option value="%1$s"%2$s>%1$s</option>', esc_attr( $choice ), selected( $choice, $chosen, false ) );
 				}
 				echo '</select>';
 			} elseif ( 'text' === $spec['kind'] ) {
 				// Drawn as the person typed it, with room for each ">" held as `&gt;`
-				// (`WPCPM_Typed_Text`): drawn as stored, the box would show the cleaner's entities.
+				// (`WPCPM_Typed_Text`): drawn as stored, the box would show the cleaner's entities. After a
+				// refused save, drawn with what was typed, exactly, in the same room.
 				printf(
 					'<textarea id="%1$s" name="wpcpm_%2$s" rows="4" maxlength="%3$d">%4$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $key ),
 					(int) WPCPM_Typed_Text::drawn_limit( $value, self::MAX_TEXT ),
-					esc_textarea( WPCPM_Typed_Text::typed_text( $value ) )
+					// The parser drops one line feed right after the opening tag, so a kept typing,
+					// which can begin with a line break, is given one of its own first.
+					null !== $typed ? "\n" . esc_textarea( $typed ) : esc_textarea( WPCPM_Typed_Text::typed_text( $value ) )
 				);
 			} else {
 				// A one-line text is drawn as the person typed it, with room for each ">" held as
 				// `&gt;` (`WPCPM_Typed_Text`): drawn as stored, "We <3 our team > all" would post
-				// back as "We all". A link and an address are not typed text the cleaner escapes.
-				$typed = 'line' === $spec['kind'];
+				// back as "We all". A link and an address are not typed text the cleaner escapes. After a
+				// refused save, any of them is drawn with what was typed, exactly
+				// (`WPCPM_Typed_Text::kept_attr()`), in the same room.
+				$line  = 'line' === $spec['kind'];
+				$shown = null !== $typed ? WPCPM_Typed_Text::kept_attr( $typed ) : ( $line ? WPCPM_Typed_Text::attr_text( $value ) : $value );
 
 				printf(
 					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d" />',
 					esc_attr( 'email' === $spec['kind'] ? 'email' : ( 'url' === $spec['kind'] ? 'url' : 'text' ) ),
 					esc_attr( $id ),
 					esc_attr( $key ),
-					esc_attr( $typed ? WPCPM_Typed_Text::attr_text( $value ) : $value ),
-					(int) ( $typed ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE )
+					esc_attr( $shown ),
+					(int) ( $line ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE )
 				);
 			}
 

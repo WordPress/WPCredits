@@ -29,6 +29,9 @@ final class WPCPM_Sponsor_Interests {
 	const MAX_EVENTS    = 10;
 	const MAX_EVENT_LEN = 120;
 
+	/** The events box holds ten events of the longest a line may be, and the nine line breaks between them. */
+	const MAX_EVENTS_BOX = self::MAX_EVENTS * self::MAX_EVENT_LEN + self::MAX_EVENTS - 1;
+
 	/** The multiple select's choices, as the base spells them. */
 	const CHOICES = array(
 		'Provide financial support (for program costs)',
@@ -53,6 +56,9 @@ final class WPCPM_Sponsor_Interests {
 	 */
 	public static function messages() {
 		return array(
+			// The sentence after it is the whole message: `WPCPM_Typed_Text::loss_message()` says that
+			// nothing was sent, which box, and how to keep every word.
+			'interest-loss'    => array( 'error', '' ),
 			'interest-sent'    => array( 'success', __( 'Thank you. Your program contact has been told, and your interest is on record.', 'wpcredits-program-manager' ) ),
 			'interest-unsent'  => array( 'warning', __( 'Your interest is on record, but nobody at the program could be told right now. Write to your program contact as well.', 'wpcredits-program-manager' ) ),
 			'interest-empty'   => array( 'error', __( 'Tick at least one option, name an event or write a note.', 'wpcredits-program-manager' ) ),
@@ -61,6 +67,47 @@ final class WPCPM_Sponsor_Interests {
 			'interest-ceiling' => array( 'error', __( 'Five a day is the limit. Try again tomorrow.', 'wpcredits-program-manager' ) ),
 			'interest-failed'  => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'          => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
+		);
+	}
+
+	/**
+	 * The words the two typed boxes' labels show, so that a refusal names a box as its form does.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function labels() {
+		return array(
+			'events' => __( 'Flagship events you would sponsor students to attend', 'wpcredits-program-manager' ),
+			'note'   => __( 'Anything else', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The form, as `WPCPM_Typed_Text::keep()` names it: one sponsor's interests card.
+	 *
+	 * @param string $record Sponsor record ID.
+	 * @return string
+	 */
+	private static function typed_form( $record ) {
+		return 'interests:' . $record;
+	}
+
+	/**
+	 * Keep what a refused message held for the one time the form is drawn again: the two boxes as
+	 * typed, each up to its limit (both are drawn empty), and the choices as ticked.
+	 *
+	 * @param string   $record  Sponsor record ID.
+	 * @param array    $typed   `events` and `note`, as posted and not yet cleaned.
+	 * @param string[] $choices The ticked choices, matched against `CHOICES`.
+	 */
+	private static function keep_typing( $record, array $typed, array $choices ) {
+		WPCPM_Typed_Text::keep(
+			self::typed_form( $record ),
+			$typed + array( 'support' => $choices ),
+			array(
+				'events' => WPCPM_Typed_Text::kept_room( '', self::MAX_EVENTS_BOX ),
+				'note'   => WPCPM_Typed_Text::kept_room( '', self::MAX_TEXT ),
+			)
 		);
 	}
 
@@ -118,14 +165,36 @@ final class WPCPM_Sponsor_Interests {
 		$row    = $claim['row'];
 		$viewer = wp_get_current_user();
 
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
+
+		$posted  = isset( $_POST['wpcpm_support'] ) && is_array( $_POST['wpcpm_support'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['wpcpm_support'] ) ) : array();
+		$choices = array_values( array_intersect( self::CHOICES, $posted ) );
+		$typed   = array(
+			'events' => WPCPM_Request::posted_raw( 'wpcpm_events' ),
+			'note'   => WPCPM_Request::posted_raw( 'wpcpm_note' ),
+		);
+
+		// A typing the cleaner would take words from is refused before anything else is asked of it,
+		// and the form gets back what was typed: sent, it would lose the words without a word said.
+		// Like every refusal here, it comes before the ceiling is claimed.
+		foreach ( $typed as $key => $value ) {
+			if ( WPCPM_Typed_Text::cleaner_loses( $value, 'lines' ) ) {
+				self::keep_typing( $record, $typed, $choices );
+				self::leave( 'interest-loss', $record, WPCPM_Typed_Text::loss_message( self::labels()[ $key ], 'send' ) );
+			}
+		}
+
 		// Anything else and the events are counted as the person typed them and refused rather
 		// than cut: a note cut short reaches the program missing its end, an event cut short names
 		// another event, and one past the tenth was dropped without a word. Read and refused before
-		// the ceiling is claimed, so a message sent back to be shortened costs none of the day's five.
+		// the ceiling is claimed, so a message sent back to be shortened costs none of the day's five,
+		// and the form comes back with what was typed.
 		$note = WPCPM_Request::posted_lines( 'wpcpm_note' );
 		$over = WPCPM_Typed_Text::typed_length( $note ) - self::MAX_TEXT;
 
 		if ( $over > 0 ) {
+			self::keep_typing( $record, $typed, $choices );
 			self::leave( 'interest-long', $record, self::long_sentence( $over ) );
 		}
 
@@ -147,20 +216,19 @@ final class WPCPM_Sponsor_Interests {
 			$over     = WPCPM_Typed_Text::typed_length( $event ) - self::MAX_EVENT_LEN;
 
 			if ( $over > 0 ) {
+				self::keep_typing( $record, $typed, $choices );
 				self::leave( 'interest-long', $record, self::event_sentence( count( $events ), $over ) );
 			}
 		}
 
 		if ( count( $events ) > self::MAX_EVENTS ) {
+			self::keep_typing( $record, $typed, $choices );
 			self::leave( 'interest-long', $record, self::events_sentence( count( $events ) ) );
 		}
 
 		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) $viewer->ID ), self::PER_DAY, DAY_IN_SECONDS ) ) {
 			self::leave( 'interest-ceiling', $record );
 		}
-
-		$posted  = isset( $_POST['wpcpm_support'] ) && is_array( $_POST['wpcpm_support'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['wpcpm_support'] ) ) : array();
-		$choices = array_values( array_intersect( self::CHOICES, $posted ) );
 
 		if ( empty( $choices ) && empty( $events ) && '' === $note ) {
 			self::leave( 'interest-empty', $record );
@@ -296,9 +364,16 @@ final class WPCPM_Sponsor_Interests {
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
-		$row  = WPCPM_Sponsors_Index::row( $record );
-		$row  = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
-		$open = isset( $context['open'] ) && self::CARD === $context['open'];
+		$row    = WPCPM_Sponsors_Index::row( $record );
+		$row    = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
+		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
+		$labels = self::labels();
+		// A refused message: its boxes and its choices are drawn as they were left.
+		$kept   = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
+		$ticked = isset( $kept['support'] ) && is_array( $kept['support'] ) ? $kept['support'] : (array) $row['support'];
+		$typed  = static function ( $key ) use ( $kept ) {
+			return isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : '';
+		};
 
 		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
@@ -322,17 +397,20 @@ final class WPCPM_Sponsor_Interests {
 			printf(
 				'<label><input type="checkbox" name="wpcpm_support[]" value="%1$s"%2$s /> %1$s</label>',
 				esc_attr( $choice ),
-				checked( in_array( $choice, (array) $row['support'], true ), true, false )
+				checked( in_array( $choice, $ticked, true ), true, false )
 			);
 		}
 
 		echo '</fieldset>';
 		// One box of lines, so its maxlength bounds the whole: ten events of the longest a line may
 		// be, and the nine line breaks between them, each one character to the browser. Drawn empty,
-		// so the room is that. A line over its limit, or an eleventh, is refused on the way in.
+		// so the room is that, and so it is when it is drawn with what a refused message kept. A line
+		// over its limit, or an eleventh, is refused on the way in. The parser drops one line feed right
+		// after a text area's opening tag, so a kept typing, which can begin with a line break, is given
+		// one of its own first; so is the note's below.
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-events">%1$s</label><textarea id="wpcpm-interest-events" name="wpcpm_events" rows="3" maxlength="%4$d" placeholder="%2$s"></textarea><span class="wpcpm-student__note">%3$s</span></p>',
-			esc_html__( 'Flagship events you would sponsor students to attend', 'wpcredits-program-manager' ),
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-events">%1$s</label><textarea id="wpcpm-interest-events" name="wpcpm_events" rows="3" maxlength="%4$d" placeholder="%2$s">%6$s%5$s</textarea><span class="wpcpm-student__note">%3$s</span></p>',
+			esc_html( $labels['events'] ),
 			esc_attr__( 'WordCamp Europe 2027', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
@@ -342,13 +420,18 @@ final class WPCPM_Sponsor_Interests {
 					number_format_i18n( self::MAX_EVENT_LEN )
 				)
 			),
-			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_EVENTS * self::MAX_EVENT_LEN + self::MAX_EVENTS - 1 )
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_EVENTS_BOX ),
+			esc_textarea( $typed( 'events' ) ),
+			isset( $kept['events'] ) ? "\n" : ''
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-note">%1$s</label><textarea id="wpcpm-interest-note" name="wpcpm_note" rows="4" maxlength="%2$d"></textarea></p>',
-			esc_html__( 'Anything else', 'wpcredits-program-manager' ),
-			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
-			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_TEXT )
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-interest-note">%1$s</label><textarea id="wpcpm-interest-note" name="wpcpm_note" rows="4" maxlength="%2$d">%4$s%3$s</textarea></p>',
+			esc_html( $labels['note'] ),
+			// Drawn empty, so the room is the limit: nothing in it is held as an entity. A refused
+			// message's note is drawn as it was typed, in the same room.
+			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_TEXT ),
+			esc_textarea( $typed( 'note' ) ),
+			isset( $kept['note'] ) ? "\n" : ''
 		);
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Tell the program', 'wpcredits-program-manager' ) );
 		echo '</form>';

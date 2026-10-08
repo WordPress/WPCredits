@@ -2526,7 +2526,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $summary['agreement_id'] ),
 				__( 'Take it out of force', 'wpcredits-program-manager' ),
 				'',
-				__( 'Why it is out of force, in your own words. This is emailed to everybody at the company exactly as you write it. Nothing about their dashboard changes.', 'wpcredits-program-manager' )
+				__( 'Why it is out of force, in your own words. This is emailed to everybody at the company exactly as you write it. Nothing about their dashboard changes.', 'wpcredits-program-manager' ),
+				'',
+				// A refused press comes back with the note as it was typed.
+				WPCPM_Sponsor_Agreement::kept_revoke_note( (int) $summary['agreement_id'] )
 			);
 
 			return;
@@ -2575,17 +2578,19 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * link or a confirm. Every one is keyed to the object it acts on, and every one carries the
 	 * double-submit guard.
 	 *
-	 * @param string $action  The `admin_post_` action.
-	 * @param string $nonce   The nonce action, keyed to the post or the record.
-	 * @param string $css     The form's classes.
-	 * @param string $busy    What the pressed control says while the request is in flight.
-	 * @param array  $hidden  Hidden field name to value.
-	 * @param string $label   The button.
-	 * @param string $confirm A confirm sentence, or '' for none.
-	 * @param string $note    A note box's label, or '' for no note box.
-	 * @param string $drive   A record ID when this form asks for a Drive link, else ''.
+	 * @param string      $action  The `admin_post_` action.
+	 * @param string      $nonce   The nonce action, keyed to the post or the record.
+	 * @param string      $css     The form's classes.
+	 * @param string      $busy    What the pressed control says while the request is in flight.
+	 * @param array       $hidden  Hidden field name to value.
+	 * @param string      $label   The button.
+	 * @param string      $confirm A confirm sentence, or '' for none.
+	 * @param string      $note    A note box's label, or '' for no note box.
+	 * @param string      $drive   A record ID when this form asks for a Drive link, else ''.
+	 * @param string|null $kept    What a refused press of this form typed into its note box, or
+	 *                             null.
 	 */
-	private function render_agreement_form( $action, $nonce, $css, $busy, array $hidden, $label, $confirm, $note, $drive = '' ) {
+	private function render_agreement_form( $action, $nonce, $css, $busy, array $hidden, $label, $confirm, $note, $drive = '', $kept = null ) {
 		printf(
 			'<form method="post" action="%1$s" class="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -2622,13 +2627,16 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		if ( '' !== $note ) {
 			printf(
-				'<p class="wpcpm-review__note"><label for="wpcpm-note-%1$s">%2$s %6$s</label> <textarea id="wpcpm-note-%1$s" name="%3$s" rows="4" minlength="%4$d" maxlength="%5$d" required></textarea></p>',
+				'<p class="wpcpm-review__note"><label for="wpcpm-note-%1$s">%2$s %6$s</label> <textarea id="wpcpm-note-%1$s" name="%3$s" rows="4" minlength="%4$d" maxlength="%5$d" required>%7$s</textarea></p>',
 				esc_attr( sanitize_html_class( $nonce ) ),
 				esc_html( $note ),
 				esc_attr( WPCPM_Sponsor_Agreement::FIELD_NOTE ),
 				(int) WPCPM_Sponsor_Agreement::MIN_NOTE,
 				(int) WPCPM_Sponsor_Agreement::MAX_NOTE,
-				wp_kses( $required, array( 'span' => array( 'class' => array() ) ) )
+				wp_kses( $required, array( 'span' => array( 'class' => array() ) ) ),
+				// The parser drops one line feed right after the opening tag, so a kept note that
+				// begins with a line break keeps it.
+				is_string( $kept ) ? "\n" . esc_textarea( $kept ) : ''
 			);
 		}
 

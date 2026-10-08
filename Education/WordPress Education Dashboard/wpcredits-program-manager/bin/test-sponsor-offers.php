@@ -77,33 +77,11 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-/**
- * Core's `_sanitize_text_fields()` behind `sanitize_text_field()` and `sanitize_textarea_field()`,
- * as 7.1.2 writes it: invalid UTF-8 read as nothing; a "<" with no ">" before the next "<" or the
- * end escaped as `esc_html()` escapes it (`wp_pre_kses_less_than()`); every tag stripped and the
- * ends trimmed; a "<" a line feed follows written `&lt;`; for a one-line field every run of white
- * space one space; and every percent octet removed. One thing of core's is left out:
- * in the stretch it escapes, core also writes a numeric entity typed out with fewer than three
- * digits with three (`&#62;` as `&#062;`); no typing here holds one.
- * A stand-in on `strip_tags()` alone writes no `&lt;` and would pass every rule whatever it did.
- */
-function wpcpm_test_clean( $str, $keep_newlines ) {
-	$filtered = (string) $str;
-	if ( ! mb_check_encoding( $filtered, 'UTF-8' ) ) { return ''; }
-	if ( false !== strpos( $filtered, '<' ) ) {
-		$filtered = preg_replace_callback( '%<[^>]*?((?=<)|>|$)%', function ( $matches ) { return false === strpos( $matches[0], '>' ) ? htmlspecialchars( $matches[0], ENT_QUOTES, 'UTF-8', false ) : $matches[0]; }, $filtered );
-		$filtered = trim( strip_tags( preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $filtered ) ) );
-		$filtered = str_replace( "<\n", "&lt;\n", $filtered );
-	}
-	if ( ! $keep_newlines ) { $filtered = preg_replace( '/[\r\n\t ]+/', ' ', $filtered ); }
-	$filtered = trim( $filtered );
-	$found    = false;
-	while ( preg_match( '/%[a-f0-9]{2}/i', $filtered, $match ) ) { $filtered = str_replace( $match[0], '', $filtered ); $found = true; }
-	if ( $found ) { $filtered = trim( preg_replace( '/ +/', ' ', $filtered ) ); }
-	return $filtered;
-}
-function sanitize_text_field( $s ) { return wpcpm_test_clean( $s, false ); }
-function sanitize_textarea_field( $s ) { return wpcpm_test_clean( $s, true ); }
+// Core's two cleaners as 7.1.2 writes them, from the one copy the sponsor suites share
+// (bin/stubs/cleaners.php). A stand-in on `strip_tags()` alone writes no `&lt;` and would pass every
+// rule whatever it did, and `WPCPM_Typed_Text::cleaner_loses()` would refuse typings core keeps,
+// "We <3 WordPress" among them.
+require_once __DIR__ . '/stubs/cleaners.php';
 /**
  * What WordPress does to the title of a post a person without `unfiltered_html` saves
  * (`wp_filter_kses()` on `title_save_pre`), for the text that reaches it after the cleaner: a "&"
@@ -260,6 +238,7 @@ class WPCPM_Request {
 	public static function posted_id( $n ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? absint( $_POST[ $n ] ) : 0; }
 	public static function posted_lines( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? trim( sanitize_textarea_field( $_POST[ $n ] ) ) : $f; }
 	public static function posted_verbatim( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? trim( (string) $_POST[ $n ] ) : $f; }
+	public static function posted_raw( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? (string) wp_unslash( $_POST[ $n ] ) : $f; }
 	public static function posted_verbatim_lines( $n, $f = '' ) {
 		$v = self::posted_verbatim( $n, $f );
 		if ( $v === $f ) { return $f; }
@@ -296,6 +275,7 @@ class WPCPM_Sponsors_Dashboard {
 class WPCPM_Flash {
 	public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][ $channel ][ $user_id ?: $GLOBALS['uid'] ] = $value; }
 	public static function take( $channel, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; $v = $GLOBALS['flash'][ $channel ][ $uid ] ?? ''; unset( $GLOBALS['flash'][ $channel ][ $uid ] ); return $v; }
+	public static function sweep( $stale, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; foreach ( $GLOBALS['flash'] ?? array() as $channel => $by ) { if ( is_array( $by ) && array_key_exists( $uid, $by ) && $stale( (string) $channel, $by[ $uid ] ) ) { unset( $GLOBALS['flash'][ $channel ][ $uid ] ); } } }
 }
 /** The real writer's contract: a BOM, one line per row, cells joined by commas, a leading formula character neutralised. */
 class WPCPM_Institution_Export {
@@ -860,7 +840,8 @@ function wpcpm_test_boxes( $html, $offer_id ) {
 	}
 	foreach ( array( 'text', 'instructions' ) as $key ) {
 		if ( preg_match( '/<textarea id="wpcpm-offer-' . (int) $offer_id . '-' . $key . '" name="wpcpm_' . $key . '" rows="\d+" maxlength="(\d+)">(.*?)<\/textarea>/s', $form, $m ) ) {
-			$shown       = $shows( $m[2] );
+			// And it drops the one line feed that comes right after a text area's opening tag.
+			$shown       = $shows( (string) preg_replace( '/^(?:\r\n|\r|\n)/', '', $m[2] ) );
 			$out[ $key ] = array( 'markup' => $m[2], 'shown' => $shown, 'posts' => str_replace( "\n", "\r\n", $shown ), 'maxlength' => (int) $m[1] );
 		}
 	}
@@ -889,10 +870,19 @@ ck( 'the stand-ins are core\'s: the cleaner leaves "<3 on" as an entity and the 
 
 echo "\n--- A member's words: the title is a post title, so kses meets it; the text and the instructions are post meta, so it does not ---\n";
 $GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
+$t_count = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_team, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-1', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => $t_instr, 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-$mem_id = wpcpm_test_newest( $A );
+ck( 'a member\'s new offer titled "Save <3 on <b>hosting</b> > plans" is refused now, because the cleaner would take "<b>" and "</b>", and nothing is created', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'Title' ), $t_count ) );
+$t_new = wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'new' );
+ck( 'and the page it lands on draws the new-offer form with what was typed', array( wpcpm_test_value( $t_new, 'wpcpm_title' ), false !== strpos( $t_new, ">\n" . esc_textarea( str_replace( "\r\n", "\n", $t_instr ) ) . '</textarea>' ) ), array( $t_team, true ) );
+// Such a text is still what an offer holds when an earlier release stored it, and the boxes below
+// draw it and save it back. The offer is made as that release's handler made it: the posted fields
+// cleaned by clean(), then create(), which hands a member's title to kses through insert_text().
+$t_made = WPCPM_Sponsor_Offers::clean( array( 'title' => sanitize_text_field( $t_team ), 'text' => sanitize_textarea_field( $t_team ), 'instructions' => sanitize_textarea_field( $t_instr ), 'kind' => 'shared', 'url' => '', 'low' => '', 'expires' => '' ) );
+$mem_id = WPCPM_Sponsor_Offers::create( $A, $t_made['fields'] );
+WPCPM_Sponsor_Codes::set_shared( $mem_id, 'TYPED-1' );
 $mem    = WPCPM_Sponsor_Offers::read( $mem_id );
-ck( 'a member creates an offer titled "Save <3 on <b>hosting</b> > plans" and it keeps every word: the title as the post holds it after kses, the text as the cleaner left it', array( $r[0], $mem['title'], $mem['text'] ), array( 'offer-created', $t_team_mem, $t_team_cl ) );
+ck( 'stored so by an earlier release, it keeps every word: the title as the post holds it after kses, the text as the cleaner left it', array( $mem['title'], $mem['text'] ), array( $t_team_mem, $t_team_cl ) );
 ck( 'the instructions, with the same words and a "<" and ">" that stay as typed, quotes, "&" and line breaks, are stored as the cleaner left them', $mem['instructions'], $t_instr_cl );
 $html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
 ck( 'the new-offer form takes the plain limits, 120, 500 and 4,000 characters', array( false !== strpos( $html, 'id="wpcpm-offer-new-title" name="wpcpm_title" value="" maxlength="120" required' ), false !== strpos( $html, 'id="wpcpm-offer-new-text" name="wpcpm_text" rows="2" maxlength="500"></textarea>' ), false !== strpos( $html, 'id="wpcpm-offer-new-instructions" name="wpcpm_instructions" rows="4" maxlength="4000"></textarea>' ) ), array( true, true, true ) );
@@ -920,16 +910,26 @@ ck( 'saved unedited, the title is the bytes it was and is not written', array( W
 
 echo "\n--- An administrator holds unfiltered_html: kses never meets the words, so the save is as it was ---\n";
 $GLOBALS['uid'] = 1;
+$ctx_admin = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_ages, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-2', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck( 'an administrator\'s text with "<b>" in it is refused the same way, named by its box', array( $r[0], $r[3] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ) ) );
+card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin );
+// A typing with no tag that the cleaner still rewrites, a "<" with no ">" after it and the quote
+// marks and the ampersands after that, saved by a member and by an administrator. The text is post
+// meta, which kses never reads, so each save stores it as the cleaner left it, the same bytes.
+$t_qa_cl = 'Ages 8 &lt; 12. Q&amp;A: &quot;blocks&quot; &amp; themes, it&#039;s free.';
+$GLOBALS['uid'] = 5;
+$m_r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_text' => $t_qa_after ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_ages, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-2', 'wpcpm_text' => $t_qa_after, 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 $adm_id = wpcpm_test_newest( $A );
 $adm    = WPCPM_Sponsor_Offers::read( $adm_id );
-ck( 'the title is what the cleaner left, the "<" and ">" as typed, and the text is the same as a member\'s', array( $r[0], $adm['title'], $adm['text'] ), array( 'offer-created', $t_ages, $t_team_cl ) );
-$ctx_admin = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
+ck( 'the title is what the cleaner left, the "<" and ">" as typed, and the text is the same as a member\'s save of the same typing stores', array( $m_r[0], $r[0], $adm['title'], $adm['text'], WPCPM_Sponsor_Offers::read( $mem_id )['text'] ), array( 'offer-saved', 'offer-created', $t_ages, $t_qa_cl, $t_qa_cl ) );
 $boxes     = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $adm_id );
 ck( 'its title box shows it as typed and takes the limit', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_ages, 120 ) );
 $GLOBALS['title_writes'] = 0;
 $r = post( wpcpm_test_unedited( $A, $adm_id, array( 'wpcpm_expires' => '2026-11-30' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-ck( 'saved unedited it keeps its bytes', array( WPCPM_Sponsor_Offers::read( $adm_id )['title'], WPCPM_Sponsor_Offers::read( $adm_id )['text'], $GLOBALS['title_writes'] ), array( $t_ages, $t_team_cl, 0 ) );
+ck( 'saved unedited it keeps its bytes', array( WPCPM_Sponsor_Offers::read( $adm_id )['title'], WPCPM_Sponsor_Offers::read( $adm_id )['text'], $GLOBALS['title_writes'] ), array( $t_ages, $t_qa_cl, 0 ) );
 $GLOBALS['uid'] = 5;
 $r = post( wpcpm_test_unedited( $A, $adm_id, array( 'wpcpm_expires' => '2026-11-29' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'and a member who saves it unedited does not rewrite it in the entity form either', array( WPCPM_Sponsor_Offers::read( $adm_id )['title'], $GLOBALS['title_writes'] ), array( $t_ages, 0 ) );
@@ -998,6 +998,26 @@ $K = 'recSPONSOR0000008';
 WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $K => $row( 'Cut Example', str_repeat( 'x', 498 ) . '&quot;yy', str_repeat( 'x', 3999 ) . "\r\nyy" ) ) ), time() );
 $k = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $K ) );
 ck( 'an import over the limit is cut on a whole character as typed: an entity and a line break at the limit stay whole', array( $k['text'], WPCPM_Typed_Text::typed_length( $k['text'] ), $k['instructions'] === str_repeat( 'x', 3999 ) . "\r\n", WPCPM_Typed_Text::typed_length( $k['instructions'] ) ), array( str_repeat( 'x', 498 ) . '&quot;y', 500, true, 4000 ) );
+// The seeded title is the sponsor's name, cut the same way. An application stores the name as the
+// cleaner leaves it, a "<" that opens no tag as `&lt;` and the quote marks after it as `&quot;`, so
+// the stored form is longer than the name as typed: counted as typed, it fits the title's box whole.
+$L = 'recSPONSOR0000009'; $N = 'recSPONSOR0000010'; $O = 'recSPONSOR0000011';
+$l_typed = 'Kids <12 "free" and "fun" ';
+$l_typed .= str_repeat( 'n', 110 - mb_strlen( $l_typed ) );
+$l_name  = sanitize_text_field( $l_typed );
+// 86 characters as typed, whose stored form cut at 120 characters ends in the first five of a `&quot;`.
+$n_typed = str_repeat( 'n', 75 ) . '<' . str_repeat( '"', 7 ) . 'nnn';
+$n_name  = sanitize_text_field( $n_typed );
+// 123 as typed, with an entity at the limit and one past it.
+$o_typed = str_repeat( 'n', 119 ) . '<"x"';
+$o_name  = sanitize_text_field( $o_typed );
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $L => $row( $l_name, 'x', '' ), $N => $row( $n_name, 'x', '' ), $O => $row( $o_name, 'x', '' ) ) ), time() );
+$l = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $L ) );
+ck( 'a name of 110 characters as typed, with a "<" and quote marks and over 120 in the form it is stored in, seeds the whole name as the title', array( mb_strlen( $l_typed ), mb_strlen( $l_name ) > 120, $l['title'] === $l_name, WPCPM_Typed_Text::typed_length( $l['title'] ) ), array( 110, true, true, 110 ) );
+$n = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $N ) );
+ck( 'and so does one of 86 that a cut on its stored form would have left ending in "&quot"', array( mb_strlen( $n_typed ), '&quot' === mb_substr( mb_substr( $n_name, 0, 120 ), -5 ), $n['title'] === $n_name, WPCPM_Typed_Text::typed_length( $n['title'] ) ), array( 86, true, true, 86 ) );
+$o = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $O ) );
+ck( 'a name over the limit as typed is cut to 120 as typed, on a whole entity', array( $o['title'], WPCPM_Typed_Text::typed_length( $o['title'] ) ), array( str_repeat( 'n', 119 ) . '&lt;', 120 ) );
 
 echo "\n--- The post write: only the title meets kses, and only a member's needs insert_text() ---\n";
 $GLOBALS['uid'] = 5;
@@ -1012,6 +1032,139 @@ $no_write = $GLOBALS['title_writes'];
 WPCPM_Sponsor_Offers::save( $made, array( 'title' => 'Ages 9 < 13 welcome, adults > 19 pay' ) );
 ck( 'save() writes a title only when it is not the stored one, and then as entities for a member', array( $no_write, $GLOBALS['title_writes'], WPCPM_Sponsor_Offers::read( $made )['title'] ), array( 0, 1, 'Ages 9 &lt; 13 welcome, adults &gt; 19 pay' ) );
 $GLOBALS['uid'] = 5;
+
+echo "\n=== A save the cleaner would take words from is refused, and the form gets back what was typed ===\n";
+/** One offer form, by its id or "new", as the page draws it. */
+function wpcpm_test_form( $html, $offer_id ) {
+	$start = 'new' === $offer_id ? strpos( $html, 'wpcpm-offer__form--new' ) : strpos( $html, 'id="wpcpm-offer-form-' . (int) $offer_id . '"' );
+	return false === $start ? '' : substr( $html, $start, strpos( $html, '</form>', $start ) - $start );
+}
+/** What a browser shows in one input of a form, by its name. */
+function wpcpm_test_value( $form, $name ) {
+	return preg_match( '/name="' . preg_quote( $name, '/' ) . '" value="([^"]*)"/', $form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
+}
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['flash'] = array();
+$k_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Kept offer', 'kind' => 'codes', 'text' => 'One year free', 'instructions' => "Enter the code\r\nat checkout.", 'url' => 'https://plugins.mango-example.com/kept', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$k_saved = WPCPM_Sponsor_Offers::read( $k_id );
+$k_post  = static function ( array $change = array() ) use ( $A, $k_id ) {
+	return array_merge( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $k_id, 'wpcpm_title' => 'Kept offer', 'wpcpm_text' => 'One year free', 'wpcpm_instructions' => "Enter the code\r\nat checkout.", 'wpcpm_url' => 'https://plugins.mango-example.com/kept', 'wpcpm_kind' => 'codes', 'wpcpm_low' => '10', 'wpcpm_expires' => '' ), $change );
+};
+$k_save  = array( 'WPCPM_Sponsor_Offers', 'handle_save' );
+$k_lossy = 'Kids <12 free, adults >18 pay';
+$k_text  = "Two years free\r\nfor \"every\" student & mentor, C:\\drafts";
+$k_link  = 'https://plugins.mango-example.com/new?a=1&amp;b=2';
+
+$k_buckets = $GLOBALS['buckets']; $GLOBALS['title_writes'] = 0;
+$r = post( $k_post( array( 'wpcpm_title' => $k_lossy, 'wpcpm_text' => $k_text, 'wpcpm_url' => $k_link, 'wpcpm_audience' => array( 'mentors', 'bogus' ), 'wpcpm_low' => '5', 'wpcpm_expires' => '2026-12-31' ) ), $k_save );
+ck( 'a title the cleaner would cut to "Kids 18 pay" is refused, with the sentence that names the box by its label and says how to keep every word', $r, array( 'offer-loss', 'offers', $A, WPCPM_Typed_Text::loss_message( 'Title' ) ) );
+ck( 'and nothing is stored: the offer, its post title, the log and the program records are as they were', array( WPCPM_Sponsor_Offers::read( $k_id ) === $k_saved, $GLOBALS['title_writes'], $GLOBALS['audit'], $GLOBALS['patched'] ), array( true, 0, array(), array() ) );
+ck( 'and the refusal spends nothing of a daily ceiling or of the refusal meter', $GLOBALS['buckets'], $k_buckets );
+ck( 'the messages map has the refusal, its whole sentence the detail', WPCPM_Sponsor_Offers::messages()['offer-loss'] ?? null, array( 'error', '' ) );
+$k_html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_boxes = wpcpm_test_boxes( $k_html, $k_id );
+$k_form  = wpcpm_test_form( $k_html, $k_id );
+ck( 'the card draws the offer and its edit form open, every box as it was typed, a line break as the box counts it', array(
+	false !== strpos( $k_html, '<details class="wpcpm-offer wpcpm-offer--draft" id="wpcpm-offer-' . $k_id . '" open>' ),
+	false !== strpos( $k_html, '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-' . $k_id . '" open>' ),
+	$k_boxes['title']['shown'] ?? null,
+	$k_boxes['text']['shown'] ?? null,
+	$k_boxes['instructions']['shown'] ?? null,
+), array( true, true, $k_lossy, str_replace( "\r\n", "\n", $k_text ), "Enter the code\nat checkout." ) );
+ck( 'and every other field as it was left: the link with its "&amp;", the audience, the threshold, the last day', array(
+	wpcpm_test_value( $k_form, 'wpcpm_url' ),
+	false !== strpos( $k_form, 'name="wpcpm_audience[]" value="mentors" checked="checked"' ),
+	false !== strpos( $k_form, 'name="wpcpm_audience[]" value="managers" checked' ),
+	wpcpm_test_value( $k_form, 'wpcpm_low' ),
+	wpcpm_test_value( $k_form, 'wpcpm_expires' ),
+), array( $k_link, true, false, '5', '2026-12-31' ) );
+ck( 'with the room each box had when it was typed in', array( $k_boxes['title']['maxlength'] ?? null, $k_boxes['text']['maxlength'] ?? null, $k_boxes['instructions']['maxlength'] ?? null ), array( 120, 500, 4000 ) );
+$k_again = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'and only once: drawn again, the form shows the stored offer, folded as before', array( $k_again['title']['shown'] ?? null, $k_again['text']['shown'] ?? null, false !== strpos( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'id="wpcpm-offer-' . $k_id . '">' ) ), array( 'Kept offer', 'One year free', true ) );
+
+$r = post( $k_post( array( 'wpcpm_title' => 'Q&amp;A <b>x</b>' ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( '"Q&amp;A <b>x</b>", whose "<b>" the cleaner takes, is refused and comes back in the text input exactly as typed, the "&amp;" five characters', array( $r[0], $k_boxes['title']['shown'] ?? null, $k_boxes['title']['markup'] ?? null ), array( 'offer-loss', 'Q&amp;A <b>x</b>', 'Q&amp;amp;A &lt;b&gt;x&lt;/b&gt;' ) );
+$r1 = post( $k_post( array( 'wpcpm_text' => 'Get 10%cashback' ) ), $k_save );
+$r2 = post( $k_post( array( 'wpcpm_instructions' => "Use it\r\n<b>today</b>" ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'a text or instructions the cleaner would take from are refused the same way, each named by its own label', array( $r1[0], $r1[3], $r2[0], $r2[3] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), 'offer-loss', WPCPM_Typed_Text::loss_message( 'How to redeem it' ) ) );
+ck( 'and the form gets the last one\'s typing: posting it again dropped what the first kept', array( $k_boxes['text']['shown'] ?? null, $k_boxes['instructions']['shown'] ?? null ), array( 'One year free', "Use it\n<b>today</b>" ) );
+
+$r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
+$GLOBALS['uid'] = 1;
+$k_manager = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $k_id );
+$GLOBALS['uid'] = 5;
+$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'another person never sees it, a manager drawing the same offer included, while the one who typed it does', array( $k_manager['title']['shown'] ?? null, wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( 'Kept offer', $k_lossy ) );
+$r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
+$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'and another form never does: the new-offer form and every other offer\'s form are drawn as stored', array( wpcpm_test_value( wpcpm_test_form( $k_html, 'new' ), 'wpcpm_title' ), wpcpm_test_boxes( $k_html, $mem_id )['title']['shown'] ?? null, wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( '', WPCPM_Typed_Text::typed_text( WPCPM_Sponsor_Offers::read( $mem_id )['title'] ), $k_lossy ) );
+
+$k_count = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'A <b>bold</b> offer', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'SEALED-CODE-1', 'wpcpm_text' => 'Plain words', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
+ck( 'a new offer the cleaner would take words from creates nothing', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'Title' ), $k_count ) );
+ck( 'and its shared code is not kept: the pool holds a code sealed, and a flash would hold it in the clear', strpos( serialize( $GLOBALS['flash'] ), 'SEALED-CODE-1' ), false );
+$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_new  = wpcpm_test_form( $k_html, 'new' );
+ck( 'its typing comes back in the new-offer form, the kind chosen with it, and in no offer\'s form', array( wpcpm_test_value( $k_new, 'wpcpm_title' ), false !== strpos( $k_new, 'name="wpcpm_kind" value="shared" checked="checked"' ), wpcpm_test_value( $k_new, 'wpcpm_shared' ), wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( 'A <b>bold</b> offer', true, '', 'Kept offer' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'A <b>bold</b> pool', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "SEALED-2\nSEALED-3", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
+ck( 'nor are pasted codes', array( $r[0], strpos( serialize( $GLOBALS['flash'] ), 'SEALED-2' ) ), array( 'offer-loss', false ) );
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'For <b>A</b> only', 'wpcpm_kind' => 'codes', 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
+$k_other = wpcpm_test_value( wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $B, $ctx_admin ), 'new' ), 'wpcpm_title' );
+$k_own   = wpcpm_test_value( wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), 'new' ), 'wpcpm_title' );
+ck( 'a manager\'s typing on one sponsor\'s new-offer form never reaches another sponsor\'s', array( $r[0], $k_other, $k_own ), array( 'offer-loss', '', 'For <b>A</b> only' ) );
+$GLOBALS['uid'] = 5;
+
+$k_long = str_repeat( 'Long title ', 11 ) . 'and more words';
+$r = post( $k_post( array( 'wpcpm_title' => $k_long, 'wpcpm_text' => 'Kept with it' ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'a title over its limit is refused as before, and its form now comes back with the typing, the title kept up to the box\'s limit of 120', array( $r[0], $r[3], $k_boxes['title']['shown'] ?? null, $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'The title is 15 characters over the limit of 120. Shorten it and save again.', mb_substr( $k_long, 0, 120 ), 'Kept with it' ) );
+$r = post( $k_post( array( 'wpcpm_text' => str_repeat( 'x', 501 ) ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'and so does a text over its limit', array( $r[0], $r[3], $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'What you get is 1 character over the limit of 500. Shorten it and save again.', str_repeat( 'x', 500 ) ) );
+
+$r = post( $k_post( array( 'wpcpm_title' => "Bad \xC3\x28 bytes", 'wpcpm_text' => 'Kept beside it' ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'a title that is not valid UTF-8, which the cleaner empties, is refused as a loss and not kept: its box shows the stored title, and the text beside it is kept', array( $r[0], $k_boxes['title']['shown'] ?? null, $k_boxes['text']['shown'] ?? null ), array( 'offer-loss', 'Kept offer', 'Kept beside it' ) );
+
+$r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
+$r = post( $k_post( array( 'wpcpm_low' => '7' ) ), $k_save );
+$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'a typing a refusal kept goes when the form is posted again, so a save that went through before the page drew it is drawn as saved', array( $r[0], wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null, wpcpm_test_value( wpcpm_test_form( $k_html, $k_id ), 'wpcpm_low' ) ), array( 'offer-saved', 'Kept offer', '7' ) );
+
+$k_keeps = array( 'wpcpm_title' => 'We <3 WordPress', 'wpcpm_text' => "Ages 8 < 12 welcome, adults > 18 pay\r\nQ&A: \"blocks\" & themes, it's free, 100% off", 'wpcpm_instructions' => "a <\r\nline, &amp; and &copy; typed out, and \xF0\x9F\x98\x80" );
+$r = post( $k_post( $k_keeps ), $k_save );
+$k_got = WPCPM_Sponsor_Offers::read( $k_id );
+ck( 'a typing the cleaner keeps whole saves as before: a "<3", a "<" before a space or a line break, quotes, "&", typed-out entities, a "%" and an emoji', array( $r[0], $k_got['title'], $k_got['text'], $k_got['instructions'] ), array( 'offer-saved', 'We &lt;3 WordPress', sanitize_textarea_field( $k_keeps['wpcpm_text'] ), sanitize_textarea_field( $k_keeps['wpcpm_instructions'] ) ) );
+ck( 'and keeps nothing for the form', isset( $GLOBALS['flash'][ 'typed:offer:' . $A . ':' . $k_id ][5] ), false );
+$r = post( $k_post( array( 'wpcpm_title' => $k_lossy, 'wpcpm_instructions' => "\r\nleading break" ) ), $k_save );
+$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'a kept typing that starts with a line break comes back with it: the parser drops the line feed right after a text area\'s opening tag, so the box writes one of its own', array( $r[0], $k_boxes['instructions']['shown'] ?? null ), array( 'offer-loss', "\nleading break" ) );
+
+echo "\n=== A box posted back as it was drawn is the stored text, whatever is in it ===\n";
+// This card's own save and the import store what the cleaner keeps. Another writer need not: here a
+// tag and a percent octet the cleaner would take are held as they were written.
+$GLOBALS['uid'] = 5; $GLOBALS['flash'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$s_text  = 'Use code <SAVE20>';
+$s_instr = "Get 10%cashback\r\nat checkout.";
+$s_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Stored by another writer', 'kind' => 'codes', 'text' => $s_text, 'instructions' => $s_instr, 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$r     = post( wpcpm_test_unedited( $A, $s_id, array( 'wpcpm_expires' => '2026-12-31' ) ), $k_save );
+$s_got = WPCPM_Sponsor_Offers::read( $s_id );
+ck( 'an offer whose text holds "<SAVE20>" and whose instructions hold "10%cashback", posted back as drawn with only the last day changed, saves', array( $r[0], $s_got['expires'] ), array( 'offer-saved', '2026-12-31' ) );
+ck( 'and the two keep their bytes: a box posted back as drawn is neither asked about losses nor rewritten', array( $s_got['text'] === $s_text, $s_got['instructions'] === $s_instr ), array( true, true ) );
+$r = post( wpcpm_test_unedited( $A, $s_id, array( 'wpcpm_text' => 'Use code <SAVE20> now' ) ), $k_save );
+ck( 'the same box edited to "Use code <SAVE20> now" is refused, and nothing is stored', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_id )['text'] === $s_text ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), true ) );
+card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$r = post( wpcpm_test_unedited( $A, $s_id, array( 'wpcpm_instructions' => "Get 10%cashback\r\nat checkout, now." ) ), $k_save );
+ck( 'and so are the instructions, edited', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_id )['instructions'] === $s_instr ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'How to redeem it' ), true ) );
+card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+// The unedited test reads what was typed, never what the cleaner makes of it: a typing the cleaner
+// cuts back to the stored text is an edit, and the words it would take are the person's.
+$s_plain = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Stored plain', 'kind' => 'codes', 'text' => 'Use code SAVE20', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$r       = post( wpcpm_test_unedited( $A, $s_plain, array( 'wpcpm_text' => 'Use code SAVE20<b></b>' ) ), $k_save );
+ck( 'a stored "Use code SAVE20" typed as "Use code SAVE20<b></b>", which the cleaner cuts back to the stored text, is refused, and the stored text is unchanged', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_plain )['text'] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), 'Use code SAVE20' ) );
+card( 'WPCPM_Sponsor_Offers', $A, $ctx );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

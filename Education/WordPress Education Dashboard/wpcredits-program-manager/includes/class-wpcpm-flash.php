@@ -25,8 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * A string, an array of them at any depth, or any other scalar comes back exactly as it was
  * given. Core's metadata API unslashes every value it writes (`update_metadata()` passes it
- * through `wp_unslash()`), and the values handed in here are unslashed already, so both writes
- * hand it a slashed copy (`wp_slash()`). Written as it stands, a value would lose a backslash
+ * through `wp_unslash()`), and the values handed in here are unslashed already, so every write
+ * hands it a slashed copy (`wp_slash()`). Written as it stands, a value would lose a backslash
  * on every write, and one that waits while another channel is taken is written again: a path,
  * or what somebody typed into a form that was refused, would come back altered and still look
  * right. An object's strings are not covered: `wp_slash()` leaves an object as it is, while
@@ -112,6 +112,44 @@ class WPCPM_Flash {
 		$taken[ $memo ] = $value;
 
 		return $value;
+	}
+
+	/**
+	 * Clear, unread, every channel a test picks.
+	 *
+	 * For a value worth something only for a while, whose page may never come to take it: left
+	 * alone, it would wait in user meta for good. What is left is written in one go, as the slashed
+	 * copy `set()` and `take()` hand core, so it comes back as it was given; when nothing is picked,
+	 * nothing is written.
+	 *
+	 * @param callable $stale   Called with each channel's name and value; true clears that channel.
+	 * @param int      $user_id Optional user; defaults to the current user.
+	 */
+	public static function sweep( callable $stale, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+
+		if ( ! $user_id ) {
+			return;
+		}
+
+		$pending = self::pending( $user_id );
+		$left    = array();
+
+		foreach ( $pending as $channel => $value ) {
+			if ( ! call_user_func( $stale, (string) $channel, $value ) ) {
+				$left[ $channel ] = $value;
+			}
+		}
+
+		if ( count( $left ) === count( $pending ) ) {
+			return;
+		}
+
+		if ( empty( $left ) ) {
+			delete_user_meta( $user_id, self::META );
+		} else {
+			update_user_meta( $user_id, self::META, wp_slash( $left ) );
+		}
 	}
 
 	/**
