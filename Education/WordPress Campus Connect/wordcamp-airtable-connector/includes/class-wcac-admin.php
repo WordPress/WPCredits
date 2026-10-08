@@ -297,7 +297,7 @@ class WCAC_Admin {
 		}
 
 		if ( 403 === $status ) {
-			WCAC_Logger::log( 'error', 'Central access test: HTTP 403. The credential authenticated, but that account on Central does not hold view_wordcamp_reports.' );
+			WCAC_Logger::log( 'error', 'Central access test: HTTP 403. The credential authenticated, but that account on Central holds neither the campus_connect_viewer subrole nor view_wordcamp_reports.' );
 
 			return 'central_403';
 		}
@@ -406,7 +406,7 @@ class WCAC_Admin {
 			'central_locked'  => array( 'warning', __( 'The Central credential is defined in wp-config.php, so the form was ignored. Remove those constants to manage it here.', 'wordcamp-airtable-connector' ) ),
 			'central_ok'      => array( 'success', __( 'Central accepted the credential and returned the Campus Connect report. Nothing was written to Airtable.', 'wordcamp-airtable-connector' ) ),
 			'central_401'     => array( 'error', __( 'Central rejected the credential (HTTP 401). The username or application password may be wrong or revoked, or this host may strip the Authorization header. The log below says which.', 'wordcamp-airtable-connector' ) ),
-			'central_403'     => array( 'error', __( 'Central authenticated that account, but it does not hold view_wordcamp_reports (HTTP 403).', 'wordcamp-airtable-connector' ) ),
+			'central_403'     => array( 'error', __( 'Central authenticated that account, but it holds neither the campus_connect_viewer subrole nor view_wordcamp_reports (HTTP 403). Ask for campus_connect_viewer, which opens this one report and nothing else.', 'wordcamp-airtable-connector' ) ),
 			'central_failed'  => array( 'error', __( 'Could not read the Campus Connect report from Central. See the log below for the exact error.', 'wordcamp-airtable-connector' ) ),
 		);
 
@@ -990,7 +990,7 @@ class WCAC_Admin {
 			?>
 			<h2><?php esc_html_e( 'Central credential', 'wordcamp-airtable-connector' ); ?></h2>
 			<p class="description">
-				<?php esc_html_e( 'The Campus Connect report is not public. Reading it needs an application password for an account on central.wordcamp.org that holds view_wordcamp_reports. That is an account on Central - it has nothing to do with the WordPress user you are signed in as here.', 'wordcamp-airtable-connector' ); ?>
+				<?php esc_html_e( 'The Campus Connect report is not public. Reading it needs an application password for an account on central.wordcamp.org that holds the campus_connect_viewer subrole, which opens this one report and nothing else, or view_wordcamp_reports. That is an account on Central - it has nothing to do with the WordPress user you are signed in as here.', 'wordcamp-airtable-connector' ); ?>
 			</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" autocomplete="off">
 				<?php wp_nonce_field( 'wcac_central' ); ?>

@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.9
+Stable tag: 1.1.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,9 +25,10 @@ It reads three sources:
   `/sponsors`, crawled from the `Site URL` on the camp record.
 * **central.wordcamp.org, one authenticated route.**
   `/wp-json/wordcamp-reports/v1/campus-connect-details`, the Campus Connect
-  details report. This one needs an account on Central that holds
-  `view_wordcamp_reports`; anonymous callers get HTTP 401. It is off until you
-  configure that credential, and none of the other five syncs depend on it.
+  details report. This one needs an account on Central that holds the
+  `campus_connect_viewer` subrole or `view_wordcamp_reports`; anonymous
+  callers get HTTP 401. It is off until you configure that credential, and
+  none of the other five syncs depend on it.
 
 Everything is written with Airtable's upsert endpoint, merging on a stable key,
 so re-running a sync updates rows in place instead of duplicating them.
@@ -56,9 +57,9 @@ existed, so this sync is deliberately more cautious than the other five:
 = What this plugin cannot do =
 
 The WordCamp Reports plugin on Central exposes exactly one live REST route,
-`campus-connect-details`, gated on the `view_wordcamp_reports` capability and
-answering 401 to anonymous callers. That route is the Campus Connect sync's
-only source. The financial reports (Ticket Revenue, Sponsor Invoices, Payment
+`campus-connect-details`, gated on the `view_wordcamp_reports` capability or
+the narrower `view_campus_connect_report` and answering 401 to anonymous
+callers. That route is the Campus Connect sync's only source. The financial reports (Ticket Revenue, Sponsor Invoices, Payment
 Activity, Sponsorship Grants) are still admin-only CSV exports with no REST
 route of their own, so no financial data can be synced by any API client, this
 one included.
@@ -113,11 +114,15 @@ preflight has passed and names the command, but cannot run it for you.
    authenticates at all, and what the report route answers. If application
    passwords are not available to you there, stop: this design has no
    fallback, because a cookie and nonce cannot be replayed from cron.
-2. On central.wordcamp.org, signed in as a user who holds
-   `view_wordcamp_reports`, go to **Users > Profile > Application Passwords**
-   and create one named for this site. Copy it once; it is not shown again.
-   This is an account on Central, and has nothing to do with the WordPress
-   administrator account you use on this site.
+2. Signed in as the account that will read the report, go to
+   **Users > Profile > Application Passwords** and create one named for this
+   site. Copy it once; it is not shown again. That account needs the
+   `campus_connect_viewer` subrole or `view_wordcamp_reports` on Central (see
+   the 403 answer below). The subrole grants no wp-admin access on Central,
+   but application passwords belong to the user rather than to one site, so
+   it can be created from the profile on any wordcamp.org site the account
+   can open. This is an account on Central, and has nothing to do with the
+   WordPress administrator account you use on this site.
 3. Store it. There are three routes, and the first is preferred:
    * In `wp-config.php`, as `define( 'WCAC_CENTRAL_USER', '<the login name>' );`
      and `define( 'WCAC_CENTRAL_APP_PASSWORD', '<the application password>' );`.
@@ -256,8 +261,13 @@ report route itself answers.
   which some Apache and proxy configurations do. Suspect this when the same
   credential works from `curl` on another machine.
 
-A 403 is a different answer: the account authenticated, but does not hold
-`view_wordcamp_reports`.
+A 403 is a different answer: the account authenticated, but holds neither the
+`campus_connect_viewer` subrole nor `view_wordcamp_reports`. Ask for the
+subrole. It grants `view_campus_connect_report`, which opens this one report
+route and nothing else, where `view_wordcamp_reports` (the `report_viewer`
+subrole) opens every private report on Central. Subroles are granted in
+`$wcorg_subroles` in Central's configuration, and this one is defined by
+WordPress/wordcamp.org#2156.
 
 = Where does the Central credential travel, and who can see it? =
 
@@ -299,10 +309,11 @@ reason is on the settings screen, and in `wp wcac status` as `campus blocked`.
 Five of the faults that arm it are about access. Four latch the first time
 they are seen, because no number of retries fixes any of them: no Central
 credential is configured, the source site would have to carry that credential
-in cleartext, Central rejected the credential (401), or the account does not
-hold `view_wordcamp_reports` (403). The fifth is everything else that fails, a
-missing report route and a redirect included, and that one has to fail on five
-consecutive runs before it latches. The count is on the status screen the
+in cleartext, Central rejected the credential (401), or the account holds
+neither the `campus_connect_viewer` subrole nor `view_wordcamp_reports` (403).
+The fifth is everything else that fails, a missing report route and a
+redirect included, and that one has to fail on five consecutive runs before it
+latches. The count is on the status screen the
 whole time it is climbing, and a run that succeeds puts it back to zero.
 
 Four more guards are about what would be written rather than about access.
@@ -355,6 +366,17 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.10 =
+
+* Changed: a 403 from Central now names the `campus_connect_viewer` subrole
+  alongside `view_wordcamp_reports`, in the sync's failure reason, `wp wcac
+  central-check`, the access test and the Central credential screen. The
+  subrole, defined by WordPress/wordcamp.org#2156, grants
+  `view_campus_connect_report`, which opens the Campus Connect report route and
+  nothing else, so it is the one to ask for. The readme's setup steps and 403
+  answer say the same, and note that an account holding only the subrole can
+  create its application password from any wordcamp.org site it can open.
 
 = 1.1.9 =
 

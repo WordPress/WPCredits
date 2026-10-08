@@ -3,7 +3,7 @@
  * Plugin Name:       WordCamp Airtable Connector
  * Plugin URI:        https://github.com/gomp/wordcamp-airtable-connector
  * Description:       Pulls WordCamps, Meetups, Sessions, Speakers, Sponsors and Campus Connect events from the WordCamp.org REST API and upserts them into an Airtable base on a schedule.
- * Version:           1.1.9
+ * Version:           1.1.10
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WCAC_VERSION', '1.1.9' );
+define( 'WCAC_VERSION', '1.1.10' );
 define( 'WCAC_FILE', __FILE__ );
 define( 'WCAC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCAC_URL', plugin_dir_url( __FILE__ ) );

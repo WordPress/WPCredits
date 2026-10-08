@@ -240,9 +240,9 @@ class WCAC_CLI {
 	 *
 	 * The identity probe proves the credential authenticates. It does NOT prove
 	 * the report route answers: a 403 there means the account authenticates but
-	 * does not hold view_wordcamp_reports, and reporting that as success is how
-	 * an operator concludes they are finished when Campus Connect cannot read a
-	 * thing. The default therefore says plainly what was not checked, and
+	 * holds neither the campus_connect_viewer subrole nor view_wordcamp_reports,
+	 * and reporting that as success is how an operator concludes they are
+	 * finished when Campus Connect cannot read a thing. The default therefore says plainly what was not checked, and
 	 * --deep fetches the report so monitoring can opt in to the expensive
 	 * answer rather than paying for it on every run.
 	 *
@@ -1877,7 +1877,10 @@ class WCAC_CLI {
 		}
 
 		if ( 403 === $status ) {
-			return array( 'Authenticated, but that account does not hold view_wordcamp_reports on Central.' );
+			return array(
+				'Authenticated, but that account holds neither the campus_connect_viewer subrole nor view_wordcamp_reports on Central.',
+				'Ask for campus_connect_viewer: it grants view_campus_connect_report, which opens this one report and nothing else. Subroles are granted in $wcorg_subroles on Central.',
+			);
 		}
 
 		if ( 404 === $status ) {

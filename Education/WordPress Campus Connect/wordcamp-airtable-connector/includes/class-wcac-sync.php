@@ -977,7 +977,7 @@ class WCAC_Sync {
 		} elseif ( 401 === $status ) {
 			$why = 'Central rejected the credential (HTTP 401). Three things cause this: the username or application password is wrong, the password was revoked, or this host strips the Authorization header before PHP sees it. Run "wp wcac central-check" to tell them apart.';
 		} elseif ( 403 === $status ) {
-			$why = 'Authenticated, but that Central account does not hold view_wordcamp_reports (HTTP 403).';
+			$why = 'Authenticated, but that Central account holds neither the campus_connect_viewer subrole nor view_wordcamp_reports (HTTP 403). Ask for campus_connect_viewer, which opens this one report and nothing else.';
 		} elseif ( 404 === $status ) {
 			$why = 'The Campus Connect report route is not there (HTTP 404). It may have been renamed.';
 		} elseif ( $status >= 300 && $status < 400 ) {
