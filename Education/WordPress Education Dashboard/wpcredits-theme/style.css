@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.10
+Version: 1.24.11
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -277,10 +277,10 @@ body .skip-link.screen-reader-text:focus {
    the group wraps to a row of its own under it, and every link keeps its whole label. With the
    site's mark and name together about 340px wide that happens up to about 900px to a chip
    carrying links to both pages, as an administrator's or a student-and-mentor's does, and up to
-   about 720px to a student's or a mentor's alone. Wider than that, and for a visitor at any
-   width, the bar is the one row it always was, and the row gap, which only shows between
-   wrapped rows, changes nothing. How a wrapped bar is spaced is further down, beside the
-   phone's two rows. */
+   about 720px to a student's or a mentor's alone. Wider than that the bar is the one row it
+   always was, and the row gap, which only shows between wrapped rows, changes nothing. A chip
+   with no link to a report card is the exception, and is dealt with just before the spacing of
+   a wrapped bar, further down, beside the phone's two rows. */
 .wpc-header__inner {
 	column-gap: 40px;
 	flex-wrap: wrap;
@@ -1372,6 +1372,31 @@ p.is-style-pill {
 	.wpc-viewer--guest a {
 		font-size: 14px;
 		padding: 9px 14px;
+	}
+}
+
+/* The group of a reader whose chip has no link to the Student Report Card or the Mentor Report
+   Card, a sponsor member's "Log out" or a visitor's "Log in", is narrower than the chip of anyone
+   who has such a link, so the group's minimum width, its widest item, is smaller: the "Need
+   help?" button for a sponsor member, the menu for a visitor. Beside the brand it then wrapped its
+   items inside itself, a sponsor member's menu, button and chip piling into a column of two or
+   three rows. Here the group is never narrower than its items on one line: where they do not fit
+   beside the brand, inside the gutters, the whole group takes a row of its own under it, items on
+   one line, and they wrap only if even that row cannot hold them. `fit-content` is that one-line
+   width held to the width of the row, so the group is never wider than the bar.
+
+   With the site's mark and name about 340px wide and a one-item menu, a sponsor member's three
+   items are about 320px wide: the bar is one row from about 758px, and under that the group takes
+   the second row of a wrapped bar. A visitor's menu and button are about 190px, which fit beside
+   the brand from 641px, so the rule changes nothing there; it matters to a visitor only when a
+   longer menu stops fitting beside the brand.
+
+   A chip with a link to either page is wide enough to set the group's width itself, and its bar
+   keeps the boundaries described above, including the menu and the button sharing a row over the
+   chip where the three items do not fit beside the brand. */
+@media ( min-width: 641px ) {
+	.wpc-nav__center:not( :has( .wpc-viewer__link ) ) {
+		min-width: fit-content;
 	}
 }
 

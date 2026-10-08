@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.10
+Stable tag: 1.24.11
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.11 =
+* Header: for a signed-in reader whose account chip has no link to the Student Report Card or the Mentor Report Card (a sponsor member's is only Log out), the menu, Need help? and Log out no longer pile into a column of two or three rows beside the site's name. With the site's mark and name together about 340px wide and a one-item menu, that was up to about 757px, where the header was about 129px tall at 641px and 83px tall at 700px. In that range they now sit on one line in a row under the name (about 105px tall with JavaScript on, spaced as any two-row header is), and from about 758px they share the name's row, 77px tall, as before.
+* Header: an administrator's, a student's and a mentor's header is as in 1.24.10 at every width, whatever the menu. A visitor's is as before too while the menu and the Log in button fit beside the name, which a one-item menu does from 641px; with a longer menu, the menu and the Log in button sit on one line under the name where they do not fit.
+* Landing page: the audiences pattern calls its fourth audience Administrators, and its line reads "Run the program: review applications, open accounts and promote vetted mentors."
+* For developers: the stylesheet no longer carries a rule for the last-updated line inside the mentor card's identity block, which the plugin never prints there.
 
 = 1.24.10 =
 * Header: the Mentor Report Card's pinned group heading and the open menu sit right below the header however tall it grows, and anchored cards, items and guide headings land 28px below it, a student's row 24px more. On a phone the open menu spans the screen, not a strip under its button. With JavaScript off, the heading and the menu above 640px sit 76px down and anchors land 104px down, 208px on a phone, as in 1.24.9 (a student's row 24px more at every width, now 232px on a phone).

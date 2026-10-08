@@ -231,14 +231,6 @@
 	margin: 0;
 }
 
-/* No generated "· " separator any more. It existed to run the name, the count and the
-   last-updated line together on one line; the name is a heading above them now, and
-   the plugin already joins the other two into a single sentence. A leading dot would
-   read as a missing first item. */
-.wpcpm-dashboard__mentor-identity .wpcpm-dashboard__updated::before {
-	content: "· ";
-}
-
 /* ==========================================================================
    Triage strip - the counts double as filters
    ========================================================================== */

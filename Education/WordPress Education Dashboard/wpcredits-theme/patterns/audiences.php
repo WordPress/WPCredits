@@ -3,7 +3,7 @@
  * Title: Four audiences
  * Slug: wpcredits/audiences
  * Categories: wpcredits
- * Description: A pale band with one column per audience the program serves - students, mentors, institutions and program managers.
+ * Description: A pale band with one column per audience the program serves - students, mentors, institutions and administrators.
  * Keywords: audiences, roles, students, mentors
  * Viewport Width: 1400
  *
@@ -35,8 +35,8 @@ $wpcredits_audiences = array(
 	array(
 		'icon'  => 'cog',
 		'tone'  => 'gray',
-		'title' => __( 'Program managers', 'wpcredits-theme' ),
-		'text'  => __( 'Run the program: sync Airtable, provision accounts, promote vetted mentors.', 'wpcredits-theme' ),
+		'title' => __( 'Administrators', 'wpcredits-theme' ),
+		'text'  => __( 'Run the program: review applications, open accounts and promote vetted mentors.', 'wpcredits-theme' ),
 	),
 );
 

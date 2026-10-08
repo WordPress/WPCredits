@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.10\n"
+"Project-Id-Version: WPCredits 1.24.11\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-07T23:11:58+00:00\n"
+"POT-Creation-Date: 2026-10-08T08:55:59+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -131,7 +131,7 @@ msgstr ""
 
 #: patterns/audiences.php
 msgctxt "Pattern description"
-msgid "A pale band with one column per audience the program serves - students, mentors, institutions and program managers."
+msgid "A pale band with one column per audience the program serves - students, mentors, institutions and administrators."
 msgstr ""
 
 #: patterns/audiences.php:20
@@ -159,11 +159,11 @@ msgid "Recognize open-source work as coursework and place your students with men
 msgstr ""
 
 #: patterns/audiences.php:38
-msgid "Program managers"
+msgid "Administrators"
 msgstr ""
 
 #: patterns/audiences.php:39
-msgid "Run the program: sync Airtable, provision accounts, promote vetted mentors."
+msgid "Run the program: review applications, open accounts and promote vetted mentors."
 msgstr ""
 
 #: patterns/cta.php
