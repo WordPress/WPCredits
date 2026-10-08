@@ -67,7 +67,6 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function esc_js( $s ) { return addslashes( (string) $s ); }
 /** Core's own last step in _sanitize_text_fields(): every `%XX` is removed (finding 1). */
 function wpcpm_test_strip_percent( $s ) { while ( preg_match( '/%[a-f0-9]{2}/i', $s, $m ) ) { $s = str_replace( $m[0], '', $s ); } return $s; }
 function sanitize_text_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }

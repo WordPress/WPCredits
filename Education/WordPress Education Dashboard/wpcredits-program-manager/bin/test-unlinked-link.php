@@ -100,7 +100,6 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
-function esc_js( $s ) { return str_replace( array( "'", "\n" ), array( "\\'", '' ), (string) $s ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n" ), '', strip_tags( (string) $s ) ) ); }
 function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }

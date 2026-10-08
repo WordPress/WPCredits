@@ -409,6 +409,31 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
+	 * The address every form on a report posts to.
+	 *
+	 * For an administrator it names the institution the page is showing, because a press that
+	 * acts on nothing, such as Save on a report removed in another tab, has no report to read
+	 * its institution from, and a post to `admin-post.php` carries the form's fields and none
+	 * of the query string of the page it was on. Without it that press lands on the first
+	 * institution with a member. A member's form posts to the bare address: their own membership
+	 * places them. A press that acts on something still takes its institution from the report and
+	 * never from this address, unless what it acted on names no institution; `leave()` says so.
+	 *
+	 * @param string $record Institutions record ID the page is showing.
+	 * @return string
+	 */
+	private static function post_url( $record ) {
+		$url    = admin_url( 'admin-post.php' );
+		$record = trim( (string) $record );
+
+		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record, $url );
+		}
+
+		return $url;
+	}
+
+	/**
 	 * The button that reads a semester out of the program records and writes the first draft.
 	 *
 	 * The switcher travels on the action URL for a manager, and only for a manager, for the
@@ -698,9 +723,10 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * One report, open for editing, with the document under the form that shapes it.
 	 *
-	 * The manager flag the other cards take is not among the arguments: nothing on this
-	 * screen posts a switcher, because every form here names a report and each handler
-	 * resolves the institution from that report's own meta.
+	 * The manager flag the other cards take is not among the arguments: every form here names
+	 * a report and each handler resolves the institution from that report's own meta, and the
+	 * forms put the institution the page is showing on their action address only for the way
+	 * back from a press that finds the report gone (see `post_url()`).
 	 *
 	 * @param WP_Post $post   The report.
 	 * @param string  $record Institutions record ID.
@@ -735,7 +761,7 @@ final class WPCPM_Semester_Report_Screen {
 		}
 
 		if ( $may_edit ) {
-			self::render_form( $post, $snapshot, $stash );
+			self::render_form( $post, $snapshot, $stash, $record );
 		} else {
 			printf(
 				'<p class="wpcpm-report-card__note">%s</p>',
@@ -746,7 +772,7 @@ final class WPCPM_Semester_Report_Screen {
 		}
 
 		self::render_actions( $post, $state, $record );
-		self::render_revisions( $post );
+		self::render_revisions( $post, $record );
 
 		echo '<div class="wpcpm-report-card__preview">';
 		printf( '<h3 class="wpcpm-report-card__preview-title">%s</h3>', esc_html__( 'The report as it prints', 'wpcredits-program-manager' ) );
@@ -848,8 +874,9 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param WP_Post $post     The report.
 	 * @param array   $snapshot The stored snapshot.
 	 * @param array   $stash    A refused save's values, or an empty array.
+	 * @param string  $record   Institutions record ID the page is showing.
 	 */
-	private static function render_form( WP_Post $post, array $snapshot, array $stash ) {
+	private static function render_form( WP_Post $post, array $snapshot, array $stash, $record ) {
 		$sections = WPCPM_Semester_Report::sections();
 		$stored   = self::stored_sections( $post );
 		$choices  = self::stored_choices( $post );
@@ -863,7 +890,7 @@ final class WPCPM_Semester_Report_Screen {
 			$choices = array_merge( $choices, $stash['choices'] );
 		}
 
-		self::form_start( 'wpcpm-report-card__form', self::ACTION_SAVE, self::ACTION_SAVE . '_' . $post->ID, __( 'Saving', 'wpcredits-program-manager' ), $post->ID );
+		self::form_start( 'wpcpm-report-card__form', self::ACTION_SAVE, self::ACTION_SAVE . '_' . $post->ID, __( 'Saving', 'wpcredits-program-manager' ), $post->ID, $record );
 
 		// **The stale-save fence, and the whole reason this field exists.** Decision 13 puts
 		// several equal people on one institution, so two of them can be writing the same
@@ -1092,7 +1119,8 @@ final class WPCPM_Semester_Report_Screen {
 			self::ACTION_REFRESH_CONSENT,
 			$post->ID,
 			__( 'Checking with the program records', 'wpcredits-program-manager' ),
-			__( 'Check the students\' answers again', 'wpcredits-program-manager' )
+			__( 'Check the students\' answers again', 'wpcredits-program-manager' ),
+			$record
 		);
 
 		if ( WPCPM_Semester_Report::STATE_APPROVED === $state ) {
@@ -1100,14 +1128,16 @@ final class WPCPM_Semester_Report_Screen {
 				self::ACTION_REOPEN,
 				$post->ID,
 				__( 'Reopening', 'wpcredits-program-manager' ),
-				__( 'Reopen for editing', 'wpcredits-program-manager' )
+				__( 'Reopen for editing', 'wpcredits-program-manager' ),
+				$record
 			);
 		} else {
 			self::render_button_form(
 				self::ACTION_APPROVE,
 				$post->ID,
 				__( 'Approving', 'wpcredits-program-manager' ),
-				__( 'Approve this report', 'wpcredits-program-manager' )
+				__( 'Approve this report', 'wpcredits-program-manager' ),
+				$record
 			);
 		}
 
@@ -1127,15 +1157,16 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * A one-button form posting to `admin-post.php` with a nonce keyed to the report.
 	 *
-	 * @param string $action The `admin_post_` action.
+	 * @param string $action  The `admin_post_` action.
 	 * @param int    $post_id The report.
-	 * @param string $busy   What the pressed control says while the request is in flight.
-	 * @param string $label  The button.
+	 * @param string $busy    What the pressed control says while the request is in flight.
+	 * @param string $label   The button.
+	 * @param string $record  Institutions record ID the page is showing.
 	 */
-	private static function render_button_form( $action, $post_id, $busy, $label ) {
+	private static function render_button_form( $action, $post_id, $busy, $label, $record ) {
 		printf(
 			'<form class="wpcpm-report-card__action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_url( self::post_url( $record ) ),
 			esc_attr( $busy )
 		);
 
@@ -1162,11 +1193,16 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param int $post_id The report.
 	 */
 	public static function render_ask_form( $post_id ) {
+		// The manager screens list every institution's reports together, so the institution the
+		// row is about is the report's own.
+		$post = class_exists( 'WPCPM_Semester_Report' ) ? get_post( (int) $post_id ) : null;
+
 		self::render_button_form(
 			self::ACTION_ASK,
 			$post_id,
 			__( 'Sending', 'wpcredits-program-manager' ),
-			__( 'Ask the students', 'wpcredits-program-manager' )
+			__( 'Ask the students', 'wpcredits-program-manager' ),
+			$post instanceof WP_Post ? WPCPM_Semester_Report::institution_of( $post ) : ''
 		);
 	}
 
@@ -1176,9 +1212,10 @@ final class WPCPM_Semester_Report_Screen {
 	 * Kept folded: it is a list nobody reads until something has gone wrong, and it is the
 	 * longest thing on an already long section.
 	 *
-	 * @param WP_Post $post The report.
+	 * @param WP_Post $post   The report.
+	 * @param string  $record Institutions record ID the page is showing.
 	 */
-	private static function render_revisions( WP_Post $post ) {
+	private static function render_revisions( WP_Post $post, $record ) {
 		$revisions = wp_get_post_revisions( $post->ID, array( 'posts_per_page' => 20 ) );
 
 		if ( empty( $revisions ) ) {
@@ -1210,7 +1247,7 @@ final class WPCPM_Semester_Report_Screen {
 
 			printf(
 				'<form class="wpcpm-report-card__restore" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_url( self::post_url( $record ) ),
 				esc_attr__( 'Putting it back', 'wpcredits-program-manager' )
 			);
 
@@ -1236,17 +1273,19 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param string $nonce_action The nonce action, keyed to the report.
 	 * @param string $busy         What the pressed control says while the request is in flight.
 	 * @param int    $post_id      The report the form acts on.
+	 * @param string $record       Institutions record ID the page is showing.
 	 */
-	private static function form_start( $css, $action, $nonce_action, $busy, $post_id ) {
-		// **No switcher travels on a report form**, unlike the agreement panel's forms. Every
+	private static function form_start( $css, $action, $nonce_action, $busy, $post_id, $record ) {
+		// **The switcher on the action address is for the way back and for nothing else.** Every
 		// handler these post to resolves the institution from the report post they name, which
-		// is the rule for every post-keyed route in this module, so a manager acting on behalf
-		// needs nothing on the action URL and a hidden record would be a second answer waiting
-		// to disagree with the post's own meta.
+		// is the rule for every post-keyed route in this module, so the address does not choose
+		// what the press acts on: `leave()` ignores it whenever the press found a report, unless
+		// what it acted on names no institution. It is there for the press that finds the report
+		// gone, which has no post to read an institution from.
 		printf(
 			'<form class="%1$s" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_attr( $css ),
-			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_url( self::post_url( $record ) ),
 			esc_attr( $busy )
 		);
 
@@ -3478,7 +3517,9 @@ final class WPCPM_Semester_Report_Screen {
 	 * `resolve_institution()` reads the argument on that branch alone: an administrator comes
 	 * back to the institution they were viewing instead of to the first one with a member, and
 	 * a member's address is what it always was, since their own membership already places them.
-	 * Every handler passes the record it has, so the rule is written here and in no handler.
+	 * Every handler passes the record it has, so the rule is written here and in no handler. A
+	 * press that acted on nothing, such as one on a report that is gone, has none to pass, and
+	 * `return_record()` says where an administrator goes.
 	 *
 	 * @param string $status What happened.
 	 * @param array  $extra  Anything the message needs.
@@ -3495,12 +3536,47 @@ final class WPCPM_Semester_Report_Screen {
 			$url  = ( '' === $page ? home_url( '/' ) : $page ) . '#wpcpm-report';
 		}
 
-		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record ), $url );
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$view = self::return_record( $record );
+
+			if ( '' !== $view ) {
+				$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $view, $url );
+			}
 		}
 
 		wp_safe_redirect( $url );
 		exit;
+	}
+
+	/**
+	 * The institution an administrator's way back names, or ''.
+	 *
+	 * What the press acted on, when the handler named it, and then only if it is a record ID: a
+	 * press that acted on something goes back to the thing it acted on, and the switcher the
+	 * form carried is not asked. A press that acted on nothing, such as one on a report that has
+	 * been removed or one refused before the report is known, has no institution of its own, so
+	 * its way back is navigation and takes the institution the request says the administrator
+	 * was viewing, read where `resolve_institution()` reads it. It is used only if it is a
+	 * record ID the pipeline index holds, and the next page load checks it again, so a value
+	 * that is stale or made up lands nobody anywhere they could not already open.
+	 *
+	 * @param string $record Institutions record ID the press acted on, or ''.
+	 * @return string
+	 */
+	private static function return_record( $record ) {
+		$record = trim( (string) $record );
+
+		if ( '' !== $record ) {
+			return WPCPM_Mentors_Sync::is_record_id( $record ) ? $record : '';
+		}
+
+		$asked = trim( WPCPM_Request::text( WPCPM_Institution_Roster::ARG_VIEW ) );
+
+		if ( '' === $asked ) {
+			$asked = trim( WPCPM_Request::posted_text( WPCPM_Institution_Roster::ARG_VIEW ) );
+		}
+
+		return ( WPCPM_Mentors_Sync::is_record_id( $asked ) && WPCPM_Institutions_Index::has( $asked ) ) ? $asked : '';
 	}
 
 	/**

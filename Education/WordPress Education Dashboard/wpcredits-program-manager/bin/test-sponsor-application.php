@@ -1192,7 +1192,6 @@ function wp_get_current_user() { return isset( $GLOBALS['users'][ $GLOBALS['uid'
 // account mark here: that mark is the Sponsors screen suite's business, and this one reads the
 // facts for the half-done signal alone.
 function get_user_by( $field, $value ) { return false; }
-function esc_js( $s ) { return addslashes( (string) $s ); }
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) { $GLOBALS['nonce_checked'][] = $action; return true; }
 function wp_delete_attachment( $id, $force = false ) { $GLOBALS['deleted_attachments'][] = (int) $id; unset( $GLOBALS['attachments'][ (int) $id ] ); return true; }

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.8
+Stable tag: 1.122.9
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -289,6 +289,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.9 =
+
+* Questions: in Safari before version 15.4, on a Mac, an iPhone or an iPad, **Record it**, under *Record an agreement the program already holds* on the Institution Dashboard, now asks its question when the form is sent with Enter. Clicking into one of its boxes and pressing Enter recorded the agreement without asking. Every other question listed under 1.122.6 already came up there and still does.
+* Student Report Card: **Remove** under a screenshot asks first, because it takes the picture off this site and out of the program records. A No keeps it. Before, one press removed it. A second **Remove** pressed while the first is still on its way is dropped without a question; press it again once the page has come back.
+* Institution Dashboard: an administrator who presses a button on a list that is already gone, or on a report removed meanwhile, now comes back to the institution they were viewing. Before, the page came back on the first institution with a representative. This holds for enrolling students (**Throw this list away**, **Create these student records** and **Continue**) and for the semester report (**Save the report**, **Check the students' answers again**, **Approve this report**, **Reopen for editing** and **Put this version back**). On the Institutions screen, **Ask the students** for a report removed meanwhile now opens the Institution Dashboard on that report's institution, as it does when the request goes out. A representative's own pages are unchanged.
+* For developers: `php bin/test-forms-js.php` runs `forms.js` on a stand-in for the page when node is installed, and prints one skip line when it is not; `bin/test-submit-guard.php` fails for a file under `includes/` that prints a question on a page that does not load the script.
 
 = 1.122.8 =
 

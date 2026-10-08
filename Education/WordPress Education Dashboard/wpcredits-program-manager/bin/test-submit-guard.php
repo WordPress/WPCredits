@@ -22,6 +22,10 @@
  * plugin screen, so the attribute is live on every form there that prints it, and the forms
  * whose second press sends a second mail or can make a second track carry it with their busy
  * word. All of it is read off the source, as forms.js is.
+ *
+ * The last block ties every confirm to a script that asks it: each file under includes/ that prints
+ * a `data-wpcpm-confirm` mark has a row naming the pages that draw it, and each page is checked
+ * for the line that loads `wpcpm-forms`.
  */
 if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
@@ -44,20 +48,23 @@ function ck( $l, $a, $e = true ) {
 // Where the guard lives: forms.js, and nowhere else.
 ck( 'forms.js exists and defines the guard',
     (bool) strpos( $js, 'function guardForms()' ) && (bool) strpos( $js, 'function guardForm( form )' ) );
-ck( 'and wires it, after the confirm reader and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*confirmFirst\(\);\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, after the press tracker and the confirm reader and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*watchPressed\(\);\s*confirmFirst\(\);\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
 
 // The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
 // `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.
-// The reader is bound before the guard (the wiring above): listeners on a form run in the order
-// they were added, so a No has called preventDefault() by the time the guard's own listener runs,
-// and the guard, which stands aside for a prevented submit, leaves the form as it was.
-$confirm = substr( $js, (int) strpos( $js, 'function bindConfirm( form )' ) );
+// The reader is one capture-phase listener on the document, so it runs before every listener on a
+// form, the guard's included, whichever was added first: a No has called preventDefault() by the
+// time the guard's own listener runs, and the guard, which stands aside for a prevented submit,
+// leaves the form as it was.
+$confirm = substr( $js, (int) strpos( $js, 'function askConfirm( event )' ) );
 $confirm = substr( $confirm, 0, (int) strpos( $confirm, "\n\t}\n" ) );
+$first   = substr( $js, (int) strpos( $js, 'function confirmFirst()' ) );
+$first   = substr( $first, 0, (int) strpos( $first, "\n\t}\n" ) );
 ck( 'a submit is asked the pressed control\'s data-wpcpm-confirm sentence with window.confirm(), and a No prevents it',
     array(
         (bool) strpos( $js, 'function confirmFirst()' ),
-        (bool) strpos( $confirm, "form.addEventListener( 'submit'" ),
+        (bool) strpos( $first, "document.addEventListener( 'submit', askConfirm, true );" ),
         (bool) strpos( $confirm, "getAttribute( 'data-wpcpm-confirm' )" ),
         (bool) preg_match( '/if \( question && ! window\.confirm\( question \) \) \{\s*event\.preventDefault\(\);/', $confirm ),
     ),
@@ -301,29 +308,384 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root .
 ck( 'no file under includes/ prints a value into an inline event handler; the icon\'s constant onerror is the only one left',
     array_values( array_unique( $handlers ) ),
     array( 'onerror="this.remove()"' ) );
-ck( 'the reader takes the sentence off the pressed control, else off the form itself, and binds the form a marked control submits, which `form="<id>"` can place outside it',
+ck( 'the reader takes the sentence off the pressed control, else off the form being submitted, and binds no form: the one listener reads the form off the event, so a form inserted after load is asked',
     array(
         (bool) strpos( $confirm, "form.getAttribute( 'data-wpcpm-confirm' )" ),
-        (bool) preg_match( '/function confirmFirst\(\) \{.*?\'\[data-wpcpm-confirm\]\'.*?marked\[ i \]\.form/s', $js ),
+        (bool) strpos( $confirm, 'var form = event.target;' ),
+        false !== strpos( $first, 'querySelector' ),
+        false !== strpos( $js, 'function bindConfirm(' ),
     ),
-    array( true, true ) );
+    array( true, true, false, false ) );
+ck( 'and it leaves a form the guard has already sent alone, so a repeat press is swallowed without a second question',
+    (bool) preg_match( "/var form = event\.target;.*?if \( form\.getAttribute\( 'data-wpcpm-sent' \) \) \{\s*return;\s*\}.*?var control = /s", $confirm ) );
 /*
  * Without `event.submitter` the reader asks the control the person pressed, as the guard tracks it,
- * before the first marked control in the form: the offer form marks End alone among its buttons.
+ * before the first marked submit control in the form: the offer form marks End alone among its buttons.
+ * The tracker records submit controls only, in a WeakMap keyed by the form and not in a property of
+ * it, from two capture-phase listeners on the document.
  */
-ck( 'and without event.submitter it asks the last control pressed, tracked as the guard tracks it, before the one marked',
+$submit_control = substr( $js, (int) strpos( $js, 'function isSubmitControl( control )' ) );
+$submit_control = substr( $submit_control, 0, (int) strpos( $submit_control, "\n\t}\n" ) );
+$watch          = substr( $js, (int) strpos( $js, 'function watchPressed()' ) );
+$watch          = substr( $watch, 0, (int) strpos( $watch, "\n\t}\n" ) );
+ck( 'and without event.submitter it asks the last control pressed, tracked as the guard tracks it, before the first marked submit control',
     array(
-        (bool) strpos( $confirm, "event.submitter || lastPressed() || form.querySelector( '[data-wpcpm-confirm]' )" ),
-        substr_count( $js, '= watchPressed( form );' ),
-        (bool) strpos( $js, "if ( form.wpcpmPressed ) {" ),
+        (bool) strpos( $confirm, 'event.submitter || lastPressed( form ) || firstMarkedSubmit( form )' ),
+        substr_count( $js, 'event.submitter || lastPressed( form )' ),
+        (bool) strpos( $js, 'var pressedIn = new WeakMap();' ),
+        false !== strpos( $js, 'wpcpmPressed' ),
     ),
-    array( true, 2, true ) );
+    array( true, 2, true, false ) );
+ck( 'the tracker records a button that is not type=button or reset and an input of type submit or image, and nothing else, from the document in the capture phase',
+    array(
+        (bool) strpos( $submit_control, "'button' !== control.type && 'reset' !== control.type" ),
+        (bool) strpos( $submit_control, "'INPUT' === control.tagName && ( 'submit' === control.type || 'image' === control.type )" ),
+        substr_count( $watch, 'isSubmitControl(' ),
+        (bool) strpos( $watch, "document.addEventListener( 'mousedown'" ),
+        (bool) strpos( $watch, "document.addEventListener( 'keydown'" ),
+        substr_count( $watch, '}, true );' ),
+    ),
+    array( true, true, 2, true, true, 2 ) );
 ck( 'the institution and sponsor application decisions carry their sentence as data-wpcpm-confirm, escaped with esc_attr()',
     array(
         substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-institutions.php' ), '\' data-wpcpm-confirm="\' . esc_attr( $args[\'confirm\'] ) . \'"\'' ),
         substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-sponsor-application.php' ), '\' data-wpcpm-confirm="\' . esc_attr( $args[\'confirm\'] ) . \'"\'' ),
     ),
     array( 1, 1 ) );
+
+/**
+ * Whether PHP source prints the `data-wpcpm-confirm` attribute: the text is in a string or in markup
+ * the file closes PHP for, and not only in a comment that names it.
+ *
+ * @param string $src A PHP file.
+ * @return bool
+ */
+function prints_confirm_mark( $src ) {
+	foreach ( token_get_all( $src ) as $token ) {
+		if ( is_array( $token ) && in_array( $token[0], array( T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML ), true ) && false !== strpos( $token[1], 'data-wpcpm-confirm' ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Where the first `return` of a method's code begins, or its length when it has none.
+ *
+ * @param string $code A method's code, from `method_code()`.
+ * @return int Byte offset.
+ */
+function first_return_at( $code ) {
+	$at = 0;
+
+	foreach ( token_get_all( '<?php ' . $code ) as $token ) {
+		if ( is_array( $token ) && T_RETURN === $token[0] ) {
+			return max( 0, $at - strlen( '<?php ' ) );
+		}
+
+		$at += strlen( is_array( $token ) ? $token[1] : $token );
+	}
+
+	return strlen( $code );
+}
+
+/**
+ * Where a statement begins in a method's code, when it is one of the method body's own statements:
+ * the body is brace depth 1, and a statement starts right after a `;`, a `{` or a `}`. An enqueue
+ * inside an `if`, a loop, an `else` or a closure is deeper, and one that follows `)` or `else` with
+ * no braces is not after a statement end, so none of them is found.
+ *
+ * @param string $code   A method's code, from `method_code()`.
+ * @param string $needle The statement, as written; it must start at a token.
+ * @return int|false Byte offset of the first such statement, or false.
+ */
+function body_statement_at( $code, $needle ) {
+	$depth = 0;
+	$at    = 0;
+	$prev  = '';
+	$start = array();
+
+	foreach ( token_get_all( '<?php ' . $code ) as $token ) {
+		$text = is_array( $token ) ? $token[1] : $token;
+		$id   = is_array( $token ) ? $token[0] : $token;
+
+		if ( T_WHITESPACE !== $id && T_COMMENT !== $id && T_DOC_COMMENT !== $id ) {
+			if ( 1 === $depth && in_array( $prev, array( ';', '{', '}' ), true ) ) {
+				$start[ $at - strlen( '<?php ' ) ] = true;
+			}
+
+			if ( '{' === $text || T_CURLY_OPEN === $id || T_DOLLAR_OPEN_CURLY_BRACES === $id ) {
+				++$depth;
+			} elseif ( '}' === $text ) {
+				--$depth;
+			}
+
+			$prev = $text;
+		}
+
+		$at += strlen( $text );
+	}
+
+	for ( $from = 0; false !== ( $found = strpos( $code, $needle, $from ) ); $from = $found + 1 ) {
+		if ( isset( $start[ $found ] ) ) {
+			return $found;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * The classes a PHP file declares.
+ *
+ * @param string $src A PHP file.
+ * @return string[]
+ */
+function declared_classes( $src ) {
+	preg_match_all( '/^(?:final\s+|abstract\s+)?class (\w+)/m', $src, $named );
+
+	return $named[1];
+}
+
+/**
+ * Whether PHP source draws a class: calls one of its `render` methods, or names it as a string or
+ * with `::class`, which is how a dashboard's card list and `call_user_func()` reach it. A comment
+ * that names it does not count, and neither does `class_exists( 'Name' )`, which only asks whether
+ * the class is loaded.
+ *
+ * @param string $src   A PHP file.
+ * @param string $class The class's name.
+ * @return bool
+ */
+function draws_class( $src, $class ) {
+	$tokens = array();
+
+	foreach ( token_get_all( $src ) as $token ) {
+		if ( ! is_array( $token ) || ! in_array( $token[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true ) ) {
+			$tokens[] = $token;
+		}
+	}
+
+	$id = static function ( $at ) use ( $tokens ) {
+		return isset( $tokens[ $at ] ) ? ( is_array( $tokens[ $at ] ) ? $tokens[ $at ][0] : $tokens[ $at ] ) : null;
+	};
+	$tx = static function ( $at ) use ( $tokens ) {
+		return isset( $tokens[ $at ] ) ? ( is_array( $tokens[ $at ] ) ? $tokens[ $at ][1] : $tokens[ $at ] ) : '';
+	};
+
+	foreach ( array_keys( $tokens ) as $i ) {
+		if ( T_CONSTANT_ENCAPSED_STRING === $id( $i ) && trim( $tx( $i ), '\'"' ) === $class ) {
+			if ( ! ( '(' === $tx( $i - 1 ) && 'class_exists' === $tx( $i - 2 ) ) ) {
+				return true;
+			}
+		}
+
+		if ( T_STRING === $id( $i ) && $class === $tx( $i ) && T_DOUBLE_COLON === $id( $i + 1 ) ) {
+			if ( T_CLASS === $id( $i + 2 ) || ( T_STRING === $id( $i + 2 ) && 0 === strpos( $tx( $i + 2 ), 'render' ) ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/*
+ * Every confirm is a sentence forms.js asks, so a page that prints a `data-wpcpm-confirm` mark and
+ * does not load the script posts that form on one press, with no question and nothing to show that
+ * anything is missing. $loaders says what puts `wpcpm-forms` on a kind of page, read off the source;
+ * $surfaces says, for each file under includes/ that prints the attribute, which of those pages draw it.
+ * A file that prints the attribute and has no row fails the first check below, so a new screen has to
+ * say where its script comes from. A file that gains a page is a name added to its row, and a page
+ * that loads the script some other way is one more entry in $loaders.
+ *
+ * A loader's proofs are each: the file, the method's signature, the text that method must contain, and
+ * where it must stand: 'before the first return' is a statement of the method body itself (not inside an
+ * `if`, a loop, an `else` or a closure) that comes ahead of the first `return` in the source, 'in the
+ * body' is a statement of the body itself wherever it stands, and 'anywhere' is the text in the method.
+ * A front-end page puts the script ahead of its early returns, so a visitor who is logged out or has
+ * nothing to see still gets it. The check reads the source and does not run the method, so a `return`
+ * inside a closure above the statement fails it as well. wp-admin's one enqueue sits past the guard that
+ * keeps it to the plugin's screens, which the checks above pin line by line.
+ */
+$loaders = array(
+	'admin'                   => array(
+		'every wp-admin screen of the plugin',
+		array( array( 'includes/class-wpcpm-admin.php', 'public function enqueue_assets( $hook_suffix )', "wp_enqueue_script( 'wpcpm-forms' );", 'in the body' ) ),
+	),
+	'administrator-dashboard' => array(
+		'the Administrator Dashboard',
+		array( array( 'includes/modules/class-wpcpm-administrators-dashboard.php', 'public static function render( $attributes = array() )', "wp_enqueue_script( 'wpcpm-forms' );", 'before the first return' ) ),
+	),
+	'institution-dashboard'   => array(
+		'the Institution Dashboard',
+		array( array( 'includes/modules/class-wpcpm-institutions-dashboard.php', 'public static function render( $atts = array() )', "wp_enqueue_script( 'wpcpm-forms' );", 'before the first return' ) ),
+	),
+	'sponsor-dashboard'       => array(
+		'the Sponsor Dashboard',
+		array(
+			array( 'includes/modules/class-wpcpm-sponsors-dashboard.php', 'private static function enqueue_forms()', "wp_enqueue_script( 'wpcpm-forms' );", 'in the body' ),
+			array( 'includes/modules/class-wpcpm-sponsors-dashboard.php', 'public static function render( $attributes = array() )', 'self::enqueue_forms();', 'before the first return' ),
+		),
+	),
+	'mentor-report-card'      => array(
+		'the Mentor Report Card',
+		array( array( 'includes/modules/class-wpcpm-mentors-dashboard.php', 'public static function render( $atts = array() )', "wp_enqueue_script( 'wpcpm-forms' );", 'before the first return' ) ),
+	),
+	'student-report-card'     => array(
+		'the Student Report Card',
+		array( array( 'includes/modules/class-wpcpm-students-dashboard.php', 'public static function render( $atts = array() )', "wp_enqueue_script( 'wpcpm-forms' );", 'before the first return' ) ),
+	),
+	'calendar'                => array(
+		'the pages that draw the call calendar, the Student Report Card and the Mentor Report Card, whose calendar script names it as a dependency',
+		array(
+			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function render_student( WP_User $student, $can_manage )', 'wp_enqueue_script( self::SCRIPT );', 'before the first return' ),
+			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function render_mentor( WP_User $mentor )', 'wp_enqueue_script( self::SCRIPT );', 'before the first return' ),
+			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function register_assets()', "array( 'wpcpm-forms' ),", 'anywhere' ),
+		),
+	),
+);
+
+// File => the pages that draw it, by loader. An empty list says no page draws the file today.
+$surfaces = array(
+	'includes/class-wpcpm-mail.php'                                      => array( 'admin' ),
+	'includes/modules/class-wpcpm-call-calendar.php'                     => array( 'calendar' ),
+	'includes/modules/class-wpcpm-group-sessions.php'                    => array( 'calendar' ),
+	'includes/modules/class-wpcpm-institution-import-form.php'           => array( 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institution-invite.php'                => array( 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institution-notes.php'                 => array(),
+	'includes/modules/class-wpcpm-institution-panel.php'                 => array( 'admin', 'administrator-dashboard', 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institution-people.php'                => array( 'admin', 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institution-students.php'              => array( 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institutions.php'                      => array( 'admin', 'administrator-dashboard' ),
+	'includes/modules/class-wpcpm-mentor-notes.php'                      => array( 'mentor-report-card' ),
+	'includes/modules/class-wpcpm-sponsor-agreement-card.php'            => array( 'sponsor-dashboard' ),
+	'includes/modules/class-wpcpm-sponsor-agreement.php'                 => array( 'administrator-dashboard' ),
+	'includes/modules/class-wpcpm-sponsor-application.php'               => array( 'admin', 'administrator-dashboard' ),
+	'includes/modules/class-wpcpm-sponsor-logo.php'                      => array( 'sponsor-dashboard' ),
+	'includes/modules/class-wpcpm-sponsor-offers.php'                    => array( 'sponsor-dashboard' ),
+	'includes/modules/class-wpcpm-sponsors.php'                          => array( 'admin' ),
+	// The Remove question is drawn for an editor, so on the Student Report Card only: the report route's
+	// fragment, which the Mentor Report Card and the Institution's student page insert after they load, is
+	// read only and prints none (bin/test-report-images.php draws it).
+	'includes/modules/class-wpcpm-student-report-form.php'               => array( 'student-report-card' ),
+	'includes/tools/class-wpcpm-track-builder-screen.php'                => array( 'admin' ),
+	'includes/tools/class-wpcpm-track-editor-screen.php'                 => array( 'admin' ),
+);
+
+$printers = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/includes', FilesystemIterator::SKIP_DOTS ) ) as $source ) {
+	if ( 'php' === $source->getExtension() && prints_confirm_mark( (string) file_get_contents( $source->getPathname() ) ) ) {
+		$printers[] = substr( $source->getPathname(), strlen( $root ) + 1 );
+	}
+}
+
+sort( $printers );
+
+ck( 'every file under includes/ that prints a data-wpcpm-confirm mark has a row in the surface table, so a new screen has to say where its script comes from',
+    array_values( array_diff( $printers, array_keys( $surfaces ) ) ), array() );
+ck( 'and every row names a file that still prints one, so a row does not outlive its file',
+    array_values( array_diff( array_keys( $surfaces ), $printers ) ), array() );
+ck( 'every page a row names is a loader the table defines',
+    array_values( array_unique( array_diff( array_merge( array(), ...array_values( $surfaces ) ), array_keys( $loaders ) ) ) ), array() );
+
+// The readers the loader and empty-row checks lean on, run on samples, so that a change which loosens
+// one turns a line red here and does not pass quietly. A statement counts as the method body's own only
+// when no `if`, `else`, loop or closure sits around it; a name counts as drawing a class when it is
+// called for rendering or handed on as a string, and `class_exists()` only asks whether it is loaded.
+$body     = array(
+	'a statement of the body'                                  => array( "public function f() {\n\t\twp_enqueue_script( 'x' );\n\t\treturn 1;\n\t}", true ),
+	'after a block that closed'                                => array( "public function f() {\n\t\tif ( \$a ) {\n\t\t\tfoo();\n\t\t}\n\t\twp_enqueue_script( 'x' );\n\t}", true ),
+	'inside an if on who is logged in'                         => array( "public function f() {\n\t\tif ( is_user_logged_in() ) {\n\t\t\twp_enqueue_script( 'x' );\n\t\t}\n\t}", false ),
+	'inside a closure nothing calls'                           => array( "public function f() {\n\t\t\$never = function () {\n\t\t\twp_enqueue_script( 'x' );\n\t\t};\n\t}", false ),
+	'in an else'                                               => array( "public function f() {\n\t\tif ( \$a ) {\n\t\t\tfoo();\n\t\t} else {\n\t\t\twp_enqueue_script( 'x' );\n\t\t}\n\t}", false ),
+	'after an if with no braces'                               => array( "public function f() {\n\t\tif ( \$a ) wp_enqueue_script( 'x' );\n\t}", false ),
+	'inside a loop'                                            => array( "public function f() {\n\t\tforeach ( \$a as \$b ) {\n\t\t\twp_enqueue_script( 'x' );\n\t\t}\n\t}", false ),
+	'as the end of a longer statement'                         => array( "public function f() {\n\t\t\$ok = \$a && wp_enqueue_script( 'x' );\n\t}", false ),
+	'inside a string'                                          => array( "public function f() {\n\t\t\$s = \"wp_enqueue_script( 'x' );\";\n\t}", false ),
+	'in a comment'                                             => array( "public function f() {\n\t\t// wp_enqueue_script( 'x' );\n\t\treturn 1;\n\t}", false ),
+);
+$read     = array();
+$expected = array();
+
+foreach ( $body as $label => $sample ) {
+	$read[ $label ]     = false !== body_statement_at( $sample[0], "wp_enqueue_script( 'x' );" );
+	$expected[ $label ] = $sample[1];
+}
+
+ck( 'the loader proofs count an enqueue only as a statement of the method body: not in an if, an else, a loop or a closure, not after an if with no braces, not in a string or a comment',
+    $read, $expected );
+
+$draws = array(
+	'a call to a render method'                                => array( "<?php\nWPCPM_Zz::render( 1 );", true ),
+	'a card named as a string'                                 => array( "<?php\nself::card( 'WPCPM_Zz', array() );", true ),
+	'a name in a list a loop reads'                            => array( "<?php\nforeach ( array( 'WPCPM_Zz' ) as \$c ) { self::card( \$c, array() ); }", true ),
+	'a name in double quotes'                                  => array( "<?php\n\$cards = array( \"WPCPM_Zz\" );", true ),
+	'a name handed to call_user_func()'                        => array( "<?php\ncall_user_func( array( 'WPCPM_Zz', 'render' ), 1 );", true ),
+	'a name given with ::class'                                => array( "<?php\n\$cards = array( WPCPM_Zz::class );", true ),
+	'class_exists(), which only asks whether it is loaded'     => array( "<?php\nreturn class_exists( 'WPCPM_Zz' ) && WPCPM_Zz::user_can_read( \$n );", false ),
+	'a comment alone'                                          => array( "<?php\n// WPCPM_Zz::render() would draw it\n\$x = 1;", false ),
+	'another class'                                            => array( "<?php\nWPCPM_Yy::render( 1 );\nself::card( 'WPCPM_Yy', array() );", false ),
+);
+$read     = array();
+$expected = array();
+
+foreach ( $draws as $label => $sample ) {
+	$read[ $label ]     = draws_class( $sample[0], 'WPCPM_Zz' );
+	$expected[ $label ] = $sample[1];
+}
+
+ck( 'the empty-row check finds a class drawn by a render call, a name in a string or a list, call_user_func() or ::class, and not by a comment or class_exists()',
+    $read, $expected );
+ck( 'and it reads the class a file declares whether it is plain, final or abstract',
+    array_merge( declared_classes( "<?php\nclass A {}\n" ), declared_classes( "<?php\nfinal class B {}\n" ), declared_classes( "<?php\nabstract class C {}\n" ) ),
+    array( 'A', 'B', 'C' ) );
+
+foreach ( $loaders as $loader ) {
+	$failed = array();
+
+	foreach ( $loader[1] as $proof ) {
+		list( $file, $signature, $needle, $where ) = $proof;
+
+		$code = method_code( (string) file_get_contents( $root . '/' . $file ), $signature );
+		$at   = 'anywhere' === $where ? strpos( $code, $needle ) : body_statement_at( $code, $needle );
+		$held = '' !== $code && false !== $at && ( 'before the first return' !== $where || $at < first_return_at( $code ) );
+
+		if ( ! $held ) {
+			$failed[] = $file . ' ' . $signature . ': ' . $needle . ' (' . $where . ')';
+		}
+	}
+
+	ck( 'wpcpm-forms is put on ' . $loader[0], $failed, array() );
+}
+
+// A file with an empty row is one no page draws. It stays true only while nothing renders it, so the
+// day a screen does, the row has to name the screen's loader. The ways this plugin draws a file: a call
+// to one of the class's render methods, and a name given as a string or with ::class, which is how a
+// dashboard's card list and call_user_func() reach it.
+foreach ( array_keys( array_filter( $surfaces, static function ( $pages ) { return array() === $pages; } ) ) as $file ) {
+	$classes  = declared_classes( (string) file_get_contents( $root . '/' . $file ) );
+	$drawn_by = array();
+
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/includes', FilesystemIterator::SKIP_DOTS ) ) as $other ) {
+		$path = substr( $other->getPathname(), strlen( $root ) + 1 );
+
+		if ( 'php' !== $other->getExtension() || $path === $file ) {
+			continue;
+		}
+
+		foreach ( $classes as $class ) {
+			if ( draws_class( (string) file_get_contents( $other->getPathname() ), $class ) ) {
+				$drawn_by[] = $path;
+			}
+		}
+	}
+
+	ck( $file . ' declares a class the check can look for', array() !== $classes );
+	ck( $file . ' has no page, and no other file renders it, so its empty row is true', $drawn_by, array() );
+}
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

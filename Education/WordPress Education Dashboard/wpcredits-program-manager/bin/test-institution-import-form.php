@@ -55,6 +55,7 @@ $GLOBALS['requests'] = array();
 $GLOBALS['inserted'] = array();
 $GLOBALS['cron']     = array();
 $GLOBALS['created']  = array();
+$GLOBALS['indexed']  = array();
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return $t; }
@@ -230,6 +231,10 @@ class WPCPM_Institution_Roster {
 	public static function resolve_institution( $viewer, $can_manage ) { $GLOBALS['calls'][] = array( 'resolve' ); return (string) $GLOBALS['resolved']; }
 }
 class WPCPM_Institutions_Dashboard { public static function page_url() { return 'https://example.test/institution-dashboard/'; } }
+/** The pipeline index, as far as the form asks it: whether it holds a record. */
+class WPCPM_Institutions_Index {
+	public static function has( $record_id ) { return in_array( (string) $record_id, $GLOBALS['indexed'], true ); }
+}
 class WPCPM_Institution_Student_Form {
 	public static function choices( $n ) { return 'field_of_study' === $n ? array( 'Technology & Engineering' ) : array(); }
 }
@@ -795,9 +800,14 @@ echo "\n=== An administrator's press comes back to the institution they were vie
 // back to has to carry it again: without it `resolve_institution()` falls through to the first
 // institution with a member. The institution is the one the press acted on - the one the page
 // resolved, or the one the batch was staged for - and never the switcher the form posted, which
-// these presses post as another school.
-$OTHER = 'recOTHER00000002';
+// these presses post as another school. Every address is compared whole, a member's included, so
+// a change to where a member lands cannot pass for being "no switcher".
+$OTHER = 'recOTHER000000002';
+$GHOST = 'recGHOST000000009';
 $VIEW  = WPCPM_Institution_Roster::ARG_VIEW;
+
+// The index holds both schools; it does not hold $GHOST.
+$GLOBALS['indexed'] = array( $HERE, $OTHER );
 
 ck( 'the argument the suite copies is the real class\'s', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' ), "const ARG_VIEW = '" . $VIEW . "';" ), true );
 
@@ -834,6 +844,28 @@ function said_now() {
 	return isset( $flash['status'] ) ? $flash['status'] : '';
 }
 
+/**
+ * The address a press leaves to: the dashboard, the batch to open when there is one, the
+ * institution when the reader is to come back to one, and the card.
+ *
+ * @param string $record Institutions record ID the address names, or ''.
+ * @param int    $batch  The batch the address opens, or 0.
+ * @return string
+ */
+function went_to( $record = '', $batch = 0 ) {
+	$args = array();
+
+	if ( $batch > 0 ) {
+		$args[] = WPCPM_Institution_Import_Form::ARG_BATCH . '=' . $batch;
+	}
+
+	if ( '' !== $record ) {
+		$args[] = WPCPM_Institution_Roster::ARG_VIEW . '=' . $record;
+	}
+
+	return 'https://example.test/institution-dashboard/' . ( empty( $args ) ? '' : '?' . implode( '&', $args ) ) . '#wpcpm-import';
+}
+
 $other_view = array( $VIEW => $OTHER );
 
 foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $manager ) {
@@ -844,18 +876,19 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$GLOBALS['settings'] = array( 'import_enabled' => true );
 	fresh_world();
 
+	// The record an address names for this reader: the institution acted on for an administrator,
+	// and none at all for a member, whose own membership places them.
+	$named = $manager ? $HERE : '';
+
 	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
 
 	ck( $who . ': checking a list stages it', said_now(), 'checked' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the institution they were viewing' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
-	ck( $who . ': never the one the posted switcher named', false === strpos( $went, $OTHER ), true );
-	ck( $who . ': on the card the press was made on', '#wpcpm-import' === substr( $went, -13 ), true );
-	ck( $who . ': with the batch to open', false !== strpos( $went, WPCPM_Institution_Import_Form::ARG_BATCH . '=' ), true );
+	ck( $who . ': and the address ' . ( $manager ? 'is the institution they were viewing, with the batch to open' : 'is the dashboard and the batch to open, nothing more' ), $went, went_to( $named, WPCPM_Institution_Import::staged_for( $HERE ) ) );
 
 	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
 
 	ck( $who . ': a second list is refused while one is waiting', said_now(), 'already-staged' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
 	// Every control on a staged list reads its institution off the batch, whoever is resolved.
 	$GLOBALS['resolved'] = $OTHER;
@@ -866,18 +899,17 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': confirming creates the list', said_now(), 'created' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) ) : ( false === strpos( $went, $VIEW ) ), true );
-	ck( $who . ': never the one the posted switcher named', false === strpos( $went, $OTHER ), true );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
 	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': confirming twice is refused', said_now(), 'not-staged-now' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
 	$went = press_to( 'handle_continue', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': carrying on with a list that is not running is refused', said_now(), 'not-creating-now' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the batch\'s institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the batch\'s institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
 	// A list that is part way through is carried on from the batch too.
 	fresh_world();
@@ -891,7 +923,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_continue', array( 'batch' => (string) $running ) + $other_view, $other_view );
 
 	ck( $who . ': carrying on with a running list creates the rest', said_now(), 'created' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
 	// Throwing a list away.
 	fresh_world();
@@ -903,17 +935,136 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
 
 	ck( $who . ': throwing a list away says so', said_now(), 'cancelled' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution' : 'carries no switcher argument' ), $manager ? ( false !== strpos( $went, $VIEW . '=' . $HERE ) && false === strpos( $went, $OTHER ) ) : ( false === strpos( $went, $VIEW ) ), true );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
 
-	// A list that is already gone has no institution to go back to, and none is made up.
+	// A list that is already gone: the press acted on nothing, so an administrator comes back to
+	// the institution the form said they were viewing, and a member to the dashboard.
 	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
 
 	ck( $who . ': throwing away a list that is gone says so', said_now(), 'no-batch' );
-	ck( $who . ': and adds no institution of its own', false === strpos( $went, $VIEW ) && false === strpos( $went, $OTHER ), true );
+	ck( $who . ': and the address ' . ( $manager ? 'is the institution the switcher named' : 'is the dashboard as it always was, whatever they posted' ), $went, went_to( $manager ? $OTHER : '' ) );
 }
 
 $GLOBALS['manage']   = false;
 $GLOBALS['resolved'] = $HERE;
+
+echo "\n=== A press that acted on nothing comes back to the institution they were viewing ===\n";
+
+// The batch is gone, the feature is off, or the reader is refused before anything is read: there
+// is no institution the press acted on, so the address is navigation, and an administrator is
+// sent back to the one the form says they were looking at. `resolve_institution()` checks it
+// again on the next load, so the value only has to be well formed, held by the index and posted
+// by someone who holds the capability.
+$GLOBALS['manage']   = true;
+$GLOBALS['resolved'] = $HERE;
+$GLOBALS['allowed']  = true;
+$GLOBALS['settings'] = array( 'import_enabled' => true );
+fresh_world();
+
+$gone = array( 'batch' => '987654' );
+
+ck( 'there is no such batch', is_array( WPCPM_Institution_Import::batch( 987654 ) ), false );
+
+foreach ( array( 'handle_cancel', 'handle_confirm', 'handle_continue' ) as $handler ) {
+	$went = press_to( $handler, $gone + $other_view, $other_view );
+	ck( $handler . ': a gone list says so', said_now(), 'no-batch' );
+	ck( $handler . ': an administrator comes back to the institution the switcher named', $went, went_to( $OTHER ) );
+
+	$went = press_to( $handler, $gone + $other_view );
+	ck( $handler . ': read from the form alone', $went, went_to( $OTHER ) );
+
+	$went = press_to( $handler, $gone, $other_view );
+	ck( $handler . ': read from the address alone', $went, went_to( $OTHER ) );
+
+	$went = press_to( $handler, $gone + array( $VIEW => $GHOST ), array( $VIEW => $GHOST ) );
+	ck( $handler . ': an institution the index does not hold adds nothing', $went, went_to() );
+
+	$GLOBALS['indexed'][] = 'recno';
+	$went = press_to( $handler, $gone + array( $VIEW => 'recno' ), array( $VIEW => 'recno' ) );
+	ck( $handler . ': a value that is not a record ID adds nothing, even one the index holds', $went, went_to() );
+	array_pop( $GLOBALS['indexed'] );
+
+	$went = press_to( $handler, $gone );
+	ck( $handler . ': no switcher at all adds nothing', $went, went_to() );
+}
+
+// Both places at once: the address is read before the form, the order `requested_view()` reads
+// them in, so a request that carries two schools comes back to the one in its address.
+$THIRD                = 'recTHIRD000000003';
+$GLOBALS['indexed'][] = $THIRD;
+
+foreach ( array( 'handle_cancel', 'handle_confirm', 'handle_continue' ) as $handler ) {
+	$went = press_to( $handler, $gone + array( $VIEW => $THIRD ), $other_view );
+	ck( $handler . ': a request with one school in its address and another in its form comes back to the address\'s', $went, went_to( $OTHER ) );
+}
+
+array_pop( $GLOBALS['indexed'] );
+
+// The feature switched off between the page being drawn and the press.
+$GLOBALS['settings'] = array( 'import_enabled' => false );
+
+foreach ( array( 'handle_check', 'handle_confirm', 'handle_continue' ) as $handler ) {
+	$went = press_to( $handler, $gone + $other_view, $other_view );
+	ck( $handler . ': switched off says so', said_now(), 'off' );
+	ck( $handler . ': and an administrator comes back to the institution the switcher named', $went, went_to( $OTHER ) );
+}
+
+$GLOBALS['settings'] = array( 'import_enabled' => true );
+
+// An administrator no institution resolves for is refused before anything is read.
+$GLOBALS['resolved'] = '';
+$went                = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+ck( 'checking with no institution to act for is refused', said_now(), 'refused' );
+ck( 'and an administrator comes back to the institution the switcher named', $went, went_to( $OTHER ) );
+$GLOBALS['resolved'] = $HERE;
+
+// A press the policy refuses names no institution either.
+$GLOBALS['allowed'] = false;
+$went               = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+ck( 'a refused check says so', said_now(), 'refused' );
+ck( 'and comes back to the institution the switcher named', $went, went_to( $OTHER ) );
+$GLOBALS['allowed'] = true;
+
+// A press that did act keeps the rule that a press takes its institution from what it acted on: the
+// posted switcher is not consulted, even though it is well formed and the index holds it.
+fresh_world();
+$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+ck( 'checking a list is still the institution acted on', $went, went_to( $HERE, WPCPM_Institution_Import::staged_for( $HERE ) ) );
+
+$staged_now = WPCPM_Institution_Import::staged_for( $HERE );
+$went       = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
+ck( 'and so is throwing it away', $went, went_to( $HERE ) );
+
+// A list stamped with something that is no record ID has an institution of its own, only an unusable
+// one, so the press adds nothing: the switcher the form carried is not asked in its place.
+fresh_world();
+press_to( 'handle_check', batch_fields(), array() );
+$malformed = WPCPM_Institution_Import::staged_for( $HERE );
+update_post_meta( $malformed, WPCPM_Institution_Import::META_INSTITUTION, 'recno' );
+$went = press_to( 'handle_cancel', array( 'batch' => (string) $malformed ) + $other_view, $other_view );
+ck( 'throwing away a list stamped with no record ID cancels it', said_now(), 'cancelled' );
+ck( 'and an administrator comes back to the dashboard, not to the institution the switcher named', $went, went_to() );
+
+// A member, whatever the form says, goes where they always did.
+$GLOBALS['manage'] = false;
+
+foreach ( array( 'handle_cancel', 'handle_confirm', 'handle_continue' ) as $handler ) {
+	$went = press_to( $handler, $gone + $other_view, $other_view );
+	ck( $handler . ': a member who pressed on a gone list goes to the dashboard', $went, went_to() );
+}
+
+$GLOBALS['settings'] = array( 'import_enabled' => false );
+$went                = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+ck( 'a member who pressed while the feature is off goes to the dashboard', $went, went_to() );
+$GLOBALS['settings'] = array( 'import_enabled' => true );
+
+$GLOBALS['resolved'] = '';
+$went                = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
+ck( 'and a member refused before anything is read goes to the dashboard', $went, went_to() );
+
+$GLOBALS['manage']   = false;
+$GLOBALS['resolved'] = $HERE;
+$GLOBALS['indexed']  = array();
 
 // The check form itself: its handler works out the institution from the request alone, and a
 // post to `admin-post.php` carries the form's fields and none of the page's query string, so an
@@ -927,6 +1078,119 @@ $theirs            = draw_section( $HERE );
 ck( 'an administrator\'s form posts to the institution they are viewing', false !== strpos( $mine, 'admin-post.php?' . $VIEW . '=' . $HERE ), true );
 ck( 'a member\'s form posts to admin-post.php as it did', false !== strpos( $theirs, 'action="https://example.test/wp-admin/admin-post.php"' ), true );
 ck( 'and carries no switcher argument anywhere', false === strpos( $theirs, $VIEW ), true );
+
+echo "\n=== Every form on a staged list names the institution an administrator is viewing ===\n";
+
+// A press that acted on nothing, such as Cancel on a list another tab already threw away, comes
+// back to the institution the request says was being viewed, and a post to `admin-post.php`
+// carries the form's fields and none of the page's query string. So every control on a list
+// names the institution on its action address, for an administrator and for nobody else, and the
+// handlers still take the institution from the batch whenever there is one.
+
+/** The markup of the form that posts one action, from its `<form` on. */
+function form_chunk( $html, $action ) {
+	foreach ( explode( '<form', (string) $html ) as $chunk ) {
+		if ( false !== strpos( $chunk, 'value="' . $action . '"' ) ) { return $chunk; }
+	}
+
+	return '';
+}
+
+/** The address a form posts to. */
+function action_of( $chunk ) {
+	return preg_match( '/\baction="([^"]*)"/', (string) $chunk, $found ) ? html_entity_decode( $found[1], ENT_QUOTES ) : '';
+}
+
+/** What a browser puts in the query string when this form is pressed: the query of its action address. */
+function query_of( $chunk ) {
+	parse_str( (string) parse_url( action_of( $chunk ), PHP_URL_QUERY ), $query );
+
+	return $query;
+}
+
+/** The hidden fields of a form, name to value. */
+function fields_of( $chunk ) {
+	$fields = array();
+
+	if ( preg_match_all( '/<input\b[^>]*>/i', (string) $chunk, $inputs ) ) {
+		foreach ( $inputs[0] as $input ) {
+			if ( preg_match( '/name="([^"]+)"/', $input, $name ) && preg_match( '/value="([^"]*)"/', $input, $value ) ) {
+				$fields[ $name[1] ] = html_entity_decode( $value[1], ENT_QUOTES );
+			}
+		}
+	}
+
+	return $fields;
+}
+
+$POSTS_TO = 'https://example.test/wp-admin/admin-post.php';
+
+foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $manager ) {
+	$GLOBALS['manage']   = $manager;
+	$GLOBALS['resolved'] = $HERE;
+	$GLOBALS['allowed']  = true;
+	$GLOBALS['settings'] = array( 'import_enabled' => true );
+	$GLOBALS['indexed']  = array( $HERE, $OTHER );
+
+	$posts_to = $manager ? $POSTS_TO . '?' . $VIEW . '=' . $HERE : $POSTS_TO;
+
+	// A list waiting to be looked at: Confirm and throw away.
+	fresh_world();
+	post_check( batch_fields() );
+	$waiting = draw_section( $HERE );
+	$cancel  = form_chunk( $waiting, WPCPM_Institution_Import_Form::ACTION_CANCEL );
+	$confirm = form_chunk( $waiting, WPCPM_Institution_Import_Form::ACTION_CONFIRM );
+
+	ck( $who . ': the list can be thrown away', '' !== $cancel, true );
+	ck( $who . ': the throw-away form posts to ' . ( $manager ? 'the institution they are viewing' : 'admin-post.php as it did' ), action_of( $cancel ), $posts_to );
+	ck( $who . ': the Confirm form posts to ' . ( $manager ? 'the institution they are viewing' : 'admin-post.php as it did' ), action_of( $confirm ), $posts_to );
+
+	// The other tab throws the list away; this page still holds its forms.
+	WPCPM_Institution_Import::cancel( WPCPM_Institution_Import::staged_for( $HERE ) );
+
+	ck( $who . ': the list is gone', WPCPM_Institution_Import::active_for( $HERE ), 0 );
+
+	$went = press_to( 'handle_cancel', fields_of( $cancel ), query_of( $cancel ) );
+	ck( $who . ': throwing away a list that is gone says so', said_now(), 'no-batch' );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+
+	$went = press_to( 'handle_confirm', fields_of( $confirm ), query_of( $confirm ) );
+	ck( $who . ': confirming a list that is gone says so', said_now(), 'no-batch' );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+
+	// A list part way through: Continue.
+	fresh_world();
+	post_check( batch_fields() );
+	$running = WPCPM_Institution_Import::staged_for( $HERE );
+	WPCPM_Institution_Create::claim( $running, 7, 'member' );
+	update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+	$progress = draw_section( $HERE );
+	$continue = form_chunk( $progress, WPCPM_Institution_Import_Form::ACTION_CONTINUE );
+
+	ck( $who . ': a list part way through can be carried on', '' !== $continue, true );
+	ck( $who . ': the Continue form posts to ' . ( $manager ? 'the institution they are viewing' : 'admin-post.php as it did' ), action_of( $continue ), $posts_to );
+
+	wp_delete_post( $running, true );
+
+	$went = press_to( 'handle_continue', fields_of( $continue ), query_of( $continue ) );
+	ck( $who . ': carrying on with a list that is gone says so', said_now(), 'no-batch' );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+
+	// The forms are the same forms with the switcher on their address: a press that did act is
+	// still the batch's own institution, whatever the address says.
+	fresh_world();
+	post_check( batch_fields() );
+	$waiting = draw_section( $HERE );
+	$cancel  = form_chunk( $waiting, WPCPM_Institution_Import_Form::ACTION_CANCEL );
+	$query   = $manager ? array( $VIEW => $OTHER ) : query_of( $cancel );
+	$went    = press_to( 'handle_cancel', fields_of( $cancel ), $query );
+	ck( $who . ': throwing a list away that is there says so', said_now(), 'cancelled' );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the batch\'s institution, not the one the address named' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+}
+
+$GLOBALS['manage']   = false;
+$GLOBALS['resolved'] = $HERE;
+$GLOBALS['indexed']  = array();
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

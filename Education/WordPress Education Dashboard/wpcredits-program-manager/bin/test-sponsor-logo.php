@@ -415,6 +415,22 @@ ck( 'and a preview tile for the half that exists and a note for the one that doe
 	false !== strpos( $html, 'wpcpm-logo__empty' ),
 ), array( 1, true ) );
 ck( 'a site logo offers Remove', false !== strpos( $html, WPCPM_Sponsor_Logo::ACTION_REMOVE ), true );
+// Remove it is the one press that takes the logo off the site and out of the base, so it asks first:
+// the sentence rides on its form as a data-wpcpm-confirm mark, escaped for the attribute, and the
+// upload form beside it, whose whole purpose is the file just chosen, asks nothing.
+$remove_form = '';
+
+foreach ( explode( '<form', $html ) as $chunk ) {
+	if ( false !== strpos( $chunk, 'value="' . WPCPM_Sponsor_Logo::ACTION_REMOVE . '"' ) ) {
+		$remove_form = '<form' . $chunk;
+	}
+}
+
+ck( 'Remove it asks "Remove the logo you uploaded?" on its form, and that is the only question on the page', array(
+	false !== strpos( (string) strstr( $remove_form, '>', true ), ' data-wpcpm-confirm="' . esc_attr( 'Remove the logo you uploaded? It goes from this site and from the program records. The files stay in the Media Library, so anything that already shows them keeps working.' ) . '"' ),
+	false !== strpos( $remove_form, '>Remove it</button>' ),
+	substr_count( $html, 'data-wpcpm-confirm' ),
+), array( true, true, 1 ) );
 $GLOBALS['uid'] = 1;
 ob_start();
 WPCPM_Sponsor_Logo::render( $S, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) );

@@ -29,7 +29,8 @@
  *   one control of that name holds a value (the count of a repeat rule on the planning form);
  *   a name shared by radios is not a control and is left alone;
  * - `data-wpcpm-confirm` on a form or on a submit control is a question asked with
- *   `window.confirm()` before the form posts, and a No posts nothing.
+ *   `window.confirm()` before the form posts, and a No posts nothing. It is read for any form on
+ *   the page when that form is submitted, including one inserted after the page loaded.
  */
 ( function () {
 	'use strict';
@@ -67,62 +68,90 @@
 	}
 
 	/**
-	 * Track the last control pressed in a form, for browsers without `event.submitter`.
+	 * Whether a control submits its form when pressed: a button that is not `type="button"` or
+	 * `type="reset"`, or an input of type submit or image.
+	 *
+	 * The tracker below records these and nothing else. A text field clicked before Enter, or a
+	 * "show details" button that opens a panel, is not the control a submit comes from: taking it for
+	 * one would put the guard's busy label and `disabled` on a text field, and leave the confirm
+	 * reader with no question to ask.
+	 *
+	 * @param {Element|null} control The element to test.
+	 * @return {boolean} Whether it is a submit control.
+	 */
+	function isSubmitControl( control ) {
+		if ( ! control ) {
+			return false;
+		}
+
+		if ( 'BUTTON' === control.tagName ) {
+			return 'button' !== control.type && 'reset' !== control.type;
+		}
+
+		return 'INPUT' === control.tagName && ( 'submit' === control.type || 'image' === control.type );
+	}
+
+	/**
+	 * The last submit control pressed in each form, for browsers without `event.submitter`.
+	 *
+	 * Keyed by the form, in a map rather than a property on the form: a form control named like the
+	 * property would shadow it, since the HTML spec exposes named controls as properties of their form.
+	 */
+	var pressedIn = new WeakMap();
+
+	/**
+	 * @param {HTMLFormElement} form The form to ask about.
+	 * @return {HTMLElement|null} The last submit control pressed in it, or null.
+	 */
+	function lastPressed( form ) {
+		return pressedIn.get( form ) || null;
+	}
+
+	/**
+	 * Track the last submit control pressed, in every form on the page.
+	 *
+	 * Two listeners on the document, in the capture phase, rather than two on each form: they cover a
+	 * form inserted after the page loaded, and a handler further down that stops the event cannot hide
+	 * a press from them. The control is filed under the form it belongs to, which `form="<id>"` can
+	 * place outside the form it sits in. The guard and the confirm reader both read it.
 	 *
 	 * `mousedown` rather than `click`, because `click` on a submit button and the form's `submit`
 	 * event race in some browsers.
-	 *
-	 * One tracker per form, shared by the guard and the confirm reader.
-	 *
-	 * @param {HTMLFormElement} form The form to watch.
-	 * @return {Function} Returns the last control pressed, or null.
 	 */
-	function watchPressed( form ) {
-		if ( form.wpcpmPressed ) {
-			return form.wpcpmPressed;
-		}
-
-		var pressed = null;
-
-		form.addEventListener( 'mousedown', function ( event ) {
+	function watchPressed() {
+		document.addEventListener( 'mousedown', function ( event ) {
 			var target = event.target;
 
-			while ( target && target !== form ) {
-				if ( 'BUTTON' === target.tagName || 'INPUT' === target.tagName ) {
-					pressed = target;
+			while ( target ) {
+				if ( isSubmitControl( target ) ) {
+					if ( target.form ) {
+						pressedIn.set( target.form, target );
+					}
+
 					return;
 				}
+
 				target = target.parentNode;
 			}
-		} );
+		}, true );
 
-		form.addEventListener( 'keydown', function ( event ) {
-			if ( 'Enter' === event.key || ' ' === event.key ) {
-				var target = event.target;
+		document.addEventListener( 'keydown', function ( event ) {
+			var target = event.target;
 
-				if ( target && 'BUTTON' === target.tagName ) {
-					pressed = target;
-				}
+			if ( ( 'Enter' === event.key || ' ' === event.key ) && isSubmitControl( target ) && target.form ) {
+				pressedIn.set( target.form, target );
 			}
-		} );
-
-		form.wpcpmPressed = function () {
-			return pressed;
-		};
-
-		return form.wpcpmPressed;
+		}, true );
 	}
 
 	/**
 	 * @param {HTMLFormElement} form Form to guard.
 	 */
 	function guardForm( form ) {
-		var lastPressed = watchPressed( form );
-
 		form.addEventListener( 'submit', function ( event ) {
 			/*
-			 * The confirm reader, bound before this guard, has already run: a Cancel has called
-			 * preventDefault() and nothing was submitted. Locking the form "Working" for a press
+			 * The confirm reader, a capture-phase listener on the document, has already run: a Cancel
+			 * has called preventDefault() and nothing was submitted. Locking the form "Working" for a press
 			 * that went nowhere misreports the page, and the decisions with a confirm are exactly
 			 * the destructive ones, where a wrong "Working" is worst.
 			 */
@@ -140,7 +169,7 @@
 			form.setAttribute( 'aria-busy', 'true' );
 			form.className += ' is-sending';
 
-			var button = event.submitter || lastPressed();
+			var button = event.submitter || lastPressed( form );
 			var busy = form.getAttribute( 'data-wpcpm-busy' );
 			var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
 			var i;
@@ -415,50 +444,83 @@
 	 * mark carries.
 	 *
 	 * "Cancel the session" and "Leave the session" carried the mark and nothing read it, so one
-	 * press canceled a session for everybody on it (the deep check of 1.109.1, SESSIONS-6). Bound
-	 * before the submit guard, and listeners on a form run in the order they were added: a No has
-	 * already called preventDefault() when the guard's listener runs, and the guard, which stands
-	 * aside for a prevented submit, leaves the form as it was rather than showing it working for a
-	 * press that went nowhere. A convenience, never a control: with JavaScript off the form posts.
+	 * press canceled a session for everybody on it (the deep check of 1.109.1, SESSIONS-6). One
+	 * listener on the document, in the capture phase: it runs before any listener on a form, whichever
+	 * was added first, so a No has already called preventDefault() when the submit guard's listener
+	 * runs, and the guard, which stands aside for a prevented submit, leaves the form as it was
+	 * rather than showing it working for a press that went nowhere. It reads the mark off the form
+	 * being submitted, so a form inserted after the page loaded is asked too. A convenience, never a
+	 * control: with JavaScript off the form posts.
 	 */
 	function confirmFirst() {
-		var marked = document.querySelectorAll( '[data-wpcpm-confirm]' );
-		var bound = [];
-		var i, form;
-
-		for ( i = 0; i < marked.length; i++ ) {
-			// `.form` follows `form="<id>"`, which can place a control outside its form.
-			form = 'FORM' === marked[ i ].tagName ? marked[ i ] : marked[ i ].form;
-
-			if ( form && -1 === bound.indexOf( form ) ) {
-				bound.push( form );
-				bindConfirm( form );
-			}
-		}
+		document.addEventListener( 'submit', askConfirm, true );
 	}
 
 	/**
-	 * @param {HTMLFormElement} form A form marked `data-wpcpm-confirm`, or holding a control that is.
+	 * The first control in a form that carries the mark and submits the form. A marked control
+	 * inside the form's markup that names another form in its `form` attribute posts that other
+	 * form, so it is not this form's control and is skipped.
+	 *
+	 * @param {HTMLFormElement} form The form to look in.
+	 * @return {HTMLElement|null} The control, or null.
 	 */
-	function bindConfirm( form ) {
-		var lastPressed = watchPressed( form );
+	function firstMarkedSubmit( form ) {
+		var marked = form.querySelectorAll( '[data-wpcpm-confirm]' );
+		var i;
 
-		form.addEventListener( 'submit', function ( event ) {
-			// The browser's word on what was pressed, else the last one tracked, else the one marked.
-			var control = event.submitter || lastPressed() || form.querySelector( '[data-wpcpm-confirm]' );
-			var question = control ? control.getAttribute( 'data-wpcpm-confirm' ) : null;
-
-			if ( null === question ) {
-				question = form.getAttribute( 'data-wpcpm-confirm' );
+		for ( i = 0; i < marked.length; i++ ) {
+			if ( isSubmitControl( marked[ i ] ) && marked[ i ].form === form ) {
+				return marked[ i ];
 			}
+		}
 
-			if ( question && ! window.confirm( question ) ) {
-				event.preventDefault();
-			}
-		} );
+		return null;
+	}
+
+	/**
+	 * @param {Event} event A submit event, on the document in the capture phase.
+	 */
+	function askConfirm( event ) {
+		var form = event.target;
+
+		if ( ! form || 'FORM' !== form.tagName ) {
+			return;
+		}
+
+		/*
+		 * A form the guard has already sent is not asked again: a repeat press (Enter in a field while
+		 * the request is on its way) is swallowed by the guard, and a question for a press that goes
+		 * nowhere only makes the person answer twice. A form answered No is not sent, so it asks on the
+		 * next press, and a form the guard does not lock is asked every time.
+		 */
+		if ( form.getAttribute( 'data-wpcpm-sent' ) ) {
+			return;
+		}
+
+		/*
+		 * The browser's word on what was pressed, else the last submit control pressed in this form,
+		 * else the first one marked. That first-marked fallback is also what a press gets when
+		 * nothing identifies it and the tracker holds nothing (a requestSubmit() with no argument, or
+		 * a click the tracker never saw) in a form of several submit buttons: the form's marked
+		 * question is asked rather than none. The offer's state form marks End alone among its
+		 * buttons, so an unidentified press of Pause asks the End question, and a No leaves the offer
+		 * as it was. That errs toward a question, where the other choice would let a destructive
+		 * press post unasked.
+		 */
+		var control = event.submitter || lastPressed( form ) || firstMarkedSubmit( form );
+		var question = control ? control.getAttribute( 'data-wpcpm-confirm' ) : null;
+
+		if ( null === question ) {
+			question = form.getAttribute( 'data-wpcpm-confirm' );
+		}
+
+		if ( question && ! window.confirm( question ) ) {
+			event.preventDefault();
+		}
 	}
 
 	ready( function () {
+		watchPressed();
 		confirmFirst();
 		guardForms();
 		releaseOnRestore();

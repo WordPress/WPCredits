@@ -161,6 +161,31 @@ final class WPCPM_Institution_Import_Form {
 	// phpcs:enable VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
 
 	/**
+	 * The address every form on this card posts to.
+	 *
+	 * For an administrator it names the institution the page is showing, because a press that
+	 * acts on nothing, such as Cancel on a list another tab has already thrown away, has no
+	 * batch to read its institution from, and a post to `admin-post.php` carries the form's
+	 * fields and none of the query string of the page it was on. Without it that press lands
+	 * on the first institution with a member. A member's form posts to the bare address: their
+	 * own membership places them. A press that acts on something still takes its institution
+	 * from the batch and never from this address, unless what it acted on names no institution.
+	 *
+	 * @param string $record Institutions record ID the page is showing.
+	 * @return string
+	 */
+	private static function post_url( $record ) {
+		$url    = admin_url( 'admin-post.php' );
+		$record = trim( (string) $record );
+
+		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record, $url );
+		}
+
+		return $url;
+	}
+
+	/**
 	 * The form itself.
 	 *
 	 * The batch-wide answers come first, because they are properties of the whole import
@@ -172,7 +197,7 @@ final class WPCPM_Institution_Import_Form {
 	 * `admin-post.php` carries the form's fields and none of the query string of the page it
 	 * was on. Without it an administrator viewing any institution but their fallback meets a
 	 * nonce keyed to a different record. A member's own membership places them, and the
-	 * address stays what it was.
+	 * address stays what it was. See `post_url()`.
 	 *
 	 * @param string $record Institutions record ID.
 	 */
@@ -182,15 +207,9 @@ final class WPCPM_Institution_Import_Form {
 			esc_html__( 'Add one student, or a list of them. Nothing is created until you have seen what the list was understood to say.', 'wpcredits-program-manager' )
 		);
 
-		$action = admin_url( 'admin-post.php' );
-
-		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$action = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $action );
-		}
-
 		printf(
 			'<form class="wpcpm-import__form" method="post" enctype="multipart/form-data" action="%s">',
-			esc_url( $action )
+			esc_url( self::post_url( $record ) )
 		);
 
 		wp_nonce_field( self::ACTION_CHECK . '_' . $record );
@@ -380,7 +399,7 @@ final class WPCPM_Institution_Import_Form {
 	 * guessing.
 	 *
 	 * @param int    $batch_id The staged batch.
-	 * @param string $record   Institutions record ID, for the nonce.
+	 * @param string $record   Institutions record ID, for the nonce and for the forms' address.
 	 */
 	private static function render_preview( $batch_id, $record ) {
 		$batch = WPCPM_Institution_Import::batch( $batch_id );
@@ -390,7 +409,7 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		if ( WPCPM_Institution_Import::STATE_CREATING === $batch['state'] ) {
-			self::render_progress( $batch );
+			self::render_progress( $batch, $record );
 
 			return;
 		}
@@ -430,11 +449,11 @@ final class WPCPM_Institution_Import_Form {
 
 		echo '</ul>';
 
-		self::render_confirm( $batch_id, $batch, $counts['ok'] );
+		self::render_confirm( $batch_id, $batch, $counts['ok'], $record );
 
 		printf(
 			'<form class="wpcpm-import__cancel" method="post" action="%s">',
-			esc_url( admin_url( 'admin-post.php' ) )
+			esc_url( self::post_url( $record ) )
 		);
 		wp_nonce_field( self::ACTION_CANCEL . '_' . (int) $batch_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CANCEL ) );
@@ -456,11 +475,12 @@ final class WPCPM_Institution_Import_Form {
 	 * creates a second record under their own hand, and no ladder here can tell that from a
 	 * new enrolment.
 	 *
-	 * @param int   $batch_id The staged batch.
-	 * @param array $batch    The batch.
-	 * @param int   $creating How many rows would be created.
+	 * @param int    $batch_id The staged batch.
+	 * @param array  $batch    The batch.
+	 * @param int    $creating How many rows would be created.
+	 * @param string $record   Institutions record ID the page is showing.
 	 */
-	private static function render_confirm( $batch_id, array $batch, $creating ) {
+	private static function render_confirm( $batch_id, array $batch, $creating, $record ) {
 		if ( $creating < 1 ) {
 			// Nothing to create is not a button. A school whose whole list was blocked reads
 			// the rows and throws the list away; a Confirm here would do nothing and would
@@ -479,7 +499,7 @@ final class WPCPM_Institution_Import_Form {
 
 		printf(
 			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_url( self::post_url( $record ) ),
 			esc_attr( $says )
 		);
 		wp_nonce_field( WPCPM_Institution_Create::confirm_action( $batch_id ) );
@@ -500,9 +520,10 @@ final class WPCPM_Institution_Import_Form {
 	 * quiet site runs when somebody visits, which for an institution's dashboard may be
 	 * tomorrow; a person watching a half-finished import should not have to wait for a visitor.
 	 *
-	 * @param array $batch The batch being created.
+	 * @param array  $batch  The batch being created.
+	 * @param string $record Institutions record ID the page is showing.
 	 */
-	private static function render_progress( array $batch ) {
+	private static function render_progress( array $batch, $record ) {
 		$tally = WPCPM_Institution_Create::tally( $batch['rows'] );
 		$left  = WPCPM_Institution_Create::remaining( $batch['rows'] );
 
@@ -530,7 +551,7 @@ final class WPCPM_Institution_Import_Form {
 
 		printf(
 			'<form class="wpcpm-import__actions" method="post" action="%s">',
-			esc_url( admin_url( 'admin-post.php' ) )
+			esc_url( self::post_url( $record ) )
 		);
 		wp_nonce_field( WPCPM_Institution_Create::continue_action( $batch['id'] ) );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONTINUE ) );
@@ -1225,8 +1246,8 @@ final class WPCPM_Institution_Import_Form {
 	 * address for a viewer who holds `CAP_MANAGE` and for nobody else, because
 	 * `resolve_institution()` reads the argument on that branch alone: an administrator comes
 	 * back to the institution they were viewing instead of to the first one with a member, and
-	 * a member's address is what it always was. A press with no institution to name, such as one
-	 * on a batch that is gone, passes none.
+	 * a member's address is what it always was. A press that acted on nothing, such as one on a
+	 * batch that is gone, passes none, and `return_record()` says where an administrator goes.
 	 *
 	 * @param string $status What happened.
 	 * @param array  $extra  Anything the message needs, such as the batch to open.
@@ -1244,12 +1265,47 @@ final class WPCPM_Institution_Import_Form {
 			$url = add_query_arg( self::ARG_BATCH, (int) $extra['batch'], $url );
 		}
 
-		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record ), $url );
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$view = self::return_record( $record );
+
+			if ( '' !== $view ) {
+				$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $view, $url );
+			}
 		}
 
 		wp_safe_redirect( $url . '#wpcpm-import' );
 		exit;
+	}
+
+	/**
+	 * The institution an administrator's way back names, or ''.
+	 *
+	 * What the press acted on, when the handler named it, and then only if it is a record ID: a
+	 * press that acted on something goes back to the thing it acted on, and the switcher the
+	 * form carried is not asked. A press that acted on nothing, such as one on a batch that is
+	 * gone or one refused before anything was read, has no institution of its own, so its way
+	 * back is navigation and takes the institution the request says the administrator was
+	 * viewing, read where `resolve_institution()` reads it. It is used only if it is a record ID
+	 * the pipeline index holds, and the next page load checks it again, so a value that is
+	 * stale or made up lands nobody anywhere they could not already open.
+	 *
+	 * @param string $record Institutions record ID the press acted on, or ''.
+	 * @return string
+	 */
+	private static function return_record( $record ) {
+		$record = trim( (string) $record );
+
+		if ( '' !== $record ) {
+			return WPCPM_Mentors_Sync::is_record_id( $record ) ? $record : '';
+		}
+
+		$asked = trim( WPCPM_Request::text( WPCPM_Institution_Roster::ARG_VIEW ) );
+
+		if ( '' === $asked ) {
+			$asked = trim( WPCPM_Request::posted_text( WPCPM_Institution_Roster::ARG_VIEW ) );
+		}
+
+		return ( WPCPM_Mentors_Sync::is_record_id( $asked ) && WPCPM_Institutions_Index::has( $asked ) ) ? $asked : '';
 	}
 
 	/**

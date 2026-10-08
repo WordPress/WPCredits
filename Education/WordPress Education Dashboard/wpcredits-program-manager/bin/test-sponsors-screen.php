@@ -170,7 +170,6 @@ function esc_attr__( $s, $d = null ) { return esc_html( __( $s, $d ) ); }
 function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
-function esc_js( $s ) { return addslashes( (string) $s ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }

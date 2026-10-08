@@ -487,12 +487,19 @@ class WPCPM_Student_Report_Form {
 		// Guarded once like the report form above it and like the sponsor logo's own Remove.
 		// Remove is a delete, and a second press while the first is in flight sends a second
 		// PATCH of a cell the first one already emptied.
+		//
+		// It asks first, too, and the question is on this form rather than on each button. A
+		// button that names its form in a `form` attribute is still inside the report form in the
+		// markup, and `forms.js` looks through a form's own descendants for a marked button when
+		// the browser cannot say what was pressed: a question on the button could be the one a
+		// Save was asked. Every button that posts this form is a Remove, so one sentence serves.
 		if ( $can && $has_files ) {
 			printf(
-				'<form class="wpcpm-report__remove" id="wpcpm-report-remove-%1$d" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
+				'<form class="wpcpm-report__remove" id="wpcpm-report-remove-%1$d" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s" data-wpcpm-confirm="%4$s">',
 				(int) $student->ID,
 				esc_url( admin_url( 'admin-post.php' ) ),
-				esc_attr__( 'Removing', 'wpcredits-program-manager' )
+				esc_attr__( 'Removing', 'wpcredits-program-manager' ),
+				esc_attr__( 'Remove this screenshot? It goes from this site and from the program records. You can upload another one afterward.', 'wpcredits-program-manager' )
 			);
 
 			wp_nonce_field( self::ACTION_REMOVE_IMAGE . '_' . (int) $student->ID );

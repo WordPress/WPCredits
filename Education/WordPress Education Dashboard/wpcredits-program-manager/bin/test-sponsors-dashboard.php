@@ -228,7 +228,8 @@ class WPCPM_Students_Dashboard {
 	public static function page_url() { return ''; }
 	public static function is_student() { return false; }
 }
-class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } public static function sponsorship() { return array(); } }
+// The real is_record_id() trims what it is given and refuses what is not a scalar; the stand-in does the same, so leave() is held to the real guard.
+class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return is_scalar( $v ) && 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $v ) ); } public static function sponsorship() { return array(); } }
 class WPCPM_Students_Sync { const META_RECORD_ID = 'wpcpm_student_record_id'; }
 class WPCPM_Institution_Members { const META_RECORD_ID = 'wpcpm_institution_record_id'; const META_ACTIVE = 'wpcpm_institution_active'; public static function institution_of( $u = null ) { return ''; } }
 class WPCPM_Institution_Audit { const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index'; const EVIDENCE_CACHE = 'cache'; public static function record_sponsor( array $e ) { return 1; } }
@@ -401,6 +402,19 @@ ck( 'and sends a member to the page and the card, without the switcher argument'
 $GLOBALS['uid'] = 1;
 try { $D::leave( 'interest-sent', 'interests', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
 ck( 'a manager is sent back through the switcher', false !== strpos( $GLOBALS['redirected'], WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A ) && false !== strpos( $GLOBALS['redirected'], '#wpcpm-sponsor-interests' ), true );
+ck( 'and the whole address is the page, the sponsor and the card', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-interests' );
+// What the argument may be is the shape of a record ID, as the institution side's guard says, and
+// not merely "not empty": a value that is no record ID adds nothing to the address.
+foreach ( array( 'nothing at all' => '', 'only spaces' => '   ', 'a word' => 'x', 'a short ID' => 'recSPONSOR', 'markup' => '<b>recSPONSOR0000001</b>' ) as $what => $record ) {
+	try { $D::leave( 'interest-sent', 'interests', $record ); } catch ( WPCPM_Test_Redirect $e ) {}
+	ck( 'a manager sent back with ' . $what . ' is sent to the page and the card, with no argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+}
+try { $D::leave( 'interest-sent', 'interests', ' ' . $A . ' ' ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'and a record ID with spaces round it is sent trimmed', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-interests' );
+$GLOBALS['uid'] = 5;
+try { $D::leave( 'interest-sent', 'interests', $B ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'a member is sent to the page and the card whatever record they pass', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+$GLOBALS['uid'] = 1;
 ck( 'messages() knows every card\'s statuses', array_values( array_diff( array( 'profile-saved', 'interest-sent', 'mentor-interest-sent', 'refused' ), array_keys( $D::messages() ) ) ), array() );
 
 echo "\n=== The toolbar and login routing ===\n";

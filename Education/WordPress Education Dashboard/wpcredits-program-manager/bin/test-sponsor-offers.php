@@ -73,7 +73,6 @@ function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function esc_js( $s ) { return addslashes( (string) $s ); }
 /** Core's own last step in _sanitize_text_fields(): every `%XX` is removed (finding 1). */
 function wpcpm_test_strip_percent( $s ) { while ( preg_match( '/%[a-f0-9]{2}/i', $s, $m ) ) { $s = str_replace( $m[0], '', $s ); } return $s; }
 function sanitize_text_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
@@ -701,6 +700,31 @@ WPCPM_Sponsor_Codes::void_unclaimed( $voided );
 $back = WPCPM_Sponsor_Codes::add( $voided, "V-1\nV-3" );
 ck( 'the vendor reissues a voided code and the refusal names the state, not "already in this offer"', $back->get_error_data(), array( 'Line 1 was voided in this offer earlier.' ) );
 ck( 'a code the offer never held goes in beside the void rows', array( WPCPM_Sponsor_Codes::add( $voided, 'V-4' ), WPCPM_Sponsor_Codes::counts( $voided ) ), array( 1, array( 'available' => 1, 'claimed' => 0, 'void' => 2, 'total' => 3 ) ) );
+
+echo "\n=== The questions the card asks first ===\n";
+// End this offer and Void unclaimed codes are the two presses the card cannot take back, so each asks
+// through a data-wpcpm-confirm mark with its sentence escaped for the attribute. The offer's other moves
+// ask nothing, and the void button sits in the Add codes form and posts the void form named in its
+// `form` attribute, so the sentence is on that form.
+$asking = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Asking pool', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::add( $asking, "Q-1\nQ-2" );
+$html     = card( 'WPCPM_Sponsor_Offers', $A, $context );
+$end_mark = ' data-wpcpm-confirm="' . esc_attr( 'End this offer for good? Codes already claimed stay with the people who hold them.' ) . '"';
+$ends     = preg_match_all( '#<button\b[^>]*\bvalue="ended"[^>]*>End this offer</button>#', $html, $found ) ? $found[0] : array();
+$moves    = preg_match_all( '#<button\b[^>]*\bname="wpcpm_state"[^>]*\bvalue="(?:live|paused)"[^>]*>#', $html, $found ) ? $found[0] : array();
+ck( 'every End this offer button asks "End this offer for good?"', array(
+	count( $ends ) >= 1,
+	count( array_filter( $ends, static function ( $button ) use ( $end_mark ) { return false !== strpos( $button, $end_mark ); } ) ),
+), array( true, count( $ends ) ) );
+ck( 'and the offer\'s other moves, Switch on, Resume and Pause, ask nothing', array(
+	count( $moves ) >= 1,
+	substr_count( implode( '', $moves ), 'data-wpcpm-confirm' ),
+), array( true, 0 ) );
+$void_form = preg_match( '#<form\b[^>]*\bid="wpcpm-offer-void-' . $asking . '"[^>]*>#', $html, $found ) ? $found[0] : '';
+ck( 'the void form asks "Void every code nobody has claimed yet?" on its form tag',
+    false !== strpos( $void_form, ' data-wpcpm-confirm="' . esc_attr( 'Void every code nobody has claimed yet? They cannot be brought back.' ) . '"' ), true );
+ck( 'and Void unclaimed codes is a submit button that names the void form in its form attribute and carries no mark of its own',
+    preg_match( '#<button type="submit" form="wpcpm-offer-void-' . $asking . '" class="[^"]*">Void unclaimed codes</button>#', $html ), 1 );
 
 echo "\n=== Uninstall ===\n";
 // In the order uninstall uses: the offers and their pools first, then the claims meta. A lock

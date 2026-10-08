@@ -217,6 +217,16 @@ class WPCPM_Students_Dashboard {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
+		// A screenshot's Remove on the report form asks through forms.js, so the page loads it itself
+		// and does not rely on the calendar for it. It registers the handle the way the calendar does:
+		// whichever runs first wins and the handle stays one script. The enqueue sits above the early
+		// returns, as it does on the other dashboards.
+		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
+			wp_register_script( 'wpcpm-forms', WPCPM_PLUGIN_URL . 'assets/js/forms.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-forms' );
+
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
 				__( 'Please log in to see your program details.', 'wpcredits-program-manager' ),

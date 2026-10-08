@@ -244,7 +244,6 @@ function add_query_arg( $k, $v = '', $u = '' ) {
 }
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
-function esc_js( $s ) { return str_replace( array( "'", "\n" ), array( "\\'", '' ), (string) $s ); }
 function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true, $other = array() ) {
 	$attrs = '';
 	foreach ( (array) $other as $key => $value ) { $attrs .= ' ' . $key . '="' . esc_attr( $value ) . '"'; }
@@ -3313,7 +3312,7 @@ ck( 'the forms are the ones the card draws, each posting no return and no tab, s
 	form_fields( $first_past, 'wpcpm_app_info' ),
 	form_fields( $first_past, 'wpcpm_app_reject' ),
 	form_fields( $first_past, 'wpcpm_app_spam' ),
-	false !== strpos( $first_past, esc_js( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ),
+	false !== strpos( $first_past, ' data-wpcpm-confirm="' . esc_attr( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) . '"' ),
 	false !== strpos( $first_past, 'name="wpcpm_question"' ) && false !== strpos( $first_past, 'name="wpcpm_reason"' ),
 ), array(
 	array( 'action' => 'wpcpm_app_approve', 'wpcpm_application' => '501' ),
@@ -3424,7 +3423,7 @@ ck( 'an application in a state no decision writes is pointed at the dashboard wi
 ck( 'an approved one keeps Delete for good, exactly as it was, and nothing else', array(
 	decisions_on( $approved, 530 ),
 	form_fields( $approved, 'wpcpm_app_purge' ),
-	false !== strpos( $approved, esc_js( 'Delete the application from Aprobada Example for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.' ) ),
+	false !== strpos( $approved, ' data-wpcpm-confirm="' . esc_attr( 'Delete the application from Aprobada Example for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.' ) . '"' ),
 	substr_count( $approved, '<form' ),
 ), array( array_merge( $no_decision, array( 'purge' => 1 ) ), array( 'action' => 'wpcpm_app_purge', 'wpcpm_application' => '530' ), true, 1 ) );
 ck( 'and says why that one control stays here, with no way to a card that does not list it', array(

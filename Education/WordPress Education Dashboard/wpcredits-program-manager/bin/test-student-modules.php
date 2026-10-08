@@ -36,6 +36,8 @@ $GLOBALS['uid']   = 0;
 $GLOBALS['caps']  = false;
 $GLOBALS['umeta'] = array();
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h', 'link' => 'https://airtable.example/form' );
+$GLOBALS['enqueued']   = array();
+$GLOBALS['registered'] = array();
 
 class RedirectSignal extends Exception {}
 class DieSignal extends Exception {}
@@ -73,8 +75,9 @@ function get_user_by( $f, $v ) { return isset( $GLOBALS['users'][ (int) $v ] ) ?
 function get_user_meta( $id, $k, $single = false ) { return isset( $GLOBALS['umeta'][ (int) $id ][ $k ] ) ? $GLOBALS['umeta'][ (int) $id ][ $k ] : ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function wp_send_json_success( $data = null ) { throw new JsonSignal( json_encode( $data ) ); }
-function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) {}
-function wp_script_is( $h, $l = 'enqueued' ) { return false; }
+// The script functions keep what they were asked, so the page can be read for what it loads.
+function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) { $GLOBALS['registered'][ $h ] = array( 'src' => $s, 'deps' => $d, 'ver' => $v, 'footer' => $f ); }
+function wp_script_is( $h, $l = 'enqueued' ) { return 'registered' === $l ? isset( $GLOBALS['registered'][ $h ] ) : in_array( $h, $GLOBALS['enqueued'], true ); }
 function get_users( $args = array() ) { return array_values( array_filter( $GLOBALS['users'], function ( $u ) { return in_array( 'wpcpm_student', $u->roles, true ); } ) ); }
 function human_time_diff( $from, $to = 0 ) { return '2 hours'; }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
@@ -283,6 +286,56 @@ ck( 'the first module on the page cannot go up and the last cannot go down, what
 	substr_count( $html, 'class="wpcpm-module__mover"' ),
 ), array( true, true, 2, 3 ) );
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
+
+echo "\n=== The page loads the script that asks the report form's Remove ===\n";
+
+// A screenshot's Remove asks its question through forms.js, reading `data-wpcpm-confirm`. The call
+// calendar brings the script in as a dependency on every page that draws the report form today, so
+// this pins the house rule and not the question: the page enqueues the script itself, above its early
+// returns, and does not rely on the calendar for it.
+/**
+ * Draw the page for one visitor, with nothing loaded or registered beforehand.
+ *
+ * @param int   $uid   The signed-in user, or 0 for a visitor who is logged out.
+ * @param bool  $caps  Whether that user is a program manager.
+ * @param array $known Script handles another module has already registered.
+ * @return string The page.
+ */
+function page_for( $uid, $caps, array $known = array() ) {
+	$GLOBALS['uid']        = $uid;
+	$GLOBALS['caps']       = $caps;
+	$GLOBALS['enqueued']   = array();
+	$GLOBALS['registered'] = array_fill_keys( $known, array( 'src' => 'registered-earlier', 'deps' => array(), 'ver' => false, 'footer' => true ) );
+	$_GET                  = array( 'wpcpm_student_view' => '30' );
+
+	return WPCPM_Students_Dashboard::render();
+}
+
+$out = page_for( 0, false );
+ck( 'a visitor who is logged out is sent to log in, and the page enqueued wpcpm-forms before it stopped there',
+	array( false !== strpos( $out, 'Please log in to see your program details.' ), in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ) ),
+	array( true, true ) );
+
+$out = page_for( 30, false );
+ck( 'a student\'s own page enqueues it, once, with the report form drawn and no calendar to bring it in',
+	array( false !== strpos( $out, '<!-- report-form -->' ), count( array_keys( $GLOBALS['enqueued'], 'wpcpm-forms', true ) ) ),
+	array( true, 1 ) );
+
+page_for( 1, true );
+ck( 'and so does a program manager\'s view of a student\'s page',
+	count( array_keys( $GLOBALS['enqueued'], 'wpcpm-forms', true ) ), 1 );
+
+page_for( 0, false );
+ck( 'the script is registered from assets/js/forms.js, at the plugin version, in the footer, when no module has registered it yet',
+	$GLOBALS['registered']['wpcpm-forms'] ?? null,
+	array( 'src' => 'https://example.test/wp-content/plugins/wpcredits-program-manager/assets/js/forms.js', 'deps' => array(), 'ver' => 'test', 'footer' => true ) );
+
+page_for( 0, false, array( 'wpcpm-forms' ) );
+ck( 'and left as the calendar registered it when one has, so the handle stays one script',
+	array( $GLOBALS['registered']['wpcpm-forms']['src'] ?? null, in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ) ),
+	array( 'registered-earlier', true ) );
+
+$_GET = array();
 
 echo "\n=== The hours box on a track with no course (TRACKS-3) ===\n";
 

@@ -427,7 +427,8 @@ function get_posts( $args = array() ) {
 
 function register_post_type( $type, $args = array() ) { $GLOBALS['post_types'][ $type ] = $args; return true; }
 function register_post_meta( $type, $key, $args = array() ) { $GLOBALS['post_meta'][ $type ][ $key ] = $args; return true; }
-function wp_get_post_revisions( $id, $args = array() ) { return array(); }
+function wp_get_post_revisions( $id, $args = array() ) { return isset( $GLOBALS['revisions_of'][ (int) $id ] ) ? $GLOBALS['revisions_of'][ (int) $id ] : array(); }
+function get_userdata( $id ) { return get_user_by( 'id', (int) $id ); }
 function wp_get_post_revision( $id ) { $p = get_post( $id ); return ( $p && 'revision' === $p->post_type ) ? $p : null; }
 /**
  * Core's restore, as far as it writes: the revision's fields go back through `wp_update_post()`
@@ -479,10 +480,14 @@ function wp_nonce_url( $url, $action = -1, $name = '_wpnonce' ) {
 }
 function add_query_arg( $key, $value = null, $url = '' ) {
 	if ( is_array( $key ) ) { $url = (string) $value; $pairs = $key; } else { $pairs = array( $key => $value ); }
+	// Like core, the fragment stays at the end of the address.
+	$hash = strpos( $url, '#' );
+	$tail = false === $hash ? '' : substr( $url, $hash );
+	$url  = false === $hash ? $url : substr( $url, 0, $hash );
 	$join = false === strpos( $url, '?' ) ? '?' : '&';
 	$bits = array();
 	foreach ( $pairs as $k => $v ) { $bits[] = rawurlencode( (string) $k ) . '=' . rawurlencode( (string) $v ); }
-	return $url . $join . implode( '&', $bits );
+	return $url . $join . implode( '&', $bits ) . $tail;
 }
 function remove_query_arg( $key, $url = '' ) { return $url; }
 function wp_safe_redirect( $url, $status = 302 ) { $GLOBALS['redirect'] = (string) $url; return true; }
@@ -3412,6 +3417,28 @@ function views( $url, $record ) {
 	return has( $url, WPCPM_Institution_Roster::ARG_VIEW . '=' . $record );
 }
 
+/**
+ * The address a press leaves to when it is to open a semester's report, or, with no semester,
+ * the report card on the dashboard; with the institution when the reader is to come back to one.
+ *
+ * @param string $cohort Cohort key the address opens, or ''.
+ * @param string $record Institutions record ID the address names, or ''.
+ * @return string
+ */
+function report_address( $cohort = '', $record = '' ) {
+	$url = 'https://example.test/institution-dashboard/';
+
+	if ( '' !== $cohort ) {
+		$url .= '?' . WPCPM_Semester_Report_Screen::ARG . '=' . $cohort;
+	}
+
+	if ( '' !== $record ) {
+		$url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . WPCPM_Institution_Roster::ARG_VIEW . '=' . $record;
+	}
+
+	return $url . '#wpcpm-report';
+}
+
 /** The status the last press flashed. */
 function said_last() {
 	$got = isset( $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ] ) ? $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ] : array();
@@ -3512,8 +3539,9 @@ ck( 'drafting an existing semester says the report is there', said_last(), 'draf
 ck( 'and comes back to the institution the form named', views( $went, $A ) && ! has( $went, $B ), true );
 
 // Somebody the policy lets in who does not hold the capability gets the address as it was: no
-// argument, so nothing about where they go depends on a value they posted. (The policy stand-in
-// reads any non-empty `manage` as a manager's ground; the capability stand-in reads the list.)
+// argument, so nothing about where they go depends on a value they posted. Compared whole, so a
+// change to where a reader lands cannot pass for "no switcher". (The policy stand-in reads any
+// non-empty `manage` as a manager's ground; the capability stand-in reads the list.)
 $GLOBALS['manage'] = array( 99 );
 $GLOBALS['acting'] = $A;
 $GLOBALS['uid']    = 7;
@@ -3521,11 +3549,10 @@ $GLOBALS['uid']    = 7;
 ck( 'the account is not a manager', current_user_can( WPCPM_Roles::CAP_MANAGE ), false );
 
 $went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => '2025-H2' ) + $other_view, $other_view );
-ck( 'generating, without the capability, still leaves', '' !== $went, true );
-ck( 'with no switcher argument at all', has( $went, WPCPM_Institution_Roster::ARG_VIEW ), false );
+ck( 'generating, without the capability, goes to the semester and nowhere else', $went, report_address( '2025-H2' ) );
 
 $went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => 'none' ) + $other_view, $other_view );
-ck( 'and so does its refusal', has( $went, WPCPM_Institution_Roster::ARG_VIEW ), false );
+ck( 'and its refusal goes to the dashboard card', $went, report_address() );
 
 foreach ( array(
 	'save'    => WPCPM_Semester_Report_Screen::ACTION_SAVE,
@@ -3534,11 +3561,217 @@ foreach ( array(
 	'reopen'  => WPCPM_Semester_Report_Screen::ACTION_REOPEN,
 ) as $what => $action ) {
 	$went = leaves_to( $action, array( 'report' => $a_post->ID, 'modified' => (string) get_post( $a_post->ID )->post_modified_gmt ) + $other_view, $other_view );
-	ck( $what . ': without the capability the address has no switcher argument', '' !== $went && ! has( $went, WPCPM_Institution_Roster::ARG_VIEW ), true );
+	ck( $what . ': without the capability the address is the report\'s semester and nothing more', $went, report_address( $COHORT ) );
 }
 
 $went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_of_a ) + $other_view, $other_view );
-ck( 'restore: without the capability the address has no switcher argument', '' !== $went && ! has( $went, WPCPM_Institution_Roster::ARG_VIEW ), true );
+ck( 'restore: without the capability the address is the report\'s semester and nothing more', $went, report_address( $COHORT ) );
+
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 3;
+$_POST             = array();
+$_GET              = array();
+
+echo "\n=== A press that acted on nothing comes back to the institution they were viewing ===\n";
+
+// A report removed meanwhile, a revision gone, a school nobody resolves: no institution is the one
+// the press acted on, so the address is navigation, and an administrator is sent back to the one
+// the form says they were looking at. `resolve_institution()` checks it again on the next load, so
+// the value only has to be well formed, held by the index, and posted by someone who holds the
+// capability. A press that did act keeps the rule above: the report's own institution, always.
+$GHOST = 'recGHOST000000009';
+$GONE  = 999999;
+
+ck( 'the institution the form says they were viewing is held by the index', WPCPM_Institutions_Index::has( $B ), true );
+ck( 'and the other is not', WPCPM_Institutions_Index::has( $GHOST ), false );
+
+// The forms of B's report, drawn while the report is there. A press is made of what a browser
+// sends: the form's fields, and the query string of the address the form posts to. The page they
+// are drawn on is B's, and a post to `admin-post.php` carries nothing of that page's address, so
+// each form has to name B on its own action address, for an administrator and for nobody else.
+$POSTS_TO = 'https://example.test/wp-admin/admin-post.php';
+
+/** The address a form posts to. */
+function action_of( $chunk ) {
+	return preg_match( '/\baction="([^"]*)"/', (string) $chunk, $found ) ? html_entity_decode( $found[1], ENT_QUOTES ) : '';
+}
+
+/** What a browser puts in the query string when this form is pressed: the query of its action address. */
+function query_of( $chunk ) {
+	parse_str( (string) parse_url( action_of( $chunk ), PHP_URL_QUERY ), $query );
+
+	return $query;
+}
+
+/**
+ * B's report as the editor draws it, and the ask control the manager screens draw beside it.
+ *
+ * @param bool    $administrator Whether the reader holds the capability. When not, the policy stand-in
+ *                               still lets them in (any non-empty `manage` is a manager's ground there).
+ * @param WP_Post $post          The report.
+ * @param string  $record        Institutions record ID.
+ * @param string  $cohort        Cohort key.
+ * @return string[] The editor, then the ask control.
+ */
+function draw_report_as( $administrator, WP_Post $post, $record, $cohort ) {
+	$GLOBALS['manage'] = $administrator ? true : array( 99 );
+	$GLOBALS['uid']    = $administrator ? 3 : 7;
+
+	$html = screen_html( $record, $cohort );
+
+	ob_start();
+	WPCPM_Semester_Report_Screen::render_ask_form( $post->ID );
+	$ask = (string) ob_get_clean();
+
+	$GLOBALS['manage'] = true;
+	$GLOBALS['uid']    = 3;
+
+	return array( $html, $ask );
+}
+
+$rev_of_b = wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'inherit', 'post_parent' => $b_post->ID, 'post_author' => 3, 'post_modified_gmt' => gmdate( 'Y-m-d H:i:s' ) ) );
+$GLOBALS['revisions_of'][ $b_post->ID ] = array( get_post( $rev_of_b ) );
+
+ck( 'B\'s report is a draft', WPCPM_Semester_Report::state( $b_post ), WPCPM_Semester_Report::STATE_DRAFT );
+
+// What each reader is drawn, with the report a draft and then approved: save, refresh, approve,
+// then refresh and reopen; the earlier versions and the ask control on both.
+$drawn = array();
+
+foreach ( array( 'an administrator' => true, 'a reader without the capability' => false ) as $who => $administrator ) {
+	$drawn[ $who ]['draft'] = draw_report_as( $administrator, $b_post, $B, $COHORT );
+}
+
+WPCPM_Semester_Report::approve( $b_post, 3 );
+
+foreach ( array( 'an administrator' => true, 'a reader without the capability' => false ) as $who => $administrator ) {
+	$drawn[ $who ]['approved'] = draw_report_as( $administrator, $b_post, $B, $COHORT );
+}
+
+$forms        = array();
+$member_forms = array();
+
+foreach ( $drawn as $who => $states ) {
+	$administrator = 'an administrator' === $who;
+	$posts_to      = $administrator ? $POSTS_TO . '?' . WPCPM_Institution_Roster::ARG_VIEW . '=' . $B : $POSTS_TO;
+
+	foreach ( array(
+		'draft'    => array( 'save' => WPCPM_Semester_Report_Screen::ACTION_SAVE, 'refresh' => WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT, 'approve' => WPCPM_Semester_Report_Screen::ACTION_APPROVE, 'restore' => WPCPM_Semester_Report_Screen::ACTION_RESTORE, 'ask' => WPCPM_Semester_Report_Screen::ACTION_ASK ),
+		'approved' => array( 'refresh' => WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT, 'reopen' => WPCPM_Semester_Report_Screen::ACTION_REOPEN ),
+	) as $state => $actions ) {
+		foreach ( $actions as $what => $action ) {
+			$chunk = form_for( $states[ $state ][0] . $states[ $state ][1], $action );
+			$key   = $what . ( 'approved' === $state ? ' (approved)' : '' );
+
+			ck( $who . ': there is a ' . $key . ' form to press', '' !== $chunk, true );
+			ck( $who . ': the ' . $key . ' form posts to ' . ( $administrator ? 'the institution they are viewing' : 'admin-post.php as it did' ), action_of( $chunk ), $posts_to );
+
+			if ( $administrator ) {
+				$forms[ $key ] = array( $action, form_fields( $chunk )['fields'], query_of( $chunk ) );
+			} else {
+				$member_forms[ $key ] = array( $action, form_fields( $chunk )['fields'], query_of( $chunk ) );
+			}
+		}
+	}
+}
+
+// A report that holds no institution gives the ask control nothing to name.
+$unstamped = wp_insert_post( array( 'post_type' => WPCPM_Semester_Report::POST_TYPE, 'post_status' => 'publish', 'post_title' => 'No institution' ) );
+ob_start();
+WPCPM_Semester_Report_Screen::render_ask_form( $unstamped );
+$ask_unstamped = (string) ob_get_clean();
+ck( 'the ask control of a report with no institution posts to admin-post.php as it did', action_of( form_for( $ask_unstamped, WPCPM_Semester_Report_Screen::ACTION_ASK ) ), $POSTS_TO );
+wp_delete_post( $unstamped, true );
+
+wp_delete_post( $b_post->ID, true );
+
+ck( 'the report was removed meanwhile', get_post( $b_post->ID ), null );
+
+$from_b = array( WPCPM_Institution_Roster::ARG_VIEW => $B );
+
+// Each press is made of nothing but what its form carried.
+foreach ( $forms as $what => $form ) {
+	$went = leaves_to( $form[0], $form[1], $form[2] );
+	ck( $what . ': a report that is gone is refused', said_last(), 'refused' );
+	ck( $what . ': and an administrator comes back to the institution they were viewing', $went, report_address( '', $B ) );
+}
+
+foreach ( $member_forms as $what => $form ) {
+	$GLOBALS['manage'] = array( 99 );
+	$GLOBALS['uid']    = 7;
+	$went              = leaves_to( $form[0], $form[1], $form[2] );
+	$GLOBALS['manage'] = true;
+	$GLOBALS['uid']    = 3;
+	ck( $what . ': a reader without the capability who pressed on a report that is gone', said_last(), WPCPM_Semester_Report_Screen::ACTION_ASK === $form[0] ? 'ask-refused' : 'refused' );
+	ck( $what . ': goes to the dashboard card and nowhere else', $went, report_address() );
+}
+
+// The switcher on the address alone, and in the form alone: either places the administrator.
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, array( 'report' => $GONE ), $from_b );
+ck( 'read from the address alone', $went, report_address( '', $B ) );
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, array( 'report' => $GONE ) + $from_b );
+ck( 'read from the form alone', $went, report_address( '', $B ) );
+
+// Nothing resolves for the generate button, or the posted target is no school: refused first.
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => $COHORT ) + $from_b, $from_b );
+ck( 'generating for no school at all is refused', said_last(), 'refused' );
+ck( 'and an administrator comes back to the institution they were viewing', $went, report_address( '', $B ) );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $GHOST, 'cohort' => $COHORT ) + $from_b, $from_b );
+ck( 'drafting for a school the index does not hold is refused', said_last(), 'refused' );
+ck( 'and an administrator comes back to the institution they were viewing', $went, report_address( '', $B ) );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => 'nobody', 'cohort' => $COHORT ) + $from_b, $from_b );
+ck( 'drafting for something that is not a record ID is refused', said_last(), 'refused' );
+ck( 'and an administrator comes back to the institution they were viewing', $went, report_address( '', $B ) );
+
+// What the switcher may not be.
+$gone_save = array( 'report' => $GONE );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, $gone_save );
+ck( 'with no switcher at all, nothing is added', $went, report_address() );
+
+$ghost_view = array( WPCPM_Institution_Roster::ARG_VIEW => $GHOST );
+$went       = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, $gone_save + $ghost_view, $ghost_view );
+ck( 'a well formed institution the index does not hold adds nothing', $went, report_address() );
+
+// The index holds this one, and it is no record ID: only the shape of the value can refuse it.
+$GLOBALS['inst_rows']['recno'] = array( 'record_id' => 'recno', 'name' => 'Not a record', 'stage' => 'Confirmed' );
+ck( 'the index holds a key that is no record ID', WPCPM_Institutions_Index::has( 'recno' ), true );
+$bad_view = array( WPCPM_Institution_Roster::ARG_VIEW => 'recno' );
+$went     = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, $gone_save + $bad_view, $bad_view );
+ck( 'and so a value that is not a record ID adds nothing, whatever the index holds', $went, report_address() );
+unset( $GLOBALS['inst_rows']['recno'] );
+
+// Both places at once: the address is read before the form, the order `resolve_institution()` reads
+// them in, so a request that carries two schools comes back to the one in its address.
+ck( 'the index holds the second school as well', WPCPM_Institutions_Index::has( $G ), true );
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, $gone_save + array( WPCPM_Institution_Roster::ARG_VIEW => $G ), $from_b );
+ck( 'a request with one school in its address and another in its form comes back to the address\'s', $went, report_address( '', $B ) );
+
+// A press that acted on something with no usable institution, here a generate button whose handler
+// resolved a value that is no record ID, adds nothing: the switcher the form carried is not asked
+// in its place.
+$resolved_was      = $GLOBALS['acting'];
+$GLOBALS['acting'] = 'recno';
+$went              = leaves_to( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => 'none' ) + $from_b, $from_b );
+ck( 'a press that acted on a value that is no record ID is refused for its semester', said_last(), 'bad-cohort' );
+ck( 'and an administrator comes back to the dashboard card, not to the institution the switcher named', $went, report_address() );
+$GLOBALS['acting'] = $resolved_was;
+
+// Somebody without the capability goes where they always did, whatever they post.
+$GLOBALS['manage'] = array( 99 );
+$GLOBALS['uid']    = 7;
+$GLOBALS['acting'] = $A;
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_SAVE, $gone_save + $from_b, $from_b );
+ck( 'a reader without the capability who pressed on a report that is gone', said_last(), 'refused' );
+ck( 'goes to the dashboard card and nowhere else', $went, report_address() );
+
+$went = leaves_to( WPCPM_Semester_Report_Screen::ACTION_ASK, array( 'report' => $GONE ) + $from_b, $from_b );
+ck( 'and so does the one who is refused the reminder', said_last(), 'ask-refused' );
+ck( 'with the same address', $went, report_address() );
 
 $GLOBALS['manage'] = true;
 $GLOBALS['acting'] = '';

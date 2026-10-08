@@ -919,9 +919,6 @@ function submit_button( $text = '', $type = 'primary', $name = 'submit', $wrap =
 function human_time_diff( $from, $to = 0 ) {
 	return '5 mins';
 }
-function esc_js( $text ) {
-	return addslashes( htmlspecialchars( (string) $text, ENT_COMPAT, 'UTF-8' ) );
-}
 /**
  * Core's reading of where a form was sent from: the `_wp_http_referer` it posted, or the browser's
  * referer, unless that is the request's own address.

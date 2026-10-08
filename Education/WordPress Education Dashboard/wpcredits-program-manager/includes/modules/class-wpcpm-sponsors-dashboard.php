@@ -345,7 +345,9 @@ final class WPCPM_Sponsors_Dashboard {
 	 *
 	 * @param string $status A key of `messages()`.
 	 * @param string $card   The card to open, or ''.
-	 * @param string $record The sponsor a manager was looking at, or ''.
+	 * @param string $record The sponsor a manager was looking at, as an Airtable record ID, or
+	 *                       ''; anything else is left out of the address, as on the Institution
+	 *                       Dashboard.
 	 * @param string $detail A sentence for the reader after the status's own, or ''. Trimmed
 	 *                       to three hundred characters: a status names the outcome, the
 	 *                       detail names the line (plan ruling 10).
@@ -363,8 +365,8 @@ final class WPCPM_Sponsors_Dashboard {
 		$url = self::page_url();
 		$url = '' === $url ? home_url( '/' ) : $url;
 
-		if ( '' !== (string) $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, (string) $record, $url );
+		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, trim( (string) $record ), $url );
 		}
 
 		if ( '' !== (string) $card ) {

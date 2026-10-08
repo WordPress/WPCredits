@@ -105,10 +105,7 @@ function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? 
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function wp_enqueue_style( $handle, $src = '', $deps = array() ) { $GLOBALS['enqueued'][] = array( 'style', $handle, $deps ); }
 function wp_enqueue_script( $handle, $src = '', $deps = array(), $ver = false, $footer = false ) { $GLOBALS['enqueued'][] = array( 'script', $handle, $deps, $footer ); }
-// Faithful to core's esc_js(): markup and double quotes are encoded before the quotes are
-// escaped, so a track name with a tag in it cannot break out of the attribute it sits in.
 function wp_json_encode( $data, $flags = 0 ) { return json_encode( $data, $flags ); }
-function esc_js( $s ) { $s = htmlspecialchars( (string) $s, ENT_COMPAT ); $s = preg_replace( '/&#(x)?0*(?(1)27|39);?/i', "'", $s ); return str_replace( "\n", '\\n', addslashes( str_replace( "\r", '', $s ) ) ); }
 
 class RedirectSignal extends Exception {}
 class DieSignal extends Exception {}
@@ -1974,8 +1971,8 @@ echo "\n=== Delete, on the list, for a track that was never published ===\n";
 
 WPCPM_Track_Store::$tracks = array(
 	21 => array(
-		// An apostrophe as well as the quotes: esc_js() escapes the one and encodes the other, and
-		// a label with only quotes cannot tell it from esc_attr() (the whole-branch review).
+		// An apostrophe as well as the quotes: esc_attr() encodes both, and a label with only
+		// quotes would let a raw apostrophe pass for the right escape.
 		'definition' => array( 'key' => 'never', 'status' => 'Never Track', 'label' => 'Sam\'s "Never" Track', 'course_url' => '', 'questions' => array() ),
 		'state'      => 'draft',
 		'log'        => array(),

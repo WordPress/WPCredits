@@ -504,6 +504,22 @@ ck( 'the Remove button belongs to a form of its own, outside the report form',
     ),
     array( true, true, true ) );
 
+// Remove deletes the file from the Media Library and empties the program records' cell, so it asks
+// first (forms.js reads the mark). The question is on the form every Remove posts through, which holds
+// hidden fields and nothing else, and not on a button: a button that names its form in a `form`
+// attribute is still a descendant of the report form in the markup, and forms.js looks for a marked
+// submit control among a form's descendants when it cannot tell what was pressed, so a question on the
+// button could be the one a Save was asked.
+$remove_asks = 'Remove this screenshot? It goes from this site and from the program records. You can upload another one afterward.';
+$remove_form = (string) substr( $saved, (int) strpos( $saved, '<form class="wpcpm-report__remove" id="wpcpm-report-remove-7"' ) );
+$remove_form = substr( $remove_form, 0, (int) strpos( $remove_form, '</form>' ) );
+
+ck( 'Remove asks before it deletes: the form it posts through carries the question, escaped as an attribute',
+    false !== strpos( $remove_form, ' data-wpcpm-confirm="' . esc_attr( $remove_asks ) . '">' ), true );
+ck( 'and it is the only question on the card: the Remove button and the report form carry none',
+    array( substr_count( $saved, 'data-wpcpm-confirm' ), substr_count( $remove_form, 'data-wpcpm-confirm' ) ),
+    array( 1, 1 ) );
+
 echo "\n=== A file only the program records hold ===\n";
 
 // Uploaded in Airtable by hand: the sync counts it, and the card says so rather than linking an
@@ -755,6 +771,10 @@ ck( 'a reader sees the picture', false !== strpos( $read, 'wpcpm-report__image-t
 ck( 'and no way to change it',
     array( false !== strpos( $read, 'type="file"' ), false !== strpos( $read, '>Remove</button>' ) ),
     array( false, false ) );
+// The report route draws this view into the Mentor Report Card and the Institution's student page
+// after they load, so nothing in it can post, or ask.
+ck( 'and no question to ask: the Remove that asks is drawn for an editor only',
+    substr_count( $read, 'data-wpcpm-confirm' ), 0 );
 
 echo "\n=== A student on no track saves hours (TRACKS-5) ===\n";
 
@@ -804,6 +824,11 @@ ck( 'the public URL is explained where it is written',
         false !== stripos( $source, 'expire' ),
     ),
     array( true, true ) );
+
+// The question is translatable and escaped for an attribute; the suite's esc_attr__() cannot tell the
+// two escapers apart, so the source is read.
+ck( 'the Remove question is read through esc_attr__() in the plugin\'s text domain, with no placeholder to explain',
+    false !== strpos( $source, "esc_attr__( 'Remove this screenshot? It goes from this site and from the program records. You can upload another one afterward.', 'wpcredits-program-manager' )" ), true );
 
 // The user meta has to go when the plugin does; a stray row per student otherwise outlives it.
 ck( 'the screenshot map is removed on uninstall',

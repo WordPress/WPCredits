@@ -579,6 +579,21 @@ ck( 'a document in review says so, offers the copy back and offers Withdraw', ar
 	false !== strpos( $html, 'wpcpm_sponsor_agr_withdraw' ),
 	false !== strpos( $html, 'wpcpm_sponsor_agr_upload' ),
 ), array( true, true, true, false ) );
+// Withdraw it deletes the file at once, so it asks first: the sentence rides on its form as a
+// data-wpcpm-confirm mark, escaped for the attribute.
+$withdraw_form = '';
+
+foreach ( explode( '<form', $html ) as $chunk ) {
+	if ( false !== strpos( $chunk, 'value="wpcpm_sponsor_agr_withdraw"' ) ) {
+		$withdraw_form = '<form' . $chunk;
+	}
+}
+
+ck( 'Withdraw it asks "Withdraw the agreement you uploaded?" on its form, and that is the only question on the page', array(
+	false !== strpos( (string) strstr( $withdraw_form, '>', true ), ' data-wpcpm-confirm="' . esc_attr( 'Withdraw the agreement you uploaded? The file is deleted from this site at once, and you can upload another whenever you are ready.' ) . '"' ),
+	false !== strpos( $withdraw_form, '>Withdraw it</button>' ),
+	substr_count( $html, 'data-wpcpm-confirm' ),
+), array( true, true, 1 ) );
 ck( 'and says nothing about the review beyond how long it has been waiting', array(
 	false !== strpos( $html, 'waiting for the program' ),
 	false !== strpos( $html, 'Accept' ),

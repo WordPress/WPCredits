@@ -538,7 +538,7 @@ class WPCPM_Mentors_Dashboard {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
-		// A note's Delete asks through forms.js, and the mentee page draws no calendar to carry it.
+		// A note's Delete asks through forms.js, so the page loads it itself and does not rely on the calendar for it.
 		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
 			wp_register_script( 'wpcpm-forms', WPCPM_PLUGIN_URL . 'assets/js/forms.js', array(), WPCPM_VERSION, true );
 		}
