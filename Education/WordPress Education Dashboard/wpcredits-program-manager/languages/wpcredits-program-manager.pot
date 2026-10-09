@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.14\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.15\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-09T16:12:39+00:00\n"
+"POT-Creation-Date: 2026-10-09T23:15:57+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -497,7 +497,7 @@ msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:88
 #: includes/modules/class-wpcpm-institutions-dashboard.php:127
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1354
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1355
 #: blocks/institution-dashboard/editor.js:48
 msgid "Institution Dashboard"
 msgstr ""
@@ -566,12 +566,18 @@ msgstr ""
 msgid "No sponsor has an account yet."
 msgstr ""
 
-#: includes/class-wpcpm-dashboards.php:361
+#. translators: %s: how many names the Viewing as list shows, as a number.
+#: includes/class-wpcpm-dashboards.php:379
+#, php-format
+msgid "Names in the list: %s"
+msgstr ""
+
+#: includes/class-wpcpm-dashboards.php:383
 #: includes/modules/class-wpcpm-institution-roster-view.php:469
 msgid "Show"
 msgstr ""
 
-#: includes/class-wpcpm-dashboards.php:362
+#: includes/class-wpcpm-dashboards.php:384
 msgid "Only Administrators see this control."
 msgstr ""
 
@@ -6872,15 +6878,15 @@ msgstr ""
 msgid "not started"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1276
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1277
 msgid "Viewing as institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1277
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1278
 msgid "Find an institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1278
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1279
 msgid "No institutions match that search."
 msgstr ""
 

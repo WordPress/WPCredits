@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.14
+Stable tag: 1.122.15
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.15 =
+
+* The **Viewing as** switchers are one field. On the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard, the separate box above the list, **Find a student**, **Find a mentor**, **Find an institution** or **Find a sponsor**, is gone. The field beside **Viewing as student**, **Viewing as mentor**, **Viewing as institution** or **Viewing as sponsor** shows the name being viewed, drops down its A to Z list on a click or Down, closes it again on a second click, and takes typing: the list narrows as you type to the names that hold what was typed, anywhere in the name and without regard to capitals or accents, with the first match highlighted, and the find sentence is the field's placeholder while it is empty. Up and Down move through the list and Home and End go to its ends; Enter or a click picks a name, and Escape, Tab or a click elsewhere puts back the name picked last. When nothing matches, the list says so in its own row. Picking a name opens nothing and Enter in the field never sends the form: **Show** opens the page, as before. Come back to a page with the browser's Back button and the field, and what **Show** opens, are the name that page is about, not the one picked before leaving it. The field is as wide as its longest name needs, in its own type and with room for its arrow, and never narrower than the list was, so it does not move while you type and the longest name fits where the page has the room; its list opens under it at that width, scrolls past about ten names and sits above the cards. Enter in the field while a name is being composed with an input method, as in Japanese or Chinese, picks nothing. It is built to the WAI-ARIA combobox pattern: a screen reader hears the highlighted name and how many names the list shows. Without JavaScript the sorted list works as before. With theme 1.24.14 the field takes the list's look; with an older theme it is drawn in the plugin's own.
+* The guides. The Administrators' guide describes the switcher's one field.
+* For developers: `WPCPM_Dashboards::render_switcher()` now draws, beside the select and hidden, `div.wpcpm-dashboard__switcher-combo` holding the field `input.wpcpm-dashboard__switcher-input` (ID `<id>-input`, role `combobox`), its listbox `ul.wpcpm-dashboard__switcher-list` (ID `<id>-list`) and the status line `span.wpcpm-dashboard__switcher-status`, and gives the label the ID `<id>-label`. Its `find` argument is the field's placeholder, and `.wpcpm-dashboard__switcher-find`, `.wpcpm-dashboard__switcher-none` and the search box are gone. `assets/js/switcher.js` fills the list with `li.wpcpm-dashboard__switcher-option` rows (ID `<id>-option-<n>`), marks the highlighted row `is-active`, with `aria-selected="true"`, and the picked one `is-current`, puts the row `li.wpcpm-dashboard__switcher-empty` in the list when nothing matches, and gives the field's block `is-open` while the list is open. The select stays in the form as the value Show sends, hidden while the field is shown, and carries `autocomplete="off"` so that a browser does not put it back on another name after Back; the script sets it on its `defaultSelected` option when it starts and when the page is shown again from the back-forward cache.
 
 = 1.122.14 =
 

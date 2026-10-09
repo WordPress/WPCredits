@@ -1260,7 +1260,8 @@ class WPCPM_Institutions_Dashboard {
 	 * the wrong unit: two accounts at one school are one entry here. Only a manager ever sees
 	 * it, and `resolve_institution()` does not even read the argument for anyone else, so a
 	 * member appending it to the URL changes nothing. Drawn by `WPCPM_Dashboards`, the one form
-	 * all four dashboards share: sorted A to Z, with a box above the list that narrows it.
+	 * all four dashboards share: sorted A to Z, in one field that drops down, takes typing and
+	 * narrows its list as the Administrator types.
 	 *
 	 * @param string $current Institutions record ID currently being viewed.
 	 */

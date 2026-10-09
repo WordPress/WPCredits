@@ -520,11 +520,13 @@
 	font: 500 14px/20px var( --wpc-font );
 }
 
-/* The box that narrows the list is dressed as the list is. Left to the browser it keeps its own
-   edge, square corners and 13px Arial over a select drawn in this theme's 14px type, and the
-   two read as parts of different forms. Its label needs nothing: the label rule above matches
-   any label inside the switcher, the box's included. */
+/* The field that stands in for the list, and the list itself, share one look. Left to the browser
+   a text box keeps its own edge, square corners and 13px Arial over a select drawn in this theme's
+   14px type, and the two read as parts of different forms. Its label needs nothing: the label rule
+   above matches any label inside the switcher, the field's included. The search box that plugin
+   1.122.14 printed above the list is dressed the same, so that version still looks right. */
 .wpcpm-dashboard__switcher input[type="search"],
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-input,
 .wpcpm-dashboard__switcher select {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-control-border );
@@ -536,8 +538,10 @@
 
 /* The browser draws the list's own arrow about 5px from its edge and ignores the padding, so a
    wider padding cannot move it. The theme draws the WordPress chevron instead, 8px in from the
-   edge, with room kept for it so a long name stops short of it. */
-.wpcpm-dashboard__switcher select {
+   edge, with room kept for it so a long name stops short of it. The field takes the same chevron
+   in place of the plugin's own, one arrow and not two, and the same room for it. */
+.wpcpm-dashboard__switcher select,
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-input {
 	-webkit-appearance: none;
 	appearance: none;
 	background-image: var( --wpc-icon-chevron-down );
@@ -545,6 +549,82 @@
 	background-repeat: no-repeat;
 	background-size: 20px 20px;
 	padding-right: 34px;
+}
+
+/* Plugin 1.122.15 gives the list `font: inherit` at the weight of the rule above, so the rule above
+   holds only while the theme's sheet prints after the plugin's, as it does today. Said once more at a
+   weight the plugin's rule cannot meet, the list keeps the theme's 14px type in either order, and
+   the field, sized from the list, keeps its width. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-fields select {
+	font: 14px/20px var( --wpc-font );
+}
+
+/* What is typed reads in the page's ink, and the prompt before anything is typed in the muted gray
+   the theme keeps for text that is not content (5.45:1 on white, past the browser's own lighter
+   gray); Firefox dims a placeholder a second time unless it is told not to. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-input {
+	color: var( --wpc-ink );
+}
+
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-input::placeholder {
+	color: var( --wpc-ink-60 );
+	opacity: 1;
+}
+
+/* The field's list, open under it. A white panel with the controls' edge and corners and the
+   soft float shadow the theme gives anything that rises off the page, in the same 14px type as the
+   field. Nothing here gives the list or its block a `display`, so the plugin's `hidden` still
+   closes it. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-list {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	box-shadow: var( --wpc-shadow-float );
+	color: var( --wpc-ink );
+	font: 14px/20px var( --wpc-font );
+}
+
+/* A row is 32px: the field's 6px 8px around one 20px line. The mouse's row is a light gray and the
+   highlighted row, the one Enter picks, the brand tint with a 2px blue edge on its left, so it
+   stands out from the white behind it by more than a pale color. The edge is drawn inside the
+   row and moves nothing. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-option,
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-empty {
+	padding: 6px 8px;
+}
+
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-option:hover {
+	background: var( --wpc-surface-band );
+}
+
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-option.is-active {
+	background: var( --wpc-brand-tint );
+	box-shadow: inset 2px 0 0 var( --wpc-brand );
+	color: var( --wpc-ink );
+}
+
+/* The name being viewed is told by its weight, so it is not told by a color alone. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-option.is-current {
+	font-weight: 600;
+}
+
+/* The row that says nothing matches: the muted gray in full, where the plugin dims the text with
+   opacity, which on top of a gray would take it below 4.5:1. It is no choice, so it is no pointer. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-empty {
+	color: var( --wpc-ink-60 );
+	cursor: default;
+	opacity: 1;
+}
+
+/* Forced colors replace the tint, so the highlighted row takes the system's own pair, as the
+   plugin gives it. */
+@media ( forced-colors: active ) {
+
+	.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-option.is-active {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
 }
 
 .wpcpm-dashboard__switcher-note {

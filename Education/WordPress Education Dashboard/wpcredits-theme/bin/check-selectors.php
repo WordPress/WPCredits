@@ -15,6 +15,10 @@
  * stem with its `--`, and the modifier as a quoted literal. Those are listed, so a reader can
  * see what was taken on trust.
  *
+ * A class a current plugin no longer prints, but whose rule stays so that an older plugin still
+ * looks right after a rollback, is listed in `$kept` with the last plugin version that printed it,
+ * and is reported as kept rather than missed.
+ *
  * Usage:  php bin/check-selectors.php [plugin-path]      (run from the theme root)
  *
  * The plugin defaults to `../wpcredits-program-manager`, beside the theme's own folder, which
@@ -171,11 +175,25 @@ foreach ( $sheets as $sheet ) {
 
 ksort( $dressed );
 
+// Classes the plugin stopped printing in a release and the theme still dresses, so that a plugin
+// rolled back to that release looks right. Each is named with the last plugin version that printed
+// it; the entry and its rule go together once that version is no longer supported.
+$kept = array(
+	'wpcpm-dashboard__switcher-none' => '1.122.14',
+);
+
 $misses = 0;
 $built  = 0;
+$stayed = 0;
 
 foreach ( $dressed as $class => $where ) {
 	if ( wpcredits_printed( $corpus, $class ) ) {
+		continue;
+	}
+
+	if ( isset( $kept[ $class ] ) ) {
+		++$stayed;
+		printf( "  kept   .%-44s last printed by plugin %s  (%s)\n", $class, $kept[ $class ], implode( ', ', $where ) );
 		continue;
 	}
 
@@ -199,10 +217,11 @@ foreach ( $dressed as $class => $where ) {
 }
 
 printf(
-	"\n%d classes dressed across %d stylesheets: %d built at run time, %d printed by nothing.\n",
+	"\n%d classes dressed across %d stylesheets: %d built at run time, %d kept for an older plugin, %d printed by nothing.\n",
 	count( $dressed ),
 	count( $sheets ),
 	$built,
+	$stayed,
 	$misses
 );
 

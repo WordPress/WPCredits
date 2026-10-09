@@ -1,32 +1,44 @@
 'use strict';
 /*
- * assets/js/switcher.js, run in node: what stays in a "Viewing as" list for what an Administrator
- * has typed, and the list the page is left with.
+ * assets/js/switcher.js, run in node: the one field of a "Viewing as" switcher, driven as an
+ * Administrator drives it, with the mouse and with the keyboard.
  *
- *   node bin/js/switcher-filter.js [path to switcher.js]
+ *   php bin/test-dashboard-switcher.php
+ *
+ * which runs, with the switchers' markup as WPCPM_Dashboards::render_switcher() draws it on stdin:
+ *
+ *   node bin/js/switcher-filter.js <path to switcher.js> -
  *
  * Two parts. First the script's two pure functions, `fold()` and `narrow()`, read out of its source
- * by name and run in a fresh context with no DOM at all. Then the whole script, run on a stand-in for
- * the few things on the page it touches (the box's row, the box, the status line and a select) and
- * driven as a person drives it: typing, choosing, Escape and Enter. The select keeps its options as a
- * browser does. insertBefore() and removeChild() move them, a reference that is not one of its options
- * is refused, and a select left with no chosen option chooses its first, as the HTML selectedness
- * rules have it, so an entry taken out by mistake shows as a changed choice. It also has a width, as
- * a select's is: as wide as its longest name, within the room the page gives it, and never below its
- * inline `min-width`; and the window it sits in can change size, with its timers run by hand. The
- * forms harness under bin/js/forms-harness/ models only what forms.js touches and has no select, so
- * it is not used here.
+ * by name and run in a fresh context with no DOM at all. Then the whole script, run on a stand-in
+ * for the page: the server's own markup, read into a small tree of elements that keep attributes,
+ * classes, children and listeners, and fire events that bubble, as a browser's do. Each page is
+ * driven as a person drives it: a click on the field, typing, Up, Down, Home, End, Enter, Escape, a
+ * click on a name, and leaving the field by Tab or a click elsewhere. A click on a name is modeled
+ * in a browser's order: the press, then the field losing the focus unless the press was kept from
+ * moving it, then the click, which lands on the name only if it is still shown. Show sends what a
+ * GET form sends, every named field in the form, so the field's own text, which carries no name,
+ * is never part of it.
+ *
+ * The select has a width as a select's is: as wide as its longest name at 8px a letter and its 1px
+ * border on either side, within the room the page gives it, and as wide as anything else in its
+ * column, the field's block included, which is as wide as its inline width or, without one, a text
+ * field's own 160px. The field has 8px of padding on its left, 34px on its right for the chevron
+ * and a 1px border, and its type is 16px unless a page says otherwise; a canvas measures a text at
+ * half its type's size a letter, so 8px in the field's own type. A hidden element measures 0, as one
+ * out of the layout does. The list's rows are 32px each, two rows for a name over 40 letters, which
+ * wraps; its border is 1px; and the window it sits in can change size, with its timers run by hand.
  *
  * The status line counts each time its text is set, since a screen reader may read it out again on
  * any of them, the same sentence or not.
  *
- * The last scenarios are mutation proofs: the script with the cursor of its re-insertion broken, and
- * with the chosen entry no longer kept, run through the same steps, must each leave a list that is
- * wrong, and with its no-match sentence set whatever the line already says, must set it twice. A
- * check that passes whatever the script does would pass them too.
+ * The last scenarios are mutation proofs: the script with accents no longer taken off, with the
+ * press on a name no longer kept from moving the focus, and with its status line set whatever it
+ * already says, run through the same steps, must each go wrong. A check that passes whatever the
+ * script does would pass them too.
  *
  * Prints `ok   <scenario>` or `FAIL <scenario>` with what was expected and what happened, and
- * exits 1 when any scenario differs. bin/test-dashboard-switcher.php runs it as part of its suite.
+ * exits 1 when any scenario differs.
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
@@ -94,266 +106,531 @@ const source = fs.existsSync( SCRIPT ) ? fs.readFileSync( SCRIPT, 'utf8' ) : '';
 const fold = declaration( source, 'fold' );
 const narrow = declaration( source, 'narrow' );
 
+// The server's markup, one page of HTML for each name the suite gives it.
+let markup = {};
+
+if ( '-' === process.argv[ 3 ] ) {
+	try {
+		markup = JSON.parse( fs.readFileSync( 0, 'utf8' ) );
+	} catch ( error ) {
+		markup = {};
+	}
+}
+
 scenario( 'the script declares fold() and narrow()', [ true, true ], () => [ '' !== fold, '' !== narrow ] );
+scenario( 'the server\'s markup was handed over: one switcher, short names, a long list, a list whose first name wraps, and the four dashboards\' switchers on one page', [ 'four', 'long', 'one', 'short', 'wrap' ], () => Object.keys( markup ).sort() );
 
 // Run as ES5 runs them: nothing from the page, nothing from node.
 const filter = ( '' !== fold && '' !== narrow )
 	? vm.runInNewContext( '"use strict";\n' + fold + '\n' + narrow + '\n({ fold: fold, narrow: narrow });', {} )
-	: { fold: () => '', narrow: () => ( {} ) };
+	: { fold: () => '', narrow: () => [] };
 
 /* ---- fold(): what is compared ---- */
 
 scenario( 'fold() lowers the case', 'zoe academy', () => filter.fold( 'ZOE Academy' ) );
-scenario( 'and takes the accents off, as remove_accents() does on the server', 'alvaro ecole sao paulo', () => filter.fold( 'Álvaro École São Paulo' ) );
+scenario( 'and takes the accents off, as remove_accents() does on the server', 'alvaro ecole sao paulo krakow', () => filter.fold( 'Álvaro École São Paulo Kraków' ) );
 scenario( 'and the letters Unicode does not decompose, Ł among them', 'lodz oresund dakovo strasse', () => filter.fold( 'Łódź Øresund Đakovo Straße' ) );
 scenario( 'and leaves the rest of the name as it is', 'student 10 (lab)', () => filter.fold( 'Student 10 (Lab)' ) );
 
-/* ---- narrow(): what stays in the list ---- */
+/* ---- narrow(): which names the list shows ---- */
 
-// The list as the server draws it, A to Z, with Zoe Academy the one being viewed.
-const labels = [ 'Álvaro University', 'bergen school', 'École 42', 'Łódź Institute', 'Student 2', 'Student 10', 'Zoe Academy' ];
+// The names as the server draws them, A to Z.
+const labels = [ 'Álvaro University', 'bergen school', 'École 42', 'Kraków Lab School', 'Łódź Institute', 'Student 2', 'Student 10', 'Zoe Academy' ];
 const keys = labels.map( ( label ) => filter.fold( label ) );
-const viewing = 6;
 
-function kept( query, selected ) {
-	const result = filter.narrow( keys, undefined === selected ? viewing : selected, query );
-
-	return { names: labels.filter( ( label, index ) => result.keep[ index ] ), matched: result.matched };
+function found( query ) {
+	return filter.narrow( keys, query ).map( ( index ) => labels[ index ] );
 }
 
-scenario( 'an empty box keeps the whole list', { names: labels, matched: 7 }, () => kept( '' ) );
-scenario( 'a box of spaces is an empty box', { names: labels, matched: 7 }, () => kept( '   ' ) );
-scenario( 'typed without the accent, the accented name is found', { names: [ 'Álvaro University', 'Zoe Academy' ], matched: 1 }, () => kept( 'alv' ) );
-scenario( 'typed with the accent, too', { names: [ 'École 42', 'Zoe Academy' ], matched: 1 }, () => kept( 'Éco' ) );
-scenario( 'in capitals, the same', { names: [ 'École 42', 'Zoe Academy' ], matched: 1 }, () => kept( 'ECOLE' ) );
-scenario( 'Ł typed as L', { names: [ 'Łódź Institute', 'Zoe Academy' ], matched: 1 }, () => kept( 'lodz' ) );
-scenario( 'anywhere in the name, not only at its start', { names: [ 'bergen school', 'Zoe Academy' ], matched: 1 }, () => kept( 'school' ) );
-scenario( 'a number is matched as typed: "student 1" finds Student 10 and not Student 2', { names: [ 'Student 10', 'Zoe Academy' ], matched: 1 }, () => kept( 'student 1' ) );
-scenario( 'the spaces around what was typed are not part of it', { names: [ 'Álvaro University', 'Zoe Academy' ], matched: 1 }, () => kept( '  alv  ' ) );
-scenario( 'the one being viewed is never taken out, matching or not', { names: [ 'Zoe Academy' ], matched: 0 }, () => kept( 'nothing like it' ) );
-scenario( 'and counts as a match when it is one', { names: [ 'Zoe Academy' ], matched: 1 }, () => kept( 'zoe' ) );
-scenario( 'whichever entry is chosen is the one kept', { names: [ 'bergen school' ], matched: 0 }, () => kept( 'nothing like it', 1 ) );
-scenario( 'a list with nothing chosen keeps only the matches', { names: [ 'Student 2', 'Student 10' ], matched: 2 }, () => kept( 'student', -1 ) );
+scenario( 'nothing typed shows every name, in the order drawn', labels, () => found( '' ) );
+scenario( 'only spaces typed is nothing typed', labels, () => found( '   ' ) );
+scenario( 'typed without the accent, the accented name is found: "krakow" finds Kraków', [ 'Kraków Lab School' ], () => found( 'krakow' ) );
+scenario( 'typed with the accent, too', [ 'École 42' ], () => found( 'Éco' ) );
+scenario( 'in capitals, the same', [ 'École 42' ], () => found( 'ECOLE' ) );
+scenario( 'Ł typed as L', [ 'Łódź Institute' ], () => found( 'lodz' ) );
+scenario( 'anywhere in the name, not only at its start', [ 'bergen school', 'Kraków Lab School' ], () => found( 'school' ) );
+scenario( 'a number is matched as typed: "student 1" finds Student 10 and not Student 2', [ 'Student 10' ], () => found( 'student 1' ) );
+scenario( 'the spaces around what was typed are not part of it', [ 'Álvaro University' ], () => found( '  alv  ' ) );
+scenario( 'nothing matching shows no name at all', [], () => found( 'nothing like it' ) );
 
-/* ---- the script on a page: what the list holds after each step ---- */
+/* ---- the page: a small tree of elements ---- */
 
-/** One entry of a select. */
-class Option {
-	constructor( value, text, selected ) {
-		this.value = value;
-		this.text = text;
-		this.selected = !! selected;
+const ROW = 32;
+const OWN = 160;
+
+// The field's padding and border across: 8px, 34px for the chevron, and 1px on either side.
+const EDGES = 44;
+
+/** An element, as far as the script reaches one. */
+class Element {
+	constructor( document, tag ) {
+		this.ownerDocument = document;
+		this.tagName = tag.toUpperCase();
+		this.attributes = {};
+		this.childNodes = [];
 		this.parentNode = null;
+		this.listeners = {};
+		this.style = {};
+		this.ownText = '';
+		this.writes = 0;
+		this.scrollTop = 0;
+	}
+
+	getAttribute( name ) {
+		return Object.prototype.hasOwnProperty.call( this.attributes, name ) ? this.attributes[ name ] : null;
+	}
+
+	setAttribute( name, value ) {
+		this.attributes[ name ] = String( value );
+
+		if ( 'hidden' === name ) {
+			this.ownerDocument.hid( this );
+		}
+	}
+
+	removeAttribute( name ) {
+		delete this.attributes[ name ];
+	}
+
+	hasAttribute( name ) {
+		return null !== this.getAttribute( name );
+	}
+
+	get id() {
+		return this.getAttribute( 'id' ) || '';
+	}
+
+	set id( value ) {
+		this.setAttribute( 'id', value );
+	}
+
+	get className() {
+		return this.getAttribute( 'class' ) || '';
+	}
+
+	set className( value ) {
+		this.setAttribute( 'class', value );
+	}
+
+	get hidden() {
+		return this.hasAttribute( 'hidden' );
+	}
+
+	set hidden( value ) {
+		if ( value ) {
+			this.setAttribute( 'hidden', '' );
+		} else {
+			this.removeAttribute( 'hidden' );
+		}
+	}
+
+	get classList() {
+		const element = this;
+		const names = () => element.className.split( /\s+/ ).filter( Boolean );
+
+		return {
+			add( name ) {
+				if ( ! names().includes( name ) ) {
+					element.className = names().concat( name ).join( ' ' );
+				}
+			},
+			remove( name ) {
+				element.className = names().filter( ( one ) => one !== name ).join( ' ' );
+			},
+			contains: ( name ) => names().includes( name ),
+		};
+	}
+
+	get firstChild() {
+		return this.childNodes[ 0 ] || null;
+	}
+
+	get lastChild() {
+		return this.childNodes[ this.childNodes.length - 1 ] || null;
+	}
+
+	appendChild( child ) {
+		if ( child.parentNode ) {
+			child.parentNode.removeChild( child );
+		}
+
+		this.childNodes.push( child );
+		child.parentNode = this;
+
+		return child;
+	}
+
+	removeChild( child ) {
+		const at = this.childNodes.indexOf( child );
+
+		if ( -1 === at ) {
+			throw new Error( 'removeChild(): not a child of this element' );
+		}
+
+		this.childNodes.splice( at, 1 );
+		child.parentNode = null;
+
+		return child;
+	}
+
+	get textContent() {
+		return this.childNodes.length ? this.childNodes.map( ( child ) => child.textContent ).join( '' ) : this.ownText;
+	}
+
+	set textContent( text ) {
+		this.childNodes.slice().forEach( ( child ) => this.removeChild( child ) );
+		this.ownText = String( text );
+		this.writes++;
+	}
+
+	// The selectors the script uses: a class, an attribute with a value, or a tag.
+	matches( selector ) {
+		const attribute = /^\[([a-z-]+)="([^"]*)"\]$/.exec( selector );
+
+		if ( attribute ) {
+			return this.getAttribute( attribute[ 1 ] ) === attribute[ 2 ];
+		}
+
+		if ( '.' === selector[ 0 ] ) {
+			return this.classList.contains( selector.slice( 1 ) );
+		}
+
+		return this.tagName === selector.toUpperCase();
+	}
+
+	descendants() {
+		return this.childNodes.reduce( ( all, child ) => all.concat( child, child.descendants() ), [] );
+	}
+
+	querySelector( selector ) {
+		return this.descendants().find( ( one ) => one.matches( selector ) ) || null;
+	}
+
+	querySelectorAll( selector ) {
+		return this.descendants().filter( ( one ) => one.matches( selector ) );
+	}
+
+	addEventListener( type, fn ) {
+		( this.listeners[ type ] = this.listeners[ type ] || [] ).push( fn );
+	}
+
+	// An event at this element, bubbling up through its ancestors as a browser's does.
+	fire( type, init ) {
+		const event = Object.assign( {
+			type,
+			target: this,
+			defaultPrevented: false,
+			preventDefault() {
+				this.defaultPrevented = true;
+			},
+		}, init || {} );
+
+		for ( let node = this; node; node = node.parentNode ) {
+			( node.listeners[ type ] || [] ).forEach( ( fn ) => fn( event ) );
+		}
+
+		return event;
+	}
+
+	// In the layout: neither it nor anything it sits in is hidden.
+	get rendered() {
+		for ( let node = this; node; node = node.parentNode ) {
+			if ( node.hidden ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	// A row of the list is 32px, and a name over 40 letters wraps to two; the list is as tall as its
+	// rows, within its max-height, with a 1px border above and below. Anything out of the layout
+	// measures 0.
+	get offsetHeight() {
+		if ( ! this.rendered ) {
+			return 0;
+		}
+
+		if ( 'UL' === this.tagName ) {
+			return this.clientHeight + 2;
+		}
+
+		return this.textContent.length > 40 ? 2 * ROW : ROW;
+	}
+
+	get offsetTop() {
+		if ( ! this.rendered || ! this.parentNode ) {
+			return 0;
+		}
+
+		const before = this.parentNode.childNodes.slice( 0, this.parentNode.childNodes.indexOf( this ) );
+
+		return before.reduce( ( sum, row ) => sum + row.offsetHeight, 0 );
+	}
+
+	get clientHeight() {
+		if ( ! this.rendered ) {
+			return 0;
+		}
+
+		const most = parseFloat( this.style.maxHeight );
+		const rows = this.childNodes.reduce( ( sum, row ) => sum + row.offsetHeight, 0 );
+
+		return isNaN( most ) ? rows : Math.min( rows, most - 2 );
 	}
 }
 
-/** A single select, as far as the script reaches it. */
-class Select {
-	constructor( id, options ) {
-		this.id = id;
-		this.children = [];
-		this.style = { minWidth: '' };
-		// The room the page gives the list, in px: a narrower window is less room.
-		this.room = 400;
-		options.forEach( ( option ) => this.insertBefore( option, null ) );
+/** A text field: its value, and what of it is selected. */
+class Input extends Element {
+	constructor( document, tag ) {
+		super( document, tag );
+		this.value = '';
+		this.selection = null;
 	}
 
-	// As wide as its longest name at 8px a letter, within its room, and never below its minimum.
-	getBoundingClientRect() {
-		const longest = this.children.reduce( ( most, option ) => Math.max( most, option.text.length ), 0 );
-
-		return { width: Math.max( parseFloat( this.style.minWidth ) || 0, Math.min( this.room, longest * 8 ) ) };
+	select() {
+		this.selection = [ 0, this.value.length ];
 	}
+}
 
-	get options() {
-		return this.children.slice();
-	}
-
-	get selectedIndex() {
-		return this.children.findIndex( ( option ) => option.selected );
+/** An option of a select. */
+class Option extends Element {
+	constructor( document, tag ) {
+		super( document, tag );
+		this.selected = false;
 	}
 
 	get value() {
-		const chosen = this.children[ this.selectedIndex ];
+		return this.getAttribute( 'value' ) || '';
+	}
+
+	get text() {
+		return this.textContent;
+	}
+
+	// Chosen in the markup, which is the page's own name whatever the select holds now.
+	get defaultSelected() {
+		return this.hasAttribute( 'selected' );
+	}
+}
+
+/** A single select, with the width a select has. */
+class Select extends Element {
+	get options() {
+		return this.childNodes.filter( ( child ) => 'OPTION' === child.tagName );
+	}
+
+	get selectedIndex() {
+		return this.options.findIndex( ( option ) => option.selected );
+	}
+
+	set selectedIndex( index ) {
+		this.options.forEach( ( option, at ) => {
+			option.selected = at === index;
+		} );
+	}
+
+	get value() {
+		const chosen = this.options[ this.selectedIndex ];
 
 		return chosen ? chosen.value : '';
 	}
 
-	// What a person does with the list itself.
-	choose( value ) {
-		this.children.forEach( ( option ) => {
-			option.selected = option.value === value;
-		} );
-	}
-
-	insertBefore( option, before ) {
-		if ( option.parentNode ) {
-			option.parentNode.removeChild( option );
+	// As wide as its longest name, or as anything else in its column, the field's block included,
+	// within the room the page gives it. Out of the layout, 0.
+	getBoundingClientRect() {
+		if ( ! this.rendered ) {
+			return { width: 0 };
 		}
 
-		const at = null === before ? this.children.length : this.children.indexOf( before );
+		const longest = this.options.reduce( ( most, option ) => Math.max( most, option.text.length * 8 + 2 ), 0 );
+		const combo = this.parentNode.querySelector( '.wpcpm-dashboard__switcher-combo' );
+		let beside = 0;
 
-		if ( -1 === at ) {
-			throw new Error( 'insertBefore(): the reference is not an option of this list' );
+		if ( combo && combo.rendered ) {
+			beside = '' === ( combo.style.width || '' ) ? OWN : parseFloat( combo.style.width );
 		}
 
-		this.children.splice( at, 0, option );
-		option.parentNode = this;
-		this.settle();
-
-		return option;
-	}
-
-	removeChild( option ) {
-		const at = this.children.indexOf( option );
-
-		if ( -1 === at ) {
-			throw new Error( 'removeChild(): not an option of this list' );
-		}
-
-		this.children.splice( at, 1 );
-		option.parentNode = null;
-		this.settle();
-
-		return option;
-	}
-
-	// The selectedness rules of a single select: with none chosen the first is, and with two the
-	// last in the list stays chosen.
-	settle() {
-		const chosen = this.children.filter( ( option ) => option.selected );
-
-		if ( ! chosen.length && this.children.length ) {
-			this.children[ 0 ].selected = true;
-		}
-
-		chosen.slice( 0, -1 ).forEach( ( option ) => {
-			option.selected = false;
-		} );
+		return { width: Math.min( this.ownerDocument.room, Math.max( longest, beside ) ) };
 	}
 }
 
-/** An element that holds attributes and listeners, and fires events at them. */
-function element( attrs ) {
-	const listeners = {};
+/** A canvas, whose context measures a text at half its type's size a letter; or none, on a page with canvases off. */
+class Canvas extends Element {
+	getContext() {
+		if ( false === this.ownerDocument.canvas ) {
+			return null;
+		}
 
-	return {
-		value: '',
-		hidden: true,
-		textContent: '',
-		getAttribute( name ) {
-			return Object.prototype.hasOwnProperty.call( attrs, name ) ? attrs[ name ] : null;
-		},
+		return {
+			font: '10px sans-serif',
+			measureText( text ) {
+				const size = /(\d+(?:\.\d+)?)px/.exec( this.font );
+
+				return { width: String( text ).length * ( size ? parseFloat( size[ 1 ] ) / 2 : 5 ) };
+			},
+		};
+	}
+}
+
+/** The document: a body, the elements in it by ID, and what the script asks of it. */
+class Document {
+	constructor() {
+		this.listeners = {};
+		this.room = 400;
+		this.activeElement = null;
+		this.hidden = [];
+		this.body = new Element( this, 'body' );
+	}
+
+	// Every element given the hidden attribute, in order, so a scenario can see what was hidden.
+	hid( element ) {
+		this.hidden.push( element );
+	}
+
+	createElement( tag ) {
+		const kinds = { input: Input, option: Option, select: Select, canvas: Canvas };
+
+		return new ( kinds[ tag.toLowerCase() ] || Element )( this, tag );
+	}
+
+	getElementById( id ) {
+		return this.body.descendants().find( ( one ) => one.id === id ) || null;
+	}
+
+	querySelectorAll( selector ) {
+		return this.body.querySelectorAll( selector );
+	}
+
+	addEventListener( type, fn ) {
+		( this.listeners[ type ] = this.listeners[ type ] || [] ).push( fn );
+	}
+}
+
+/**
+ * The server's markup read into the document's body: tags, their attributes and their text, with
+ * the entities esc_html() and esc_attr() write read back.
+ *
+ * @param {Document} document The document.
+ * @param {string}   html     The markup.
+ */
+function read( document, html ) {
+	const decode = ( text ) => text.replace( /&quot;/g, '"' ).replace( /&#0?39;/g, '\'' ).replace( /&lt;/g, '<' ).replace( /&gt;/g, '>' ).replace( /&amp;/g, '&' );
+	const stack = [ document.body ];
+	const tokens = /<\/([a-z]+)\s*>|<([a-z]+)((?:\s+[a-z-]+(?:=(?:"[^"]*"|'[^']*'))?)*)\s*(\/?)>|([^<]+)/gi;
+	let token;
+
+	while ( ( token = tokens.exec( html ) ) ) {
+		if ( token[ 1 ] ) {
+			while ( stack.length > 1 && stack.pop().tagName !== token[ 1 ].toUpperCase() ) {
+				// Up to the element the closing tag closes.
+			}
+		} else if ( token[ 2 ] ) {
+			const element = document.createElement( token[ 2 ] );
+			const attributes = /([a-z-]+)(?:=(?:"([^"]*)"|'([^']*)'))?/gi;
+			let attribute;
+
+			while ( ( attribute = attributes.exec( token[ 3 ] ) ) ) {
+				element.attributes[ attribute[ 1 ] ] = decode( attribute[ 2 ] || attribute[ 3 ] || '' );
+			}
+
+			if ( 'OPTION' === element.tagName ) {
+				element.selected = element.hasAttribute( 'selected' );
+			}
+
+			stack[ stack.length - 1 ].appendChild( element );
+
+			if ( ! token[ 4 ] && 'INPUT' !== element.tagName ) {
+				stack.push( element );
+			}
+		} else if ( '' !== token[ 5 ].trim() ) {
+			stack[ stack.length - 1 ].ownText += decode( token[ 5 ] );
+		}
+	}
+}
+
+/**
+ * A page of the server's markup with the script run on it and its DOMContentLoaded handled.
+ *
+ * @param {string} script The script's source.
+ * @param {string} name   Which of the server's pages.
+ * @param {number} room   The room the page gives a list, in px.
+ * @param {Object} more   `font`, the field's type, as `16px`; `canvas: false` for a page with no canvas;
+ *                        `count`, a count's sentence in place of the server's, as a translation
+ *                        has it; `restored`, a value the select already holds when the script starts
+ *                        in place of the drawn one (a browser restores a form only after the page
+ *                        has loaded, which `autocomplete="off"` prevents, so this is the start-up
+ *                        call's own case).
+ * @return {Object} The document, its switchers and the window's timers.
+ */
+function page( script, name, room, more ) {
+	const document = new Document();
+	const timers = new Map();
+	const listeners = {};
+	const font = ( more && more.font ) || '16px';
+	let made = 0;
+
+	document.room = room || 400;
+	document.canvas = more && false === more.canvas ? false : true;
+	read( document, markup[ name ] || '' );
+
+	if ( more && more.count ) {
+		document.body.querySelector( '[role="status"]' ).setAttribute( 'data-wpcpm-count', more.count );
+	}
+
+	if ( more && more.restored ) {
+		document.body.querySelector( 'select' ).options.forEach( ( option ) => {
+			option.selected = option.value === more.restored;
+		} );
+	}
+
+	const forms = document.querySelectorAll( 'form' );
+
+	forms.forEach( ( form ) => {
+		form.submits = 0;
+		form.submit = () => form.submits++;
+		form.requestSubmit = () => form.submits++;
+	} );
+
+	const window = {
 		addEventListener( type, fn ) {
 			( listeners[ type ] = listeners[ type ] || [] ).push( fn );
 		},
-		fire( type, init ) {
-			const event = Object.assign( {
-				type,
-				defaultPrevented: false,
-				preventDefault() {
-					this.defaultPrevented = true;
-				},
-			}, init || {} );
+		setTimeout( fn ) {
+			timers.set( ++made, fn );
 
-			( listeners[ type ] || [] ).forEach( ( fn ) => fn( event ) );
+			return made;
+		},
+		clearTimeout( id ) {
+			timers.delete( id );
+		},
+		// The list's padding and border, and the field's type, padding and border, as the stylesheet
+		// draws them.
+		getComputedStyle( element ) {
+			if ( 'UL' === element.tagName ) {
+				return { paddingTop: '0px', paddingBottom: '0px', borderTopWidth: '1px', borderBottomWidth: '1px' };
+			}
 
-			return event;
+			if ( 'INPUT' === element.tagName ) {
+				return { fontStyle: 'normal', fontWeight: '400', fontSize: font, fontFamily: 'sans-serif', paddingLeft: '8px', paddingRight: '34px', borderLeftWidth: '1px', borderRightWidth: '1px' };
+			}
+
+			return {};
 		},
 	};
-}
 
-// The list as the server draws it, A to Z, with Student 10 the one being viewed: in the middle, so
-// entries go back both before and after it.
-const DRAWN = [
-	[ 'recALVARO', 'Álvaro University' ],
-	[ 'recBERGEN', 'bergen school' ],
-	[ 'recECOLE', 'École 42' ],
-	[ 'recLODZ', 'Łódź Institute' ],
-	[ 'rec2', 'Student 2' ],
-	[ 'rec10', 'Student 10' ],
-	[ 'recZOE', 'Zoe Academy' ],
-];
-const ALL = DRAWN.map( ( entry ) => entry[ 1 ] );
-
-/**
- * A page holding one switcher, with the script run on it and its DOMContentLoaded handled.
- *
- * @param {string} script The script's source.
- * @param {string} kept   What the browser kept in the box across a reload.
- * @return {Object} The parts, and what a person does with them.
- */
-function page( script, kept ) {
-	const select = new Select( 'wpcpm-test-switcher', DRAWN.map( ( entry ) => new Option( entry[ 0 ], entry[ 1 ], 'rec10' === entry[ 0 ] ) ) );
-	const input = element( { 'aria-controls': 'wpcpm-test-switcher' } );
-
-	input.style = { minWidth: '' };
-	const status = element( { 'data-wpcpm-none': 'No entries match that search.' } );
-
-	// Each time the script sets the status line's text, counted, the same sentence or not.
-	let said = '';
-
-	status.writes = 0;
-	Object.defineProperty( status, 'textContent', {
-		get: () => said,
-		set( text ) {
-			said = String( text );
-			status.writes++;
-		},
-	} );
-
-	const row = element( {} );
-	const ready = [];
-
-	const timers = new Map();
-	const listeners = {};
-	let made = 0;
-
-	input.value = kept || '';
-	row.querySelector = ( selector ) => ( 'input' === selector ? input : ( '[role="status"]' === selector ? status : null ) );
-
-	vm.runInNewContext( script, {
-		window: {
-			addEventListener( type, fn ) {
-				( listeners[ type ] = listeners[ type ] || [] ).push( fn );
-			},
-			setTimeout( fn ) {
-				timers.set( ++made, fn );
-
-				return made;
-			},
-			clearTimeout( id ) {
-				timers.delete( id );
-			},
-		},
-		document: {
-			addEventListener( type, fn ) {
-				if ( 'DOMContentLoaded' === type ) {
-					ready.push( fn );
-				}
-			},
-			querySelectorAll: ( selector ) => ( '.wpcpm-dashboard__switcher-find' === selector ? [ row ] : [] ),
-			getElementById: ( id ) => ( id === select.id ? select : null ),
-		},
-	} );
-	ready.forEach( ( fn ) => fn() );
+	vm.runInNewContext( script, { window, document } );
+	( document.listeners.DOMContentLoaded || [] ).forEach( ( fn ) => fn() );
 
 	return {
-		select,
-		input,
-		status,
-		row,
-		type( text ) {
-			input.value = text;
-			input.fire( 'input' );
-		},
-		key: ( name ) => input.fire( 'keydown', { key: name } ).defaultPrevented,
-		listed: () => select.options.map( ( option ) => option.text ),
-		// The window changes size (or a phone turns), giving the list `room` px.
-		resize( room, type ) {
-			select.room = room;
+		document,
+		switchers: forms.map( ( form ) => drive( form ) ),
+		resize( wide, type ) {
+			document.room = wide;
 			( listeners[ type || 'resize' ] || [] ).forEach( ( fn ) => fn( { type: type || 'resize' } ) );
 		},
+		// The page shown again, from the back-forward cache when `persisted`, as it was left.
+		pageshow: ( persisted ) => ( listeners.pageshow || [] ).forEach( ( fn ) => fn( { type: 'pageshow', persisted } ) ),
 		waiting: () => timers.size,
 		flush() {
 			const due = Array.from( timers.values() );
@@ -361,198 +638,854 @@ function page( script, kept ) {
 			timers.clear();
 			due.forEach( ( fn ) => fn() );
 		},
-		width: () => select.getBoundingClientRect().width,
+	};
+}
+
+/**
+ * One switcher's parts, and what a person does with them.
+ *
+ * @param {Element} form The switcher's form.
+ * @return {Object}
+ */
+function drive( form ) {
+	const document = form.ownerDocument;
+	const select = form.querySelector( 'select' );
+	const combo = form.querySelector( '.wpcpm-dashboard__switcher-combo' );
+	const input = form.querySelector( '[role="combobox"]' );
+	const list = form.querySelector( '[role="listbox"]' );
+	const status = form.querySelector( '[role="status"]' );
+	const label = form.querySelector( 'label' );
+	const rows = () => list.childNodes.filter( ( row ) => row.rendered );
+	const row = ( text ) => rows().find( ( one ) => one.textContent === text );
+
+	return {
+		form,
+		document,
+		select,
+		combo,
+		input,
+		list,
+		status,
+		label,
+		// A click on the field: the press, which gives the field the focus unless it is kept from its
+		// default, then the click. A press on a field that already had the focus, left to the browser,
+		// puts the caret where it pressed once the click is done, which undoes a selection made during
+		// the click.
+		click() {
+			const focused = document.activeElement === input;
+			const press = input.fire( 'mousedown' );
+
+			if ( ! press.defaultPrevented ) {
+				document.activeElement = input;
+			}
+
+			input.fire( 'click' );
+
+			if ( focused && ! press.defaultPrevented && input.selection ) {
+				input.selection = [ input.value.length, input.value.length ];
+			}
+		},
+		type( text ) {
+			document.activeElement = input;
+			input.value = text;
+			input.fire( 'input' );
+		},
+		key( name, more ) {
+			document.activeElement = input;
+
+			return input.fire( 'keydown', Object.assign( { key: name }, more || {} ) ).defaultPrevented;
+		},
+		// Tab, or a click anywhere else: the field loses the focus.
+		leave() {
+			document.activeElement = null;
+			input.fire( 'blur' );
+		},
+		// A click on a row: the press, the focus moving unless the press kept it, then the click, on
+		// the row only if the row is still shown.
+		choose( text ) {
+			const target = row( text );
+			const press = target.fire( 'mousedown' );
+
+			if ( ! press.defaultPrevented ) {
+				input.fire( 'blur' );
+			}
+
+			if ( target.rendered ) {
+				target.fire( 'click' );
+			}
+
+			return press.defaultPrevented;
+		},
+		open: () => ! list.hidden && 'true' === input.getAttribute( 'aria-expanded' ),
+		// The three ways the list is told open or closed: the list's hidden attribute, the field's
+		// aria-expanded, and the field's block's is-open, which a theme dresses.
+		signs: () => [ list.hidden ? 'hidden' : 'shown', input.getAttribute( 'aria-expanded' ), combo.classList.contains( 'is-open' ) ? 'is-open' : 'not open' ],
+		listed: () => ( list.hidden ? [] : rows().map( ( one ) => one.textContent ) ),
+		active() {
+			const id = input.getAttribute( 'aria-activedescendant' );
+			const one = id ? document.getElementById( id ) : null;
+
+			return one && one.parentNode === list ? one.textContent : null;
+		},
+		// The rows marked as the highlighted one: by class, and by aria-selected.
+		marked: () => [
+			list.childNodes.filter( ( one ) => one.classList.contains( 'is-active' ) ).map( ( one ) => one.textContent ),
+			list.childNodes.filter( ( one ) => 'true' === one.getAttribute( 'aria-selected' ) ).map( ( one ) => one.textContent ),
+		],
+		current: () => list.childNodes.filter( ( one ) => one.classList.contains( 'is-current' ) ).map( ( one ) => one.textContent ),
+		// What Show sends: every named field in the form, as a GET form sends it.
+		show: () => form.descendants().filter( ( one ) => one.hasAttribute( 'name' ) && ! one.hasAttribute( 'disabled' ) ).map( ( one ) => [ one.getAttribute( 'name' ), one.value ] ),
+		field: () => input.value,
+		value: () => select.value,
+		said: () => status.textContent,
 		writes: () => status.writes,
 	};
 }
 
-scenario( 'the script shows the box the server drew hidden', false, () => page( source ).row.hidden );
+const one = () => page( source, 'one' ).switchers[ 0 ];
+const ALL = labels;
 
-scenario( 'typing narrows the list to the matches and the chosen entry, in the order drawn', { listed: [ 'Student 10', 'Zoe Academy' ], value: 'rec10', status: '' }, () => {
-	const p = page( source );
+/* ---- the field takes the list's place ---- */
 
-	p.type( 'zoe' );
+scenario( 'the script shows the field and hides the select, which the hidden attribute takes out of sight, of the tab order and of the accessibility tree', { combo: false, select: true }, () => {
+	const s = one();
 
-	return { listed: p.listed(), value: p.select.value, status: p.status.textContent };
+	return { combo: s.combo.hidden, select: s.select.hidden };
 } );
 
-scenario( 'an entry before the chosen one is found as well', { listed: [ 'Łódź Institute', 'Student 10' ], value: 'rec10' }, () => {
-	const p = page( source );
+scenario( 'the label now names the field, and the list of names is labeled by it', { label: 'wpcpm-test-switcher-input', list: 'wpcpm-test-switcher-label', id: 'wpcpm-test-switcher-label' }, () => {
+	const s = one();
 
-	p.type( 'zoe' );
-	p.type( 'lodz' );
-
-	return { listed: p.listed(), value: p.select.value };
+	return { label: s.label.getAttribute( 'for' ), list: s.list.getAttribute( 'aria-labelledby' ), id: s.label.id };
 } );
 
-scenario( 'nothing matching leaves the chosen entry, chosen, and says so', { listed: [ 'Student 10' ], value: 'rec10', status: 'No entries match that search.' }, () => {
-	const p = page( source );
+scenario( 'the field holds the name being viewed, its list closed and empty of highlights', { field: 'Student 10', expanded: 'false', hidden: true, active: null }, () => {
+	const s = one();
 
-	p.type( 'nothing like it' );
-
-	return { listed: p.listed(), value: p.select.value, status: p.status.textContent };
+	return { field: s.field(), expanded: s.input.getAttribute( 'aria-expanded' ), hidden: s.list.hidden, active: s.input.getAttribute( 'aria-activedescendant' ) };
 } );
 
-scenario( 'and the sentence goes once something matches again', { listed: [ 'Student 2', 'Student 10' ], status: '' }, () => {
-	const p = page( source );
+scenario( 'the field\'s list is built from the select\'s options, A to Z as drawn, each an option with an ID of its own', { names: ALL, roles: 8, ids: 8, values: true }, () => {
+	const s = one();
 
-	p.type( 'nothing like it' );
-	p.type( 'stu' );
+	s.click();
 
-	return { listed: p.listed(), status: p.status.textContent };
+	const items = s.list.childNodes;
+
+	return {
+		names: s.listed(),
+		roles: items.filter( ( item ) => 'option' === item.getAttribute( 'role' ) ).length,
+		ids: new Set( items.map( ( item ) => item.id ).filter( ( id ) => 0 === id.indexOf( 'wpcpm-test-switcher-' ) ) ).size,
+		values: items.every( ( item, at ) => String( at ) === item.getAttribute( 'data-wpcpm-index' ) ),
+	};
 } );
 
-scenario( 'emptying the box puts every entry back in the order drawn, the chosen one still chosen', { listed: ALL, value: 'rec10' }, () => {
-	const p = page( source );
+scenario( 'the name being viewed is the one marked as picked', [ 'Student 10' ], () => {
+	const s = one();
 
-	p.type( 'zoe' );
-	p.type( '' );
+	s.click();
 
-	return { listed: p.listed(), value: p.select.value };
+	return s.current();
 } );
 
-scenario( 'an entry chosen from the narrowed list is the one kept from then on', { narrowed: [ 'Student 2', 'Zoe Academy' ], value: 'rec2', back: ALL, still: 'rec2' }, () => {
-	const p = page( source );
+/* ---- opening ---- */
 
-	p.type( 'student' );
-	p.select.choose( 'rec2' );
-	p.type( 'zoe' );
+scenario( 'a click on the field opens the whole list, with the name being viewed highlighted', { open: true, listed: ALL, active: 'Student 10', expanded: 'true' }, () => {
+	const s = one();
 
-	const narrowed = p.listed();
-	const value = p.select.value;
+	s.click();
 
-	p.type( '' );
-
-	return { narrowed, value, back: p.listed(), still: p.select.value };
+	return { open: s.open(), listed: s.listed(), active: s.active(), expanded: s.input.getAttribute( 'aria-expanded' ) };
 } );
 
-scenario( 'Escape clears the box and puts the list back', { prevented: true, box: '', listed: ALL, status: '' }, () => {
-	const p = page( source );
+scenario( 'and selects the field\'s text, so that typing replaces it', [ 0, 10 ], () => {
+	const s = one();
 
-	p.type( 'nothing like it' );
+	s.click();
 
-	const prevented = p.key( 'Escape' );
-
-	return { prevented, box: p.input.value, listed: p.listed(), status: p.status.textContent };
+	return s.input.selection;
 } );
 
-scenario( 'Escape in an empty box is left to the browser', false, () => page( source ).key( 'Escape' ) );
-scenario( 'Enter in the box submits nothing', true, () => page( source ).key( 'Enter' ) );
-scenario( 'a box the browser kept filled across a reload narrows the list at once', [ 'Student 2', 'Student 10' ], () => page( source, 'student' ).listed() );
+scenario( 'Down opens it too, kept from moving the caret', { prevented: true, open: true, active: 'Student 10' }, () => {
+	const s = one();
 
-// Every step of a session, checked against narrow(): the list holds exactly the entries it keeps,
-// in the order drawn, and the choice never moves.
-scenario( 'through a run of typing, the list is always what narrow() keeps, in the order drawn', [], () => {
-	const p = page( source );
-	const keysDrawn = ALL.map( ( label ) => filter.fold( label ) );
-	const wrong = [];
+	return { prevented: s.key( 'ArrowDown' ), open: s.open(), active: s.active() };
+} );
 
-	[ 'a', 'zo', '', 's', 'student 1', 'l', '', 'x', 'e', 'ber', 'Á', '' ].forEach( ( query ) => {
-		p.type( query );
+scenario( 'and so does Up', { prevented: true, open: true, active: 'Student 10' }, () => {
+	const s = one();
 
-		const result = filter.narrow( keysDrawn, 5, query );
-		const want = ALL.filter( ( label, index ) => result.keep[ index ] );
+	return { prevented: s.key( 'ArrowUp' ), open: s.open(), active: s.active() };
+} );
 
-		if ( JSON.stringify( p.listed() ) !== JSON.stringify( want ) || 'rec10' !== p.select.value ) {
-			wrong.push( query );
-		}
+// The field is a drop-down: a click opens its list, and a second click, on the field or on its
+// chevron, closes it again as Escape does.
+scenario( 'a click on the field while the list is open closes it and puts the picked name back, as Escape does', { open: false, signs: [ 'hidden', 'false', 'not open' ], field: 'Student 10', value: 'rec10', selection: [ 0, 10 ], said: '' }, () => {
+	const s = one();
+
+	s.type( 'stu' );
+	s.key( 'ArrowDown' );
+	s.input.selection = null;
+	s.click();
+
+	return { open: s.open(), signs: s.signs(), field: s.field(), value: s.value(), selection: s.input.selection, said: s.said() };
+} );
+
+scenario( 'a click on a field without the focus gives it the focus, so typing reaches it', true, () => {
+	const s = one();
+
+	s.click();
+
+	return s.document.activeElement === s.input;
+} );
+
+scenario( 'a second click closes it with the name selected, so what is typed next starts a new search', { open: false, selection: [ 0, 10 ] }, () => {
+	const s = one();
+
+	s.click();
+	s.click();
+
+	return { open: s.open(), selection: s.input.selection };
+} );
+
+scenario( 'and a click on the field after a pick opens the list with the name selected', { open: true, selection: [ 0, 11 ] }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+	s.click();
+
+	return { open: s.open(), selection: s.input.selection };
+} );
+
+scenario( 'and a click after that opens it again, on the picked name', { open: true, active: 'Student 10', listed: 8 }, () => {
+	const s = one();
+
+	s.click();
+	s.click();
+	s.click();
+
+	return { open: s.open(), active: s.active(), listed: s.listed().length };
+} );
+
+scenario( 'a translation that numbers its placeholder gets the count in its place too', 'Names shown: 8', () => {
+	const s = page( source, 'one', 400, { count: 'Names shown: %1$s' } ).switchers[ 0 ];
+
+	s.click();
+
+	return s.said();
+} );
+
+scenario( 'the status line says how many names the list shows', 'Names in the list: 8', () => {
+	const s = one();
+
+	s.click();
+
+	return s.said();
+} );
+
+scenario( 'the list scrolls past about ten rows: at most ten and a half of its rows high, border included', { short: ( ROW * 10.5 + 2 ) + 'px', long: ( ROW * 10.5 + 2 ) + 'px', scrolls: true }, () => {
+	const s = one();
+	const l = page( source, 'long' ).switchers[ 0 ];
+
+	s.click();
+	l.click();
+
+	return { short: s.list.style.maxHeight, long: l.list.style.maxHeight, scrolls: l.list.clientHeight < 30 * ROW };
+} );
+
+scenario( 'where the first name wraps to two lines, the list is still about ten one-line rows high', ( ROW * 10.5 + 2 ) + 'px', () => {
+	const s = page( source, 'wrap' ).switchers[ 0 ];
+
+	s.click();
+
+	return s.list.style.maxHeight;
+} );
+
+scenario( 'and so it is when typing leaves only the name that wraps first', ( ROW * 10.5 + 2 ) + 'px', () => {
+	const s = page( source, 'wrap' ).switchers[ 0 ];
+
+	s.type( 'name' );
+
+	return s.list.style.maxHeight;
+} );
+
+/* ---- typing ---- */
+
+scenario( 'typing narrows the list to the names that hold it, anywhere and without regard to accents', { krakow: [ 'Kraków Lab School' ], school: [ 'bergen school', 'Kraków Lab School' ], lodz: [ 'Łódź Institute' ] }, () => {
+	const s = one();
+	const out = {};
+
+	[ 'krakow', 'school', 'lodz' ].forEach( ( query ) => {
+		s.type( query );
+		out[ query ] = s.listed();
 	} );
 
-	return wrong;
+	return out;
 } );
+
+scenario( 'the first match is highlighted, so Enter picks it', { listed: [ 'Student 2', 'Student 10' ], active: 'Student 2' }, () => {
+	const s = one();
+
+	s.type( 'stu' );
+
+	return { listed: s.listed(), active: s.active() };
+} );
+
+scenario( 'typing opens a closed list', { open: true, listed: [ 'Zoe Academy' ] }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+
+	return { open: s.open(), listed: s.listed() };
+} );
+
+scenario( 'and the count follows what it shows', [ 'Names in the list: 2', 'Names in the list: 1' ], () => {
+	const s = one();
+	const said = [];
+
+	s.type( 'stu' );
+	said.push( s.said() );
+	s.type( 'student 1' );
+	said.push( s.said() );
+
+	return said;
+} );
+
+scenario( 'an emptied field shows every name and highlights none', { listed: ALL, active: null }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.type( '' );
+
+	return { listed: s.listed(), active: s.active() };
+} );
+
+scenario( 'typing alone never changes what Show sends', 'rec10', () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'ArrowDown' );
+
+	return s.value();
+} );
+
+/* ---- moving ---- */
+
+scenario( 'Down and Up move the highlight one name at a time and stop at the ends, Home and End go to them', [ 'Zoe Academy', 'Zoe Academy', 'Student 10', 'Álvaro University', 'Álvaro University', 'Zoe Academy', 'Álvaro University' ], () => {
+	const s = one();
+	const seen = [];
+
+	s.click();
+	// Student 10 is the seventh of eight, Zoe Academy the last.
+	s.key( 'ArrowDown' );
+	seen.push( s.active() );
+	s.key( 'ArrowDown' );
+	seen.push( s.active() );
+	s.key( 'ArrowUp' );
+	seen.push( s.active() );
+	s.key( 'Home' );
+	seen.push( s.active() );
+	s.key( 'ArrowUp' );
+	seen.push( s.active() );
+	s.key( 'End' );
+	seen.push( s.active() );
+	s.key( 'Home' );
+	seen.push( s.active() );
+
+	return seen;
+} );
+
+scenario( 'each move is kept from moving the caret', [ true, true, true, true ], () => {
+	const s = one();
+
+	s.click();
+
+	return [ s.key( 'ArrowDown' ), s.key( 'ArrowUp' ), s.key( 'Home' ), s.key( 'End' ) ];
+} );
+
+scenario( 'Home and End are left to the field while the list is closed', { home: false, end: false, open: false }, () => {
+	const s = one();
+
+	return { home: s.key( 'Home' ), end: s.key( 'End' ), open: s.open() };
+} );
+
+scenario( 'Home and End are left to the field once the list has been opened and closed again, too', { home: false, end: false, open: false, active: null }, () => {
+	const s = one();
+
+	s.click();
+	s.key( 'Escape' );
+
+	return { home: s.key( 'Home' ), end: s.key( 'End' ), open: s.open(), active: s.input.getAttribute( 'aria-activedescendant' ) };
+} );
+
+scenario( 'the highlight is announced: aria-activedescendant names it, the one row marked by is-active and aria-selected', { active: 'Student 2', marked: [ [ 'Student 2' ], [ 'Student 2' ] ], others: 'false' }, () => {
+	const s = one();
+
+	s.click();
+	s.key( 'ArrowUp' );
+	s.key( 'ArrowUp' );
+	s.key( 'ArrowDown' );
+
+	const others = s.list.childNodes.filter( ( item ) => 'Student 2' !== item.textContent ).map( ( item ) => item.getAttribute( 'aria-selected' ) );
+
+	return { active: s.active(), marked: s.marked(), others: Array.from( new Set( others ) ).join() };
+} );
+
+scenario( 'down a long list, the highlight is scrolled into view, and back up', { end: 30 * ROW - ( ROW * 10.5 ), home: 0, middle: true }, () => {
+	const s = page( source, 'long' ).switchers[ 0 ];
+
+	s.click();
+	s.key( 'End' );
+
+	const end = s.list.scrollTop;
+
+	s.key( 'Home' );
+
+	const home = s.list.scrollTop;
+
+	for ( let step = 0; step < 15; step++ ) {
+		s.key( 'ArrowDown' );
+	}
+
+	const item = s.list.childNodes[ 15 ];
+
+	return { end, home, middle: item.offsetTop >= s.list.scrollTop && item.offsetTop + ROW <= s.list.scrollTop + s.list.clientHeight };
+} );
+
+scenario( 'a field emptied while the list was scrolled to the name viewed shows the whole list from its top', { before: true, after: 0 }, () => {
+	const s = page( source, 'long' ).switchers[ 0 ];
+
+	s.click();
+
+	const before = s.list.scrollTop > 0;
+
+	s.type( '' );
+
+	return { before, after: s.list.scrollTop };
+} );
+
+scenario( 'opening a long list shows the name being viewed', true, () => {
+	const s = page( source, 'long' ).switchers[ 0 ];
+
+	s.click();
+
+	const item = s.list.childNodes[ 24 ];
+
+	return 'Name 25' === s.active() && item.offsetTop >= s.list.scrollTop && item.offsetTop + ROW <= s.list.scrollTop + s.list.clientHeight;
+} );
+
+/* ---- open and closed, told three ways ---- */
+
+// The list's hidden attribute closes it, aria-expanded tells a screen reader, and is-open lets a
+// theme dress the field; each is checked on its own, so none can drift from the other two.
+scenario( 'open and closed are told the same three ways at every step: the list shown, aria-expanded, and is-open on the field\'s block', [
+	[ 'drawn', 'hidden', 'false', 'not open' ],
+	[ 'click', 'shown', 'true', 'is-open' ],
+	[ 'Enter', 'hidden', 'false', 'not open' ],
+	[ 'Down', 'shown', 'true', 'is-open' ],
+	[ 'Escape', 'hidden', 'false', 'not open' ],
+	[ 'typing', 'shown', 'true', 'is-open' ],
+	[ 'leaving', 'hidden', 'false', 'not open' ],
+	[ 'no match', 'shown', 'true', 'is-open' ],
+	[ 'click on a name', 'hidden', 'false', 'not open' ],
+], () => {
+	const s = one();
+	const seen = [ [ 'drawn' ].concat( s.signs() ) ];
+	const step = ( name, act ) => {
+		act();
+		seen.push( [ name ].concat( s.signs() ) );
+	};
+
+	step( 'click', () => s.click() );
+	step( 'Enter', () => s.key( 'Enter' ) );
+	step( 'Down', () => s.key( 'ArrowDown' ) );
+	step( 'Escape', () => s.key( 'Escape' ) );
+	step( 'typing', () => s.type( 'stu' ) );
+	step( 'leaving', () => s.leave() );
+	step( 'no match', () => s.type( 'nothing like it' ) );
+	step( 'click on a name', () => {
+		s.type( 'zoe' );
+		s.choose( 'Zoe Academy' );
+	} );
+
+	return seen;
+} );
+
+/* ---- picking ---- */
+
+scenario( 'Enter picks the highlighted name: the field shows it, the list holds it, and the list closes', { prevented: true, field: 'Zoe Academy', value: 'recZOE', open: false, active: null, said: '' }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+
+	return { prevented: s.key( 'Enter' ), field: s.field(), value: s.value(), open: s.open(), active: s.input.getAttribute( 'aria-activedescendant' ), said: s.said() };
+} );
+
+scenario( 'and Show sends what was picked, and only that', [ [ 'wpcpm_test_view', 'recZOE' ] ], () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+
+	return s.show();
+} );
+
+scenario( 'Show sends the name being viewed when nothing was picked', [ [ 'wpcpm_test_view', 'rec10' ] ], () => one().show() );
+
+scenario( 'picking never submits: Show alone sends the form', 0, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+	s.click();
+	s.choose( 'École 42' );
+
+	return s.form.submits;
+} );
+
+scenario( 'a click on a name picks it, and the press keeps the focus in the field', { kept: true, field: 'École 42', value: 'recECOLE', open: false }, () => {
+	const s = one();
+
+	s.click();
+
+	const kept = s.choose( 'École 42' );
+
+	return { kept, field: s.field(), value: s.value(), open: s.open() };
+} );
+
+scenario( 'a click on a narrowed name picks it as well', { field: 'Student 2', value: 'rec2' }, () => {
+	const s = one();
+
+	s.type( 'student' );
+	s.choose( 'Student 2' );
+
+	return { field: s.field(), value: s.value() };
+} );
+
+scenario( 'the name picked is the one marked and highlighted the next time the list opens', { current: [ 'École 42' ], active: 'École 42' }, () => {
+	const s = one();
+
+	s.click();
+	s.choose( 'École 42' );
+	s.click();
+
+	return { current: s.current(), active: s.active() };
+} );
+
+/* ---- coming back to the page ---- */
+
+// The page is somebody's: the name the server drew as chosen. A browser may hand the page back with
+// the select on another name, from the back-forward cache as the person left it, or by putting a
+// form back after Back; Show would then open somebody the page is not about.
+scenario( 'a page shown again from the back-forward cache is put back on its own name: the select, the field, and the name marked as picked', { left: 'recZOE', value: 'rec10', field: 'Student 10', current: [ 'Student 10' ], open: false, sent: [ [ 'wpcpm_test_view', 'rec10' ] ] }, () => {
+	const p = page( source, 'one' );
+	const s = p.switchers[ 0 ];
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+
+	const left = s.value();
+
+	s.type( 'ber' );
+	p.pageshow( true );
+
+	const field = s.field();
+	const open = s.open();
+
+	s.click();
+
+	return { left, value: s.value(), field, current: s.current(), open, sent: s.show() };
+} );
+
+scenario( 'a page shown for the first time is left as it is', 'recZOE', () => {
+	const p = page( source, 'one' );
+	const s = p.switchers[ 0 ];
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+	p.pageshow( false );
+
+	return s.value();
+} );
+
+scenario( 'a select already off the drawn name when the script starts begins on the page\'s own name', { value: 'rec10', field: 'Student 10' }, () => {
+	const s = page( source, 'one', 400, { restored: 'recZOE' } ).switchers[ 0 ];
+
+	return { value: s.value(), field: s.field() };
+} );
+
+/* ---- leaving without picking ---- */
+
+scenario( 'Escape closes the list and puts the picked name back', { prevented: true, field: 'Student 10', value: 'rec10', open: false, said: '' }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+
+	return { prevented: s.key( 'Escape' ), field: s.field(), value: s.value(), open: s.open(), said: s.said() };
+} );
+
+scenario( 'after Enter, a click on a name or Escape the name in the field is selected, so typing again starts a new search', [ [ 0, 11 ], [ 0, 8 ], [ 0, 10 ] ], () => {
+	const s = one();
+	const seen = [];
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+	seen.push( s.input.selection );
+	s.input.selection = null;
+	s.type( 'ecole' );
+	s.choose( 'École 42' );
+	seen.push( s.input.selection );
+
+	const t = one();
+
+	t.type( 'zoe' );
+	t.key( 'Escape' );
+	seen.push( t.input.selection );
+
+	return seen;
+} );
+
+scenario( 'but leaving the field selects nothing, so the focus goes where the person sent it', null, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.leave();
+
+	return s.input.selection;
+} );
+
+scenario( 'Escape with the list closed is left to the browser', false, () => one().key( 'Escape' ) );
+
+scenario( 'Tab, or a click elsewhere, closes the list and puts the picked name back, picking nothing', { field: 'Student 10', value: 'rec10', open: false, active: null }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.leave();
+
+	return { field: s.field(), value: s.value(), open: s.open(), active: s.input.getAttribute( 'aria-activedescendant' ) };
+} );
+
+scenario( 'after a pick, leaving puts back the name picked, not the one first viewed', { field: 'Zoe Academy', value: 'recZOE' }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'Enter' );
+	s.type( 'ber' );
+	s.leave();
+
+	return { field: s.field(), value: s.value() };
+} );
+
+/* ---- no match ---- */
+
+scenario( 'with no match the list holds one row that says so, which is no choice, and the status line says it too', { open: true, listed: [ 'No entries match that search.' ], empty: true, disabled: 'true', index: null, active: null, said: 'No entries match that search.' }, () => {
+	const s = one();
+
+	s.type( 'nothing like it' );
+
+	const item = s.list.firstChild;
+
+	return {
+		open: s.open(),
+		listed: s.listed(),
+		empty: item.classList.contains( 'wpcpm-dashboard__switcher-empty' ),
+		disabled: item.getAttribute( 'aria-disabled' ),
+		index: item.getAttribute( 'data-wpcpm-index' ),
+		active: s.active(),
+		said: s.said(),
+	};
+} );
+
+scenario( 'Enter, Up and Down with no match pick nothing and send nothing', { prevented: true, field: 'nothing like it', value: 'rec10', open: true, active: null }, () => {
+	const s = one();
+
+	s.type( 'nothing like it' );
+	s.key( 'ArrowDown' );
+	s.key( 'ArrowUp' );
+
+	return { prevented: s.key( 'Enter' ), field: s.field(), value: s.value(), open: s.open(), active: s.active() };
+} );
+
+scenario( 'a click on the no-match row picks nothing', { field: 'nothing like it', value: 'rec10', open: true }, () => {
+	const s = one();
+
+	s.type( 'nothing like it' );
+	s.choose( 'No entries match that search.' );
+
+	return { field: s.field(), value: s.value(), open: s.open() };
+} );
+
+scenario( 'and the sentence goes once something matches again', { listed: [ 'Student 2', 'Student 10' ], said: 'Names in the list: 2' }, () => {
+	const s = one();
+
+	s.type( 'nothing like it' );
+	s.type( 'stu' );
+
+	return { listed: s.listed(), said: s.said() };
+} );
+
+/* ---- the status line ---- */
 
 // A status line is read out when its text is set, and setting it to the sentence it already holds
-// can have it read out again. Typing and a settled resize each run the search, so the sentence is
-// set when nothing matches where something did, and emptied when something matches again, and at
-// no other step.
-scenario( 'the no-match sentence is set once, not again on each keystroke or settled resize, so a screen reader says it once', { matching: 0, none: 1, still: 1, said: 'No entries match that search.', back: 2, again: 2, status: '' }, () => {
-	const p = page( source );
+// can have it read out again. So it is set when what it says changes, and at no other step.
+scenario( 'the status line is set only when what it says changes, so a screen reader says each sentence once', { open: 1, stu: 2, stud: 2, none: 3, still: 3, closed: 4, again: 5 }, () => {
+	const s = one();
+	const out = {};
 
-	p.type( 'zoe' );
+	s.click();
+	out.open = s.writes();
+	s.type( 'stu' );
+	out.stu = s.writes();
+	s.type( 'stud' );
+	out.stud = s.writes();
+	s.type( 'nothing' );
+	out.none = s.writes();
+	s.type( 'nothing like it' );
+	s.key( 'ArrowDown' );
+	out.still = s.writes();
+	s.key( 'Escape' );
+	out.closed = s.writes();
+	s.click();
+	out.again = s.writes();
 
-	const matching = p.writes();
+	return out;
+} );
 
-	p.type( 'nothing' );
+/* ---- Enter never submits ---- */
 
-	const none = p.writes();
+scenario( 'Enter in the field never submits the form: closed, open, on a match or on none', [ true, true, true, true ], () => {
+	const states = [
+		( s ) => s,
+		( s ) => s.click(),
+		( s ) => s.type( 'zoe' ),
+		( s ) => s.type( 'nothing like it' ),
+	];
 
-	p.type( 'nothing like' );
+	return states.map( ( state ) => {
+		const s = one();
+
+		state( s );
+
+		return s.key( 'Enter' );
+	} );
+} );
+
+scenario( 'Enter on a list opened and closed again picks nothing, and after a pick a second Enter picks nothing more', { escaped: { prevented: true, field: 'Student 10', value: 'rec10', open: false }, picked: { prevented: true, field: 'Zoe Academy', value: 'recZOE', open: false } }, () => {
+	const s = one();
+
+	s.click();
+	s.key( 'ArrowDown' );
+	s.key( 'Escape' );
+
+	const escaped = { prevented: s.key( 'Enter' ), field: s.field(), value: s.value(), open: s.open() };
+	const t = one();
+
+	t.type( 'zoe' );
+	t.key( 'Enter' );
+
+	return { escaped, picked: { prevented: t.key( 'Enter' ), field: t.field(), value: t.value(), open: t.open() } };
+} );
+
+scenario( 'nor does an Enter that ends a composition pick', { field: 'zoe', value: 'rec10', open: true }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+	s.key( 'Enter', { isComposing: true } );
+
+	return { field: s.field(), value: s.value(), open: s.open() };
+} );
+
+// Safari sends the Enter that ends a composition after the composition has ended, so with
+// isComposing false, but with the keyCode every key pressed during a composition carries.
+scenario( 'nor the Enter Safari sends after a composition, which carries keyCode 229, and which still sends nothing', { prevented: true, field: 'zoe', value: 'rec10', open: true }, () => {
+	const s = one();
+
+	s.type( 'zoe' );
+
+	const prevented = s.key( 'Enter', { isComposing: false, keyCode: 229 } );
+
+	return { prevented, field: s.field(), value: s.value(), open: s.open() };
+} );
+
+/* ---- the field's width ---- */
+
+// The longest name drawn, Álvaro University, is 17 letters: 136px of text, which the select holds
+// at 138px with its border, and the field at 180px with its padding, its chevron's room and its
+// border.
+scenario( 'the field is as wide as its longest name needs in its own type, padding, chevron and border included, where the select is narrower', { width: '180px', select: true }, () => {
+	const s = one();
+
+	return { width: s.combo.style.width, select: s.select.hidden };
+} );
+
+scenario( 'and as wide as the select where the select is the wider, as in a smaller type', '138px', () => page( source, 'one', 400, { font: '8px' } ).switchers[ 0 ].combo.style.width );
+
+scenario( 'in a larger type than the select\'s, the field is measured in its own: 17 letters at 9px and the edges', '197px', () => page( source, 'one', 400, { font: '18px' } ).switchers[ 0 ].combo.style.width );
+
+scenario( 'with no canvas to measure with, the field keeps the select\'s width', '138px', () => page( source, 'one', 400, { canvas: false } ).switchers[ 0 ].combo.style.width );
+
+scenario( 'even where every name is shorter than a text field\'s own width', '60px', () => page( source, 'short' ).switchers[ 0 ].combo.style.width );
+
+scenario( 'the select is measured with nothing added to it or left behind, and its choice unchanged', { options: [ 8, 8 ], value: [ 'rec10', 'rec10' ] }, () => {
+	const p = page( source, 'one' );
+	const s = p.switchers[ 0 ];
+	const options = [ s.select.options.length ];
+	const value = [ s.value() ];
+
 	p.resize( 100 );
 	p.flush();
-	p.type( 'nothing like it' );
+	options.push( s.select.options.length );
+	value.push( s.value() );
 
-	const still = p.writes();
-	const said = p.status.textContent;
-
-	p.type( 'stu' );
-
-	const back = p.writes();
-
-	p.type( 'stud' );
-	p.key( 'Escape' );
-
-	return { matching, none, still, said, back, again: p.writes(), status: p.status.textContent };
+	return { options, value };
 } );
 
-/* ---- the list's width: held while typing narrows it ---- */
+scenario( 'within the room the page gives it', '100px', () => page( source, 'one', 100 ).switchers[ 0 ].combo.style.width );
 
-// The longest name drawn, Álvaro University, is 17 letters: 136px. Student 10 and Zoe Academy, all
-// that 'zoe' leaves, would be 88px.
-scenario( 'with every entry in it, the list\'s width is set as its minimum, and the box\'s', { minWidth: '136px', width: 136, box: '136px' }, () => {
-	const p = page( source );
+scenario( 'and typing, which narrows its list, never changes it', [ '180px', '180px' ], () => {
+	const s = one();
 
-	return { minWidth: p.select.style.minWidth, width: p.width(), box: p.input.style.minWidth };
+	s.type( 'zoe' );
+
+	const typed = s.combo.style.width;
+
+	s.key( 'Escape' );
+
+	return [ typed, s.combo.style.width ];
 } );
 
-scenario( 'and held while typing narrows it, so the box and Show stay where they are', { minWidth: '136px', width: 136, back: 136 }, () => {
-	const p = page( source );
-
-	p.type( 'zoe' );
-
-	const held = { minWidth: p.select.style.minWidth, width: p.width() };
-
-	p.type( '' );
-
-	return Object.assign( held, { back: p.width() } );
-} );
-
-scenario( 'a box the browser kept filled is measured before it narrows', '136px', () => page( source, 'zoe' ).select.style.minWidth );
-
-scenario( 'a resize with an empty box clears the minimum and measures again, once it settles', { before: '136px', waiting: 1, after: '100px' }, () => {
-	const p = page( source );
+scenario( 'a resize measures it again once the window settles', { before: '180px', waiting: 1, after: '100px' }, () => {
+	const p = page( source, 'one' );
 
 	p.resize( 100 );
 
-	const before = p.select.style.minWidth;
+	const before = p.switchers[ 0 ].combo.style.width;
 	const waiting = p.waiting();
 
 	p.flush();
 
-	return { before, waiting, after: p.select.style.minWidth };
+	return { before, waiting, after: p.switchers[ 0 ].combo.style.width };
 } );
 
-scenario( 'and a wider window gives the room back', '136px', () => {
-	const p = page( source );
+scenario( 'a wider window gives the room back', '180px', () => {
+	const p = page( source, 'one' );
 
 	p.resize( 100 );
 	p.flush();
 	p.resize( 400 );
 	p.flush();
 
-	return p.select.style.minWidth;
+	return p.switchers[ 0 ].combo.style.width;
 } );
 
-scenario( 'turning a phone is a resize too', '100px', () => {
-	const p = page( source );
+scenario( 'turning a phone is a resize too, and a burst of resizes is measured once', { turned: '100px', waiting: 1, after: '90px' }, () => {
+	const p = page( source, 'one' );
 
 	p.resize( 100, 'orientationchange' );
 	p.flush();
 
-	return p.select.style.minWidth;
-} );
-
-scenario( 'a burst of resizes is measured once', { waiting: 1, after: '90px' }, () => {
-	const p = page( source );
+	const turned = p.switchers[ 0 ].combo.style.width;
 
 	p.resize( 120 );
 	p.resize( 110 );
@@ -562,49 +1495,62 @@ scenario( 'a burst of resizes is measured once', { waiting: 1, after: '90px' }, 
 
 	p.flush();
 
-	return { waiting, after: p.select.style.minWidth };
+	return { turned, waiting, after: p.switchers[ 0 ].combo.style.width };
 } );
 
-// With text in the box, a settled resize puts every entry back, measures, and narrows again, all in
-// one go: the person sees the same narrowed list, at the new width, with the same entry chosen and
-// the same text in the box.
-scenario( 'with text in the box a settled resize measures the full list at once and narrows it again', { minWidth: [ '100px', '100px' ], listed: [ 'Student 10', 'Zoe Academy' ], value: 'rec10', typed: 'zoe', status: '' }, () => {
-	const p = page( source );
+// The field may hold the focus while the window changes size, and a field taken out of the layout
+// loses it: the measuring shows the list beside the field rather than in its place.
+scenario( 'measuring never hides the field, so a field with the focus keeps it, and leaves the select hidden', { hidden: [ 'SELECT' ], select: true, combo: false }, () => {
+	const p = page( source, 'one' );
+	const s = p.switchers[ 0 ];
 
-	p.type( 'zoe' );
+	s.click();
+	p.document.hidden.length = 0;
 	p.resize( 100 );
 	p.flush();
 
-	return { minWidth: [ p.select.style.minWidth, p.input.style.minWidth ], listed: p.listed(), value: p.select.value, typed: p.input.value, status: p.status.textContent };
+	return { hidden: p.document.hidden.map( ( element ) => element.tagName ), select: s.select.hidden, combo: s.combo.hidden };
 } );
 
-scenario( 'and keeps an entry chosen from the narrowed list, and the no-match sentence', { chosen: { minWidth: '100px', listed: [ 'Student 2', 'Student 10' ], value: 'rec2', typed: 'student' }, none: { listed: [ 'Student 10' ], status: 'No entries match that search.' } }, () => {
-	const p = page( source );
+/* ---- the four dashboards' switchers on one page ---- */
 
-	p.type( 'student' );
-	p.select.choose( 'rec2' );
-	p.resize( 100 );
-	p.flush();
+const FOUR = [
+	[ 'wpcpm-institution-switcher', 'wpcpm_institution_view', 'Viewing as institution', 'No institutions match that search.' ],
+	[ 'wpcpm-mentor-switcher', 'wpcpm_mentor', 'Viewing as mentor', 'No mentors match that search.' ],
+	[ 'wpcpm-student-switcher', 'wpcpm_student_view', 'Viewing as student', 'No students match that search.' ],
+	[ 'wpcpm-sponsor-switcher', 'wpcpm_sponsor_view', 'Viewing as sponsor', 'No sponsors match that search.' ],
+];
 
-	const chosen = { minWidth: p.select.style.minWidth, listed: p.listed(), value: p.select.value, typed: p.input.value };
-	const q = page( source );
+scenario( 'the four switchers are each wired: each field named by its own label, holding its own name', FOUR.map( ( f ) => [ f[ 0 ] + '-input', f[ 2 ], 'Second Name' ] ), () => page( source, 'four' ).switchers.map( ( s ) => [ s.label.getAttribute( 'for' ), s.label.textContent, s.field() ] ) );
 
-	q.type( 'nothing like it' );
-	q.resize( 100 );
-	q.flush();
+FOUR.forEach( ( f, at ) => {
+	scenario( 'the ' + f[ 2 ].replace( 'Viewing as ', '' ) + ' switcher picks and sends its own, and leaves the other three as they were', { sent: [ [ f[ 1 ], 'v' + at + '-1' ] ], others: [ 'v-2', 'v-2', 'v-2' ], none: f[ 3 ] }, () => {
+		const p = page( source, 'four' );
+		const s = p.switchers[ at ];
 
-	return { chosen, none: { listed: q.listed(), status: q.status.textContent } };
+		s.type( 'first' );
+		s.key( 'Enter' );
+
+		const sent = s.show();
+		const others = p.switchers.filter( ( other ) => other !== s ).map( ( other ) => other.value().replace( /^v\d/, 'v' ) );
+
+		s.type( 'nothing like it' );
+
+		return { sent, others, none: s.said() };
+	} );
 } );
 
-scenario( 'the measuring leaves the full list in order when the box is cleared afterwards', { minWidth: '100px', listed: ALL }, () => {
-	const p = page( source );
+scenario( 'and no two of their rows share an ID', [ 8, 8 ], () => {
+	const p = page( source, 'four' );
 
-	p.type( 'zoe' );
-	p.resize( 100 );
-	p.flush();
-	p.key( 'Escape' );
+	p.switchers.forEach( ( s ) => {
+		s.click();
+		s.key( 'Escape' );
+	} );
 
-	return { minWidth: p.select.style.minWidth, listed: p.listed() };
+	const items = p.document.querySelectorAll( 'li' );
+
+	return [ items.length, new Set( items.map( ( item ) => item.id ) ).size ];
 } );
 
 /* ---- mutation proofs: the same steps on a broken script must go wrong ---- */
@@ -620,33 +1566,37 @@ function mutant( find, replace ) {
 	return { script: source.split( find ).join( replace ), applied: -1 !== source.indexOf( find ) };
 }
 
-scenario( 'mutation: a cursor that never moves puts the entries back out of order', { applied: true, inOrder: false }, () => {
-	const broken = mutant( 'next = entry;', '' );
-	const p = page( broken.script );
+scenario( 'mutation: with the accents left on, "krakow" no longer finds Kraków', { applied: true, listed: [ 'No entries match that search.' ] }, () => {
+	const broken = mutant( '.replace( /[\\u0300-\\u036f]/g, \'\' )', '' );
+	const s = page( broken.script, 'one' ).switchers[ 0 ];
 
-	p.type( 'zoe' );
-	p.type( '' );
+	s.type( 'krakow' );
 
-	return { applied: broken.applied, inOrder: JSON.stringify( p.listed() ) === JSON.stringify( ALL ) };
+	return { applied: broken.applied, listed: s.listed() };
 } );
 
-scenario( 'mutation: an entry chosen but not kept is taken out, and the choice moves to the first', { applied: true, value: 'recZOE' }, () => {
-	const broken = mutant( 'keep.push( hit || index === selected );', 'keep.push( hit );' );
-	const p = page( broken.script );
+scenario( 'mutation: a press on a name that moves the focus closes the list before the click, and nothing is picked', { applied: true, kept: false, field: 'Student 10', value: 'rec10' }, () => {
+	const broken = mutant( 'list.addEventListener( \'mousedown\'', 'list.addEventListener( \'mousedown-not-heard\'' );
+	const s = page( broken.script, 'one' ).switchers[ 0 ];
 
-	p.type( 'zoe' );
+	s.click();
 
-	return { applied: broken.applied, value: p.select.value };
+	const kept = s.choose( 'École 42' );
+
+	return { applied: broken.applied, kept, field: s.field(), value: s.value() };
 } );
 
-scenario( 'mutation: a sentence set whatever the line holds is set again for the same no match', { applied: true, writes: 2 }, () => {
+scenario( 'mutation: a status line set whatever it holds is set again for the same no match', { applied: true, more: true }, () => {
 	const broken = mutant( 'if ( status.textContent !== text ) {', 'if ( true ) {' );
-	const p = page( broken.script );
+	const s = page( broken.script, 'one' ).switchers[ 0 ];
 
-	p.type( 'nothing' );
-	p.type( 'nothing like it' );
+	s.type( 'nothing' );
 
-	return { applied: broken.applied, writes: p.writes() };
+	const once = s.writes();
+
+	s.type( 'nothing like it' );
+
+	return { applied: broken.applied, more: s.writes() > once };
 } );
 
 console.log( '\n' + ran + ' scenarios, ' + failed + ' differ' );

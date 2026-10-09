@@ -17,29 +17,39 @@
  * - That order is one public comparison of two names, `compare_names()`, which the switcher's sort
  *   calls and by which the reconciliation lists its status disagreements, so there is one name order.
  * - The entry being viewed is selected, and only that one, after the sort as before it.
- * - The box that narrows the list sits above it inside the same form. Inside, because the WordPress
- *   Credits theme lifts the form out of the dashboard card by its opening tag and would leave a box
- *   outside it behind; the opening tag is pinned as the theme's filter reads it. Labeled, and posting
- *   nothing: it carries no name, so the GET form sends what it sent before. Drawn hidden, so a page
- *   without the script never offers a box that does nothing, and the stylesheet's display rule for
- *   the row does not undo the hidden attribute.
- * - The box and the list share one column, with the labels in the column before it, so the box
- *   starts where the list starts and is as wide as it is, whatever either label says; on a phone the
- *   column is the only one. Show and the note follow the list on its row.
+ * - The one field that stands in for the list sits beside it inside the same form. Inside, because
+ *   the WordPress Credits theme lifts the form out of the dashboard card by its opening tag and
+ *   would leave a field outside it behind; the opening tag is pinned as the theme's filter reads it.
+ *   A text field in the combobox role, with the ARIA the pattern asks for, an empty listbox labeled
+ *   by the switcher's label and a status line for the count and the no-match sentence, all drawn
+ *   hidden in one block, so a page without the script shows the label, the sorted list, Show and
+ *   the note and nothing that does nothing. The caller's find sentence is the placeholder. The
+ *   field posts nothing: it carries no name, and the list stays in the form as what is sent. The
+ *   separate search box of 1.122.14 is gone.
+ * - The select and the field share the grid's second column, one at a time, after the label in the
+ *   first, so the field starts where the select starts; Show and the note follow on the same row,
+ *   the note under the field at 900px and below, and on a phone the column is the only one. The
+ *   hidden attribute keeps whichever is hidden out of the page, whatever display a theme gives it.
  * - The note is the helper's own, "Only Administrators see this control.", the name the program
  *   gives its managers, and no dashboard passes or prints another.
  * - The script is registered and enqueued by the helper and only when it draws a switcher: a list of
  *   one entry is not a choice and draws nothing, and loads nothing.
  * - The four dashboards draw their switcher through the helper and print no select of their own,
  *   and no other file prints the switcher's form, so the four cannot drift apart again.
- * - The script, run by node (bin/js/switcher-filter.js): `fold()` and `narrow()` on their own, and
- *   the whole script on a stand-in select, typed into, chosen from, cleared with Escape, with the list
- *   it leaves checked after every step, its width held while a search narrows it and measured again
- *   when the window changes size, its no-match sentence set only when it changes, and three
- *   mutation proofs. Read off its source as well: options taken out of the list rather than hidden,
- *   which Safari ignores in a closed select; the no-match sentence from the markup, set only when
- *   what the line says changes; nothing in the script submitting the form; and the letters outside
- *   ASCII written as escapes, each named in a comment.
+ * - The script, run by node (bin/js/switcher-filter.js) on the markup this helper draws, handed
+ *   over on stdin: `fold()` and `narrow()` on their own, and the whole script on that markup, opened
+ *   by a click and by Down, typed into, moved through with Up, Down, Home and End, picked from with
+ *   Enter and with a click, left by Escape, Tab and a click elsewhere, with no match, on a long list
+ *   that scrolls, on short names, and as the four dashboards' switchers on one page, each picking
+ *   and sending its own; the field held at the width its longest name needs in its own type, never
+ *   less than the select's nor more than the room, measured again when the window changes size; the
+ *   list held at ten one-line rows; the status line set only when it changes; Enter never
+ *   submitting; and three mutation proofs. Read off its source as well: the parts found through
+ *   their ARIA, the field
+ *   shown and the select hidden, names written as text, the sentences from the markup, picking
+ *   setting the select, Enter and a press on the list kept from their defaults, nothing in the
+ *   script submitting the form, and the letters outside ASCII written as escapes, each named in a
+ *   comment.
  *
  * Run from the plugin root:  php bin/test-dashboard-switcher.php
  */
@@ -257,32 +267,49 @@ echo "\n=== The markup ===\n";
 
 ck( 'the form opens exactly as the theme\'s filter finds it, to lift it above the card', 0 === strpos( $html, '<form class="wpcpm-dashboard__switcher" method="get">' ) );
 ck( 'and closes once, with no form inside it', array( substr_count( $html, '<form' ), substr_count( $html, '</form>' ) ), array( 1, 1 ) );
-ck( 'the box is a row of its own, drawn hidden', false !== strpos( $html, '<div class="wpcpm-dashboard__switcher-find" hidden>' ) );
-ck( 'with a visible label in the caller\'s words', false !== strpos( $html, '<label for="wpcpm-test-switcher-find">Find a test entry</label>' ) );
-ck( 'on a search box that names the list it narrows', false !== strpos( $html, '<input type="search" id="wpcpm-test-switcher-find" aria-controls="wpcpm-test-switcher" autocomplete="off" />' ) );
-preg_match( '#<input type="search"[^>]*>#', $html, $box );
-ck( 'and carries no name, so the GET form posts what it posted before', isset( $box[0] ) && false === strpos( $box[0], 'name=' ) );
-ck( 'the no-match sentence waits in a status region, for the script to say', false !== strpos( $html, '<span class="wpcpm-dashboard__switcher-none" role="status" data-wpcpm-none="No entries match that search."></span>' ) );
-ck( 'the box comes above the list', false !== strpos( $html, 'wpcpm-dashboard__switcher-find' ) && strpos( $html, 'wpcpm-dashboard__switcher-find' ) < strpos( $html, '<select' ) );
-ck( 'and inside the form', strpos( $html, 'wpcpm-dashboard__switcher-find' ) > strpos( $html, '<form' ) && strpos( $html, 'wpcpm-dashboard__switcher-find' ) < strpos( $html, '</form>' ) );
-ck( 'the list keeps its label, its field and its ID', array( false !== strpos( $html, '<label for="wpcpm-test-switcher">Viewing as test</label>' ), false !== strpos( $html, '<select name="wpcpm_test_view" id="wpcpm-test-switcher">' ) ), array( true, true ) );
+ck( 'the list keeps its label, now with an ID the field\'s list is named by, its field and its ID', array( false !== strpos( $html, '<label for="wpcpm-test-switcher" id="wpcpm-test-switcher-label">Viewing as test</label>' ), false !== strpos( $html, '<select name="wpcpm_test_view" id="wpcpm-test-switcher" autocomplete="off">' ) ), array( true, true ) );
+// A browser that puts a form back as it was left, after Back, would put the hidden list on the name
+// picked last while the field reads the page's own, and Show would open somebody else.
+ck( 'and asks the browser not to put it back as it was left, so after Back it holds the page\'s own name', 1 === preg_match( '#<select [^>]*autocomplete="off"[^>]*>#', $html ) );
 ck( 'and the Show button and the note after it', array( false !== strpos( $html, '<button type="submit" class="wpcpm-button">Show</button>' ), false !== strpos( $html, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ) ), array( true, true ) );
+ck( 'there is no separate search box any more, nor its label or its row', array( strpos( $html, 'type="search"' ), strpos( $html, 'wpcpm-test-switcher-find' ), strpos( $html, 'wpcpm-dashboard__switcher-find' ), strpos( $html, 'wpcpm-dashboard__switcher-none' ) ), array( false, false, false, false ) );
+ck( 'the field that stands in for the list is drawn hidden', false !== strpos( $html, '<div class="wpcpm-dashboard__switcher-combo" hidden>' ) );
+ck(
+	'a text field in the combobox role, which completes from a list it names, closed, with no autocomplete of the browser\'s, and the caller\'s find sentence as its placeholder',
+	false !== strpos( $html, '<input type="text" id="wpcpm-test-switcher-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-test-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find a test entry" />' )
+);
+preg_match( '#<input type="text"[^>]*>#', $html, $field );
+ck( 'and carries no name, so the GET form posts the list\'s field and nothing else', isset( $field[0] ) && false === strpos( $field[0], 'name=' ) );
+ck( 'its list is an empty listbox, drawn hidden, labeled by the switcher\'s own label', false !== strpos( $html, '<ul id="wpcpm-test-switcher-list" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="wpcpm-test-switcher-label" hidden></ul>' ) );
+ck( 'the count and the no-match sentence wait in a status line, for the script to say', false !== strpos( $html, '<span class="wpcpm-dashboard__switcher-status" role="status" data-wpcpm-count="Names in the list: %s" data-wpcpm-none="No entries match that search."></span>' ) );
 
 $fields = strpos( $html, '<div class="wpcpm-dashboard__switcher-fields">' );
+$combo  = strpos( $html, '<div class="wpcpm-dashboard__switcher-combo" hidden>' );
+$closed = strpos( $html, '</div>', (int) $combo );
 
-ck( 'the box, the list, Show and the note are one block of fields, the form\'s first', '<form class="wpcpm-dashboard__switcher" method="get"><div class="wpcpm-dashboard__switcher-fields">', substr( $html, 0, (int) $fields + strlen( '<div class="wpcpm-dashboard__switcher-fields">' ) ) );
+ck( 'the label, the list, the field, Show and the note are one block of fields, the form\'s first', '<form class="wpcpm-dashboard__switcher" method="get"><div class="wpcpm-dashboard__switcher-fields">', substr( $html, 0, (int) $fields + strlen( '<div class="wpcpm-dashboard__switcher-fields">' ) ) );
 ck(
-	'in reading order: the box\'s row, the list\'s label, the list, Show, the note',
+	'in reading order: the label, the list, the field, Show, the note',
 	array(
-		$fields < strpos( $html, '<div class="wpcpm-dashboard__switcher-find" hidden>' ),
-		strpos( $html, '<div class="wpcpm-dashboard__switcher-find" hidden>' ) < strpos( $html, '<label for="wpcpm-test-switcher">' ),
-		strpos( $html, '<label for="wpcpm-test-switcher">' ) < strpos( $html, '<select' ),
-		strpos( $html, '</select>' ) < strpos( $html, '<button' ),
+		$fields < strpos( $html, '<label for="wpcpm-test-switcher"' ),
+		strpos( $html, '<label for="wpcpm-test-switcher"' ) < strpos( $html, '<select' ),
+		strpos( $html, '</select>' ) < $combo,
+		$closed < strpos( $html, '<button' ),
 		strpos( $html, '</button>' ) < strpos( $html, 'wpcpm-dashboard__switcher-note' ),
 	),
 	array( true, true, true, true, true )
 );
+ck( 'the hidden block holds the field, its list and its status line, and nothing else', 1 === preg_match( '#<div class="wpcpm-dashboard__switcher-combo" hidden><input type="text" [^>]*/><ul [^>]*></ul><span class="wpcpm-dashboard__switcher-status" [^>]*></span></div> <button#', $html ) );
+
+// Without the script, what shows is what showed before the field: the label, the sorted list, Show
+// and the note. Everything else in the block of fields is in the hidden part, and the hidden
+// attribute is on the part itself, so no rule for its children can show them.
+$visible = preg_replace( '#<div class="wpcpm-dashboard__switcher-combo" hidden>.*?</span></div>#s', '', substr( $html, (int) $fields ) );
+preg_match_all( '#<(label|select|button|span|input|ul|div)\b#', (string) $visible, $tags );
+ck( 'with no JavaScript only the label, the list, Show and the note are shown', $tags[1], array( 'div', 'label', 'select', 'button', 'span' ) );
 ck( 'and the block closes with the form', '</span></div></form>', substr( $html, -strlen( '</span></div></form>' ) ) );
+ck( 'the placeholder is escaped', false !== strpos( draw( array( 'rec1' => 'A', 'rec2' => 'B' ), '', array( 'find' => 'Find "one" & more' ) ), 'placeholder="Find &quot;one&quot; &amp; more"' ) );
+ck( 'and so is the no-match sentence', false !== strpos( draw( array( 'rec1' => 'A', 'rec2' => 'B' ), '', array( 'none' => 'No <b>match</b> & "none"' ) ), 'data-wpcpm-none="No &lt;b&gt;match&lt;/b&gt; &amp; &quot;none&quot;"' ) );
 $passed = draw( array( 'rec1' => 'A', 'rec2' => 'B' ), '', array( 'note' => 'Only editors see this control.' ) );
 
 ck( 'the note is the helper\'s: one a caller passes is not printed', array( false !== strpos( $passed, 'Only Administrators see this control.' ), strpos( $passed, 'Only editors' ) ), array( true, false ) );
@@ -307,7 +334,7 @@ ck( 'and nothing is loaded', $GLOBALS['enqueued'], array() );
 
 draw( $index );
 
-ck( 'a switcher drawn loads the script that narrows it', $GLOBALS['enqueued'], array( WPCPM_Dashboards::SWITCHER_SCRIPT ) );
+ck( 'a switcher drawn loads the script that works its field', $GLOBALS['enqueued'], array( WPCPM_Dashboards::SWITCHER_SCRIPT ) );
 ck(
 	'registered from assets/js/switcher.js, in the footer, with no dependency',
 	$GLOBALS['registered'][ WPCPM_Dashboards::SWITCHER_SCRIPT ] ?? null,
@@ -317,26 +344,76 @@ ck( 'and the file is there', is_file( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js'
 
 $css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' );
 
-// The second column's least is `auto`, the box's and the list's own minimums, so the width
-// switcher.js holds them at keeps the column, and Show beside it, where they were; without the
-// script that least is only the theme's.
-ck( 'the fields are a grid across the switcher: labels, the box and the list, Show, the note', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields\s*\{[^}]*display:\s*grid;[^}]*flex:\s*1 1 100%;[^}]*grid-template-columns:\s*max-content minmax\( auto, max-content \) max-content minmax\( max-content, 1fr \);/', $css ) );
-ck( 'the box\'s row lays its parts into that grid', 1 === preg_match( '/\.wpcpm-dashboard__switcher-find\s*\{\s*display:\s*contents;\s*\}/', $css ) );
-ck( 'and the hidden attribute keeps the display that rule takes from it', 1 === preg_match( '/\.wpcpm-dashboard__switcher-find\[hidden\]\s*\{\s*display:\s*none;\s*\}/', $css ) );
-ck( 'both labels in the first column', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields label\s*\{\s*grid-column:\s*1;\s*\}/', $css ) );
-ck( 'the box and the list in the second, each as wide as the column, borders included', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields input,\s*\.wpcpm-dashboard__switcher-fields select\s*\{[^}]*box-sizing:\s*border-box;[^}]*grid-column:\s*2;[^}]*width:\s*100%;/', $css ) );
-// From 601 to 900px the note leaves the fourth column, which keeps almost no floor; a filled
-// no-match line still spanning into it forced it open and ran past the switcher, and the page
-// scrolled sideways. There the line takes a row of its own under the box, as the note does.
-ck( 'the note is never squeezed to wrap beside Show: at 900px and below it takes a row of its own, under the list, and so does the no-match line', 1 === preg_match( '/@media \( max-width: 900px \)\s*\{\s*\.wpcpm-dashboard__switcher-note,\s*\.wpcpm-dashboard__switcher-none\s*\{\s*grid-column:\s*2 \/ -1;\s*\}\s*\}/', $css ) );
-ck( 'and the line never sizes a column at any width: it wraps in the room its row gives it', 1 === preg_match( '/\.wpcpm-dashboard__switcher-none\s*\{[^}]*contain:\s*inline-size;/', $css ) );
-ck( 'and on a phone the grid is one column, the labels above the box and the list', 1 === preg_match( '/@media \( max-width: 600px \)\s*\{\s*\.wpcpm-dashboard__switcher-fields\s*\{\s*grid-template-columns:\s*minmax\( 0, 1fr \);\s*\}/', $css ) );
-// Empty, the no-match line kept a grid row of its own on a phone, and the two gaps around it set
-// the box 14px from the list's label where every other gap is 7px. Out of the grid while it is
-// empty, and never `display: none` nor hidden, since a status region that is not in the page when
-// its text arrives is not read out.
-ck( 'the no-match line takes no room while it is empty: out of the grid, still in the page', 1 === preg_match( '/\.wpcpm-dashboard__switcher-none:empty\s*\{\s*position:\s*absolute;\s*\}/', $css ) );
-ck( 'and nothing hides it', array( preg_match( '/\.wpcpm-dashboard__switcher-none[^{]*\{[^}]*display:\s*none/', $css ), strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js' ), 'status.hidden' ) ), array( 0, false ) );
+/**
+ * One rule's declarations, out of the stylesheet, by its selector as written.
+ *
+ * @param string $css      The stylesheet.
+ * @param string $selector The selector, exactly as the rule opens.
+ * @return string What is between the rule's braces; '' when there is no such rule.
+ */
+function rule_of( $css, $selector ) {
+	return preg_match( '/(?:^|\})\s*(?:\/\*.*?\*\/\s*)*' . preg_quote( $selector, '/' ) . '\s*\{([^}]*)\}/s', $css, $found ) ? $found[1] : '';
+}
+
+// The second column's least is `auto`, its items' own minimums, so the width switcher.js holds the
+// field at keeps the column, and Show beside it, where they were; without the script that least is
+// only the theme's.
+ck( 'the fields are a grid across the switcher: the label, the list or the field, Show, the note', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields\s*\{[^}]*display:\s*grid;[^}]*flex:\s*1 1 100%;[^}]*gap:\s*0\.5em;[^}]*grid-template-columns:\s*max-content minmax\( auto, max-content \) max-content minmax\( max-content, 1fr \);/', $css ) );
+ck( 'the label in the first column', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields label\s*\{\s*grid-column:\s*1;\s*\}/', $css ) );
+ck( 'the select and the field in the second, one at a time, each as wide as the column, borders included', 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields select,\s*\.wpcpm-dashboard__switcher-combo\s*\{[^}]*box-sizing:\s*border-box;[^}]*grid-column:\s*2;[^}]*max-width:\s*100%;[^}]*width:\s*100%;/', $css ) );
+// A theme rule of the same weight that sets a display, printed after this sheet, would win over a
+// plain restatement at its own weight; three classes deep holds against it.
+ck( 'and the hidden attribute keeps either out of the page, whatever display a theme gives it', 1 === preg_match( '/\.wpcpm-dashboard__switcher \.wpcpm-dashboard__switcher-fields select\[hidden\],\s*\.wpcpm-dashboard__switcher \.wpcpm-dashboard__switcher-combo\[hidden\],\s*\.wpcpm-dashboard__switcher \.wpcpm-dashboard__switcher-list\[hidden\]\s*\{\s*display:\s*none;\s*\}/', $css ) );
+ck( 'Show in the third column and the note in the fourth', array( 1 === preg_match( '/\.wpcpm-dashboard__switcher-fields \.wpcpm-button\s*\{\s*grid-column:\s*3;\s*\}/', $css ), 1 === preg_match( '/\.wpcpm-dashboard__switcher-note\s*\{\s*grid-column:\s*4;\s*\}/', $css ) ), array( true, true ) );
+ck( 'the select is in the page\'s type, as the field and its list are, so the width measured on it holds the longest name in theirs', 1 === preg_match( '/\.wpcpm-dashboard__switcher select\s*\{\s*font:\s*inherit;\s*max-width:\s*100%;\s*\}/', $css ) );
+ck( 'the field\'s block is what its list is placed against', false !== strpos( rule_of( $css, '.wpcpm-dashboard__switcher-combo' ), 'position: relative;' ) );
+
+$field = rule_of( $css, '.wpcpm-dashboard__switcher-input' );
+
+ck(
+	'the field in the plugin\'s own look: the page\'s type, a control\'s edge, as wide as its block, and a chevron with room kept for it',
+	array(
+		false !== strpos( $field, 'font: inherit;' ),
+		false !== strpos( $field, 'border: 1px solid var( --wpcpm-control-border, rgba( 128, 128, 128, 0.9 ) );' ),
+		false !== strpos( $field, 'box-sizing: border-box;' ),
+		false !== strpos( $field, 'width: 100%;' ),
+		1 === preg_match( '/background-image:\s*url\( "data:image\/svg\+xml,[^"]*" \);/', $field ),
+		false !== strpos( $field, 'background-position: right 8px center;' ),
+		false !== strpos( $field, 'padding-right: 34px;' ),
+	),
+	array_fill( 0, 7, true )
+);
+
+$list = rule_of( $css, '.wpcpm-dashboard__switcher-list' );
+
+// The theme's sticky group headings stack at 2 and its sticky header at 50: the list goes over the
+// first and under the second, so a page scrolled under the header does not show the list over it.
+
+ck(
+	'its list opens under the field at the field\'s width, scrolls, and sits above what follows the switcher',
+	array(
+		false !== strpos( $list, 'position: absolute;' ),
+		false !== strpos( $list, 'top: calc( 100% + 2px );' ),
+		false !== strpos( $list, 'left: 0;' ),
+		false !== strpos( $list, 'width: 100%;' ),
+		false !== strpos( $list, 'box-sizing: border-box;' ),
+		false !== strpos( $list, 'overflow-y: auto;' ),
+		false !== strpos( $list, 'z-index: 10;' ),
+	),
+	array_fill( 0, 7, true )
+);
+ck( 'and is opaque, a pair of colors that read on each other, with no bullets', array( false !== strpos( $list, 'background: Canvas;' ), false !== strpos( $list, 'color: CanvasText;' ), false !== strpos( $list, 'list-style: none;' ), false !== strpos( $list, 'margin: 0;' ), false !== strpos( $list, 'padding: 0;' ) ), array( true, true, true, true, true ) );
+ck( 'its rows are padded, and a long name wraps rather than running out of the list', 1 === preg_match( '/\.wpcpm-dashboard__switcher-option,\s*\.wpcpm-dashboard__switcher-empty\s*\{[^}]*margin:\s*0;[^}]*overflow-wrap:\s*anywhere;[^}]*padding:\s*0\.375em 0\.5em;/', $css ) );
+ck( 'the highlighted row is drawn in the system\'s highlight, and stays so in forced colors', array( 1 === preg_match( '/\.wpcpm-dashboard__switcher-option\.is-active\s*\{[^}]*background:\s*Highlight;[^}]*color:\s*HighlightText;/', $css ), 1 === preg_match( '/@media \( forced-colors: active \)\s*\{\s*\.wpcpm-dashboard__switcher-option\.is-active\s*\{[^}]*forced-color-adjust:\s*none;/', $css ) ), array( true, true ) );
+ck( 'the picked row is marked by its weight, not by a color alone', 1 === preg_match( '/\.wpcpm-dashboard__switcher-option\.is-current\s*\{\s*font-weight:\s*600;\s*\}/', $css ) );
+// A status region that is not in the page when its text arrives is not read out, so the line is
+// taken out of sight, never out of the page.
+$status_rule = rule_of( $css, '.wpcpm-dashboard__switcher-status' );
+ck( 'the status line is for a screen reader: out of sight, still in the page', array( false !== strpos( $status_rule, 'clip-path: inset( 50% );' ), false !== strpos( $status_rule, 'position: absolute;' ), false !== strpos( $status_rule, 'height: 1px;' ), false !== strpos( $status_rule, 'width: 1px;' ), false !== strpos( $status_rule, 'overflow: hidden;' ) ), array( true, true, true, true, true ) );
+ck( 'and nothing hides it', array( preg_match( '/\.wpcpm-dashboard__switcher-status[^{]*\{[^}]*display:\s*none/', $css ), strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js' ), 'status.hidden' ) ), array( 0, false ) );
+ck( 'the rules for the separate search box and its no-match line are gone', array( strpos( $css, 'wpcpm-dashboard__switcher-find' ), strpos( $css, 'wpcpm-dashboard__switcher-none' ) ), array( false, false ) );
+ck( 'the note is never squeezed to wrap beside Show: at 900px and below it takes a row of its own, under the field', 1 === preg_match( '/@media \( max-width: 900px \)\s*\{\s*\.wpcpm-dashboard__switcher-note\s*\{\s*grid-column:\s*2 \/ -1;\s*\}\s*\}/', $css ) );
+ck( 'and on a phone the grid is one column, the label above the field, then Show, then the note', 1 === preg_match( '/@media \( max-width: 600px \)\s*\{\s*\.wpcpm-dashboard__switcher-fields\s*\{\s*grid-template-columns:\s*minmax\( 0, 1fr \);\s*\}\s*\.wpcpm-dashboard__switcher-fields label,\s*\.wpcpm-dashboard__switcher-fields select,\s*\.wpcpm-dashboard__switcher-combo,\s*\.wpcpm-dashboard__switcher-fields \.wpcpm-button,\s*\.wpcpm-dashboard__switcher-note\s*\{\s*grid-column:\s*1;\s*\}/', $css ) );
 
 echo "\n=== The four dashboards ===\n";
 
@@ -353,11 +430,14 @@ function method_body( $file, $method ) {
 	return preg_match( '/\n\t(?:private|public|protected) static function ' . preg_quote( $method, '/' ) . '\(.*?\n\t\}\n/s', $src, $found ) ? $found[0] : '';
 }
 
+// Each dashboard's file and method, its field's placeholder, its no-match sentence, its ID, the
+// query argument it posts and its label: the last three are what the node harness draws the four
+// switchers with, so the page it drives is the one the four dashboards draw.
 $dashboards = array(
-	'institution' => array( 'includes/modules/class-wpcpm-institutions-dashboard.php', 'render_switcher', 'Find an institution', 'No institutions match that search.' ),
-	'mentor'      => array( 'includes/modules/class-wpcpm-mentors-dashboard.php', 'render_mentor_switcher', 'Find a mentor', 'No mentors match that search.' ),
-	'student'     => array( 'includes/modules/class-wpcpm-students-dashboard.php', 'render_switcher', 'Find a student', 'No students match that search.' ),
-	'sponsor'     => array( 'includes/modules/class-wpcpm-sponsors-dashboard.php', 'render_switcher', 'Find a sponsor', 'No sponsors match that search.' ),
+	'institution' => array( 'includes/modules/class-wpcpm-institutions-dashboard.php', 'render_switcher', 'Find an institution', 'No institutions match that search.', 'wpcpm-institution-switcher', 'wpcpm_institution_view', 'Viewing as institution' ),
+	'mentor'      => array( 'includes/modules/class-wpcpm-mentors-dashboard.php', 'render_mentor_switcher', 'Find a mentor', 'No mentors match that search.', 'wpcpm-mentor-switcher', 'wpcpm_mentor', 'Viewing as mentor' ),
+	'student'     => array( 'includes/modules/class-wpcpm-students-dashboard.php', 'render_switcher', 'Find a student', 'No students match that search.', 'wpcpm-student-switcher', 'wpcpm_student_view', 'Viewing as student' ),
+	'sponsor'     => array( 'includes/modules/class-wpcpm-sponsors-dashboard.php', 'render_switcher', 'Find a sponsor', 'No sponsors match that search.', 'wpcpm-sponsor-switcher', 'wpcpm_sponsor_view', 'Viewing as sponsor' ),
 );
 
 foreach ( $dashboards as $who => $where ) {
@@ -365,7 +445,8 @@ foreach ( $dashboards as $who => $where ) {
 
 	ck( "the $who switcher is drawn by the shared helper", '' !== $body && false !== strpos( $body, 'WPCPM_Dashboards::render_switcher(' ) );
 	ck( "and prints no list of its own", array( strpos( $body, '<select' ), strpos( $body, '<option' ), strpos( $body, '<form' ) ), array( false, false, false ) );
-	ck( "and names its box and its no-match sentence", array( false !== strpos( $body, "'" . $where[2] . "'" ), false !== strpos( $body, "'" . $where[3] . "'" ) ), array( true, true ) );
+	ck( "and names its field's placeholder and its no-match sentence", array( false !== strpos( $body, "'" . $where[2] . "'" ), false !== strpos( $body, "'" . $where[3] . "'" ) ), array( true, true ) );
+	ck( "and its ID and its label", array( false !== strpos( $body, "'" . $where[4] . "'" ), false !== strpos( $body, "'" . $where[6] . "'" ) ), array( true, true ) );
 	ck( "and leaves the note to the helper", strpos( $body, "'note'" ), false );
 }
 
@@ -394,17 +475,61 @@ foreach ( $rii as $file ) {
 
 ck( 'one file prints the switcher\'s form, so the four cannot drift apart', $printers, array( 'includes/class-wpcpm-dashboards.php' ) );
 
-echo "\n=== The filter, run by node ===\n";
+echo "\n=== The field, run by node ===\n";
 
 $node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
 
 if ( '' === $node ) {
 	echo "skip the filter was not run: node is not on the path\n";
 } else {
-	$out    = array();
-	$status = 0;
+	// The pages the harness drives, drawn here by the helper: one switcher, one of names shorter
+	// than a text field, one long enough to scroll, one whose first name wraps, and the four
+	// dashboards' switchers on one page.
+	// Handed over on stdin, so nothing is written to disk.
+	$long = array();
 
-	exec( escapeshellarg( $node ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'bin/js/switcher-filter.js' ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js' ) . ' 2>&1', $out, $status );
+	for ( $n = 1; $n <= 30; $n++ ) {
+		$long[ 'recN' . $n ] = 'Name ' . $n;
+	}
+
+	$four = '';
+
+	foreach ( array_values( $dashboards ) as $at => $where ) {
+		$four .= draw(
+			array( "v$at-1" => 'First Name', "v$at-2" => 'Second Name' ),
+			"v$at-2",
+			array( 'id' => $where[4], 'name' => $where[5], 'label' => $where[6], 'find' => $where[2], 'none' => $where[3] )
+		);
+	}
+
+	$wrap = array( 'recWRAP' => 'An Institution With A Name Long Enough To Wrap' );
+
+	for ( $n = 1; $n <= 15; $n++ ) {
+		$wrap[ 'recW' . $n ] = 'Name ' . $n;
+	}
+
+	$pages = array(
+		'one'   => draw( array( 'recZOE' => 'Zoe Academy', 'rec10' => 'Student 10', 'recKRAKOW' => 'Kraków Lab School', 'recALVARO' => 'Álvaro University', 'recLODZ' => 'Łódź Institute', 'rec2' => 'Student 2', 'recBERGEN' => 'bergen school', 'recECOLE' => 'École 42' ), 'rec10' ),
+		'short' => draw( array( 'recBO' => 'Bo', 'recAL' => 'Al' ), 'recAL' ),
+		'long'  => draw( $long, 'recN25' ),
+		'four'  => $four,
+		'wrap'  => draw( $wrap, 'recW1' ),
+	);
+
+	$process = proc_open(
+		escapeshellarg( $node ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'bin/js/switcher-filter.js' ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js' ) . ' - 2>&1',
+		array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ) ),
+		$pipes
+	);
+
+	fwrite( $pipes[0], (string) json_encode( $pages ) );
+	fclose( $pipes[0] );
+
+	$out = explode( "\n", rtrim( (string) stream_get_contents( $pipes[1] ) ) );
+
+	fclose( $pipes[1] );
+
+	$status = proc_close( $process );
 
 	// As bin/test-forms-js.php reads its harness: each scenario line is this suite's own, the
 	// summary is checked against the lines shown, and anything else is shown as it came.
@@ -445,15 +570,19 @@ $js = is_file( WPCPM_PLUGIN_DIR . 'assets/js/switcher.js' ) ? (string) file_get_
 $code = (string) preg_replace( array( '#/\*.*?\*/#s', '#(^|\s)//[^\n]*#' ), array( '', '$1' ), $js );
 
 ck( 'plain ES5, as the other scripts: no arrow, no const or let, no template string', array( '' !== $code, strpos( $code, '=>' ), preg_match( '/\b(?:const|let)\s/', $code ), strpos( $code, '`' ) ), array( true, false, 0, false ) );
-ck( 'it finds each box by its row and the list by the box\'s aria-controls', array( false !== strpos( $js, "'.wpcpm-dashboard__switcher-find'" ), false !== strpos( $js, "getAttribute( 'aria-controls' )" ) ), array( true, true ) );
-ck( 'it shows the box it can work', false !== strpos( $js, 'row.hidden = false;' ) );
-ck( 'it asks narrow() with the entry chosen right now, so that one stays', false !== strpos( $js, 'narrow( keys, entries.indexOf( select.options[ select.selectedIndex ] ), input.value )' ) );
-ck( 'it takes an entry out of the list rather than hiding it, and puts it back in its place', array( false !== strpos( $js, 'select.removeChild( entry )' ), false !== strpos( $js, 'select.insertBefore( entry, ' ) ), array( true, true ) );
-ck( 'the no-match sentence is the markup\'s, said when nothing matched', false !== strpos( $js, "var text = 0 === result.matched ? status.getAttribute( 'data-wpcpm-none' ) : '';" ) );
+ck(
+	'it finds each field by its block, the field\'s list by its aria-controls, the label by the list\'s aria-labelledby and the select by the label\'s for',
+	array( false !== strpos( $js, "'.wpcpm-dashboard__switcher-combo'" ), false !== strpos( $js, "input.getAttribute( 'aria-controls' )" ), false !== strpos( $js, "list.getAttribute( 'aria-labelledby' )" ), false !== strpos( $js, "label.getAttribute( 'for' )" ) ),
+	array( true, true, true, true )
+);
+ck( 'it shows the field, hides the select and points the label at the field', array( false !== strpos( $js, 'combo.hidden = false;' ), false !== strpos( $js, 'select.hidden = true;' ), false !== strpos( $js, "label.setAttribute( 'for', input.getAttribute( 'id' ) );" ) ), array( true, true, true ) );
+ck( 'it writes each name into its row as text, never as markup', array( false !== strpos( $js, 'row.textContent = option.text;' ), strpos( $code, 'innerHTML' ), strpos( $code, 'insertAdjacentHTML' ) ), array( true, false, false ) );
+ck( 'the count and the no-match sentence are the markup\'s', array( false !== strpos( $js, "status.getAttribute( 'data-wpcpm-count' )" ), false !== strpos( $js, "status.getAttribute( 'data-wpcpm-none' )" ) ), array( true, true ) );
 ck( 'and set only when what the line says changes, so a screen reader does not say it again', 1 === preg_match( '/if \( status\.textContent !== text \) \{\s*status\.textContent = text;\s*\}/', $js ) );
-ck( 'it narrows as the person types', false !== strpos( $js, "input.addEventListener( 'input', apply )" ) );
-ck( 'Escape clears the box and puts the whole list back', 1 === preg_match( "/'Escape' === event\.key[^}]*input\.value = '';\s*apply\(\);/s", $js ) );
-ck( 'Enter in the box submits nothing: Show and the list work as they did', 1 === preg_match( "/'Enter' === event\.key[^}]*event\.preventDefault\(\);/s", $js ) );
+ck( 'picking sets the select\'s choice, so Show sends what was picked', false !== strpos( $js, 'select.selectedIndex = index;' ) );
+ck( 'Enter in the field submits nothing: Show does', 1 === preg_match( "/'Enter' === event\.key[^}]*event\.preventDefault\(\);/s", $js ) );
+ck( 'a press on the list keeps the focus in the field', 1 === preg_match( "/list\.addEventListener\( 'mousedown', function \( event \) \{[^}]*event\.preventDefault\(\);/s", $js ) );
+ck( 'leaving the field puts the picked name back', false !== strpos( $js, "input.addEventListener( 'blur', restore );" ) );
 ck( 'and nothing in the script submits the form', array( strpos( $js, '.submit(' ), strpos( $js, 'requestSubmit' ) ), array( false, false ) );
 ck( 'the combining marks are a range of escapes', false !== strpos( $js, '.replace( /[' . chr( 92 ) . 'u0300-' . chr( 92 ) . 'u036f]/g, \'\' )' ) );
 

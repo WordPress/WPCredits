@@ -486,15 +486,15 @@ $switched             = page_for( 50 );
 unset( $_GET['wpcpm_mentor'] );
 $GLOBALS['listed'] = array();
 
-preg_match( '#<select name="wpcpm_mentor" id="wpcpm-mentor-switcher">(.*?)</select>#s', $switched, $list );
+preg_match( '#<select name="wpcpm_mentor" id="wpcpm-mentor-switcher" autocomplete="off">(.*?)</select>#s', $switched, $list );
 preg_match_all( '#<option value="(\d+)"( selected=\'selected\')?>([^<]*)</option>#', $list[1] ?? '', $entries, PREG_SET_ORDER );
 
 ck( 'a manager\'s Mentor Report Card draws the switcher, every mentor A to Z', array_column( $entries, 3 ), array( 'Ágata Mentor', 'Max Mentor', 'Mentor 2', 'Mentor 10', 'Mia Mentor' ) );
 ck( 'with the mentor being viewed selected, and only that one', array_column( array_filter( $entries, function ( $entry ) { return '' !== $entry[2]; } ), 1 ), array( '31' ) );
 ck(
-	'under the box that narrows it, with the note, and the page loads the script',
+	'with the one field that finds and picks a mentor, the note, and the page loads the script that makes the field work',
 	array(
-		false !== strpos( $switched, '<label for="wpcpm-mentor-switcher-find">Find a mentor</label>' ),
+		false !== strpos( $switched, 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-mentor-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find a mentor" />' ),
 		false !== strpos( $switched, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ),
 		in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ),
 	),

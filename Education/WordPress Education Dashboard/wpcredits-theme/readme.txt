@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.13
+Stable tag: 1.24.14
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.14 =
+* Dashboards: the "Viewing as" field that plugin 1.122.15 draws, one box you click to open the names, type into to narrow them and pick from, is dressed as the list was: white background, gray border, 2px corners, 14px type, 230px minimum width, and the WordPress chevron 8px in from its edge with room kept for it, one arrow and not two. It is 34px tall, as **Show** beside it is. **Show**, the labels, the note and the 8px gaps between them are as before. What is typed reads in the page's ink, and the prompt before anything is typed in the theme's muted gray.
+* Dashboards: the open list is a white panel with the controls' gray border and 2px corners, the theme's soft shadow and 14px type, 2px under the field and as wide as it. Each name is a 32px row. The highlighted name, the one Enter picks, is on the pale indigo tint with a 2px blue edge on its left; the name under the mouse is light gray; the name being viewed is bold, so it is not told by color alone; and the line that says nothing matches is in the muted gray. In forced-colors mode the highlighted row takes the system's own highlight colors.
+* This release pairs with plugin 1.122.15, which adds the field. With plugin 1.122.14 or older nothing on a page changes: the rules for the 1.24.12 search box and the 1.24.13 list stay as they were, and a page without JavaScript still shows the plain list.
+* For developers: `bin/check-selectors.php` can name a class that the plugin no longer prints but the theme still dresses for an older plugin. It lists such a class as kept, with the last plugin version that printed it, instead of flagging it. The one entry is the 1.24.12 no-match line, last printed by plugin 1.122.14.
 
 = 1.24.13 =
 * Dashboards: the arrow on each "Viewing as" list sits 8px in from the list's edge, where the browser drew its own about 5px from it, in a way no padding could move. The theme draws the WordPress chevron in its place and keeps room for it, so a long name stops short of the arrow. The list is now 34px tall, as the search box above it and **Show** beside it are. **Show**, the labels and the gaps between them are as before.

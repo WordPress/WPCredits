@@ -623,8 +623,8 @@ class WPCPM_Students_Dashboard {
 	/**
 	 * A "view as" control for program managers.
 	 *
-	 * Drawn by `WPCPM_Dashboards`, the one form all four dashboards share: sorted A to Z, with a
-	 * box above the list that narrows it.
+	 * Drawn by `WPCPM_Dashboards`, the one form all four dashboards share: sorted A to Z, in one
+	 * field that drops down, takes typing and narrows its list as the Administrator types.
 	 *
 	 * @param WP_User $current Student being viewed.
 	 */

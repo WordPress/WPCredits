@@ -118,8 +118,11 @@
 
 /* A select sizes itself to its longest option, which on a phone is wider than the screen:
    the control ran out past its own box and the page scrolled sideways to follow it. Shared
-   with every dashboard that carries a switcher, because they all had it. */
+   with every dashboard that carries a switcher, because they all had it. In the page's type,
+   as the field that stands in for it and the field's list are, so that the width switcher.js
+   measures on it holds the longest name in theirs; a browser's own type for a select is smaller. */
 .wpcpm-dashboard__switcher select {
+	font: inherit;
 	max-width: 100%;
 }
 
@@ -127,15 +130,13 @@
 	font-size: 0.85em;
 }
 
-/* The switcher's fields, as a grid: the two labels in the first column, the box and the list in
-   the second, then Show and the note on the list's row. Sharing one column is what starts the box
-   where the list starts and makes it as wide, whatever either label says. Each fills the column,
-   borders included, because a select and a text box count their borders differently by default.
-   The column is as wide as the list's longest name, and gives way before the switcher would run
-   past its box, down to the box's and the list's own minimums: the theme's, and the width
-   switcher.js holds them at while a search narrows the list, so typing never moves the box or
-   Show. The note never gives way, since squeezed beside Show it wraps a word to a line and pushes
-   the list down off the box's line. */
+/* The switcher's fields, as a grid on one row: the label, the list or the field that stands in for
+   it, Show and the note. The column the list and the field share is as wide as the longest name,
+   and gives way before the switcher would run past its box, down to its items' own minimums: the
+   theme's, and the width switcher.js holds the field at, the longest name's in the field's own
+   type and padding, within that room, so typing never moves the field or Show. The note never
+   gives way, since squeezed beside Show it wraps a word to a line and pushes the field down off
+   the label's line. */
 .wpcpm-dashboard__switcher-fields {
 	align-items: center;
 	display: grid;
@@ -145,45 +146,133 @@
 	min-width: 0;
 }
 
-/* The box's row lays its label, the box and the no-match line into that grid. It is drawn hidden
-   and shown by switcher.js, and an author `display` beats the browser's `[hidden] { display: none }`,
-   so the hidden state is said again here or a page without the script would show a box that does
-   nothing. */
-.wpcpm-dashboard__switcher-find {
-	display: contents;
-}
-
-.wpcpm-dashboard__switcher-find[hidden] {
-	display: none;
-}
-
 .wpcpm-dashboard__switcher-fields label {
 	grid-column: 1;
 }
 
-.wpcpm-dashboard__switcher-fields input,
-.wpcpm-dashboard__switcher-fields select {
+/* The list and the field, one at a time: without the script the list shows, and switcher.js hides
+   it as it shows the field. Each fills the column, borders included. */
+.wpcpm-dashboard__switcher-fields select,
+.wpcpm-dashboard__switcher-combo {
 	box-sizing: border-box;
 	grid-column: 2;
 	max-width: 100%;
 	width: 100%;
 }
 
-/* Beside the box, over Show and the note. Its own width never sizes a column: it wraps in the room
-   the columns give it, so a longer sentence, in English or in a translation, cannot push the grid
-   past the switcher. */
-.wpcpm-dashboard__switcher-none {
-	contain: inline-size;
-	font-size: 0.85em;
-	grid-column: 3 / -1;
+/* An author `display` beats the browser's `[hidden] { display: none }`, so the hidden state is said
+   again here, or a theme that gives any of these a display would show what is meant to be hidden.
+   Three classes deep, past the two a theme dresses these with, because a theme's rule of the same
+   weight prints after this sheet and would win; weight rather than `!important`, which neither of
+   the plugin's stylesheets uses. */
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-fields select[hidden],
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-combo[hidden],
+.wpcpm-dashboard__switcher .wpcpm-dashboard__switcher-list[hidden] {
+	display: none;
 }
 
-/* Empty until nothing matches, and then out of the grid: an empty grid item still holds a row,
-   and on a phone the row and the gap on either side of it set the box twice as far from the list's
-   label as every other gap. Taken out of the flow rather than hidden, because a status region that
-   is not in the page when its text arrives is not read out. */
-.wpcpm-dashboard__switcher-none:empty {
+/* The field's block: the field, its list and its status line. The list is placed against it. */
+.wpcpm-dashboard__switcher-combo {
+	position: relative;
+}
+
+/* The field, in the plugin's own look, which a theme dresses as it likes: the page's type, a
+   control's edge and the WordPress chevron 8px in from the edge, with room kept for it so a long
+   name stops short of it. The edge's color is given outright as well, because the WordPress
+   Credits theme lifts the switcher out of the dashboard that defines the variable. */
+.wpcpm-dashboard__switcher-input {
+	background-image: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17.5 11.6L12 16l-5.5-4.4.9-1.2L12 14l4.5-3.6 1 1.2z'/%3E%3C/svg%3E" );
+	background-position: right 8px center;
+	background-repeat: no-repeat;
+	background-size: 20px 20px;
+	border: 1px solid var( --wpcpm-control-border, rgba( 128, 128, 128, 0.9 ) );
+	border-radius: 4px;
+	box-sizing: border-box;
+	font: inherit;
+	padding: 0.375em 8px;
+	padding-right: 34px;
+	width: 100%;
+}
+
+/* The field's list: under the field, at its width, over what follows the switcher. The theme's
+   sticky group headings stack at 2 and its sticky header at 50, so the list goes over the first and
+   under the second. Opaque, in a pair of colors that read on each other whatever the page's are.
+   About ten rows show before it scrolls: switcher.js sets the height from a row it measures, and
+   this one stands until it does. */
+.wpcpm-dashboard__switcher-list {
+	background: Canvas;
+	border: 1px solid var( --wpcpm-control-border, rgba( 128, 128, 128, 0.9 ) );
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.12 );
+	box-sizing: border-box;
+	color: CanvasText;
+	left: 0;
+	list-style: none;
+	margin: 0;
+	max-height: 24em;
+	overflow-y: auto;
+	padding: 0;
 	position: absolute;
+	top: calc( 100% + 2px );
+	width: 100%;
+	z-index: 10;
+}
+
+.wpcpm-dashboard__switcher-option,
+.wpcpm-dashboard__switcher-empty {
+	margin: 0;
+	overflow-wrap: anywhere;
+	padding: 0.375em 0.5em;
+}
+
+.wpcpm-dashboard__switcher-option {
+	cursor: pointer;
+}
+
+.wpcpm-dashboard__switcher-option:hover {
+	background: rgba( 128, 128, 128, 0.15 );
+}
+
+/* The highlighted row, the one Enter picks. */
+.wpcpm-dashboard__switcher-option.is-active {
+	background: Highlight;
+	color: HighlightText;
+}
+
+/* The name picked, which the select holds: by weight, so it is not told by a color alone. */
+.wpcpm-dashboard__switcher-option.is-current {
+	font-weight: 600;
+}
+
+.wpcpm-dashboard__switcher-empty {
+	opacity: 0.72;
+}
+
+/* Forced colors replace a theme's backgrounds, the highlight's included; the system's own pair
+   keeps the highlighted row told apart. */
+@media ( forced-colors: active ) {
+
+	.wpcpm-dashboard__switcher-option.is-active {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+}
+
+/* For a screen reader: how many names the list shows, or that none match. Out of sight but never
+   out of the page, because a status region that is not in the page when its text arrives is not
+   read out. */
+.wpcpm-dashboard__switcher-status {
+	border: 0;
+	clip: rect( 0 0 0 0 );
+	clip-path: inset( 50% );
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
 }
 
 .wpcpm-dashboard__switcher-fields .wpcpm-button {
@@ -195,26 +284,22 @@
 }
 
 /* Too narrow for the note beside Show, the width the WordPress Credits theme narrows its cards at:
-   a row of its own, under the list and lined up with it. The no-match line takes a row of its own
-   too, under the box: with the note gone from the fourth column, that column has almost no floor,
-   and the line spanning into it forced it open past the switcher. */
+   a row of its own, under the field and lined up with it. */
 @media ( max-width: 900px ) {
-	.wpcpm-dashboard__switcher-note,
-	.wpcpm-dashboard__switcher-none {
+	.wpcpm-dashboard__switcher-note {
 		grid-column: 2 / -1;
 	}
 }
 
-/* A phone: one column, each label above its control, and the box and the list the column's width. */
+/* A phone: one column, the label above the field, and the field the column's width. */
 @media ( max-width: 600px ) {
 	.wpcpm-dashboard__switcher-fields {
 		grid-template-columns: minmax( 0, 1fr );
 	}
 
 	.wpcpm-dashboard__switcher-fields label,
-	.wpcpm-dashboard__switcher-fields input,
 	.wpcpm-dashboard__switcher-fields select,
-	.wpcpm-dashboard__switcher-none,
+	.wpcpm-dashboard__switcher-combo,
 	.wpcpm-dashboard__switcher-fields .wpcpm-button,
 	.wpcpm-dashboard__switcher-note {
 		grid-column: 1;

@@ -831,9 +831,9 @@ ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 )
 ck( 'with the one being viewed selected', false !== strpos( $out, 'value="' . $krakow . '" selected' ), true );
 // The index holds Politechnika first, as Airtable does; a reader looks for Institute under I.
 ck( 'listed A to Z rather than in the index\'s order', strpos( $out, 'value="' . $institute . '"' ) < strpos( $out, 'value="' . $krakow . '"' ), true );
-ck( 'under the box that narrows it', false !== strpos( $out, '<label for="wpcpm-institution-switcher-find">Find an institution</label>' ), true );
+ck( 'with the one field that finds and picks an institution', false !== strpos( $out, 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-institution-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find an institution" />' ), true );
 ck( 'and the note names the Administrators', false !== strpos( $out, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ), true );
-ck( 'and the page loads the script that does the narrowing', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), true );
+ck( 'and the page loads the script that makes the field work', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), true );
 ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed' ), true );
 ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://politechnika.example"' ), true );
 ck( 'and printed without one', false !== strpos( $out, '>politechnika.example</a>' ), true );

@@ -25,7 +25,7 @@ class WPCPM_Dashboards {
 
 	const NODE = 'wpcpm-dashboards';
 
-	/** The script that narrows a switcher's list as an Administrator types. */
+	/** The script that puts one field to find and pick a name in a switcher's list's place. */
 	const SWITCHER_SCRIPT = 'wpcpm-switcher';
 
 	/**
@@ -265,18 +265,20 @@ class WPCPM_Dashboards {
 	 * form, and four copies listed their entries four ways. They are one form now, drawn here; a
 	 * dashboard decides only what is listed and in whose words.
 	 *
-	 * The list is in A to Z order (`sort_switcher_options()`), and a box above it narrows it as
-	 * the person types (assets/js/switcher.js). The box is drawn hidden and the script shows it,
-	 * so without the script the page offers the plain sorted list and no box that does nothing.
-	 * It sits inside the form, because the WordPress Credits theme lifts the form above the
-	 * dashboard card by its opening tag, and it carries no name, so the GET form posts the same
-	 * field it posted before. The script is enqueued here, so only a page that draws a switcher
-	 * loads it.
+	 * The list is in A to Z order (`sort_switcher_options()`). Beside it, drawn hidden, is the one
+	 * field that stands in for it once assets/js/switcher.js runs: a text field in the combobox role,
+	 * an empty listbox the script fills from the list's options, and a status line for how many
+	 * names the list shows and for the sentence when none match. The script hides the list and shows
+	 * the field, which drops down, takes typing and narrows as the person types; picking a name sets
+	 * the list's value, so Show sends what was picked. The list stays in the form as what it sends,
+	 * and without the script it is the switcher, with nothing beside it that does nothing. The field
+	 * carries no name, so the GET form posts the same field it posted before. All of it sits inside
+	 * the form, because the WordPress Credits theme lifts the form above the dashboard card by its
+	 * opening tag. The script is enqueued here, so only a page that draws a switcher loads it.
 	 *
-	 * Everything after the page ID is one block of fields, which the stylesheet lays out as a grid:
-	 * the two labels in one column and the box and the list in the next, so the box starts where
-	 * the list starts and is as wide as it is, whatever either label says. Show and the note follow
-	 * the list on its row. The note is the same on every dashboard, so it is written here.
+	 * Everything after the page ID is one block of fields, which the stylesheet lays out as a grid
+	 * on one row: the label, the list or the field in its place, Show and the note. The note is the
+	 * same on every dashboard, so it is written here, and so is the count's sentence.
 	 *
 	 * One entry is not a choice, and a select with a single option is a control that cannot do
 	 * anything, so nothing is drawn for fewer than two.
@@ -284,13 +286,14 @@ class WPCPM_Dashboards {
 	 * @param array $args {
 	 *     The switcher.
 	 *
-	 *     @type string     $id      The list's ID; the box takes it with `-find` added.
+	 *     @type string     $id      The list's ID; the field takes it with `-input` added, its list of
+	 *                              names with `-list` and the label with `-label`.
 	 *     @type string     $name    The query argument the list posts: the one the dashboard's resolver reads.
 	 *     @type array      $options Value to label, in any order.
 	 *     @type string|int $current The value being viewed, selected in the list.
 	 *     @type string     $label   The list's label.
-	 *     @type string     $find    The box's label.
-	 *     @type string     $none    What the box says when nothing in the list matches.
+	 *     @type string     $find    The field's placeholder, which it shows while it is empty.
+	 *     @type string     $none    What the field's list says when no name matches what was typed.
 	 * }
 	 */
 	public static function render_switcher( array $args ) {
@@ -321,8 +324,10 @@ class WPCPM_Dashboards {
 
 		wp_enqueue_script( self::SWITCHER_SCRIPT );
 
-		$id   = (string) $args['id'];
-		$find = $id . '-find';
+		$id    = (string) $args['id'];
+		$field = $id . '-input';
+		$list  = $id . '-list';
+		$named = $id . '-label';
 
 		echo '<form class="wpcpm-dashboard__switcher" method="get">';
 
@@ -337,16 +342,11 @@ class WPCPM_Dashboards {
 		}
 
 		echo '<div class="wpcpm-dashboard__switcher-fields">';
-		echo '<div class="wpcpm-dashboard__switcher-find" hidden>';
-		printf( '<label for="%1$s">%2$s</label> ', esc_attr( $find ), esc_html( $args['find'] ) );
-		printf( '<input type="search" id="%1$s" aria-controls="%2$s" autocomplete="off" /> ', esc_attr( $find ), esc_attr( $id ) );
-		// Empty until nothing matches: a status region is read out when its text changes, and the
-		// sentence is the markup's so that it is translated with the rest of the page.
-		printf( '<span class="wpcpm-dashboard__switcher-none" role="status" data-wpcpm-none="%s"></span>', esc_attr( $args['none'] ) );
-		echo '</div>';
-
-		printf( '<label for="%1$s">%2$s</label> ', esc_attr( $id ), esc_html( $args['label'] ) );
-		printf( '<select name="%1$s" id="%2$s">', esc_attr( $args['name'] ), esc_attr( $id ) );
+		printf( '<label for="%1$s" id="%2$s">%3$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ) );
+		// Not put back as it was left: a browser that restores a form after Back would set the hidden
+		// list on the name picked last while the field reads the page's own, and Show would open
+		// somebody else's page.
+		printf( '<select name="%1$s" id="%2$s" autocomplete="off">', esc_attr( $args['name'] ), esc_attr( $id ) );
 
 		foreach ( $options as $value => $label ) {
 			printf(
@@ -358,6 +358,28 @@ class WPCPM_Dashboards {
 		}
 
 		echo '</select> ';
+
+		// The field, hidden until the script shows it in the list's place. `spellcheck` is off because
+		// a name is not a word a dictionary holds, and the browser's own suggestions are off because
+		// the field brings its list.
+		echo '<div class="wpcpm-dashboard__switcher-combo" hidden>';
+		printf(
+			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s" />',
+			esc_attr( $field ),
+			esc_attr( $list ),
+			esc_attr( $args['find'] )
+		);
+		printf( '<ul id="%1$s" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="%2$s" hidden></ul>', esc_attr( $list ), esc_attr( $named ) );
+		// Empty until the list opens: a status region is read out when its text changes. Both
+		// sentences are the markup's, so that they are translated with the rest of the page; the
+		// count's needs no plural, since the script fills in the number.
+		printf(
+			'<span class="wpcpm-dashboard__switcher-status" role="status" data-wpcpm-count="%1$s" data-wpcpm-none="%2$s"></span>',
+			/* translators: %s: how many names the Viewing as list shows, as a number. */
+			esc_attr( __( 'Names in the list: %s', 'wpcredits-program-manager' ) ),
+			esc_attr( $args['none'] )
+		);
+		echo '</div> ';
 		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
 		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
 		echo '</div>';

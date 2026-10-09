@@ -1188,18 +1188,25 @@ the right place; there is nothing else to configure.
 The Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard
 each open, for an Administrator, with a switcher above the page whenever there is more than one to
 choose from: **Viewing as student**, **Viewing as mentor**, **Viewing as institution** or **Viewing as
-sponsor**. Choose a name in the list and press **Show** to open that person's or that
-organization's page. Only Administrators are shown the switcher, and the note with it says so.
+sponsor**. Pick a name in it and press **Show** to open that person's or that organization's page.
+Only Administrators are shown the switcher, and the note with it says so.
 
-The list runs A to Z without regard to capitals or accents, so Álvaro is among the A's, with
-numbers read as numbers, so Student 2 comes before Student 10, and with a space before any letter,
-so Teo Polytechnic comes before Teodora School. Above it, a box (**Find a student**,
-**Find a mentor**, **Find an institution** or **Find a sponsor**) narrows the list as you type to the
-names that hold what you typed, anywhere in the name and again without regard to capitals or
-accents. The name chosen in the list always stays in it, so **Show** opens nobody you did not
-choose; when no name matches what you typed, a short sentence by the box says so. Escape
-empties the box and puts the whole list back. Enter in the box sends nothing: **Show** does that.
-In a browser running no JavaScript the box is not shown, and the sorted list works on its own.
+The switcher is one field, showing the name you are viewing until you pick another. Click it, or
+press Down, and the whole list opens under it, with the name in the field highlighted. The list runs
+A to Z without regard to capitals or accents, so Álvaro is among the A's, with numbers read as
+numbers, so Student 2 comes before Student 10, and with a space before any letter, so Teo
+Polytechnic comes before Teodora School. Type in the field and the list narrows to the names that
+hold what you typed, anywhere in the name and again without regard to capitals or accents, so
+"alvaro" finds Álvaro, with the first match highlighted; the field's placeholder, **Find a
+student**, **Find a mentor**, **Find an institution** or **Find a sponsor**, shows while it is
+empty. Up and Down move through the list, and Home and End go to its first and last names. Press
+Enter, or click a name, to pick it: the field shows it, and **Show** opens its page; picking alone
+opens nothing. Click the field again, press Escape or Tab, or click anywhere else, and the list
+closes with the name you picked last back in the field. When no name matches, the list says so. Come
+back to a page with your browser's Back button and the field shows the name that page is about,
+which is the one **Show** opens. Enter in the field never sends the form, and a screen reader hears
+how many names the list shows. In a browser running no JavaScript the field is not shown, and the
+plain sorted list works on its own.
 
 ### Arranging the Student Report Card
 

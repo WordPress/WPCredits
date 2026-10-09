@@ -371,7 +371,7 @@ echo "\n=== A manager ===\n";
 $GLOBALS['uid'] = 1; $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $B ); $GLOBALS['scripts'] = array();
 $out = $D::render();
 ck( 'the switcher lists both sponsors and the manager is viewing B', false !== strpos( $out, 'name="' . WPCPM_Sponsor_Roster::ARG_VIEW . '"' ) && false !== strpos( $out, 'value="' . $B . '" selected' ), true );
-ck( 'under the box that narrows it, and the page loads the script that does the narrowing', array( false !== strpos( $out, '<label for="wpcpm-sponsor-switcher-find">Find a sponsor</label>' ), in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ) ), array( true, true ) );
+ck( 'with the one field that finds and picks a sponsor, and the page loads the script that makes the field work', array( false !== strpos( $out, 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-sponsor-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find a sponsor" />' ), in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ) ), array( true, true ) );
 ck( 'the note names the Administrators', false !== strpos( $out, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ), true );
 // A third sponsor, added last as the index adds a new row, whose name opens on an accent: index
 // order leaves it last, and so does an order read byte by byte. A to Z puts it first.
