@@ -3,7 +3,7 @@ Contributors: gomp, francescodicandia, celigaroe, peiraisotta
 Tags: contributor, quiz, make wordpress, onboarding, community
 Requires at least: 5.8
 Tested up to: 7.0
-Stable tag: 1.0.11
+Stable tag: 1.0.12
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,9 @@ They are left out on purpose, the same way the contributor orientation tool on m
 No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 
 == Changelog ==
+
+= 1.0.12 =
+* Removed default tag weights that no quiz answer produces (build, beauty, reach, learn, ecosystem, and quality). They never added to any score, so quiz results do not change.
 
 = 1.0.11 =
 * Removed the Plugins and Meta teams from the default contribution teams, matching make.wordpress.org/contribute, because those teams do not yet have a new-contributor onboarding process. Teams you saved yourself under the Teams tab are not changed; use Reset to defaults to pick up the new list.
@@ -118,6 +121,9 @@ No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 * Accessible: ARIA labels, keyboard navigation, focus management, `role="radiogroup"` / `role="group"` on answer lists.
 
 == Upgrade Notice ==
+
+= 1.0.12 =
+Tidies the default team data. Quiz results do not change.
 
 = 1.0.11 =
 Removes the Plugins and Meta teams from the default contribution teams.
