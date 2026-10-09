@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.10
+Stable tag: 1.1.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,27 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.11 =
+
+Campus Connect text is decoded before it is written, so HTML entities stop
+landing in Airtable.
+
+The report HTML-encodes what it returns. "St. Xavier's University" arrives as
+"St. Xavier&#039;s University" and was stored that way. WPCC-Tracker decodes on
+read, so the dashboard looked correct either way, which is how the entities sat
+unnoticed in the table where people actually read them.
+
+* Fixed: `campus_text()` and `campus_url()` decode HTML entities. Decoding runs
+  before the control-character strip, so an entity resolving to one is still
+  caught, and before any length limit, so a truncation can never cut an entity
+  in half and leave "&am" in a cell.
+* Fixed: an `&amp;` in a URL's query string was stored verbatim, which takes the
+  link with it.
+* Side effect worth having: the write is now idempotent. An encoded value never
+  matched the decoded cell beside it, so every run reported the same cells as
+  changed for ever.
+* Suite 34 to 44.
 
 = 1.1.10 =
 

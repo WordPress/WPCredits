@@ -217,5 +217,60 @@ t( '' === WCAC_Source::report_file(), 'and cleared', $pass, $fail );
 
 @unlink( $tmp );
 
+
+// --------------------------------------------------------- HTML entity decoding
+//
+// Invented institution names only. This file is mirrored to a public
+// repository, and most Campus Connect rows are applications Central does not
+// list, so a real name borrowed from the report publishes somebody's pending
+// or declined application. bin/check-mirror-safe.php in wpcc-tracker refuses
+// the push when one appears; it caught a real name here on 9 Oct 2026.
+echo "\nentity decoding:\n";
+
+// The report encodes what it returns. Stored raw, these sat in Airtable looking
+// like markup to anyone reading the table.
+t( "St. Nobody's College" === WCAC_Mapper::campus_text( 'St. Nobody&#039;s College' ), "&#039; becomes an apostrophe", $pass, $fail );
+t( 'Wonderland Library & Institute' === WCAC_Mapper::campus_text( 'Wonderland Library &amp; Institute' ), '&amp; becomes an ampersand', $pass, $fail );
+t( 'A "quoted" name' === WCAC_Mapper::campus_text( 'A &quot;quoted&quot; name' ), '&quot; becomes a quote mark', $pass, $fail );
+
+// Idempotent, which is the point: an encoded value never matched the decoded
+// cell beside it, so every run reported the same cell as changed.
+$once = WCAC_Mapper::campus_text( 'St. Nobody&#039;s College' );
+t( $once === WCAC_Mapper::campus_text( $once ), 'decoding an already-decoded value changes nothing', $pass, $fail );
+
+// Decode must precede the limit, or a truncation lands mid-entity.
+t(
+    'AAAA&' === WCAC_Mapper::campus_text( 'AAAA&amp;BBBB', 5 ),
+    'a length limit cannot cut an entity in half',
+    $pass,
+    $fail
+);
+
+// And precede the control-character strip, so an entity decoding to one is caught.
+t( false === strpos( WCAC_Mapper::campus_text( 'before&#09;after' ), "\t" ), 'an entity decoding to a control character is still stripped', $pass, $fail );
+
+// A cell holding only an encoded space is empty, and the omit rule should keep
+// whatever is already in Airtable.
+t( '' === WCAC_Mapper::campus_text( '&nbsp;' ), 'a non-breaking space alone decodes to nothing', $pass, $fail );
+
+// URLs carry entities in query strings, where they break the link.
+t(
+    'https://events.wordpress.org/x/?a=1&b=2' === WCAC_Mapper::campus_url( 'https://events.wordpress.org/x/?a=1&amp;b=2' ),
+    'an &amp; in a query string is decoded, not stored',
+    $pass,
+    $fail
+);
+t( '' === WCAC_Mapper::campus_url( 'not a url &amp; not one after decoding' ), 'decoding does not turn rubbish into a URL', $pass, $fail );
+
+// End to end, through the mapper the sync actually calls.
+$row = array( 'ID' => '99', 'Status' => 'Closed', 'Venue Name' => 'St. Nobody&#039;s College, Atlantis' );
+$out = WCAC_Mapper::campus_event( $row, $allowed );
+t(
+    isset( $out['fields']['Institution Name'] ) && "St. Nobody's College, Atlantis" === $out['fields']['Institution Name'],
+    'campus_event writes the decoded institution name',
+    $pass,
+    $fail
+);
+
 printf( "\n%d passed, %d failed\n", $pass, $fail );
 exit( $fail > 0 ? 1 : 0 );

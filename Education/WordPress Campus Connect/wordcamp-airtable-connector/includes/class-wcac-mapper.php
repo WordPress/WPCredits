@@ -364,6 +364,24 @@ class WCAC_Mapper {
 		}
 
 		$out = wp_check_invalid_utf8( (string) $value );
+
+		/*
+		 * The report HTML-encodes what it returns, so "St. Xavier's" arrives as
+		 * "St. Xavier&#039;s" and would be stored that way. WPCC-Tracker decodes
+		 * on read, so the dashboard looked right either way, which is exactly
+		 * how the entities sat unnoticed in Airtable, where anyone reading the
+		 * table sees them raw.
+		 *
+		 * Decoding also makes the write idempotent: an encoded value never
+		 * matched the decoded cell beside it, so every run reported the same
+		 * cell as changed for ever.
+		 *
+		 * Before the control-character strip, so an entity decoding to one is
+		 * still caught, and before the truncation, so a limit can never cut an
+		 * entity in half and leave "&am" in the cell.
+		 */
+		$out = html_entity_decode( $out, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
 		$out = (string) preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $out );
 		$out = trim( (string) preg_replace( '/\s+/u', ' ', $out ) );
 
@@ -494,7 +512,10 @@ class WCAC_Mapper {
 			return '';
 		}
 
-		$raw = trim( (string) $value );
+		// Decoded for the reason campus_text() gives, and for one of its own: an
+		// '&amp;' left in a query string survives into the stored URL and takes
+		// the link with it.
+		$raw = trim( html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
 
 		if ( ! preg_match( '#^https?://#i', $raw ) ) {
 			return '';
