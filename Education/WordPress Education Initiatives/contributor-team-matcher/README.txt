@@ -63,6 +63,9 @@ No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 * Removed the Plugins and Meta teams from the default contribution teams, matching make.wordpress.org/contribute, because those teams do not yet have a new-contributor onboarding process. Teams you saved yourself under the Teams tab are not changed; use Reset to defaults to pick up the new list.
 * Corrected the list of default teams in this readme.
 
+= 1.0.10 =
+* Fix: Registered backward-compatibility shortcode aliases ([contributor_team_matcher] and [find_your_team]) so existing page content created with earlier versions of the plugin continues to render correctly after the shortcode was renamed to [conttema_quiz] in 1.0.7.
+
 = 1.0.9 =
 * Removed the Mobile team from the default contribution teams.
 
@@ -118,6 +121,12 @@ No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 
 = 1.0.11 =
 Removes the Plugins and Meta teams from the default contribution teams.
+
+= 1.0.10 =
+* Fix: Registered backward-compatibility shortcode aliases ([contributor_team_matcher] and [find_your_team]) so existing page content created with earlier versions of the plugin continues to render correctly after the shortcode was renamed to [conttema_quiz] in 1.0.7.
+
+= 1.0.10 =
+Fixes the quiz not rendering on pages that still contain the old [contributor_team_matcher] or [find_your_team] shortcode. Update recommended for all users.
 
 = 1.0.9 =
 Removes the Mobile team from the default contribution teams.
