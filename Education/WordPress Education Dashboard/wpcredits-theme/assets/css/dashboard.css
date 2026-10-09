@@ -534,6 +534,19 @@
 	padding: 6px 8px;
 }
 
+/* The browser draws the list's own arrow about 5px from its edge and ignores the padding, so a
+   wider padding cannot move it. The theme draws the WordPress chevron instead, 8px in from the
+   edge, with room kept for it so a long name stops short of it. */
+.wpcpm-dashboard__switcher select {
+	-webkit-appearance: none;
+	appearance: none;
+	background-image: var( --wpc-icon-chevron-down );
+	background-position: right 8px center;
+	background-repeat: no-repeat;
+	background-size: 20px 20px;
+	padding-right: 34px;
+}
+
 .wpcpm-dashboard__switcher-note {
 	color: var( --wpc-ink-70 );
 	font: 14px/20px var( --wpc-font );

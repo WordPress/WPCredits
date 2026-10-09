@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.12
+Stable tag: 1.24.13
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.13 =
+* Dashboards: the arrow on each "Viewing as" list sits 8px in from the list's edge, where the browser drew its own about 5px from it, in a way no padding could move. The theme draws the WordPress chevron in its place and keeps room for it, so a long name stops short of the arrow. The list is now 34px tall, as the search box above it and **Show** beside it are. **Show**, the labels and the gaps between them are as before.
 
 = 1.24.12 =
 * Dashboards: the search box above each "Viewing as" list matches the list under it, with the list's white background, gray border, 2px corners, 14px type and 230px minimum width, in place of the browser's own box. Its label reads as the list's label does. The box is on the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard, for Administrators only, and it pairs with plugin 1.122.14, which adds it; with an older plugin nothing on a page changes.
