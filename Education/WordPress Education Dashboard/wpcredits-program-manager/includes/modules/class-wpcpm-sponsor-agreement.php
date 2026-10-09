@@ -128,6 +128,24 @@ final class WPCPM_Sponsor_Agreement {
 	const ACTION_REINSTATE = 'wpcpm_sponsor_agr_reinstate';
 	const ACTION_ON_FILE   = 'wpcpm_sponsor_agr_on_file';
 
+	/**
+	 * What a refused return and a refused Take it out of force keep their note under, before the
+	 * document they act on (`WPCPM_Typed_Text::box_form()`), so a note typed for one comes back in
+	 * that form's box for that document and in no other.
+	 */
+	const TYPED_RETURN = 'agreement-return';
+	const TYPED_REVOKE = 'agreement-revoke';
+
+	/**
+	 * Before each outcome a decision taken on the Administrator Dashboard leaves on that page's
+	 * channel. The channel is the Institutions screen's, and the institution agreement's outcomes
+	 * on it share this class's keys (`agreement-returned`, `agreement-note` and the rest), worded
+	 * for an institution. Under the prefix the page reads the company's words for a company's
+	 * agreement and the institution's for an institution's
+	 * (`WPCPM_Administrators_Dashboard::render_messages()`).
+	 */
+	const DASHBOARD_PREFIX = 'sponsor-';
+
 	/** The posted field names. */
 	const FIELD_FILE   = 'wpcpm_sponsor_agr_file';
 	const FIELD_POST   = 'wpcpm_sponsor_agr_post';
@@ -179,7 +197,7 @@ final class WPCPM_Sponsor_Agreement {
 	const LOG_REINSTATE = 'sponsor_agreement_reinstate';
 	const LOG_ON_FILE   = 'sponsor_agreement_on_file';
 
-	/** A manager's note, in characters as typed (`WPCPM_Typed_Text::typed_length()`). */
+	/** A manager's note, in characters as typed (`WPCPM_Typed_Text::box_length()`). */
 	const MIN_NOTE = 20;
 	const MAX_NOTE = 2000;
 
@@ -567,8 +585,7 @@ final class WPCPM_Sponsor_Agreement {
 
 		// A refused return comes back with the note as it was typed, its fold open so the box is
 		// where it was left.
-		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post_id ) );
-		$note = isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
+		$note = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id ), 'note' );
 
 		echo null === $note ? '<details class="wpcpm-sponsor-agreement__return">' : '<details class="wpcpm-sponsor-agreement__return" open>';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
@@ -1263,7 +1280,8 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * A note the cleaner would take words from is refused before the lock and every write after
 	 * it: mailed, it would reach the company missing them without a word said. That refusal and a
-	 * note too short or too long give the form back the note as it was typed (`keep_note()`).
+	 * note too short or too long give the form back the note as it was typed
+	 * (`WPCPM_Typed_Text::keep_box()`).
 	 */
 	public static function handle_return() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1284,7 +1302,7 @@ final class WPCPM_Sponsor_Agreement {
 			wp_die( esc_html( WPCPM_Sponsor_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$form = self::typed_form( $post_id );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
 		WPCPM_Typed_Text::forget( $form );
@@ -1296,12 +1314,12 @@ final class WPCPM_Sponsor_Agreement {
 		// manager who pressed the button with an empty box must not find the company's record
 		// locked for five minutes by their typo.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
-			self::keep_note( $form, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-note-loss' );
 		}
 
-		if ( ! self::note_fits( $note ) ) {
-			self::keep_note( $form, $typed );
+		if ( ! self::note_fits( $typed ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-note' );
 		}
 
@@ -1399,7 +1417,7 @@ final class WPCPM_Sponsor_Agreement {
 			wp_die( esc_html( WPCPM_Sponsor_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$form = self::typed_form( $post_id, 'revoke' );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_REVOKE, $post_id );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
 		WPCPM_Typed_Text::forget( $form );
@@ -1409,12 +1427,12 @@ final class WPCPM_Sponsor_Agreement {
 
 		// Both refusals ahead of the lock and every write, as the return's are.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
-			self::keep_note( $form, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-revoke-loss' );
 		}
 
-		if ( ! self::note_fits( $note ) ) {
-			self::keep_note( $form, $typed );
+		if ( ! self::note_fits( $typed ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-revoke-note' );
 		}
 
@@ -2245,16 +2263,17 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Whether a note is long enough to be worth mailing and short enough to be one.
 	 *
-	 * Counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the entities the
-	 * cleaner writes for a "<" and the quote marks and ampersands after it, and the two bytes of a
-	 * line break, are one character each, as the box counts them. A note the box took is never
-	 * refused for what the cleaner made of it, and a short one is not let through for it either.
+	 * Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`):
+	 * each caller has passed the typing through the loss check first, so the typing and what the
+	 * cleaner keeps hold the same words, and only the typing tells an entity typed out from one the
+	 * cleaner wrote. A note the box took is never refused for what the cleaner made of it, and a
+	 * short one is not let through for it either.
 	 *
-	 * @param string $note The note, as the cleaner left it.
+	 * @param string $typed What was posted for the note, unslashed and not cleaned.
 	 * @return bool
 	 */
-	private static function note_fits( $note ) {
-		$length = WPCPM_Typed_Text::typed_length( $note );
+	private static function note_fits( $typed ) {
+		$length = WPCPM_Typed_Text::box_length( $typed );
 
 		return $length >= self::MIN_NOTE && $length <= self::MAX_NOTE;
 	}
@@ -2283,19 +2302,6 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
-	 * The name a refused note keeps its typing under (`WPCPM_Typed_Text::keep()`): the form, a
-	 * return or Take it out of force, and the document it acts on, so a note typed for one
-	 * company's agreement comes back in that form's box for that document and in no other.
-	 *
-	 * @param int    $post_id The document.
-	 * @param string $which   `return` or `revoke`.
-	 * @return string
-	 */
-	private static function typed_form( $post_id, $which = 'return' ) {
-		return 'agreement-' . ( 'revoke' === $which ? 'revoke' : 'return' ) . ':' . absint( $post_id );
-	}
-
-	/**
 	 * What a refused Take it out of force typed into its note, handed back once for the one time
 	 * its form is drawn again, on the Sponsors screen's Agreements tab, or null when nothing is.
 	 *
@@ -2303,25 +2309,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * @return string|null
 	 */
 	public static function kept_revoke_note( $post_id ) {
-		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post_id, 'revoke' ) );
-
-		return isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
-	}
-
-	/**
-	 * Keep a refused note as it was typed, up to its box's room, for the one time the form is
-	 * drawn again. A note left empty has nothing to give back.
-	 *
-	 * @param string $form  The form, as `typed_form()` names it.
-	 * @param string $typed The note as posted, unslashed and not cleaned.
-	 */
-	private static function keep_note( $form, $typed ) {
-		if ( '' === trim( (string) $typed ) ) {
-			return;
-		}
-
-		// The box is drawn empty, so its room is the limit.
-		WPCPM_Typed_Text::keep( $form, array( 'note' => (string) $typed ), array( 'note' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
+		return WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REVOKE, $post_id ), 'note' );
 	}
 
 	/**
@@ -2800,9 +2788,10 @@ final class WPCPM_Sponsor_Agreement {
 	 */
 	private static function bounce( $status ) {
 		// A decision taken on the Administrator Dashboard goes back there, its sentence on that
-		// page's channel (1.96.1); every other press returns to the wp-admin Sponsors screen.
+		// page's channel (1.96.1), under the class's prefix; every other press returns to the
+		// wp-admin Sponsors screen.
 		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === WPCPM_Request::posted_key( WPCPM_Return::FIELD ) ) {
-			WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
+			WPCPM_Flash::set( WPCPM_Institutions::FLASH, self::DASHBOARD_PREFIX . $status );
 			wp_safe_redirect( WPCPM_Return::url( home_url( '/' ) ) );
 			exit;
 		}

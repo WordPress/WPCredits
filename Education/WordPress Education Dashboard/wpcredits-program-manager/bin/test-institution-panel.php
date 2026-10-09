@@ -124,8 +124,14 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $u ) { return (string) $u; }
-function esc_url_raw( $u, $p = null ) { return (string) $u; }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+// Core's, which escapes every "&" again: a refused return note comes back in its box.
+function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8' ); }
+// Core's two cleaners and its decoder as 7.1.2 writes them, the ones the typed-text rules read.
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/cleaners.php';
+// Core's esc_url_raw() and wp_check_invalid_utf8() as 7.1.2 writes them, which a Drive link is
+// read and stored through: an identity stand-in would keep a "%0A" core takes out.
+require_once __DIR__ . '/stubs/link-cleaners.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_html_class( $s ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $s ); }
 function wp_unslash( $v ) { return $v; }
@@ -243,6 +249,7 @@ define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
@@ -1322,9 +1329,9 @@ $single = method_body( $agr_src, 'handle_on_file' );
 $bulk   = method_body( $agr_src, 'handle_on_file_all' );
 $write  = method_body( $agr_src, 'record_on_file' );
 
-ck( 'the handlers read the form with the posted_* readers, never the query string',
-    array( substr_count( $single, 'WPCPM_Request::posted_text(' ), substr_count( $bulk, 'WPCPM_Request::posted_text(' ), substr_count( $agr_src, 'WPCPM_Request::text(' ) ),
-    array( 4, 2, 0 ) );
+ck( 'the handlers read the form with the posted_* readers, never the query string, and the Drive link as typed',
+    array( substr_count( $single, 'WPCPM_Request::posted_text(' ), substr_count( $bulk, 'WPCPM_Request::posted_text(' ), substr_count( $single, 'WPCPM_Request::posted_verbatim( \'wpcpm_agreement_drive\' )' ), substr_count( $bulk, 'WPCPM_Request::posted_verbatim( \'wpcpm_agreement_drive\' )' ), substr_count( $agr_src, 'WPCPM_Request::text(' ) ),
+    array( 3, 1, 1, 1, 0 ) );
 ck( 'the write itself reads no form at all', substr_count( $write, 'WPCPM_Request::' ), 0 );
 
 // The order the design spec fixes, read off the source as well as run above: a reader
@@ -1898,6 +1905,32 @@ $GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniews
 ck( 'the return note is the one free-text field in the block', substr_count( $template_review, '<textarea' ), 1 );
 ck( 'named the way the handler reads it, and bounded the way it refuses', false !== strpos( $template_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required' ), true );
 ck( 'and said to be mailed verbatim', false !== strpos( $template_review, 'exactly as you write it' ), true );
+
+// A return refused for its own words lands back on this block, and the box gets back the note as it
+// was typed: in this document's box, for the person who typed it, once. The text area prints a line
+// feed right after its opening tag, which the parser drops, so a note that begins with a line break
+// keeps it. The refusal names the box by the first words of its label.
+$returned_note = "\nClause 4 says kids <12 free, adults >18 pay & \"more\".\r\nPlease change it.";
+$returned_kept = str_replace( "\r\n", "\n", $returned_note );
+$GLOBALS['uid'] = 21;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $review_id ), 'note', $returned_note, WPCPM_Institution_Agreement::MAX_NOTE );
+$GLOBALS['uid'] = 22;
+$someone_else   = review( $review_id );
+$GLOBALS['uid'] = 21;
+$kept_review    = review( $review_id );
+$GLOBALS['umeta'][23][ WPCPM_Flash::META ] = $GLOBALS['umeta'][21][ WPCPM_Flash::META ] ?? array();
+$GLOBALS['uid'] = 23;
+$next_review    = review( $review_id );
+$GLOBALS['uid'] = 0;
+$empty_box      = 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required></textarea>';
+ck( 'a refused return\'s note comes back in its box exactly as typed, once, the box bounded as before', array(
+	substr_count( $kept_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required>' . "\n" . esc_textarea( $returned_kept ) . '</textarea>' ),
+	html_entity_decode( esc_textarea( $returned_kept ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ),
+	substr_count( $kept_review, '<textarea' ),
+), array( 1, $returned_kept, 1 ) );
+ck( 'and it is taken: the page after that draws the box empty, as does another person\'s', array( substr_count( $next_review, $empty_box ), substr_count( $someone_else, $empty_box ), $someone_else === $template_review ), array( 1, 1, true ) );
+ck( 'the refusal names the box by its label and says to return it again', WPCPM_Institution_Panel::messages()['agreement-return-loss'] ?? null, array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "What has to change, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) );
+unset( $GLOBALS['umeta'][21], $GLOBALS['umeta'][22], $GLOBALS['umeta'][23] );
 ck( 'drawn to decide, the block does not send the reviewer anywhere else', strpos( $template_review, 'wpcpm-review__open' ), false );
 
 /* ---- the same block, read on the Institutions screen ------------------------ */
@@ -2506,6 +2539,89 @@ $where_typed        = 'Shelf C:\drafts\2025, two \\\\ in a row, the "blue" folde
 
 ck( 'the recording goes through', on_file( $rec_a, $drive, '', $where_typed ), 'redirect: https://example.test/institution-dashboard/' );
 ck( 'and the note is kept exactly as typed', get_post_meta( array_key_first( $GLOBALS['posts'] ), WPCPM_Institution_Agreement::META_NOTE, true ), $where_typed );
+
+echo "\n=== A Drive link keeps every percent octet ===\n";
+
+// A link is a code, not prose: the one-line cleaner removes every "%" followed by two hexadecimal
+// digits, which takes "%20" out of a query and "%C3%B3" out of a name in another alphabet. Both
+// routes read the link as typed, so the base, the post and the log hold the link as it was given.
+$octet_links = array(
+	'%20'    => 'https://drive.google.com/drive/folders/1AbC?usp=sharing&q=Collaboration%20Agreement%202026',
+	'%C3%B3' => 'https://drive.google.com/drive/folders/1AbC?q=Colaboraci%C3%B3n',
+);
+
+foreach ( $octet_links as $octet => $link ) {
+	reset_world();
+	seed_index( $rec_a, $country );
+	$GLOBALS['uid']     = 9;
+	$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
+
+	$recorded = on_file( $rec_a, $link );
+	$post_id  = array_key_first( $GLOBALS['posts'] );
+	ck( 'a Drive link with ' . $octet . ' recorded as on file is written with it, in the base, on the post and in the log',
+		array(
+			$recorded,
+			flashed(),
+			$GLOBALS['patched'][0][1][0]['fields']['Agreement Document'] ?? null,
+			null === $post_id ? null : get_post_meta( $post_id, WPCPM_Institution_Agreement::META_DRIVE_URL, true ),
+			$GLOBALS['audit'][0]['data']['drive'] ?? null,
+		),
+		array( 'redirect: https://example.test/institution-dashboard/', 'agreement-on-file', $link, $link, $link ) );
+
+	reset_world();
+	$rows = array();
+	foreach ( array( $bulk_a => 'Universidad Alpha', $bulk_b => 'Universidad Beta' ) as $id => $name ) {
+		$row                  = WPCPM_Institutions_Index::empty_row();
+		$row['record_id']     = $id;
+		$row['name']          = $name;
+		$row['stage']         = 'Confirmed';
+		$row['contact_email'] = 'contact@example.edu';
+		$rows[ $id ]          = $row;
+	}
+	WPCPM_Institutions_Index::write( $rows, 1756600000 );
+	$GLOBALS['uid'] = 9;
+
+	$ended = on_file_all( $link );
+	ck( 'and the bulk form with ' . $octet . ' writes it to every institution it records, in the base and on each post',
+		array(
+			$ended,
+			array_map( function ( $call ) { return $call[1][0]['fields']['Agreement Document'] ?? null; }, $GLOBALS['patched'] ),
+			array_values( array_map( function ( $post_id ) { return get_post_meta( $post_id, WPCPM_Institution_Agreement::META_DRIVE_URL, true ); }, array_keys( $GLOBALS['posts'] ) ) ),
+		),
+		array( 'redirect: https://example.test/institution-dashboard/', array( $link, $link ), array( $link, $link ) ) );
+}
+
+// The link is stored through core's esc_url_raw(), stood in for here as 7.1.2 writes it
+// (bin/stubs/link-cleaners.php): it keeps every octet above, and takes out a "%0A" or a "%0D", a
+// line break written as a code, wherever it stands. A link that is nothing but one becomes
+// "http://", which is no Drive link.
+ck( 'the stand-in is core\'s esc_url_raw(): "%20" and "%C3%B3" kept, "%0A" taken out, and a link of nothing else made "http://"',
+	array( esc_url_raw( $octet_links['%20'] ), esc_url_raw( $octet_links['%C3%B3'] ), esc_url_raw( 'https://drive.google.com/drive/folders/1AbC?q=Line%0Atwo' ), esc_url_raw( '%0A' ) ),
+	array( $octet_links['%20'], $octet_links['%C3%B3'], 'https://drive.google.com/drive/folders/1AbC?q=Linetwo', 'http://' ) );
+
+reset_world();
+seed_index( $rec_a, $country );
+$GLOBALS['uid']     = 9;
+$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
+$recorded           = on_file( $rec_a, 'https://drive.google.com/drive/folders/1AbC?q=Line%0Atwo' );
+$post_id            = array_key_first( $GLOBALS['posts'] );
+ck( 'so a Drive link with "%0A" in it is recorded without it, in the base and on the post',
+	array(
+		$recorded,
+		flashed(),
+		$GLOBALS['patched'][0][1][0]['fields']['Agreement Document'] ?? null,
+		null === $post_id ? null : get_post_meta( $post_id, WPCPM_Institution_Agreement::META_DRIVE_URL, true ),
+	),
+	array( 'redirect: https://example.test/institution-dashboard/', 'agreement-on-file', 'https://drive.google.com/drive/folders/1AbC?q=Linetwo', 'https://drive.google.com/drive/folders/1AbC?q=Linetwo' ) );
+
+// The link is read through core's wp_check_invalid_utf8() too, as 7.1.2 writes it: a text that is
+// not valid UTF-8, which only a crafted post sends, is read as nothing, and nothing is no link.
+reset_world();
+seed_index( $rec_a, $country );
+$GLOBALS['uid']     = 9;
+$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
+ck( 'the stand-in is core\'s wp_check_invalid_utf8(): a valid text kept, one that is not emptied', array( wp_check_invalid_utf8( "Colaboraci\u{F3}n" ), wp_check_invalid_utf8( "Colaboraci\xC3n" ) ), array( "Colaboraci\u{F3}n", '' ) );
+ck( 'so a link posted with a byte that is not UTF-8 is refused by name, and nothing is patched', array( on_file( $rec_a, "https://drive.google.com/drive/folders/1AbC?q=Colaboraci\xC3n" ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-link', 0 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

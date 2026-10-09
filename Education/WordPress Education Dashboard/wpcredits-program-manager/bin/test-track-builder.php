@@ -123,7 +123,24 @@ class WPCPM_Request {
 	public static function posted_id( $key ) { return (int) ( $_POST[ $key ] ?? 0 ); }
 	public static function id( $key ) { return (int) ( $_GET[ $key ] ?? 0 ); }
 	public static function text( $key ) { return isset( $_GET[ $key ] ) ? trim( (string) $_GET[ $key ] ) : ''; }
-	public static function posted_text( $key ) { return isset( $_POST[ $key ] ) ? trim( (string) $_POST[ $key ] ) : ''; }
+	// As the real one: the one-line cleaner removes every "%" followed by two hexadecimal digits,
+	// again until none is left, and folds the spaces that leaves, as core's does, so a link read
+	// with it loses its octets, and only posted_verbatim() keeps them.
+	public static function posted_text( $key ) {
+		if ( ! isset( $_POST[ $key ] ) ) {
+			return '';
+		}
+
+		$text  = trim( (string) $_POST[ $key ] );
+		$found = false;
+
+		while ( preg_match( '/%[a-f0-9]{2}/i', $text, $match ) ) {
+			$text  = str_replace( $match[0], '', $text );
+			$found = true;
+		}
+
+		return $found ? trim( preg_replace( '/ +/', ' ', $text ) ) : $text;
+	}
 	public static function posted_key( $key ) { return isset( $_POST[ $key ] ) ? preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $_POST[ $key ] ) ) : ''; }
 	// Faithful to the real class: posted_verbatim() trims, and only posted_exact() keeps a trailing
 	// space, which is what a column name needs. A handler reading a column through the wrong one
@@ -384,8 +401,27 @@ class WPCPM_Track_Store {
 	}
 	public static $errors    = array();
 
+	/**
+	 * Whether `check()` also asks the real course-link rule (`WPCPM_Track_Definition::validate()`),
+	 * as the real store does, for the checks that hold a handler to handing the rule the link.
+	 *
+	 * @var bool
+	 */
+	public static $course_rule = false;
+
 	public static function check( $post_id, array $definition ) {
-		return self::$errors;
+		if ( ! self::$course_rule ) {
+			return self::$errors;
+		}
+
+		$course = array_filter(
+			WPCPM_Track_Definition::validate( $definition ),
+			static function ( $error ) {
+				return 'course_url' === $error['code'];
+			}
+		);
+
+		return array_merge( self::$errors, array_values( $course ) );
 	}
 
 	/**
@@ -4450,6 +4486,96 @@ $_GET = array();
 
 ck( 'History still names the switch a track made on its way to its definition, from the log the site holds',
 	substr_count( $switched_history, '<li>Switched to run from its definition, ' ), 1 );
+
+echo "\n=== The Learn course link keeps every percent octet ===\n";
+
+// A link is a code, not prose: the one-line cleaner removes every "%" followed by two hexadecimal
+// digits, again until none is left, which takes "%20" out of a query and "%C3%B3" out of an address
+// written in another alphabet, and can leave a different course's slug behind. The stand-in for
+// posted_text() does as core's cleaner does.
+$_POST = array( 'wpcpm_label' => 'Track %%4141 one' );
+ck( 'the stand-in for posted_text() takes the octets out as core does, again until none is left, so "Track %%4141 one" is read as "Track one"', WPCPM_Request::posted_text( 'wpcpm_label' ), 'Track one' );
+$_POST = array();
+
+// The course-link rule takes a Learn course's address and nothing else: https://learn.wordpress.org/
+// course/ and a name of small letters, digits and hyphens, with no query. So it takes no link that
+// holds an octet, and each link below is one it refuses. What can be held to it is that the link
+// reaches the rule as typed, and comes back to its box whole when refused: with its octets taken
+// out, the "%C3%B3" link would name another course, which the rule takes.
+$octet_links     = array(
+	'%20'    => 'https://learn.wordpress.org/course/marketing/?utm_source=wordpress%20education',
+	'%C3%B3' => 'https://learn.wordpress.org/course/programaci%C3%B3n/',
+);
+$course_codes    = static function ( $link ) {
+	return array_values( array_filter( array_column( WPCPM_Track_Definition::validate( array( 'course_url' => $link ) ), 'code' ), static function ( $code ) { return 'course_url' === $code; } ) );
+};
+$course_sentence = 'The course link must be the address of a Learn WordPress course: https://learn.wordpress.org/course/ and its name.';
+ck( 'the course-link rule refuses both links as typed, and takes the "%C3%B3" one once its octets are taken out',
+	array( $course_codes( $octet_links['%20'] ), $course_codes( $octet_links['%C3%B3'] ), $course_codes( 'https://learn.wordpress.org/course/programacin/' ) ),
+	array( array( 'course_url' ), array( 'course_url' ), array() ) );
+
+// The store is stood in for with that rule, the real one, for the checks below.
+WPCPM_Track_Store::$course_rule = true;
+
+foreach ( $octet_links as $octet => $link ) {
+	$GLOBALS['transients']     = array();
+	$GLOBALS['http']           = array();
+	$GLOBALS['can_manage']     = true;
+	$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+	WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+	WPCPM_Track_Store::$errors = array();
+	WPCPM_Track_Store::$saved  = array();
+	WPCPM_Flash::$set          = array();
+	$_POST                     = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track', 'wpcpm_status' => 'Marketing Track', 'wpcpm_key' => 'marketing', 'wpcpm_course_url' => $link, 'wpcpm_hours_target' => '', 'wpcpm_hue' => 'blue' );
+
+	$typed_save = outcome( array( $tool, 'handle_save' ) );
+	ck( 'a course link with ' . $octet . ' typed into the properties reaches the rule as typed: refused with its sentence, nothing saved, and the box gets the link back whole',
+		array( $typed_save, WPCPM_Track_Store::$saved, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ?? null, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'] ?? null, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['values']['course_url'] ?? null ),
+		array( 'redirect', array(), 'error', $course_sentence, $link ) );
+
+	// A link stored with one, drawn into its box and posted back untouched.
+	WPCPM_Track_Store::$tracks[13]['definition']['course_url'] = $link;
+	WPCPM_Track_Store::$saved                                  = array();
+	WPCPM_Flash::$set                                          = array();
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+	$octet_form                = ob_get_clean();
+	$drawn_link                = preg_match( '/id="wpcpm_course_url" name="wpcpm_course_url" value="([^"]*)"/', $octet_form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : 'not drawn';
+	$_POST['wpcpm_course_url'] = $drawn_link;
+
+	$back_save = outcome( array( $tool, 'handle_save' ) );
+	ck( 'a stored link with ' . $octet . ' is drawn as stored, and posted back untouched it reaches the rule as stored, refused with nothing saved, and comes back to its box whole',
+		array( $drawn_link, $back_save, WPCPM_Track_Store::$saved, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'] ?? null, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['values']['course_url'] ?? null ),
+		array( $link, 'redirect', array(), $course_sentence, $link ) );
+
+	// A new track started from the link.
+	$GLOBALS['nonce']           = WPCPM_Track_Builder::ACTION_NEW;
+	WPCPM_Track_Store::$created = array();
+	$started                    = press_new( array( 'wpcpm_label' => 'Link Track', 'wpcpm_status' => 'Link Track', 'wpcpm_key' => 'link', 'wpcpm_course_url' => $link ) );
+	ck( 'a new track started from the link with ' . $octet . ' is refused by the rule, nothing created, and its form gets the link back whole',
+		array( $started[0], WPCPM_Track_Store::$created, $started[2]['status'] ?? null, $started[2]['message'] ?? null, $started[2]['values']['course_url'] ?? null ),
+		array( 'redirect', array(), 'error', $course_sentence, $link ) );
+
+	// A Save refused for another reason gives the box back whole, so the Save that follows it
+	// does not send a different link.
+	$GLOBALS['nonce']                                          = WPCPM_Track_Builder::ACTION_SAVE;
+	WPCPM_Track_Store::$tracks                                 = array( 13 => editable_track() );
+	WPCPM_Track_Store::$errors                                 = array( array( 'code' => 'status_taken', 'message' => 'Another track already has this status.' ) );
+	WPCPM_Track_Store::$saved                                  = array();
+	WPCPM_Flash::$set                                          = array();
+	$_POST                                                     = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track', 'wpcpm_status' => 'In Sensei', 'wpcpm_key' => 'marketing', 'wpcpm_course_url' => $link, 'wpcpm_hours_target' => '', 'wpcpm_hue' => 'blue' );
+	$refused_link_save                                         = outcome( array( $tool, 'handle_save' ) );
+	ck( 'a Save refused for another reason gives the link with ' . $octet . ' back as typed',
+		array( $refused_link_save, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['values']['course_url'] ?? null, WPCPM_Track_Store::$saved ),
+		array( 'redirect', $link, array() ) );
+}
+
+WPCPM_Track_Store::$course_rule = false;
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$errors = array();
+WPCPM_Track_Store::$saved  = array();
+$GLOBALS['nonce']          = '';
+$_POST                     = array();
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

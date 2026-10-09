@@ -299,7 +299,8 @@ final class WPCPM_Administrators_Dashboard {
 	 * What the last decision left to say, in the words the wp-admin queue would use.
 	 *
 	 * Every handler this page posts to flashes on the Institutions screen's channel, so the
-	 * four message maps are merged here as that screen merges them. Taken once, so it shows
+	 * four message maps are merged here as that screen merges them, the sponsor agreement's under
+	 * its own prefix, since its keys are the institution agreement's. Taken once, so it shows
 	 * once, here or there. Draft now (WPCPM_Semester_Report_Screen::ACTION_DRAFT) is the one
 	 * decision this page posts that flashes somewhere else, on its own screen's channel, so it
 	 * is read separately below rather than merged into this map (since 1.92.0, decision 2 of
@@ -328,8 +329,13 @@ final class WPCPM_Administrators_Dashboard {
 				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Posts::messages() );
 			}
 
+			// The sponsor agreement's keys are the institution agreement's too, each worded for its
+			// own audience, so its outcomes come back here under its prefix and its sentences are
+			// read under it: neither audience is told the other's words.
 			if ( class_exists( 'WPCPM_Sponsor_Agreement' ) && method_exists( 'WPCPM_Sponsor_Agreement', 'manager_messages' ) ) {
-				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Agreement::manager_messages() );
+				foreach ( (array) WPCPM_Sponsor_Agreement::manager_messages() as $key => $message ) {
+					$messages[ WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX . $key ] = $message;
+				}
 			}
 
 			if ( class_exists( 'WPCPM_Sponsor_Application' ) && method_exists( 'WPCPM_Sponsor_Application', 'manager_messages' ) ) {

@@ -884,7 +884,8 @@ echo "\n=== The profile: a typing the cleaner would take words from is refused, 
 function cards_profile_form( $html ) {
 	$out = array();
 	foreach ( array( 'website', 'contact_person', 'contact_email', 'offer', 'more_info' ) as $key ) {
-		$out[ $key ] = preg_match( '/name="wpcpm_' . $key . '" value="([^"]*)"/', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
+		// A text input drops every line break from its value, so a break in the markup is not in the box.
+		$out[ $key ] = preg_match( '/name="wpcpm_' . $key . '" value="([^"]*)"/', $html, $m ) ? str_replace( array( "\r", "\n" ), '', html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) : null;
 	}
 	foreach ( array( 'instructions', 'anything' ) as $key ) {
 		// The parser drops the one line feed right after the opening tag.
@@ -1059,6 +1060,52 @@ ck( 'a website stored without a scheme and a link stored with a name before its 
 $GLOBALS['patched'] = array();
 $r = post( cards_profile_post( $A, cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) ), array( 'wpcpm_more_info' => 'https://name@host.test/typed' ) ), $p_save );
 ck( 'while the same kind of link typed into the box is refused as before, and nothing is written', array( $r[0], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['more_info'] ), array( 'profile-rejected', array(), 'https://name@host.test/grid' ) );
+
+echo "\n=== A one-line box drawn from a stored value with a line break inside it ===\n";
+// Written in the base's grid, a one-line cell can hold a line break, and a text input drops it from
+// its value: "Free hosting" and "for students" drawn as stored would post back as "Free
+// hostingfor students". The break is drawn as a space, and a box posted back as it was drawn is the
+// stored value, kept byte for byte.
+WPCPM_Sponsors_Index::patch( $A, array( 'offer' => "Free hosting\nfor students", 'contact_person' => 'Test Sponsor Contact', 'website' => 'https://plugins.mango-example.test/', 'more_info' => '', 'instructions' => 'Use the code at checkout.' ) );
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$r       = post( cards_profile_post( $A, $b_shown ), $p_save );
+ck( 'a stored "Free hosting" and "for students" on two lines is drawn as "Free hosting for students"', $b_shown['offer'], 'Free hosting for students' );
+ck( 'posted back unedited it is the stored value: nothing written, no audit line, nothing changed, the stored bytes kept', array( $r[0], $GLOBALS['patched'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['offer'] ), array( 'profile-unchanged', array(), array(), "Free hosting\nfor students" ) );
+
+$r = post( cards_profile_post( $A, $b_shown, array( 'wpcpm_offer' => 'Free hosting for all students' ) ), $p_save );
+ck( 'edited, the box is written as the person left it, and the one audit line names the offer', array( $r[0], end( $GLOBALS['patched'] )[1][0]['fields'] ?? null, end( $GLOBALS['audit'] )['data']['fields'] ?? null ), array( 'profile-saved', array( 'Offer' => 'Free hosting for all students' ), array( 'offer' ) ) );
+
+WPCPM_Sponsors_Index::patch( $A, array( 'offer' => "Free hosting\r\nfor students\r\n\r\nnow", 'contact_person' => "Test Sponsor\nContact" ) );
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$r       = post( cards_profile_post( $A, $b_shown ), $p_save );
+ck( 'each break is one space, a CR LF one too, so an offer on four lines and a contact person on two are drawn so', array( $b_shown['offer'], $b_shown['contact_person'] ), array( 'Free hosting for students  now', 'Test Sponsor Contact' ) );
+ck( 'and posted back unedited, both keep their stored bytes with nothing written or logged', array( $r[0], $GLOBALS['patched'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['offer'], WPCPM_Sponsors_Index::row( $A )['contact_person'] ), array( 'profile-unchanged', array(), array(), "Free hosting\r\nfor students\r\n\r\nnow", "Test Sponsor\nContact" ) );
+
+WPCPM_Sponsors_Index::patch( $A, array( 'offer' => "Free hosting\nfor students", 'contact_person' => 'Test Sponsor Contact', 'website' => "https://plugins.mango-example.test/\nabout" ) );
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$r       = post( cards_profile_post( $A, $b_shown ), $p_save );
+ck( 'a link box is drawn the same way, and posted back unedited keeps the stored link', array( $b_shown['website'], $r[0], $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'https://plugins.mango-example.test/ about', 'profile-unchanged', array(), "https://plugins.mango-example.test/\nabout" ) );
+WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-example.test/' ) );
+// An address is drawn as it is stored, its break and all: the email box drops the break, as it did
+// before, while a space there would be an address that is not one, which the browser refuses, and
+// with it the whole save until the person found and took the space out.
+WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => "maciej@\na8c.com" ) );
+$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$b_html  = card( 'WPCPM_Sponsor_Profile', $A, $context );
+$b_shown = cards_profile_form( $b_html );
+$b_value = preg_match( '/name="wpcpm_contact_email" value="([^"]*)"/', $b_html, $b_m ) ? html_entity_decode( $b_m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
+$r       = post( cards_profile_post( $A, $b_shown ), $p_save );
+ck( 'an address stored with a line break inside is drawn as stored, never with a space, so the email box shows an address and the save goes through', array( $b_value, $b_shown['contact_email'], is_email( $b_shown['contact_email'] ), $r[0] ), array( "maciej@\na8c.com", 'maciej@a8c.com', true, 'profile-saved' ) );
+WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => 'maciej@a8c.com' ) );
+// An address reaches the unedited test as `sanitize_email()` hands it back, which holds no space, so
+// a stored address with its breaks read as spaces can never be it: the fold is asked of a one-line
+// text and a link, and of nothing else.
+$b_test = new ReflectionMethod( 'WPCPM_Sponsor_Profile', 'unchanged' );
+$b_body = implode( '', array_slice( file( $b_test->getFileName() ), $b_test->getStartLine() - 1, $b_test->getEndLine() - $b_test->getStartLine() + 1 ) );
+ck( 'the unedited test folds a stored line break for a one-line text and a link only, never for an address', array( substr_count( $b_body, 'one_line(' ), false !== strpos( $b_body, "'email'" ) ), array( 2, false ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

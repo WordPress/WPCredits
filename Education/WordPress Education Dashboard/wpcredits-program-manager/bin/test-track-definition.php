@@ -200,6 +200,10 @@ ck( 'a name equal to the track\'s own status passes: the Developer Track is name
 // another's name either, so the refusal no longer depends on which of the two is published first.
 ck( 'a status another track goes by as its name, whatever its case: the import would match one cell to both', array( refused( function ( &$d ) { $d['status'] = 'WordPress Credits Program 150h'; }, $named ), refused( function ( &$d ) { $d['status'] = 'wordpress credits program 150h'; }, $named ) ), array( array( 'status_named' ), array( 'status_named' ) ) );
 ck( 'a course link that is not a Learn course', array( refused( function ( &$d ) { $d['course_url'] = 'http://learn.wordpress.org/course/marketing/'; }, $context ), refused( function ( &$d ) { $d['course_url'] = 'https://example.org/course/marketing/'; }, $context ) ), array( array( 'course_url' ), array( 'course_url' ) ) );
+// The Track Builder hands the course link over as typed, percent octets and all, so a link that
+// holds one reaches this rule whole and is refused here, by its sentence, rather than cleaned into
+// another course's name on the way in.
+ck( 'a course link holding a percent octet, as an accented letter is written in an address', refused( function ( &$d ) { $d['course_url'] = 'https://learn.wordpress.org/course/programaci%C3%B3n/'; }, $context ), array( 'course_url' ) );
 ck( 'no course link at all is fine', refused( function ( &$d ) { $d['course_url'] = ''; unset( $d['learn_course_id'] ); }, $context ), array() );
 // The slug is capped at 120 characters here and in `WPCPM_Learn::COURSE_LINK`, which are one rule
 // in two files: an unbounded repeat on a link a person can type is the shape that backtracks (the

@@ -1436,6 +1436,33 @@ $long   = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_at . 'x' ) )
 ck( 'one character more is refused with its own sentence, and nothing is sent or written', array( flashed( $long ), count( $GLOBALS['mail'] ), count( get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT ) ) - $before ), array( 'sapp-too-long', 0, 0 ) );
 ck( 'the sentence says the limit and what to do', WPCPM_Sponsor_Application::manager_messages()['sapp-too-long'] ?? null, array( 'error', 'Nothing was sent. The question is longer than 2000 characters: shorten it and send it again.' ) );
 
+// Both limits are counted on what was typed, as the box counts it: an entity typed out is as many
+// characters as it was typed with, and a reference typed out after a "<", which the cleaner writes
+// in core's longer form (`&#9;` as `&#009;`), is counted as it was typed too.
+$s_length = static function ( $handler, $field, $typed ) {
+	reset_world();
+	as_manager();
+	$id                     = seed_application();
+	$GLOBALS['mail']        = array();
+	$GLOBALS['kept_typing'] = array();
+	$decided                = decide( $handler, $id, array( $field => $typed ) );
+	$form                   = WPCPM_Typed_Text::KEPT_CHANNEL . ( 'wpcpm_question' === $field ? WPCPM_Sponsor_Application::TYPED_QUESTION : WPCPM_Sponsor_Application::TYPED_REASON ) . ':' . $id;
+	$got                    = array( flashed( $decided ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), count( $GLOBALS['mail'] ), $GLOBALS['kept_typing'][3][ $form ]['typed'] ?? array() );
+	$GLOBALS['mail']        = array();
+	$GLOBALS['kept_typing'] = array();
+
+	return $got;
+};
+$s_at_most = str_repeat( 'Ages 8 < 12 &#9; ok. ', 95 ) . 'Done.';
+ck( 'the question below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $s_at_most ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $s_at_most ) ) > WPCPM_Sponsor_Application::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $s_at_most, 'lines' ) ), array( WPCPM_Sponsor_Application::MAX_NOTE, true, false ) );
+ck( 'a question of 14 characters as typed, "Why &lt;b&gt;?" typed out, is sent', $s_length( 'handle_info', 'wpcpm_question', 'Why &lt;b&gt;?' ), array( 'sapp-info', 'info', 1, array() ) );
+ck( 'one of exactly 10 characters as typed, "Q &amp; A?", is sent', $s_length( 'handle_info', 'wpcpm_question', 'Q &amp; A?' ), array( 'sapp-info', 'info', 1, array() ) );
+ck( 'one of 9 characters as typed, "1 < &#50;", is refused as too short, though the cleaner writes it longer, and comes back to its box', $s_length( 'handle_info', 'wpcpm_question', '1 < &#50;' ), array( 'sapp-question', 'new', 0, array( 'question' => '1 < &#50;' ) ) );
+ck( 'one of exactly 2,000 characters as typed is sent', $s_length( 'handle_info', 'wpcpm_question', $s_at_most ), array( 'sapp-info', 'info', 1, array() ) );
+ck( 'one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $s_length( 'handle_info', 'wpcpm_question', str_repeat( '&lt;', 500 ) . '?' ), array( 'sapp-too-long', 'new', 0, array( 'question' => str_repeat( '&lt;', 500 ) ) ) );
+ck( 'a Reject reason of exactly 2,000 characters as typed is kept', $s_length( 'handle_reject', 'wpcpm_reason', $s_at_most ), array( 'sapp-rejected', 'rejected', 1, array() ) );
+ck( 'and one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $s_length( 'handle_reject', 'wpcpm_reason', str_repeat( '&lt;', 500 ) . '.' ), array( 'sapp-reason-long', 'new', 0, array( 'reason' => str_repeat( '&lt;', 500 ) ) ) );
+
 echo "\n-- a question the cleaner would take words from is refused, and kept ----\n";
 
 /**

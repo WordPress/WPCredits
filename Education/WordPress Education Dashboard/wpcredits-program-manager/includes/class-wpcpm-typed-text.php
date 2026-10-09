@@ -32,8 +32,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * to an applicant and the reason a rejection is kept with (`WPCPM_Sponsor_Application`); and the
  * notes a sponsor post and a Collaboration Agreement are returned with, and the note an agreement
  * is taken out of force with (`WPCPM_Sponsor_Posts`, `WPCPM_Sponsor_Agreement`). Each counts such a
- * text the way it draws and mails it. A place that measures, draws, compares or mails one by other
- * rules, as the plugin's other screens still do, can count it one way and show or mail it another.
+ * text the way it draws and mails it. On the institution side four boxes refuse a loss and count
+ * their text as typed by the same rules: the question to an applicant, mailed as typed, and the
+ * reason a rejection is kept with (`WPCPM_Institutions`), the note a signed agreement is returned
+ * with (`WPCPM_Institution_Agreement`, whose return and revocation mails read their note as typed),
+ * and the note a request from an institution is closed with (`WPCPM_Institution_Request`). Their
+ * limits, and those of the sponsor application's question and reason and of the notes a
+ * Collaboration Agreement is returned or taken out of force with, are counted on what was typed
+ * (`box_length()`), once the loss check has passed it. A place that measures, draws, compares or
+ * mails one by other rules, as the plugin's other screens still do, can count it one way and show
+ * or mail it another.
  * What goes to the program records goes as stored, as every writer to the base sends its text.
  *
  * Nothing stored is rewritten by them: they read what is there.
@@ -84,6 +92,36 @@ final class WPCPM_Typed_Text {
 	 */
 	public static function typed_length( $value ) {
 		return mb_strlen( str_replace( "\r\n", "\n", wp_specialchars_decode( (string) $value, ENT_QUOTES ) ) );
+	}
+
+	/**
+	 * How long a typing is as its box counted it: what was posted, each CR LF one character and the
+	 * ends trimmed, and every other character as it was typed.
+	 *
+	 * For the limits of a note box, counted once `cleaner_loses()` has passed the typing, so that
+	 * what the cleaner keeps holds the same words. What it keeps cannot be counted so:
+	 * `typed_length()` reads its entities back, and an entity the cleaner wrote for a "<" reads the
+	 * same as one a person typed out. "Type &lt;b&gt; for bold", typed out, is 23 characters to its
+	 * box and here, and 17 to `typed_length()`, so a box that takes no fewer than 20 would see it
+	 * refused as too short. After a "<" the cleaner also writes a reference typed out in core's own
+	 * form, `&#9;` as `&#009;`, which `typed_length()` counts longer than it was typed. Counted
+	 * here, the store measures a typing as its box did, but for white space at its ends, which the
+	 * box counts and the cleaner does not keep.
+	 *
+	 * A text area posts each line break as CR LF and its box counts it once, so a CR LF is one
+	 * character. It counts code points, as `typed_length()` does, so an emoji is one character here
+	 * and two to the box.
+	 *
+	 * @param string $typed What was posted for the box, unslashed and not cleaned
+	 *                      (`WPCPM_Request::posted_raw()`).
+	 * @return int
+	 */
+	public static function box_length( $typed ) {
+		if ( ! is_scalar( $typed ) ) {
+			return 0;
+		}
+
+		return mb_strlen( trim( str_replace( "\r\n", "\n", (string) $typed ) ) );
 	}
 
 	/**
@@ -172,6 +210,22 @@ final class WPCPM_Typed_Text {
 	 */
 	public static function attr_text( $value ) {
 		return str_replace( '&', '&amp;', self::typed_text( $value ) );
+	}
+
+	/**
+	 * A stored value as a one-line box is drawn with it: each line break a space.
+	 *
+	 * A text input drops the line breaks of its value, so a value stored with "Free hosting" and
+	 * "for students" on two lines, as a cell written in the base's grid can be, would post back as
+	 * "Free hostingfor students" if it were drawn as it is stored. A box drawn this way posts back
+	 * the stored value with each break a space, which the box's unedited test reads as the stored
+	 * value: the profile's one-line boxes and the Offers card's title. A CR LF is one break.
+	 *
+	 * @param string $value The value as stored.
+	 * @return string
+	 */
+	public static function one_line( $value ) {
+		return (string) preg_replace( '/\r\n|\r|\n/', ' ', (string) $value );
 	}
 
 	/**
@@ -379,14 +433,14 @@ final class WPCPM_Typed_Text {
 	 * it is shown on is the caller's.
 	 *
 	 * A form says what its own button does: a save, a send ("Tell the program", "Send this
-	 * question"), a return with a note, Take it out of force or Reject. Each action has a whole
-	 * sentence of its own, saying what did not happen and what to press again, so that none is
-	 * built from pieces a translator meets apart. An action this method does not know reads as a
-	 * save.
+	 * question"), a return with a note, Take it out of force, Reject, or the two that close a
+	 * request from an institution, Mark as handled and Decline. Each action has a whole sentence of
+	 * its own, saying what did not happen and what to press again, so that none is built from
+	 * pieces a translator meets apart. An action this method does not know reads as a save.
 	 *
 	 * @param string $label  The name of the box, as its form labels it.
-	 * @param string $action What the form's button does: `save`, `send`, `return`, `revoke` or
-	 *                       `reject`. Default `save`.
+	 * @param string $action What the form's button does: `save`, `send`, `return`, `revoke`,
+	 *                       `reject`, `handle` or `decline`. Default `save`.
 	 * @return string
 	 */
 	public static function loss_message( $label, $action = 'save' ) {
@@ -413,6 +467,18 @@ final class WPCPM_Typed_Text {
 				return sprintf(
 					/* translators: %s: the name of the box, such as Why, for the next Administrator who reads this. */
 					__( 'Nothing was rejected, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then reject the application again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'handle':
+				return sprintf(
+					/* translators: %s: the name of the box, such as What you did about it. */
+					__( 'Nothing was marked as handled, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then mark it as handled again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'decline':
+				return sprintf(
+					/* translators: %s: the name of the box, such as What you did about it. */
+					__( 'Nothing was declined, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then decline it again.', 'wpcredits-program-manager' ),
 					(string) $label
 				);
 		}
@@ -563,5 +629,64 @@ final class WPCPM_Typed_Text {
 	 */
 	public static function kept_attr( $value ) {
 		return str_replace( '&', '&amp;', (string) $value );
+	}
+
+	/**
+	 * The name a form of one box keeps its typing under: what the form does, then the post it acts
+	 * on, as in `post-return:42`. `keep_box()`, `kept_box()` and `forget()` are each handed it.
+	 *
+	 * Such a form is a refusal's one box drawn empty on one post: the note a post or an agreement is
+	 * returned with, the note an agreement is taken out of force with, a question to an applicant or
+	 * the reason a rejection is kept with. Named by its post, what was typed for one post comes back
+	 * in that post's box and in no other. Named by what it does, two forms on the same post keep
+	 * apart, so each form's name is its own.
+	 *
+	 * @param string $form   What the form does, such as `post-return` or `sapp-reason`.
+	 * @param int    $record The post the form acts on, by its ID.
+	 * @return string
+	 */
+	public static function box_form( $form, $record ) {
+		return (string) $form . ':' . absint( $record );
+	}
+
+	/**
+	 * Keep what a person typed into a refused form of one box, for the one time the form is drawn
+	 * again (`keep()`).
+	 *
+	 * The box is drawn empty, so its room is its limit (`kept_room()`): the typing is kept as it was
+	 * typed, a line break read as the one LF its box counts, and cut at the limit in characters. A
+	 * box left empty, or holding only white space, has nothing to give back, and nothing is kept for
+	 * it. A box drawn from a stored text keeps through `keep()`, with the room that text gives it.
+	 *
+	 * @param string $form  The form, as `box_form()` names it.
+	 * @param string $field The box's field, which `kept_box()` reads it back by.
+	 * @param string $typed What was posted for the box, unslashed and not cleaned
+	 *                      (`WPCPM_Request::posted_raw()`).
+	 * @param int    $limit The box's limit, as `typed_length()` counts it.
+	 */
+	public static function keep_box( $form, $field, $typed, $limit ) {
+		if ( '' === trim( (string) $typed ) ) {
+			return;
+		}
+
+		self::keep( $form, array( $field => (string) $typed ), array( $field => self::kept_room( '', $limit ) ) );
+	}
+
+	/**
+	 * What a refused form of one box kept for its redraw (`keep_box()`), handed back once and
+	 * cleared, or null when nothing is.
+	 *
+	 * Null and not an empty string, so the box can tell a refusal's typing from none, and open the
+	 * fold it is drawn in only for a typing. A field that holds anything but a string, as `keep()`
+	 * keeps the choices of a group of checkboxes, reads as nothing kept.
+	 *
+	 * @param string $form  The form, as `box_form()` names it.
+	 * @param string $field The box's field, as `keep_box()` was given it.
+	 * @return string|null
+	 */
+	public static function kept_box( $form, $field ) {
+		$kept = self::kept( $form );
+
+		return isset( $kept[ $field ] ) && is_string( $kept[ $field ] ) ? $kept[ $field ] : null;
 	}
 }

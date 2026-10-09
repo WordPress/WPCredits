@@ -489,7 +489,9 @@ final class WPCPM_Sponsor_Offers {
 	 * same as the stored one (`WPCPM_Typed_Text::same_text()`, `same_lines()`) is the stored one, so a
 	 * form posted back as it was drawn changes none of the three, whatever form the store holds them in,
 	 * unless one holds an entity of an entity (`&amp;lt;`), which each unedited save reads one level
-	 * further (see `WPCPM_Typed_Text::typed_text()`).
+	 * further (see `WPCPM_Typed_Text::typed_text()`). The title's box draws each line break the stored
+	 * title holds as a space (`WPCPM_Typed_Text::one_line()`), so a title that reads the same as the
+	 * stored one so drawn is the stored one too.
 	 *
 	 * A box the handler found posted back as it was drawn (`$drawn`) is the stored one as it stands:
 	 * neither cleaned nor measured, so a stored text that holds what the cleaner would take keeps its
@@ -526,7 +528,7 @@ final class WPCPM_Sponsor_Offers {
 		$instructions = $stored( 'instructions' ) ? (string) $existing['instructions'] : sanitize_textarea_field( isset( $raw['instructions'] ) ? (string) $raw['instructions'] : '' );
 
 		if ( is_array( $existing ) ) {
-			$title        = WPCPM_Typed_Text::same_text( $title, $existing['title'] ) ? (string) $existing['title'] : $title;
+			$title        = ( WPCPM_Typed_Text::same_text( $title, $existing['title'] ) || WPCPM_Typed_Text::same_text( $title, WPCPM_Typed_Text::one_line( $existing['title'] ) ) ) ? (string) $existing['title'] : $title;
 			$text         = WPCPM_Typed_Text::same_lines( $text, $existing['text'] ) ? (string) $existing['text'] : $text;
 			$instructions = WPCPM_Typed_Text::same_lines( $instructions, $existing['instructions'] ) ? (string) $existing['instructions'] : $instructions;
 		}
@@ -1253,7 +1255,8 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		// A typed box posted back as it was drawn is the stored text, by the test `clean()` reads an
-		// unedited box with (`same_text()`, `same_lines()`), asked of what was typed. It is neither asked
+		// unedited box with (`same_text()`, `same_lines()`, and for the title the stored title with
+		// each line break a space, as its box draws it), asked of what was typed. It is neither asked
 		// about losses nor cleaned and rewritten: a stored text can hold what the cleaner would take,
 		// written by another path than this card's save, and only what a person changed is theirs to
 		// be told about.
@@ -1267,7 +1270,7 @@ final class WPCPM_Sponsor_Offers {
 			) as $key => $lines ) {
 				$stored = (string) $existing[ $key ];
 
-				if ( $lines ? WPCPM_Typed_Text::same_lines( $typed[ $key ], $stored ) : WPCPM_Typed_Text::same_text( $typed[ $key ], $stored ) ) {
+				if ( $lines ? WPCPM_Typed_Text::same_lines( $typed[ $key ], $stored ) : ( WPCPM_Typed_Text::same_text( $typed[ $key ], $stored ) || WPCPM_Typed_Text::same_text( $typed[ $key ], WPCPM_Typed_Text::one_line( $stored ) ) ) ) {
 					$drawn[] = $key;
 				}
 			}
@@ -1760,9 +1763,11 @@ final class WPCPM_Sponsor_Offers {
 
 		// The boxes draw the text a person typed, not the form it is stored in: a text input through
 		// `esc_attr( attr_text() )` and a text area through `esc_textarea( typed_text() )`, each with
-		// the `maxlength` that leaves the store's room (`drawn_limit()`). A box drawn with what a
-		// refused save kept keeps the same room: it is the room the person typed in.
-		$field( 'title', $labels['title'], sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), $input( 'title', WPCPM_Typed_Text::attr_text( $offer['title'] ) ), (int) WPCPM_Typed_Text::drawn_limit( $offer['title'], self::MAX_TITLE ) ), true );
+		// the `maxlength` that leaves the store's room (`drawn_limit()`). The title's box draws each
+		// line break the stored title holds as a space (`one_line()`), which the box would otherwise
+		// drop, joining the words on either side. A box drawn with what a refused save kept keeps the
+		// same room: it is the room the person typed in.
+		$field( 'title', $labels['title'], sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), $input( 'title', WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $offer['title'] ) ) ), (int) WPCPM_Typed_Text::drawn_limit( $offer['title'], self::MAX_TITLE ) ), true );
 		$field( 'text', $labels['text'], sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['text'], self::MAX_OFFER ), $area( 'text', WPCPM_Typed_Text::typed_text( $offer['text'] ) ) ) );
 		$field( 'instructions', $labels['instructions'], sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['instructions'], self::MAX_TEXT ), $area( 'instructions', WPCPM_Typed_Text::typed_text( $offer['instructions'] ) ) ) );
 		$field( 'url', __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ), sprintf( '<input type="url" id="wpcpm-offer-%1$s-url" name="wpcpm_url" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), $input( 'url', $offer['url'] ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );

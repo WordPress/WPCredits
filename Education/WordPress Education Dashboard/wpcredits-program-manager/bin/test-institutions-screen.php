@@ -52,7 +52,12 @@
  *   reasons on the one that lists them. Every form whose press comes back to a tab other than the
  *   queue names it, so the press lands on the tab it was made on, and the screen's one map of
  *   outcomes prints its sentence there; the forms on an opened application name none and come back
- *   to the screen's own address, which is the queue.
+ *   to the screen's own address, which is the queue, but for a question or a Reject reason refused
+ *   for its own words, which comes back to the application opened.
+ * - A question or a Reject reason the cleaner would take words from, or one too long as typed, is
+ *   refused before anything is sent or written, rather than cut, in a sentence that names its box,
+ *   and the box gets back what was typed, once, for that application and that person alone, on the
+ *   Institutions screen and on the Administrator Dashboard. A question is mailed as it was typed.
  * - The Accounts tab draws the accounts locked for the day, the invitations card and the institution
  *   accounts list, and nothing of the provisioning card that list replaced. The list itself, its
  *   No account view and the accounts created from it, and the invitations sent from it, are
@@ -182,7 +187,13 @@ function esc_html__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_url( $s ) { return (string) $s; }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+// Core's, which escapes every "&" again: a refused question or reason comes back in its box.
+function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8' ); }
+// Core's two cleaners and its decoder as 7.1.2 writes them, which the typed-text rules read: a
+// question or a reason the cleaner would take words from is refused, and one stand-in on
+// `strip_tags()` alone writes no `&lt;` and would pass every check made with it.
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/cleaners.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function sanitize_email( $e ) { return (string) $e; }
@@ -316,7 +327,6 @@ function wp_delete_post( $id, $force = false ) {
 	unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] );
 	return $post;
 }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 
 /**
  * Stand one application up in the store.
@@ -356,6 +366,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
@@ -3781,8 +3792,22 @@ delete_user_meta( 3, WPCPM_Flash::META );
 
 $GLOBALS['mail'] = array();
 $_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 501, 'wpcpm_question' => 'why?' );
-outcome( array( $module, 'handle_info' ) );
-ck( 'a question too short to be one is refused and nothing is sent', array( get_user_meta( 1, WPCPM_Flash::META ), $GLOBALS['mail'] ), array( array( 'institutions' => 'app-question' ), array() ) );
+$short_went      = outcome( array( $module, 'handle_info' ) );
+$short_left      = get_user_meta( 1, WPCPM_Flash::META );
+$short_keys      = array_keys( (array) $short_left );
+sort( $short_keys );
+// Refused for its own words, so the press lands on the opened application, where its box is, and
+// the box gets back what was typed.
+ck( 'a question too short to be one is refused and nothing is sent, and what was typed comes back to its box', array(
+	$short_went,
+	$short_left['institutions'] ?? '',
+	$short_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ]['typed'] ?? null,
+	$short_keys,
+	$GLOBALS['mail'],
+), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=501', 'app-question', array( 'question' => 'why?' ), array( 'institutions', WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ), array() ) );
+// The sentence sits beside the kept question, so it says how short is too short, in the words the
+// sponsor application's question uses.
+ck( 'and its sentence says the least a question has to be, as the sponsor application\'s does', WPCPM_Institutions::queue_messages()['app-question'] ?? null, array( 'error', 'Nothing was sent. The question has to be at least 10 characters: it is the whole of what the applicant is told.' ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 
 $_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 503, 'wpcpm_question' => 'Could you tell us which department this is?' );
@@ -3791,6 +3816,272 @@ outcome( array( $module, 'handle_info' ) );
 ck( 'an application with no usable address has nobody to ask', array( get_user_meta( 1, WPCPM_Flash::META ), $GLOBALS['mail'] ), array( array( 'institutions' => 'app-no-email' ), array() ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 update_post_meta( 503, WPCPM_Institution_Application::META_FIELDS, array( 'Contact Email' => 'reitoria@example.test' ) );
+
+/* ---- the question and the Reject reason, as they were typed ------------- */
+
+echo "\n=== A question or a reason the cleaner would take words from is refused, and comes back as typed ===\n";
+
+/**
+ * What a browser shows in each text area of a render that posts the given field, in document order:
+ * the parser drops one line feed right after the opening tag, then reads each entity once.
+ *
+ * @param string $html Rendered markup.
+ * @param string $name The text area's name.
+ * @return string[]
+ */
+function boxes_named( $html, $name ) {
+	preg_match_all( '#<textarea[^>]* name="' . preg_quote( $name, '#' ) . '"[^>]*>(.*?)</textarea>#s', (string) $html, $m );
+	return array_map(
+		static function ( $body ) {
+			return html_entity_decode( 0 === strpos( $body, "\n" ) ? substr( $body, 1 ) : $body, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		},
+		$m[1]
+	);
+}
+
+/**
+ * The decisions on one open application as the Administrator Dashboard draws them, for one person.
+ *
+ * @param int $uid            Who reads the page.
+ * @param int $application_id The application.
+ * @return string
+ */
+function dashboard_decisions( $uid, $application_id ) {
+	$GLOBALS['uid'] = (int) $uid;
+	ob_start();
+	( new WPCPM_Institutions() )->render_application_actions( get_post( (int) $application_id ), (string) get_post_meta( (int) $application_id, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Return::DASHBOARD );
+	$html           = (string) ob_get_clean();
+	$GLOBALS['uid'] = 1;
+	return $html;
+}
+
+/**
+ * Hand what one person's flash holds to a manager of their own, who stands for that person on the
+ * next page: a new request, which reads the flash afresh. `WPCPM_Flash::take()` memoizes per person
+ * and per channel for the life of a request, and the press took the form's channel once already.
+ *
+ * @param int $from Who pressed.
+ * @param int $to   The manager who reads the next page.
+ */
+function next_request( $from, $to ) {
+	$GLOBALS['umeta'][ (int) $to ][ WPCPM_Flash::META ] = get_user_meta( (int) $from, WPCPM_Flash::META );
+	delete_user_meta( (int) $from, WPCPM_Flash::META );
+}
+
+// "Kids <12 free, adults >18 pay": the cleaner takes "<12 free, adults >" for a tag and drops it,
+// words and all, and "10%ca" loses "%ca" as a URL octet. Each box refuses such a typing before
+// anything is sent or written, names itself in the sentence, and keeps the typing for the one time
+// its form is drawn again: in that application's box of that form, for that person alone.
+$lossy_question = "Kids <12 free, adults >18 pay: is that so?\r\nWhich department would run it?";
+$lossy_reason   = "Kids <12 free, adults >18 pay, and 10%cashback on top.\r\nNot a program we run.";
+$kept_question  = str_replace( "\r\n", "\n", $lossy_question );
+$kept_reason    = str_replace( "\r\n", "\n", $lossy_reason );
+$opened         = static function ( $id ) {
+	return 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=' . (int) $id;
+};
+$history        = static function ( $id ) {
+	return count( get_post_meta( (int) $id, WPCPM_Institution_Application::META_EVENT, false ) );
+};
+$state_of       = static function ( $id ) {
+	return (string) get_post_meta( (int) $id, WPCPM_Institution_Application::META_STATE, true );
+};
+
+// The question.
+// Each press below is put back after it: the checks further down read these applications as the
+// queue's fixtures left them.
+$saved_501       = $GLOBALS['pmeta'][501];
+$saved_502       = $GLOBALS['pmeta'][502];
+$history_501     = $history( 501 );
+$state_501       = $state_of( 501 );
+$GLOBALS['mail'] = array();
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 501, 'wpcpm_question' => $lossy_question );
+$went            = outcome( array( $module, 'handle_info' ) );
+$left            = get_user_meta( 1, WPCPM_Flash::META );
+ck( 'a question the cleaner would take words from is refused before anything is sent or written, and the press lands on the opened application', array(
+	$went,
+	$left['institutions'] ?? '',
+	$GLOBALS['mail'],
+	$state_of( 501 ),
+	$history( 501 ),
+), array( $opened( 501 ), 'app-question-loss', array(), $state_501, $history_501 ) );
+ck( 'what was typed waits for that application\'s question box, a line break read as the one LF its box counts', $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ]['typed'] ?? null, array( 'question' => $kept_question ) );
+ck( 'and the sentence names the box by its label and says to send it again', WPCPM_Institutions::queue_messages()['app-question-loss'] ?? null, array( 'error', 'Nothing was sent, because WordPress would remove part of what you typed in "Ask the applicant something". To keep every word, put a space after each "<" (or write "less than") and after each "%", then send it again.' ) );
+
+// Another person, drawn the same application while the typing waits, sees an empty box.
+$other_sees = boxes_named( dashboard_decisions( 72, 501 ), 'wpcpm_question' );
+next_request( 1, 71 );
+$elsewhere  = boxes_named( dashboard_decisions( 71, 503 ), 'wpcpm_question' );
+$drawn      = dashboard_decisions( 71, 501 );
+ck( 'on the Administrator Dashboard the next page gives the typing back exactly, in the question box of that application, once', array(
+	boxes_named( $drawn, 'wpcpm_question' ),
+	substr_count( $drawn, '>' . "\n" . esc_textarea( $kept_question ) . '</textarea>' ),
+	boxes_named( $drawn, 'wpcpm_reason' ),
+), array( array( $kept_question ), 1, array( '' ) ) );
+$still_kept = isset( get_user_meta( 71, WPCPM_Flash::META )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ] );
+next_request( 71, 73 );
+ck( 'and it is taken: the page after that finds nothing waiting', array( $still_kept, boxes_named( dashboard_decisions( 73, 501 ), 'wpcpm_question' ) ), array( false, array( '' ) ) );
+ck( 'another person never sees it, nor does another application\'s box', array( $other_sees, $elsewhere ), array( array( '' ), array( '' ) ) );
+foreach ( array( 71, 72, 73 ) as $reader ) {
+	delete_user_meta( $reader, WPCPM_Flash::META );
+}
+
+// The Reject reason.
+$history_502     = $history( 502 );
+$state_502       = $state_of( 502 );
+$GLOBALS['mail'] = array();
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 502, 'wpcpm_reason' => $lossy_reason );
+$went            = outcome( array( $module, 'handle_reject' ) );
+$left            = get_user_meta( 1, WPCPM_Flash::META );
+ck( 'a Reject reason the cleaner would take words from is refused before anything is sent or written: no acknowledgement, no state, no history line', array(
+	$went,
+	$left['institutions'] ?? '',
+	$GLOBALS['mail'],
+	$state_of( 502 ),
+	$history( 502 ),
+), array( $opened( 502 ), 'app-reason-loss', array(), $state_502, $history_502 ) );
+ck( 'what was typed waits for that application\'s Reject box', $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-reason:502' ]['typed'] ?? null, array( 'reason' => $kept_reason ) );
+ck( 'and the sentence names the Reject box by its label and says to reject the application again', WPCPM_Institutions::queue_messages()['app-reason-loss'] ?? null, array( 'error', 'Nothing was rejected, because WordPress would remove part of what you typed in "Why, for the next Administrator who reads this". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' ) );
+
+// On the Institutions screen the decisions are drawn for an application past the dashboard card's
+// window, and the press comes back to it opened: the typing is given back there too.
+for ( $i = 1; $i <= WPCPM_Administrators_Cards::LIMIT; $i++ ) {
+	seed_application( 1200 + $i, sprintf( 'Earlier %d', $i ), WPCPM_Institution_Application::STATE_NEW, $now - ( 90 * $day ) + $i, array( WPCPM_Institution_Application::META_EMAIL => 'hash-of-earlier-' . $i ) );
+}
+next_request( 1, 74 );
+$GLOBALS['uid'] = 75;
+$other_screen   = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
+$GLOBALS['uid'] = 74;
+$other_opened   = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) );
+$screen_drawn   = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
+$GLOBALS['uid'] = 1;
+for ( $i = 1; $i <= WPCPM_Administrators_Cards::LIMIT; $i++ ) {
+	wp_delete_post( 1200 + $i, true );
+}
+$GLOBALS['deleted'] = array();
+ck( 'on the Institutions screen the opened application gives the Reject reason back exactly, once, under the refusal\'s sentence, and the question box stays empty', array(
+	boxes_named( $screen_drawn, 'wpcpm_reason' ),
+	substr_count( $screen_drawn, '>' . "\n" . esc_textarea( $kept_reason ) . '</textarea>' ),
+	boxes_named( $screen_drawn, 'wpcpm_question' ),
+	false !== strpos( $screen_drawn, esc_html( WPCPM_Institutions::queue_messages()['app-reason-loss'][1] ?? 'the sentence' ) ),
+	isset( get_user_meta( 74, WPCPM_Flash::META )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-reason:502' ] ),
+), array( array( $kept_reason ), 1, array( '' ), true, false ) );
+ck( 'and another person drawn the same application there sees an empty Reject box, as does another application opened by the same person', array( boxes_named( $other_screen, 'wpcpm_reason' ), boxes_named( $other_opened, 'wpcpm_reason' ) ), array( array( '' ), array( '' ) ) );
+foreach ( array( 74, 75 ) as $reader ) {
+	delete_user_meta( $reader, WPCPM_Flash::META );
+}
+
+// Measured as typed and refused rather than cut. The box takes two thousand characters, and the
+// cleaner writes a "<" that opens no tag as `&lt;`, with each quote mark and ampersand after it as
+// an entity, so a reason that fits its box can be stored longer than that: it is kept whole.
+$fits = mb_substr( str_repeat( 'Ages 8 < 12 & "up": ', 120 ), 0, WPCPM_Institutions::MAX_NOTE );
+ck( 'the reason below fits its box as typed, and the cleaner stores it longer', array( WPCPM_Typed_Text::typed_length( $fits ), mb_strlen( sanitize_textarea_field( $fits ) ) > WPCPM_Institutions::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $fits, 'lines' ) ), array( WPCPM_Institutions::MAX_NOTE, true, false ) );
+
+seed_application( 541, 'Reason Example', WPCPM_Institution_Application::STATE_NEW, $now - $day, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'maciej+reason@a8c.com' ) ) );
+$GLOBALS['mail'] = array();
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 541, 'wpcpm_reason' => $fits );
+$went            = outcome( array( $module, 'handle_reject' ) );
+$whole           = get_post_meta( 541, WPCPM_Institution_Application::META_EVENT, false );
+ck( 'so it is rejected with every word of it on the history, none cut', array(
+	$went,
+	get_user_meta( 1, WPCPM_Flash::META )['institutions'] ?? '',
+	$state_of( 541 ),
+	( $whole[0]['note'] ?? '' ) === trim( sanitize_textarea_field( $fits ) ),
+	WPCPM_Typed_Text::typed_length( $whole[0]['note'] ?? '' ),
+), array( $back, 'app-rejected', 'rejected', true, WPCPM_Typed_Text::typed_length( trim( $fits ) ) ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+wp_delete_post( 541, true );
+$GLOBALS['deleted'] = array();
+
+$GLOBALS['mail'] = array();
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 502, 'wpcpm_reason' => str_repeat( 'a', WPCPM_Institutions::MAX_NOTE + 1 ) );
+$went            = outcome( array( $module, 'handle_reject' ) );
+$left            = get_user_meta( 1, WPCPM_Flash::META );
+ck( 'a reason over the limit as typed is refused, not cut: nothing sent, the state and the history as they were, the typing kept up to the box\'s room', array(
+	$went,
+	$left['institutions'] ?? '',
+	$GLOBALS['mail'],
+	$state_of( 502 ),
+	$history( 502 ),
+	mb_strlen( (string) ( $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-reason:502' ]['typed']['reason'] ?? '' ) ),
+), array( $opened( 502 ), 'app-reason-long', array(), $state_502, $history_502, WPCPM_Institutions::MAX_NOTE ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+ck( 'and its sentence names the Reject box', WPCPM_Institutions::queue_messages()['app-reason-long'] ?? null, array( 'error', 'Nothing was rejected. What you typed in "Why, for the next Administrator who reads this" is longer than 2000 characters: shorten it and reject the application again.' ) );
+
+$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 501, 'wpcpm_question' => str_repeat( 'a', WPCPM_Institutions::MAX_NOTE + 1 ) );
+$went  = outcome( array( $module, 'handle_info' ) );
+$left  = get_user_meta( 1, WPCPM_Flash::META );
+ck( 'a question over the limit as typed is refused the same way, never cut and sent', array(
+	$went,
+	$left['institutions'] ?? '',
+	$GLOBALS['mail'],
+	$state_of( 501 ),
+	$history( 501 ),
+	mb_strlen( (string) ( $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ]['typed']['question'] ?? '' ) ),
+), array( $opened( 501 ), 'app-question-long', array(), $state_501, $history_501, WPCPM_Institutions::MAX_NOTE ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+ck( 'and its sentence names the question box', WPCPM_Institutions::queue_messages()['app-question-long'] ?? null, array( 'error', 'Nothing was sent. What you typed in "Ask the applicant something" is longer than 2000 characters: shorten it and send it again.' ) );
+
+// Both limits are counted on what was typed, as the box counts it: an entity typed out is as many
+// characters as it was typed with, and a reference typed out after a "<", which the cleaner writes
+// in core's longer form (`&#9;` as `&#009;`), is counted as it was typed too.
+$length_press = static function ( $id, $field, $typed, $handler ) use ( $module ) {
+	seed_application( $id, 'Length Example', WPCPM_Institution_Application::STATE_NEW, time() - DAY_IN_SECONDS, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'maciej+length@a8c.com' ) ) );
+	$GLOBALS['mail'] = array();
+	$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => $id, $field => $typed );
+	$went            = outcome( array( $module, $handler ) );
+	$left            = get_user_meta( 1, WPCPM_Flash::META );
+	$got             = array(
+		'went'  => $went,
+		'said'  => $left['institutions'] ?? '',
+		'sent'  => count( $GLOBALS['mail'] ),
+		'state' => (string) get_post_meta( $id, WPCPM_Institution_Application::META_STATE, true ),
+		'kept'  => $left[ WPCPM_Typed_Text::KEPT_CHANNEL . ( 'wpcpm_question' === $field ? 'app-question:' : 'app-reason:' ) . $id ]['typed'] ?? array(),
+	);
+	delete_user_meta( 1, WPCPM_Flash::META );
+	wp_delete_post( $id, true );
+	$GLOBALS['deleted'] = array();
+	$GLOBALS['mail']    = array();
+
+	return $got;
+};
+$at_most_typed = str_repeat( 'Ages 8 < 12 &#9; ok. ', 95 ) . 'Done.';
+ck( 'the question below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $at_most_typed ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $at_most_typed ) ) > WPCPM_Institutions::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $at_most_typed, 'lines' ) ), array( WPCPM_Institutions::MAX_NOTE, true, false ) );
+ck( 'a question of 14 characters as typed, "Why &lt;b&gt;?" typed out, is sent', $length_press( 551, 'wpcpm_question', 'Why &lt;b&gt;?', 'handle_info' ), array( 'went' => $back, 'said' => 'app-info', 'sent' => 1, 'state' => 'info', 'kept' => array() ) );
+ck( 'one of exactly 10 characters as typed, "Q &amp; A?", is sent', $length_press( 552, 'wpcpm_question', 'Q &amp; A?', 'handle_info' ), array( 'went' => $back, 'said' => 'app-info', 'sent' => 1, 'state' => 'info', 'kept' => array() ) );
+ck( 'one of 9 characters as typed, "1 < &#50;", is refused as too short, though the cleaner writes it longer, and comes back to its box', $length_press( 553, 'wpcpm_question', '1 < &#50;', 'handle_info' ), array( 'went' => $opened( 553 ), 'said' => 'app-question', 'sent' => 0, 'state' => 'new', 'kept' => array( 'question' => '1 < &#50;' ) ) );
+ck( 'one of exactly 2,000 characters as typed is sent', $length_press( 554, 'wpcpm_question', $at_most_typed, 'handle_info' ), array( 'went' => $back, 'said' => 'app-info', 'sent' => 1, 'state' => 'info', 'kept' => array() ) );
+ck( 'one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $length_press( 555, 'wpcpm_question', str_repeat( '&lt;', 500 ) . '?', 'handle_info' ), array( 'went' => $opened( 555 ), 'said' => 'app-question-long', 'sent' => 0, 'state' => 'new', 'kept' => array( 'question' => str_repeat( '&lt;', 500 ) ) ) );
+ck( 'a Reject reason of exactly 2,000 characters as typed is kept', $length_press( 556, 'wpcpm_reason', $at_most_typed, 'handle_reject' ), array( 'went' => $back, 'said' => 'app-rejected', 'sent' => 1, 'state' => 'rejected', 'kept' => array() ) );
+ck( 'and one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $length_press( 557, 'wpcpm_reason', str_repeat( '&lt;', 500 ) . '.', 'handle_reject' ), array( 'went' => $opened( 557 ), 'said' => 'app-reason-long', 'sent' => 0, 'state' => 'new', 'kept' => array( 'reason' => str_repeat( '&lt;', 500 ) ) ) );
+
+// A clean question, with a "<" and an "&" in it, goes as it did: mailed as it was typed, kept on
+// the history as stored. Its press drops what an earlier refusal of the form kept, pressed by a
+// manager of their own whose flash this run has not read yet.
+$GLOBALS['uid'] = 76;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institutions::TYPED_QUESTION, 501 ), 'question', 'An earlier refused question', WPCPM_Institutions::MAX_NOTE );
+$was_kept        = isset( get_user_meta( 76, WPCPM_Flash::META )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ] );
+$clean_question  = "Is the age 8 < 12 & \"up\"?\r\nWhich department would run it?";
+$GLOBALS['mail'] = array();
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 501, 'wpcpm_question' => $clean_question );
+$went            = outcome( array( $module, 'handle_info' ) );
+$left            = get_user_meta( 76, WPCPM_Flash::META );
+$GLOBALS['uid']  = 1;
+$asked           = get_post_meta( 501, WPCPM_Institution_Application::META_EVENT, false );
+$asked_last      = end( $asked );
+ck( 'a clean question is sent as before, its mail reading as it was typed, and the history keeps it as stored', array(
+	$went,
+	$left['institutions'] ?? '',
+	count( $GLOBALS['mail'] ),
+	false !== strpos( $GLOBALS['mail'][0][3]['body'] ?? '', $clean_question ),
+	strpos( $GLOBALS['mail'][0][3]['body'] ?? '', '&lt;' ),
+	strpos( $GLOBALS['mail'][0][3]['body'] ?? '', '&amp;' ),
+	is_array( $asked_last ) ? $asked_last['note'] : '',
+), array( $back, 'app-info', 1, true, false, false, sanitize_textarea_field( $clean_question ) ) );
+ck( 'and its press dropped what the refusal before it kept', array( $was_kept, isset( $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ] ) ), array( true, false ) );
+delete_user_meta( 76, WPCPM_Flash::META );
+$GLOBALS['pmeta'][501] = $saved_501;
+$GLOBALS['pmeta'][502] = $saved_502;
+$GLOBALS['mail']       = array();
 
 // Reject: the acknowledgement carries no reason, decision 16.
 $GLOBALS['mail'] = array();
@@ -4219,7 +4510,8 @@ ck( 'the map is built as read here: the screen\'s own outcomes with the agreemen
 	array( true, true, true, true, true, true, true, true ) );
 
 // Where each press lands: a handler of the screen's own comes back to the tab its form names, the
-// queue's decisions to the screen's own address, the queue; the ticked accounts, a row's invitation
+// queue's decisions to the screen's own address, the queue, or to the application opened on it when
+// the question or the reason is refused for its own words; the ticked accounts, a row's invitation
 // and the invitations card's Stop to the Accounts tab, as do the upload and the withdraw on an
 // institution's Manage members view, by their referer; the bulk record on file to the Agreements tab,
 // by its referer; a request's decision posted here to the queue.
@@ -4248,7 +4540,11 @@ $lands        = function ( $tab, $where, array $handed ) use ( &$left, &$as_code
 preg_match_all( '/public function (handle_[a-z_]+)\(/', $module_src, $module_handlers );
 foreach ( $module_handlers[1] as $handler ) {
 	$body   = body_of_method( $module_src, $handler );
-	$handed = array_merge_recursive( outcomes_handed( $body, 'redirect_back', 0 ), outcomes_handed( $body, 'leave', 1 ) );
+	// Each reader's quoted outcomes with the others', and its arguments kept as code with theirs.
+	$handed = array( array(), array() );
+	foreach ( array( outcomes_handed( $body, 'redirect_back', 0 ), outcomes_handed( $body, 'leave', 1 ), outcomes_handed( $body, 'back_to_application', 0 ) ) as $read ) {
+		$handed = array( array_merge( $handed[0], $read[0] ), array_merge( $handed[1], $read[1] ) );
+	}
 
 	if ( empty( $handed[0] ) && empty( $handed[1] ) ) {
 		continue;
@@ -4309,7 +4605,7 @@ ck( 'every outcome a press on the screen leaves on its channel, read off the sou
 ck( 'and the read reaches every source: a sample of each press\'s outcomes is among them',
 	array_values(
 		array_diff(
-			array( 'queue: app-reopened', 'queue: app-member-taken', 'queue: request-done', 'queue: error', 'sync: probed', 'sync: cancelled', 'accounts: provision-already', 'accounts: provision-blocked', 'accounts: invites-stopped', 'accounts: invite-too-soon', 'accounts: invites-none', 'accounts: agreement-launch', 'accounts: agreement-withdrawn', 'agreements: agreement-on-file-all' ),
+			array( 'queue: app-reopened', 'queue: app-member-taken', 'queue: app-question-loss', 'queue: app-reason-long', 'queue: request-done', 'queue: request-declined-loss', 'queue: request-done-long', 'queue: error', 'sync: probed', 'sync: cancelled', 'accounts: provision-already', 'accounts: provision-blocked', 'accounts: invites-stopped', 'accounts: invite-too-soon', 'accounts: invites-none', 'accounts: agreement-launch', 'accounts: agreement-withdrawn', 'agreements: agreement-on-file-all' ),
 			call_user_func_array(
 				'array_merge',
 				array_map(

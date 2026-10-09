@@ -448,7 +448,14 @@ class WPCPM_Institution_Agreement {
 }
 class WPCPM_Institution_Panel {
 	public static function render_review( $post_id ) { $GLOBALS['reviews'][] = (int) $post_id; echo '<section class="wpcpm-review" id="wpcpm-review-' . (int) $post_id . '"><form class="wpcpm-review__form wpcpm-review__form--accept"></form></section>'; }
-	public static function messages() { return array( 'agreement-accepted' => array( 'success', 'Accepted.' ) ); }
+	/** The institution agreement's own words, under the keys the sponsor agreement's map shares. */
+	public static function messages() {
+		return array(
+			'agreement-accepted' => array( 'success', 'Accepted.' ),
+			'agreement-returned' => array( 'success', 'Returned: everybody at the institution has your note.' ),
+			'agreement-note'     => array( 'error', 'Nothing was returned. The note is the whole of what the institution is told.' ),
+		);
+	}
 }
 class WPCPM_Semester_Report {
 	const STATE_DRAFT = 'draft'; const STATE_APPROVED = 'approved';
@@ -551,7 +558,16 @@ class WPCPM_Sponsor_Agreement {
 	public static function revoked_all( $limit = 200 ) { return isset( $GLOBALS['agr_revoked'] ) ? $GLOBALS['agr_revoked'] : array(); }
 	public static function review_facts( $id ) { return isset( $GLOBALS['agr_facts'][ (int) $id ] ) ? $GLOBALS['agr_facts'][ (int) $id ] : array(); }
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
-	public static function manager_messages() { return array( 'agreement-accepted' => array( 'success', 'The agreement is accepted.' ) ); }
+	/** Before each outcome a decision taken on the Administrator Dashboard leaves on its channel. */
+	const DASHBOARD_PREFIX = 'sponsor-';
+	/** The sponsor agreement's words for the company, under the institution agreement's keys. */
+	public static function manager_messages() {
+		return array(
+			'agreement-accepted' => array( 'success', 'The agreement is accepted.' ),
+			'agreement-returned' => array( 'success', 'Returned: everybody at the company has your note.' ),
+			'agreement-note'     => array( 'error', 'Nothing was returned. The note is the whole of what the company is told.' ),
+		);
+	}
 }
 class WPCPM_Sponsor_Application {
 	const QUERY_QUEUE = 'wpcpm_sapp_id';
@@ -1260,6 +1276,84 @@ $GLOBALS['manage'] = array( 3 );
 $GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );
 $out_sapp          = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a decision\'s flash is drawn in the application class\'s words, on the page it came back to', has( $out_sapp, 'The sponsor application is approved.' ), true );
+
+echo "\n=== An institution's agreement and a company's each read their own words here ===\n";
+
+// The institution agreement and the sponsor agreement word their outcomes for their own audiences
+// under the same keys, `agreement-returned`, `agreement-note` and fifteen more, and every decision
+// this page posts flashes on the Institutions screen's channel. Merged under one key, the map the
+// page prints from told an institution's Administrator what the company was told. So the sponsor
+// agreement flashes its outcomes here under its own prefix, and the page reads its sentences under
+// that prefix: the institution's keys, the channel's own, keep the institution's words.
+$said_for = static function ( $status ) {
+	$GLOBALS['flash'] = array( 'institutions' => $status );
+	return WPCPM_Administrators_Dashboard::render( array() );
+};
+$institution_returned = $said_for( 'agreement-returned' );
+$institution_refused  = $said_for( 'agreement-note' );
+$company_returned     = $said_for( WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX . 'agreement-returned' );
+$company_refused      = $said_for( WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX . 'agreement-note' );
+ck( 'an institution agreement returned, or its return refused, reads the institution\'s words, never the company\'s', array(
+	has( $institution_returned, 'Returned: everybody at the institution has your note.' ),
+	has( $institution_returned, 'at the company' ),
+	has( $institution_refused, 'Nothing was returned. The note is the whole of what the institution is told.' ),
+	has( $institution_refused, 'what the company is told' ),
+), array( true, false, true, false ) );
+ck( 'and a sponsor agreement\'s, flashed under its prefix, reads the company\'s words, never the institution\'s', array(
+	has( $company_returned, 'Returned: everybody at the company has your note.' ),
+	has( $company_returned, 'at the institution' ),
+	has( $company_refused, 'Nothing was returned. The note is the whole of what the company is told.' ),
+	has( $company_refused, 'what the institution is told' ),
+), array( true, false, true, false ) );
+
+// What this suite stands in for, read off the real sources: the prefix the sponsor agreement writes
+// is the one stood in here, its way back to this page flashes under it, and this page reads its
+// sentences under it. And across every map the page merges, the institution's three, the three
+// sponsor ones and the sync's, no key is any other map's, so no audience can be read another's words.
+$src_of   = static function ( $file ) {
+	return (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
+};
+$body_of  = static function ( $src, $name ) {
+	$at   = strpos( $src, 'function ' . $name . '(' );
+	$body = false === $at ? '' : substr( $src, $at );
+	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
+};
+$keys_of  = static function ( $body ) {
+	preg_match_all( "/^\t\t\t'([a-z0-9-]+)'\s*=>\s*array\(/m", (string) $body, $m );
+	return $m[1];
+};
+$sagr_src = $src_of( 'class-wpcpm-sponsor-agreement.php' );
+$prefix   = preg_match( "/const DASHBOARD_PREFIX = '([a-z-]+)';/", $sagr_src, $declared ) ? $declared[1] : '';
+ck( 'the real sponsor agreement declares the prefix stood in here, and flashes under it on its way back to this page', array(
+	$prefix,
+	false !== strpos( $body_of( $sagr_src, 'bounce' ), 'WPCPM_Flash::set( WPCPM_Institutions::FLASH, self::DASHBOARD_PREFIX . $status );' ),
+	false !== strpos( $body_of( $src_of( 'class-wpcpm-administrators-dashboard.php' ), 'render_messages' ), '$messages[ WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX . $key ] = $message;' ),
+), array( WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX, true, true ) );
+$merged = array(
+	'Institutions::queue_messages'          => $keys_of( $body_of( $src_of( 'class-wpcpm-institutions.php' ), 'queue_messages' ) ),
+	'Institution_Panel::messages'           => $keys_of( $body_of( $src_of( 'class-wpcpm-institution-panel.php' ), 'messages' ) ),
+	'Institution_Request::messages'         => $keys_of( $body_of( $src_of( 'class-wpcpm-institution-request.php' ), 'messages' ) ),
+	'Sponsor_Posts::messages'               => $keys_of( $body_of( $src_of( 'class-wpcpm-sponsor-posts.php' ), 'messages' ) ),
+	'Sponsor_Agreement::manager_messages'   => array_map(
+		static function ( $key ) use ( $prefix ) {
+			return $prefix . $key;
+		},
+		$keys_of( $body_of( $sagr_src, 'manager_messages' ) )
+	),
+	'Sponsor_Application::manager_messages' => $keys_of( $body_of( $src_of( 'class-wpcpm-sponsor-application.php' ), 'manager_messages' ) ),
+	'Sync_Module::sync_messages'            => $keys_of( $body_of( $src_of( 'class-wpcpm-sync-module.php' ), 'sync_messages' ) ),
+);
+$shared = array();
+foreach ( $merged as $one => $keys ) {
+	foreach ( $merged as $other => $other_keys ) {
+		if ( $one < $other && array_intersect( $keys, $other_keys ) ) {
+			$shared[ $one . ' and ' . $other ] = array_values( array_intersect( $keys, $other_keys ) );
+		}
+	}
+}
+ck( 'every map the page merges was read, each with its keys', array_map( 'count', $merged ) === array_filter( array_map( 'count', $merged ) ) && count( $merged['Institution_Panel::messages'] ) > 30 && count( $merged['Sponsor_Agreement::manager_messages'] ) > 15, true );
+ck( 'and no key the page reads is two maps\' at once', $shared, array() );
+$GLOBALS['flash'] = array();
 
 echo "\n=== Each item a wp-admin screen links to carries an id of its own ===\n";
 // The wp-admin screens read these four queues and link each item to its place here, where it is

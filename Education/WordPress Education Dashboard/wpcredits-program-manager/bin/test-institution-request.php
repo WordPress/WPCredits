@@ -32,6 +32,11 @@
  *   bounded whatever it is asked for, because it is read by a card on every screen load.
  * - The store holds three kinds from the day it exists, so `add` and `format` are a handler
  *   and a label later and never a migration.
+ * - A closing note the cleaner would take words from is refused before the row or its audit
+ *   entry is written, in the words of the button pressed, Mark as handled or Decline. The note
+ *   is counted as typed, so one that fits its box is kept whole and one over the limit is
+ *   refused, never cut, and the box gets back what was typed, for that request and that manager,
+ *   once. Core's cleaners stand in as 7.1.2 writes them (bin/stubs/cleaners.php).
  *
  * Run from the plugin root:  php bin/test-institution-request.php
  */
@@ -91,8 +96,11 @@ function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
 function esc_textarea( $s ) { return esc_html( $s ); }
-function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n" ), '', strip_tags( (string) $s ) ) ); }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+// Core's two cleaners and its decoder as 7.1.2 writes them, which the typed-text rules read: a
+// closing note the cleaner would take words from is refused, and a stand-in on `strip_tags()` alone
+// writes no `&lt;` and would pass every check made with it.
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/cleaners.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
@@ -275,6 +283,7 @@ define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
@@ -975,6 +984,149 @@ run( 'handle_resolve' );
 
 ck( 'a request is raised for the check', is_int( $typed_req ) && $typed_req > 0, true );
 ck( 'and its closing note is kept exactly as typed', get_post_meta( (int) $typed_req, WPCPM_Institution_Request::META_NOTE, true ), $typed_note );
+
+echo "\n=== A closing note the cleaner would take words from is refused, and kept as typed ===\n";
+
+// "Kids <12 free, adults >18 pay": core's cleaner takes "<12 free, adults >" for a tag and drops
+// it, words and all. The note goes on the row and on its audit entry, the record somebody reads a
+// year later, so such a note is refused before either is written, in the words of the button that
+// was pressed, and the box gets back what was typed: for that request, for that manager, once.
+$GLOBALS['users'][3] = new WP_User( 3, 'Third Manager', 'maciej+third@a8c.com', array( 'administrator' ) );
+$GLOBALS['users'][4] = new WP_User( 4, 'Fourth Manager', 'maciej+fourth@a8c.com', array( 'administrator' ) );
+$GLOBALS['manage'][] = 3;
+$GLOBALS['manage'][] = 4;
+$lossy_close         = "Assigned Dana: kids <12 free, adults >18 pay.\r\nThe sync will carry it.";
+$lossy_kept          = str_replace( "\r\n", "\n", $lossy_close );
+$open_for_loss       = seed_open( 'mentor', $A, 'recS0000000000101' );
+$open_for_decline    = seed_open( 'mentor', $A, 'recS0000000000102' );
+$logged              = count( log_for( $A ) );
+$queue_back          = 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions#wpcpm-queue';
+
+$GLOBALS['uid'] = 1;
+clear_flash( 1 );
+$_POST          = array( 'request' => $open_for_loss, 'state' => 'done', 'wpcpm_request_note' => $lossy_close );
+$went           = run( 'handle_resolve' );
+$left           = $GLOBALS['umeta'][1]['wpcpm_flash'] ?? array();
+ck( 'Mark as handled with such a note is refused, and the row is left open: no note, no closing moment, no audit entry', array(
+	$went,
+	$left['institutions'] ?? '',
+	stored()[ $open_for_loss ]['state'],
+	stored()[ $open_for_loss ]['note'],
+	WPCPM_Institution_Request::facts( $open_for_loss )['closed_at'],
+	count( log_for( $A ) ),
+), array( $queue_back, 'request-done-loss', 'open', '', 0, $logged ) );
+ck( 'what was typed waits for that request\'s box, a line break read as the one LF the box counts', $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_loss ]['typed'] ?? null, array( 'note' => $lossy_kept ) );
+
+clear_flash( 2 );
+$GLOBALS['uid'] = 2;
+$_POST          = array( 'request' => $open_for_decline, 'state' => 'declined', 'wpcpm_request_note' => $lossy_close );
+$went           = run( 'handle_resolve' );
+ck( 'and so is Decline, in its own words', array( $went, flash_for( 2, 'institutions' ), stored()[ $open_for_decline ]['state'], count( log_for( $A ) ) ), array( $queue_back, 'request-declined-loss', 'open', $logged ) );
+clear_flash( 2 );
+$GLOBALS['uid'] = 1;
+
+ck( 'each sentence names the box by its label and says to press that button again', array(
+	WPCPM_Institution_Request::messages()['request-done-loss'] ?? null,
+	WPCPM_Institution_Request::messages()['request-declined-loss'] ?? null,
+), array(
+	array( 'error', 'Nothing was marked as handled, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then mark it as handled again.' ),
+	array( 'error', 'Nothing was declined, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then decline it again.' ),
+) );
+
+// The next page is a new request, which reads the flash afresh. `WPCPM_Flash::take()` memoizes per
+// person and per channel for the life of a request, and the press above took this channel once
+// already, so a manager of their own holding what the press left stands in for that next page.
+$other_manager = render_decisions( 2, $open_for_loss );
+$GLOBALS['umeta'][3]['wpcpm_flash'] = $left;
+clear_flash( 1 );
+$elsewhere     = render_decisions( 3, $open_for_decline );
+$given_back    = render_decisions( 3, $open_for_loss );
+$taken         = isset( $GLOBALS['umeta'][3]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_loss ] );
+$box           = static function ( $id ) {
+	return '<textarea id="wpcpm-request-note-' . (int) $id . '" name="wpcpm_request_note" rows="2" maxlength="' . WPCPM_Institution_Request::MAX_NOTE . '" placeholder="What you did about it, for the log. Optional, and not sent to the institution.">';
+};
+ck( 'on the Administrator Dashboard the next page gives the typing back exactly, in that request\'s box, once', array(
+	substr_count( $given_back, $box( $open_for_loss ) . "\n" . esc_textarea( $lossy_kept ) . '</textarea>' ),
+	substr_count( $given_back, '<textarea' ),
+	$taken,
+), array( 1, 1, false ) );
+ck( 'another request\'s box and another manager never see it', array(
+	substr_count( $elsewhere, $box( $open_for_decline ) . '</textarea>' ),
+	substr_count( $other_manager, $box( $open_for_loss ) . '</textarea>' ),
+), array( 1, 1 ) );
+unset( $GLOBALS['umeta'][3] );
+$GLOBALS['uid'] = 1;
+
+// Counted as typed and refused rather than cut: a note that fits its box is kept whole, though the
+// cleaner writes a "<" that opens no tag, and each quote mark and ampersand after it, as an entity
+// and so stores it longer than the box counted; one over the limit as typed is refused.
+$fits = mb_substr( str_repeat( 'Asked Dana < 12 & "up": ', 100 ), 0, WPCPM_Institution_Request::MAX_NOTE );
+ck( 'the note below fits its box as typed while the cleaner stores it longer', array( WPCPM_Typed_Text::typed_length( $fits ), mb_strlen( sanitize_textarea_field( $fits ) ) > WPCPM_Institution_Request::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $fits, 'lines' ) ), array( WPCPM_Institution_Request::MAX_NOTE, true, false ) );
+$_POST = array( 'request' => $open_for_loss, 'state' => 'done', 'wpcpm_request_note' => $fits );
+run( 'handle_resolve' );
+ck( 'so the row is closed with every word of it, none cut', array( flash_for( 1, 'institutions' ), stored()[ $open_for_loss ]['state'], stored()[ $open_for_loss ]['note'] === trim( sanitize_textarea_field( $fits ) ) ), array( 'request-done', 'done', true ) );
+clear_flash( 1 );
+
+$_POST = array( 'request' => $open_for_decline, 'state' => 'declined', 'wpcpm_request_note' => str_repeat( 'a', WPCPM_Institution_Request::MAX_NOTE + 1 ) );
+run( 'handle_resolve' );
+ck( 'a note over the limit as typed is refused, the row left open, the typing kept up to the box\'s room', array(
+	flash_for( 1, 'institutions' ),
+	stored()[ $open_for_decline ]['state'],
+	mb_strlen( (string) ( $GLOBALS['umeta'][1]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_decline ]['typed']['note'] ?? '' ) ),
+), array( 'request-declined-long', 'open', WPCPM_Institution_Request::MAX_NOTE ) );
+clear_flash( 1 );
+ck( 'and each length sentence names the box and the button', array(
+	WPCPM_Institution_Request::messages()['request-done-long'] ?? null,
+	WPCPM_Institution_Request::messages()['request-declined-long'] ?? null,
+), array(
+	array( 'error', 'Nothing was marked as handled. What you typed in "What you did about it" is longer than 2000 characters: shorten it and mark it as handled again.' ),
+	array( 'error', 'Nothing was declined. What you typed in "What you did about it" is longer than 2000 characters: shorten it and decline it again.' ),
+) );
+
+// The limit is counted on what was typed, as the box counts it, in the handler and in `settle()`
+// alike: a reference typed out after a "<", which the cleaner writes in core's longer form (`&#9;`
+// as `&#009;`), is counted as it was typed, and so is an entity typed out.
+$at_most_typed = str_repeat( 'Asked Dana < 12 &#9; ok. ', 79 ) . 'Our next sync carries it.';
+ck( 'the note below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $at_most_typed ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $at_most_typed ) ) > WPCPM_Institution_Request::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $at_most_typed, 'lines' ) ), array( WPCPM_Institution_Request::MAX_NOTE, true, false ) );
+$open_at_most = seed_open( 'mentor', $A, 'recS0000000000103' );
+$_POST        = array( 'request' => $open_at_most, 'state' => 'done', 'wpcpm_request_note' => $at_most_typed );
+run( 'handle_resolve' );
+ck( 'so the row is closed with every word of it, none cut on the way to the store', array( flash_for( 1, 'institutions' ), stored()[ $open_at_most ]['state'], stored()[ $open_at_most ]['note'] === trim( sanitize_textarea_field( $at_most_typed ) ) ), array( 'request-done', 'done', true ) );
+clear_flash( 1 );
+
+$open_over = seed_open( 'mentor', $A, 'recS0000000000104' );
+$_POST     = array( 'request' => $open_over, 'state' => 'declined', 'wpcpm_request_note' => str_repeat( '&lt;', 500 ) . '.' );
+run( 'handle_resolve' );
+ck( 'a note of 2,001 characters as typed, each "&lt;" typed out, is refused, the row left open, the typing kept up to the box\'s room', array(
+	flash_for( 1, 'institutions' ),
+	stored()[ $open_over ]['state'],
+	$GLOBALS['umeta'][1]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_over ]['typed']['note'] ?? null,
+), array( 'request-declined-long', 'open', str_repeat( '&lt;', 500 ) ) );
+clear_flash( 1 );
+
+// For a caller that refused nothing, the cut still stands, counted the same way: on the typing it
+// hands, or on the note when it hands none.
+$open_cut = seed_open( 'mentor', $A, 'recS0000000000105' );
+ck( 'settle() handed no typing cuts a note over the limit at the limit', array( WPCPM_Institution_Request::settle( $open_cut, 'done', str_repeat( 'a', WPCPM_Institution_Request::MAX_NOTE + 5 ), 1, 'manager' ), mb_strlen( stored()[ $open_cut ]['note'] ) ), array( true, WPCPM_Institution_Request::MAX_NOTE ) );
+$open_kept = seed_open( 'mentor', $A, 'recS0000000000106' );
+ck( 'and handed the typing, keeps whole a note that fits as typed', array( WPCPM_Institution_Request::settle( $open_kept, 'done', trim( sanitize_textarea_field( $at_most_typed ) ), 1, 'manager', $at_most_typed ), stored()[ $open_kept ]['note'] === trim( sanitize_textarea_field( $at_most_typed ) ) ), array( true, true ) );
+
+// A clean note closes the row as before, and its press drops what an earlier refusal of the form
+// kept, pressed by a manager whose flash this run has not read for that request yet.
+$GLOBALS['uid'] = 4;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $open_for_decline ), 'note', 'An earlier refused note', WPCPM_Institution_Request::MAX_NOTE );
+$was_kept = isset( $GLOBALS['umeta'][4]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_decline ] );
+$_POST    = array( 'request' => $open_for_decline, 'state' => 'declined', 'wpcpm_request_note' => 'Declined: the student has left.' );
+run( 'handle_resolve' );
+ck( 'a clean note closes the row as before, and the press dropped what the refusal before it kept', array(
+	$was_kept,
+	flash_for( 4, 'institutions' ),
+	stored()[ $open_for_decline ]['state'],
+	stored()[ $open_for_decline ]['note'],
+	isset( $GLOBALS['umeta'][4]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_decline ] ),
+), array( true, 'request-declined', 'declined', 'Declined: the student has left.', false ) );
+unset( $GLOBALS['umeta'][4] );
+$GLOBALS['uid'] = 1;
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

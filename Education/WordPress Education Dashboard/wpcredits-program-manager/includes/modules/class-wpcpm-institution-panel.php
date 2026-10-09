@@ -123,6 +123,7 @@ class WPCPM_Institution_Panel {
 			'agreement-returned'           => array( 'success', __( 'The agreement is returned. Everybody at the institution has been emailed your note, with your address to reply to.', 'wpcredits-program-manager' ) ),
 			'agreement-withdrawn'          => array( 'success', __( 'The signed agreement is withdrawn and its file is deleted. Upload another whenever you are ready.', 'wpcredits-program-manager' ) ),
 			'agreement-note'               => array( 'error', __( 'Nothing was returned. The note has to be between 20 and 2000 characters: it is the whole of what the institution is told, so it has to say what to change.', 'wpcredits-program-manager' ) ),
+			'agreement-return-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::return_label(), 'return' ) ),
 			'agreement-stage'              => array( 'error', __( 'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' ) ),
 			'agreement-generated-later'    => array( 'info', __( 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.', 'wpcredits-program-manager' ) ),
 			'agreement-name'               => array( 'error', __( 'Nothing was generated. The agreement needs the institution\'s name exactly as it should print on a document somebody signs. If you are not sure what to put, ask the program manager who has been in touch with your institution.', 'wpcredits-program-manager' ) ),
@@ -726,10 +727,14 @@ class WPCPM_Institution_Panel {
 	 * and is the difference between "your agreement was returned" and an institution that
 	 * knows page 4 is unsigned.
 	 *
+	 * A return refused for its own words comes back with the note as it was typed, in this
+	 * document's box only (`WPCPM_Institution_Agreement::kept_return_note()`).
+	 *
 	 * @param int $post_id Agreement post ID.
 	 */
 	private static function render_return_form( $post_id ) {
 		$base = 'wpcpm-return-' . (int) $post_id;
+		$kept = WPCPM_Institution_Agreement::kept_return_note( $post_id );
 
 		self::form_start(
 			'wpcpm-review__form',
@@ -742,9 +747,12 @@ class WPCPM_Institution_Panel {
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
 
 		printf(
-			'<p class="wpcpm-review__note"><label for="%1$s">%2$s</label> <textarea class="wpcpm-agreement-panel__input" id="%1$s" name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required></textarea></p>',
+			'<p class="wpcpm-review__note"><label for="%1$s">%2$s</label> <textarea class="wpcpm-agreement-panel__input" id="%1$s" name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required>%3$s</textarea></p>',
 			esc_attr( $base ),
-			esc_html__( 'What has to change, in your own words. This is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'wpcredits-program-manager' )
+			esc_html__( 'What has to change, in your own words. This is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'wpcredits-program-manager' ),
+			// The parser drops one line feed right after the opening tag, so a kept note that
+			// begins with a line break keeps it.
+			null === $kept ? '' : "\n" . esc_textarea( $kept )
 		);
 
 		printf(
@@ -753,6 +761,18 @@ class WPCPM_Institution_Panel {
 		);
 
 		echo '</form>';
+	}
+
+	/**
+	 * The return note's box by its name, the first words of its label, so the form and the sentence
+	 * that refuses a note name it alike. The label's second sentence says how the note is sent, and
+	 * reads as no part of a name.
+	 *
+	 * @return string
+	 */
+	private static function return_label() {
+		/* translators: The name of the box a program manager types why a signed agreement is returned in, the first words of its label. */
+		return __( 'What has to change, in your own words', 'wpcredits-program-manager' );
 	}
 
 	/**

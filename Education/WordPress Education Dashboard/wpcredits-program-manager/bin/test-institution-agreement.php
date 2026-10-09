@@ -29,11 +29,16 @@
  * - **The two crons do only what they say.** Discard forgets the files of withdrawn and
  *   returned documents past the setting and nothing else, keeping every post; the digest goes
  *   out only when something is overdue, and once a day.
+ * - **A return note the cleaner would take words from is refused before the lock.** Nothing is
+ *   written anywhere and nobody is mailed, the note is counted as typed so one that fits its box
+ *   is never refused for the cleaner's entities, and the box gets back what was typed, for that
+ *   document and that manager, once.
  *
  * The other classes are stood in for at their contracts: the fence, the membership store, the
  * roster's `resolve_institution()`, the private store, the ceiling, the mailer, the audit log,
- * the Airtable client and the sync's field map. The index, the roles, the request reader and
- * the flash are the real files. Nothing else is loaded.
+ * the Airtable client and the sync's field map. The index, the roles, the request reader, the
+ * typed-text rules and the flash are the real files, with core's cleaners as 7.1.2 writes them
+ * (bin/stubs/cleaners.php). Nothing else is loaded.
  *
  * Run from the plugin root:  php bin/test-institution-agreement.php
  */
@@ -131,7 +136,6 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_url_raw( $u, $p = null ) { return (string) $u; }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( $u ) : parse_url( $u, $c ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function add_action( $h, $c, $p = 10, $a = 1 ) {}
@@ -257,7 +261,11 @@ function absint( $v ) { return abs( (int) $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_unslash( $v ) { return $v; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
-function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+// Core's two cleaners and its decoder as 7.1.2 writes them, which the typed-text rules read: a
+// note the cleaner would take words from is refused, and a stand-in on `strip_tags()` alone writes
+// no `&lt;` and would pass every check made with it.
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/cleaners.php';
 function sanitize_file_name( $s ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $s ); }
 function sanitize_title( $s ) { return trim( preg_replace( '/-+/', '-', preg_replace( '/[^a-z0-9]/', '-', strtolower( (string) $s ) ) ), '-' ); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
@@ -272,6 +280,7 @@ function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? 
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 // Core's own, beside meta stand-ins that unslash what they are handed as core's do: the flash and
 // every write of words hand them a slashed copy, and it reads back as it was given.
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
@@ -321,6 +330,7 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 
@@ -2126,6 +2136,103 @@ ck( 'returning a replacement does not tell the base the copy in force was return
 ck( 'and that copy is still in force', WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['agreement_id'], $standing );
 ck( 'while the replacement is returned', get_post_meta( $id, '_wpcpm_agr_state', true ), 'returned' );
 
+echo "\n=== handle_return(): a note the cleaner would take words from is refused, and kept as typed ===\n";
+
+// "Kids <12 free, adults >18 pay": core's cleaner takes "<12 free, adults >" for a tag and drops
+// it, words and all. The note is the whole of what the institution is told, so such a note is
+// refused before the lock, the base, the document, its history, the audit log and the mail, and
+// the box gets back what was typed: for that document, for the manager who typed it.
+$id                            = review_world();
+$lossy_note                    = "Clause 4 says kids <12 free, adults >18 pay, which is not the program's.\r\nPlease change it.";
+$_POST['wpcpm_agreement_note'] = $lossy_note;
+$claims                        = $GLOBALS['lock_claims'];
+$outcome                       = run( 'handle_return' );
+$left                          = get_user_meta( 1, WPCPM_Flash::META, true );
+
+ck( 'a note the cleaner would take words from is refused, in the panel\'s words for it', $outcome, 'agreement-return-loss' );
+ck( 'and nothing was done: no lock taken, no base written, the document as it was, no history line, no audit row, no mail', array(
+	$GLOBALS['lock_claims'],
+	$GLOBALS['patched'],
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	get_post_meta( $id, '_wpcpm_agr_note', true ),
+	get_post_meta( $id, WPCPM_Institution_Agreement::META_EVENT, false ),
+	$GLOBALS['audit'],
+	$GLOBALS['mail'],
+), array( $claims, array(), 'submitted', '', array(), array(), array() ) );
+ck( 'what was typed waits for that document\'s return box, a line break read as the one LF the box counts', $left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ]['typed'] ?? null, array( 'note' => str_replace( "\r\n", "\n", $lossy_note ) ) );
+// The next page is a new request, which reads the flash afresh. `WPCPM_Flash::take()` memoizes per
+// person and per channel for the life of a request, and the press above took this channel once
+// already, so a manager of their own holding what the press left stands in for that next page.
+$GLOBALS['users'][9]                     = new WP_User( 9, 'Kasia Manager', 'kasia@example.org' );
+$GLOBALS['umeta'][9][ WPCPM_Flash::META ] = $left;
+$GLOBALS['uid']                          = 4;
+$member_sees                             = WPCPM_Institution_Agreement::kept_return_note( $id );
+$GLOBALS['uid']                          = 9;
+$other_document                          = WPCPM_Institution_Agreement::kept_return_note( $id + 1000 );
+$given_back                              = WPCPM_Institution_Agreement::kept_return_note( $id );
+$still_waiting                           = isset( get_user_meta( 9, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ] );
+$GLOBALS['uid']                          = 1;
+ck( 'and the class hands it back once, for that document and that person alone', array( $member_sees, $other_document, $given_back, $still_waiting ), array( null, null, str_replace( "\r\n", "\n", $lossy_note ), false ) );
+
+// The length is counted as the manager typed it, as the box counts it: the entities the cleaner
+// writes for a "<" and the quote marks and ampersands after it are one character each. A note that
+// fits the box is returned whole, and one refused for its length comes back to its box too.
+$fits                          = mb_substr( str_repeat( 'Clause 8 < 12 & "up": ', 100 ), 0, WPCPM_Institution_Agreement::MAX_NOTE );
+$id                            = review_world();
+$_POST['wpcpm_agreement_note'] = $fits;
+ck( 'the note below fits its box as typed while the cleaner stores it longer', array( WPCPM_Typed_Text::typed_length( $fits ), mb_strlen( sanitize_textarea_field( $fits ) ) > WPCPM_Institution_Agreement::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $fits, 'lines' ) ), array( WPCPM_Institution_Agreement::MAX_NOTE, true, false ) );
+ck( 'so it is returned, never refused for what the cleaner made of it', array( run( 'handle_return' ), get_post_meta( $id, '_wpcpm_agr_note', true ) === trim( sanitize_textarea_field( $fits ) ) ), array( 'agreement-returned', true ) );
+
+$id                            = review_world();
+$_POST['wpcpm_agreement_note'] = 'too short';
+ck( 'a note refused for its length comes back to its box as typed, and nothing was written', array(
+	run( 'handle_return' ),
+	get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ]['typed'] ?? null,
+	$GLOBALS['patched'],
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+), array( 'agreement-note', array( 'note' => 'too short' ), array(), 'submitted' ) );
+
+// Both limits are counted on what was typed, as the box counts it: an entity typed out is as many
+// characters as it was typed with, and a reference typed out after a "<", which the cleaner writes
+// in core's longer form (`&#50;` as `&#050;`), is counted as it was typed too.
+$length_return = static function ( $typed ) {
+	$id                            = review_world();
+	$_POST['wpcpm_agreement_note'] = $typed;
+	$outcome                       = run( 'handle_return' );
+
+	return array(
+		$outcome,
+		get_post_meta( $id, '_wpcpm_agr_state', true ),
+		get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ]['typed'] ?? array(),
+	);
+};
+$at_most_typed = str_repeat( 'Clause 8 < 12 &#9; ok. ', 86 ) . 'Please resend it soon.';
+ck( 'the note below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $at_most_typed ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $at_most_typed ) ) > WPCPM_Institution_Agreement::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $at_most_typed, 'lines' ) ), array( WPCPM_Institution_Agreement::MAX_NOTE, true, false ) );
+ck( '"Type &lt;b&gt; for bold", 23 characters typed out, is returned', $length_return( 'Type &lt;b&gt; for bold' ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'a note of exactly 20 characters as typed, "Type &lt;b&gt; bold.", is returned', $length_return( 'Type &lt;b&gt; bold.' ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'one of 19 characters as typed, "Clause 1 < &#50; ok", is refused as too short, though the cleaner writes it longer, and comes back to its box', $length_return( 'Clause 1 < &#50; ok' ), array( 'agreement-note', 'submitted', array( 'note' => 'Clause 1 < &#50; ok' ) ) );
+ck( 'one of exactly 2,000 characters as typed is returned', $length_return( $at_most_typed ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $length_return( str_repeat( '&lt;', 500 ) . '.' ), array( 'agreement-note', 'submitted', array( 'note' => str_repeat( '&lt;', 500 ) ) ) );
+
+// A clean note goes as it did, and its press drops what an earlier refusal of the form kept. Called
+// straight rather than through `run()`, which empties the flash first.
+$id                            = review_world();
+$_POST['wpcpm_agreement_note'] = $note;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $id ), 'note', 'An earlier refused note', WPCPM_Institution_Agreement::MAX_NOTE );
+$was_kept = isset( get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ] );
+try {
+	WPCPM_Institution_Agreement::handle_return();
+} catch ( Exception $e ) {
+	unset( $e );
+}
+ck( 'a clean note is returned as before, and the press dropped what the refusal before it kept', array(
+	$was_kept,
+	flashed(),
+	get_post_meta( $id, '_wpcpm_agr_note', true ),
+	mail_log(),
+	isset( get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-return:' . $id ] ),
+), array( true, 'agreement-returned', $note, array( 'agreement-returned to ola@example.edu', 'agreement-returned to bo@example.edu' ), false ) );
+
 /* ---- withdraw ----------------------------------------------------------- */
 
 echo "\n=== handle_withdraw(): the file goes at once, and nobody is emailed ===\n";
@@ -3017,6 +3124,34 @@ ck( 'the institutions sync, which runs every three hours, is what calls it, behi
 	false !== strpos( $sync_src, "method_exists( 'WPCPM_Institution_Agreement', 'retry_airtable' )" ),
 	false !== strpos( method_body( $sync_src, 'phase_revoke' ), 'self::retry_agreements( $state )' ),
 ), array( true, true ) );
+
+echo "\n=== The return and revoke mails read the note as it was typed ===\n";
+
+// A mail is plain text. The cleaner writes a "<" that opens no tag as `&lt;`, and each quote mark
+// and ampersand after it as an entity, so a note stored that way would reach the institution
+// saying `&lt;` and `&quot;`. Both mails read it back to what was typed (`mail_text()`); the
+// document keeps the note as stored. Neither subject carries any typed text.
+$mailed_note = "Clause 8 < 12 & \"up\" is not the program's, see 'page 4'.\r\nPlease change it.";
+
+$id                            = review_world();
+$_POST['wpcpm_agreement_note'] = $mailed_note;
+ck( 'a return with such a note goes through, the note kept as the cleaner left it', array( run( 'handle_return' ), get_post_meta( $id, '_wpcpm_agr_note', true ) ), array( 'agreement-returned', sanitize_textarea_field( $mailed_note ) ) );
+ck( 'and each member\'s mail reads it as typed, with no entity in the body or the subject', array(
+	count( $GLOBALS['mail'] ),
+	false !== strpos( $GLOBALS['mail'][0]['body'] ?? '', "\r\n\r\n" . $mailed_note . "\r\n\r\n" ),
+	preg_match( '/&(lt|gt|amp|quot|#0?39);/', ( $GLOBALS['mail'][0]['body'] ?? '' ) . ( $GLOBALS['mail'][1]['body'] ?? '' ) ),
+	$GLOBALS['mail'][0]['subject'] ?? '',
+), array( 2, true, 0, '[WPCredits] Your signed agreement needs a change' ) );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = $mailed_note;
+ck( 'a revocation with such a note goes through, the note kept as the cleaner left it', array( run( 'handle_revoke' ), get_post_meta( $id, '_wpcpm_agr_note', true ) ), array( 'agreement-revoked', sanitize_textarea_field( $mailed_note ) ) );
+ck( 'and its mail reads it as typed, with no entity in the body or the subject', array(
+	count( $GLOBALS['mail'] ),
+	false !== strpos( $GLOBALS['mail'][0]['body'] ?? '', "\r\n\r\n" . $mailed_note . "\r\n\r\n" ),
+	preg_match( '/&(lt|gt|amp|quot|#0?39);/', ( $GLOBALS['mail'][0]['body'] ?? '' ) . ( $GLOBALS['mail'][1]['body'] ?? '' ) ),
+	$GLOBALS['mail'][0]['subject'] ?? '',
+), array( 2, true, 0, '[WPCredits] Your agreement has been revoked' ) );
 
 echo "\n=== A note and a version keep their backslashes ===\n";
 

@@ -1216,7 +1216,9 @@ wp_delete_post( $gone, true );
 
 $GLOBALS['patched'] = array();
 $_POST              = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboard' );
-ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'agreement-accepted' ) ) );
+// That channel is the Institutions screen's, whose own agreement outcomes share this class's keys, so
+// the outcome goes there under the class's prefix and the page reads the company's words under it.
+ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel, under the class\'s prefix', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'sponsor-agreement-accepted' ), 'sponsor-' ) );
 $_POST = array();
 
 echo "\n=== Notes keep their backslashes ===\n";
@@ -1300,6 +1302,42 @@ ran( 'handle_return' );
 ck( 'a note of 2,000 characters as typed, with 41 line breaks and longer as the cleaner stores it, returns the document', array( substr_count( $n_at, "\r\n" ), mb_strlen( sanitize_textarea_field( $n_at ) ) > 2000, end( $GLOBALS['flash'] )[1], (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $n_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ) === sanitize_textarea_field( $n_at ) ), array( 41, true, 'agreement-returned', 'returned', true ) );
 ck( 'and the company is mailed every character of it as typed', isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], "\r\n\r\n" . $n_at . "\r\n\r\n" ), true );
 
+// Both limits are counted on what was typed, as the box counts it, for a return and for Take it
+// out of force alike: an entity typed out is as many characters as it was typed with, and a
+// reference typed out after a "<", which the cleaner writes in core's longer form (`&#50;` as
+// `&#050;`), is counted as it was typed too.
+$agr_length = static function ( $n, $handler, $typed ) {
+	$record = 'recSPN000000000' . ( 40 + $n );
+	agr_sponsor( $record, 40 + $n, 'Sponsor Length ' . $n );
+	$doc = agr_upload( $record, 40 + $n );
+
+	if ( 'handle_revoke' === $handler ) {
+		$_POST = array( 'wpcpm_sponsor_agr_post' => $doc );
+		ran( 'handle_accept' );
+	}
+
+	$GLOBALS['mail']        = array();
+	$GLOBALS['kept_typing'] = array();
+	$_POST                  = array( 'wpcpm_sponsor_agr_post' => $doc, 'wpcpm_sponsor_agr_note' => $typed );
+	ran( $handler );
+	$form = WPCPM_Typed_Text::KEPT_CHANNEL . ( 'handle_revoke' === $handler ? WPCPM_Sponsor_Agreement::TYPED_REVOKE : WPCPM_Sponsor_Agreement::TYPED_RETURN ) . ':' . $doc;
+	$got  = array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $doc, WPCPM_Sponsor_Agreement::META_STATE, true ), $GLOBALS['kept_typing'][1][ $form ]['typed'] ?? array() );
+
+	$GLOBALS['mail']        = array();
+	$GLOBALS['kept_typing'] = array();
+
+	return $got;
+};
+$agr_at_most = str_repeat( 'Clause 8 < 12 &#9; ok. ', 86 ) . 'Please resend it soon.';
+ck( 'the note below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $agr_at_most ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $agr_at_most ) ) > WPCPM_Sponsor_Agreement::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $agr_at_most, 'lines' ) ), array( WPCPM_Sponsor_Agreement::MAX_NOTE, true, false ) );
+ck( '"Type &lt;b&gt; for bold", 23 characters typed out, returns the document', $agr_length( 1, 'handle_return', 'Type &lt;b&gt; for bold' ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'a note of exactly 20 characters as typed, "Type &lt;b&gt; bold.", returns it', $agr_length( 2, 'handle_return', 'Type &lt;b&gt; bold.' ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'one of 19 characters as typed, "Clause 1 < &#50; ok", is refused as too short, though the cleaner writes it longer, and comes back to its box', $agr_length( 3, 'handle_return', 'Clause 1 < &#50; ok' ), array( 'agreement-note', 'submitted', array( 'note' => 'Clause 1 < &#50; ok' ) ) );
+ck( 'one of exactly 2,000 characters as typed returns it', $agr_length( 4, 'handle_return', $agr_at_most ), array( 'agreement-returned', 'returned', array() ) );
+ck( 'one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $agr_length( 5, 'handle_return', str_repeat( '&lt;', 500 ) . '.' ), array( 'agreement-note', 'submitted', array( 'note' => str_repeat( '&lt;', 500 ) ) ) );
+ck( 'Take it out of force counts its note the same way: "Type &lt;b&gt; for bold" takes the agreement out of force', $agr_length( 6, 'handle_revoke', 'Type &lt;b&gt; for bold' ), array( 'agreement-revoked', 'revoked', array() ) );
+ck( 'and "Clause 1 < &#50; ok" is refused as too short, and comes back to its box', $agr_length( 7, 'handle_revoke', 'Clause 1 < &#50; ok' ), array( 'agreement-revoke-note', 'accepted', array( 'note' => 'Clause 1 < &#50; ok' ) ) );
+
 agr_sponsor( 'recSPN00000000011', 27, 'Sponsor Eleven' );
 $n_doc = agr_upload( 'recSPN00000000011', 27 );
 $GLOBALS['mail'] = array();
@@ -1369,7 +1407,7 @@ $k_event = count( (array) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_E
 $GLOBALS['kept_typing'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
 $_POST  = $k_back + array( 'wpcpm_sponsor_agr_note' => $k_note );
 $landed = ran( 'handle_return' );
-ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Administrator Dashboard, with the sentence for a return, naming the box by its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::manager_messages()['agreement-note-loss'] ?? null ), array( $k_dash, array( 'institutions_dashboard', 'agreement-note-loss' ), array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "A note for the company". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) ) );
+ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Administrator Dashboard, with the sentence for a return, naming the box by its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::manager_messages()['agreement-note-loss'] ?? null ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note-loss' ), array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "A note for the company". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) ) );
 ck( 'and nothing is done: the document waits, no note or decision on it, no event, no word to the base, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_DECIDED_BY, true ), count( (array) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $k_event, $GLOBALS['patched'], $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $K, $GLOBALS['opts'] ) ), array( 'submitted', '', '', 0, array(), array(), array(), false ) );
 ck( 'the document\'s Return with a note draws open, its box holding the note as it was typed, a line break as the box counts it', agr_note_box( $k_doc ), array( 'shown' => str_replace( "\r\n", "\n", $k_note ), 'open' => true ) );
 ck( 'and only once: drawn again, the box is empty and the fold closed', agr_note_box( $k_doc ), array( 'shown' => '', 'open' => false ) );
@@ -1391,11 +1429,11 @@ ck( 'posted without the way back, the refusal lands on the Sponsors screen it ca
 agr_note_box( $k_doc );
 
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => 'Too short' );
-ck( 'a note under its least is refused as before, and its box now comes back with it', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'agreement-note' ), array( 'shown' => 'Too short', 'open' => true ) ) );
+ck( 'a note under its least is refused as before, and its box now comes back with it', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note' ), array( 'shown' => 'Too short', 'open' => true ) ) );
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => $n_at . 'xyz' );
-ck( 'and so does a note over its limit, kept up to the box\'s limit of 2,000', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'agreement-note' ), array( 'shown' => str_replace( "\r\n", "\n", $n_at ), 'open' => true ) ) );
+ck( 'and so does a note over its limit, kept up to the box\'s limit of 2,000', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note' ), array( 'shown' => str_replace( "\r\n", "\n", $n_at ), 'open' => true ) ) );
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => '   ' );
-ck( 'a note left empty keeps nothing: there is nothing to give back', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), $GLOBALS['kept_typing'][1] ?? array() ), array( $k_dash, array( 'institutions_dashboard', 'agreement-note' ), array() ) );
+ck( 'a note left empty keeps nothing: there is nothing to give back', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), $GLOBALS['kept_typing'][1] ?? array() ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note' ), array() ) );
 
 // Refused and kept, then posted with the fix while the base refuses it: the document still waits,
 // and its box is not filled with the typing the fix replaced.
@@ -1405,12 +1443,12 @@ $GLOBALS['patch_fails'] = true;
 $_POST                  = $k_back + array( 'wpcpm_sponsor_agr_note' => 'Kids under 12 free, adults over 18 pay.' );
 $k_fixed                = ran( 'handle_return' );
 $GLOBALS['patch_fails'] = false;
-ck( 'a typing a refusal kept goes when the form is posted again, so a press the base refused draws the box empty, not with what the fix replaced', array( $k_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'agreement-airtable' ), 'submitted', array( 'shown' => '', 'open' => false ) ) );
+ck( 'a typing a refusal kept goes when the form is posted again, so a press the base refused draws the box empty, not with what the fix replaced', array( $k_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-airtable' ), 'submitted', array( 'shown' => '', 'open' => false ) ) );
 
 $k_keeps = "We <3 WordPress.\r\nAges 8 < 12 welcome, adults > 18 pay, 100% of them, Q&A: \"blocks\" & themes, &amp; and &copy; typed out, and \xF0\x9F\x98\x80";
 $GLOBALS['mail'] = array();
 $_POST           = $k_back + array( 'wpcpm_sponsor_agr_note' => $k_keeps );
-ck( 'a note the cleaner keeps whole returns the document as before: kept as the cleaner left it, mailed as typed, and nothing kept for the form', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], "\r\n\r\n" . WPCPM_Typed_Text::mail_text( sanitize_textarea_field( $k_keeps ) ) . "\r\n\r\n" ), $GLOBALS['kept_typing'][1] ?? array() ), array( $k_dash, array( 'institutions_dashboard', 'agreement-returned' ), 'returned', sanitize_textarea_field( $k_keeps ), true, array() ) );
+ck( 'a note the cleaner keeps whole returns the document as before: kept as the cleaner left it, mailed as typed, and nothing kept for the form', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], "\r\n\r\n" . WPCPM_Typed_Text::mail_text( sanitize_textarea_field( $k_keeps ) ) . "\r\n\r\n" ), $GLOBALS['kept_typing'][1] ?? array() ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-returned' ), 'returned', sanitize_textarea_field( $k_keeps ), true, array() ) );
 $GLOBALS['manage'] = array( 1 );
 $_POST             = array();
 

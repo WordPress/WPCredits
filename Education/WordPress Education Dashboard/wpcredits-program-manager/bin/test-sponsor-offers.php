@@ -836,7 +836,9 @@ function wpcpm_test_boxes( $html, $offer_id ) {
 	// The parser reads CR LF in the markup as LF, then each entity once.
 	$shows = static function ( $markup ) { return html_entity_decode( str_replace( "\r\n", "\n", $markup ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ); };
 	if ( preg_match( '/<input type="text" id="wpcpm-offer-' . (int) $offer_id . '-title" name="wpcpm_title" value="([^"]*)" maxlength="(\d+)"/', $form, $m ) ) {
-		$out['title'] = array( 'markup' => $m[1], 'shown' => $shows( $m[1] ), 'posts' => $shows( $m[1] ), 'maxlength' => (int) $m[2] );
+		// A text input drops every line break from its value, so a break in the markup is not in the box.
+		$line         = str_replace( array( "\r", "\n" ), '', $shows( $m[1] ) );
+		$out['title'] = array( 'markup' => $m[1], 'shown' => $line, 'posts' => $line, 'maxlength' => (int) $m[2] );
 	}
 	foreach ( array( 'text', 'instructions' ) as $key ) {
 		if ( preg_match( '/<textarea id="wpcpm-offer-' . (int) $offer_id . '-' . $key . '" name="wpcpm_' . $key . '" rows="\d+" maxlength="(\d+)">(.*?)<\/textarea>/s', $form, $m ) ) {
@@ -1165,6 +1167,34 @@ $s_plain = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Stored plain', '
 $r       = post( wpcpm_test_unedited( $A, $s_plain, array( 'wpcpm_text' => 'Use code SAVE20<b></b>' ) ), $k_save );
 ck( 'a stored "Use code SAVE20" typed as "Use code SAVE20<b></b>", which the cleaner cuts back to the stored text, is refused, and the stored text is unchanged', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_plain )['text'] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), 'Use code SAVE20' ) );
 card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+
+echo "\n=== A title drawn from a stored value with a line break inside it ===\n";
+// A title can hold a line break: the first offer is seeded with the sponsor's name, which can be
+// written on two lines in the base's grid. A text input drops the break from its value, so "Free
+// hosting" and "for students" drawn as stored would post back as "Free hostingfor students". The
+// break is drawn as a space, and a title posted back as it was drawn is the stored title.
+$GLOBALS['uid'] = 5; $GLOBALS['flash'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$h_title = "Free hosting\nfor students";
+$h_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $h_title, 'kind' => 'codes', 'text' => 'One year free', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$h_post  = wpcpm_test_unedited( $A, $h_id, array( 'wpcpm_expires' => '2026-12-31' ) );
+$GLOBALS['title_writes'] = 0;
+$r     = post( $h_post, $k_save );
+$h_got = WPCPM_Sponsor_Offers::read( $h_id );
+ck( 'a title stored as "Free hosting" and "for students" on two lines is drawn as "Free hosting for students"', $h_post['wpcpm_title'], 'Free hosting for students' );
+ck( 'posted back as drawn with only the last day changed, it saves the day and keeps the title\'s stored bytes, with no title write', array( $r[0], $h_got['expires'], $h_got['title'], $GLOBALS['title_writes'] ), array( 'offer-saved', '2026-12-31', $h_title, 0 ) );
+$GLOBALS['title_writes'] = 0;
+$r = post( wpcpm_test_unedited( $A, $h_id, array( 'wpcpm_title' => 'Free hosting for students ', 'wpcpm_expires' => '2027-01-31' ) ), $k_save );
+ck( 'and with a space typed at its end, which the cleaner takes off, it is still the stored title', array( $r[0], WPCPM_Sponsor_Offers::read( $h_id )['expires'], WPCPM_Sponsor_Offers::read( $h_id )['title'], $GLOBALS['title_writes'] ), array( 'offer-saved', '2027-01-31', $h_title, 0 ) );
+// The unedited test is asked of what was typed, before the loss check: a stored title with a "%"
+// the cleaner would take, drawn with its break as a space, is not refused for a box nobody touched.
+$h_pct = "Get 10%cashback\nfor students";
+$h_pid = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $h_pct, 'kind' => 'codes', 'text' => 'One year free', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$r     = post( wpcpm_test_unedited( $A, $h_pid, array( 'wpcpm_expires' => '2026-12-31' ) ), $k_save );
+ck( 'a stored "Get 10%cashback" and "for students" on two lines, posted back as drawn with only the last day changed, saves and keeps its bytes', array( $r[0], WPCPM_Sponsor_Offers::read( $h_pid )['expires'], WPCPM_Sponsor_Offers::read( $h_pid )['title'] ), array( 'offer-saved', '2026-12-31', $h_pct ) );
+card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$GLOBALS['title_writes'] = 0;
+$r = post( wpcpm_test_unedited( $A, $h_id, array( 'wpcpm_title' => 'Free hosting for all students' ) ), $k_save );
+ck( 'edited, the title is written as the person left it', array( $r[0], WPCPM_Sponsor_Offers::read( $h_id )['title'], $GLOBALS['title_writes'] ), array( 'offer-saved', 'Free hosting for all students', 1 ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -802,7 +802,10 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'questions'      => array(),
 		);
 
-		$link    = WPCPM_Request::posted_text( 'wpcpm_course_url' );
+		// A link is a code, not prose: the one-line cleaner removes every `%XX`, which would rewrite a
+		// link with a space in its query or an address in another alphabet. Read as typed, and through
+		// esc_url_raw(), which keeps them.
+		$link    = WPCPM_Request::posted_verbatim( 'wpcpm_course_url' );
 		$warning = '';
 
 		if ( '' !== $link ) {
@@ -1212,14 +1215,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition['label']  = WPCPM_Request::posted_text( 'wpcpm_label' );
 		$definition['status'] = WPCPM_Request::posted_text( 'wpcpm_status' );
 		$definition['key']    = WPCPM_Request::posted_text( 'wpcpm_key' );
-		$course               = WPCPM_Request::posted_text( 'wpcpm_course_url' );
+		$course               = WPCPM_Request::posted_verbatim( 'wpcpm_course_url' );
 		$hours                = WPCPM_Request::posted_text( 'wpcpm_hours_target' );
 		$hue                  = WPCPM_Request::posted_text( 'wpcpm_hue' );
 
 		// An empty course url is "no course," the same as no hours target below: writing '' here
 		// would give a track that never had one a key it did not have (the final review). The
 		// course's ID goes with it, whatever ID the stored definition carried, since the ID is not
-		// typed since T3c: `resolve_course()` sets it from the link on save (decision 31).
+		// typed since T3c: `resolve_course()` sets it from the link on save (decision 31). The link
+		// is read as typed, as a new track's is (`handle_new()`).
 		if ( '' === $course ) {
 			unset( $definition['course_url'], $definition['learn_course_id'] );
 		} else {
@@ -1255,7 +1259,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$typed = array();
 
 		foreach ( array( 'label', 'status', 'key', 'course_url', 'hours_target', 'hue' ) as $property ) {
-			$typed[ $property ] = WPCPM_Request::posted_text( 'wpcpm_' . $property );
+			// The course link as typed, with the `%XX` the one-line cleaner would take out: the box
+			// is drawn with it again, and the Save that follows would send the link without them.
+			$typed[ $property ] = 'course_url' === $property ? WPCPM_Request::posted_verbatim( 'wpcpm_course_url' ) : WPCPM_Request::posted_text( 'wpcpm_' . $property );
 		}
 
 		return $typed;

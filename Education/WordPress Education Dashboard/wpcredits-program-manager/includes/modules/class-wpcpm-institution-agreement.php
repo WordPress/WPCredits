@@ -293,9 +293,19 @@ class WPCPM_Institution_Agreement {
 	const LOG_REVOKE    = 'agreement_revoke';
 	const LOG_REINSTATE = 'agreement_reinstate';
 
-	/** A returned document's note, in characters. Long enough to say why, short enough to read. */
+	/**
+	 * A returned document's note, in characters as typed (`WPCPM_Typed_Text::box_length()`). Long
+	 * enough to say why, short enough to read.
+	 */
 	const MIN_NOTE = 20;
 	const MAX_NOTE = 2000;
+
+	/**
+	 * What a refused return keeps its note under, before the document it acts on
+	 * (`WPCPM_Typed_Text::box_form()`), so a note typed for one document comes back in that
+	 * document's box and in no other.
+	 */
+	const TYPED_RETURN = 'inst-agreement-return';
 
 	/** Longest original filename kept for display. It is never used on disk or in a header. */
 	const MAX_FILENAME = 200;
@@ -853,7 +863,10 @@ class WPCPM_Institution_Agreement {
 			self::bounce_on_file( 'agreement-unknown' );
 		}
 
-		$drive = WPCPM_Request::posted_text( 'wpcpm_agreement_drive' );
+		// A link is a code, not prose: the one-line cleaner removes every `%XX`, which would rewrite a
+		// Drive link with one in its query. Read as typed, and through esc_url_raw(), which keeps
+		// them, so the base and the post hold the same link.
+		$drive = esc_url_raw( WPCPM_Request::posted_verbatim( 'wpcpm_agreement_drive' ) );
 
 		// Ahead of the lock, because this refusal needs nothing but the posted string: a
 		// link that is not a Drive link must not make an option row at all, not even one
@@ -1072,7 +1085,8 @@ class WPCPM_Institution_Agreement {
 
 		check_admin_referer( self::ACTION_ON_FILE_ALL );
 
-		$drive = WPCPM_Request::posted_text( 'wpcpm_agreement_drive' );
+		// Read as typed, as the single route reads it (`handle_on_file()`).
+		$drive = esc_url_raw( WPCPM_Request::posted_verbatim( 'wpcpm_agreement_drive' ) );
 
 		if ( ! self::is_drive_link( $drive ) ) {
 			self::bounce_on_file( 'agreement-link' );
@@ -1636,6 +1650,10 @@ class WPCPM_Institution_Agreement {
 	 * The note is required and mailed verbatim, with reply-to the manager who wrote it: an
 	 * institution told only that its agreement came back learns nothing, and the person who
 	 * can answer the question it will ask is the one who sent it.
+	 *
+	 * A note the cleaner would take words from, or one too short or too long as typed, is refused
+	 * before the lock and every write after it, and its box gets back what was typed
+	 * (`WPCPM_Typed_Text::keep_box()`).
 	 */
 	public static function handle_return() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1661,10 +1679,30 @@ class WPCPM_Institution_Agreement {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$note   = self::posted_note();
-		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $note ) : strlen( $note );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = WPCPM_Request::posted_raw( 'wpcpm_agreement_note' );
+		$note  = self::posted_note();
+
+		// Both refusals ahead of the lock, because they need nothing but the posted string. A note
+		// the cleaner would take words from would reach the institution missing them without a
+		// word said.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+			self::bounce( 'agreement-return-loss' );
+		}
+
+		// Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`):
+		// past the loss check, the typing and what the cleaner keeps hold the same words, and only the
+		// typing tells an entity typed out from one the cleaner wrote. So a note the box took is never
+		// refused for what the cleaner made of it, and one it would not take is not let through.
+		$length = WPCPM_Typed_Text::box_length( $typed );
 
 		if ( $length < self::MIN_NOTE || $length > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-note' );
 		}
 
@@ -3639,6 +3677,17 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * What a refused return typed into its note, handed back once for the one time its form is drawn
+	 * again, on the Administrator Dashboard's review block, or null when nothing is.
+	 *
+	 * @param int $post_id The document.
+	 * @return string|null
+	 */
+	public static function kept_return_note( $post_id ) {
+		return WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id ), 'note' );
+	}
+
+	/**
 	 * Send one message to every live member of an institution.
 	 *
 	 * Every member at every step, because equal members should not learn from a colleague
@@ -3820,9 +3869,13 @@ class WPCPM_Institution_Agreement {
 	 * its agreement came back learns nothing, and the person who can answer the question it
 	 * will ask is the one who sent it.
 	 *
+	 * A mail is plain text, so the note is read back to what was typed (`mail_text()`): a "<" the
+	 * cleaner wrote as `&lt;` arrives as "<", and a quote mark or an ampersand after it as itself.
+	 * The subject carries no typed text.
+	 *
 	 * @param string $record  Institutions record ID.
 	 * @param int    $post_id The returned document.
-	 * @param string $note    The note, as typed.
+	 * @param string $note    The note, as the cleaner left it.
 	 * @return int How many members were mailed.
 	 */
 	private static function mail_returned( $record, $post_id, $note ) {
@@ -3832,6 +3885,7 @@ class WPCPM_Institution_Agreement {
 			return 0;
 		}
 
+		$note    = WPCPM_Typed_Text::mail_text( $note );
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
@@ -3873,9 +3927,11 @@ class WPCPM_Institution_Agreement {
 	 * their students is deleted by a revocation, and it names the country contact so there is
 	 * somebody to write to who is not the address this mail was sent from.
 	 *
+	 * The note is read back to what was typed, as in `mail_returned()`.
+	 *
 	 * @param string $record  Institutions record ID.
 	 * @param int    $post_id The revoked document.
-	 * @param string $note    The note, as typed.
+	 * @param string $note    The note, as the cleaner left it.
 	 * @return int How many members were mailed.
 	 */
 	private static function mail_revoked( $record, $post_id, $note ) {
@@ -3885,6 +3941,7 @@ class WPCPM_Institution_Agreement {
 			return 0;
 		}
 
+		$note    = WPCPM_Typed_Text::mail_text( $note );
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';

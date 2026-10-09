@@ -270,10 +270,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The question is the whole of what an applicant is told, so an empty one is refused;
 	 * the reason on a rejection is never sent anywhere, so it is optional and only the
-	 * ceiling applies to it.
+	 * ceiling applies to it. Both are counted as typed (`WPCPM_Typed_Text::box_length()`).
 	 */
 	const MIN_NOTE = 10;
 	const MAX_NOTE = 2000;
+
+	/**
+	 * What a refused question and a refused Reject keep their typing under, before the application
+	 * they are about (`WPCPM_Typed_Text::box_form()`), so what was typed for one applicant comes
+	 * back in that application's box of that form and in no other.
+	 */
+	const TYPED_QUESTION = 'app-question';
+	const TYPED_REASON   = 'app-reason';
 
 	/** The two messages this queue sends, named for the mail log. */
 	const MAIL_INFO     = 'institution-information';
@@ -1158,6 +1166,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * waiting on them", so writing it after a send that failed would put an application in
 	 * front of the next manager as one somebody is already waiting on - and the applicant,
 	 * who was never asked anything, waits for a question that is sitting in nobody's inbox.
+	 *
+	 * A question refused for its own words, one the cleaner would take words from, one too short
+	 * or one too long, is refused before anything is sent or written, and comes back to its form as
+	 * it was typed (`WPCPM_Typed_Text::keep_box()`): the press lands on the application it was made
+	 * for, opened on this screen, or on the Administrator Dashboard's card when it came from there.
 	 */
 	public function handle_info() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1170,14 +1183,39 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->redirect_back( 'app-unknown' );
 		}
 
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
 		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
 			$this->redirect_back( 'app-state' );
 		}
 
+		$typed    = WPCPM_Request::posted_raw( 'wpcpm_question' );
 		$question = self::posted_note( 'wpcpm_question' );
 
-		if ( mb_strlen( $question ) < self::MIN_NOTE ) {
-			$this->redirect_back( 'app-question' );
+		// A question the cleaner would take words from is refused before anything is sent or
+		// written: it would reach the applicant missing them without a word said.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-question-loss', $post );
+		}
+
+		// Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`):
+		// past the loss check, the typing and what the cleaner keeps hold the same words, and only the
+		// typing tells an entity typed out from one the cleaner wrote. Refused rather than cut on both
+		// sides, because the question is the whole of what the applicant is told.
+		$length = WPCPM_Typed_Text::box_length( $typed );
+
+		if ( $length < self::MIN_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-question', $post );
+		}
+
+		if ( $length > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-question-long', $post );
 		}
 
 		$email = self::application_email( $post );
@@ -1189,11 +1227,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$manager   = wp_get_current_user();
 		$site      = WPCPM_Mail::site_name();
 		$reference = self::application_reference( $post );
+		// A mail is plain text, so the question is read back to what was typed: the applicant reads
+		// "<" and "&", never `&lt;` and `&amp;`. The history keeps it as stored. The subject carries
+		// no typed text.
+		$said = WPCPM_Typed_Text::mail_text( $question );
 
-		$build = static function () use ( $site, $reference, $question, $manager ) {
+		$build = static function () use ( $site, $reference, $said, $manager ) {
 			$lines = array(
 				__( 'Thank you for applying to the WordPress Credits Program. Before a program manager can take your application further, they have one question:', 'wpcredits-program-manager' ),
-				$question,
+				$said,
 				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
 			);
 
@@ -1227,6 +1269,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * starts from, and the program has no obligation to give one. The manager's reason is
 	 * kept on the application's own history, where the next manager reading the queue can
 	 * see it and the applicant cannot.
+	 *
+	 * The reason is optional and never sent anywhere, and it is measured as the question is: a
+	 * reason the cleaner would take words from, or one over `MAX_NOTE` as typed, is refused before
+	 * anything is sent or written, rather than kept short, and the form gets back what was typed.
 	 */
 	public function handle_reject() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1239,13 +1285,34 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->redirect_back( 'app-unknown' );
 		}
 
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
 		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
 			$this->redirect_back( 'app-state' );
 		}
 
+		$typed  = WPCPM_Request::posted_raw( 'wpcpm_reason' );
 		$reason = self::posted_note( 'wpcpm_reason' );
-		$email  = self::application_email( $post );
-		$site   = WPCPM_Mail::site_name();
+
+		// Kept on the history for the next Administrator: one the cleaner would take words from
+		// would be kept missing them without a word said.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'reason', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-reason-loss', $post );
+		}
+
+		// Counted on what was typed, as the question is, and refused rather than cut: a reason cut
+		// short reaches the next Administrator missing its end.
+		if ( WPCPM_Typed_Text::box_length( $typed ) > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'reason', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-reason-long', $post );
+		}
+
+		$email = self::application_email( $post );
+		$site  = WPCPM_Mail::site_name();
 
 		// The reason is deliberately not captured by this closure. Keeping it out of the
 		// builder's scope is what stops a later edit reaching for it "just for the subject".
@@ -1661,7 +1728,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * A posted note, trimmed to the ceiling.
+	 * A posted note, cleaned and trimmed. Each caller measures what was typed
+	 * (`WPCPM_Typed_Text::box_length()`) and refuses it over `MAX_NOTE`: the question and the
+	 * rejection's reason alike, neither of them cut.
 	 *
 	 * `sanitize_textarea_field()` and not `WPCPM_Request::posted_text()`: a question to an
 	 * applicant has paragraphs in it, and `sanitize_text_field()` would fold them into one
@@ -1678,9 +1747,51 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
-		$note = sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) );
+		return trim( sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) ) );
+	}
 
-		return trim( mb_substr( $note, 0, self::MAX_NOTE ) );
+	/**
+	 * The question's box by its name, the first words of its label, so the form and the sentences
+	 * that refuse a question name it alike. The label's second sentence says how it is sent, and
+	 * reads as no part of a name.
+	 *
+	 * @return string
+	 */
+	private static function question_label() {
+		/* translators: The name of the box a program manager types a question to an applicant in, the first words of its label. */
+		return __( 'Ask the applicant something', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The Reject reason's box by its name, the first words of its label, so the form and the
+	 * sentences that refuse a reason name it alike. The label's second sentence says it is never
+	 * sent, and reads as no part of a name.
+	 *
+	 * @return string
+	 */
+	private static function reason_label() {
+		/* translators: The name of the box a program manager types why an application is rejected in, the first words of its label. */
+		return __( 'Why, for the next Administrator who reads this', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Back to the application a question or a Reject was refused for, with the outcome flashed for
+	 * the person who pressed, and stop.
+	 *
+	 * The refusal is of the box's own words, and the box gets back what was typed, so the press
+	 * lands where that box is drawn: the application opened on this screen, or, for a press from
+	 * the Administrator Dashboard, its applications card there (`WPCPM_Return::url()`).
+	 *
+	 * @param string  $status An outcome key `queue_messages()` words.
+	 * @param WP_Post $post   The application.
+	 */
+	private function back_to_application( $status, WP_Post $post ) {
+		WPCPM_Flash::set( $this->flash_key(), $status );
+
+		$opened = add_query_arg( self::ARG_APPLICATION, (int) $post->ID, $this->admin_url() );
+
+		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $opened ) : $opened );
+		exit;
 	}
 
 	/**
@@ -2140,7 +2251,34 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-failed'           => array( 'error', __( 'Nothing was finished. Airtable or this site refused a write; whatever half landed is stamped, and pressing Approve again completes the rest.', 'wpcredits-program-manager' ) ),
 			'app-member-elsewhere' => array( 'error', __( 'Nothing was finished. The account for that address already acts for a different institution, so pressing Approve again cannot help: decide who that account belongs to first, and remove it from the other institution if this application is the right one.', 'wpcredits-program-manager' ) ),
 			'app-member-taken'     => array( 'error', __( 'Nothing was finished. The account for that address is not one this can adopt, so pressing Approve again cannot help: a person has to decide what that account is for before this institution can have one.', 'wpcredits-program-manager' ) ),
-			'app-question'         => array( 'error', __( 'Nothing was sent. Write the question you want answered: it is the whole of what the applicant is told.', 'wpcredits-program-manager' ) ),
+			'app-question'         => array(
+				'error',
+				sprintf(
+					/* translators: %s: the shortest question allowed, in characters. */
+					__( 'Nothing was sent. The question has to be at least %s characters: it is the whole of what the applicant is told.', 'wpcredits-program-manager' ),
+					number_format_i18n( self::MIN_NOTE )
+				),
+			),
+			'app-question-loss'    => array( 'error', WPCPM_Typed_Text::loss_message( self::question_label(), 'send' ) ),
+			'app-question-long'    => array(
+				'error',
+				sprintf(
+					/* translators: 1: the name of the box, such as Ask the applicant something, 2: the longest question allowed, in characters. */
+					__( 'Nothing was sent. What you typed in "%1$s" is longer than %2$s characters: shorten it and send it again.', 'wpcredits-program-manager' ),
+					self::question_label(),
+					number_format_i18n( self::MAX_NOTE )
+				),
+			),
+			'app-reason-loss'      => array( 'error', WPCPM_Typed_Text::loss_message( self::reason_label(), 'reject' ) ),
+			'app-reason-long'      => array(
+				'error',
+				sprintf(
+					/* translators: 1: the name of the box, such as Why, for the next Administrator who reads this, 2: the longest reason allowed, in characters. */
+					__( 'Nothing was rejected. What you typed in "%1$s" is longer than %2$s characters: shorten it and reject the application again.', 'wpcredits-program-manager' ),
+					self::reason_label(),
+					number_format_i18n( self::MAX_NOTE )
+				),
+			),
 			'app-no-email'         => array( 'error', __( 'Nothing was sent. This application carries no usable address, so there is nobody to ask.', 'wpcredits-program-manager' ) ),
 			'app-not-sent'         => array( 'error', __( 'Nothing was sent and nothing moved. This site could not hand the question to its mail server, so the application is exactly where it was and the question is still yours to ask. Try again, and look at the recent mail on the settings screen if it keeps failing.', 'wpcredits-program-manager' ) ),
 			'app-info'             => array( 'success', __( 'The question is on its way, with your address to reply to. The application waits in the queue for their answer.', 'wpcredits-program-manager' ) ),
@@ -2201,7 +2339,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * connected is. A press comes back to the tab it was made on, so its sentence prints there. One
 	 * whose way back names no tab lands on the screen's own address, which is the queue, and prints
 	 * there: the decisions drawn on an opened application, and a decision on an application or a
-	 * request from an institution posted without the Administrator Dashboard's return.
+	 * request from an institution posted without the Administrator Dashboard's return. A question or
+	 * a Reject reason refused for its own words lands on the application it was typed for, opened in
+	 * the queue's place, where its box gets back what was typed and the sentence prints above it.
 	 * Each tab reads only what it draws: the membership counts, a query per institution, are asked
 	 * by the two tabs that print them, and the provisioning reasons by the Accounts tab alone.
 	 */
@@ -3419,13 +3559,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * `WPCPM_Administrators_Cards::LIMIT` open applications, read from that class because it is the
 	 * number the card cuts at, so one opened by its address while that many older ones wait is on no
 	 * card at all: it is decided here, with the four decisions the card draws, under the sentence
-	 * that says why, and each press comes back to the queue, which prints its outcome. None of that
-	 * needs the dashboard's page, so it keeps them while the page is missing too, as a closed one
-	 * keeps its record-keeping. Its place is one read of the open IDs, oldest first, which is cheap
-	 * on a view of one application. An application in a state no decision writes is on no list, so
-	 * it is told only where applications are decided, with the way there. While the dashboard's page
-	 * is missing there is no card to speak of for the rest, and the sentence its class keeps for
-	 * that stands in the link's place.
+	 * that says why, and each press comes back to the queue, which prints its outcome, but for a
+	 * question or a Reject refused for its own words, which comes back to this opened application,
+	 * where its box gives back what was typed (`back_to_application()`). None of that needs the
+	 * dashboard's page, so it keeps them while the page is missing too, as a closed one keeps its
+	 * record-keeping. Its place is one read of the open IDs, oldest first, which is cheap on a view
+	 * of one application. An application in a state no decision writes is on no list, so it is told
+	 * only where applications are decided, with the way there. While the dashboard's page is missing
+	 * there is no card to speak of for the rest, and the sentence its class keeps for that stands in
+	 * the link's place.
 	 *
 	 * @param WP_Post $post  The application.
 	 * @param string  $state Its state.
@@ -3536,6 +3678,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			)
 		);
 
+		// A refused question comes back as it was typed, in this application's box only.
 		$this->render_decision_form(
 			$post,
 			array(
@@ -3544,9 +3687,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
 				'field'  => 'wpcpm_question',
 				'prompt' => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+				'kept'   => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' ),
 			)
 		);
 
+		// So does a refused reason.
 		$this->render_decision_form(
 			$post,
 			array(
@@ -3555,6 +3700,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'label'   => __( 'Reject', 'wpcredits-program-manager' ),
 				'field'   => 'wpcpm_reason',
 				'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+				'kept'    => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ), 'reason' ),
 				'confirm' => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
@@ -3631,7 +3777,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * these confirm-guarded forms is not left looking at a form stuck reading "Working".
 	 *
 	 * @param WP_Post $post The application.
-	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`.
+	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`, and
+	 *                      `kept`: what a refusal of the form kept for its box, or null.
 	 */
 	private function render_decision_form( WP_Post $post, array $args ) {
 		$args = array_merge(
@@ -3643,6 +3790,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'confirm' => '',
 				'field'   => '',
 				'prompt'  => '',
+				'kept'    => null,
 			),
 			$args
 		);
@@ -3666,10 +3814,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( '' !== $args['field'] ) {
 			printf(
-				'<p><label for="%1$s">%2$s</label><br /><textarea class="large-text" id="%1$s" name="%1$s" rows="4" maxlength="%3$d"></textarea></p>',
+				'<p><label for="%1$s">%2$s</label><br /><textarea class="large-text" id="%1$s" name="%1$s" rows="4" maxlength="%3$d">%4$s</textarea></p>',
 				esc_attr( $args['field'] ),
 				esc_html( $args['prompt'] ),
-				(int) self::MAX_NOTE
+				(int) self::MAX_NOTE,
+				// The parser drops one line feed right after the opening tag, so a kept typing that
+				// begins with a line break keeps it.
+				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : ''
 			);
 		}
 

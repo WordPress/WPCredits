@@ -61,6 +61,17 @@ function esc_textarea( $text ) {
 }
 
 /**
+ * Core's `absint()` as 7.1.2 has it: a value read as a whole number, without its sign. A one-box
+ * form is named by the post it acts on through it (`box_form()`).
+ *
+ * @param mixed $maybeint The value.
+ * @return int
+ */
+function absint( $maybeint ) {
+	return abs( (int) $maybeint );
+}
+
+/**
  * Translation: the text as written, with the text domain it was asked through kept for a check.
  *
  * @param string $text   The text.
@@ -215,6 +226,63 @@ ck( 'a typed-out entity is read once and no deeper: "&amp;lt;" counts as the fou
     WPCPM_Typed_Text::typed_length( '&amp;lt;' ), 4 );
 ck( 'an empty text counts nothing', array( WPCPM_Typed_Text::typed_length( '' ), WPCPM_Typed_Text::typed_length( null ) ), array( 0, 0 ) );
 
+echo "\n=== box_length(): a typing as its box counted it ===\n";
+
+// A note box's limits are counted on what was typed once the loss check has passed it, since what
+// the cleaner keeps cannot tell an entity it wrote from one a person typed out: read back, both are
+// one character.
+$bold = 'Type &lt;b&gt; for bold';
+ck( '"Type &lt;b&gt; for bold", typed out, is 23 characters, as its box counts it, where the count of what the cleaner keeps reads it as 17',
+    array( WPCPM_Typed_Text::box_length( $bold ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $bold ) ), WPCPM_Typed_Text::cleaner_loses( $bold, 'lines' ) ),
+    array( 23, 17, false ) );
+$tabbed = 'Ages 8 < 12 &#9; here';
+ck( 'a reference typed out after a "<" counts as typed, though the cleaner writes it in core\'s longer form and that count reads it so',
+    array( WPCPM_Typed_Text::box_length( $tabbed ), sanitize_textarea_field( $tabbed ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $tabbed ) ), WPCPM_Typed_Text::cleaner_loses( $tabbed, 'lines' ) ),
+    array( 21, 'Ages 8 &lt; 12 &#009; here', 23, false ) );
+ck( 'a "<", a quote mark and an ampersand count one each, as typed and as that count reads them',
+    array( WPCPM_Typed_Text::box_length( $qa_after ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $qa_after ) ) ), array( 47, 47 ) );
+ck( 'a line break is one character, posted as CR LF or as LF',
+    array( WPCPM_Typed_Text::box_length( "Line one\r\nLine two" ), WPCPM_Typed_Text::box_length( "Line one\nLine two" ) ), array( 17, 17 ) );
+ck( 'the ends are trimmed, as the cleaner trims them, so white space around the words counts nothing',
+    array( WPCPM_Typed_Text::box_length( " \r\n\tHello there \r\n" ), mb_strlen( sanitize_textarea_field( " \r\n\tHello there \r\n" ) ) ), array( 11, 11 ) );
+ck( 'an emoji is one character, as the store counts code points', WPCPM_Typed_Text::box_length( "Thanks \u{1F389}" ), 8 );
+ck( 'nothing typed, and a field that is not a text, count nothing',
+    array( WPCPM_Typed_Text::box_length( '' ), WPCPM_Typed_Text::box_length( null ), WPCPM_Typed_Text::box_length( " \r\n " ), WPCPM_Typed_Text::box_length( array( 'Hello' ) ) ),
+    array( 0, 0, 0, 0 ) );
+
+// Typings the cleaner keeps whole, through the text area cleaner: the count of the typing and the
+// count of what the cleaner kept agree on each, but for one that holds an entity or a reference
+// typed out, which only the typing counts as it was typed. Seeded, so a failure names the same
+// typing on every run.
+mt_srand( 1122013 );
+
+$length_pieces = array( 'Kids', 'note', ' ', "\r\n", "\n", "\t", ' < ', ' > ', '<3', "<\n", '&', 'Q&A', '"', "'", "\u{1F389}", '&amp;', '&lt;', '&gt;', '&#9;', '&#39;', '&#X41;', '&COPY;', '&copy;' );
+$length_wrong  = array( 'counted apart with no entity typed out' => 0 );
+$length_seen   = array( 'counted alike' => 0, 'counted apart, an entity typed out' => 0 );
+
+for ( $i = 0; $i < 3000; ++$i ) {
+	$typed = '';
+
+	for ( $n = mt_rand( 1, 12 ); $n > 0; --$n ) {
+		$typed .= $length_pieces[ mt_rand( 0, count( $length_pieces ) - 1 ) ];
+	}
+
+	if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+		continue;
+	}
+
+	$alike   = WPCPM_Typed_Text::box_length( $typed ) === WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $typed ) );
+	$written = 1 === preg_match( '/&(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);/', $typed );
+
+	$length_wrong['counted apart with no entity typed out'] += (int) ( ! $alike && ! $written );
+	$length_seen['counted alike']                            += (int) $alike;
+	$length_seen['counted apart, an entity typed out']       += (int) ( ! $alike && $written );
+}
+
+ck( 'of the typings the cleaner keeps whole, the two counts differ only where an entity or a reference was typed out', $length_wrong, array( 'counted apart with no entity typed out' => 0 ) );
+ck( 'and they reach a hundred typings counted alike and a hundred counted apart, at least',
+    array( $length_seen['counted alike'] >= 100, $length_seen['counted apart, an entity typed out'] >= 100 ), array( true, true ) );
+
 echo "\n=== typed_text(): a stored text as its box draws it ===\n";
 
 ck( '"Ages 8 < 12 welcome, adults > 18 pay" draws as typed, as the cleaner left it and as a member\'s post holds it',
@@ -346,6 +414,18 @@ ck( 'a text input drawn through esc_attr( attr_text() ) shows what a text area d
         array( $qa, $qa_post, $qa_clean, $ages, $ages_post, $team_meta, $team_post, 'Thanks 🎉', '' )
     ),
     array_fill( 0, 9, true ) );
+
+echo "\n=== one_line(): a stored value as a one-line box draws it ===\n";
+
+ck( 'each line break is one space, a CR LF one too, and a value with none is as it is',
+    array(
+        WPCPM_Typed_Text::one_line( "Free hosting\nfor students" ),
+        WPCPM_Typed_Text::one_line( "Free hosting\r\nfor students" ),
+        WPCPM_Typed_Text::one_line( "Free hosting\rfor students" ),
+        WPCPM_Typed_Text::one_line( "Free hosting\r\n\r\nnow" ),
+        WPCPM_Typed_Text::one_line( $team_meta ),
+    ),
+    array( 'Free hosting for students', 'Free hosting for students', 'Free hosting for students', 'Free hosting  now', $team_meta ) );
 
 echo "\n=== same_text() and same_lines(): whether a box posted back changed anything ===\n";
 
@@ -519,10 +599,12 @@ ck( 'it is plain text: a label goes in as given, and escaping it is the caller\'
 // again, in a whole sentence of its own per action, so a translator never meets half of one.
 $GLOBALS['domains'] = array();
 $actions            = array(
-	'send'   => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
-	'return' => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
-	'revoke' => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
-	'reject' => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
+	'send'    => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
+	'return'  => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
+	'revoke'  => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
+	'reject'  => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
+	'handle'  => WPCPM_Typed_Text::loss_message( 'What you did about it', 'handle' ),
+	'decline' => WPCPM_Typed_Text::loss_message( 'What you did about it', 'decline' ),
 );
 ck( 'for a form that sends, it says nothing was sent and to send it again',
     $actions['send'],
@@ -536,13 +618,19 @@ ck( 'for Take it out of force, that nothing was revoked and to take it out of fo
 ck( 'for a rejection, that nothing was rejected and to reject the application again',
     $actions['reject'],
     'Nothing was rejected, because WordPress would remove part of what you typed in "Why, for the next Administrator who reads this". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' );
-ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array( 'wpcredits-program-manager', 'wpcredits-program-manager', 'wpcredits-program-manager', 'wpcredits-program-manager' ) );
+ck( 'for Mark as handled, that nothing was marked as handled and to mark it as handled again',
+    $actions['handle'],
+    'Nothing was marked as handled, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then mark it as handled again.' );
+ck( 'for Decline, that nothing was declined and to decline it again',
+    $actions['decline'],
+    'Nothing was declined, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then decline it again.' );
+ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array_fill( 0, 6, 'wpcredits-program-manager' ) );
 ck( 'and a form that saves, named or not, keeps the first sentence, as does an action the method does not know', array( WPCPM_Typed_Text::loss_message( 'Offer text', 'save' ), WPCPM_Typed_Text::loss_message( 'Offer text' ), WPCPM_Typed_Text::loss_message( 'Offer text', 'publish' ), WPCPM_Typed_Text::loss_message( 'Offer text', true ) ), array( $said, $said, $said, $said ) );
 // Each sentence is one msgid, with a translators comment right above it, never built from pieces.
 $tt_src  = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-typed-text.php' );
 $tt_body = substr( $tt_src, (int) strpos( $tt_src, 'public static function loss_message(' ) );
 $tt_body = substr( $tt_body, 0, (int) strpos( $tt_body, "\n\t}\n" ) );
-ck( 'the five sentences are five whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|returned|revoked|rejected), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 5, 5 ) );
+ck( 'the seven sentences are seven whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|returned|revoked|rejected|marked as handled|declined), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 7, 7 ) );
 
 echo "\n=== keep(), kept() and forget(): a refused form gets back what was typed, once ===\n";
 
@@ -633,6 +721,63 @@ ck( 'a text input drawn with esc_attr( kept_attr() ) shows "Q&amp;A <b>x</b>" ex
 ck( 'where esc_attr() alone would show "Q&A <b>x</b>"', browser_shows( esc_attr( $q_amp ) ), 'Q&A <b>x</b>' );
 ck( 'and a text area drawn with esc_textarea() shows it exactly with nothing more', browser_shows( esc_textarea( "Q&amp;A <b>x</b>\nline two" ), true ), "Q&amp;A <b>x</b>\nline two" );
 ck( 'kept_attr() reads nothing back: a typing is not a stored text', WPCPM_Typed_Text::kept_attr( 'a &gt; b &lt; c "d"' ), 'a &amp;gt; b &amp;lt; c "d"' );
+
+echo "\n=== box_form(), keep_box() and kept_box(): the one box of a refused form, kept for its post ===\n";
+
+// A form of one box, drawn empty: the note a post or an agreement is returned with, the note an
+// agreement is taken out of force with, a question to an applicant, a rejection's reason.
+$GLOBALS['uid']   = 5;
+$GLOBALS['flash'] = array();
+$box_note         = "Kids <12 free, adults >18 pay.\r\nA second line, \"quoted\" & C:\\drafts, Q&amp;A \xF0\x9F\x98\x80";
+$box_kept         = str_replace( "\r\n", "\n", $box_note );
+$box_form         = WPCPM_Typed_Text::box_form( 'test-return', 42 );
+
+ck( 'the form is named by what it does, then the post it acts on', $box_form, 'test-return:42' );
+ck( 'and a post ID read as text names the same post', WPCPM_Typed_Text::box_form( 'test-return', '42' ), $box_form );
+
+WPCPM_Typed_Text::keep_box( $box_form, 'note', $box_note, 2000 );
+ck( 'the typing waits as keep() keeps it: on the form\'s own channel, under the box\'s field, a line break read as the one LF its box counts', $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . 'test-return:42' ]['typed'] ?? null, array( 'note' => $box_kept ) );
+ck( 'kept_box() hands it back exactly', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), $box_kept );
+ck( 'and only once: drawn again, the box reads null, which tells it from a typing', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), null );
+
+WPCPM_Typed_Text::keep_box( $box_form, 'note', $box_note, 2000 );
+ck( 'another post\'s box never sees it', WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( 'test-return', 43 ), 'note' ), null );
+ck( 'nor does another form on the same post', WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( 'test-revoke', 42 ), 'note' ), null );
+$GLOBALS['uid'] = 6;
+ck( 'nor another person, on the same form and post', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), null );
+$GLOBALS['uid'] = 5;
+ck( 'while the one who typed it still has it', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), $box_kept );
+
+// keep() keeps an empty box as what was typed. One box left blank is the whole form left blank,
+// and there is nothing to give back.
+WPCPM_Typed_Text::keep_box( $box_form, 'note', '', 2000 );
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( 'test-return', 44 ), 'note', " \r\n\t ", 2000 );
+ck( 'a box left empty, or holding only white space, keeps nothing, and nothing is stored for it', $GLOBALS['flash'][5] ?? array(), array() );
+
+// Drawn empty, the box's room is its limit (`kept_room()`), counted as the box counts.
+$box_long = "\xF0\x9F\x98\x80 " . str_repeat( "Ages 8 < 12 welcome.\r\n", 100 );
+WPCPM_Typed_Text::keep_box( $box_form, 'note', $box_long, 2000 );
+$box_back = WPCPM_Typed_Text::kept_box( $box_form, 'note' );
+ck( 'a typing beyond its box is kept up to the room kept_room() gives an empty box, in characters, an emoji and a line break one each', array( mb_strlen( (string) $box_back ), $box_back === mb_substr( str_replace( "\r\n", "\n", $box_long ), 0, 2000 ), WPCPM_Typed_Text::kept_room( '', 2000 ) ), array( 2000, true, 2000 ) );
+
+// The room is the limit the box is handed, and no other: a box of four keeps four.
+WPCPM_Typed_Text::keep_box( $box_form, 'note', 'abcdefghij', 4 );
+ck( 'and a box with a limit of four keeps the first four characters, the room its own limit gives it', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), 'abcd' );
+
+WPCPM_Typed_Text::keep_box( $box_form, 'note', "Bad \xC3\x28 bytes", 2000 );
+ck( 'a typing that is not valid UTF-8 is not kept at all, as keep() keeps none', array( isset( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . 'test-return:42' ] ), WPCPM_Typed_Text::kept_box( $box_form, 'note' ) ), array( false, null ) );
+
+WPCPM_Typed_Text::keep( $box_form, array( 'note' => array( 'a choice' ) ), array() );
+ck( 'a field that holds a list, as keep() keeps the choices of a group of checkboxes, reads as nothing kept', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), null );
+WPCPM_Typed_Text::keep_box( $box_form, 'note', 'Why it came back', 2000 );
+ck( 'and so does a field the box was not kept under', WPCPM_Typed_Text::kept_box( $box_form, 'question' ), null );
+
+// Every post of the form drops what a refusal of it kept, by the same name.
+WPCPM_Typed_Text::keep_box( $box_form, 'note', 'Before', 2000 );
+WPCPM_Typed_Text::forget( $box_form );
+ck( 'forget() takes the name box_form() gives, and drops what keep_box() kept under it', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), null );
+$GLOBALS['flash'] = array();
+$GLOBALS['uid']   = 0;
 
 echo "\n=== Every typing, refused or kept ===\n";
 

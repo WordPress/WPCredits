@@ -53,6 +53,9 @@ class WPCPM_Sponsor_Posts {
 	/** Sponsor Dashboard: a manager returns a pending post as a draft with a note. */
 	const ACTION_POST_RETURN = 'wpcpm_sponsor_post_return';
 
+	/** What a refused return keeps its note under, before the post it returns (`WPCPM_Typed_Text::box_form()`). */
+	const TYPED_RETURN = 'post-return';
+
 	/** The mail log's context for the note to the author. */
 	const MAIL_RETURNED = 'sponsor-post-returned';
 
@@ -1069,8 +1072,7 @@ class WPCPM_Sponsor_Posts {
 
 		// A refused return comes back with the note as it was typed, its fold open so the box is
 		// where it was left.
-		$kept = WPCPM_Typed_Text::kept( self::typed_form( $post->ID ) );
-		$note = isset( $kept['note'] ) && is_string( $kept['note'] ) ? $kept['note'] : null;
+		$note = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post->ID ), 'note' );
 
 		echo null === $note ? '<details class="wpcpm-sponsor-post__return">' : '<details class="wpcpm-sponsor-post__return" open>';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
@@ -1170,34 +1172,6 @@ class WPCPM_Sponsor_Posts {
 	 */
 	private static function note_label() {
 		return __( 'A note for the author', 'wpcredits-program-manager' );
-	}
-
-	/**
-	 * The name a refused return keeps its typing under (`WPCPM_Typed_Text::keep()`): the form and
-	 * the post it returns, so a note typed for one post comes back in that post's box and in no
-	 * other.
-	 *
-	 * @param int $post_id The post.
-	 * @return string
-	 */
-	private static function typed_form( $post_id ) {
-		return 'post-return:' . (int) $post_id;
-	}
-
-	/**
-	 * Keep a refused return's note as it was typed, up to its box's room, for the one time the
-	 * form is drawn again. A note left empty has nothing to give back.
-	 *
-	 * @param string $form  The form, as `typed_form()` names it.
-	 * @param string $typed The note as posted, unslashed and not cleaned.
-	 */
-	private static function keep_note( $form, $typed ) {
-		if ( '' === trim( (string) $typed ) ) {
-			return;
-		}
-
-		// The box is drawn empty, so its room is the limit.
-		WPCPM_Typed_Text::keep( $form, array( 'note' => (string) $typed ), array( 'note' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
 	}
 
 	/*
@@ -1330,12 +1304,13 @@ class WPCPM_Sponsor_Posts {
 	 *
 	 * A note the cleaner would take words from is refused before anything is written or mailed:
 	 * returned, it would reach the author missing them without a word said. That refusal and the
-	 * one over `MAX_NOTE` give the form back the note as it was typed (`keep_note()`).
+	 * one over `MAX_NOTE` give the form back the note as it was typed
+	 * (`WPCPM_Typed_Text::keep_box()`).
 	 */
 	public static function handle_return() {
 		$opened = self::begin( self::ACTION_POST_RETURN );
 		$post   = $opened['post'];
-		$form   = self::typed_form( $post->ID );
+		$form   = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post->ID );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
 		WPCPM_Typed_Text::forget( $form );
@@ -1344,7 +1319,7 @@ class WPCPM_Sponsor_Posts {
 		$note  = isset( $_POST['wpcpm_note'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
-			self::keep_note( $form, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::leave( 'post-note-loss', $opened['record'] );
 		}
 
@@ -1353,7 +1328,7 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		if ( WPCPM_Typed_Text::typed_length( $note ) > self::MAX_NOTE ) {
-			self::keep_note( $form, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::leave( 'post-note-long', $opened['record'] );
 		}
 

@@ -383,6 +383,9 @@ class WPCPM_Semester_Report_Screen {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+// The sentences that refuse a question or a reason the cleaner would take words from are worded
+// there, and the screen's map of outcomes holds them.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';

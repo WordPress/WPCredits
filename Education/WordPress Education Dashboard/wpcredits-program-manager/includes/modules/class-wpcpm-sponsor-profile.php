@@ -279,13 +279,19 @@ final class WPCPM_Sponsor_Profile {
 	 * A typed text is drawn back by `WPCPM_Typed_Text`, so a box posted back unedited can come back
 	 * in other bytes than the stored ones: with a ">" the card held as `&gt;`, say, or a text
 	 * area's every break as CR LF where the base keeps LF. Read the same, it is the stored text,
-	 * and is not written. Every other kind is the stored value only byte for byte.
+	 * and is not written. A link is the stored value byte for byte, or with each line break as a
+	 * space, as below. Every other kind is the stored value only byte for byte.
 	 *
 	 * Both sides are read trimmed, as the cleaner trims what it reads. A value written in the base's
 	 * grid can end in a space or begin with a line break, and a box can hand it back without them:
 	 * a text area drops a line break its text begins with, and a link's or an address's box drops
 	 * the spaces at its ends. Such a box, posted back untouched, is still the stored value, and a
 	 * save would only take the white space off.
+	 *
+	 * A one-line text or a link is drawn with each line break its stored value holds as a space
+	 * (`WPCPM_Typed_Text::one_line()`), so one posted back as it was drawn is the stored value too.
+	 * An address is drawn as stored, and is not asked so: it comes here as `sanitize_email()` hands
+	 * it back, which holds no space.
 	 *
 	 * @param string $kind    The field's kind.
 	 * @param string $next    The value as posted: as typed, for the test of a box posted back as
@@ -302,7 +308,11 @@ final class WPCPM_Sponsor_Profile {
 		}
 
 		if ( 'line' === $kind ) {
-			return WPCPM_Typed_Text::same_text( $next, $current );
+			return WPCPM_Typed_Text::same_text( $next, $current ) || WPCPM_Typed_Text::same_text( $next, WPCPM_Typed_Text::one_line( $current ) );
+		}
+
+		if ( 'url' === $kind ) {
+			return WPCPM_Typed_Text::one_line( $current ) === $next;
 		}
 
 		return 'text' === $kind && WPCPM_Typed_Text::same_lines( $next, $current );
@@ -592,11 +602,22 @@ final class WPCPM_Sponsor_Profile {
 			} else {
 				// A one-line text is drawn as the person typed it, with room for each ">" held as
 				// `&gt;` (`WPCPM_Typed_Text`): drawn as stored, "We <3 our team > all" would post
-				// back as "We all". A link and an address are not typed text the cleaner escapes. After a
-				// refused save, any of them is drawn with what was typed, exactly
-				// (`WPCPM_Typed_Text::kept_attr()`), in the same room.
-				$line  = 'line' === $spec['kind'];
-				$shown = null !== $typed ? WPCPM_Typed_Text::kept_attr( $typed ) : ( $line ? WPCPM_Typed_Text::attr_text( $value ) : $value );
+				// back as "We all". A link and an address are not typed text the cleaner escapes. Each
+				// line break a stored text or link holds is drawn as a space
+				// (`WPCPM_Typed_Text::one_line()`), which the box would otherwise drop. An address is
+				// drawn as stored, and its box drops a break: a space there would be an address that is
+				// not one, which the browser refuses, and the whole save with it. After a refused save,
+				// any of them is drawn with what was typed, exactly (`WPCPM_Typed_Text::kept_attr()`),
+				// in the same room.
+				$line = 'line' === $spec['kind'];
+
+				if ( null !== $typed ) {
+					$shown = WPCPM_Typed_Text::kept_attr( $typed );
+				} elseif ( 'email' === $spec['kind'] ) {
+					$shown = $value;
+				} else {
+					$shown = WPCPM_Typed_Text::one_line( $line ? WPCPM_Typed_Text::attr_text( $value ) : $value );
+				}
 
 				printf(
 					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d" />',

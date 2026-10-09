@@ -235,11 +235,19 @@ class WPCPM_Sponsor_Application {
 	 * A manager's question or reason: long enough to be a sentence, short enough to read.
 	 *
 	 * The question is the whole of what an applicant is told, so an empty one is refused, and so is
-	 * one over the ceiling, both counted as typed (`WPCPM_Typed_Text::typed_length()`); the reason
+	 * one over the ceiling, both counted as typed (`WPCPM_Typed_Text::box_length()`); the reason
 	 * on a rejection is never sent anywhere, so it is optional and only the ceiling applies to it.
 	 */
 	const MIN_NOTE = 10;
 	const MAX_NOTE = 2000;
+
+	/**
+	 * What a refused question and a refused Reject keep their typing under, before the application
+	 * they are about (`WPCPM_Typed_Text::box_form()`), so what was typed for one applicant comes
+	 * back in that application's box of that form and in no other.
+	 */
+	const TYPED_QUESTION = 'sapp-question';
+	const TYPED_REASON   = 'sapp-reason';
 
 	/** The two messages the decisions send, named for the mail log. */
 	const MAIL_INFO     = 'sponsor-information';
@@ -2931,14 +2939,15 @@ class WPCPM_Sponsor_Application {
 	 * front of the next manager as one somebody is already waiting on.
 	 *
 	 * A question refused for its own words, one the cleaner would take words from, one too short
-	 * or one too long, comes back to its form as it was typed (`keep_question()`), and a press on
-	 * the Sponsors screen lands on the opened application, where that form is.
+	 * or one too long, comes back to its form as it was typed (`WPCPM_Typed_Text::keep_box()`), and
+	 * a press on the Sponsors screen lands on the opened application, where that form is.
 	 */
 	public static function handle_info() {
 		$post = self::begin( self::ACTION_INFO );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( self::typed_form( (int) $post->ID ) );
+		WPCPM_Typed_Text::forget( $form );
 
 		if ( ! in_array( self::state_of( $post ), self::open_states(), true ) ) {
 			self::leave( 'sapp-state' );
@@ -2950,23 +2959,23 @@ class WPCPM_Sponsor_Application {
 		// A question the cleaner would take words from is refused before anything is sent or
 		// written: it would reach the applicant missing them without a word said.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
-			self::keep_question( $post, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
 			self::leave( 'sapp-loss', '', (int) $post->ID );
 		}
 
-		// Counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the entities the
-		// cleaner writes for a "<" and the quote marks and ampersands after it, and a line break's
-		// two bytes, are one character each, as the box counts them. Refused rather than cut on
-		// both sides, because the question is the whole of what the applicant is told.
-		$length = WPCPM_Typed_Text::typed_length( $question );
+		// Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`):
+		// past the loss check, the typing and what the cleaner keeps hold the same words, and only the
+		// typing tells an entity typed out from one the cleaner wrote. Refused rather than cut on both
+		// sides, because the question is the whole of what the applicant is told.
+		$length = WPCPM_Typed_Text::box_length( $typed );
 
 		if ( $length < self::MIN_NOTE ) {
-			self::keep_question( $post, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
 			self::leave( 'sapp-question', '', (int) $post->ID );
 		}
 
 		if ( $length > self::MAX_NOTE ) {
-			self::keep_question( $post, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
 			self::leave( 'sapp-too-long', '', (int) $post->ID );
 		}
 
@@ -3030,9 +3039,10 @@ class WPCPM_Sponsor_Application {
 	 */
 	public static function handle_reject() {
 		$post = self::begin( self::ACTION_REJECT );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( self::typed_form( (int) $post->ID, 'reason' ) );
+		WPCPM_Typed_Text::forget( $form );
 
 		if ( ! in_array( self::state_of( $post ), self::open_states(), true ) ) {
 			self::leave( 'sapp-state' );
@@ -3048,14 +3058,14 @@ class WPCPM_Sponsor_Application {
 		// Kept on the history for the next manager: one the cleaner would take words from would be
 		// kept missing them without a word said.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
-			self::keep_reason( $post, $typed );
+			WPCPM_Typed_Text::keep_box( $form, 'reason', $typed, self::MAX_NOTE );
 			self::leave( 'sapp-reason-loss', '', (int) $post->ID );
 		}
 
-		// Counted as typed, as the question is, and refused rather than cut: a reason cut short
-		// reaches the next manager missing its end.
-		if ( WPCPM_Typed_Text::typed_length( $reason ) > self::MAX_NOTE ) {
-			self::keep_reason( $post, $typed );
+		// Counted on what was typed, as the question is, and refused rather than cut: a reason cut
+		// short reaches the next manager missing its end.
+		if ( WPCPM_Typed_Text::box_length( $typed ) > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'reason', $typed, self::MAX_NOTE );
 			self::leave( 'sapp-reason-long', '', (int) $post->ID );
 		}
 
@@ -3250,7 +3260,7 @@ class WPCPM_Sponsor_Application {
 
 	/**
 	 * A posted note, cleaned and trimmed. Each caller measures what was typed
-	 * (`WPCPM_Typed_Text::typed_length()`) and refuses it over `MAX_NOTE`: the question and the
+	 * (`WPCPM_Typed_Text::box_length()`) and refuses it over `MAX_NOTE`: the question and the
 	 * rejection's reason alike, neither of them cut.
 	 *
 	 * `sanitize_textarea_field()` and not `WPCPM_Request::posted_text()`: a question to an
@@ -3291,51 +3301,6 @@ class WPCPM_Sponsor_Application {
 	private static function reason_label() {
 		/* translators: The name of the box a program manager types why an application is rejected in, the first words of its label. */
 		return __( 'Why, for the next Administrator who reads this', 'wpcredits-program-manager' );
-	}
-
-	/**
-	 * The name a refused question or reason keeps its typing under (`WPCPM_Typed_Text::keep()`):
-	 * the form and the application it is about, so what was typed for one applicant comes back in
-	 * that application's box of that form and in no other.
-	 *
-	 * @param int    $post_id The application.
-	 * @param string $which   `question` or `reason`.
-	 * @return string
-	 */
-	private static function typed_form( $post_id, $which = 'question' ) {
-		return 'sapp-' . ( 'reason' === $which ? 'reason' : 'question' ) . ':' . (int) $post_id;
-	}
-
-	/**
-	 * Keep a refused question as it was typed, up to its box's room, for the one time the form is
-	 * drawn again. A question left empty has nothing to give back.
-	 *
-	 * @param WP_Post $post  The application.
-	 * @param string  $typed The question as posted, unslashed and not cleaned.
-	 */
-	private static function keep_question( WP_Post $post, $typed ) {
-		if ( '' === trim( (string) $typed ) ) {
-			return;
-		}
-
-		// The box is drawn empty, so its room is the limit.
-		WPCPM_Typed_Text::keep( self::typed_form( (int) $post->ID ), array( 'question' => (string) $typed ), array( 'question' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
-	}
-
-	/**
-	 * Keep a refused Reject reason as it was typed, up to its box's room, for the one time the
-	 * form is drawn again. A reason left empty has nothing to give back.
-	 *
-	 * @param WP_Post $post  The application.
-	 * @param string  $typed The reason as posted, unslashed and not cleaned.
-	 */
-	private static function keep_reason( WP_Post $post, $typed ) {
-		if ( '' === trim( (string) $typed ) ) {
-			return;
-		}
-
-		// The box is drawn empty, so its room is the limit.
-		WPCPM_Typed_Text::keep( self::typed_form( (int) $post->ID, 'reason' ), array( 'reason' => (string) $typed ), array( 'reason' => WPCPM_Typed_Text::kept_room( '', self::MAX_NOTE ) ) );
 	}
 
 	/**
@@ -3449,7 +3414,7 @@ class WPCPM_Sponsor_Application {
 			);
 
 			// A refused question comes back as it was typed, in this application's box only.
-			$kept = WPCPM_Typed_Text::kept( self::typed_form( (int) $post->ID ) );
+			$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' );
 
 			self::render_decision_form(
 				$post,
@@ -3460,12 +3425,12 @@ class WPCPM_Sponsor_Application {
 					'field'    => 'wpcpm_question',
 					'prompt'   => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
 					'required' => true,
-					'kept'     => isset( $kept['question'] ) && is_string( $kept['question'] ) ? $kept['question'] : null,
+					'kept'     => $kept,
 				)
 			);
 
 			// A refused reason comes back as it was typed, in this application's box only.
-			$kept = WPCPM_Typed_Text::kept( self::typed_form( (int) $post->ID, 'reason' ) );
+			$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ), 'reason' );
 
 			self::render_decision_form(
 				$post,
@@ -3475,7 +3440,7 @@ class WPCPM_Sponsor_Application {
 					'label'   => __( 'Reject', 'wpcredits-program-manager' ),
 					'field'   => 'wpcpm_reason',
 					'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
-					'kept'    => isset( $kept['reason'] ) && is_string( $kept['reason'] ) ? $kept['reason'] : null,
+					'kept'    => $kept,
 					'confirm' => sprintf(
 						/* translators: %s: company name. */
 						__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),

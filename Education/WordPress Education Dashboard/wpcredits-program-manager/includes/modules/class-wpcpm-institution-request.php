@@ -122,8 +122,18 @@ class WPCPM_Institution_Request {
 	 */
 	const FLASH = 'institution_request';
 
-	/** Longest note kept on a decision, so one paste cannot fill the row. */
+	/**
+	 * Longest note kept on a decision, so one paste cannot fill the row, in characters as typed
+	 * (`WPCPM_Typed_Text::box_length()`).
+	 */
 	const MAX_NOTE = 2000;
+
+	/**
+	 * What a refused decision keeps its note under, before the request it closes
+	 * (`WPCPM_Typed_Text::box_form()`), so a note typed for one request comes back in that
+	 * request's box and in no other.
+	 */
+	const TYPED_NOTE = 'request-close';
 
 	/** Most rows `open_requests()` will ever build, whatever it is asked for. */
 	const QUEUE_MAX = 200;
@@ -378,14 +388,17 @@ class WPCPM_Institution_Request {
 	 * `META_ACTOR` is left alone: it is who raised the row. Who closed it, and with what
 	 * words, is the audit entry, which is the record that cannot be edited afterwards.
 	 *
-	 * @param int    $post_id  The request.
-	 * @param string $state    `done` or `declined`.
-	 * @param string $note     The manager's words; may be empty.
-	 * @param int    $actor_id Who closed it.
-	 * @param string $ground   The decision's ground; derived from the actor when it is not one.
+	 * @param int         $post_id  The request.
+	 * @param string      $state    `done` or `declined`.
+	 * @param string      $note     The manager's words, as the cleaner left them; may be empty.
+	 * @param int         $actor_id Who closed it.
+	 * @param string      $ground   The decision's ground; derived from the actor when it is not one.
+	 * @param string|null $typed    What the manager typed for the note, unslashed and not cleaned,
+	 *                              which the limit is counted on, as its box counts it
+	 *                              (`WPCPM_Typed_Text::box_length()`). Null counts the note itself.
 	 * @return true|WP_Error
 	 */
-	public static function settle( $post_id, $state, $note, $actor_id, $ground = '' ) {
+	public static function settle( $post_id, $state, $note, $actor_id, $ground = '', $typed = null ) {
 		$post = self::post( $post_id );
 
 		if ( ! $post instanceof WP_Post ) {
@@ -402,7 +415,13 @@ class WPCPM_Institution_Request {
 		}
 
 		$note = trim( (string) $note );
-		$note = function_exists( 'mb_substr' ) ? mb_substr( $note, 0, self::MAX_NOTE ) : substr( $note, 0, self::MAX_NOTE );
+
+		// Counted on what was typed, as the box and the handler count it, so a note that fits its box
+		// is kept whole, though the cleaner stores it longer. The handler refuses one over the limit;
+		// this cut is for a caller that did not, which hands its note as the typing when it has none.
+		if ( WPCPM_Typed_Text::box_length( null === $typed ? $note : $typed ) > self::MAX_NOTE ) {
+			$note = function_exists( 'mb_substr' ) ? mb_substr( $note, 0, self::MAX_NOTE ) : substr( $note, 0, self::MAX_NOTE );
+		}
 
 		$institution = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
 		$student     = (string) get_post_meta( $post_id, self::META_STUDENT, true );
@@ -848,6 +867,11 @@ class WPCPM_Institution_Request {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_NOTE, $post->ID );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
 		$state = WPCPM_Request::posted_key( 'state' );
 
 		// Which button was pressed, matched against the two closing states. `open` is not one
@@ -856,12 +880,31 @@ class WPCPM_Institution_Request {
 			self::finish( 'request-state' );
 		}
 
+		$typed = WPCPM_Request::posted_raw( 'wpcpm_request_note' );
+		$note  = self::posted_note();
+
+		// The note goes on the row and on its audit entry, the record somebody reads a year later:
+		// one the cleaner would take words from is refused before either is written, in the words of
+		// the button that was pressed, and the box gets back what was typed.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+			self::finish( self::STATE_DONE === $state ? 'request-done-loss' : 'request-declined-loss' );
+		}
+
+		// Counted on what was typed, as the box counts it (`WPCPM_Typed_Text::box_length()`), and
+		// refused rather than cut: past the loss check, the typing and the note hold the same words.
+		if ( WPCPM_Typed_Text::box_length( $typed ) > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+			self::finish( self::STATE_DONE === $state ? 'request-done-long' : 'request-declined-long' );
+		}
+
 		$settled = self::settle(
 			(int) $post->ID,
 			$state,
-			self::posted_note(),
+			$note,
 			get_current_user_id(),
-			isset( $decision['ground'] ) ? (string) $decision['ground'] : ''
+			isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+			$typed
 		);
 
 		if ( is_wp_error( $settled ) ) {
@@ -1064,16 +1107,23 @@ class WPCPM_Institution_Request {
 			WPCPM_Return::field( (string) $return, 'requests' );
 		}
 
+		// A decision refused for its note comes back with the note as it was typed, in this
+		// request's box only.
+		$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_NOTE, $post->ID ), 'note' );
+
 		printf(
 			'<label class="screen-reader-text" for="wpcpm-request-note-%1$d">%2$s</label>',
 			(int) $post->ID,
-			esc_html__( 'What you did about it', 'wpcredits-program-manager' )
+			esc_html( self::note_label() )
 		);
 		printf(
-			'<textarea id="wpcpm-request-note-%1$d" name="wpcpm_request_note" rows="2" maxlength="%2$d" placeholder="%3$s"></textarea>',
+			'<textarea id="wpcpm-request-note-%1$d" name="wpcpm_request_note" rows="2" maxlength="%2$d" placeholder="%3$s">%4$s</textarea>',
 			(int) $post->ID,
 			(int) self::MAX_NOTE,
-			esc_attr__( 'What you did about it, for the log. Optional, and not sent to the institution.', 'wpcredits-program-manager' )
+			esc_attr__( 'What you did about it, for the log. Optional, and not sent to the institution.', 'wpcredits-program-manager' ),
+			// The parser drops one line feed right after the opening tag, so a kept note that begins
+			// with a line break keeps it.
+			null === $kept ? '' : "\n" . esc_textarea( $kept )
 		);
 
 		printf(
@@ -1100,12 +1150,44 @@ class WPCPM_Institution_Request {
 	 */
 	public static function messages() {
 		return array(
-			'request-done'     => array( 'success', __( 'That request is closed as handled. The institution sees it is no longer waiting.', 'wpcredits-program-manager' ) ),
-			'request-declined' => array( 'success', __( 'That request is declined and closed. The institution sees it is no longer waiting.', 'wpcredits-program-manager' ) ),
-			'request-closed'   => array( 'info', __( 'Nothing was changed: that request had already been closed.', 'wpcredits-program-manager' ) ),
-			'request-gone'     => array( 'error', __( 'That request is not here any more.', 'wpcredits-program-manager' ) ),
-			'request-state'    => array( 'error', __( 'That is not something a request can be closed as.', 'wpcredits-program-manager' ) ),
+			'request-done'          => array( 'success', __( 'That request is closed as handled. The institution sees it is no longer waiting.', 'wpcredits-program-manager' ) ),
+			'request-declined'      => array( 'success', __( 'That request is declined and closed. The institution sees it is no longer waiting.', 'wpcredits-program-manager' ) ),
+			'request-closed'        => array( 'info', __( 'Nothing was changed: that request had already been closed.', 'wpcredits-program-manager' ) ),
+			'request-gone'          => array( 'error', __( 'That request is not here any more.', 'wpcredits-program-manager' ) ),
+			'request-state'         => array( 'error', __( 'That is not something a request can be closed as.', 'wpcredits-program-manager' ) ),
+			// The two buttons each refuse in their own words, a whole sentence apiece.
+			'request-done-loss'     => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'handle' ) ),
+			'request-declined-loss' => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'decline' ) ),
+			'request-done-long'     => array(
+				'error',
+				sprintf(
+					/* translators: 1: the name of the box, such as What you did about it, 2: the longest note allowed, in characters. */
+					__( 'Nothing was marked as handled. What you typed in "%1$s" is longer than %2$s characters: shorten it and mark it as handled again.', 'wpcredits-program-manager' ),
+					self::note_label(),
+					number_format_i18n( self::MAX_NOTE )
+				),
+			),
+			'request-declined-long' => array(
+				'error',
+				sprintf(
+					/* translators: 1: the name of the box, such as What you did about it, 2: the longest note allowed, in characters. */
+					__( 'Nothing was declined. What you typed in "%1$s" is longer than %2$s characters: shorten it and decline it again.', 'wpcredits-program-manager' ),
+					self::note_label(),
+					number_format_i18n( self::MAX_NOTE )
+				),
+			),
 		);
+	}
+
+	/**
+	 * The closing note's box by its name, as its form labels it, so the form and the sentences that
+	 * refuse a note name it alike.
+	 *
+	 * @return string
+	 */
+	private static function note_label() {
+		/* translators: The name of the box a program manager types what they did about a request from an institution in. */
+		return __( 'What you did about it', 'wpcredits-program-manager' );
 	}
 
 	/*
