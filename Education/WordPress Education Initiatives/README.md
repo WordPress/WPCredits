@@ -29,7 +29,7 @@ The first release of the suite is tracked in these issues:
 
 | Folder | Name | Version | What it does |
 | --- | --- | --- | --- |
-| [`contributor-team-matcher`](./contributor-team-matcher) | **Contributor Team Matcher** | 1.0.10 | An interactive quiz that helps a contributor find the right WordPress contribution team based on their interests and skills. |
+| [`contributor-team-matcher`](./contributor-team-matcher) | **Contributor Team Matcher** | 1.0.11 | An interactive quiz that helps a contributor find the right WordPress contribution team based on their interests and skills. |
 | [`credits-program-mentors`](./credits-program-mentors) | **Credits Program Mentors** | 1.5.1 | Displays the public "Sponsored mentors" directory (synced from Airtable) via the `[credits_program_mentors]` shortcode. |
 | [`education-programs-map`](./education-programs-map) | **Education Programs Map** | 2.4.0 | A world map with city-level markers for WPCC, WPCredits, and Student Club activity, plus a dashboard screen for managing institutions. Implements [wordpress.org#584](https://github.com/WordPress/wordpress.org/issues/584). |
 | [`student-impact`](./student-impact) | **Student Impact** | 1.6.1 | Showcases the top graduating students ranked by their WordPress.org contribution impact, contributions and logged hours (synced live from Airtable + profiles.wordpress.org). Provides "Student Stories" and "Graduate Stats" blocks/shortcodes. |

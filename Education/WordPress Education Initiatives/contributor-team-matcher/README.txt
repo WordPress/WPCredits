@@ -3,7 +3,7 @@ Contributors: gomp, francescodicandia, celigaroe, peiraisotta
 Tags: contributor, quiz, make wordpress, onboarding, community
 Requires at least: 5.8
 Tested up to: 7.0
-Stable tag: 1.0.10
+Stable tag: 1.0.11
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -26,7 +26,7 @@ The plugin is fully configurable from the WordPress admin — questions, answers
 
 **Default teams**
 
-The plugin ships with 23 Make WordPress contribution teams: Core, Design, Mobile, Accessibility, Polyglots, Support, Documentation, Themes, Plugins, Community, Meta, Training, Test, TV, Marketing, CLI, Hosting, Tide, Openverse, Photos, Performance, Sustainability, and Security.
+The plugin ships with 19 Make WordPress contribution teams: Core, Design, Accessibility, Polyglots, Support, Documentation, Themes, Community, Training, Test, TV, CLI, Hosting, Openverse, Photos, Core Performance, Playground, Core AI, and Core Program.
 
 == Installation ==
 
@@ -49,11 +49,19 @@ Yes. Everything is editable from the **Contributor Team Matcher** admin menu, wh
 
 Yes. Each question can be set independently to a single answer (radio) or multiple answers (checkbox, up to 3 selections).
 
+= Why are the Plugins, Meta, and Tide teams not included? =
+
+They are left out on purpose, the same way the contributor orientation tool on make.wordpress.org/contribute leaves them out: those teams do not yet have a new-contributor onboarding process. You can still add them yourself under the Teams tab.
+
 = Does the plugin require jQuery? =
 
 No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 
 == Changelog ==
+
+= 1.0.11 =
+* Removed the Plugins and Meta teams from the default contribution teams, matching make.wordpress.org/contribute, because those teams do not yet have a new-contributor onboarding process. Teams you saved yourself under the Teams tab are not changed; use Reset to defaults to pick up the new list.
+* Corrected the list of default teams in this readme.
 
 = 1.0.9 =
 * Removed the Mobile team from the default contribution teams.
@@ -107,6 +115,9 @@ No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 * Accessible: ARIA labels, keyboard navigation, focus management, `role="radiogroup"` / `role="group"` on answer lists.
 
 == Upgrade Notice ==
+
+= 1.0.11 =
+Removes the Plugins and Meta teams from the default contribution teams.
 
 = 1.0.9 =
 Removes the Mobile team from the default contribution teams.

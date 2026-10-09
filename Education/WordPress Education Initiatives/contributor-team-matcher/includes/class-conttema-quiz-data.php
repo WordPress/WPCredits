@@ -232,6 +232,10 @@ class CONTTEMA_Quiz_Data {
 
 	/**
 	 * Built-in default teams with tag weights (used when no overrides are saved).
+	 *
+	 * The Plugins, Meta, and Tide teams are left out on purpose, matching the
+	 * contributor orientation tool on make.wordpress.org/contribute: those teams
+	 * do not yet have a new-contributor onboarding process.
 	 */
 	public static function get_default_teams() {
 		return array(
@@ -347,21 +351,6 @@ class CONTTEMA_Quiz_Data {
 				),
 			),
 			array(
-				'id'          => 'plugins',
-				'name'        => 'Plugins',
-				'url'         => 'https://make.wordpress.org/plugins/',
-				'description' => 'Keep the plugin ecosystem healthy. Review guidelines, handle security reports, and support plugin developers.',
-				'icon'        => '🔌',
-				'tags'        => array(
-					'plugins'   => 5,
-					'php'       => 3,
-					'code'      => 3,
-					'ecosystem' => 5,
-					'security'  => 3,
-					'dev'       => 3,
-				),
-			),
-			array(
 				'id'          => 'community',
 				'name'        => 'Community',
 				'url'         => 'https://make.wordpress.org/community/',
@@ -373,22 +362,6 @@ class CONTTEMA_Quiz_Data {
 					'outreach'  => 5,
 					'sync'      => 4,
 					'reach'     => 3,
-				),
-			),
-			array(
-				'id'          => 'meta',
-				'name'        => 'Meta',
-				'url'         => 'https://make.wordpress.org/meta/',
-				'description' => 'Build and maintain WordPress.org — the website, GlotPress, profiles, and all the tools contributors use.',
-				'icon'        => '🌐',
-				'tags'        => array(
-					'code'       => 4,
-					'php'        => 4,
-					'javascript' => 3,
-					'dev'        => 4,
-					'meta'       => 5,
-					'expert'     => 3,
-					'devtools'   => 3,
 				),
 			),
 			array(
