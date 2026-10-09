@@ -745,6 +745,24 @@ add_filter( 'wpcpm_program_course_ids', function ( $ids ) { $ids['Research Track
 ck( 'the filter can add a course, and course_id() hands back an integer', WPCPM_Program::course_id( 'Research Track' ), 500001 );
 array_pop( $GLOBALS['filters']['wpcpm_program_course_ids'] );
 
+echo "\n=== The course an account is on ===\n";
+
+// One answer for every page that names a student's course or reads their form: the track the status
+// names, and for a student waiting to graduate the last track the students sync saw on their account.
+$GLOBALS['umeta'][910] = array( WPCPM_Students_Sync::META_COURSE => 'In Sensei 50h' );
+$GLOBALS['umeta'][911] = array( WPCPM_Students_Sync::META_COURSE => '' );
+$GLOBALS['umeta'][912] = array( WPCPM_Students_Sync::META_COURSE => 'Translator Track' );
+
+ck( 'a student on a track is on that track, whatever the account remembers', WPCPM_Program::course_status( 'Developer Track', 910 ), 'Developer Track' );
+ck( 'a Pending graduation student is on the track their account remembers', WPCPM_Program::course_status( 'Pending graduation', 910 ), 'In Sensei 50h' );
+ck( 'with the status read as the base spells it, padding trimmed', WPCPM_Program::course_status( ' Pending graduation ', 910 ), 'In Sensei 50h' );
+ck( 'a pending student the account remembers nothing for is on no course', WPCPM_Program::course_status( 'Pending graduation', 911 ), '' );
+ck( 'nor is one whose account names a status no track on the site holds', WPCPM_Program::course_status( 'Pending graduation', 912 ), '' );
+ck( 'nor one with no account to ask', WPCPM_Program::course_status( 'Pending graduation', 0 ), '' );
+ck( 'a paused student is on no course, as before', WPCPM_Program::course_status( 'Paused', 910 ), '' );
+ck( 'nor is a graduate', WPCPM_Program::course_status( 'Graduate', 910 ), '' );
+ck( 'the pending state is the one the badges paint', isset( WPCPM_Program::states()[ WPCPM_Program::STATUS_PENDING ] ), true );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

@@ -29,6 +29,15 @@
  *   the row created last whichever came back first, an account on a live row stays on it, a
  *   stamp for a record the run no longer fetches is replaced, and one account under two
  *   addresses is still the conflict it was;
+ * - the account keeps the last course status the sync saw while the report says Pending
+ *   graduation (and Paused on the way there), takes the new course when the student is on one
+ *   again, including a track the site does not run yet, which then names no course until a track
+ *   holds it, keeps the course its replaced row named on the first run after an update, and a
+ *   pending student the site knows no course for is seeded once from their Feedback row's Course:
+ *   a batch of addresses to a request, matched case-insensitively, the account's own address where
+ *   the report has none, no row for a student with no address at all, the row the surveys' stamp
+ *   trusts or else the row they would choose, the Course kept as read, a refused read noted and
+ *   never stopped on, and no request at all once everyone waiting has been answered;
  * - a mentor read refused for the run (a rate limit) stops the tick and is resumed, while a
  *   404 for one mentor is that one mentor's; and a refused page read is retried when the
  *   base said to come back, not when a stalled-run timer happens to fire, while a credential
@@ -110,6 +119,9 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 function add_action() {} function remove_filter() { return true; }
 function do_action() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
+// Core's `remove_accents()`, as far as the names of the checks below reach it. The letters are
+// written as escapes, as the suites write every non-ASCII character.
+function remove_accents( $text, $locale = '' ) { return strtr( (string) $text, array( "\u{00C1}" => 'A', "\u{00E1}" => 'a', "\u{00C9}" => 'E', "\u{00E9}" => 'e', "\u{0141}" => 'L', "\u{0142}" => 'l', "\u{00D6}" => 'O', "\u{00F6}" => 'o' ) ); }
 function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 /**
@@ -143,6 +155,7 @@ function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
+function metadata_exists( $type, $id, $key ) { return 'user' === $type && isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $key, $GLOBALS['umeta'][ (int) $id ] ); }
 
 function get_user_by( $field, $value ) {
 	if ( 'id' === $field ) {
@@ -246,7 +259,9 @@ class WPCPM_Airtable {
 	public static function is_record_id( $value ) { return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) ); }
 	public function __construct( $settings = null ) {}
 	public function formula_in( $field, array $values, $lower = false ) {
-		return 'IN:' . json_encode( array( 'field' => $field, 'values' => array_values( $values ) ) );
+		$values = array_values( array_map( 'strval', $values ) );
+
+		return 'IN:' . json_encode( array( 'field' => $field, 'values' => $lower ? array_map( 'strtolower', $values ) : $values, 'lower' => (bool) $lower ) );
 	}
 	/**
 	 * One record by ID, as `phase_mentors()` reads mentor cards.
@@ -289,7 +304,9 @@ class WPCPM_Airtable {
 		foreach ( $GLOBALS['airtable'][ $table ] ?? array() as $record ) {
 			$cells = $record['fields'];
 
-			if ( $filter && ! in_array( (string) ( $cells[ $filter['field'] ] ?? '' ), $filter['values'], true ) ) {
+			$cell = (string) ( $cells[ $filter['field'] ?? '' ] ?? '' );
+
+			if ( $filter && ! in_array( empty( $filter['lower'] ) ? $cell : strtolower( $cell ), $filter['values'], true ) ) {
 				continue;
 			}
 
@@ -308,6 +325,11 @@ class WPCPM_Airtable {
 		}
 
 		return array( 'records' => $out, 'offset' => null );
+	}
+	public function fetch_all( $table, array $args = array() ) {
+		$page = $this->fetch_page( $table, $args );
+
+		return is_wp_error( $page ) ? $page : $page['records'];
 	}
 	public static function flatten( $value, $glue = ', ' ) {
 		if ( is_array( $value ) ) {
@@ -353,6 +375,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 // The report form owns the list of screenshot columns; the sync asks Airtable for them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+// The surveys own the Feedback table, the row a Pending graduation student's course is seeded from.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-feedback.php';
+// The name order the reconciliation lists its status disagreements in is the switchers' own.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 
 // The program map and the report forms, the screenshot columns among them, are the compiled
 // tracks' (bin/stubs/compiled-seeds.php).
@@ -713,6 +739,168 @@ ck( 'reports rows with no Students row: 19, split by status',
 	array( 'Developer Track' => 1, 'Graduate' => 6, 'In Sensei' => 7, 'Paused' => 4, 'Pending graduation' => 1 ) );
 ck( 'which sum to 19', array_sum( $recon['reports_without_students'] ), 19 );
 ck( 'status disagreements on joined rows: 10', $recon['status_disagreements'], 10 );
+
+// The count says how many; the list says who. Each disagreeing student is kept with the name the
+// Students row carries, both statuses and the two rows to open, and nothing else of her: no
+// address, no institution, no start date. The fixture's ten are Dee Disagreement 1 to 10, six
+// Graduate and four Paused on the Students side, all In Sensei on the reports side.
+$listed       = isset( $recon['status_disagreement_rows'] ) && is_array( $recon['status_disagreement_rows'] ) ? $recon['status_disagreement_rows'] : array();
+$students_by  = array();
+$reports_by   = array();
+
+foreach ( $GLOBALS['airtable'][ $students_table ] as $record ) { $students_by[ $record['id'] ] = $record['fields']; }
+foreach ( $GLOBALS['airtable'][ $reports_table ] as $record ) { $reports_by[ $record['id'] ] = $record['fields']; }
+
+ck( 'the ten who disagree are listed beside the count, by name as a person counts: 1, 2, 3 and on to 10',
+	array_column( $listed, 'name' ),
+	array_map( static function ( $n ) { return "Dee Disagreement $n"; }, range( 1, 10 ) ) );
+ck( 'each entry holds the name, the two statuses and the two records, and nothing else',
+	array_unique( array_map( static function ( $row ) { $keys = array_keys( $row ); sort( $keys ); return implode( ',', $keys ); }, $listed ) ),
+	array( 'name,reports_record,reports_status,students_record,students_status' ) );
+ck( 'the statuses are each table\'s own: Graduate for the first six and Paused for the rest on the Students side, In Sensei on the reports side',
+	array( array_column( array_slice( $listed, 0, 6 ), 'students_status' ), array_column( array_slice( $listed, 6 ), 'students_status' ), array_unique( array_column( $listed, 'reports_status' ) ) ),
+	array( array_fill( 0, 6, 'Graduate' ), array_fill( 0, 4, 'Paused' ), array( 'In Sensei' ) ) );
+ck( 'the two records are the rows that say so: the Students row carries the name and the first status, the reports row the second',
+	array_unique( array_map(
+		static function ( $row ) use ( $students_by, $reports_by, $fields ) {
+			return array(
+				isset( $students_by[ $row['students_record'] ] ) ? $students_by[ $row['students_record'] ][ $fields['student_record_name'] ] === $row['name'] && $students_by[ $row['students_record'] ][ $fields['student_status'] ] === $row['students_status'] : false,
+				isset( $reports_by[ $row['reports_record'] ] ) ? $reports_by[ $row['reports_record'] ][ $fields['report_status'] ] === $row['reports_status'] : false,
+			);
+		},
+		$listed
+	), SORT_REGULAR ),
+	array( array( true, true ) ) );
+ck( 'no address is kept for them: the reconciliation holds none of the ten\'s',
+	false !== strpos( serialize( $recon['status_disagreement_rows'] ?? array() ), 'dee-disagree' ), false );
+
+// More than the cap: the count stays whole and the list stops at the cap, so the option holds a
+// page of names and not the base's every disagreement. The private method is called on a state
+// built here, sixty students whose two tables disagree and one pair that agrees. They are fed
+// from the last to the first, so the first fifty by name are not the first fifty fed.
+$recon_of = static function ( array $state ) {
+	$m = new ReflectionMethod( 'WPCPM_Students_Sync', 'reconciliation' );
+
+	// Before PHP 8.1 a private method has to be made accessible first, or the call is refused.
+	if ( PHP_VERSION_ID < 80100 ) {
+		$m->setAccessible( true );
+	}
+
+	return $m->invoke( null, $state );
+};
+$many = array( 'rows' => array(), 'students' => array() );
+
+for ( $i = 60; $i >= 1; $i-- ) {
+	$email = "many-$i@example.test";
+
+	$many['rows'][ sprintf( 'recMANYS%010d', $i ) ] = array( 'record_id' => sprintf( 'recMANYS%010d', $i ), 'name' => "Many $i", 'email_key' => $email, 'status' => 'Graduate', 'institution' => '', 'start' => '2026-05-04', 'has_mentor' => false, 'reports' => array() );
+	$many['students'][]                              = array( 'record_id' => sprintf( 'recMANYR%010d', $i ), 'name' => "Many $i", 'email_key' => $email, 'program' => 'In Sensei' );
+}
+
+$many['rows']['recMANYSAGREE000']  = array( 'record_id' => 'recMANYSAGREE000', 'name' => 'Agreeing', 'email_key' => 'agree@example.test', 'status' => 'Graduate', 'institution' => '', 'start' => '2026-05-04', 'has_mentor' => false, 'reports' => array() );
+$many['students'][]                 = array( 'record_id' => 'recMANYRAGREE000', 'name' => 'Agreeing', 'email_key' => 'agree@example.test', 'program' => 'Graduate' );
+
+$capped = $recon_of( $many );
+
+ck( 'sixty disagreements are counted whole, and the pair that agrees is not one', $capped['status_disagreements'], 60 );
+ck( 'the list holds the first fifty by name and says how many it stopped at',
+	array( count( $capped['status_disagreement_rows'] ?? array() ), defined( 'WPCPM_Students_Sync::DISAGREEMENT_ROWS_MAX' ) ? WPCPM_Students_Sync::DISAGREEMENT_ROWS_MAX : 'undefined', ( $capped['status_disagreement_rows'][0]['name'] ?? '' ), ( $capped['status_disagreement_rows'][49]['name'] ?? '' ) ),
+	array( 50, 50, 'Many 1', 'Many 50' ) );
+ck( 'and the fifty are exactly Many 1 to Many 50, the ten after them left out, fed last to first',
+	array_column( $capped['status_disagreement_rows'] ?? array(), 'name' ),
+	array_map( static function ( $n ) { return "Many $n"; }, range( 1, 50 ) ) );
+
+/**
+ * A state of Students rows that each disagree with the report row on the same address, in the
+ * order given: each entry is a Students record, a name, and the name its report row carries.
+ *
+ * @param array[] $people Entries `array( record, name, report name )`, fed to the sync in this order.
+ * @return array A state for `reconciliation()`.
+ */
+$disagreeing = static function ( array $people ) {
+	$state = array( 'rows' => array(), 'students' => array() );
+
+	foreach ( $people as $n => $person ) {
+		$email = "person-$n@example.test";
+
+		$state['rows'][ $person[0] ] = array( 'record_id' => $person[0], 'name' => $person[1], 'email_key' => $email, 'status' => 'Graduate', 'institution' => '', 'start' => '2026-05-04', 'has_mentor' => false, 'reports' => array() );
+		$state['students'][]         = array( 'record_id' => 'recR' . substr( $person[0], 4 ), 'name' => $person[2], 'email_key' => $email, 'program' => 'In Sensei' );
+	}
+
+	return $state;
+};
+$names_of = static function ( array $recon_out ) {
+	return array_column( $recon_out['status_disagreement_rows'] ?? array(), 'name' );
+};
+
+// A person counts 2 before 10, which a comparison byte by byte does not.
+ck( 'names are in the order a person counts, Student 2 before Student 10, fed 10, 2, 1',
+	$names_of( $recon_of( $disagreeing( array( array( 'recNAT000000010', 'Student 10', '' ), array( 'recNAT000000002', 'Student 2', '' ), array( 'recNAT000000001', 'Student 1', '' ) ) ) ) ),
+	array( 'Student 1', 'Student 2', 'Student 10' ) );
+
+// Two of one name keep a place from one run to the next, by the Students record, however the
+// base hands them back; the second is fed first here.
+$same = $recon_of( $disagreeing( array( array( 'recSAME00000000B', 'Same Name', '' ), array( 'recSAME00000000A', 'Same Name', '' ) ) ) );
+
+ck( 'two students of one name are in the order of their Students records, fed B then A',
+	array_column( $same['status_disagreement_rows'] ?? array(), 'students_record' ),
+	array( 'recSAME00000000A', 'recSAME00000000B' ) );
+
+// A Students row with no name (or a blank one) is still found: the report row's name stands in.
+$nameless = $recon_of( $disagreeing( array( array( 'recNONAME0000001', '', 'Name From Report' ), array( 'recBLANK00000001', '   ', 'Blank Row Report' ) ) ) );
+
+ck( 'a Students row with no name, or a blank one, takes the name its report row carries',
+	$names_of( $nameless ),
+	array( 'Blank Row Report', 'Name From Report' ) );
+ck( 'and a row with no name on either side is listed, with an empty name, rather than dropped',
+	array( $recon_of( $disagreeing( array( array( 'recNOBODY0000001', '', '' ) ) ) )['status_disagreements'], $names_of( $recon_of( $disagreeing( array( array( 'recNOBODY0000001', '', '' ) ) ) ) ) ),
+	array( 1, array( '' ) ) );
+
+// Past the cap the names cut are the last in the order, so an accented first letter has to sort
+// where a reader looks for it: Alvaro among the A's and Lukasz among the L's, as the accounts
+// lists order a name, and not after Z where their bytes put them.
+$accents = $recon_of( $disagreeing( array(
+	array( 'recACC00000000Z', 'Zoe Zed', '' ),
+	array( 'recACC00000000L', "\u{0141}ukasz Lis", '' ),
+	array( 'recACC00000000B', 'Beth Bay', '' ),
+	array( 'recACC00000000A', "\u{00C1}lvaro Ant", '' ),
+) ) );
+
+ck( 'an accented first letter sorts among its plain letter: Alvaro, Beth, Lukasz, Zoe',
+	$names_of( $accents ),
+	array( "\u{00C1}lvaro Ant", 'Beth Bay', "\u{0141}ukasz Lis", 'Zoe Zed' ) );
+
+// The order is the Viewing as switchers' (`WPCPM_Dashboards::compare_names()`), in every script:
+// a Cyrillic capital is read as its small letter, so Anna with a capital and anna without one are
+// side by side, settled by their Students records, and Zoya comes after both, where a comparison
+// that folds only the Latin capitals puts every Cyrillic capital before every small letter. Numbers
+// inside a Cyrillic name are read as numbers too, student 2 before Student 10.
+$cyrillic = $recon_of( $disagreeing( array(
+	array( 'recCYR00000000Z', "\u{0417}\u{043E}\u{044F}", '' ),
+	array( 'recCYR00000000T', "\u{0421}\u{0442}\u{0443}\u{0434}\u{0435}\u{043D}\u{0442} 10", '' ),
+	array( 'recCYR00000000B', "\u{0430}\u{043D}\u{043D}\u{0430}", '' ),
+	array( 'recCYR00000000S', "\u{0441}\u{0442}\u{0443}\u{0434}\u{0435}\u{043D}\u{0442} 2", '' ),
+	array( 'recCYR00000000A', "\u{0410}\u{043D}\u{043D}\u{0430}", '' ),
+) ) );
+
+ck( 'a Cyrillic name sorts without regard to case, and its numbers as numbers: Anna, anna, Zoya, student 2, Student 10',
+	array_column( $cyrillic['status_disagreement_rows'] ?? array(), 'students_record' ),
+	array( 'recCYR00000000A', 'recCYR00000000B', 'recCYR00000000Z', 'recCYR00000000S', 'recCYR00000000T' ) );
+
+// One address on two Students rows is one disagreement, as the count has always said, and one
+// entry: the first Students row that disagrees.
+$twice = array(
+	'rows'     => array(
+		'recTWICES0000001' => array( 'record_id' => 'recTWICES0000001', 'name' => 'Twice A', 'email_key' => 'twice@example.test', 'status' => 'Paused', 'institution' => '', 'start' => '', 'has_mentor' => false, 'reports' => array() ),
+		'recTWICES0000002' => array( 'record_id' => 'recTWICES0000002', 'name' => 'Twice B', 'email_key' => 'twice@example.test', 'status' => 'Graduate', 'institution' => '', 'start' => '', 'has_mentor' => false, 'reports' => array() ),
+	),
+	'students' => array( array( 'record_id' => 'recTWICER0000001', 'name' => 'Twice', 'email_key' => 'twice@example.test', 'program' => 'In Sensei' ) ),
+);
+$twice = $recon_of( $twice );
+
+ck( 'one report row sharing its address with two Students rows is one entry, the first row that disagrees',
+	array( $twice['status_disagreements'], count( $twice['status_disagreement_rows'] ?? array() ), $twice['status_disagreement_rows'][0]['students_record'] ?? '' ),
+	array( 1, 1, 'recTWICES0000001' ) );
 ck( 'duplicate emails per institution: 9 across four institutions',
 	$recon['duplicate_emails'],
 	array( $bee => 4, $cee => 3, $eee => 1, $fff => 1 ) );
@@ -1662,6 +1850,273 @@ $args[] = &$mentor_state;
 $mentor_calls( 'phase_assign', $args );
 
 ck( 'and the mentee row it assigns keeps the student\'s name', get_user_meta( $created_id, WPCPM_Mentors_Sync::META_MENTEES, true )[0]['name'] ?? null, $typed_name );
+
+echo "\n=== The course a Pending graduation student keeps ===\n";
+
+// Pending graduation is on no track, and the status is the only place the base keeps a track: the
+// sync's own row is replaced whole on every run. So the account keeps the last track status the
+// sync saw, on a key of its own, and keeps it while the student waits to graduate.
+$feedback_table = $defaults['feedback_table'];
+$course_of      = static function ( $email ) {
+	$id = user_id_for( $email );
+
+	return ( $id && array_key_exists( WPCPM_Students_Sync::META_COURSE, $GLOBALS['umeta'][ $id ] ?? array() ) ) ? $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_COURSE ] : '(absent)';
+};
+$feedback_reads = static function () use ( $feedback_table ) {
+	return array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $feedback_table ) { return $f['table'] === $feedback_table; } ) );
+};
+$set_status     = static function ( $record, $status ) use ( $reports_table, $fields ) {
+	foreach ( $GLOBALS['airtable'][ $reports_table ] as $i => $row ) {
+		if ( $row['id'] === $record ) {
+			$GLOBALS['airtable'][ $reports_table ][ $i ]['fields'][ $fields['report_status'] ] = $status;
+		}
+	}
+};
+
+$GLOBALS['airtable'][ $feedback_table ] = array();
+
+student_row( 'Pat Developer', 'pat.dev@example.test', 'Developer Track', $dee, '2026-08-03' );
+$pat = report_row( 'Pat Developer', 'pat.dev@example.test', 'Developer Track', $dee );
+student_row( 'Fay Fifty', 'fay.fifty@example.test', 'In Sensei 50h', $dee, '2026-08-03' );
+$fay = report_row( 'Fay Fifty', 'fay.fifty@example.test', 'In Sensei 50h', $dee );
+
+run_sync();
+
+ck( 'a student on a track has that track remembered', array( $course_of( 'pat.dev@example.test' ), $course_of( 'fay.fifty@example.test' ) ), array( 'Developer Track', 'In Sensei 50h' ) );
+
+$set_status( $pat, 'Pending graduation' );
+$set_status( $fay, 'Pending graduation' );
+run_sync();
+
+ck( 'and keeps it once their status is Pending graduation', array( $course_of( 'pat.dev@example.test' ), $course_of( 'fay.fifty@example.test' ) ), array( 'Developer Track', 'In Sensei 50h' ) );
+ck( 'while the program row says what the base says', get_user_meta( user_id_for( 'pat.dev@example.test' ), WPCPM_Students_Sync::META_PROGRAM, true )['program'] ?? null, 'Pending graduation' );
+ck( 'and nothing is read from the Feedback table for a student whose course the site already knows', count( $feedback_reads() ), 0 );
+
+// Back on a track: the track they are on now is the one remembered.
+$set_status( $pat, 'Designer Track' );
+run_sync();
+
+ck( 'a student back on a track has the new track remembered in place of the old', $course_of( 'pat.dev@example.test' ), 'Designer Track' );
+
+// Paused is on no track as well, and keeps what was remembered: the key only ever holds the last
+// track seen, so a student paused and then put up for graduation still has their course.
+$set_status( $pat, 'Paused' );
+run_sync();
+
+ck( 'a paused student keeps the last track too', $course_of( 'pat.dev@example.test' ), 'Designer Track' );
+
+$set_status( $pat, 'Pending graduation' );
+run_sync();
+
+ck( 'and has it when they move on to Pending graduation', $course_of( 'pat.dev@example.test' ), 'Designer Track' );
+
+// The first run after an update: an account the key was never written on, whose last row still names
+// the track it was on. The row being replaced is read before it goes, so that track is kept.
+unset( $GLOBALS['umeta'][ user_id_for( 'fay.fifty@example.test' ) ][ WPCPM_Students_Sync::META_COURSE ] );
+$GLOBALS['umeta'][ user_id_for( 'fay.fifty@example.test' ) ][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei 50h';
+run_sync();
+
+ck( 'an account with no key yet keeps the track its last row named', $course_of( 'fay.fifty@example.test' ), 'In Sensei 50h' );
+ck( 'and reading it cost no Feedback request', count( $feedback_reads() ), 0 );
+
+// A track the base has and the site does not run yet: a student moved onto it is no longer on the
+// course they were on before, so that course must not come back when they finish. The status is
+// kept as the base spells it, and `course_status()` names it only once a track on the site holds it.
+$settings_before = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ];
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] = array_merge( $defaults['student_statuses'], array( 'Translator Track' ) );
+
+student_row( 'Quin Moving', 'quin.moving@example.test', 'In Sensei', $dee, '2026-08-03' );
+$quin = report_row( 'Quin Moving', 'quin.moving@example.test', 'In Sensei', $dee );
+run_sync();
+$set_status( $quin, 'Graduate' );
+run_sync();
+$set_status( $quin, 'Translator Track' );
+run_sync();
+
+ck( 'a student moved onto a track the site does not run yet has that track kept, not the one before it', $course_of( 'quin.moving@example.test' ), 'Translator Track' );
+
+$set_status( $quin, 'Pending graduation' );
+run_sync();
+
+$quin_id     = user_id_for( 'quin.moving@example.test' );
+$quin_field  = WPCPM_Program::program_field( 'Pending graduation', $quin_id );
+$quin_course = WPCPM_Program::course_status( 'Pending graduation', $quin_id );
+
+// The hours read the way the cards read them: against the course, or the status when there is none.
+ck( 'and once pending they show Pending graduation alone: no course, no link, no 150-hour target',
+	array( $course_of( 'quin.moving@example.test' ), $quin_course, $quin_field['value'], $quin_field['url'], isset( $quin_field['html'] ), WPCPM_Program::hours_text( '12', '' !== $quin_course ? $quin_course : 'Pending graduation' ) ),
+	array( 'Translator Track', '', 'Pending graduation', '', false, '12 h' ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings_before;
+
+echo "\n=== Seeded once from the Feedback row ===\n";
+
+// Students who were already pending before the site remembered anything: their last row says Pending
+// graduation and no key was ever written. Their Feedback row's Course names the track the row was
+// made for, so it seeds the key once, by the address the surveys match on.
+$seeded = array(
+	'gil.pending@example.test' => 'In Sensei 50h',
+	'hal.pending@example.test' => 'Developer Track',
+	'ivy.pending@example.test' => 'Translator Track',
+	'jon.pending@example.test' => null,
+	'kim.pending@example.test' => '',
+	'lou.pending@example.test' => 'In Sensei',
+);
+
+foreach ( array_keys( $seeded ) as $email ) {
+	$name = ucfirst( strtok( $email, '.' ) ) . ' Pending';
+	student_row( $name, $email, 'Pending graduation', $dee, '2026-03-02' );
+	report_row( $name, $email, 'Pending graduation', $dee );
+}
+
+// Gil's row was typed in capitals, which the surveys' case-insensitive match finds. Jon has no
+// Feedback row at all; Kim has one with no Course. Ivy's names a course this site runs no track for.
+// Lou has two rows, one filed under another school, and the one filed under Dee is theirs.
+$GLOBALS['airtable'][ $feedback_table ] = array(
+	array( 'id' => 'recFEED0000000001', 'fields' => array( 'Email' => 'GIL.PENDING@example.test', 'Course' => 'In Sensei 50h' ) ),
+	array( 'id' => 'recFEED0000000002', 'fields' => array( 'Email' => 'hal.pending@example.test', 'Course' => 'Developer Track', 'Institution' => array( $dee ) ) ),
+	array( 'id' => 'recFEED0000000003', 'fields' => array( 'Email' => 'ivy.pending@example.test', 'Course' => 'Translator Track' ) ),
+	array( 'id' => 'recFEED0000000004', 'fields' => array( 'Email' => 'kim.pending@example.test' ) ),
+	array( 'id' => 'recFEED0000000005', 'fields' => array( 'Email' => 'lou.pending@example.test', 'Course' => 'Developer Track', 'Institution' => array( $eee ) ) ),
+	array( 'id' => 'recFEED0000000006', 'fields' => array( 'Email' => 'lou.pending@example.test', 'Course' => 'In Sensei', 'Institution' => array( $dee ) ) ),
+	// Somebody nobody asked about, who must not be read into anyone's key.
+	array( 'id' => 'recFEED0000000007', 'fields' => array( 'Email' => 'pat.dev@example.test', 'Course' => 'In Sensei' ) ),
+);
+
+run_sync();
+
+$reads = $feedback_reads();
+
+ck( 'a pending student with a Feedback Course is seeded from it, matched whatever the case', $course_of( 'gil.pending@example.test' ), 'In Sensei 50h' );
+ck( 'the Developer Track maps to the Developer Track', $course_of( 'hal.pending@example.test' ), 'Developer Track' );
+ck( 'the row filed under the student\'s own school is the one read, as the surveys choose it', $course_of( 'lou.pending@example.test' ), 'In Sensei' );
+ck( 'a Course no track on this site holds is kept as the row has it, and is not asked again', $course_of( 'ivy.pending@example.test' ), 'Translator Track' );
+ck( 'and names no course while no track holds it', WPCPM_Program::course_status( 'Pending graduation', user_id_for( 'ivy.pending@example.test' ) ), '' );
+
+// The day a track with that status is published, the seeded course is named, with nobody asked again.
+add_filter( 'wpcpm_program_labels', static function ( $labels ) { $labels['Translator Track'] = 'Translator Track'; return $labels; }, 99 );
+add_filter( 'wpcpm_program_courses', static function ( $courses ) { $courses['Translator Track'] = 'https://learn.example.test/course/translator/'; return $courses; }, 99 );
+
+$ivy_field = WPCPM_Program::program_field( 'Pending graduation', user_id_for( 'ivy.pending@example.test' ) );
+
+ck( 'a Translator Track seed names the course once a Translator track is added',
+	array( WPCPM_Program::course_status( 'Pending graduation', user_id_for( 'ivy.pending@example.test' ) ), $ivy_field['url'], $ivy_field['html'] ?? null ),
+	array( 'Translator Track', 'https://learn.example.test/course/translator/', '<a href="https://learn.example.test/course/translator/" target="_blank" rel="noopener noreferrer">Translator Track</a> <span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>' ) );
+
+unset( $GLOBALS['wpcpm_stub_filters']['wpcpm_program_labels'][99], $GLOBALS['wpcpm_stub_filters']['wpcpm_program_courses'][99] );
+ck( 'a Feedback row with no Course seeds nothing, and is not asked again', $course_of( 'kim.pending@example.test' ), '' );
+ck( 'an address with no Feedback row seeds nothing, and is not asked again', $course_of( 'jon.pending@example.test' ), '' );
+ck( 'a student whose course is known is not overwritten by their Feedback row', $course_of( 'pat.dev@example.test' ), 'Designer Track' );
+ck( 'the six addresses are read in one request', count( $reads ), 1 );
+ck( 'asking only for the address, the school and the Course', isset( $reads[0] ) ? $reads[0]['fields'] : null, array( 'Email', 'Institution', 'Course' ) );
+
+$errors = get_option( WPCPM_Students_Sync::OPT_ERROR, '' );
+ck( 'and the run finished with no error', array( isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), $errors ), array( false, '' ) );
+
+run_sync();
+
+ck( 'once every pending student has been seeded, the next run reads nothing from the Feedback table', count( $feedback_reads() ), 0 );
+
+// A refused read is the run's to forget, not to stop on: the course is a convenience, and a sync that
+// stopped on it would leave every card and the roster unwritten. The key stays unwritten, so the next
+// run asks again.
+student_row( 'Mo Pending', 'mo.pending@example.test', 'Pending graduation', $dee, '2026-03-02' );
+report_row( 'Mo Pending', 'mo.pending@example.test', 'Pending graduation', $dee );
+$GLOBALS['airtable'][ $feedback_table ][] = array( 'id' => 'recFEED0000000008', 'fields' => array( 'Email' => 'mo.pending@example.test', 'Course' => 'Designer Track' ) );
+$GLOBALS['fetch_error'][ $feedback_table ] = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 403): INVALID_PERMISSIONS', array( 'status' => 403 ) );
+
+run_sync();
+
+ck( 'a refused Feedback read leaves the key unwritten', $course_of( 'mo.pending@example.test' ), '(absent)' );
+ck( 'and the run still finishes, with nothing stopped on it',
+	array( isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), get_option( WPCPM_Students_Sync::OPT_ERROR, '' ) ),
+	array( false, '' ) );
+ck( 'and the run report says the course could not be read',
+	false !== strpos( implode( "\n", (array) ( get_option( WPCPM_Students_Sync::OPT_REPORT )['notices'] ?? array() ) ), 'INVALID_PERMISSIONS' ), true );
+
+unset( $GLOBALS['fetch_error'][ $feedback_table ] );
+run_sync();
+
+ck( 'and the next run seeds it', $course_of( 'mo.pending@example.test' ), 'Designer Track' );
+
+// A report row with no address, on an account the sync already follows by record ID: the account's
+// own address is the one asked, as the surveys ask it.
+$sam_record            = report_row( 'Sam Pending', '', 'Pending graduation', $dee );
+$GLOBALS['users'][801] = array( 'login' => 'sampending', 'email' => 'sam.pending@example.test', 'name' => 'Sam Pending', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][801] = array( WPCPM_Students_Sync::META_RECORD_ID => $sam_record );
+
+// A student whose surveys already trust one of two rows: the stamp the surveys keep, resolved for
+// the school the student is placed at, is the row read, though the other is filed under that school.
+student_row( 'Rae Pending', 'rae.pending@example.test', 'Pending graduation', $dee, '2026-03-02' );
+report_row( 'Rae Pending', 'rae.pending@example.test', 'Pending graduation', $dee );
+$GLOBALS['users'][802] = array( 'login' => 'raepending', 'email' => 'rae.pending@example.test', 'name' => 'Rae Pending', 'roles' => array( 'subscriber' ) );
+$GLOBALS['umeta'][802] = array( WPCPM_Student_Feedback::META_RECORD => 'recFEEDRAE0000002', WPCPM_Student_Feedback::META_RECORD_PLACEMENT => $dee );
+
+$GLOBALS['airtable'][ $feedback_table ][] = array( 'id' => 'recFEEDSAM0000001', 'fields' => array( 'Email' => 'sam.pending@example.test', 'Course' => 'In Sensei 50h' ) );
+$GLOBALS['airtable'][ $feedback_table ][] = array( 'id' => 'recFEEDRAE0000001', 'fields' => array( 'Email' => 'rae.pending@example.test', 'Course' => 'In Sensei', 'Institution' => array( $dee ) ) );
+$GLOBALS['airtable'][ $feedback_table ][] = array( 'id' => 'recFEEDRAE0000002', 'fields' => array( 'Email' => 'rae.pending@example.test', 'Course' => 'Developer Track' ) );
+
+run_sync();
+
+ck( 'a report row with no address is seeded through the account\'s own address', $course_of( 'sam.pending@example.test' ), 'In Sensei 50h' );
+ck( 'the row the surveys\' stamp trusts is the one read', $course_of( 'rae.pending@example.test' ), 'Developer Track' );
+
+// A stamp resolved for another placement is not trusted, as the surveys do not trust it: the row
+// filed under the student's own school is read again.
+$GLOBALS['umeta'][802][ WPCPM_Student_Feedback::META_RECORD_PLACEMENT ] = $eee;
+unset( $GLOBALS['umeta'][802][ WPCPM_Students_Sync::META_COURSE ] );
+run_sync();
+
+ck( 'a stamp made for another school is not, and the school\'s own row is read instead', $course_of( 'rae.pending@example.test' ), 'In Sensei' );
+
+// Many at once go in batches, a few requests a run, never one per student.
+for ( $i = 1; $i <= 45; $i++ ) {
+	$email = "batch-pending-$i@example.test";
+	student_row( "Batch Pending $i", $email, 'Pending graduation', $dee, '2026-03-02' );
+	report_row( "Batch Pending $i", $email, 'Pending graduation', $dee );
+	$GLOBALS['airtable'][ $feedback_table ][] = array( 'id' => next_record( 'recF' ), 'fields' => array( 'Email' => $email, 'Course' => 'In Sensei' ) );
+}
+
+run_sync();
+
+ck( 'forty-five students waiting for a seed are read in three requests', count( $feedback_reads() ), 3 );
+ck( 'and all of them are seeded', count( array_filter( range( 1, 45 ), static function ( $i ) use ( $course_of ) { return 'In Sensei' === $course_of( "batch-pending-$i@example.test" ); } ) ), 45 );
+
+// A student handed to the read with no address finds no row, even when the base answers a row
+// whose Email is empty, as a formula over the asked addresses never would, and reading them warns
+// of nothing.
+$unfiltered    = new class() extends WPCPM_Airtable {
+	public function fetch_all( $table, array $args = array() ) {
+		return array(
+			array( 'id' => 'recFEEDBLANK00001', 'fields' => array( 'Email' => '', 'Course' => 'Developer Track' ) ),
+			array( 'id' => 'recFEEDGIL0000002', 'fields' => array( 'Email' => 'gil.pending@example.test', 'Course' => 'In Sensei 50h' ) ),
+		);
+	}
+};
+$seed_warnings = array();
+
+set_error_handler(
+	static function ( $number, $message ) use ( &$seed_warnings ) {
+		$seed_warnings[] = $message;
+
+		return true;
+	}
+);
+
+$addressless = WPCPM_Student_Feedback::courses(
+	array(
+		'none' => array( 'institution' => '', 'record' => '' ),
+		'gil'  => array( 'email' => 'gil.pending@example.test', 'institution' => '', 'record' => '' ),
+	),
+	$unfiltered,
+	$feedback_table
+);
+
+restore_error_handler();
+
+ck( 'a student with no address is read as having no row, and nothing warns',
+	array( $addressless, $seed_warnings ),
+	array( array( 'none' => '', 'gil' => 'In Sensei 50h' ), array() ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

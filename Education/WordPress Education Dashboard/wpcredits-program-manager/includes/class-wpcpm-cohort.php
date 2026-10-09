@@ -282,7 +282,7 @@ class WPCPM_Cohort {
 			return 'graduated';
 		}
 
-		if ( 'Pending graduation' === $status ) {
+		if ( WPCPM_Program::STATUS_PENDING === $status ) {
 			return 'pending';
 		}
 

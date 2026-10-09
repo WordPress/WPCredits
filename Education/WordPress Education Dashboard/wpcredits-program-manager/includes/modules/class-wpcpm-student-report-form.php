@@ -145,6 +145,24 @@ class WPCPM_Student_Report_Form {
 	}
 
 	/**
+	 * The track whose form one student's report is drawn and saved with.
+	 *
+	 * The track their status names, or for a student waiting to graduate the track they took
+	 * (`WPCPM_Program::course_status()`), so a pending student keeps their own course's questions and
+	 * the answers saved under them, and a save writes the columns the form they were shown asks.
+	 * Asked the same way by the form, the hours box, the save and the screenshot removal, which is
+	 * what keeps the four on one form. The empty string, for a student on no course, reads as the
+	 * 150-hour track's form in `fields()`, as before.
+	 *
+	 * @param array $program    The student's cached program row.
+	 * @param int   $student_id The student's account.
+	 * @return string Track key, or ''.
+	 */
+	private static function track_of( array $program, $student_id ) {
+		return WPCPM_Program::track( WPCPM_Program::course_status( isset( $program['program'] ) ? $program['program'] : '', (int) $student_id ) );
+	}
+
+	/**
 	 * Every Airtable column on any track that holds screenshots.
 	 *
 	 * Read by `WPCPM_Students_Sync`, which asks Airtable for these columns by name and keeps
@@ -378,13 +396,22 @@ class WPCPM_Student_Report_Form {
 	 * address of the student's, and design spec 7.5 says the same. Filtered here, before any
 	 * group is drawn, so no branch below can print what the audience was not to see.
 	 *
+	 * **The Total hours group is drawn for the student's own mentor and for a program manager**
+	 * reading the record, and only there. On the student's own card the count is the box in *My
+	 * course*, so the form leaves the group out; a mentor reading the record has no such box beside
+	 * it, so there the group is drawn with the others, read only, from the same cell the box shows.
+	 * The reading an institution opens leaves it out as before: the school reads the hours in its
+	 * roster's own column. `rest_permission()` is what keeps another mentor's student out of
+	 * reach; this is the second answer behind it, because `audience_for()` reads a record as a
+	 * mentor's only when it is on their own list.
+	 *
 	 * @param WP_User $student   The student whose report this is.
 	 * @param array   $program   Their cached program row, for the track.
 	 * @param bool    $read_only Force a record rather than a form, whatever the viewer may do.
 	 * @param string  $audience  `own`, `mentor`, `manager` or `institution`.
 	 */
 	private static function render_body( WP_User $student, array $program, $read_only = false, $audience = 'own' ) {
-		$track  = WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' );
+		$track  = self::track_of( $program, $student->ID );
 		$fields = self::fields( $track );
 
 		if ( 'institution' === $audience ) {
@@ -468,7 +495,7 @@ class WPCPM_Student_Report_Form {
 			echo '<div class="wpcpm-report wpcpm-report--readonly">';
 		}
 
-		self::render_groups( $fields, $values, $can, $context );
+		self::render_groups( $fields, $values, $can, $context, $read_only && in_array( $audience, array( 'mentor', 'manager' ), true ) );
 
 		if ( $can ) {
 			printf(
@@ -521,17 +548,21 @@ class WPCPM_Student_Report_Form {
 	 * student (the design's decision 27). `render_body()` calls it with exactly what it gathered
 	 * before, so the live Student Report Card's markup is unchanged.
 	 *
-	 * @param array $fields  The fields, column name => spec, as `fields()` gives them.
-	 * @param array $values  The student's answers, column name => value; empty for a preview.
-	 * @param bool  $can     Whether the controls are drawn editable.
-	 * @param array $context `student`, `images` and `files`, as `render_field()` reads them.
+	 * @param array $fields     The fields, column name => spec, as `fields()` gives them.
+	 * @param array $values     The student's answers, column name => value; empty for a preview.
+	 * @param bool  $can        Whether the controls are drawn editable.
+	 * @param array $context    `student`, `images` and `files`, as `render_field()` reads them.
+	 * @param bool  $with_hours Whether the Total hours group is drawn with the others: only for a
+	 *                          record being read, which has no hours box beside it.
 	 */
-	private static function render_groups( array $fields, array $values, $can, array $context ) {
+	private static function render_groups( array $fields, array $values, $can, array $context, $with_hours = false ) {
 		// Grouped, so the form reads as four short questions rather than twenty boxes. `hours`
-		// is skipped: it is rendered in *My course*, beside the course button, by
-		// `render_hours()` - one field, posting to this same handler.
+		// is skipped where the hours box is drawn instead: in *My course*, beside the course
+		// button, by `render_hours()` - one field, posting to this same handler - and in the
+		// Track Builder's preview, which draws the same box. A record being read has no box
+		// beside it, so there the group is drawn with the rest, read only like them.
 		foreach ( self::groups() as $group => $legend ) {
-			if ( 'hours' === $group ) {
+			if ( 'hours' === $group && ! $with_hours ) {
 				continue;
 			}
 
@@ -847,7 +878,7 @@ class WPCPM_Student_Report_Form {
 			return;
 		}
 
-		$fields = self::fields( WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' ) );
+		$fields = self::fields( self::track_of( $program, $student->ID ) );
 
 		if ( ! isset( $fields['Hours'] ) ) {
 			return;
@@ -1449,7 +1480,7 @@ class WPCPM_Student_Report_Form {
 		}
 
 		$program = WPCPM_Students_Sync::get_program( $student_id );
-		$fields  = self::fields( WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' ) );
+		$fields  = self::fields( self::track_of( $program, $student_id ) );
 
 		$posted = isset( $_POST['report'] ) && is_array( $_POST['report'] )
 			? wp_unslash( $_POST['report'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Every value is validated by type below.
@@ -1793,7 +1824,7 @@ class WPCPM_Student_Report_Form {
 
 		$asked   = isset( $_POST['field'] ) ? sanitize_key( wp_unslash( $_POST['field'] ) ) : '';
 		$program = WPCPM_Students_Sync::get_program( $student_id );
-		$fields  = self::fields( WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' ) );
+		$fields  = self::fields( self::track_of( $program, $student_id ) );
 		$stored  = self::images( $student_id );
 		$column  = '';
 

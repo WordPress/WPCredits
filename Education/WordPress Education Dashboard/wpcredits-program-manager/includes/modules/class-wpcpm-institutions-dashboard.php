@@ -1259,55 +1259,25 @@ class WPCPM_Institutions_Dashboard {
 	 * Keyed by record and not by user, because with several members per institution a user is
 	 * the wrong unit: two accounts at one school are one entry here. Only a manager ever sees
 	 * it, and `resolve_institution()` does not even read the argument for anyone else, so a
-	 * member appending it to the URL changes nothing.
+	 * member appending it to the URL changes nothing. Drawn by `WPCPM_Dashboards`, the one form
+	 * all four dashboards share: sorted A to Z, with a box above the list that narrows it.
 	 *
 	 * @param string $current Institutions record ID currently being viewed.
 	 */
 	private static function render_switcher( $current ) {
-		$options = WPCPM_Institution_Roster::switcher_options();
-
-		// One institution is not a choice, and a select with a single option is a control that
-		// cannot do anything. The mentor page's switcher makes the same call.
-		if ( count( $options ) < 2 ) {
-			return;
-		}
-
-		echo '<form class="wpcpm-dashboard__switcher" method="get">';
-
-		// Without pretty permalinks the page is addressed by query string, which a GET form
-		// would otherwise discard - resubmitting to the site root.
-		if ( ! get_option( 'permalink_structure' ) ) {
-			$queried = get_queried_object_id();
-
-			if ( $queried ) {
-				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
-			}
-		}
-
-		printf(
-			'<label for="wpcpm-institution-switcher">%s</label> ',
-			esc_html__( 'Viewing as institution', 'wpcredits-program-manager' )
+		WPCPM_Dashboards::render_switcher(
+			array(
+				'id'      => 'wpcpm-institution-switcher',
+				// The roster's constant, not a copy: `resolve_institution()` is what reads this field,
+				// and a switcher posting a name it does not read is a control that does nothing.
+				'name'    => WPCPM_Institution_Roster::ARG_VIEW,
+				'options' => WPCPM_Institution_Roster::switcher_options(),
+				'current' => $current,
+				'label'   => __( 'Viewing as institution', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'none'    => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+			)
 		);
-		// The roster's constant, not a copy: `resolve_institution()` is what reads this field,
-		// and a switcher posting a name it does not read is a control that does nothing.
-		printf( '<select name="%s" id="wpcpm-institution-switcher">', esc_attr( WPCPM_Institution_Roster::ARG_VIEW ) );
-
-		foreach ( $options as $record_id => $label ) {
-			printf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $record_id ),
-				selected( $record_id, $current, false ),
-				esc_html( $label )
-			);
-		}
-
-		echo '</select> ';
-		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
-		printf(
-			'<span class="wpcpm-dashboard__switcher-note">%s</span>',
-			esc_html__( 'Only program managers see this control.', 'wpcredits-program-manager' )
-		);
-		echo '</form>';
 	}
 
 	/**

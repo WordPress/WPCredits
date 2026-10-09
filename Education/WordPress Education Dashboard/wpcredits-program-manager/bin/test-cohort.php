@@ -314,6 +314,16 @@ $counts = WPCPM_Cohort::participation( $loose, '2026-H2' );
 ck( 'only "Graduate" spelled exactly is graduated; a trailing space is forgiven, a case or a suffix is not', $counts['graduated'], 1 );
 ck( 'the other spellings are counted, in other', $counts['other'], 2 );
 
+// Pending graduation is the program's own name for the status (`WPCPM_Program::STATUS_PENDING`),
+// which the cards read too, so the bucket names it through the constant and the two cannot differ.
+$cohort_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php' );
+$bucket_body   = preg_match( '/function bucket\(.*?\n\t}\n/s', $cohort_source, $bucket_found ) ? $bucket_found[0] : '';
+
+ck( 'the pending bucket names its status through WPCPM_Program::STATUS_PENDING, not a copy of the words',
+	array( false !== strpos( $bucket_body, 'WPCPM_Program::STATUS_PENDING === $status' ), false !== strpos( $bucket_body, "'Pending graduation'" ) ),
+	array( true, false ) );
+ck( 'and a row in that status is counted as pending', WPCPM_Cohort::participation( array( row( WPCPM_Program::STATUS_PENDING, '2026-08-03' ) ), '2026-H2' )['pending'], 1 );
+
 // The NONE cohort: rows with no usable date, and only those.
 $dateless = array(
 	row( 'Not moving forward', '' ),
@@ -356,10 +366,11 @@ $statuses = isset( $fixture['choices']['Status'] ) && is_array( $fixture['choice
 // files every track under `active` through `WPCPM_Program::is_track()`, so the track half of
 // this list is the program map's and grows with it. Written out, it went stale the moment the
 // Designer Track was added - the list here said the new track landed in `other` while the code
-// had it in `active`, and it was this pair of checks that said so. The six state names are
-// `bucket()`'s own literals and exist nowhere else to derive them from.
+// had it in `active`, and it was this pair of checks that said so. Five of the six state names
+// are `bucket()`'s own literals and exist nowhere else to derive them from; Pending graduation is
+// the program's constant.
 $named = array_merge(
-	array( 'Graduate', 'Pending graduation', 'Paused', 'Dropped out', 'Fail', 'Not moving forward' ),
+	array( 'Graduate', WPCPM_Program::STATUS_PENDING, 'Paused', 'Dropped out', 'Fail', 'Not moving forward' ),
 	array_keys( WPCPM_Program::labels() )
 );
 

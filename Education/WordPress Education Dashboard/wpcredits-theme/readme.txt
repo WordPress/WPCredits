@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.11
+Stable tag: 1.24.12
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.12 =
+* Dashboards: the search box above each "Viewing as" list matches the list under it, with the list's white background, gray border, 2px corners, 14px type and 230px minimum width, in place of the browser's own box. Its label reads as the list's label does. The box is on the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard, for Administrators only, and it pairs with plugin 1.122.14, which adds it; with an older plugin nothing on a page changes.
+* Dashboards: with plugin 1.122.14 the box sits directly above the list, at the list's left edge and width, with each label beside its field (above it on a phone); the plugin sets that layout, and the theme dresses the box and its label as it dresses the list.
+* Dashboards: the line that says nothing matches what was typed reads as the note beside the switcher does, 14px in the theme's gray.
+* Mentor Report Card: from 1180px wide down, a student's name too long for its line wraps, at a space, and inside a word only when one word alone is wider than the line; before, it ran on over the institution beside it from 901px to 1180px, and past the card's edge on a phone. From 901px to 1180px a row whose name takes two lines keeps its height, which the avatar sets. Institution Dashboard: the roster's names, which already had room for one line above 900px, wrap the same way from 900px down, where they ran past the card's edge on a phone. On a phone a row can grow by the one line its name takes, about 20px. Wider screens are as before.
 
 = 1.24.11 =
 * Header: for a signed-in reader whose account chip has no link to the Student Report Card or the Mentor Report Card (a sponsor member's is only Log out), the menu, Need help? and Log out no longer pile into a column of two or three rows beside the site's name. With the site's mark and name together about 340px wide and a one-item menu, that was up to about 757px, where the header was about 129px tall at 641px and 83px tall at 700px. In that range they now sit on one line in a row under the name (about 105px tall with JavaScript on, spaced as any two-row header is), and from about 758px they share the name's row, 77px tall, as before.

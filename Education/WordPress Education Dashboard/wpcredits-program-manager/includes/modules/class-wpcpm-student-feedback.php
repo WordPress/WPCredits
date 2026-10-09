@@ -439,21 +439,11 @@ class WPCPM_Student_Feedback {
 		$institution = trim( (string) get_user_meta( $student->ID, WPCPM_Students_Sync::META_INSTITUTION, true ) );
 		$institution = WPCPM_Mentors_Sync::is_record_id( $institution ) ? $institution : '';
 
-		$known = trim( (string) get_user_meta( $student->ID, self::META_RECORD, true ) );
+		$known   = trim( (string) get_user_meta( $student->ID, self::META_RECORD, true ) );
+		$trusted = self::trusted_record( $student->ID, $institution );
 
-		// **The stamp is believed only when it was made with what the site knows now.** A
-		// student the site cannot place has nothing to prefer between rows, so their stamp
-		// stands; a placed student's stamp stands when it was resolved against that same
-		// institution. Anything else - a stamp from before the placement was known, or from a
-		// different placement - is the coin toss described on `META_RECORD_PLACEMENT`, and it is
-		// resolved again, once, and re-stamped, so the cost is one read per change of knowledge
-		// and not one per render.
-		if ( '' !== $known ) {
-			$resolved_for = trim( (string) get_user_meta( $student->ID, self::META_RECORD_PLACEMENT, true ) );
-
-			if ( '' === $institution || $resolved_for === $institution ) {
-				return $known;
-			}
+		if ( '' !== $trusted ) {
+			return $trusted;
 		}
 
 		$email = isset( $program['email'] ) ? trim( (string) $program['email'] ) : '';
@@ -537,6 +527,116 @@ class WPCPM_Student_Feedback {
 		update_user_meta( $student->ID, self::META_RECORD_PLACEMENT, $institution );
 
 		return (string) $created[0];
+	}
+
+	/**
+	 * The Feedback row a student's stamp names, when the stamp is still to be believed; '' otherwise.
+	 *
+	 * **The stamp is believed only when it was made with what the site knows now.** A student the
+	 * site cannot place has nothing to prefer between rows, so their stamp stands; a placed
+	 * student's stamp stands when it was resolved against that same institution. Anything else - a
+	 * stamp from before the placement was known, or from a different placement - is the coin toss
+	 * described on `META_RECORD_PLACEMENT`, and `record_for()` resolves it again, once, and
+	 * re-stamps it, so the cost is one read per change of knowledge and not one per render. Public
+	 * because the students sync reads a pending student's course off the same row.
+	 *
+	 * @param int    $user_id     The student's account.
+	 * @param string $institution The Institutions record ID the student is placed at, or ''.
+	 * @return string Record ID, or ''.
+	 */
+	public static function trusted_record( $user_id, $institution ) {
+		$known = trim( (string) get_user_meta( (int) $user_id, self::META_RECORD, true ) );
+
+		if ( '' === $known ) {
+			return '';
+		}
+
+		$institution  = trim( (string) $institution );
+		$resolved_for = trim( (string) get_user_meta( (int) $user_id, self::META_RECORD_PLACEMENT, true ) );
+
+		return ( '' === $institution || $resolved_for === $institution ) ? $known : '';
+	}
+
+	/**
+	 * The `Course` each of a batch of students' Feedback rows names, in one read.
+	 *
+	 * For the students sync, which seeds the course of a student waiting to graduate from it: the
+	 * column says which program the row belongs to, and it is the one place the base still holds the
+	 * track once the report's Status has moved on. The rows are found the way `record_for()` finds
+	 * one, by address and case-insensitively, a batch of addresses in one formula. The row read is
+	 * the one the student's stamp names, when the surveys still trust it and it is among the rows
+	 * the address finds, and otherwise the one `preferred()` gives the surveys, so the course read
+	 * is the course of the row the student's own answers are on.
+	 *
+	 * Reads only; nothing here writes to the base.
+	 *
+	 * @param array          $wanted   Key => array( 'email' => address, 'institution' => the
+	 *                                 Institutions record ID the student is placed at, or '',
+	 *                                 'record' => the row `trusted_record()` names, or '' ).
+	 * @param WPCPM_Airtable $airtable Client.
+	 * @param string         $table    The Feedback table.
+	 * @return array|WP_Error Key => the Course as the row holds it, '' where the row names none or
+	 *                        there is no row; an error when the read was refused.
+	 */
+	public static function courses( array $wanted, WPCPM_Airtable $airtable, $table ) {
+		$address = static function ( $value ) {
+			return strtolower( trim( WPCPM_Airtable::flatten( $value ) ) );
+		};
+		$emails  = array();
+
+		foreach ( $wanted as $student ) {
+			$email = $address( isset( $student['email'] ) ? $student['email'] : '' );
+
+			if ( '' !== $email ) {
+				$emails[ $email ] = true;
+			}
+		}
+
+		$rows = array();
+
+		if ( ! empty( $emails ) ) {
+			$records = $airtable->fetch_all(
+				$table,
+				array(
+					'formula' => $airtable->formula_in( 'Email', array_keys( $emails ), true ),
+					'fields'  => array( 'Email', 'Institution', 'Course' ),
+				)
+			);
+
+			if ( is_wp_error( $records ) ) {
+				return $records;
+			}
+
+			foreach ( (array) $records as $record ) {
+				if ( isset( $record['fields']['Email'] ) ) {
+					$rows[ $address( $record['fields']['Email'] ) ][] = $record;
+				}
+			}
+		}
+
+		$courses = array();
+
+		foreach ( $wanted as $key => $student ) {
+			// A student with no address was never asked about, so no row is theirs.
+			$email   = $address( isset( $student['email'] ) ? $student['email'] : '' );
+			$found   = '' !== $email && isset( $rows[ $email ] ) ? $rows[ $email ] : array();
+			$trusted = isset( $student['record'] ) ? trim( (string) $student['record'] ) : '';
+			$chosen  = '' !== $trusted && in_array( $trusted, array_map( 'strval', array_column( $found, 'id' ) ), true )
+				? $trusted
+				: self::preferred( $found, isset( $student['institution'] ) ? (string) $student['institution'] : '' );
+			$course  = '';
+
+			foreach ( $found as $record ) {
+				if ( isset( $record['id'] ) && (string) $record['id'] === $chosen ) {
+					$course = trim( WPCPM_Airtable::flatten( isset( $record['fields']['Course'] ) ? $record['fields']['Course'] : '' ) );
+					break;
+				}
+			}
+
+			$courses[ $key ] = $course;
+		}
+
+		return $courses;
 	}
 
 	/**

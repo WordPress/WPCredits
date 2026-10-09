@@ -145,6 +145,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			WPCPM_Students_Sync::META_PROGRAM,
 			WPCPM_Students_Sync::META_MENTOR,
 			WPCPM_Students_Sync::META_UPDATED,
+			WPCPM_Students_Sync::META_COURSE,
 			WPCPM_Student_Feedback::META_RECORD,
 			WPCPM_Student_Feedback::META_RECORD_PLACEMENT,
 			'wpcpm_student_invited',

@@ -440,7 +440,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 		if ( '' !== $current ) {
 			printf(
 				' <a href="%1$s">%2$s</a>',
-				esc_url( $this->page_url( array( self::INSTITUTION_ARG => false ) ) ),
+				esc_url( $this->page_url( array( self::INSTITUTION_ARG => false ) ) . '#' . self::LIST_ANCHOR ),
 				esc_html__( 'Show all students', 'wpcredits-program-manager' )
 			);
 		}

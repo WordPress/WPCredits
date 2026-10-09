@@ -2176,7 +2176,7 @@ if ( PHP_VERSION_ID < 80100 ) {
 
 ob_start();
 $draw_list->invoke( $list_module );
-$list_form = between( (string) ob_get_clean(), '<form method="get">', '</form>' );
+$list_form = between( (string) ob_get_clean(), '<form method="get" action="#wpcpm-accounts-list">', '</form>' );
 $search_at = strpos( $list_form, 'id="search-submit"' );
 $apply_at  = strpos( $list_form, 'name="bulk_action"' );
 

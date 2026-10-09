@@ -557,53 +557,23 @@ final class WPCPM_Sponsors_Dashboard {
 	 * Keyed by record and not by user, because with several members per sponsor a user is the
 	 * wrong unit: two accounts at one company are one entry here. Only a manager ever sees it,
 	 * and `resolve_sponsor()` does not even read the argument for anyone else, so a member
-	 * appending it to the URL changes nothing.
+	 * appending it to the URL changes nothing. Drawn by `WPCPM_Dashboards`, the one form all four
+	 * dashboards share, as the Institution Dashboard draws its own.
 	 *
 	 * @param string $current Sponsors record ID currently being viewed.
 	 */
 	private static function render_switcher( $current ) {
-		$options = WPCPM_Sponsor_Roster::switcher_options();
-
-		// One sponsor is not a choice, and a select with a single option is a control that
-		// cannot do anything.
-		if ( count( $options ) < 2 ) {
-			return;
-		}
-
-		echo '<form class="wpcpm-dashboard__switcher" method="get">';
-
-		// Without pretty permalinks the page is addressed by query string, which a GET form
-		// would otherwise discard - resubmitting to the site root.
-		if ( ! get_option( 'permalink_structure' ) ) {
-			$queried = get_queried_object_id();
-
-			if ( $queried ) {
-				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
-			}
-		}
-
-		printf(
-			'<label for="wpcpm-sponsor-switcher">%s</label> ',
-			esc_html__( 'Viewing as sponsor', 'wpcredits-program-manager' )
+		WPCPM_Dashboards::render_switcher(
+			array(
+				'id'      => 'wpcpm-sponsor-switcher',
+				'name'    => WPCPM_Sponsor_Roster::ARG_VIEW,
+				'options' => WPCPM_Sponsor_Roster::switcher_options(),
+				'current' => $current,
+				'label'   => __( 'Viewing as sponsor', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find a sponsor', 'wpcredits-program-manager' ),
+				'none'    => __( 'No sponsors match that search.', 'wpcredits-program-manager' ),
+			)
 		);
-		printf( '<select name="%s" id="wpcpm-sponsor-switcher">', esc_attr( WPCPM_Sponsor_Roster::ARG_VIEW ) );
-
-		foreach ( $options as $record_id => $label ) {
-			printf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $record_id ),
-				selected( $record_id, $current, false ),
-				esc_html( $label )
-			);
-		}
-
-		echo '</select> ';
-		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
-		printf(
-			'<span class="wpcpm-dashboard__switcher-note">%s</span>',
-			esc_html__( 'Only program managers see this control.', 'wpcredits-program-manager' )
-		);
-		echo '</form>';
 	}
 
 	/**

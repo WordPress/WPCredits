@@ -108,6 +108,12 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	const DEFAULT_ORDERBY = 'display_name';
 
 	/**
+	 * The id of the list's card, which the list's form is sent to and a link that undoes a filter lands on,
+	 * so a reload of the screen opens at the list and not at the top. The admin stylesheet names it too.
+	 */
+	const LIST_ANCHOR = 'wpcpm-accounts-list';
+
+	/**
 	 * How many accounts each invitation view holds, read once a table (`invite_counts()`).
 	 *
 	 * @var array{all: int, invited: int, never-invited: int}|null
@@ -1232,13 +1238,19 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * Two names in A to Z order as a reader of the list expects them, for an audience that orders its
-	 * accounts itself: without regard to case or accents (`remove_accents()`), so Álvaro sorts among
-	 * the A's and Łukasz among the L's rather than after Z, where a comparison byte by byte puts every
-	 * name that opens on an accented letter. Two names alike in that reading, such as Ana and ana,
-	 * compare as one, and the audience's own tie-break, the ID, settles them as it settles two of one
-	 * name, the way the name sort settles them: the database orders names without regard to case, and
-	 * the ID after them.
+	 * Two names in A to Z order, for an audience that orders its accounts itself: accents taken away
+	 * first (`remove_accents()`), so Álvaro sorts among the A's and Łukasz among the L's rather than
+	 * after Z, where a comparison byte by byte puts every name that opens on an accented letter; then
+	 * `strcasecmp()`, which folds the capitals of the Latin alphabet and no other, and reads a number
+	 * digit by digit, so Student 10 comes before Student 2, as the database's own name sort puts them.
+	 * A capital in another script is not folded: a Cyrillic name with a capital comes before every
+	 * name of that script that opens on a small letter.
+	 *
+	 * This is not the order of `WPCPM_Dashboards::compare_names()`, which the Viewing as
+	 * switchers and the reconciliation's names share and which folds the capitals of every script and
+	 * reads numbers as numbers. The accounts lists keep this comparison, the one their sorts have
+	 * always made. Two names alike in it, such as Ana and ana, compare as one, and the audience's own
+	 * tie-break, the ID, settles them as it settles two of one name.
 	 *
 	 * @param string $a One name.
 	 * @param string $b The other.
@@ -1418,10 +1430,13 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * its key in its own join, at most one row an account, and WordPress binds one key there, so a
 	 * list cannot be asked.
 	 *
+	 * Protected, so an audience whose list has a view of its own answers it here (the Mentors list's
+	 * No students), and hands every other view on.
+	 *
 	 * @param string $view `all`, `invited` or `never-invited`.
 	 * @return array
 	 */
-	private function view_clause( $view ) {
+	protected function view_clause( $view ) {
 		if ( 'invited' === $view ) {
 			return array(
 				'relation' => 'OR',

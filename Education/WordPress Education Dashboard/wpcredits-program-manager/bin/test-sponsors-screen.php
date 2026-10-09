@@ -1038,7 +1038,7 @@ ck( 'and that column\'s heading is Manage accounts for a screen reader, so no he
 ), array( true, 0 ) );
 ck( 'the Accounts tab draws the invitations card and the sponsor accounts list, a WordPress list table under the tab\'s address, and no sponsor\'s accounts: no Remove, no Attach account and no posting switch, which are drawn for one sponsor at a time', array(
 	cards_of( $tabs['accounts'] ),
-	false !== strpos( $tabs['accounts'], '<form method="get">' ),
+	false !== strpos( $tabs['accounts'], '<form method="get" action="#wpcpm-accounts-list">' ),
 	false !== strpos( $tabs['accounts'], '<input type="hidden" name="tab" value="accounts" />' ),
 	form_fields_of( $tabs['accounts'], WPCPM_Sponsors::ACTION_MEMBERS ),
 	form_fields_of( $tabs['accounts'], WPCPM_Sponsor_Posts::ACTION_FLAGS ),
@@ -1311,7 +1311,7 @@ ck( 'with a sponsor in its address the Accounts tab draws that sponsor\'s accoun
 	substr_count( $view_b, '<div class="wpcpm-card' ),
 	strpos( $view_b, 'locked out of changes' ),
 	strpos( $view_b, 'wpcpm-invites' ),
-	strpos( $view_b, '<form method="get">' ),
+	strpos( $view_b, '<form method="get"' ),
 	strpos( $view_b, 'Sponsor accounts' ),
 	bar_of( $view_b ) === $bar_for( 'accounts' ),
 ), array( array( 'name', 'back', 'account', 'attach', 'posting', 'switch' ), 1, false, false, false, false, true ) );

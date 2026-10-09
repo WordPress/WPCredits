@@ -163,6 +163,23 @@ function has( $haystack, $needle ) {
 }
 
 /**
+ * Core's `update_meta_cache()`, as far as the screen reaches it: the one query that loads every
+ * listed account's meta, kept as a read among the others (`prime <ids>`) so a check can tell it came
+ * before the first count was read.
+ *
+ * @param string $type Meta type.
+ * @param array  $ids  Object IDs.
+ * @return array
+ */
+function update_meta_cache( $type, $ids ) {
+	$ids = array_map( 'intval', (array) $ids );
+	sort( $ids );
+	$GLOBALS['reads'][] = 'prime ' . $type . ' ' . implode( ',', $ids );
+
+	return array();
+}
+
+/**
  * The Mentors screen's query, with whatever else a check wants on it.
  *
  * @param array $more More query arguments.
@@ -738,6 +755,7 @@ ck( 'the heading, the pagination and the views count every Mentor account, all 5
 			'all'           => '501',
 			'invited'       => '501',
 			'never-invited' => '0',
+			'no-students'   => '125',
 		),
 	) );
 ck( 'the list asked WordPress for one page, and for its total',
@@ -789,12 +807,13 @@ ck( 'which say so', array_map( 'strip_tags', $ada_actions ), array( 'edit' => 'E
 ck( 'Edit opens the account\'s editor, and View page the Mentor Report Card as that mentor',
 	array( link_of( isset( $ada_actions['edit'] ) ? $ada_actions['edit'] : '' ), link_of( isset( $ada_actions['view'] ) ? $ada_actions['view'] : '' ) ),
 	array( array( 'https://example.test/wp-admin/user-edit.php', array( 'user_id' => '11' ) ), array( 'https://example.test/mentor-report-card/', array( 'wpcpm_mentor' => '11' ) ) ) );
-ck( 'the views count the three: All, one Invited, two Never invited',
+ck( 'the views count the four: All, one Invited, two Never invited, and one mentor with No students',
 	view_counts( $html ),
 	array(
 		'all'           => '3',
 		'invited'       => '1',
 		'never-invited' => '2',
+		'no-students'   => '1',
 	) );
 
 $form = between( $html, '<form method="get"', '</form>' );
@@ -876,7 +895,7 @@ ck( 'Dev is Invited and counted so, his row offers Resend invite, and the invita
 		array_keys( actions_in( row_for( $both_page, 16 ) ) ),
 		has( isset( $both_card[ WPCPM_Mentors::ACTION_BULK ] ) ? $both_card[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 2 mentors who have never been invited</button>' ),
 	),
-	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2' ), array( 'edit', 'view', 'reinvite' ), true ) );
+	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2', 'no-students' => '1' ), array( 'edit', 'view', 'reinvite' ), true ) );
 // The card's question is shared by every audience's screen, so its words fit any audience's noun.
 ck( 'the card asks before it sends, of the two, in the plural',
 	has( $both_page, 'data-wpcpm-confirm="Send an invitation to 2 of the mentors? They cannot be recalled once sent."' ),
@@ -913,6 +932,7 @@ ck( 'the views count the whole list, not the search, as WordPress\'s own views d
 		'all'           => '3',
 		'invited'       => '1',
 		'never-invited' => '2',
+		'no-students'   => '1',
 	) );
 
 $nobody = html_of( draw( screen( array( 's' => 'zzz' ) ) ) );
@@ -1026,6 +1046,97 @@ ck( 'asked for the Students sort in the array form, the table still sorts by the
 		}
 	),
 	array( 15, 13, 14, 12, 11 ) );
+
+echo "\n=== The No students view: the mentors whose Students column shows 0 ===\n";
+
+// Five mentors: Ada's four and Bruno's and Beth's one are students they have; Aria's count is
+// written 0 (past students only) and Cleo's was never written, and the column shows both as 0, so
+// those two are the view. The view is the count the column shows, not a key being there or not.
+five_mentors();
+$html = html_of( draw( screen() ) );
+
+ck( 'the views name No students beside Invited and Never invited, with its count, after them',
+	array( array_keys( view_counts( $html ) ), view_counts( $html )['no-students'] ),
+	array( array( 'all', 'invited', 'never-invited', 'no-students' ), '2' ) );
+ck( 'its link is the Accounts tab naming the view, All is the view in force, and No students is not marked',
+	array(
+		has( $html, '<li class=\'no-students\'><a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=accounts&#038;wpcpm_view=no-students">No students <span class="count">(2)</span></a></li>' ),
+		has( $html, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=accounts" class="current" aria-current="page">All ' ),
+	),
+	array( true, true ) );
+
+// The view's count reads the Students count of every Mentor account, one by one, and a cold read of
+// an account's meta is a query: the accounts' meta is loaded in one go first, so the list's draw
+// costs one query for it and not one for each mentor.
+$GLOBALS['reads'] = array();
+draw( screen() );
+$primed_at        = array_keys( preg_grep( '/^prime /', $GLOBALS['reads'] ) );
+$first_count_read = array_keys( preg_grep( '/^meta \d+ ' . preg_quote( WPCPM_Mentors_Sync::META_COUNT, '/' ) . '$/', $GLOBALS['reads'] ) );
+
+ck( 'the Mentor accounts\' meta is loaded once for the view\'s count, all five accounts and no other, before any count is read',
+	array( count( $primed_at ), isset( $GLOBALS['reads'][ $primed_at[0] ] ) ? $GLOBALS['reads'][ $primed_at[0] ] : '', isset( $primed_at[0], $first_count_read[0] ) && $primed_at[0] < $first_count_read[0] ),
+	array( 1, 'prime user 11,12,13,14,15', true ) );
+
+$without = html_of( draw( screen( array( 'wpcpm_view' => 'no-students' ) ) ) );
+
+ck( 'the No students view lists Aria, whose count is written 0, and Cleo, whose count was never written, by name, and every one shows 0 in the Students column',
+	array( row_ids( $without ), array_map( function ( $id ) use ( $without ) { return cell( row_for( $without, $id ), 'students' ); }, row_ids( $without ) ) ),
+	array( array( 15, 13 ), array( '0', '0' ) ) );
+ck( 'no mentor with a student is on it, the one whose flag is off (Beth) included',
+	array( in_array( 11, row_ids( $without ), true ), in_array( 12, row_ids( $without ), true ), in_array( 14, row_ids( $without ), true ) ),
+	array( false, false, false ) );
+ck( 'the heading and the pagination count the view\'s accounts, and the views still count the whole list',
+	array( heading_count( $without ), displaying( $without ), view_counts( $without ) ),
+	array( '2', '2 items', array( 'all' => '5', 'invited' => '2', 'never-invited' => '3', 'no-students' => '2' ) ) );
+ck( 'the view in force is marked as WordPress marks it, and the form carries it, so a search or a filter stays on it',
+	array( has( $without, 'wpcpm_view=no-students" class="current" aria-current="page">No students ' ), has( between( $without, '<form method="get"', '</form>' ), '<input type="hidden" name="wpcpm_view" value="no-students" />' ) ),
+	array( true, true ) );
+ck( 'the view asks WordPress for the Mentor accounts, whole, and for no meta clause: the count it filters by is the column\'s, not a key WordPress could join, and the marker the view\'s clause carries never reaches it',
+	array( count( queries( 'every' ) ), arg( first_query( 'every' ), 'role' ), arg( first_query( 'every' ), 'meta_query' ), arg( first_query( 'every' ), 'search' ), count( queries( 'page' ) ) ),
+	array( 1, WPCPM_Roles::ROLE_MENTOR, array(), 'absent', 0 ) );
+
+$searched_without = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 's' => 'ahn' ) ) ) );
+$searched_miss    = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 's' => 'kowal' ) ) ) );
+
+ck( 'a search keeps to the view: "ahn" finds Cleo, and "kowal" finds nobody, because Ada Kowalski has students and is not in it; the views still count the whole list',
+	array( row_ids( $searched_without ), row_ids( $searched_miss ), has( $searched_miss, 'No mentor accounts found.' ), view_counts( $searched_without )['no-students'] ),
+	array( array( 13 ), array(), true, '2' ) );
+
+$by_status = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 'orderby' => 'status', 'order' => 'asc' ) ) ) );
+$by_login  = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 'orderby' => 'login', 'order' => 'desc' ) ) ) );
+$by_count  = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 'orderby' => 'students', 'order' => 'desc' ) ) ) );
+
+ck( 'sorted, the view keeps to its accounts: Status puts the Active mentor (Aria) first, Username Z to A runs Cleo then Aria, and Students, all of them 0, falls back to the name',
+	array( row_ids( $by_status ), row_ids( $by_login ), row_ids( $by_count ), displaying( $by_status ) ),
+	array( array( 15, 13 ), array( 13, 15 ), array( 15, 13 ), '2 items' ) );
+
+$GLOBALS['umeta'][1]['wpcpm_mentors_per_page'] = 1;
+$page_one = html_of( draw( screen( array( 'wpcpm_view' => 'no-students' ) ) ) );
+$page_two = html_of( draw( screen( array( 'wpcpm_view' => 'no-students', 'paged' => '2' ) ) ) );
+unset( $GLOBALS['umeta'][1]['wpcpm_mentors_per_page'] );
+
+ck( 'one a page, the view pages over its own accounts: Aria, then Cleo, and the pagination counts the two',
+	array( row_ids( $page_one ), row_ids( $page_two ), displaying( $page_two ) ),
+	array( array( 15 ), array( 13 ), '2 items' ) );
+
+// A mentor who gets a student leaves the view the moment the sync writes the count.
+$GLOBALS['umeta'][15][ WPCPM_Mentors_Sync::META_COUNT ] = 3;
+$moved = html_of( draw( screen( array( 'wpcpm_view' => 'no-students' ) ) ) );
+
+ck( 'a mentor the sync gives a student leaves the view, and the count follows', array( row_ids( $moved ), view_counts( $moved )['no-students'] ), array( array( 13 ), '1' ) );
+
+// Everybody has a student.
+$GLOBALS['umeta'][13][ WPCPM_Mentors_Sync::META_COUNT ] = 1;
+$none = html_of( draw( screen( array( 'wpcpm_view' => 'no-students' ) ) ) );
+
+ck( 'with no mentor in it, the view says every mentor has a student rather than that no accounts exist',
+	array( row_ids( $none ), view_counts( $none )['no-students'], has( $none, 'Every mentor account has a current student.' ) ),
+	array( array(), '0', true ) );
+
+three_mentors();
+$unknown = html_of( draw( screen( array( 'wpcpm_view' => 'no-such-view' ) ) ) );
+
+ck( 'a view the table does not have is All, as it was', array( row_ids( $unknown ), has( $unknown, 'wpcpm_view=no-students' ) ), array( array( 11, 12, 13 ), true ) );
 
 echo "\n=== Two mentors of one value and one name, where one page ends and the next begins ===\n";
 

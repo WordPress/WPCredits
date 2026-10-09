@@ -92,8 +92,9 @@ $guides = array(
 	'administrators' => array(
 		'title' => 'Program manager guide',
 		'lede'  => 'The plugin in wp-admin - settings, tools, access levels and the sync - plus everything mentors and students are told.',
-		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Program managers are the people other people ask, and the access levels mean you cannot open either of those pages yourself.",
+		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Administrators are the people other people ask. Unless you are on the program as a mentor or a student too, no Student Report Card or Mentor Report Card is your own: you open anyone's through the **Viewing as** switcher, as *Viewing a page as its owner* describes.",
 		'parts' => array(
+			'00-signing-in',
 			'30-admin-wpadmin',
 			'31-admin-settings',
 			'32-admin-tools',

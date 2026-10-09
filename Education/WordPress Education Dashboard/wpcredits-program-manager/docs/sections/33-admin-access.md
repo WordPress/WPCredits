@@ -31,6 +31,24 @@ from the *Updates* category, filtered by the same access levels - so a post set 
 appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in
 the right place; there is nothing else to configure.
 
+### Viewing a page as its owner
+
+The Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard
+each open, for an Administrator, with a switcher above the page whenever there is more than one to
+choose from: **Viewing as student**, **Viewing as mentor**, **Viewing as institution** or **Viewing as
+sponsor**. Choose a name in the list and press **Show** to open that person's or that
+organization's page. Only Administrators are shown the switcher, and the note with it says so.
+
+The list runs A to Z without regard to capitals or accents, so Álvaro is among the A's, with
+numbers read as numbers, so Student 2 comes before Student 10, and with a space before any letter,
+so Teo Polytechnic comes before Teodora School. Above it, a box (**Find a student**,
+**Find a mentor**, **Find an institution** or **Find a sponsor**) narrows the list as you type to the
+names that hold what you typed, anywhere in the name and again without regard to capitals or
+accents. The name chosen in the list always stays in it, so **Show** opens nobody you did not
+choose; when no name matches what you typed, a short sentence by the box says so. Escape
+empties the box and puts the whole list back. Enter in the box sends nothing: **Show** does that.
+In a browser running no JavaScript the box is not shown, and the sorted list works on its own.
+
 ### Arranging the Student Report Card
 
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the

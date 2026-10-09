@@ -162,6 +162,7 @@ class WPCPM_Mentors_Sync {
 class WPCPM_Students_Sync {
 	const META_PROGRAM = 'wpcpm_student_program';
 	const META_MENTOR  = 'wpcpm_student_mentor';
+	const META_COURSE  = 'wpcpm_student_course';
 }
 
 /** The fence. Every call is recorded, so the roster's own decide() can be asserted. */
@@ -1144,6 +1145,58 @@ ck( 'a date that never existed is not a number of days',
 	has( group_rows( render(), 'current' ), 'days' ), false );
 
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['end'] = '2026-09-30';
+
+echo "\n=== A student waiting to graduate keeps their course ===\n";
+
+/**
+ * The Program cell of one student's card, as markup.
+ *
+ * @param string $html  The rendered page.
+ * @param string $group Which group the card is in.
+ * @param string $name  The student's name.
+ * @return string|null
+ */
+function program_of( $html, $group, $name ) {
+	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
+		if ( false !== strpos( $card, '>' . $name . '<' ) && preg_match( '/wpcpm-roster__row--students-status">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $card, $m ) ) {
+			return trim( $m[1] );
+		}
+	}
+
+	return null;
+}
+
+// Ada's account says Pending graduation and remembers the 50-hour track she took. The school reads
+// her course where it reads a current student's, with the status beside it, and her hours against
+// that course's target.
+ada_program( array( 'program' => 'Pending graduation', 'hours' => '12' ) );
+$GLOBALS['umeta'][21]['wpcpm_student_course'] = 'In Sensei 50h';
+
+$pending  = '<span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>';
+$fifty    = '<span class="wpcpm-badge wpcpm-badge--50h">' . WPCPM_Program::label( 'In Sensei 50h' ) . '</span>';
+$kept     = render();
+
+ck( 'a pending student\'s Program cell names their course as a current student\'s does, with the Pending graduation badge beside it',
+	program_of( $kept, 'current', 'Ada Example' ), $fifty . ' ' . $pending );
+ck( 'and the hours are read against that course\'s target', hours_of( $kept, 'current', 'Ada Example' ), '12 of 50' );
+ck( 'while the card still wears the Pending graduation badge beside the name', has( card_summary( $kept, 'current', 'Ada Example' ), $pending ), true );
+
+// No course known: the cell keeps what it always said, the status alone, and no target.
+$GLOBALS['umeta'][21]['wpcpm_student_course'] = '';
+$unknown = render();
+
+ck( 'a pending student with no known course shows Pending graduation alone',
+	array( program_of( $unknown, 'current', 'Ada Example' ), hours_of( $unknown, 'current', 'Ada Example' ) ),
+	array( $pending, '12 h' ) );
+
+// Paused keeps no course, whatever the account remembers.
+ada_program( array( 'program' => 'Paused', 'hours' => '12' ) );
+$GLOBALS['umeta'][21]['wpcpm_student_course'] = 'In Sensei 50h';
+
+ck( 'a paused student\'s cell says Paused, with no course', program_of( render(), 'current', 'Ada Example' ), '<span class="wpcpm-badge wpcpm-badge--paused">Paused</span>' );
+
+unset( $GLOBALS['umeta'][21]['wpcpm_student_course'] );
+ada_program();
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

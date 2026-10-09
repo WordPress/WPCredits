@@ -105,6 +105,7 @@ class WPCPM_Mentors_Sync {
 class WPCPM_Students_Sync {
 	const META_PROGRAM = 'wpcpm_student_program';
 	const META_MENTOR  = 'wpcpm_student_mentor';
+	const META_COURSE  = 'wpcpm_student_course';
 }
 
 class WPCPM_Roles {
@@ -620,6 +621,24 @@ ck( 'hours are not a column here, whatever the record holds', heading_at( $card,
 ck( 'nor is the student\'s own address', has( $raw_card, '@example.test' ), false );
 
 echo "\n=== One student, one track's worth of grades ===\n";
+
+// A student waiting to graduate is filed with the grades of the course she took, the form the
+// school's copy of her card draws, rather than the 150-hour form every student on no track reads.
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'Pending graduation';
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_COURSE ]             = 'In Sensei 50h';
+
+$pending_card = rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_Export::student_matrix( 11, allowed_for( $A ), $grades, $student ) ) );
+
+ck( 'a pending 50-hour student\'s file carries the 50-hour form\'s three grades', count( $pending_card[0] ), 16 );
+ck( 'and the Program column still says what her badge says', $pending_card[1][ heading_at( $pending_card, 'Program' ) ], 'Pending graduation' );
+
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_COURSE ] = '';
+
+ck( 'with no course known, the long form\'s eleven, as before',
+	count( rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_Export::student_matrix( 11, allowed_for( $A ), $grades, $student ) ) )[0] ), 24 );
+
+unset( $GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_COURSE ] );
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
 
 ck( 'the 150-hour form asks eleven', count( WPCPM_Institution_Export::grade_columns( '150h' ) ), 11 );
 

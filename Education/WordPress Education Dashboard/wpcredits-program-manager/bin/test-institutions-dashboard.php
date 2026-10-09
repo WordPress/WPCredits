@@ -96,6 +96,8 @@ function esc_url_raw( $s ) { return (string) $s; }
 function wp_kses( $s, $allowed ) { return (string) $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+// Core's, as far as the fixtures' names reach it: they hold no accent. The switcher sorts by it.
+function remove_accents( $s, $locale = '' ) { return (string) $s; }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
@@ -752,7 +754,8 @@ ck( 'and is told about no institution at all', false !== strpos( $out, 'Politech
 /* ---- a locked member: the header, the panel, and nothing else ------------ */
 
 delete_option( 'wpcpm_agreement_' . $krakow );
-$out = render_as( 2 );
+$GLOBALS['scripts'] = array();
+$out                = render_as( 2 );
 
 ck( 'a locked member gets the identity header', false !== strpos( $out, 'wpcpm-institution__identity' ), true );
 ck( 'naming their institution, trimmed', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Example</p>' ), true );
@@ -771,6 +774,7 @@ ck( 'no People card', false !== strpos( $out, 'data-card="people"' ), false );
 ck( 'no agreement card at the foot', false !== strpos( $out, 'data-card="agreement-card"' ), false );
 ck( 'no banner: that is the manager\'s, not theirs', false !== strpos( $out, 'wpcpm-institution__banner' ), false );
 ck( 'and no switcher', false !== strpos( $out, 'wpcpm-institution-switcher' ), false );
+ck( 'nor the script that narrows one', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), false );
 ck( 'the account-security prompt is chrome and still runs', false !== strpos( $out, '<!-- 2fa -->' ), true );
 
 // The same account, appending the manager's switcher argument by hand.
@@ -825,6 +829,11 @@ ck( 'with the switcher', false !== strpos( $out, 'id="wpcpm-institution-switcher
 ck( 'posting the field the resolver actually reads', false !== strpos( $out, 'name="' . WPCPM_Institution_Roster::ARG_VIEW . '"' ), true );
 ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 );
 ck( 'with the one being viewed selected', false !== strpos( $out, 'value="' . $krakow . '" selected' ), true );
+// The index holds Politechnika first, as Airtable does; a reader looks for Institute under I.
+ck( 'listed A to Z rather than in the index\'s order', strpos( $out, 'value="' . $institute . '"' ) < strpos( $out, 'value="' . $krakow . '"' ), true );
+ck( 'under the box that narrows it', false !== strpos( $out, '<label for="wpcpm-institution-switcher-find">Find an institution</label>' ), true );
+ck( 'and the note names the Administrators', false !== strpos( $out, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ), true );
+ck( 'and the page loads the script that does the narrowing', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), true );
 ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed' ), true );
 ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://politechnika.example"' ), true );
 ck( 'and printed without one', false !== strpos( $out, '>politechnika.example</a>' ), true );

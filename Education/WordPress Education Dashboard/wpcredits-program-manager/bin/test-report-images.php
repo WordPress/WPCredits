@@ -180,6 +180,7 @@ class WPCPM_Mentor_Calls {
 class WPCPM_Students_Sync {
 	const META_PROGRAM = 'wpcpm_student_program';
 	const META_RECORD_ID = 'wpcpm_student_record';
+	const META_COURSE  = 'wpcpm_student_course';
 	public static function get_program( $id ) { $p = get_user_meta( (int) $id, self::META_PROGRAM, true ); return is_array( $p ) ? $p : array(); }
 	public static function apply_report( $id, array $cells ) { $GLOBALS['applied'] = $cells; return true; }
 	public static function forget_report_file( $id, $column ) {
@@ -437,6 +438,25 @@ $GLOBALS['patched'] = array();
 post_images( array( $COL_LOCAL => png( 120, 90 ) ) );
 ck( 'a picture narrower than the site\'s minimum is refused', ran( 'handle_save' ), 'report-image-refused' );
 ck( 'and still nothing was stored', $GLOBALS['attachments'], array() );
+
+// A sponsor's logo is held to a wider floor than this, and only where the logo upload asks for
+// it. A screenshot is not a logo: the same handler takes it at the base minimum, so a 250 pixel
+// wide export still saves, and the form must not ask the handler for the logo floor.
+$GLOBALS['patched'] = array();
+post_images( array( $COL_LOCAL => png( 250, 150 ) ) );
+ck( 'a screenshot 250 pixels wide is saved: the logo floor is not the screenshot\'s', ran( 'handle_save' ), 'report-saved' );
+ck( 'and it is stored', count( $GLOBALS['attachments'] ), 1 );
+ck( 'the form asks the handler for no floor of its own', false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php' ), 'min_width' ), false );
+
+// Back to a clean student for the checks that follow, the file this one wrote included: the next
+// upload is named by the free name in the folder.
+foreach ( $GLOBALS['attachments'] as $attachment ) {
+	wp_delete_file( $attachment['file'] );
+}
+$GLOBALS['attachments'] = array();
+$GLOBALS['patched']     = array();
+$GLOBALS['ceiling']     = array();
+delete_user_meta( $SID, WPCPM_Student_Report_Form::META_IMAGES );
 
 echo "\n=== One screenshot, saved ===\n";
 
@@ -811,6 +831,91 @@ set_transient( 'wpcpm_report_' . md5( $REC ), array( 'Hours' => 42 ) );
 
 ck( 'and the box reads the saved value back',
     1 === preg_match( '/name="report\[' . key_of( 'Hours' ) . '\]" value="42"/', $hours_box() ), true );
+
+echo "\n=== A student waiting to graduate keeps their own track's form ===\n";
+
+// Pending graduation is on no track, so read off the status alone the form fell back to the 150-hour
+// track's questions the day a student finished the work, and the answers they gave under their own
+// track's columns went out of sight. The account remembers the track the students sync last saw
+// (`WPCPM_Students_Sync::META_COURSE`), and the form, the save and the hours box all read it.
+
+/**
+ * Whether a rendered form draws a question: by the id its control carries, or for the team tiles,
+ * which are a group of checkboxes with no one control to give an id to, by the name they post under.
+ *
+ * @param string $html The form.
+ * @param string $name Airtable field name.
+ * @return bool
+ */
+function asks( $html, $name ) {
+	return false !== strpos( $html, 'id="wpcpm-report-' . key_of( $name ) . '"' )
+		|| false !== strpos( $html, 'name="report[' . key_of( $name ) . '][]"' );
+}
+
+$GLOBALS['uid']     = $SID;
+$GLOBALS['manage']  = array();
+$GLOBALS['patched'] = array();
+$PATCH              = 'Patch Testing: Trac ticket comments';
+$FINAL              = 'Final Contribution Project Report';
+$dev_only           = array_values( array_diff( array_keys( WPCPM_Student_Report_Form::fields( 'dev' ) ), array_keys( WPCPM_Student_Report_Form::fields( '150h' ) ) ) );
+$long_only          = array_values( array_diff( array_keys( WPCPM_Student_Report_Form::fields( '150h' ) ), array_keys( WPCPM_Student_Report_Form::fields( '50h' ) ) ) );
+
+// A Developer Track student, moved to Pending graduation, with an answer only their track asks.
+update_user_meta( $SID, WPCPM_Students_Sync::META_PROGRAM, array( 'record_id' => $REC, 'program' => WPCPM_Program::STATUS_PENDING ) );
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, WPCPM_Program::STATUS_DEV );
+set_transient( 'wpcpm_report_' . md5( $REC ), array( $PATCH => 'Tested a patch on ticket 12345.', 'Hours' => 30 ) );
+post_images( array() );
+
+$dev_form = body();
+
+ck( 'a pending Developer Track student is asked every question their track asks',
+    count( array_filter( $dev_only, static function ( $name ) use ( $dev_form ) { return asks( $dev_form, $name ); } ) ), count( $dev_only ) );
+ck( 'with the answer they saved under it still in the box', false !== strpos( $dev_form, 'Tested a patch on ticket 12345.' ), true );
+
+$_POST = array( 'student' => $SID, 'report' => array( key_of( $PATCH ) => 'Tested two patches.' ) );
+
+ck( 'and saving it writes their own track\'s column', array( ran( 'handle_save' ), patched_cells() ), array( 'report-saved', array( $PATCH => 'Tested two patches.' ) ) );
+
+set_transient( 'wpcpm_report_' . md5( $REC ), array( $PATCH => 'Tested two patches.', 'Hours' => 30 ) );
+
+ck( 'and their hours box still reads the hours they logged',
+    1 === preg_match( '/name="report\[' . key_of( 'Hours' ) . '\]" value="30"/', $hours_box() ), true );
+
+// A 50-hour student, the same: their eleven questions, the final project report among them, and none
+// of the questions only the 150-hour course asks.
+$GLOBALS['patched'] = array();
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, WPCPM_Program::STATUS_50H );
+set_transient( 'wpcpm_report_' . md5( $REC ), array( $FINAL => "My project.\nIt shipped." ) );
+
+$fifty_form = body();
+$fifty      = array_diff( array_keys( WPCPM_Student_Report_Form::fields( '50h' ) ), array( 'Hours' ) );
+
+ck( 'the 50-hour form has eleven questions, one of them the hours the box above it asks', count( WPCPM_Student_Report_Form::fields( '50h' ) ), 11 );
+ck( 'a pending 50-hour student is asked the other ten, the final project report among them',
+    array( count( array_filter( $fifty, static function ( $name ) use ( $fifty_form ) { return asks( $fifty_form, $name ); } ) ), asks( $fifty_form, $FINAL ) ),
+    array( 10, true ) );
+ck( 'and none of the questions only the 150-hour course asks',
+    count( array_filter( $long_only, static function ( $name ) use ( $fifty_form ) { return asks( $fifty_form, $name ); } ) ), 0 );
+ck( 'with the final project report they saved in its box', false !== strpos( $fifty_form, 'My project.' ), true );
+
+$_POST = array( 'student' => $SID, 'report' => array( key_of( $FINAL ) => 'My project, finished.' ) );
+
+ck( 'and saving it writes the final project report', array( ran( 'handle_save' ), patched_cells() ), array( 'report-saved', array( $FINAL => 'My project, finished.' ) ) );
+
+// A pending student the site knows no course for reads what every student on no track reads: the
+// 150-hour form. So does a paused one, whatever their account remembers.
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, '' );
+set_transient( 'wpcpm_report_' . md5( $REC ), array() );
+
+$unknown = body();
+
+ck( 'a pending student with no known course is drawn the 150-hour form, as before',
+    array( asks( $unknown, $long_only[0] ), asks( $unknown, $FINAL ) ), array( true, false ) );
+
+update_user_meta( $SID, WPCPM_Students_Sync::META_PROGRAM, array( 'record_id' => $REC, 'program' => 'Paused' ) );
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, WPCPM_Program::STATUS_DEV );
+
+ck( 'and a paused student is drawn it too, whatever their account remembers', asks( body(), $dev_only[0] ), false );
 
 echo "\n=== The decisions are written down where they were made ===\n";
 

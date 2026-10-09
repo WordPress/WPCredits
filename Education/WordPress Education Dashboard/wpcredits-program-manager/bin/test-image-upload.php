@@ -111,6 +111,14 @@ ck( 'the fixture is one the two readers of the bytes disagree about', array( $re
 ck( 'a header that says PNG over bytes that are not an image is refused', code( WPCPM_Image_Upload::accept( $stump, array( 'name' => 'logo.png' ) ) ), 'wpcpm_image_type' );
 ck( 'a PNG under a .jpg name is refused: the name and the bytes disagree', code( WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'logo.jpg' ) ) ), 'wpcpm_image_name' );
 ck( 'narrower than 200px', code( WPCPM_Image_Upload::accept( png( 199, 100 ) ) ), 'wpcpm_image_dimensions' );
+// A logo is held to a wider floor than any other image, and only when the caller says it is
+// one: the sponsor logo upload and the public sponsor application ask for it, while the
+// screenshots a student attaches and the logos the sponsors sync copies in keep the base floor.
+ck( 'a logo floor of 300 is a constant the callers can name', defined( 'WPCPM_Image_Upload::LOGO_MIN_WIDTH' ) ? WPCPM_Image_Upload::LOGO_MIN_WIDTH : 'undefined', 300 );
+ck( 'asked for 300, a 299px image is refused', code( WPCPM_Image_Upload::accept( png( 299, 100 ), array( 'min_width' => 300 ) ) ), 'wpcpm_image_dimensions' );
+$narrow = WPCPM_Image_Upload::accept( png( 250, 100 ), array( 'min_width' => 300 ) );
+ck( 'the refusal names the width the caller asked for, not the base floor', is_wp_error( $narrow ) ? array( false !== strpos( $narrow->get_error_message(), '300 pixels' ), false !== strpos( $narrow->get_error_message(), '200 pixels' ) ) : $narrow, array( true, false ) );
+ck( 'a floor below the base one cannot widen what is accepted', code( WPCPM_Image_Upload::accept( png( 150, 100 ), array( 'min_width' => 100 ) ) ), 'wpcpm_image_dimensions' );
 ck( 'a side past 4000px', code( WPCPM_Image_Upload::accept( png( 4001, 100 ) ) ), 'wpcpm_image_dimensions' );
 ck( 'over the size ceiling', code( WPCPM_Image_Upload::accept( png( 1500, 1500 ), array( 'max_kb' => 1 ) ) ), 'wpcpm_image_size' );
 $GLOBALS['no_editor'] = true;
@@ -130,6 +138,10 @@ ck( 'a JPEG is accepted, .jpeg and .jpg both naming it', is_array( $jpeg ) ? arr
 ck( 'the default ceiling is the setting, a megabyte', WPCPM_Image_Upload::max_bytes( array() ), 1024 * 1024 );
 $GLOBALS['settings']['logo_max_kb'] = 2048;
 ck( 'and follows the setting', WPCPM_Image_Upload::max_bytes( array() ), 2048 * 1024 );
+
+echo "\n=== The floor a caller asks for ===\n";
+ck( 'asked for 300, a 300px image is accepted', code( WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'min_width' => 300 ) ) ), 'accepted' );
+ck( 'with no width asked for, a 250px image is still accepted: the base floor is unchanged', code( WPCPM_Image_Upload::accept( png( 250, 100 ) ) ), 'accepted' );
 
 echo "\n=== Storing ===\n";
 $id = WPCPM_Image_Upload::store( $accepted, 'Weglot logo', 7, 'Weglot logo (colour)' );
@@ -166,6 +178,8 @@ $id = WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/logo.p
 ck( 'a logo is fetched, accepted and stored', $id, 102 );
 ck( 'with no author: the sync has none', $GLOBALS['attachments'][1]['post_author'], 0 );
 ck( 'the downloaded temporary file is removed', file_exists( $GLOBALS['downloaded'][0] ), false );
+$GLOBALS['download']['https://v5.airtableusercontent.com/x/small.png'] = png( 250, 90 );
+ck( 'a logo already in the base at 250px is still copied: the wider floor is for an upload, never for what is stored', WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/small.png', 'small.png', 0, 'Small logo' ), 103 );
 ck( 'an SVG at the other end is refused by content', code( WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/logo.svg', 'logo.svg', 0, 'x' ) ), 'wpcpm_image_type' );
 ck( 'a URL that is not http(s) is refused before any request', code( WPCPM_Image_Upload::sideload( 'ftp://example.test/logo.png', 'logo.png', 0, 'x' ) ), 'wpcpm_image_url' );
 ck( 'a download that fails is a refusal that names the download', code( WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/missing.png', 'missing.png', 0, 'x' ) ), 'wpcpm_image_download' );
@@ -203,5 +217,5 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never trusted here', strpos( $src, 'wp_handle_upload' ), false );
 ck( 'SVG is named nowhere as a type it takes', strpos( $src, "'image/svg+xml' =>" ), false );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 38 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 45 );
 exit( $fail ? 1 : 0 );

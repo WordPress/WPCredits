@@ -1,6 +1,6 @@
 <?php
 /**
- * The program's front-end dashboards, as one menu.
+ * The program's front-end dashboards, as one menu, and the pieces they share.
  *
  * @package WPCreditsProgramManager
  */
@@ -17,10 +17,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * and a student. Registering them from one place means an administrator gets them
  * grouped under a single menu instead of a row of unrelated top-level items, while
  * a mentor with one page still gets one direct link.
+ *
+ * It also draws what every dashboard says or offers the same way: why a page has nothing
+ * to show, and the "Viewing as" switcher.
  */
 class WPCPM_Dashboards {
 
 	const NODE = 'wpcpm-dashboards';
+
+	/** The script that narrows a switcher's list as an Administrator types. */
+	const SWITCHER_SCRIPT = 'wpcpm-switcher';
 
 	/**
 	 * Hooks.
@@ -250,5 +256,205 @@ class WPCPM_Dashboards {
 		);
 
 		return isset( $messages[ $module ] ) ? $messages[ $module ] : '';
+	}
+
+	/**
+	 * The "Viewing as" switcher an Administrator uses to open a dashboard as somebody else.
+	 *
+	 * The institution, mentor, student and sponsor dashboards each drew their own copy of this
+	 * form, and four copies listed their entries four ways. They are one form now, drawn here; a
+	 * dashboard decides only what is listed and in whose words.
+	 *
+	 * The list is in A to Z order (`sort_switcher_options()`), and a box above it narrows it as
+	 * the person types (assets/js/switcher.js). The box is drawn hidden and the script shows it,
+	 * so without the script the page offers the plain sorted list and no box that does nothing.
+	 * It sits inside the form, because the WordPress Credits theme lifts the form above the
+	 * dashboard card by its opening tag, and it carries no name, so the GET form posts the same
+	 * field it posted before. The script is enqueued here, so only a page that draws a switcher
+	 * loads it.
+	 *
+	 * Everything after the page ID is one block of fields, which the stylesheet lays out as a grid:
+	 * the two labels in one column and the box and the list in the next, so the box starts where
+	 * the list starts and is as wide as it is, whatever either label says. Show and the note follow
+	 * the list on its row. The note is the same on every dashboard, so it is written here.
+	 *
+	 * One entry is not a choice, and a select with a single option is a control that cannot do
+	 * anything, so nothing is drawn for fewer than two.
+	 *
+	 * @param array $args {
+	 *     The switcher.
+	 *
+	 *     @type string     $id      The list's ID; the box takes it with `-find` added.
+	 *     @type string     $name    The query argument the list posts: the one the dashboard's resolver reads.
+	 *     @type array      $options Value to label, in any order.
+	 *     @type string|int $current The value being viewed, selected in the list.
+	 *     @type string     $label   The list's label.
+	 *     @type string     $find    The box's label.
+	 *     @type string     $none    What the box says when nothing in the list matches.
+	 * }
+	 */
+	public static function render_switcher( array $args ) {
+		$args = array_merge(
+			array(
+				'id'      => '',
+				'name'    => '',
+				'options' => array(),
+				'current' => '',
+				'label'   => '',
+				'find'    => '',
+				'none'    => '',
+			),
+			$args
+		);
+
+		$options = self::sort_switcher_options( (array) $args['options'] );
+
+		if ( count( $options ) < 2 ) {
+			return;
+		}
+
+		// Registered here the first time a switcher is drawn, in the footer, which a block's render
+		// still reaches: the four dashboards share the handle and whichever draws first wins.
+		if ( ! wp_script_is( self::SWITCHER_SCRIPT, 'registered' ) ) {
+			wp_register_script( self::SWITCHER_SCRIPT, WPCPM_PLUGIN_URL . 'assets/js/switcher.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( self::SWITCHER_SCRIPT );
+
+		$id   = (string) $args['id'];
+		$find = $id . '-find';
+
+		echo '<form class="wpcpm-dashboard__switcher" method="get">';
+
+		// Without pretty permalinks the page is addressed by query string, which a GET form
+		// would otherwise discard - resubmitting to the site root.
+		if ( ! get_option( 'permalink_structure' ) ) {
+			$queried = get_queried_object_id();
+
+			if ( $queried ) {
+				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
+			}
+		}
+
+		echo '<div class="wpcpm-dashboard__switcher-fields">';
+		echo '<div class="wpcpm-dashboard__switcher-find" hidden>';
+		printf( '<label for="%1$s">%2$s</label> ', esc_attr( $find ), esc_html( $args['find'] ) );
+		printf( '<input type="search" id="%1$s" aria-controls="%2$s" autocomplete="off" /> ', esc_attr( $find ), esc_attr( $id ) );
+		// Empty until nothing matches: a status region is read out when its text changes, and the
+		// sentence is the markup's so that it is translated with the rest of the page.
+		printf( '<span class="wpcpm-dashboard__switcher-none" role="status" data-wpcpm-none="%s"></span>', esc_attr( $args['none'] ) );
+		echo '</div>';
+
+		printf( '<label for="%1$s">%2$s</label> ', esc_attr( $id ), esc_html( $args['label'] ) );
+		printf( '<select name="%1$s" id="%2$s">', esc_attr( $args['name'] ), esc_attr( $id ) );
+
+		foreach ( $options as $value => $label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $value ),
+				selected( $value, $args['current'], false ),
+				esc_html( $label )
+			);
+		}
+
+		echo '</select> ';
+		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
+		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
+		echo '</div>';
+		echo '</form>';
+	}
+
+	/**
+	 * A switcher's entries in A to Z order, as a reader of the list expects names
+	 * (`compare_names()`).
+	 *
+	 * Two names alike in that reading are settled by their values, read as numbers where they are
+	 * numbers (`strnatcmp()`), so the list does not reshuffle between two reads of the same
+	 * entries. The sources hand them over in their own orders: Airtable's for the institutions and
+	 * the sponsors, the database's for the students.
+	 *
+	 * @param array $options Value to label.
+	 * @return array The same pairs, sorted by label.
+	 */
+	private static function sort_switcher_options( array $options ) {
+		$entries = array();
+
+		foreach ( $options as $value => $label ) {
+			$entries[] = array( (string) $value, (string) $label );
+		}
+
+		usort(
+			$entries,
+			static function ( $a, $b ) {
+				$order = self::compare_names( $a[1], $b[1] );
+
+				return 0 !== $order ? $order : strnatcmp( $a[0], $b[0] );
+			}
+		);
+
+		$sorted = array();
+
+		foreach ( $entries as $entry ) {
+			$sorted[ $entry[0] ] = $entry[1];
+		}
+
+		return $sorted;
+	}
+
+	/**
+	 * Two names in the order the Viewing as switchers list people and organizations in, which is
+	 * also the order of the students the reconciliation names on the Institutions screen. The
+	 * accounts lists in wp-admin keep a comparison of their own (`WPCPM_Accounts_Table`).
+	 *
+	 * Without regard to accents, through `remove_accents()`, so Álvaro sorts among the A's and
+	 * Łukasz among the L's rather than after Z, where a comparison byte by byte puts every name
+	 * that opens on an accented letter; without regard to case in any script, through
+	 * `mb_strtolower()`, because `strnatcasecmp()` folds only the Latin capitals and would set Анна
+	 * apart from анна, every Cyrillic capital before every small letter; and with numbers read as
+	 * numbers (`strnatcasecmp()`), so Student 2 comes before Student 10. The space between two
+	 * words comes before any letter or digit, as in a dictionary, so Teo Polytechnic comes before
+	 * Teodora School: `strnatcasecmp()` alone skips white space and would read TeoPolytechnic.
+	 * Two names alike in that reading compare as one, and each caller settles them by something
+	 * of its own that does not change between two reads.
+	 *
+	 * @param string $a One name.
+	 * @param string $b The other.
+	 * @return int Below 0 when the first comes first, above 0 when the second does, 0 when alike.
+	 */
+	public static function compare_names( $a, $b ) {
+		return strnatcasecmp( self::name_key( $a ), self::name_key( $b ) );
+	}
+
+	/**
+	 * A name as `compare_names()` reads it: accents taken away, lowercased in any script, and each
+	 * run of white space, a non-breaking space among it, made one character that sorts before every
+	 * letter and digit and that `strnatcasecmp()` does not skip, with none at the ends.
+	 *
+	 * Kept for the rest of the request once worked out, because a sort compares each name many
+	 * times over, about ten times each in a list of a thousand, and `remove_accents()` is the costly
+	 * part of a comparison.
+	 *
+	 * @param string $name A name.
+	 * @return string
+	 */
+	private static function name_key( $name ) {
+		static $keys = array();
+
+		$name = (string) $name;
+
+		if ( ! isset( $keys[ $name ] ) ) {
+			$key = remove_accents( $name );
+
+			// Not every PHP carries mbstring, and WordPress does not stand in for this one; without it
+			// the Latin capitals are still folded by the comparison.
+			$key = function_exists( 'mb_strtolower' ) ? mb_strtolower( $key, 'UTF-8' ) : $key;
+
+			// A name that is not valid UTF-8 keeps its spaces, which the comparison then skips.
+			$spaced = preg_replace( array( '/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '/[\s\x{00A0}]+/u' ), array( '', "\x01" ), $key );
+
+			$keys[ $name ] = null === $spaced ? $key : $spaced;
+		}
+
+		return $keys[ $name ];
 	}
 }

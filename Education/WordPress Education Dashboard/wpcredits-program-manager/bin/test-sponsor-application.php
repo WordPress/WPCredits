@@ -958,6 +958,20 @@ reset_world();
 post_logos( png( 199, 80 ) );
 ck( 'a logo narrower than 200 pixels is refused by dimensions', submit( answers() )['stash']['problems']['Logo'], 'image_dimensions' );
 
+// The help on the Logo question asks for 300 pixels, so 300 is what the form holds the files to,
+// and the sentence the applicant reads says the width it wanted.
+reset_world();
+post_logos( png( 299, 80 ) );
+$narrow = submit( answers() );
+ck( 'a logo 299 pixels wide is refused by dimensions, the help having asked for 300', array( $narrow['stash']['problems']['Logo'], count( stored() ), $GLOBALS['attachments'] ), array( 'image_dimensions', 0, array() ) );
+follow( $narrow['url'] );
+$narrow_page = WPCPM_Sponsor_Application::render();
+ck( 'and the page names the width needed, not the lower one', array( false !== strpos( $narrow_page, 'at least 300 pixels wide' ), false !== strpos( $narrow_page, 'at least 200 pixels wide' ) ), array( true, false ) );
+
+reset_world();
+post_logos( png( 300, 80 ) );
+ck( 'a logo exactly 300 pixels wide is taken', array( isset( submit( answers() )['stash']['problems']['Logo'] ), count( stored() ) ), array( false, 1 ) );
+
 reset_world();
 post_logos( png( 400, 120 ), fake_svg() );
 $pair = submit( answers() );

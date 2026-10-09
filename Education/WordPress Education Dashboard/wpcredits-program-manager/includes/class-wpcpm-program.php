@@ -43,6 +43,14 @@ class WPCPM_Program {
 	const STATUS_DESIGN = 'Designer Track';
 
 	/**
+	 * Airtable status for a student who has finished the work and is waiting to graduate.
+	 *
+	 * A state on no track, like Paused, and the one whose card goes on naming the course the student
+	 * took (`course_status()`).
+	 */
+	const STATUS_PENDING = 'Pending graduation';
+
+	/**
 	 * The program name for a status, or the status itself if it is not a track.
 	 *
 	 * `Graduate` and `Dropped out` pass straight through: they are the *state* of a
@@ -210,6 +218,92 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * What a student has logged, against their track's target if it has one, as one line of text.
+	 *
+	 * The one wording for a count of hours, so the Institution Dashboard's roster and the Mentor
+	 * Report Card print the same student's count the same way: both read the same Hours cell of
+	 * the student's Students Reports record, and a second formatter would be a second answer.
+	 * Plain text, not escaped: each caller escapes it where it prints it.
+	 *
+	 * **A track worked to no target prints no denominator.** `hours_target()` answers 0 for the
+	 * Developer Track, which is worked to a body of merged contributions rather than to a clock,
+	 * and 0 again for a status the map has never heard of, because a track the program adds and
+	 * does not count hours for is a supported state and not an omission. Both read "12 h", never
+	 * "12 of 0".
+	 *
+	 * Three things the live column does that this has to survive, read off the base rather than
+	 * assumed:
+	 *
+	 * - The value is **fractional** for some students (6.2, 135.5), so it is printed to as many
+	 *   places as the base sent it with, counted by `hours_decimals()` off the string itself.
+	 *   An `intval()` here would print 6 for 6.2 and quietly round a term's work down.
+	 * - It runs **past the target** for others (400 against a 150-hour track). That is printed
+	 *   as it stands: "400 of 150" is what the records say, and clamping to the target would
+	 *   hide an overrun from the one party paying attention to it.
+	 * - An unset cell is **absent, not zero**. '' returns '' so the page prints its own gap,
+	 *   while a logged 0 prints "0 of 150": a student nobody has logged for and a student who
+	 *   has done nothing are different answers to the question.
+	 *
+	 * A Number column that has stopped being a number is returned as it stands rather than cast:
+	 * `(float) 'n/a'` is 0.0, and "0 of 150" would say a student had done nothing on the strength
+	 * of a field type somebody changed.
+	 *
+	 * @param string $hours  The value as the base holds it, or ''.
+	 * @param string $status The status the target is read from.
+	 * @return string The line, or '' when nothing is recorded.
+	 */
+	public static function hours_text( $hours, $status ) {
+		$hours = trim( (string) $hours );
+
+		if ( '' === $hours || ! is_numeric( $hours ) ) {
+			return $hours;
+		}
+
+		$logged = number_format_i18n( (float) $hours, self::hours_decimals( $hours ) );
+
+		if ( ! self::has_hours_target( $status ) ) {
+			return sprintf(
+				/* translators: %s: hours logged, e.g. "12" or "6.2". */
+				__( '%s h', 'wpcredits-program-manager' ),
+				$logged
+			);
+		}
+
+		return sprintf(
+			/* translators: 1: hours logged, 2: the track's target in hours. */
+			__( '%1$s of %2$s', 'wpcredits-program-manager' ),
+			$logged,
+			number_format_i18n( self::hours_target( $status ) )
+		);
+	}
+
+	/**
+	 * How many decimal places one hours value is printed to, at most two.
+	 *
+	 * **Counted off the string the base sent, not off the float.** A fixed 0 would print 136 for
+	 * 135.5 and rewrite a student's work with a display decision; a fixed 1 or 2 would print
+	 * "150.0" for the student who logged exactly 150, because `number_format_i18n()` pads. So
+	 * the value decides how it is written, and it decides from its own digits: comparing a
+	 * float against its own rounding to answer the same question means trusting an equality
+	 * that binary fractions do not owe anybody.
+	 *
+	 * Trailing zeros do not count, so a "6.20" somebody typed reads as "6.2", and two places is
+	 * the ceiling: these are hours entered by hand on a form, not a measurement.
+	 *
+	 * @param string $hours The value as the base holds it, already known to be numeric.
+	 * @return int 0, 1 or 2.
+	 */
+	private static function hours_decimals( $hours ) {
+		$dot = strpos( (string) $hours, '.' );
+
+		if ( false === $dot ) {
+			return 0;
+		}
+
+		return min( 2, strlen( rtrim( substr( (string) $hours, $dot + 1 ), '0' ) ) );
+	}
+
+	/**
 	 * Whether a status is one of the tracks, as opposed to a finished state.
 	 *
 	 * @param string $status Airtable status.
@@ -217,6 +311,95 @@ class WPCPM_Program {
 	 */
 	public static function is_track( $status ) {
 		return isset( self::labels()[ trim( (string) $status ) ] );
+	}
+
+	/**
+	 * The status a student's course is keyed on: the track they are on, or for a student waiting to
+	 * graduate, the track they took.
+	 *
+	 * **The one answer every page asks** that names a student's course or reads their report form:
+	 * the Program row and its course link, the report form's questions and the answers saved under
+	 * them, and the hours target. Pending graduation is a state on no track, so asked of the status
+	 * alone each of those fell back to nothing, or to the 150-hour track's form, the day the student
+	 * finished the work. The students sync keeps the last course status it saw on the account
+	 * (`WPCPM_Students_Sync::META_COURSE`), and this reads it back for that one state.
+	 *
+	 * Paused is not given the same answer: a paused student has stopped, and a course beside the
+	 * status would say they were still working. Every other status on no track, a graduate's among
+	 * them, answers no course, as before. A remembered status no track on the site holds, one it no
+	 * longer runs or does not run yet, answers no course too, so nothing names a course that is not
+	 * there; the day a track holding it is published, the course is named.
+	 *
+	 * The status itself, the badge, stays what the base says; only the course is kept beside it.
+	 *
+	 * @param string $status  Airtable status, as the page has it.
+	 * @param int    $user_id The student's account, or 0 when there is none.
+	 * @return string A track's status, or '' when the student is on no course the site knows.
+	 */
+	public static function course_status( $status, $user_id = 0 ) {
+		$status = trim( (string) $status );
+
+		if ( self::is_track( $status ) ) {
+			return $status;
+		}
+
+		if ( self::STATUS_PENDING !== $status || (int) $user_id < 1 ) {
+			return '';
+		}
+
+		$kept = get_user_meta( (int) $user_id, WPCPM_Students_Sync::META_COURSE, true );
+		$kept = is_scalar( $kept ) ? trim( (string) $kept ) : '';
+
+		return self::is_track( $kept ) ? $kept : '';
+	}
+
+	/**
+	 * The Program row a student's card draws, the same on the Mentor Report Card, the Student Report
+	 * Card and the Institution Dashboard, kept here beside the maps it is made of so that every card
+	 * asks one place and none draws its own.
+	 *
+	 * The course as people say it, linked to its Learn course. For a student waiting to graduate it
+	 * is the course they took, which the students sync keeps on their account (`course_status()`),
+	 * named and linked exactly as it is for a current student, with the Pending graduation badge
+	 * beside it: the status is still what the base says, and the row is where a reader looks for
+	 * both. A pending student the site knows no course for keeps the row it always had, the status
+	 * alone with no link.
+	 *
+	 * @param string $status  The student's Airtable status.
+	 * @param int    $user_id The student's account, or 0 when there is none.
+	 * @return array A row spec for the cards' `render_row()`.
+	 */
+	public static function program_field( $status, $user_id = 0 ) {
+		$status = trim( (string) $status );
+		$course = self::course_status( $status, $user_id );
+		$named  = '' !== $course ? $course : $status;
+		$field  = array(
+			'label' => __( 'Program', 'wpcredits-program-manager' ),
+			'value' => self::label( $named ),
+			'url'   => self::course_url( $course ),
+		);
+
+		if ( '' === $course || $course === $status ) {
+			return $field;
+		}
+
+		$modifier = self::badge( $status );
+
+		$field['html'] = ( '' !== $field['url']
+				? sprintf(
+					'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+					esc_url( $field['url'] ),
+					esc_html( $field['value'] )
+				)
+				: esc_html( $field['value'] ) )
+			. ' '
+			. sprintf(
+				'<span class="wpcpm-badge%1$s">%2$s</span>',
+				'' === $modifier ? '' : esc_attr( ' wpcpm-badge--' . $modifier ),
+				esc_html( self::label( $status ) )
+			);
+
+		return $field;
 	}
 
 	/**
@@ -292,7 +475,7 @@ class WPCPM_Program {
 	public static function states() {
 		return array(
 			'Paused'             => 'paused',
-			'Pending graduation' => 'pending',
+			self::STATUS_PENDING => 'pending',
 		);
 	}
 }

@@ -304,6 +304,12 @@ ck( 'and nothing was stored', $GLOBALS['attachments'], array() );
 ck( 'a file that did arrive spends one, refused or not', $GLOBALS['ceiling'], array( 'sponsor-logo:' . $S => 1 ) );
 post_logos( png( 199, 80 ) );
 ck( 'a logo narrower than 200px is refused', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
+// The help beside the upload asks for 300 pixels, so 300 is what the upload holds it to, and
+// the refusal says so in the width it was refused for.
+post_logos( png( 299, 80 ) );
+$narrow = ran( 'handle_upload' );
+ck( 'a logo 299px wide is refused too, the help having asked for 300', substr( $narrow, 0, 12 ), 'logo-refused' );
+ck( 'and the sentence names the width needed', false !== strpos( $narrow, 'at least 300 pixels wide' ), true );
 post_logos( png( 300, 100 ), fake_svg() );
 ck( 'one bad file of two refuses the pair', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
 ck( 'and neither half was stored', $GLOBALS['attachments'], array() );
@@ -449,6 +455,12 @@ ck( 'the ceiling is claimed after the form is found to carry a file and before o
 	strpos( $upload_body, 'WPCPM_Ceiling::claim' ) < strpos( $upload_body, 'WPCPM_Image_Upload::accept' ),
 ), array( true, true ) );
 ck( 'and nothing is stored before every file is accepted', strpos( $src, 'WPCPM_Image_Upload::accept' ) < strpos( $src, 'WPCPM_Image_Upload::store' ), true );
+ck( 'the upload asks the handler for the logo floor, never the base one', false !== strpos( $upload_body, "'min_width' => WPCPM_Image_Upload::LOGO_MIN_WIDTH" ), true );
+ck( 'the refusal card and the help both state the floor the upload holds', array(
+	false !== strpos( WPCPM_Sponsor_Logo::messages()['logo-refused'][1], 'at least 300 pixels wide' ),
+	false !== strpos( method_body( $logo_src, 'render_inner' ), 'LOGO_MIN_WIDTH' ),
+	false !== strpos( $src, 'at least 200 pixels' ),
+), array( true, true, false ) );
 ck( 'every string a person reads says color', preg_match( '/\bcolour\b/', preg_replace( "/'colour'/", '', $src ) ), 0 );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );

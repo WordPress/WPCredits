@@ -29,7 +29,7 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  *
  * **Two files, after the ceiling and before the row.** The logos are the one thing this form
  * takes that is not text. They are accepted through `WPCPM_Image_Upload` (PNG, JPEG or WebP by
- * content, at least 200 pixels wide, re-saved through the editor) only after the per-actor
+ * content, at least 300 pixels wide, re-saved through the editor) only after the per-actor
  * ceiling has counted the request and requiredness has passed, and they are put in the Media
  * Library only after the application row exists, with author 0 and the title the logo card
  * gives, so that approval has only to change the author and record the IDs. One bad file
@@ -1270,7 +1270,7 @@ class WPCPM_Sponsor_Application {
 			'image_dimensions' => sprintf(
 				/* translators: 1: the least width, 2: the longest side. */
 				__( 'The image must be at least %1$d pixels wide and no side may pass %2$d pixels.', 'wpcredits-program-manager' ),
-				WPCPM_Image_Upload::MIN_WIDTH,
+				WPCPM_Image_Upload::LOGO_MIN_WIDTH,
 				WPCPM_Image_Upload::MAX_SIDE
 			),
 			'image_editor'     => __( 'This site could not process the image right now.', 'wpcredits-program-manager' ),
@@ -1882,7 +1882,14 @@ class WPCPM_Sponsor_Application {
 				return 'image_missing';
 			}
 
-			$one = WPCPM_Image_Upload::accept( $file['tmp_name'], array( 'name' => $file['name'] ) );
+			// Held to the logo floor the question's help states.
+			$one = WPCPM_Image_Upload::accept(
+				$file['tmp_name'],
+				array(
+					'name'      => $file['name'],
+					'min_width' => WPCPM_Image_Upload::LOGO_MIN_WIDTH,
+				)
+			);
 
 			if ( is_wp_error( $one ) ) {
 				self::clean_up( $accepted );

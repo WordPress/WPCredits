@@ -96,6 +96,9 @@ function esc_url_raw( $s, $protocols = null ) { return (string) $s; }
 function wp_kses( $s, $allowed ) { return (string) $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+// Core's, as far as the fixtures' names reach it: one accent, on the sponsor the switcher's order is
+// pinned with. The switcher sorts by it.
+function remove_accents( $s, $locale = '' ) { return strtr( (string) $s, array( 'Á' => 'A' ) ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
@@ -353,6 +356,7 @@ ck( 'the identity shows the site\'s logo, never Airtable\'s URL', false !== strp
 ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>Mango Example<' ) && false !== strpos( $out, 'href="https://plugins.mango-example.test"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
 ck( 'the program contact block names the manager, the address and the booking link', false !== strpos( $out, 'Maciej (Matt) Pilarski' ) && false !== strpos( $out, 'mailto:maciej@a8c.com' ) && false !== strpos( $out, 'https://calendly.com/matt' ), true );
 ck( 'no switcher for a member', strpos( $out, 'wpcpm-dashboard__switcher' ), false );
+ck( 'nor the script that narrows one', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), false );
 ck( 'no heading unless the block asks for one', strpos( $out, 'wpcpm-dashboard__title' ), false );
 ck( 'the block\'s optional heading is honoured', false !== strpos( $D::render( array( 'title' => 'Our sponsorship' ) ), '<h2 class="wpcpm-dashboard__title">Our sponsorship</h2>' ), true );
 $people_card = substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ); $people_card = substr( $people_card, 0, strpos( $people_card, '</section>' ) );
@@ -364,9 +368,22 @@ ck( 'the double-submit guard is armed', in_array( 'wpcpm-forms', $GLOBALS['scrip
 ck( 'no student is named anywhere', preg_match( '/Student(?! Report Card)/', $out ), 0 );
 
 echo "\n=== A manager ===\n";
-$GLOBALS['uid'] = 1; $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $B );
+$GLOBALS['uid'] = 1; $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $B ); $GLOBALS['scripts'] = array();
 $out = $D::render();
 ck( 'the switcher lists both sponsors and the manager is viewing B', false !== strpos( $out, 'name="' . WPCPM_Sponsor_Roster::ARG_VIEW . '"' ) && false !== strpos( $out, 'value="' . $B . '" selected' ), true );
+ck( 'under the box that narrows it, and the page loads the script that does the narrowing', array( false !== strpos( $out, '<label for="wpcpm-sponsor-switcher-find">Find a sponsor</label>' ), in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ) ), array( true, true ) );
+ck( 'the note names the Administrators', false !== strpos( $out, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ), true );
+// A third sponsor, added last as the index adds a new row, whose name opens on an accent: index
+// order leaves it last, and so does an order read byte by byte. A to Z puts it first.
+$index_before = $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ];
+$C            = 'recSPONSOR0000003';
+$rows         = WPCPM_Sponsors_Index::rows();
+$rows[ $C ]   = array( 'name' => 'Ápex Example', 'status' => 'Approved' );
+WPCPM_Sponsors_Index::write( $rows, time() );
+$listed = $D::render();
+preg_match_all( '#<option value="(rec[A-Za-z0-9]+)"#', $listed, $values );
+ck( 'the switcher lists the sponsors A to Z, not in the index\'s order', $values[1], array( $C, $A, $B ) );
+$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ] = $index_before;
 ck( 'B has no logo: initials stand in', false !== strpos( $out, 'wpcpm-sponsor__initials' ) && false !== strpos( $out, '>W<' ), true );
 ck( 'B has no manager: no contact block, and no empty heading', strpos( $out, 'wpcpm-resources__contact' ), false );
 ck( 'a manager sees the status line', false !== strpos( $out, 'Status: Approved' ), true );

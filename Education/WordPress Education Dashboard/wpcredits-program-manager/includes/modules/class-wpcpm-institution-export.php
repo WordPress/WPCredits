@@ -317,7 +317,9 @@ class WPCPM_Institution_Export {
 		$program = is_array( $program ) ? $program : array();
 
 		$status = self::first( array( self::from( $program, 'program' ), self::from( $row, 'status' ) ) );
-		$track  = WPCPM_Program::track( $status );
+		// The grades of the course the student is on, or for one waiting to graduate the course they
+		// took: the form the school's copy of the card draws (`WPCPM_Program::course_status()`).
+		$track = WPCPM_Program::track( WPCPM_Program::course_status( $status, $user_id ) );
 
 		$columns = WPCPM_Institution_Policy::scope( $decision, self::student_columns( $track ) );
 

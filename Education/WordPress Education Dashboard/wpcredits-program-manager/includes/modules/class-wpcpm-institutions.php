@@ -4570,6 +4570,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$without_reports  = isset( $rec['students_without_reports'] ) ? (array) $rec['students_without_reports'] : array();
 		$without_students = isset( $rec['reports_without_students'] ) ? (array) $rec['reports_without_students'] : array();
 		$disagreements    = isset( $rec['status_disagreements'] ) ? (int) $rec['status_disagreements'] : 0;
+		$disagreeing      = isset( $rec['status_disagreement_rows'] ) && is_array( $rec['status_disagreement_rows'] ) ? $rec['status_disagreement_rows'] : null;
 		$duplicates       = isset( $rec['duplicate_emails'] ) ? (array) $rec['duplicate_emails'] : array();
 		$no_institution   = isset( $rec['no_institution'] ) ? (int) $rec['no_institution'] : 0;
 		$no_start         = isset( $rec['no_start_date'] ) ? (array) $rec['no_start_date'] : array();
@@ -4639,6 +4640,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			__( 'The sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' )
 		);
 
+		$this->render_disagreements( $disagreements, $disagreeing );
+
 		if ( ! empty( $missed ) ) {
 			$this->render_missed( $missed );
 		}
@@ -4655,6 +4658,88 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The students whose Students row and Students Reports row carry different statuses, by name.
+	 *
+	 * The count in the table above says how many; a number does not say which student a mentor saw
+	 * wrongly, so each is listed with the status each table holds and a link to each row. The names
+	 * are the Administrators': the screen is behind the management capability already, and the list
+	 * asks for it again where the names are printed.
+	 *
+	 * The sync keeps the first of them by name and stops at its cap (`WPCPM_Students_Sync::
+	 * DISAGREEMENT_ROWS_MAX`), so the list says how many more the count holds than it shows. A run
+	 * from before the names were kept holds the count alone (`$listed` is null), and the card says
+	 * when they come.
+	 *
+	 * @param int        $total  How many students disagree, the sync's whole count.
+	 * @param array|null $listed Entries from the sync's `status_disagreement_rows`, or null where the run kept none.
+	 */
+	private function render_disagreements( $total, $listed ) {
+		if ( $total < 1 || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
+		echo '<h3>' . esc_html__( 'Status disagreements on joined rows', 'wpcredits-program-manager' ) . '</h3>';
+
+		if ( null === $listed ) {
+			echo '<p class="description">' . esc_html__( 'The names arrive with the next students sync.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		echo '<p class="description">' . esc_html__( 'Each is a student whose Students row and Students Reports row, found by the same email address, carry different statuses. Check both rows and correct the one that is out of date.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<ul class="wpcpm-inst-missed">';
+
+		$shown = 0;
+
+		foreach ( $listed as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$get = static function ( $key ) use ( $row ) {
+				return isset( $row[ $key ] ) ? trim( (string) $row[ $key ] ) : '';
+			};
+
+			$theirs = $get( 'students_status' );
+			$ours   = $get( 'reports_status' );
+
+			$sentence = sprintf(
+				/* translators: 1: link "Students row", 2: its status, 3: link "Students Reports row", 4: its status. */
+				__( 'The %1$s says %2$s; the %3$s says %4$s.', 'wpcredits-program-manager' ),
+				self::airtable_link( 'students_table', $get( 'students_record' ), __( 'Students row', 'wpcredits-program-manager' ) ),
+				esc_html( '' !== $theirs ? $theirs : __( '(no status)', 'wpcredits-program-manager' ) ),
+				self::airtable_link( 'reports_table', $get( 'reports_record' ), __( 'Students Reports row', 'wpcredits-program-manager' ) ),
+				esc_html( '' !== $ours ? $ours : __( '(no status)', 'wpcredits-program-manager' ) )
+			);
+
+			++$shown;
+
+			printf(
+				'<li>%1$s<br>%2$s</li>',
+				esc_html( '' !== $get( 'name' ) ? $get( 'name' ) : __( '(no name)', 'wpcredits-program-manager' ) ),
+				$sentence // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from escaped parts and airtable_link()'s own markup.
+			);
+		}
+
+		$more = max( 0, (int) $total - $shown );
+
+		if ( $more > 0 ) {
+			printf(
+				'<li class="wpcpm-inst-muted">%s</li>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many more students disagree than the list shows. */
+						_n( 'and %s more', 'and %s more', $more, 'wpcredits-program-manager' ),
+						number_format_i18n( $more )
+					)
+				)
+			);
+		}
+
+		echo '</ul>';
 	}
 
 	/**

@@ -19,8 +19,24 @@ if ( ! defined( 'ABSPATH' ) ) {
  * and an account made by hand holds neither the count nor the flag, and WordPress sorts by a meta
  * value only among the accounts that hold the key. So for those two the table reads every account
  * the list may hold and orders them itself (`by_value()`), each read as its cell shows it.
+ *
+ * **The No students view is the Students column's 0.** A mentor is in it when the count the column
+ * shows is 0, whether the sync wrote a 0 (a mentor with past students only) or deleted the count
+ * or never wrote it, so a meta clause could not say it without a join that treats a missing key as
+ * a value; the table reads the accounts and keeps the ones the column shows 0 for
+ * (`has_no_students()`), as it orders the sorted ones.
  */
 class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
+
+	/** The view of the mentors the Students column shows 0 for, beside the invitation views. */
+	const VIEW_NO_STUDENTS = 'no-students';
+
+	/**
+	 * What the No students view's clause holds: a marker `query()` takes off before WordPress is
+	 * asked, since the view cannot be said as a meta clause (see the class). Only this table's
+	 * `view_clause()` writes it and only its `query()` reads it.
+	 */
+	const NO_STUDENTS_MARK = 'wpcpm_no_students';
 
 	/** What the Students column sorts by: the count of current students, which the table orders itself (`by_value()`). */
 	const ORDERBY_STUDENTS = 'students';
@@ -41,6 +57,13 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	 * @var array<string, string>|null
 	 */
 	private $list_state;
+
+	/**
+	 * How many Mentor accounts the Students column shows 0 for, read once for the view's link.
+	 *
+	 * @var int|null
+	 */
+	private $without_students;
 
 	/**
 	 * The audience: the Mentors module's ID.
@@ -102,10 +125,20 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	 * @return array{items: WP_User[], total: int}
 	 */
 	protected function query( array $args ) {
+		$only_without = isset( $args['meta_query'][ self::NO_STUDENTS_MARK ] );
+
+		if ( $only_without ) {
+			unset( $args['meta_query'][ self::NO_STUDENTS_MARK ] );
+		}
+
 		$sorted_by = self::sorted_by( $args );
 
 		if ( self::ORDERBY_STUDENTS === $sorted_by || self::ORDERBY_STATUS === $sorted_by ) {
-			return $this->by_value( $args, $sorted_by );
+			return $this->by_value( $args, $sorted_by, $only_without );
+		}
+
+		if ( $only_without ) {
+			return $this->without_students( $args );
 		}
 
 		$query = new WP_User_Query( $args );
@@ -128,11 +161,13 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	 * The read is the one the list made for every Mentor account before it was paged, and WordPress
 	 * primes each account's meta with it, so the values cost no query each.
 	 *
-	 * @param array  $args      The page's `WP_User_Query` arguments.
-	 * @param string $sorted_by `ORDERBY_STUDENTS` or `ORDERBY_STATUS`.
+	 * @param array  $args         The page's `WP_User_Query` arguments.
+	 * @param string $sorted_by    `ORDERBY_STUDENTS` or `ORDERBY_STATUS`.
+	 * @param bool   $only_without Whether the page is the No students view's, so the accounts the
+	 *                             column shows a student for are left out.
 	 * @return array{items: WP_User[], total: int}
 	 */
-	private function by_value( array $args, $sorted_by ) {
+	private function by_value( array $args, $sorted_by, $only_without = false ) {
 		$number = isset( $args['number'] ) ? (int) $args['number'] : 0;
 		$offset = isset( $args['offset'] ) ? (int) $args['offset'] : 0;
 		$desc   = isset( $args['order'] ) && 'DESC' === $args['order'];
@@ -153,6 +188,10 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 		$accounts = array();
 
 		foreach ( (array) $every->get_results() as $user ) {
+			if ( $only_without && ! self::has_no_students( $user->ID ) ) {
+				continue;
+			}
+
 			$accounts[] = array(
 				'user'  => $user,
 				'value' => self::value_of( $user->ID, $sorted_by ),
@@ -170,6 +209,133 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 			'items' => array_column( array_slice( $accounts, $offset, $number > 0 ? $number : null ), 'user' ),
 			'total' => count( $accounts ),
 		);
+	}
+
+	/**
+	 * One page of the No students view: every account the page's other arguments find, in the order
+	 * WordPress puts them in, kept when the Students column shows 0 for it, and the page's slice.
+	 *
+	 * @param array $args The page's `WP_User_Query` arguments.
+	 * @return array{items: WP_User[], total: int}
+	 */
+	private function without_students( array $args ) {
+		$number = isset( $args['number'] ) ? (int) $args['number'] : 0;
+		$offset = isset( $args['offset'] ) ? (int) $args['offset'] : 0;
+
+		$every = new WP_User_Query(
+			array_merge(
+				$args,
+				array(
+					'number'      => -1,
+					'offset'      => 0,
+					'count_total' => false,
+				)
+			)
+		);
+
+		$found = array();
+
+		foreach ( (array) $every->get_results() as $user ) {
+			if ( self::has_no_students( $user->ID ) ) {
+				$found[] = $user;
+			}
+		}
+
+		return array(
+			'items' => array_slice( $found, $offset, $number > 0 ? $number : null ),
+			'total' => count( $found ),
+		);
+	}
+
+	/**
+	 * Whether the Students column shows 0 for a mentor: the same count, read the same way.
+	 *
+	 * @param int $user_id The mentor's account.
+	 * @return bool
+	 */
+	private static function has_no_students( $user_id ) {
+		return 0 === WPCPM_Mentors_Dashboard::get_mentee_count( (int) $user_id );
+	}
+
+	/**
+	 * How many Mentor accounts are in the No students view: the whole list, not the search, as the
+	 * other views count. Read once a table.
+	 *
+	 * @return int
+	 */
+	private function count_without_students() {
+		if ( null === $this->without_students ) {
+			$every = new WP_User_Query(
+				array(
+					'role'        => static::role(),
+					'number'      => -1,
+					'fields'      => 'ID',
+					'count_total' => false,
+				)
+			);
+
+			$ids = array_map( 'intval', (array) $every->get_results() );
+
+			// A query of IDs does not load the accounts' meta, and the count of each is a read of it:
+			// loaded in one go, the whole list costs one query and not one a mentor.
+			if ( ! empty( $ids ) && function_exists( 'update_meta_cache' ) ) {
+				update_meta_cache( 'user', $ids );
+			}
+
+			$this->without_students = count(
+				array_filter(
+					$ids,
+					static function ( $user_id ) {
+						return self::has_no_students( $user_id );
+					}
+				)
+			);
+		}
+
+		return $this->without_students;
+	}
+
+	/**
+	 * The views: the base's, then No students with how many mentors it holds.
+	 *
+	 * @return array<string, string> View => link.
+	 */
+	protected function get_views() {
+		$views = parent::get_views();
+		$count = $this->count_without_students();
+
+		$views[ self::VIEW_NO_STUDENTS ] = $this->view_link(
+			self::VIEW_NO_STUDENTS,
+			/* translators: %s: how many accounts, in parentheses. */
+			_n( 'No students %s', 'No students %s', $count, 'wpcredits-program-manager' ),
+			$count,
+			self::VIEW_NO_STUDENTS === $this->current_view()
+		);
+
+		return $views;
+	}
+
+	/**
+	 * The view in force: No students when the address names it, else the base's reading.
+	 *
+	 * @return string
+	 */
+	protected function current_view() {
+		return self::VIEW_NO_STUDENTS === WPCPM_Request::key( self::VIEW_ARG ) ? self::VIEW_NO_STUDENTS : parent::current_view();
+	}
+
+	/**
+	 * A view's meta query: the marker for No students, which `query()` reads, else the base's.
+	 *
+	 * @param string $view The view.
+	 * @return array
+	 */
+	protected function view_clause( $view ) {
+		if ( self::VIEW_NO_STUDENTS === $view ) {
+			return array( self::NO_STUDENTS_MARK => true );
+		}
+
+		return parent::view_clause( $view );
 	}
 
 	/**
@@ -231,6 +397,12 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	public function no_items() {
 		if ( '' === $this->search_clause() && 'all' === $this->current_view() ) {
 			esc_html_e( 'No mentor accounts yet. Run a sync on the Sync tab to create them.', 'wpcredits-program-manager' );
+
+			return;
+		}
+
+		if ( '' === $this->search_clause() && self::VIEW_NO_STUDENTS === $this->current_view() ) {
+			esc_html_e( 'Every mentor account has a current student.', 'wpcredits-program-manager' );
 
 			return;
 		}

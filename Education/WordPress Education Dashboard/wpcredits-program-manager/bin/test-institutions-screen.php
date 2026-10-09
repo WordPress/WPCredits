@@ -1507,6 +1507,10 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array(
 		'students_without_reports' => array( 'Not moving forward' => 15, '' => 7, 'Graduate' => 6, 'In Sensei' => 2, 'SPAM' => 1 ),
 		'reports_without_students' => array( 'In Sensei' => 7, 'Graduate' => 6, 'Not moving forward' => 4, '' => 1, 'SPAM' => 1 ),
 		'status_disagreements'     => 10,
+		'status_disagreement_rows' => array(
+			array( 'name' => 'Disagreeing One', 'students_record' => 'recSTUDIS0000001', 'reports_record' => 'recREPDIS0000001', 'students_status' => 'Graduate', 'reports_status' => 'In Sensei' ),
+			array( 'name' => 'Disagreeing <b>Two</b>', 'students_record' => 'recSTUDIS0000002', 'reports_record' => 'recREPDIS0000002', 'students_status' => '', 'reports_status' => 'Paused' ),
+		),
 		'duplicate_emails'         => array( 'recSEED0000000008' => 5, 'recUNKNOWN0000001' => 4 ),
 		'no_institution'           => 3,
 		'no_start_date'            => array( 'Not moving forward' => 4, '' => 2, 'Developer Track' => 1 ),
@@ -2070,6 +2074,48 @@ ck( 'and lists each with the institution and status muted', array(
 ck( 'the mismatched address names both rows, both addresses and the fix', false !== strpos( $html, 'The <a href="' . $students_url . 'recSTUMISS0000001" target="_blank" rel="noopener noreferrer">Students row</a> carries mismatched@school.example.test; a <a href="' . $reports_url . 'recREPMISS0000001" target="_blank" rel="noopener noreferrer">Students Reports row</a> with this name carries mismatched@home.example.test and matched no Students row. Make the two addresses identical and run the students sync.' ), true );
 ck( 'the second Students row names the other row and its institution', false !== strpos( $html, 'a <a href="' . $reports_url . 'recREPTWICE00001" target="_blank" rel="noopener noreferrer">Students Reports row</a> with this name carries the address of <a href="' . $students_url . 'recSTUTWICE000002" target="_blank" rel="noopener noreferrer">another Students row</a>, filed under recUNKNOWN0000001. One of the two Students rows is a duplicate.' ), true );
 ck( 'no report row among the rows the sync reads says both things it could mean', false !== strpos( $html, 'carries lonely@school.example.test, and no Students Reports row with this name is among the rows the sync reads (the tracked statuses): either the automation has not created the record yet, or the record carries a status the sync does not read.' ), true );
+
+// The count says ten; the card says who. The two the last run kept are listed with both statuses and
+// a link to each row, and the card says how many the list stops short of.
+$dis_heading = '<h3>Status disagreements on joined rows</h3>';
+ck( 'the card lists the students whose two tables disagree, under a heading of their own', false !== strpos( $html, $dis_heading ), true );
+ck( 'each with both statuses and a link to each of the two rows, a missing status said so',
+	array(
+		false !== strpos( $html, '<li>Disagreeing One<br>The <a href="' . $students_url . 'recSTUDIS0000001" target="_blank" rel="noopener noreferrer">Students row</a> says Graduate; the <a href="' . $reports_url . 'recREPDIS0000001" target="_blank" rel="noopener noreferrer">Students Reports row</a> says In Sensei.</li>' ),
+		false !== strpos( $html, '(no status); the <a href="' . $reports_url . 'recREPDIS0000002" target="_blank" rel="noopener noreferrer">Students Reports row</a> says Paused.</li>' ),
+	),
+	array( true, true ) );
+ck( 'a name is escaped as it is printed', array( false !== strpos( $html, '<li>Disagreeing &lt;b&gt;Two&lt;/b&gt;<br>' ), false === strpos( $html, 'Disagreeing <b>Two</b>' ) ), array( true, true ) );
+ck( 'and the list says how many more there are than it shows: ten, and two shown', false !== strpos( $html, '<li class="wpcpm-inst-muted">and 8 more</li>' ), true );
+
+// Names are for the Administrators. The screen is behind the management capability already; the
+// list asks for it again where the names are printed, so a render for anybody else carries the
+// count and not the people.
+$GLOBALS['uid']  = 30;
+$GLOBALS['caps'] = false;
+$for_student     = render_tab( 'sync' );
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+ck( 'rendered for somebody without the management capability, the card keeps its count and prints no student\'s name',
+	array( false !== strpos( $for_student, '<th scope="row">Status disagreements on joined rows</th><td>10</td>' ), false === strpos( $for_student, 'Disagreeing One' ), false === strpos( $for_student, $dis_heading ), false === strpos( $for_student, 'recSTUDIS0000001' ) ),
+	array( true, true, true, true ) );
+ck( 'the list is drawn behind the capability, read off the source', false !== strpos( function_body( $src, 'render_disagreements' ), 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ), true );
+
+// A run from before the list was kept holds the count and no names; the card says when they come
+// rather than leaving a number that cannot be followed up. A base with none to list prints nothing.
+$kept_rec = $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ];
+unset( $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreement_rows'] );
+$before_list = render_tab( 'sync' );
+ck( 'a count from a run that kept no names says the names come with the next students sync, and lists nobody',
+	array( false !== strpos( $before_list, $dis_heading ), false !== strpos( $before_list, 'The names arrive with the next students sync.' ), false === strpos( $before_list, 'Disagreeing One' ) ),
+	array( true, true, true ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreements']     = 0;
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreement_rows'] = array();
+$none_to_list = render_tab( 'sync' );
+ck( 'with none disagreeing there is no heading and no sentence about names',
+	array( false === strpos( $none_to_list, $dis_heading ), false === strpos( $none_to_list, 'The names arrive' ), false !== strpos( $none_to_list, '<th scope="row">Status disagreements on joined rows</th><td>0</td>' ) ),
+	array( true, true, true ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = $kept_rec;
 
 $query = null;
 foreach ( $GLOBALS['calls'] as $call ) { if ( 'WP_User_Query' === $call[0] ) { $query = $call[1]; } }

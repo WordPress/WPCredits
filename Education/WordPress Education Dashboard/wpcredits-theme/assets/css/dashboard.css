@@ -520,6 +520,11 @@
 	font: 500 14px/20px var( --wpc-font );
 }
 
+/* The box that narrows the list is dressed as the list is. Left to the browser it keeps its own
+   edge, square corners and 13px Arial over a select drawn in this theme's 14px type, and the
+   two read as parts of different forms. Its label needs nothing: the label rule above matches
+   any label inside the switcher, the box's included. */
+.wpcpm-dashboard__switcher input[type="search"],
 .wpcpm-dashboard__switcher select {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-control-border );
@@ -533,6 +538,13 @@
 	color: var( --wpc-ink-70 );
 	font: 14px/20px var( --wpc-font );
 	margin-left: auto;
+}
+
+/* The line that says nothing matches what was typed reads as the note beside it does, rather
+   than at the plugin's own smaller size in full ink. */
+.wpcpm-dashboard__switcher-none {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
 }
 
 /* Lifted out of the card and set above it by inc/dashboard.php (1.23.5): the same wide width
@@ -3781,7 +3793,13 @@
 		display: none;
 	}
 
+	/* From here down a name kept on one line ran past its column: over the institution beside it
+	   on the mentor page while the cap holds, and past the card's edge on a phone. A long name
+	   wraps instead, at a space, and inside a word only when one word alone is wider than the
+	   line. */
 	.wpcpm-mentee__name {
+		overflow-wrap: anywhere;
+		white-space: normal;
 		width: 150px;
 	}
 

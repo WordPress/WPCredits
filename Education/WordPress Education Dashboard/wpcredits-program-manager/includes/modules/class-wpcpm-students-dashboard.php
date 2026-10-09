@@ -623,40 +623,29 @@ class WPCPM_Students_Dashboard {
 	/**
 	 * A "view as" control for program managers.
 	 *
+	 * Drawn by `WPCPM_Dashboards`, the one form all four dashboards share: sorted A to Z, with a
+	 * box above the list that narrows it.
+	 *
 	 * @param WP_User $current Student being viewed.
 	 */
 	private static function render_switcher( WP_User $current ) {
-		$students = self::all_students();
+		$options = array();
 
-		if ( count( $students ) < 2 ) {
-			return;
+		foreach ( self::all_students() as $student ) {
+			$options[ (int) $student->ID ] = $student->display_name;
 		}
 
-		echo '<form class="wpcpm-dashboard__switcher" method="get">';
-
-		if ( ! get_option( 'permalink_structure' ) ) {
-			$queried = get_queried_object_id();
-			if ( $queried ) {
-				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
-			}
-		}
-
-		echo '<label for="wpcpm-student-switcher">' . esc_html__( 'Viewing as student', 'wpcredits-program-manager' ) . '</label> ';
-		echo '<select name="wpcpm_student_view" id="wpcpm-student-switcher">';
-
-		foreach ( $students as $student ) {
-			printf(
-				'<option value="%1$d"%2$s>%3$s</option>',
-				(int) $student->ID,
-				selected( $student->ID, $current->ID, false ),
-				esc_html( $student->display_name )
-			);
-		}
-
-		echo '</select> ';
-		echo '<button type="submit" class="wpcpm-button">' . esc_html__( 'Show', 'wpcredits-program-manager' ) . '</button>';
-		echo '<span class="wpcpm-dashboard__switcher-note">' . esc_html__( 'Only administrators see this control.', 'wpcredits-program-manager' ) . '</span>';
-		echo '</form>';
+		WPCPM_Dashboards::render_switcher(
+			array(
+				'id'      => 'wpcpm-student-switcher',
+				'name'    => 'wpcpm_student_view',
+				'options' => $options,
+				'current' => (int) $current->ID,
+				'label'   => __( 'Viewing as student', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find a student', 'wpcredits-program-manager' ),
+				'none'    => __( 'No students match that search.', 'wpcredits-program-manager' ),
+			)
+		);
 	}
 
 	/**
@@ -719,13 +708,10 @@ class WPCPM_Students_Dashboard {
 		$status = '' !== $get( 'status' ) ? $get( 'status' ) : $get( 'program' );
 
 		$fields = array(
-			array(
-				'label' => __( 'Program', 'wpcredits-program-manager' ),
-				'value' => WPCPM_Program::label( $status ),
-				// The Learn WordPress course for their track, so the syllabus is one click
-				// from the page that says which track they are on.
-				'url'   => WPCPM_Program::course_url( $status ),
-			),
+			// The Learn WordPress course for their track, so the syllabus is one click from the page
+			// that says which track they are on. The cards' shared row: for a student waiting to
+			// graduate it names the course they took, with the Pending graduation badge beside it.
+			WPCPM_Program::program_field( $status, $student_id ),
 			array(
 				'label' => __( 'Internship duration', 'wpcredits-program-manager' ),
 				'value' => WPCPM_Mentors_Dashboard::format_dates( $get( 'start' ), $get( 'end' ) ),
@@ -833,11 +819,13 @@ class WPCPM_Students_Dashboard {
 	 *
 	 * **With no course, the hours box is a section of its own, My hours** (TRACKS-3). A Track
 	 * Builder track need not name a Learn course, and while the box lived in My course alone its
-	 * students had nowhere to log hours. A student on no track, Paused, Pending graduation or
-	 * finished, gets the same section: `fields()` draws them the 150-hour track's form, its Hours
-	 * question included (TRACKS-5), and the box saves through that form as it does for everybody
-	 * else. The section is drawn only when the box is, so a form with no Hours question, or a
-	 * record that cannot be read, leaves no empty heading.
+	 * students had nowhere to log hours. A student on no track, Paused, finished, or Pending
+	 * graduation with no course the site knows, gets the same section: `fields()` draws them the
+	 * 150-hour track's form, its Hours question included (TRACKS-5), and the box saves through that
+	 * form as it does for everybody else. A Pending graduation student whose course the site does
+	 * know keeps My course, as on the track (`WPCPM_Program::course_status()`). The section is drawn
+	 * only when the box is, so a form with no Hours question, or a record that cannot be read,
+	 * leaves no empty heading.
 	 *
 	 * The section's heading is also what its module's mover calls it, so the arrows over My hours
 	 * say My hours (TRACKS-3).
@@ -848,7 +836,9 @@ class WPCPM_Students_Dashboard {
 	 */
 	private static function render_links( array $program, WP_User $student ) {
 		$status = ! empty( $program['status'] ) ? (string) $program['status'] : ( isset( $program['program'] ) ? (string) $program['program'] : '' );
-		$course = WPCPM_Program::course_url( $status );
+		// The course they are on, or for a student waiting to graduate the one they took, so the
+		// course stays one click away for as long as the Program row names it.
+		$course = WPCPM_Program::course_url( WPCPM_Program::course_status( $status, $student->ID ) );
 		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
 		$name   = '';
 

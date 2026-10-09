@@ -239,8 +239,8 @@ class WPCPM_Institution_Roster {
 	 * Every row the pipeline index holds, one entry each - not one per member, and not
 	 * only the ones with accounts: provisioning an institution is done by looking at it
 	 * first, and an institution with no member yet is precisely the one a manager needs
-	 * to open. Index order is Airtable's order, so the list reads the same here as in the
-	 * grid.
+	 * to open. Index order is Airtable's order; the switcher draws the list A to Z
+	 * (`WPCPM_Dashboards::render_switcher()`), which is the order a reader looks for a name in.
 	 *
 	 * @return array<string, string> Record ID to label.
 	 */

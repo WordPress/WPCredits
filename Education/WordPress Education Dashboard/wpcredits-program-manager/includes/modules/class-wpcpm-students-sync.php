@@ -79,6 +79,29 @@ class WPCPM_Students_Sync {
 	const META_UPDATED   = 'wpcpm_student_updated';
 
 	/**
+	 * The last course status this sync saw on the student's report, kept while they wait to graduate.
+	 *
+	 * Pending graduation is a state on no track, and the report's Status is the only place the base
+	 * keeps a track: graduating, pausing or waiting overwrites it, and `META_PROGRAM` is replaced
+	 * whole on every run. So the course is kept here, written whenever the report names one and left
+	 * alone while it names none, which is what lets a pending student's card go on naming the course
+	 * they took (`WPCPM_Program::course_status()` reads it).
+	 *
+	 * **A course is any current status that is not one of the two states**, as the base spells it,
+	 * whether or not a track on this site holds it yet. A student moved onto a course the site does
+	 * not run is no longer on the one before, so that one must not come back when they finish: the
+	 * new status is kept, and `course_status()` names it only once a track holds it, so until then
+	 * the card says Pending graduation alone, and the day the track is published it names the course.
+	 *
+	 * **Its presence is the sync's word that it looked.** An account a pending student holds and the
+	 * key was never written on is one the site knows no course for, and is seeded once from the
+	 * student's Feedback row (`seed_courses()`). The seed writes the row's Course as it reads it, and
+	 * an empty value where the row names none, so the question is asked once and not on every run
+	 * after it.
+	 */
+	const META_COURSE = 'wpcpm_student_course';
+
+	/**
 	 * The Institutions record ID the student belongs to, on its own key (design decision 1).
 	 *
 	 * A record ID and never a name: `resolve_stored()` returns '' for an ID the lookups map
@@ -97,6 +120,18 @@ class WPCPM_Students_Sync {
 	 */
 	const META_INSTITUTION = 'wpcpm_student_institution';
 
+	/**
+	 * How many students one read of the Feedback table seeds a course for, and how many such reads
+	 * one run makes at most.
+	 *
+	 * One formula naming twenty addresses stays far below the length Airtable takes in a query, and
+	 * three of them seed sixty students a run: the program has about thirty waiting to graduate at
+	 * any one time, so a run seeds them all, and a backlog is worked through over a few runs rather
+	 * than in one tick that waits on a dozen reads.
+	 */
+	const COURSE_SEED_BATCH   = 20;
+	const COURSE_SEED_BATCHES = 3;
+
 	const BUDGET       = 18;
 	const BUDGET_AJAX  = 8;
 	const LOCK_TIMEOUT = 120;
@@ -110,6 +145,15 @@ class WPCPM_Students_Sync {
 	 * and a 429 that asks for longer is honoured over it (`retry_delay()`).
 	 */
 	const RETRY_DELAY = 30;
+
+	/**
+	 * How many students whose two tables disagree on status the reconciliation keeps by name.
+	 *
+	 * The count (`status_disagreements`) is always whole; the list beside it is the first of them by
+	 * name, so the option that holds it stays a page of names however many the base grows to, and the
+	 * manager screen says how many the list stops short of.
+	 */
+	const DISAGREEMENT_ROWS_MAX = 50;
 
 	/**
 	 * Phases, in order. See WPCPM_Mentors_Sync::phases() for how the weights are
@@ -549,7 +593,7 @@ class WPCPM_Students_Sync {
 					$result = self::phase_tutors( $state, $airtable, $settings );
 					break;
 				case 'provision':
-					$result = self::phase_provision( $state, $settings );
+					$result = self::phase_provision( $state, $settings, $airtable );
 					break;
 				default:
 					$state['phase'] = 'done';
@@ -1120,16 +1164,21 @@ class WPCPM_Students_Sync {
 	 * kept in the state: the choice reads the accounts' stamps, which the slices move, and a
 	 * choice re-made each tick would log itself each tick.
 	 *
-	 * @param array $state    Sync state, by reference.
-	 * @param array $settings Plugin settings.
+	 * The last slice, the one with nobody left in it, seeds the course of the pending students the
+	 * site knows none for (`seed_courses()`), before the departed lose their access.
+	 *
+	 * @param array               $state    Sync state, by reference.
+	 * @param array               $settings Plugin settings.
+	 * @param WPCPM_Airtable|null $airtable Client, for the course seed; none seeds nothing.
 	 * @return true
 	 */
-	private static function phase_provision( array &$state, array $settings ) {
+	private static function phase_provision( array &$state, array $settings, $airtable = null ) {
 		$students = isset( $state['students'] ) ? (array) $state['students'] : array();
 		$cursor   = isset( $state['cursor'] ) ? (int) $state['cursor'] : 0;
 		$slice    = array_slice( $students, $cursor, 15, true );
 
 		if ( empty( $slice ) ) {
+			self::seed_courses( $state, $settings, $airtable );
 			self::revoke_departed( $state, $settings );
 
 			$state['phase'] = 'done';
@@ -1191,9 +1240,22 @@ class WPCPM_Students_Sync {
 			// Whose word the stamp below is on, beside the resolved name the cards print.
 			$program['institution_source'] = $join['source'];
 
+			// The row about to be replaced, read while it is still there: it names the track the
+			// student was on at the last run, which is the one thing the new row may no longer say.
+			$replaced = get_user_meta( $user_id, self::META_PROGRAM, true );
+
 			update_user_meta( $user_id, self::META_RECORD_ID, $student['record_id'] );
 			update_user_meta( $user_id, self::META_ACTIVE, $student['is_past'] ? 0 : 1 );
 			update_user_meta( $user_id, self::META_PROGRAM, wp_slash( $program ) );
+
+			self::remember_course( $user_id, $student['program'], ! empty( $student['is_past'] ), $replaced );
+
+			// A student waiting to graduate whose course the site has never known: their Feedback
+			// row is read for it once, at the end of the run, with everyone else in the same state.
+			if ( WPCPM_Program::STATUS_PENDING === trim( (string) $student['program'] )
+				&& ! metadata_exists( 'user', $user_id, self::META_COURSE ) ) {
+				self::queue_course_seed( $state, $user_id, $student, $join['institution'] );
+			}
 			update_user_meta( $user_id, self::META_MENTOR, wp_slash( $mentor ) );
 			update_user_meta( $user_id, self::META_UPDATED, time() );
 
@@ -1230,6 +1292,158 @@ class WPCPM_Students_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Keep the last course status the sync saw on an account, across the statuses that name none.
+	 *
+	 * A course is a status the report names that is neither one of the two states on no track
+	 * (`WPCPM_Program::states()`: Paused and Pending graduation) nor a past one (a graduate's, a
+	 * leaver's), written as the base spells it whether or not a track on this site holds it yet: a
+	 * student moved onto a track the site does not run is no longer on the one before, and keeping
+	 * the old one would name it again the day they finish. `WPCPM_Program::course_status()` asks
+	 * `is_track()` when it reads the key, so a status no track holds names no course until one does.
+	 *
+	 * Written whenever the report names a course and left alone while it names none, so the key is
+	 * always the course the student is on or was last on. A student on a course again has it written
+	 * in place of the old one, which is the only way the key changes once written.
+	 *
+	 * An account the key was never written on, on the first run after this shipped, keeps the course
+	 * its replaced row named, by the same rule, so a student whose status moved on between the update
+	 * and that run keeps their course as well.
+	 *
+	 * @param int    $user_id  The student's account.
+	 * @param string $status   The report's status, as this run read it.
+	 * @param bool   $is_past  Whether this run reads that status as past.
+	 * @param mixed  $replaced The program row this run replaced, or '' for an account that had none.
+	 */
+	private static function remember_course( $user_id, $status, $is_past, $replaced ) {
+		$status = trim( (string) $status );
+
+		if ( self::is_course( $status, $is_past ) ) {
+			update_user_meta( $user_id, self::META_COURSE, $status );
+
+			return;
+		}
+
+		if ( metadata_exists( 'user', $user_id, self::META_COURSE ) ) {
+			return;
+		}
+
+		$last = ( is_array( $replaced ) && isset( $replaced['program'] ) && is_scalar( $replaced['program'] ) ) ? trim( (string) $replaced['program'] ) : '';
+
+		if ( self::is_course( $last, is_array( $replaced ) && ! empty( $replaced['is_past'] ) ) ) {
+			update_user_meta( $user_id, self::META_COURSE, $last );
+		}
+	}
+
+	/**
+	 * Whether a report status names a course the student is on: not empty, not one of the two
+	 * states on no track, and not past.
+	 *
+	 * @param string $status  The status, trimmed.
+	 * @param bool   $is_past Whether the run reads it as past.
+	 * @return bool
+	 */
+	private static function is_course( $status, $is_past ) {
+		return '' !== $status && ! $is_past && ! isset( WPCPM_Program::states()[ $status ] );
+	}
+
+	/**
+	 * Put one pending student on the list the Feedback table is read for at the end of the run.
+	 *
+	 * The address is the report row's, or the account's own where the row has none, which is the
+	 * order `WPCPM_Student_Feedback::record_for()` asks them in. The row the surveys already trust
+	 * travels with it (`WPCPM_Student_Feedback::trusted_record()`), so the course is read off the row
+	 * the student's own answers are on. A student with no address at all can never be matched, so
+	 * they are not listed, and cost no request.
+	 *
+	 * @param array  $state       Sync state, by reference.
+	 * @param int    $user_id     The student's account.
+	 * @param array  $student     The report row this run read.
+	 * @param string $institution The Institutions record ID the run places them at, or ''.
+	 */
+	private static function queue_course_seed( array &$state, $user_id, array $student, $institution ) {
+		$email = trim( (string) $student['email'] );
+
+		if ( '' === $email ) {
+			$user  = get_user_by( 'id', (int) $user_id );
+			$email = $user instanceof WP_User ? trim( (string) $user->user_email ) : '';
+		}
+
+		if ( '' === $email ) {
+			return;
+		}
+
+		$institution = WPCPM_Mentors_Sync::is_record_id( $institution ) ? (string) $institution : '';
+
+		$state['course_seed'][ (int) $user_id ] = array(
+			'email'       => $email,
+			'institution' => $institution,
+			'record'      => class_exists( 'WPCPM_Student_Feedback' ) ? WPCPM_Student_Feedback::trusted_record( (int) $user_id, $institution ) : '',
+		);
+	}
+
+	/**
+	 * Seed the course of the pending students the site knows none for, from their Feedback rows.
+	 *
+	 * For the students who were already waiting to graduate before the site remembered a track: their
+	 * report says Pending graduation, and nothing on the site says what they took. Their Feedback row's
+	 * `Course` does, the column that row is filed under, so it is read once for each of them, a batch
+	 * of addresses to a request, matched the way the surveys match a student to their row.
+	 *
+	 * **Every student asked is answered**, so nobody is asked twice: the row's Course as it reads it,
+	 * including a choice no track on this site holds, which `WPCPM_Program::course_status()` names
+	 * only once a track holds it, and an empty value where the row names none or there is no row.
+	 * The key is then present, and only a student it was never written for is asked at all, so once
+	 * everyone waiting has been answered the seed costs nothing. A course is never seeded over one
+	 * the sync saw for itself.
+	 *
+	 * **A refused read is noted and forgotten, never the run's to stop on.** The course is what a card
+	 * names beside a status; a run that stopped here would leave every card and the roster unwritten.
+	 * The students it did not reach keep no key, and the next run asks again.
+	 *
+	 * @param array               $state    Sync state, by reference.
+	 * @param array               $settings Plugin settings.
+	 * @param WPCPM_Airtable|null $airtable Client.
+	 */
+	private static function seed_courses( array &$state, array $settings, $airtable ) {
+		$wanted = ( isset( $state['course_seed'] ) && is_array( $state['course_seed'] ) ) ? $state['course_seed'] : array();
+
+		unset( $state['course_seed'] );
+
+		// Guarded, so the sync still runs where the surveys are not loaded.
+		if ( empty( $wanted ) || ! $airtable instanceof WPCPM_Airtable || empty( $settings['feedback_table'] ) || ! class_exists( 'WPCPM_Student_Feedback' ) ) {
+			return;
+		}
+
+		$batches = array_slice( array_chunk( $wanted, self::COURSE_SEED_BATCH, true ), 0, self::COURSE_SEED_BATCHES );
+
+		foreach ( $batches as $batch ) {
+			$courses = WPCPM_Student_Feedback::courses( $batch, $airtable, (string) $settings['feedback_table'] );
+
+			if ( is_wp_error( $courses ) ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: number of students, 2: the error message Airtable, or the HTTP client, returned. */
+					_n(
+						'The course of %1$s student waiting to graduate could not be read from the Feedback table (%2$s). The next run asks again.',
+						'The course of %1$s students waiting to graduate could not be read from the Feedback table (%2$s). The next run asks again.',
+						count( $batch ),
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( count( $batch ) ),
+					$courses->get_error_message()
+				);
+
+				return;
+			}
+
+			foreach ( $courses as $user_id => $course ) {
+				// Kept as the row spells it: the Course column spells each track as the report's
+				// Status does, so the program map, asked when the key is read, is the whole mapping.
+				update_user_meta( (int) $user_id, self::META_COURSE, trim( (string) $course ) );
+			}
+		}
 	}
 
 	/**
@@ -2131,8 +2345,14 @@ class WPCPM_Students_Sync {
 	 * rows are. Reports rows are the ones the run fetched, which is the tracked statuses
 	 * only, so a disagreement with a status the sync never asks for cannot be seen here.
 	 *
+	 * **The status disagreements are kept as a list as well as a count**, as the mentored
+	 * students the address join missed are (`mentored_without_reports()`), because a number
+	 * does not say which student a mentor saw wrongly. Each entry keeps the Students row's
+	 * name, the two statuses and the two records the card links to, and nothing else of the
+	 * student; the list stops at `DISAGREEMENT_ROWS_MAX`, by name, and the count stays whole.
+	 *
 	 * @param array $state Final state.
-	 * @return array{students_without_reports: array, reports_without_students: array, status_disagreements: int, duplicate_emails: array, no_institution: int, no_start_date: array, mentored_without_reports: array}
+	 * @return array{students_without_reports: array, reports_without_students: array, status_disagreements: int, status_disagreement_rows: array, duplicate_emails: array, no_institution: int, no_start_date: array, mentored_without_reports: array}
 	 */
 	private static function reconciliation( array $state ) {
 		$rows     = $state['rows'];
@@ -2143,6 +2363,7 @@ class WPCPM_Students_Sync {
 			'students_without_reports' => array(),
 			'reports_without_students' => array(),
 			'status_disagreements'     => 0,
+			'status_disagreement_rows' => array(),
 			'duplicate_emails'         => array(),
 			'no_institution'           => 0,
 			'no_start_date'            => array(),
@@ -2196,10 +2417,27 @@ class WPCPM_Students_Sync {
 
 				if ( $theirs !== $status ) {
 					++$out['status_disagreements'];
+
+					// The Students row's name, the report's where that row has none.
+					$mine = isset( $rows[ $record_id ]['name'] ) ? trim( (string) $rows[ $record_id ]['name'] ) : '';
+					$name = '' !== $mine ? $mine : ( isset( $report['name'] ) ? trim( (string) $report['name'] ) : '' );
+
+					$out['status_disagreement_rows'][] = array(
+						'name'            => $name,
+						'students_record' => (string) $record_id,
+						'reports_record'  => isset( $report['record_id'] ) ? (string) $report['record_id'] : '',
+						'students_status' => $theirs,
+						'reports_status'  => $status,
+					);
+
 					break;
 				}
 			}
 		}
+
+		usort( $out['status_disagreement_rows'], array( __CLASS__, 'compare_disagreements' ) );
+
+		$out['status_disagreement_rows'] = array_slice( $out['status_disagreement_rows'], 0, self::DISAGREEMENT_ROWS_MAX );
 
 		// An address on more than one row, counted once per institution it is filed under:
 		// the base's nine are all inside one school, and a pair split across two shows up
@@ -2221,6 +2459,23 @@ class WPCPM_Students_Sync {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Two disagreeing students in the order the Institutions screen lists them: by name in the
+	 * order the Viewing as switchers list names in (`WPCPM_Dashboards::compare_names()`), as a
+	 * person counts (Student 2 before Student 10) and without regard to accents or to case in any
+	 * script, so an Alvaro with an accent is among the A's and is not the first cut at the cap; then
+	 * by Students record, so two of one name keep a stable place from one run to the next.
+	 *
+	 * @param array $a One entry of `status_disagreement_rows`.
+	 * @param array $b The other.
+	 * @return int
+	 */
+	private static function compare_disagreements( array $a, array $b ) {
+		$order = WPCPM_Dashboards::compare_names( $a['name'], $b['name'] );
+
+		return 0 !== $order ? $order : strcmp( $a['students_record'], $b['students_record'] );
 	}
 
 	/**

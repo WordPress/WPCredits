@@ -738,6 +738,7 @@ $student = a_user(
 	array(),
 	array(
 		'wpcpm_student_institution' => 'recSEED0000000001', // WPCPM_Students_Sync::META_INSTITUTION.
+		'wpcpm_student_course'      => 'In Sensei 50h',     // WPCPM_Students_Sync::META_COURSE.
 		'wpcpm_flash'               => array( 'Saved.' ),   // WPCPM_Flash::META.
 		'wpcpm_student_modules'     => array( 'hours' ),
 		'_wpcpm_report_images'      => array( 12 ),         // WPCPM_Student_Report_Form::META_IMAGES.
@@ -918,6 +919,7 @@ $names = array(
 	'WPCPM_Notices::META_AUDIENCE'                  => '_wpcpm_notice_audience',
 	'WPCPM_Mentor_Calls::META_REMINDED'             => '_wpcpm_call_reminded',
 	'WPCPM_Students_Sync::META_INSTITUTION'         => 'wpcpm_student_institution',
+	'WPCPM_Students_Sync::META_COURSE'              => 'wpcpm_student_course',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
 	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',
 	'WPCPM_Institutions::PER_PAGE_OPTION'           => 'wpcpm_institutions_per_page',

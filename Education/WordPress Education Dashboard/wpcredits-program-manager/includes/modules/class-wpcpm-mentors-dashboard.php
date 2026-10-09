@@ -848,43 +848,29 @@ class WPCPM_Mentors_Dashboard {
 	/**
 	 * A "view as" control for program managers.
 	 *
+	 * Drawn by `WPCPM_Dashboards`, the one form all four dashboards share: sorted A to Z, with a
+	 * box above the list that narrows it.
+	 *
 	 * @param WP_User $current Mentor currently being viewed.
 	 */
 	private static function render_mentor_switcher( WP_User $current ) {
-		$mentors = self::all_mentors();
+		$options = array();
 
-		if ( count( $mentors ) < 2 ) {
-			return;
+		foreach ( self::all_mentors() as $mentor ) {
+			$options[ (int) $mentor->ID ] = $mentor->display_name;
 		}
 
-		echo '<form class="wpcpm-dashboard__switcher" method="get">';
-
-		// Without pretty permalinks the page is addressed by query string, which a
-		// GET form would otherwise discard - resubmitting to the site root.
-		if ( ! get_option( 'permalink_structure' ) ) {
-			$queried = get_queried_object_id();
-
-			if ( $queried ) {
-				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
-			}
-		}
-
-		echo '<label for="wpcpm-mentor-switcher">' . esc_html__( 'Viewing as mentor', 'wpcredits-program-manager' ) . '</label> ';
-		echo '<select name="wpcpm_mentor" id="wpcpm-mentor-switcher">';
-
-		foreach ( $mentors as $mentor ) {
-			printf(
-				'<option value="%1$d"%2$s>%3$s</option>',
-				(int) $mentor->ID,
-				selected( $mentor->ID, $current->ID, false ),
-				esc_html( $mentor->display_name )
-			);
-		}
-
-		echo '</select> ';
-		echo '<button type="submit" class="wpcpm-button">' . esc_html__( 'Show', 'wpcredits-program-manager' ) . '</button>';
-		echo '<span class="wpcpm-dashboard__switcher-note">' . esc_html__( 'Only administrators see this control.', 'wpcredits-program-manager' ) . '</span>';
-		echo '</form>';
+		WPCPM_Dashboards::render_switcher(
+			array(
+				'id'      => 'wpcpm-mentor-switcher',
+				'name'    => 'wpcpm_mentor',
+				'options' => $options,
+				'current' => (int) $current->ID,
+				'label'   => __( 'Viewing as mentor', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find a mentor', 'wpcredits-program-manager' ),
+				'none'    => __( 'No mentors match that search.', 'wpcredits-program-manager' ),
+			)
+		);
 	}
 
 	/**
@@ -1050,6 +1036,12 @@ class WPCPM_Mentors_Dashboard {
 		$record  = $get( 'record_id' );
 		$focused = ( '' !== $record && WPCPM_Mentor_Notes::focused_student() === $record );
 
+		// The account behind this row, when the students sync has made one: the Hours row reads
+		// its copy of the count first, and the report form further down opens only for a student
+		// who has one. Resolved from the row's own record ID, so it is always a student on this
+		// mentor's list.
+		$student = ( '' !== $record ) ? WPCPM_Students_Sync::user_for_record( $record ) : null;
+
 		// The anchor is omitted without a record ID - an empty `id` would repeat on
 		// every such card, and nothing can link to it anyway.
 		printf(
@@ -1122,18 +1114,29 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '<div class="wpcpm-mentee__body">';
 
+		// The track the Program row names: the status's, or for a student waiting to graduate the
+		// one they took, which the Hours row's question and target follow too.
+		$course = WPCPM_Program::course_status( $status, $student instanceof WP_User ? $student->ID : 0 );
+		$named  = '' !== $course ? $course : $status;
+
 		// Declared as data so each field is one line to read. Rows are rendered even
 		// when empty - silently dropping a blank value is indistinguishable from the
 		// page forgetting the field, which is exactly how a missing institution
-		// reads as a bug.
+		// reads as a bug. The one exception is Hours, below.
 		$fields = array(
-			array(
-				'label' => __( 'Program', 'wpcredits-program-manager' ),
-				// The program as people say it, linked to the course it runs on. The
-				// Airtable status stays the storage value and is never shown.
-				'value' => WPCPM_Program::label( $status ),
-				'url'   => WPCPM_Program::course_url( $status ),
-			),
+			// The program as people say it, linked to the course it runs on. The Airtable status
+			// stays the storage value and is never shown.
+			WPCPM_Program::program_field( $status, $student instanceof WP_User ? $student->ID : 0 ),
+			// Drawn only when the form of the track the Program row names asks an Hours question,
+			// the test the student's own hours box makes: on a track that asks none, nobody can log
+			// hours for the student, and "Not set" there would be a gap nobody could ever fill.
+			isset( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( $named ) )['Hours'] ) ? array(
+				'label' => __( 'Hours', 'wpcredits-program-manager' ),
+				// What the student has logged, against their track's target where it has one, in
+				// the words the Institution Dashboard prints. Blank is a gap like any other here,
+				// never a zero: nobody has logged for this student yet.
+				'value' => self::logged_hours( $mentee, $student, $named ),
+			) : null,
 			array(
 				'label' => __( 'Internship duration', 'wpcredits-program-manager' ),
 				'value' => self::format_dates( $get( 'start' ), $get( 'end' ) ),
@@ -1217,7 +1220,7 @@ class WPCPM_Mentors_Dashboard {
 			)
 		);
 
-		foreach ( $fields as $field ) {
+		foreach ( array_filter( $fields ) as $field ) {
 			self::render_row( $field );
 		}
 
@@ -1241,7 +1244,7 @@ class WPCPM_Mentors_Dashboard {
 		// This is the one control on the page that needs JavaScript, and it says so rather than
 		// spinning: everything else here - the disclosures, the notes form, printing - works
 		// without it, so a silent "Loading…" would be the only dead thing on the page.
-		if ( '' !== $record && WPCPM_Students_Sync::user_for_record( $record ) instanceof WP_User ) {
+		if ( $student instanceof WP_User ) {
 			printf(
 				'<details class="wpcpm-report__disclosure wpcpm-mentee__report" data-wpcpm-report="%1$s">'
 					. '<summary class="wpcpm-report__toggle">%2$s</summary>'
@@ -1259,6 +1262,43 @@ class WPCPM_Mentors_Dashboard {
 		echo '</div>'; // .wpcpm-mentee__body
 		echo '</details>';
 		echo '</article>';
+	}
+
+	/**
+	 * The Hours row's text: what one student has logged, against their track's target where it has one.
+	 *
+	 * Read the way the Institution Dashboard's roster reads it, so the two pages print one count
+	 * for one student. The count is the Hours cell of the student's Students Reports record, the
+	 * one their own box on the Student Report Card shows and saves, and this site holds two synced
+	 * copies of it: the student's program row, which the students sync writes on their account,
+	 * and their row on this mentor's list, which the mentors sync writes. **The account's copy
+	 * first, the list's second**, the roster's order: it is the fresher of the two when a student
+	 * saves their hours between runs. Compared against '' rather than tested for truth, because
+	 * "0" is a real count, and falling through it would print an older one.
+	 *
+	 * **The target is the track the card prints**, the one its Program row names, and not the
+	 * account's program row's. The two syncs run at different times, so for a few hours the
+	 * account's copy can name another track than this list does, and a target read from it would
+	 * put "of 150" beside a track the card says has no target. `WPCPM_Program::hours_text()` writes the words, so a
+	 * track with no target prints the hours alone and nothing asks for a target it does not have.
+	 *
+	 * Reading a synced copy costs no Airtable request, which reading the record live for every
+	 * student on a sixty-student list would.
+	 *
+	 * @param array        $mentee  The student's row on this mentor's list.
+	 * @param WP_User|null $student The account behind that row's record, if there is one.
+	 * @param string       $status  The status of the track the card's Program row names.
+	 * @return string Plain text, or '' when nothing is recorded.
+	 */
+	private static function logged_hours( array $mentee, $student, $status ) {
+		$program = $student instanceof WP_User ? get_user_meta( $student->ID, WPCPM_Students_Sync::META_PROGRAM, true ) : array();
+		$read    = static function ( $block, $key ) {
+			return ( is_array( $block ) && isset( $block[ $key ] ) && is_scalar( $block[ $key ] ) ) ? trim( (string) $block[ $key ] ) : '';
+		};
+
+		$hours = '' !== $read( $program, 'hours' ) ? $read( $program, 'hours' ) : $read( $mentee, 'hours' );
+
+		return WPCPM_Program::hours_text( $hours, $status );
 	}
 
 	/**

@@ -20,7 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The rules, each a refusal on its own: the file exists; it is within `logo_max_kb`; the
  * MIME from `finfo` and the type from `getimagesize()` agree and are PNG, JPEG or WebP; the
  * name it came with, when one did, names the same type; the width is at least `MIN_WIDTH`
- * and no side passes `MAX_SIDE`; and the bytes stored are the ones `wp_get_image_editor()`
+ * (or the wider floor the caller asks for with `min_width`) and no side passes `MAX_SIDE`;
+ * and the bytes stored are the ones `wp_get_image_editor()`
  * wrote, so metadata is stripped and nothing the uploader put after the image data survives.
  * SVG is refused: it is a document that can carry script, and the two sponsors who hold one
  * convert it. Nothing here calls the core function that moves an upload on the strength of
@@ -30,6 +31,15 @@ final class WPCPM_Image_Upload {
 
 	/** Narrower than this and the logo box on the dashboard is mostly gap. */
 	const MIN_WIDTH = 200;
+
+	/**
+	 * The floor for a logo somebody uploads, which the help beside the upload states.
+	 *
+	 * A rule a caller passes as `min_width`, never the default: a logo already in the Media
+	 * Library, or one the sponsors sync copies in from the base, was accepted under the lower
+	 * floor and is never refused for being narrower than this.
+	 */
+	const LOGO_MIN_WIDTH = 300;
 
 	/** Longer than this and the editor re-saving it is a memory bill, not a logo. */
 	const MAX_SIDE = 4000;
@@ -48,7 +58,7 @@ final class WPCPM_Image_Upload {
 	 * Check a file on disk and re-save it.
 	 *
 	 * @param string $path  A readable file.
-	 * @param array  $rules `max_kb` (int, else the setting) and `name` (the name the file came with, or '').
+	 * @param array  $rules `max_kb` (int, else the setting), `name` (the name the file came with, or '') and `min_width` (int, a floor wider than `MIN_WIDTH`; a lower one is ignored).
 	 * @return array|WP_Error `path` (the re-saved copy, the caller's to store or delete), `mime`, `ext`, `width`, `height`, `size`.
 	 */
 	public static function accept( $path, array $rules = array() ) {
@@ -84,16 +94,17 @@ final class WPCPM_Image_Upload {
 			return new WP_Error( 'wpcpm_image_name', __( 'The file\'s name says one kind of image and its bytes another.', 'wpcredits-program-manager' ) );
 		}
 
-		$width  = (int) $info[0];
-		$height = (int) $info[1];
+		$width     = (int) $info[0];
+		$height    = (int) $info[1];
+		$min_width = self::min_width( $rules );
 
-		if ( $width < self::MIN_WIDTH || $width > self::MAX_SIDE || $height > self::MAX_SIDE || $height < 1 ) {
+		if ( $width < $min_width || $width > self::MAX_SIDE || $height > self::MAX_SIDE || $height < 1 ) {
 			return new WP_Error(
 				'wpcpm_image_dimensions',
 				sprintf(
 					/* translators: 1: the least width, 2: the longest side. */
 					__( 'The image must be at least %1$d pixels wide and no side may pass %2$d pixels.', 'wpcredits-program-manager' ),
-					self::MIN_WIDTH,
+					$min_width,
 					self::MAX_SIDE
 				)
 			);
@@ -258,6 +269,21 @@ final class WPCPM_Image_Upload {
 		$base = pathinfo( (string) $name, PATHINFO_FILENAME );
 
 		return self::store( $accepted, '' === $base ? 'logo' : $base, $author, $title );
+	}
+
+	/**
+	 * The narrowest width accepted: the rule's `min_width` when it is wider than the base floor.
+	 *
+	 * A caller can only ask for a wider floor; one below `MIN_WIDTH` is read as no request, so
+	 * no path through here takes an image the base floor refuses.
+	 *
+	 * @param array $rules The caller's rules.
+	 * @return int
+	 */
+	public static function min_width( array $rules ) {
+		$asked = isset( $rules['min_width'] ) ? (int) $rules['min_width'] : 0;
+
+		return max( self::MIN_WIDTH, $asked );
 	}
 
 	/**

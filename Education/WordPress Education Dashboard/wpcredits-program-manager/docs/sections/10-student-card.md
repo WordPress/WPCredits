@@ -2,6 +2,9 @@
 
 {{image:student-report-card-profile|Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.}}
 
+A card at the top of the page may invite you to set up a code for signing in, or tell you the
+program asks for one: *Signing in*, at the start of this guide, covers it.
+
 ### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
@@ -36,9 +39,28 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
-If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
-graduate, for example), there is no course to open, and the hours box is a section of its own,
-**My hours**.
+If your track has no Learn course, or you are not on a track at the moment (paused, for example),
+there is no course to open, and the hours box is a section of its own, **My hours**.
+
+### When your graduation is pending
+
+Once you have finished the work and your graduation has not been recorded yet, the program records
+hold your status as **Pending graduation**. It is a waiting state, not an ending. You are still on
+the program and still your mentor's student.
+
+The status shows on the **Program** row of *My profile*: the row still names the course you took,
+linked to Learn WordPress as before, with a **Pending graduation** badge beside it. Everything else
+stays as it was while you were working through the course: your course and your hours, your report
+form with your course's questions and the answers you saved, and the calendar for booking a call.
+
+If this site has no record of the course you took, the Program row says **Pending graduation**
+alone, with no link, your hours have a section of their own, *My hours*, and the report form asks
+the 150-hour course's questions.
+
+The status is not yours to change, and not your mentor's either. The program's Administrators move
+it on by recording your graduation in the program records, and your card catches up at the next
+sync. From then on your time on the program counts as finished, and calls can no longer be booked.
+If your graduation looks overdue, ask your mentor, or whoever runs the program.
 
 ### Report form
 

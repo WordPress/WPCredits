@@ -416,13 +416,10 @@ class WPCPM_Institution_Student_View {
 		$team     = WPCPM_Mentors_Sync::resolve_stored( isset( $program['team'] ) ? (string) $program['team'] : '', 'teams' );
 
 		return array(
-			'reports|Status'                 => array(
-				'label' => __( 'Program', 'wpcredits-program-manager' ),
-				'value' => WPCPM_Program::label( $status ),
-				// The Learn WordPress course for their track, so the syllabus is one click from
-				// the row that says which track they are on.
-				'url'   => WPCPM_Program::course_url( $status ),
-			),
+			// The Learn WordPress course for their track, so the syllabus is one click from the row
+			// that says which track they are on. The cards' shared row: for a student waiting to
+			// graduate it names the course they took, with the Pending graduation badge beside it.
+			'reports|Status'                 => WPCPM_Program::program_field( $status, $student->ID ),
 			// Both dates in one row, because a school reads a placement as a period rather than
 			// as two facts. Keyed on the start date, which is the column that decides the cohort.
 			'students|Start Date'            => array(

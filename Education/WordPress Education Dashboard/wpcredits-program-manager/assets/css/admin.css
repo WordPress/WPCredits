@@ -20,6 +20,12 @@
 	padding-bottom: 8px;
 }
 
+/* The accounts list card is where a filter, a search or a view lands (the list's form is sent to its
+   id), so the toolbar WordPress fixes to the top of the screen is left clear above its heading. */
+#wpcpm-accounts-list {
+	scroll-margin-top: 48px;
+}
+
 /* A section's intro on the Settings screen: one sentence read as its heading's subtitle, so it sits
    closer under the heading than the heading's own 1em margin would put a paragraph, and 8px above
    the rows it introduces, which keep core's padding. The element as well as the class, since core's

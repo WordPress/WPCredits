@@ -892,6 +892,17 @@ ck( 'the list is one form, sent to the screen by GET with its page and its tab, 
 	array( has( $form, '<input type="hidden" name="page" value="wpcpm-students" />' ), has( $form, '<input type="hidden" name="tab" value="accounts" />' ), has( $form, 'name="users[]"' ), has( $form, '<select name="action"' ), has( $form, 'value="' . wp_create_nonce( 'bulk-students' ) . '"' ) ),
 	array( true, true, true, true, true ) );
 ck( 'with the search box, and no form left in a row', array( has( $form, 'name="s"' ), substr_count( $html, '<form' ) ), array( true, 1 ) );
+
+// The institution picker sends the form by GET and the page loads again from its top, with the
+// list a screen's height or more below the notices and the invitations card. The form is sent to
+// the list card's own anchor, so a filter, a search or a view lands with the list in view.
+preg_match( '/<form method="get" action="#([A-Za-z0-9_-]+)"/', $html, $anchor );
+
+ck( 'the list\'s form is sent to an anchor, and the list card carries that anchor, so the filter brings the list back into view',
+	array( isset( $anchor[1] ) ? $anchor[1] : '', isset( $anchor[1] ) && has( $html, '<div class="wpcpm-card" id="' . $anchor[1] . '"' ), substr_count( $html, 'id="wpcpm-accounts-list"' ) ),
+	array( 'wpcpm-accounts-list', true, 1 ) );
+ck( 'and the admin stylesheet leaves the fixed toolbar clear above the anchored card',
+	1 === preg_match( '/#wpcpm-accounts-list\s*\{[^}]*scroll-margin-top\s*:\s*\d+px/', (string) file_get_contents( __DIR__ . '/../assets/css/admin.css' ) ), true );
 ck( 'above it the Student Report Card\'s address, under the page\'s own name',
 	has( $html, '<p>Student Report Card: <a href="https://example.test/student-dashboard/">https://example.test/student-dashboard/</a></p>' ), true );
 
@@ -1003,7 +1014,27 @@ ck( 'the picker is drawn once, above the table, so the form sends one school and
 
 preg_match( '/<a href="([^"]*)">Show all students<\/a>/', $tablenav, $back );
 
-ck( 'with a link back to every student: the Accounts tab, no school', link_of( isset( $back[1] ) ? $back[1] : '' ), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) ) );
+$back_href = isset( $back[1] ) ? html_entity_decode( $back[1], ENT_QUOTES, 'UTF-8' ) : '';
+
+ck( 'with a link back to every student: the Accounts tab, no school', link_of( preg_replace( '/#.*$/', '', $back_href ) ), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) ) );
+// The undo of the filter is the other way to reload the list, and it lands on the list as the
+// filter's own form does, not at the top of the screen.
+ck( 'and that link lands on the list card as the filter does, by the same anchor', array( (string) parse_url( $back_href, PHP_URL_FRAGMENT ), has( $south, 'id="' . (string) parse_url( $back_href, PHP_URL_FRAGMENT ) . '"' ) ), array( 'wpcpm-accounts-list', true ) );
+
+// One name for the anchor, held where the table is and read by the form and the link, so the card's
+// id and the two ways to reach it cannot drift apart.
+$anchor_trait = (string) file_get_contents( __DIR__ . '/../includes/modules/trait-wpcpm-accounts-screen.php' );
+$anchor_table = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-students-table.php' );
+
+ck( 'the anchor is one constant of the accounts table, read by the form and by the undo link, and written out in neither',
+	array(
+		defined( 'WPCPM_Accounts_Table::LIST_ANCHOR' ) ? WPCPM_Accounts_Table::LIST_ANCHOR : 'undefined',
+		false !== strpos( $anchor_trait, 'WPCPM_Accounts_Table::LIST_ANCHOR' ),
+		false !== strpos( $anchor_table, 'self::LIST_ANCHOR' ),
+		false === strpos( $anchor_trait, "'wpcpm-accounts-list'" ),
+		false === strpos( $anchor_table, 'wpcpm-accounts-list' ),
+	),
+	array( 'wpcpm-accounts-list', true, true, true, true ) );
 
 $GLOBALS['umeta'][1]['wpcpm_students_per_page'] = 1;
 $paged = html_of( draw( screen( array( 'wpcpm_institution' => 'Academia Sur' ) ) ) );

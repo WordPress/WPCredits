@@ -623,8 +623,9 @@ trait WPCPM_Accounts_Screen {
 		$table    = $this->table();
 		$words    = $this->screen_words();
 		$page_url = $this->dashboard_url();
+		$anchor   = WPCPM_Accounts_Table::LIST_ANCHOR;
 
-		echo '<div class="wpcpm-card">';
+		echo '<div class="wpcpm-card" id="' . esc_attr( $anchor ) . '">';
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html( $words['list_heading'] ),
@@ -643,7 +644,10 @@ trait WPCPM_Accounts_Screen {
 
 		$table->views();
 
-		echo '<form method="get">';
+		// Sent to the list card's own anchor: a filter, a search or a view reloads the screen, and
+		// the browser would otherwise open it at the top, with the list below the notices and the
+		// invitations card. The fragment rides on a GET form's address as it is sent.
+		printf( '<form method="get" action="#%s">', esc_attr( $anchor ) );
 		printf( '<input type="hidden" name="page" value="%s" />', esc_attr( $this->page_slug() ) );
 		printf( '<input type="hidden" name="tab" value="%s" />', esc_attr( static::TAB_ACCOUNTS ) );
 		$table->view_field();

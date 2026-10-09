@@ -116,13 +116,30 @@ class WPCPM_Students_Sync {
 	public static function get_program( $id ) { return $GLOBALS['program']; }
 	public static function get_mentor( $id ) { return array(); }
 }
-class WPCPM_Dashboards { public static function nothing_to_show( $a, $m ) { return 'nothing'; } }
+// The switcher is the shared one (bin/test-dashboard-switcher.php draws it); this keeps what the page
+// asked it to draw.
+class WPCPM_Dashboards {
+	public static function nothing_to_show( $a, $m ) { return 'nothing'; }
+	public static function render_switcher( array $args ) { $GLOBALS['switcher'] = $args; }
+}
 class WPCPM_Two_Factor { public static function prompt( $u ) {} }
 // A course for every status but four: a track with no Learn course, which a Track Builder track may
 // be (TRACKS-3), and the three states that are no track at all (TRACKS-5).
+// `course_status()` keeps its contract in miniature: a status is its own course unless it is one of
+// the three states, and a Pending graduation student's course is the one their account remembers.
 class WPCPM_Program {
-	public static function course_url( $s ) { return in_array( $s, array( 'Marketing Track', 'Paused', 'Pending graduation', 'Graduate' ), true ) ? '' : 'https://learn.example/course'; }
+	public static function course_url( $s ) { return in_array( $s, array( '', 'Marketing Track', 'Paused', 'Pending graduation', 'Graduate' ), true ) ? '' : 'https://learn.example/course'; }
 	public static function label( $s ) { return (string) $s; }
+	// The cards' shared Program row (bin/test-mentors-dashboard.php draws the real one); this one says
+	// what it was asked for, so the page can be read for whom it asked about.
+	public static function program_field( $s, $u = 0 ) { return array( 'label' => 'Program', 'value' => 'Program row for ' . $s . ', account ' . (int) $u ); }
+	public static function course_status( $s, $u = 0 ) {
+		if ( ! in_array( $s, array( 'Paused', 'Pending graduation', 'Graduate' ), true ) ) {
+			return (string) $s;
+		}
+
+		return 'Pending graduation' === $s ? (string) ( $GLOBALS['umeta'][ (int) $u ]['wpcpm_student_course'] ?? '' ) : '';
+	}
 }
 class WPCPM_Mentors_Dashboard {
 	const STYLE = 'wpcpm-dashboard';
@@ -246,6 +263,11 @@ $GLOBALS['enqueued'] = array();
 $_GET                = array( 'wpcpm_student_view' => '30' );
 $html                = WPCPM_Students_Dashboard::render();
 ck( 'the modules, in the student\'s saved order', module_ids( $html ), array( 'course', 'forms', 'updates', 'calls', 'tools' ) );
+ck(
+	'a manager\'s page hands the shared switcher every student, with the one being viewed as its choice',
+	array( $GLOBALS['switcher']['id'] ?? null, $GLOBALS['switcher']['name'] ?? null, $GLOBALS['switcher']['options'] ?? null, $GLOBALS['switcher']['current'] ?? null, $GLOBALS['switcher']['find'] ?? null ),
+	array( 'wpcpm-student-switcher', 'wpcpm_student_view', array( 30 => 'Lu Example', 31 => 'Another Student' ), 30, 'Find a student' )
+);
 ck( 'each module wears its own class', substr_count( $html, 'class="wpcpm-module wpcpm-module--' ), 5 );
 ck( 'a manager gets one mover per module, and the script that moves them in place', array( substr_count( $html, 'class="wpcpm-module__mover"' ), in_array( 'wpcpm-modules', $GLOBALS['enqueued'], true ) ), array( 5, true ) );
 ck( 'two arrows each, posting the action with a nonce', array( substr_count( $html, 'wpcpm-module__move--up' ), substr_count( $html, 'wpcpm-module__move--down' ), substr_count( $html, 'name="action" value="wpcpm_student_module_move"' ), substr_count( $html, 'name="_wpnonce"' ) ), array( 5, 5, 5, 5 ) );
@@ -386,6 +408,32 @@ ck( 'a student on no track, Paused, Pending graduation or finished, gets the sam
 		'Pending graduation' => array( true, true, 0 ),
 		'Graduate'           => array( true, true, 0 ),
 	) );
+
+// A student waiting to graduate whose account remembers the course they took keeps My course: the
+// button that opens it, and the hours box beside it, as a current student's page draws them.
+$GLOBALS['program']                          = array( 'status' => 'Pending graduation' );
+$GLOBALS['umeta'][30]['wpcpm_student_course'] = 'Developer Track';
+$kept_page                                   = WPCPM_Students_Dashboard::render();
+
+ck( 'a pending student whose course is known keeps My course: the button that opens it, then the hours box',
+	array(
+		1 === preg_match( '#<h3 class="wpcpm-student__heading">My course</h3><div class="wpcpm-student__course-cols"><p class="wpcpm-student__actions"><a class="wpcpm-button" href="https://learn.example/course" target="_blank" rel="noopener noreferrer">Open your course</a></p><!-- hours --></div>#', $kept_page ),
+		substr_count( $kept_page, '>My hours</h3>' ),
+	),
+	array( true, 0 ) );
+ck( 'and the Program row is the cards\' shared one, asked about their status and their own account',
+	false !== strpos( $kept_page, 'Program row for Pending graduation, account 30' ), true );
+
+$GLOBALS['umeta'][30]['wpcpm_student_course'] = '';
+
+ck( 'a pending student with no known course still gets My hours, and no course button',
+	array(
+		1 === preg_match( '#<h3 class="wpcpm-student__heading">My hours</h3><!-- hours --></section>#', WPCPM_Students_Dashboard::render() ),
+		substr_count( WPCPM_Students_Dashboard::render(), 'Open your course' ),
+	),
+	array( true, 0 ) );
+
+unset( $GLOBALS['umeta'][30]['wpcpm_student_course'] );
 
 // TRACKS-3, the fix round: the mover names the section it moves. Its label is the arrows'
 // aria-label and tooltip and what the script announces once the module has moved, and over a

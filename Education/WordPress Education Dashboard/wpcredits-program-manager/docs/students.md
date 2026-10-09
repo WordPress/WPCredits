@@ -8,25 +8,89 @@ This guide is written for students. Your mentor and the program managers have th
 
 ## Signing in
 
-Your account was created for you from the program records - you never registered, and there is
-no sign-up form. That means two things on your first visit:
+Nobody registers on this site, and there is no sign-up form: the program makes every account for
+the person it belongs to. That means two things on your first visit:
 
-1. Go to the site's login page and use **Lost your password?** with the email address held in
-   your program record. A reset link arrives at that address.
-2. Set a password, and you are in.
+1. Go to the site's login page and use **Lost your password?** with the email address on your
+   account. A reset link arrives at that address.
+2. Set a password, and you are in - unless your account also asks for a code, which the next
+   part covers.
 
-If the reset email never arrives, the address on your record is probably not the one you are
-checking. That is fixed in the program records rather than here - ask whoever runs the program.
+If the reset email never arrives, the address on your account is probably not the one you are
+checking. The login page cannot change it - ask whoever runs the program.
 
-Once you are signed in, the link in the header takes you to your own page. Nobody else can open
-it: the page renders against whoever is logged in, so there is no version of it that shows
-somebody else's details.
+### Signing in with a code
+
+Besides your password, your account may ask for a code. Whether it does is the program's choice,
+and it is made for every account of your kind at once. When it does, there is nothing to set up
+first: from your next sign-in, the code arrives by email. When it does not, signing in works as
+described above, and a card on your page invites you to turn the code on for yourself.
+
+After you enter your username and password, a second screen asks for the code. Which kind depends
+on how your account is set up.
+
+**An emailed code.** The screen says a verification code has been sent to the email address on your
+account. The email comes from this site and has *Login confirmation code* in its subject line. It
+holds a code of eight digits. Type it into **Verification Code** and press **Verify**. A code works
+once, and for fifteen minutes. **Resend Code** sends a new one and the new one replaces the old, so
+use the newest email.
+
+**An authenticator app.** If you have set one up, the screen asks for the code from your app
+instead: **Authentication Code**. Open the app, find this site in it, and type the six digits it
+shows. The digits change every 30 seconds, so type the ones on the screen at that moment.
+
+A wrong code does not lock you out for good, but the site makes you wait a moment before the next
+try, and the wait grows with every wrong code, up to fifteen minutes. Wait it out, then type the
+code again, carefully.
+
+### Setting up an authenticator app
+
+An app on your phone is quicker than waiting for an email, and it keeps working when your inbox
+does not. The card at the top of your page starts it. Its heading is **Add a second step to your
+sign-in** when the code is yours to choose, and **Your account asks for a code when you sign in**
+when the program asks for one; its button, **Turn on two-factor authentication** or **Set up an
+authenticator app**, opens your profile screen at its **Two-Factor Options**. Ignoring the card
+costs nothing: signing in keeps working the way it does now.
+
+If you already use emailed codes and you open that screen more than about ten minutes after you
+signed in, it first asks you to confirm with **Revalidate now**, which takes one more code. Then
+follow the steps on the screen: install an authenticator app on your phone (any will do, such as
+Google Authenticator or Microsoft Authenticator), scan the QR code the screen shows with it, and
+type in the code your app then displays. Once the app is set up the card stops appearing.
+
+Before you leave that screen, generate the **recovery codes** (the card calls them backup codes)
+and keep them somewhere other than your phone. Each works once, and the screen shows them only
+once. They are how you get back in if you lose the phone.
+
+### If you cannot get your code
+
+- **The email does not come.** Look in your spam folder, then press **Resend Code**. The email goes
+  to the address on your account, so if you no longer read that mailbox, an emailed code cannot
+  reach you.
+- **Your phone or your app is gone.** Under **Having Problems?** on the same screen, the site
+  lists any other way your account has, for example **Send a code to your email**, or **Use a
+  recovery code** if you saved some. Type one of your saved recovery codes where the screen asks
+  for it, and cross that code off, because it will not work twice.
+- **You have neither.** Without the emailed code, the app or a recovery code, the site cannot tell
+  that it is you, and it lets nobody past that screen. Tell whoever runs the program that you are
+  locked out, and give them the username you sign in with. This guide cannot fix it for you.
+
+### Once you are signed in
+
+Your page is drawn for whoever is signed in, so the same address shows each person their own
+page, and no change to a link shows anybody else's. The
+program's Administrators are the one exception: to help, they can open anyone's page, through a
+switcher only they are shown. A company's people share one Sponsor Dashboard: everyone the program
+attached to the company sees the same page.
 
 ## What is on your Student Report Card
 
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
+
+A card at the top of the page may invite you to set up a code for signing in, or tell you the
+program asks for one: *Signing in*, at the start of this guide, covers it.
 
 ### Arranging your Student Report Card
 
@@ -62,9 +126,28 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
-If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
-graduate, for example), there is no course to open, and the hours box is a section of its own,
-**My hours**.
+If your track has no Learn course, or you are not on a track at the moment (paused, for example),
+there is no course to open, and the hours box is a section of its own, **My hours**.
+
+### When your graduation is pending
+
+Once you have finished the work and your graduation has not been recorded yet, the program records
+hold your status as **Pending graduation**. It is a waiting state, not an ending. You are still on
+the program and still your mentor's student.
+
+The status shows on the **Program** row of *My profile*: the row still names the course you took,
+linked to Learn WordPress as before, with a **Pending graduation** badge beside it. Everything else
+stays as it was while you were working through the course: your course and your hours, your report
+form with your course's questions and the answers you saved, and the calendar for booking a call.
+
+If this site has no record of the course you took, the Program row says **Pending graduation**
+alone, with no link, your hours have a section of their own, *My hours*, and the report form asks
+the 150-hour course's questions.
+
+The status is not yours to change, and not your mentor's either. The program's Administrators move
+it on by recording your graduation in the program records, and your card catches up at the next
+sync. From then on your time on the program counts as finished, and calls can no longer be booked.
+If your graduation looks overdue, ask your mentor, or whoever runs the program.
 
 ### Report form
 

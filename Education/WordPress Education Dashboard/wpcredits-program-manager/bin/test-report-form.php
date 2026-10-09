@@ -147,6 +147,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php';
+// The mentee lists the report route reads to tell a mentor's own student from anybody else's.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 // The refusal message for a screenshot quotes the shared image rules by name.
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
@@ -1555,6 +1557,170 @@ ck( 'with a course, the preview draws the button that opens it, then the hours b
 ck( 'with none, the hours box alone, as the section of its own draws it, and no button',
 	array( substr_count( $no_course, 'Open your course' ), substr_count( $no_course, 'wpcpm-student__course-cols' ), substr_count( $no_course, '<div class="wpcpm-report__body wpcpm-report__body--preview"><div class="wpcpm-hours">' ) ),
 	array( 0, 0, 1 ) );
+
+echo "\n=== The report a mentor opens shows the hours, read only ===\n";
+
+/**
+ * One student's report body, read only, as the route draws it for one audience.
+ *
+ * @param int    $student_id Student user ID.
+ * @param string $status     Their Students Reports status, which picks the form.
+ * @param string $audience   `mentor`, `manager` or `institution`, as `audience_for()` answers.
+ * @return string
+ */
+function read_as( $student_id, $status, $audience ) {
+	$method = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'render_body' );
+
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	ob_start();
+	$method->invoke( null, new WP_User( $student_id ), array( 'program' => $status ), true, $audience );
+
+	return (string) ob_get_clean();
+}
+
+/**
+ * The Total hours group of a report body, from its fieldset to the fieldset's end, or ''.
+ *
+ * @param string $html A report body.
+ * @return string
+ */
+function hours_group( $html ) {
+	$from = strpos( $html, '<fieldset class="wpcpm-report__group wpcpm-report__group--hours">' );
+
+	return false === $from ? '' : substr( $html, $from, strpos( $html, '</fieldset>', $from ) + 11 - $from );
+}
+
+// Two students and their two mentors. Mia (60) mentors the student on account 8, Max (61) the
+// one on account 9; each mentor's synced list is the authority the route reads.
+$GLOBALS['umeta'][8][ WPCPM_Students_Sync::META_RECORD_ID ]  = 'recStudent0000002';
+$GLOBALS['umeta'][9][ WPCPM_Students_Sync::META_RECORD_ID ]  = 'recStudent0000003';
+$GLOBALS['umeta'][60][ WPCPM_Mentors_Sync::META_MENTEES ] = array( array( 'record_id' => 'recStudent0000002' ) );
+$GLOBALS['umeta'][61][ WPCPM_Mentors_Sync::META_MENTEES ] = array( array( 'record_id' => 'recStudent0000003' ) );
+
+// Seeded through the cache `values()` reads first, the way Airtable sends a Number column.
+set_transient( 'wpcpm_report_' . md5( 'recStudent0000002' ), array( 'Hours' => 42 ) );
+set_transient( 'wpcpm_report_' . md5( 'recStudent0000003' ), array( 'Hours' => 99 ) );
+
+$GLOBALS['uid']  = 60;
+$GLOBALS['caps'] = false;
+
+$mentor_read = read_as( 8, WPCPM_Program::STATUS_150H, WPCPM_Student_Report_Form::audience_for( 'recStudent0000002' ) );
+$group       = hours_group( $mentor_read );
+
+ck( 'the route reads Mia as her own student\'s mentor', WPCPM_Student_Report_Form::audience_for( 'recStudent0000002' ), 'mentor' );
+ck( 'and the report she opens draws the Total hours group', false !== strpos( $group, '<legend>Total hours</legend>' ), true );
+ck( 'with the hours as a read-only row, under the question the student answers',
+	preg_match( '#<p class="wpcpm-field wpcpm-field--read wpcpm-field--number" id="wpcpm-report-[a-f0-9]+"><span class="wpcpm-field__label">Hours contributed</span><span class="wpcpm-field__value">42</span></p>#', $group ),
+	1 );
+ck( 'and no box to edit, no Save button, no form', array( strpos( $mentor_read, 'type="number"' ), strpos( $mentor_read, 'Save hours' ), strpos( $mentor_read, '<form' ) ), array( false, false, false ) );
+ck( 'drawn once, first, before the other groups', array( substr_count( $mentor_read, 'Hours contributed' ), strpos( $mentor_read, '<fieldset' ) === strpos( $mentor_read, '<fieldset class="wpcpm-report__group wpcpm-report__group--hours">' ) ), array( 1, true ) );
+
+// The figure is the one the student's own box shows: the same cell of the same record, read
+// through the same cache, and printed as the base sent it.
+$GLOBALS['uid'] = 8;
+ob_start();
+WPCPM_Student_Report_Form::render_hours( new WP_User( 8 ), array( 'record_id' => 'recStudent0000002', 'program' => WPCPM_Program::STATUS_150H ) );
+$own_box        = (string) ob_get_clean();
+$GLOBALS['uid'] = 60;
+
+ck( 'the student\'s own box holds the same 42', preg_match( '#<input type="number" id="wpcpm-report-[a-f0-9]+" name="report\[[a-f0-9]+\]" value="42"#', $own_box ), 1 );
+
+// Zero is an answer: the student logged none, which is not "Not filled in".
+set_transient( 'wpcpm_report_' . md5( 'recStudent0000002' ), array( 'Hours' => 0 ) );
+$zero = hours_group( read_as( 8, WPCPM_Program::STATUS_150H, 'mentor' ) );
+
+ck( 'zero hours reads as 0, not as an unanswered question', array( false !== strpos( $zero, '<span class="wpcpm-field__value">0</span>' ), strpos( $zero, 'Not filled in' ) ), array( true, false ) );
+
+set_transient( 'wpcpm_report_' . md5( 'recStudent0000002' ), array() );
+ck( 'and a count nobody has logged says so', false !== strpos( hours_group( read_as( 8, WPCPM_Program::STATUS_150H, 'mentor' ) ), 'Not filled in' ), true );
+
+set_transient( 'wpcpm_report_' . md5( 'recStudent0000002' ), array( 'Hours' => 42 ) );
+
+// A track with no hours target still has its Hours question, and the group is drawn the same:
+// the count alone, with no target asked for.
+ck( 'a track with no hours target draws the group the same way', false !== strpos( hours_group( read_as( 8, WPCPM_Program::STATUS_DEV, 'mentor' ) ), '<span class="wpcpm-field__value">42</span>' ), true );
+
+// A program manager reading the same report from a mentor's page reads what the mentor reads.
+$manager_group = hours_group( read_as( 8, WPCPM_Program::STATUS_150H, 'manager' ) );
+ck( 'a program manager reading it from a mentor\'s page sees the same group', array( '' !== $manager_group, $manager_group === $group ), array( true, true ) );
+
+// The school's copy is unchanged: its roster prints the hours in their own column.
+ck( 'the copy an institution opens draws no hours group', hours_group( read_as( 8, WPCPM_Program::STATUS_150H, 'institution' ) ), '' );
+
+echo "\n=== Never another mentor's student's hours ===\n";
+
+// A request built by hand, for the record of a student on Max's list.
+ck( 'the route refuses Mia the report of Max\'s student', WPCPM_Student_Report_Form::rest_permission( array( 'record' => 'recStudent0000003' ) ), false );
+ck( 'while it lets her read her own', WPCPM_Student_Report_Form::rest_permission( array( 'record' => 'recStudent0000002' ) ), true );
+
+// And behind the fence, the same list again: a record not on her list is never read as hers,
+// so whatever else might let such a request through, the body it drew would carry no hours.
+ck( 'a record not on her list is not read as hers', WPCPM_Student_Report_Form::audience_for( 'recStudent0000003' ), 'institution' );
+ck( 'and the body drawn for that reading holds no hours', array( hours_group( read_as( 9, WPCPM_Program::STATUS_150H, WPCPM_Student_Report_Form::audience_for( 'recStudent0000003' ) ) ), strpos( read_as( 9, WPCPM_Program::STATUS_150H, 'institution' ), '<span class="wpcpm-field__value">99</span>' ) ), array( '', false ) );
+
+$GLOBALS['uid'] = 0;
+
+echo "\n=== The Student Report Card names a pending student's course ===\n";
+
+// The card's own program table, drawn with the real shared row (`WPCPM_Program::program_field()`);
+// bin/test-student-modules.php draws the page around it with a stand-in for that row.
+
+if ( ! function_exists( 'add_query_arg' ) ) {
+	/**
+	 * Core's, in both of its forms, for the card's portrait: arguments appended to a URL.
+	 *
+	 * @param string|array $key   Query key, or an array of them with their values.
+	 * @param mixed        $value Query value, or the URL when `$key` is an array.
+	 * @param string       $url   The URL.
+	 * @return string
+	 */
+	function add_query_arg( $key, $value = null, $url = null ) {
+		$args = is_array( $key ) ? $key : array( $key => $value );
+		$url  = is_array( $key ) ? (string) $value : (string) $url;
+
+		return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args );
+	}
+}
+
+/**
+ * A student as the card is handed one, with the address the card prints. Each program row below
+ * carries a WordPress.org username, so the portrait is the profile's and no Gravatar is asked for.
+ */
+class WPCPM_Test_Card_Student extends WP_User {
+	public $user_email = 'maciej@a8c.com';
+}
+
+$program_table = static function ( array $program ) use ( $sid ) {
+	$method = new ReflectionMethod( 'WPCPM_Students_Dashboard', 'render_program' );
+
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	ob_start();
+	$method->invoke( null, $program, new WPCPM_Test_Card_Student( $sid ) );
+
+	return (string) ob_get_clean();
+};
+$program_cell = static function ( $html ) {
+	return preg_match( '#<span class="wpcpm-student__label">Program</span></th><td><div class="wpcpm-student__cell"><span class="wpcpm-student__value">(.*?)</span></div></td>#s', $html, $m ) ? $m[1] : null;
+};
+
+$GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_COURSE ] = WPCPM_Program::STATUS_DEV;
+
+ck( 'a pending student\'s own card names and links the course they took, with the Pending graduation badge beside it',
+    $program_cell( $program_table( array( 'program' => WPCPM_Program::STATUS_PENDING, 'record_id' => $record, 'username' => 'pendingstudent' ) ) ),
+    '<a href="' . WPCPM_Program::course_url( WPCPM_Program::STATUS_DEV ) . '" target="_blank" rel="noopener noreferrer">' . WPCPM_Program::label( WPCPM_Program::STATUS_DEV ) . '</a> <span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>' );
+
+$GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_COURSE ] = '';
+
+ck( 'and with no course known it says Pending graduation alone, with no link',
+    $program_cell( $program_table( array( 'program' => WPCPM_Program::STATUS_PENDING, 'record_id' => $record, 'username' => 'pendingstudent' ) ) ), 'Pending graduation' );
+
+unset( $GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_COURSE ] );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -169,6 +169,7 @@ class WPCPM_Students_Sync {
 	const META_MENTOR      = 'wpcpm_student_mentor';
 	const META_UPDATED     = 'wpcpm_student_updated';
 	const META_INSTITUTION = 'wpcpm_student_institution';
+	const META_COURSE      = 'wpcpm_student_course';
 	public static function get_program( $user_id ) {
 		$row = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
 		return is_array( $row ) ? $row : array();
@@ -633,6 +634,29 @@ ck( 'the index row is not read for it', false === strpos( $unknown_program, 'Not
 ck( 'and the badge is dropped rather than painted from it', false === strpos( $unknown_program, 'wpcpm-badge' ), true );
 
 $GLOBALS['roster'][ $inst_a ][ $row_a ]['status']                     = 'In Sensei';
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
+
+// A student waiting to graduate: the school reads the course she took where it reads a current
+// student's, named and linked, with the Pending graduation badge beside it, while the badge beside
+// her name stays the status the base holds.
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'Pending graduation';
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ]             = 'Developer Track';
+
+$pending_card  = card( $inst_a, 10, array() );
+$pending_badge = '<span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>';
+
+ck( 'a pending student\'s Program row names and links the course she took, with the Pending graduation badge beside it',
+	row_of( $pending_card, 'Program' ),
+	'<a href="' . WPCPM_Program::course_url( 'Developer Track' ) . '" target="_blank" rel="noopener noreferrer">Developer Track</a> ' . $pending_badge );
+ck( 'and the badge beside her name still says Pending graduation',
+	1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p>' . preg_quote( $pending_badge, '#' ) . '#', $pending_card ), true );
+
+// No course known: the row says what it always said, the status alone, and links nowhere.
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] = '';
+
+ck( 'a pending student with no known course reads Pending graduation alone, with no link', row_of( card( $inst_a, 10, array() ), 'Program' ), 'Pending graduation' );
+
+unset( $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] );
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
 
 /* ---- 6. the identity block, from both sides ------------------------------- */

@@ -127,6 +127,104 @@
 	font-size: 0.85em;
 }
 
+/* The switcher's fields, as a grid: the two labels in the first column, the box and the list in
+   the second, then Show and the note on the list's row. Sharing one column is what starts the box
+   where the list starts and makes it as wide, whatever either label says. Each fills the column,
+   borders included, because a select and a text box count their borders differently by default.
+   The column is as wide as the list's longest name, and gives way before the switcher would run
+   past its box, down to the box's and the list's own minimums: the theme's, and the width
+   switcher.js holds them at while a search narrows the list, so typing never moves the box or
+   Show. The note never gives way, since squeezed beside Show it wraps a word to a line and pushes
+   the list down off the box's line. */
+.wpcpm-dashboard__switcher-fields {
+	align-items: center;
+	display: grid;
+	flex: 1 1 100%;
+	gap: 0.5em;
+	grid-template-columns: max-content minmax( auto, max-content ) max-content minmax( max-content, 1fr );
+	min-width: 0;
+}
+
+/* The box's row lays its label, the box and the no-match line into that grid. It is drawn hidden
+   and shown by switcher.js, and an author `display` beats the browser's `[hidden] { display: none }`,
+   so the hidden state is said again here or a page without the script would show a box that does
+   nothing. */
+.wpcpm-dashboard__switcher-find {
+	display: contents;
+}
+
+.wpcpm-dashboard__switcher-find[hidden] {
+	display: none;
+}
+
+.wpcpm-dashboard__switcher-fields label {
+	grid-column: 1;
+}
+
+.wpcpm-dashboard__switcher-fields input,
+.wpcpm-dashboard__switcher-fields select {
+	box-sizing: border-box;
+	grid-column: 2;
+	max-width: 100%;
+	width: 100%;
+}
+
+/* Beside the box, over Show and the note. Its own width never sizes a column: it wraps in the room
+   the columns give it, so a longer sentence, in English or in a translation, cannot push the grid
+   past the switcher. */
+.wpcpm-dashboard__switcher-none {
+	contain: inline-size;
+	font-size: 0.85em;
+	grid-column: 3 / -1;
+}
+
+/* Empty until nothing matches, and then out of the grid: an empty grid item still holds a row,
+   and on a phone the row and the gap on either side of it set the box twice as far from the list's
+   label as every other gap. Taken out of the flow rather than hidden, because a status region that
+   is not in the page when its text arrives is not read out. */
+.wpcpm-dashboard__switcher-none:empty {
+	position: absolute;
+}
+
+.wpcpm-dashboard__switcher-fields .wpcpm-button {
+	grid-column: 3;
+}
+
+.wpcpm-dashboard__switcher-note {
+	grid-column: 4;
+}
+
+/* Too narrow for the note beside Show, the width the WordPress Credits theme narrows its cards at:
+   a row of its own, under the list and lined up with it. The no-match line takes a row of its own
+   too, under the box: with the note gone from the fourth column, that column has almost no floor,
+   and the line spanning into it forced it open past the switcher. */
+@media ( max-width: 900px ) {
+	.wpcpm-dashboard__switcher-note,
+	.wpcpm-dashboard__switcher-none {
+		grid-column: 2 / -1;
+	}
+}
+
+/* A phone: one column, each label above its control, and the box and the list the column's width. */
+@media ( max-width: 600px ) {
+	.wpcpm-dashboard__switcher-fields {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-dashboard__switcher-fields label,
+	.wpcpm-dashboard__switcher-fields input,
+	.wpcpm-dashboard__switcher-fields select,
+	.wpcpm-dashboard__switcher-none,
+	.wpcpm-dashboard__switcher-fields .wpcpm-button,
+	.wpcpm-dashboard__switcher-note {
+		grid-column: 1;
+	}
+
+	.wpcpm-dashboard__switcher-fields .wpcpm-button {
+		justify-self: start;
+	}
+}
+
 /* Current / past student groups. */
 .wpcpm-group {
 	margin: 0 0 2.5em;
@@ -783,8 +881,11 @@
 	font-weight: 700;
 }
 
+/* An offer's text is the sponsor's own, and a redemption link in it is one long word: it breaks
+   where the line ends rather than running out of the card on a phone. */
 .wpcpm-tools__body {
 	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .wpcpm-tools__sponsor,

@@ -192,7 +192,8 @@ final class WPCPM_Sponsor_Roster {
 	 * The sponsors the manager switcher offers, in index order: every row, one entry each.
 	 *
 	 * Provisioning a sponsor is done by looking at it first, so a sponsor with no account yet
-	 * is precisely the one a manager needs to open. A nameless record is listed by its ID.
+	 * is precisely the one a manager needs to open. A nameless record is listed by its ID. The
+	 * switcher draws the list A to Z (`WPCPM_Dashboards::render_switcher()`).
 	 *
 	 * @return array<string, string> Record ID to label.
 	 */

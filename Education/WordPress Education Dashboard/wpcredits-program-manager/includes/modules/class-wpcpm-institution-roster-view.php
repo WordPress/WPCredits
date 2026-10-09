@@ -1000,6 +1000,11 @@ class WPCPM_Institution_Roster_View {
 		// them rather than an invented "150 of 150".
 		$track = '' !== $cached( $program, 'program' ) ? $cached( $program, 'program' ) : $get( 'status' );
 
+		// A student waiting to graduate is read against the course they took, which the account
+		// keeps (`WPCPM_Program::course_status()`), so the target is the one the Program cell names.
+		$course = WPCPM_Program::course_status( $cached( $program, 'program' ), $user_id );
+		$track  = '' !== $course ? $course : $track;
+
 		$name = $get( 'name' );
 
 		if ( '' === $name ) {
@@ -1022,7 +1027,7 @@ class WPCPM_Institution_Roster_View {
 
 		return array(
 			'students|Full Name'             => $student,
-			'students|Status'                => self::program_cell( $cached( $program, 'program' ), $get( 'status' ) ),
+			'students|Status'                => self::program_cell( $cached( $program, 'program' ), $get( 'status' ), $course ),
 			'students|Start Date'            => self::dates_cell( $get( 'start' ), $end ),
 			'students|End Date'              => self::days_cell( $end ),
 			'students|Mentor'                => self::mentor_cell( $mentor_name, ! empty( $row['has_mentor'] ), ! empty( $row['reports'] ) ),
@@ -1103,12 +1108,22 @@ class WPCPM_Institution_Roster_View {
 	 * program to show: a row that never started has no program, and hiding its status would
 	 * make it vanish from a list whose whole point is that nothing does.
 	 *
+	 * A student waiting to graduate whose course the site keeps is shown that course's badge, as a
+	 * current student on it is, with the Pending graduation badge beside it: the cards on the
+	 * Mentor Report Card and the Student Report Card name the course the same way.
+	 *
 	 * @param string $program The reports status, or ''.
 	 * @param string $status  The pipeline status, or ''.
+	 * @param string $course  The status of the course the student is on or took, or ''.
 	 * @return string Cell markup.
 	 */
-	private static function program_cell( $program, $status ) {
+	private static function program_cell( $program, $status, $course = '' ) {
 		$program = trim( (string) $program );
+		$course  = trim( (string) $course );
+
+		if ( '' !== $course && $course !== $program ) {
+			return self::badge( $course ) . ' ' . self::badge( $program );
+		}
 
 		if ( '' !== $program ) {
 			return self::badge( $program );
@@ -1279,89 +1294,27 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * The hours cell: what a student has logged, against their track's target if it has one.
 	 *
-	 * **A track worked to no target prints no denominator.** `WPCPM_Program::hours_target()`
-	 * answers 0 for the Developer Track, which is worked to a body of merged contributions
-	 * rather than to a clock, and 0 again for a status its map has never heard of, because a
-	 * track the program adds and does not count hours for is a supported state and not an
-	 * omission. Both read "12 h", never "12 of 0".
-	 *
-	 * Three things the live column does that this cell has to survive, read off the base rather
-	 * than assumed:
-	 *
-	 * - The value is **fractional** for some students (6.2, 135.5), so it is printed to as many
-	 *   places as the base sent it with, counted by `hours_decimals()` off the string itself.
-	 *   An `intval()` here would print 6 for 6.2 and quietly round a term's work down.
-	 * - It runs **past the target** for others (400 against a 150-hour track). That is printed
-	 *   as it stands: "400 of 150" is what the records say, and clamping to the target would
-	 *   hide an overrun from the one party paying attention to it.
-	 * - An unset cell is **absent, not zero**. '' returns '' so the row says "Not recorded",
-	 *   while a logged 0 prints "0 of 150": a student nobody has logged for and a student who
-	 *   has done nothing are different answers to a school's question.
+	 * The words are `WPCPM_Program::hours_text()`'s, which the Mentor Report Card prints too, so
+	 * the two pages cannot come to write the same student's count two ways: "12 of 150", "12 h"
+	 * for a track worked to no target, a fraction as the base sent it, a count past the target as
+	 * it stands, and nothing at all for a cell nobody has logged, which this card prints as its
+	 * "Not recorded" while a logged 0 reads "0 of 150".
 	 *
 	 * @param string $hours  The value as the base holds it, or ''.
 	 * @param string $status The status the target is read from.
 	 * @return string Cell markup.
 	 */
 	private static function hours_cell( $hours, $status ) {
-		$hours = trim( (string) $hours );
+		$text = WPCPM_Program::hours_text( $hours, $status );
 
-		if ( '' === $hours ) {
+		// An empty cell is this card's gap, which the row prints for itself.
+		if ( '' === $text ) {
 			return '';
 		}
 
-		// A Number column that has stopped being a number is printed as it stands rather than
-		// cast: `(float) 'n/a'` is 0.0, and a cell reading "0 of 150" would tell a school its
-		// student had done nothing on the strength of a field type somebody changed.
-		if ( ! is_numeric( $hours ) ) {
-			return esc_html( $hours );
-		}
-
-		$logged = number_format_i18n( (float) $hours, self::hours_decimals( $hours ) );
-
-		if ( ! WPCPM_Program::has_hours_target( $status ) ) {
-			return esc_html(
-				sprintf(
-					/* translators: %s: hours logged, e.g. "12" or "6.2". */
-					__( '%s h', 'wpcredits-program-manager' ),
-					$logged
-				)
-			);
-		}
-
-		return esc_html(
-			sprintf(
-				/* translators: 1: hours logged, 2: the track's target in hours. */
-				__( '%1$s of %2$s', 'wpcredits-program-manager' ),
-				$logged,
-				number_format_i18n( WPCPM_Program::hours_target( $status ) )
-			)
-		);
-	}
-
-	/**
-	 * How many decimal places one hours value is printed to, at most two.
-	 *
-	 * **Counted off the string the base sent, not off the float.** A fixed 0 would print 136 for
-	 * 135.5 and rewrite a student's work with a display decision; a fixed 1 or 2 would print
-	 * "150.0" for the student who logged exactly 150, because `number_format_i18n()` pads. So
-	 * the value decides how it is written, and it decides from its own digits: comparing a
-	 * float against its own rounding to answer the same question means trusting an equality
-	 * that binary fractions do not owe anybody.
-	 *
-	 * Trailing zeros do not count, so a "6.20" somebody typed reads as "6.2", and two places is
-	 * the ceiling: these are hours entered by hand on a form, not a measurement.
-	 *
-	 * @param string $hours The value as the base holds it, already known to be numeric.
-	 * @return int 0, 1 or 2.
-	 */
-	private static function hours_decimals( $hours ) {
-		$dot = strpos( (string) $hours, '.' );
-
-		if ( false === $dot ) {
-			return 0;
-		}
-
-		return min( 2, strlen( rtrim( substr( (string) $hours, $dot + 1 ), '0' ) ) );
+		// Escaped whichever branch wrote it: a value that is not a number reaches here as it
+		// stands, and a field type changed in the base can put anything in it.
+		return esc_html( $text );
 	}
 
 	/**

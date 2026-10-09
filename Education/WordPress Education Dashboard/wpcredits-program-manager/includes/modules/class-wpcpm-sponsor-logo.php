@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Design spec of 4 September 2026, decision 11 and section 8.1. Two files, each optional: the
  * color logo the dashboard and the Tools section draw, and a white one for a dark ground. Both
  * go through `WPCPM_Image_Upload`, which is the only thing in this plugin allowed to turn
- * somebody else's bytes into a Media Library item: PNG, JPEG or WebP by content, at least 200
+ * somebody else's bytes into a Media Library item: PNG, JPEG or WebP by content, at least 300
  * pixels wide, no side past 4000, re-saved through the editor so nothing the uploader put after
  * the image data survives. SVG is refused, which is decision 11's other half: it is a document
  * that can carry script, and the two sponsors who hold one convert it.
@@ -84,7 +84,15 @@ final class WPCPM_Sponsor_Logo {
 			'logo-removed-airtable' => array( 'error', __( 'Nothing was removed: the program records could not be told just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'logo-none'             => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
 			'logo-not-site'         => array( 'error', __( 'There is no uploaded logo to remove here. The logo shown comes from Airtable; a program manager can change it there.', 'wpcredits-program-manager' ) ),
-			'logo-refused'          => array( 'error', __( 'Nothing was saved. A logo has to be a PNG, JPEG or WebP image, at least 200 pixels wide and no more than 4000 on a side. SVG is not accepted: export the logo as a PNG.', 'wpcredits-program-manager' ) ),
+			'logo-refused'          => array(
+				'error',
+				sprintf(
+					/* translators: 1: the least width in pixels, 2: the longest side in pixels. */
+					__( 'Nothing was saved. A logo has to be a PNG, JPEG or WebP image, at least %1$d pixels wide and no more than %2$d on a side. SVG is not accepted: export the logo as a PNG.', 'wpcredits-program-manager' ),
+					WPCPM_Image_Upload::LOGO_MIN_WIDTH,
+					WPCPM_Image_Upload::MAX_SIDE
+				),
+			),
 			'logo-busy'             => array( 'error', __( 'Nothing was saved. This sponsor has used up the logo uploads one day allows. Try again tomorrow.', 'wpcredits-program-manager' ) ),
 			'logo-failed'           => array( 'error', __( 'Nothing was saved. This site could not store the image, which is this site\'s fault and not yours. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
 			'logo-airtable'         => array( 'warning', __( 'Your logo is saved on the site, and the program records could not be told just now. The site shows the new logo; the records catch up on the next attempt.', 'wpcredits-program-manager' ) ),
@@ -176,7 +184,15 @@ final class WPCPM_Sponsor_Logo {
 				self::leave( 'logo-refused', $record, __( 'No file arrived with the form.', 'wpcredits-program-manager' ) );
 			}
 
-			$one = WPCPM_Image_Upload::accept( $file['tmp_name'], array( 'name' => $file['name'] ) );
+			// Held to the logo floor the help states. This is an upload; a logo already stored
+			// is not looked at again.
+			$one = WPCPM_Image_Upload::accept(
+				$file['tmp_name'],
+				array(
+					'name'      => $file['name'],
+					'min_width' => WPCPM_Image_Upload::LOGO_MIN_WIDTH,
+				)
+			);
 
 			if ( is_wp_error( $one ) ) {
 				self::clean_up( $accepted );
@@ -368,7 +384,13 @@ final class WPCPM_Sponsor_Logo {
 
 		echo '<div class="wpcpm-logo">';
 
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least 200 pixels wide. SVG is not accepted, so export it as a PNG. What you upload here replaces the logo in the program records.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="wpcpm-student__note">' . esc_html(
+			sprintf(
+				/* translators: %d: the least width in pixels. */
+				__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least %d pixels wide. SVG is not accepted, so export it as a PNG. What you upload here replaces the logo in the program records.', 'wpcredits-program-manager' ),
+				WPCPM_Image_Upload::LOGO_MIN_WIDTH
+			)
+		) . '</p>';
 
 		echo '<ul class="wpcpm-logo__tiles">';
 

@@ -4,7 +4,84 @@
 
 This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.
 
-It also contains the mentor and student guides in full. Program managers are the people other people ask, and the access levels mean you cannot open either of those pages yourself.
+It also contains the mentor and student guides in full. Administrators are the people other people ask. Unless you are on the program as a mentor or a student too, no Student Report Card or Mentor Report Card is your own: you open anyone's through the **Viewing as** switcher, as *Viewing a page as its owner* describes.
+
+## Signing in
+
+Nobody registers on this site, and there is no sign-up form: the program makes every account for
+the person it belongs to. That means two things on your first visit:
+
+1. Go to the site's login page and use **Lost your password?** with the email address on your
+   account. A reset link arrives at that address.
+2. Set a password, and you are in - unless your account also asks for a code, which the next
+   part covers.
+
+If the reset email never arrives, the address on your account is probably not the one you are
+checking. The login page cannot change it - ask whoever runs the program.
+
+### Signing in with a code
+
+Besides your password, your account may ask for a code. Whether it does is the program's choice,
+and it is made for every account of your kind at once. When it does, there is nothing to set up
+first: from your next sign-in, the code arrives by email. When it does not, signing in works as
+described above, and a card on your page invites you to turn the code on for yourself.
+
+After you enter your username and password, a second screen asks for the code. Which kind depends
+on how your account is set up.
+
+**An emailed code.** The screen says a verification code has been sent to the email address on your
+account. The email comes from this site and has *Login confirmation code* in its subject line. It
+holds a code of eight digits. Type it into **Verification Code** and press **Verify**. A code works
+once, and for fifteen minutes. **Resend Code** sends a new one and the new one replaces the old, so
+use the newest email.
+
+**An authenticator app.** If you have set one up, the screen asks for the code from your app
+instead: **Authentication Code**. Open the app, find this site in it, and type the six digits it
+shows. The digits change every 30 seconds, so type the ones on the screen at that moment.
+
+A wrong code does not lock you out for good, but the site makes you wait a moment before the next
+try, and the wait grows with every wrong code, up to fifteen minutes. Wait it out, then type the
+code again, carefully.
+
+### Setting up an authenticator app
+
+An app on your phone is quicker than waiting for an email, and it keeps working when your inbox
+does not. The card at the top of your page starts it. Its heading is **Add a second step to your
+sign-in** when the code is yours to choose, and **Your account asks for a code when you sign in**
+when the program asks for one; its button, **Turn on two-factor authentication** or **Set up an
+authenticator app**, opens your profile screen at its **Two-Factor Options**. Ignoring the card
+costs nothing: signing in keeps working the way it does now.
+
+If you already use emailed codes and you open that screen more than about ten minutes after you
+signed in, it first asks you to confirm with **Revalidate now**, which takes one more code. Then
+follow the steps on the screen: install an authenticator app on your phone (any will do, such as
+Google Authenticator or Microsoft Authenticator), scan the QR code the screen shows with it, and
+type in the code your app then displays. Once the app is set up the card stops appearing.
+
+Before you leave that screen, generate the **recovery codes** (the card calls them backup codes)
+and keep them somewhere other than your phone. Each works once, and the screen shows them only
+once. They are how you get back in if you lose the phone.
+
+### If you cannot get your code
+
+- **The email does not come.** Look in your spam folder, then press **Resend Code**. The email goes
+  to the address on your account, so if you no longer read that mailbox, an emailed code cannot
+  reach you.
+- **Your phone or your app is gone.** Under **Having Problems?** on the same screen, the site
+  lists any other way your account has, for example **Send a code to your email**, or **Use a
+  recovery code** if you saved some. Type one of your saved recovery codes where the screen asks
+  for it, and cross that code off, because it will not work twice.
+- **You have neither.** Without the emailed code, the app or a recovery code, the site cannot tell
+  that it is you, and it lets nobody past that screen. Tell whoever runs the program that you are
+  locked out, and give them the username you sign in with. This guide cannot fix it for you.
+
+### Once you are signed in
+
+Your page is drawn for whoever is signed in, so the same address shows each person their own
+page, and no change to a link shows anybody else's. The
+program's Administrators are the one exception: to help, they can open anyone's page, through a
+switcher only they are shown. A company's people share one Sponsor Dashboard: everyone the program
+attached to the company sees the same page.
 
 ## The plugin in wp-admin
 
@@ -101,7 +178,7 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 
 Since 1.119.0 the Mentors screen is two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on, holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
-The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited.
+The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **No students**, the fourth view, with its count too, lists the mentors whose **Students** column shows 0: no current student, whether every student they had has finished or they never had one. The search, the sorts and the pages work in it as in the other views, and when every mentor has a current student it says so. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited.
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
 
@@ -1106,6 +1183,24 @@ from the *Updates* category, filtered by the same access levels - so a post set 
 appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in
 the right place; there is nothing else to configure.
 
+### Viewing a page as its owner
+
+The Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard
+each open, for an Administrator, with a switcher above the page whenever there is more than one to
+choose from: **Viewing as student**, **Viewing as mentor**, **Viewing as institution** or **Viewing as
+sponsor**. Choose a name in the list and press **Show** to open that person's or that
+organization's page. Only Administrators are shown the switcher, and the note with it says so.
+
+The list runs A to Z without regard to capitals or accents, so Álvaro is among the A's, with
+numbers read as numbers, so Student 2 comes before Student 10, and with a space before any letter,
+so Teo Polytechnic comes before Teodora School. Above it, a box (**Find a student**,
+**Find a mentor**, **Find an institution** or **Find a sponsor**) narrows the list as you type to the
+names that hold what you typed, anywhere in the name and again without regard to capitals or
+accents. The name chosen in the list always stays in it, so **Show** opens nobody you did not
+choose; when no name matches what you typed, a short sentence by the box says so. Escape
+empties the box and puts the whole list back. Enter in the box sends nothing: **Show** does that.
+In a browser running no JavaScript the box is not shown, and the sorted list works on its own.
+
 ### Arranging the Student Report Card
 
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
@@ -1232,7 +1327,7 @@ Sponsors read numbers, managers read names. The sponsor's Usage card counts clai
 
 The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labeled with its audience). On a manager's view of a student it is one line, "N tools claimed".
 
-**Logo and agreement (1.96.0).** A sponsor uploads its own logo on its dashboard, in color and optionally in white; the site checks the bytes rather than the name (PNG, JPEG or WebP, at least 200 pixels wide, SVG refused), re-saves the image through WordPress's editor, and writes the attachments' public URLs back to Airtable's `Logo`, color first, so the base shows the same picture. Five uploads a day per company. Remove takes the logo out of the site and out of the program records at once, and deletes nothing from the Media Library. The sponsor agreement is optional and is never a gate: a company's Sponsor Dashboard, offers and codes work without one. A sponsor uploads a signed PDF from its dashboard and can withdraw it while nobody has read it; the Sponsors screen's **Waiting for review** tab, and the Sponsor Collaboration Agreements card on the Administrator Dashboard, hold the review queue, with the facts, what the PDF scan noticed and a download that is always an attachment, and the dashboard's card decides each document with **Accept it**, which asks first, or **Return it with this note**, a note that is emailed verbatim. When a document arrives, the sponsor's assigned program manager is mailed, or the addresses in the "Interest mail" setting, or every program manager: the mail says it is accepted or returned on the Administrator Dashboard and read first on the Sponsors screen, and links to the **Signed agreements** card on that screen's **Waiting for review** tab. An accepted agreement can be taken out of force with a note on the Sponsors screen's **Agreements** tab, and put back with **Reinstate**, which asks first, on the Administrator Dashboard, or on that tab once it is past the fifty oldest out of force the dashboard lists; a company whose signed copy predates this site is recorded as on file on the same tab, with a link to the program's Drive folder. Each of those writes `Agreement Status`, and acceptance also writes `Agreement Accepted On`; on-file writes `Agreement Document` too. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after the retention setting; accepted, superseded and revoked ones survive an uninstall and appear in the mailed manifest beside the institutions' files.
+**Logo and agreement (1.96.0).** A sponsor uploads its own logo on its dashboard, in color and optionally in white; the site checks the bytes rather than the name (PNG, JPEG or WebP, at least 300 pixels wide since 1.122.14, as on the application form, SVG refused; a logo already stored is never refused for its width, and the sponsors sync still copies in one 200 pixels wide), re-saves the image through WordPress's editor, and writes the attachments' public URLs back to Airtable's `Logo`, color first, so the base shows the same picture. Five uploads a day per company. Remove takes the logo out of the site and out of the program records at once, and deletes nothing from the Media Library. The sponsor agreement is optional and is never a gate: a company's Sponsor Dashboard, offers and codes work without one. A sponsor uploads a signed PDF from its dashboard and can withdraw it while nobody has read it; the Sponsors screen's **Waiting for review** tab, and the Sponsor Collaboration Agreements card on the Administrator Dashboard, hold the review queue, with the facts, what the PDF scan noticed and a download that is always an attachment, and the dashboard's card decides each document with **Accept it**, which asks first, or **Return it with this note**, a note that is emailed verbatim. When a document arrives, the sponsor's assigned program manager is mailed, or the addresses in the "Interest mail" setting, or every program manager: the mail says it is accepted or returned on the Administrator Dashboard and read first on the Sponsors screen, and links to the **Signed agreements** card on that screen's **Waiting for review** tab. An accepted agreement can be taken out of force with a note on the Sponsors screen's **Agreements** tab, and put back with **Reinstate**, which asks first, on the Administrator Dashboard, or on that tab once it is past the fifty oldest out of force the dashboard lists; a company whose signed copy predates this site is recorded as on file on the same tab, with a link to the program's Drive folder. Each of those writes `Agreement Status`, and acceptance also writes `Agreement Accepted On`; on-file writes `Agreement Document` too. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after the retention setting; accepted, superseded and revoked ones survive an uninstall and appear in the mailed manifest beside the institutions' files.
 
 **The application form (1.97.0).** A company applies to sponsor the program on this site, at /sponsor-application/, instead of in the Airtable form: the same eight questions in the same order (company name, website, contact person and address, how it would like to support the program, a logo in color and in white, anything else, and the privacy policy confirmation), guarded exactly as the institution form is (a hidden field, a signed token, five submissions an hour per address, forty a day for the whole site before the rest are held, consent as a precondition with what was agreed to recorded, links counted, and a ceiling on acknowledgements). The form is off until "Applications from sponsors" is switched on in the settings and shows nothing to the public without a published privacy policy. Every submission is a private row: the applicant gets an acknowledgement with a reference (SAPP-2026-0007), the program managers named by the "Interest mail" setting (or every manager) get the facts and a link, and the **Sponsor applications** card on the Sponsors screen's **Waiting for review** tab lists what is waiting, oldest first, with a mark for a row the checks held, for another open application naming the same company or address, and for a company the sponsors index already holds under the same name or website. Under that list, *Recently decided* lists the applications somebody has already decided (marked as spam, rejected or approved), newest decision first, so a genuine application the checks filed as spam, or a rejection somebody pressed by mistake, can be opened and put back in the queue rather than waiting for the retention run to delete it. The logo files an applicant sends are kept in the Media Library as private files under a generated name until the application is approved, so nothing a stranger uploaded is listed or reachable before somebody has looked at it; approval publishes both halves and hands them to the sponsor's account. Open one to read the answers, the logo files, what was agreed to and what the base already has. The decisions are the six the institution queue has: Approve, Send this question (mailed with your address to reply to), Reject (a short acknowledgement with no reason; your note stays on this site), Reject as spam (nothing is sent), Put back in the queue, Delete for good. An open application is decided on the Administrator Dashboard's own **Sponsor applications** card, which counts the queue in its strip; since 1.122.0 the Sponsors screen keeps the record-keeping on a decided application, **Put back in the queue** and **Delete for good**, and every decision on an open one past the fifty oldest that card lists. Approve creates the Airtable record with Status Approved, the website, the contact, the sponsorship option, the free text, the two logo files and the Dashboard account checkbox, then in the same press the account (through the same path Create account uses), the company's category, the logo record and the first offer in draft, and queues the welcome; if Airtable refuses, nothing else happens and pressing again starts clean. If a press got as far as the Airtable record and then stopped, the row is marked *approval half done* wherever it is drawn and Reject, Reject as spam and Put back in the queue are refused on it: press Approve again to finish, then decide what you like. A company the base already holds is never merged: reject the application and use Create account on the Sponsors screen's Accounts tab instead. The retention settings for institution applications govern this form too, the same three settings by the same names on both (spam after 30 days, rejected after a year, approved never, by default), and a held application is now purged on the rejected window on both forms alike. A spam, held or rejected sponsor application's logo files are deleted with it - the institution form keeps no logo files to delete - and an approved one's are the sponsor's logo and stay. After go-live, one manual step: change the form link on the handbook page to /sponsor-application/.
 
@@ -1414,6 +1509,9 @@ built from the program records, so there is no list to keep and nobody to ask fo
 
 *The counts at the top are also filters - press one to see only that group. Names shown are examples.*
 
+A card at the top of the page may invite you to set up a code for signing in, or tell you the
+program asks for one: *Signing in*, at the start of this guide, covers it.
+
 ### Your students, triaged
 
 Rather than one long list, your students are grouped by what needs your attention, and the counts
@@ -1427,13 +1525,35 @@ at the top double as filters:
 A student falls into the first group they match, so somebody who needs a call is never filed under
 "ending soon" instead. Within each group they are ordered by internship end date, soonest first.
 
+### Students waiting to graduate
+
+A student who has finished the work and whose graduation is not recorded yet is marked **Pending
+graduation** in their **Program** row when you open them, and on a phone or a narrow window by a
+badge beside their name too. They are still your student. They stay in the main list and
+are counted among the students currently assigned to you, and they are sorted into **Need a call**,
+**Ending soon** or **On track** like everybody else, so one without a recent note still appears
+under **Need a call**. You can still add notes, and they can still book calls with you. Their
+record names the course they took when the site knows it, as it does for any other student; when
+it does not, their **Program** row shows **Pending graduation** alone.
+
+The status is not yours to change, and not the student's either. The program's Administrators move
+it on by recording the graduation in the program records, and your page follows at the next sync.
+Only then does the student move to **Past students**, where no new notes can be added. If a student
+has plainly finished and still shows as pending, tell whoever runs the program.
+
 ### Finding and reading a student
 
 **Search** matches students, institutions and teams, and tells you how many of your students match.
 Opening a student shows their full record: program and track, internship duration, educational
 institution, tutor, field of study, contribution teams, accessibility needs and their contact links.
 
-Under it, **Report form** opens the student's own report where it stands - their hours, grades,
+Under **Program**, **Hours** shows the hours the student has logged: against their course's
+target, as in "12 of 150", or the hours alone, as in "7.5 h", on a track with no target and for a
+student whose **Program** row names no course, such as one who is paused or has finished. It says
+"Not set" while nothing is logged. The row is there only when the student's track asks for hours
+on its report form, so it never shows a gap nobody can fill.
+
+Under the record, **Report form** opens the student's own report where it stands - their hours, grades,
 project and posts - without leaving the page. It is read only; see *Their report form* below for
 why. The first time you open one it is fetched, so it takes a moment: a page listing sixty students
 does not read sixty reports nobody asked for.
@@ -1609,6 +1729,9 @@ is not behind on anything. Please do not chase them.
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
 
+A card at the top of the page may invite you to set up a code for signing in, or tell you the
+program asks for one: *Signing in*, at the start of this guide, covers it.
+
 ### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
@@ -1643,9 +1766,28 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
-If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
-graduate, for example), there is no course to open, and the hours box is a section of its own,
-**My hours**.
+If your track has no Learn course, or you are not on a track at the moment (paused, for example),
+there is no course to open, and the hours box is a section of its own, **My hours**.
+
+### When your graduation is pending
+
+Once you have finished the work and your graduation has not been recorded yet, the program records
+hold your status as **Pending graduation**. It is a waiting state, not an ending. You are still on
+the program and still your mentor's student.
+
+The status shows on the **Program** row of *My profile*: the row still names the course you took,
+linked to Learn WordPress as before, with a **Pending graduation** badge beside it. Everything else
+stays as it was while you were working through the course: your course and your hours, your report
+form with your course's questions and the answers you saved, and the calendar for booking a call.
+
+If this site has no record of the course you took, the Program row says **Pending graduation**
+alone, with no link, your hours have a section of their own, *My hours*, and the report form asks
+the 150-hour course's questions.
+
+The status is not yours to change, and not your mentor's either. The program's Administrators move
+it on by recording your graduation in the program records, and your card catches up at the next
+sync. From then on your time on the program counts as finished, and calls can no longer be booked.
+If your graduation looks overdue, ask your mentor, or whoever runs the program.
 
 ### Report form
 
