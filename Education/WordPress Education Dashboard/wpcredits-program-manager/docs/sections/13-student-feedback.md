@@ -15,7 +15,7 @@ useful if you say what you actually think.
 
 **The exception is yours to grant, and nobody can grant it for you.** At the end of a term the
 program drafts a semester report about the students your institution sent - how many took part,
-which teams they contributed to, and what they published. A program manager reviews and approves
+which teams they contributed to, and what they published. An Administrator reviews and approves
 it, and only then can your institution read it. Two questions on the *Finishing up* form, and
 only those two, decide what of yours goes into it - whether your institution may list you (by name,
 or by your blog address alone), and whether it may quote your feedback (with your name, or without
@@ -41,8 +41,8 @@ appear when they apply - say the hours are hard to reach and a box opens asking 
 **Finishing up** ends with four optional permissions, in a box of their own: whether a quote about
 your experience may be shared publicly, whether the program may contact you about WordPress events
 and opportunities, and the two questions above about your institution's semester report. All four
-are yours to decline, and declining changes nothing else. Only you can answer them - a program
-manager looking at your form sees them and cannot fill them in for you.
+are yours to decline, and declining changes nothing else. Only you can answer them - an
+Administrator looking at your form sees them and cannot fill them in for you.
 
 ### Filling one in
 

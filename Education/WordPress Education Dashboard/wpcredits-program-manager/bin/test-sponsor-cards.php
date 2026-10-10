@@ -282,7 +282,7 @@ class WPCPM_Sponsor_Agreement {
 
 	public static function messages() {
 		return array(
-			'agreement-uploaded'  => array( 'success', 'Your signed agreement is uploaded. A program manager reads it and you will get an email either way.' ),
+			'agreement-uploaded'  => array( 'success', 'Your signed agreement is uploaded. An Administrator reads it and you will get an email either way.' ),
 			'agreement-withdrawn' => array( 'success', 'The agreement is withdrawn and its file is deleted. Upload another whenever you are ready.' ),
 			'refused'             => array( 'error', 'That is not something your account can do here.' ),
 		);

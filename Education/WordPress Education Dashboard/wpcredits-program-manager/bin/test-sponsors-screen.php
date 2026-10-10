@@ -1298,7 +1298,7 @@ foreach ( array(
 	'back'    => '>Back to the accounts</a>',
 	'account' => '<ul class="wpcpm-list"><li>Rep B (repb@example.test) <form',
 	'attach'  => '<input type="hidden" name="wpcpm_op" value="attach" />',
-	'posting' => '<p class="description">Posting is on: 1 account can write posts in wp-admin; a program manager publishes them.</p>',
+	'posting' => '<p class="description">Posting is on: 1 account can write posts in wp-admin; an Administrator publishes them.</p>',
 	'switch'  => '>Turn posting off</button></form>',
 ) as $part => $needle ) {
 	$drawn_at[ $part ] = strpos( $view_b_body, $needle );
@@ -1432,6 +1432,7 @@ ck( 'while Airtable is not connected the warning prints once, above the bar, on 
 $r        = post( isset( $seed_form[0] ) ? $seed_form[0] : array(), array( $module, 'handle_seed' ) );
 $seeded_b = WPCPM_Sponsor_Offers::offers_of( $B );
 ck( 'the manager presses B\'s Seed button: one draft offer, marked primary, logged as seeded, and the press comes back to the Offers and codes tab', array( $r[2], count( $seeded_b ), reset( $seeded_b )['state'], reset( $seeded_b )['primary'], end( $GLOBALS['audit'] )['kind'], $r[1] ), array( 'offer-seeded', 1, 'draft', true, WPCPM_Sponsor_Offers::LOG_SEEDED, $home . '&tab=offers' ) );
+ck( 'and the audit line says an Administrator seeded it', end( $GLOBALS['audit'] )['message'], 'The first offer was seeded from the base by an Administrator.' );
 WPCPM_Flash::set( WPCPM_Sponsors::FLASH, (string) $r[2] );
 $seeded_page = render_screen( link_of( (string) $r[1] )[1] );
 ck( 'and the Offers and codes tab it lands on says so in Seed\'s own words, once, above the bar', array( notices_in( $seeded_page ), (int) strpos( $seeded_page, 'is-dismissible' ) < (int) strpos( $seeded_page, '<nav class="nav-tab-wrapper' ), bar_of( $seeded_page ) === $bar_for( 'offers' ) ), array( '<div class="notice notice-success is-dismissible"><p>The first offer was seeded from the base; the sponsor completes it and switches it on from the Sponsor Dashboard.</p></div>', true, true ) );

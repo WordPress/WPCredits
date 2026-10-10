@@ -364,7 +364,7 @@ class WPCPM_Institution_Request {
 				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
 				'message'     => sprintf(
 					/* translators: %s: what was asked for, e.g. "A mentor is wanted". */
-					__( '%s. Raised by the institution and waiting for a program manager.', 'wpcredits-program-manager' ),
+					__( '%s. Raised by the institution and waiting for an Administrator.', 'wpcredits-program-manager' ),
 					self::kind_label( $kind )
 				),
 				'data'        => array(
@@ -433,8 +433,8 @@ class WPCPM_Institution_Request {
 		update_post_meta( $post_id, self::META_CLOSED_AT, time() );
 
 		$message = self::STATE_DONE === $state
-			? __( 'A program manager closed this request as handled.', 'wpcredits-program-manager' )
-			: __( 'A program manager declined this request.', 'wpcredits-program-manager' );
+			? __( 'An Administrator closed this request as handled.', 'wpcredits-program-manager' )
+			: __( 'An Administrator declined this request.', 'wpcredits-program-manager' );
 
 		// The manager's own words go under the sentence rather than into `data`, which is for
 		// facts and sanitises a paragraph into one line. A row closed with a reason is the row
@@ -1006,7 +1006,7 @@ class WPCPM_Institution_Request {
 			esc_html(
 				sprintf(
 					/* translators: 1: date, 2: human-readable time difference, e.g. "4 days". */
-					__( 'A mentor was asked for on %1$s, %2$s ago. A program manager reads these and assigns mentors in the program records; the name appears here once they have.', 'wpcredits-program-manager' ),
+					__( 'A mentor was asked for on %1$s, %2$s ago. An Administrator reads these and assigns mentors in the program records; the name appears here once they have.', 'wpcredits-program-manager' ),
 					wp_date( 'Y-m-d', (int) $facts['at'] ),
 					human_time_diff( (int) $facts['at'], time() )
 				)
@@ -1015,7 +1015,7 @@ class WPCPM_Institution_Request {
 
 		printf(
 			'<p class="wpcpm-student__note">%s</p>',
-			esc_html__( 'Asking again does not move it up the list. If it has been a long time, write to your program manager.', 'wpcredits-program-manager' )
+			esc_html__( 'Asking again does not move it up the list. If it has been a long time, write to the program\'s Administrators.', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -1030,7 +1030,7 @@ class WPCPM_Institution_Request {
 	private static function render_form( $students_record ) {
 		printf(
 			'<p class="wpcpm-request__lede">%s</p>',
-			esc_html__( 'Nobody is mentoring this student yet. Tell a program manager one is wanted; they assign mentors in the program records, and the name appears on this card once they have.', 'wpcredits-program-manager' )
+			esc_html__( 'Nobody is mentoring this student yet. Tell an Administrator one is wanted; they assign mentors in the program records, and the name appears on this card once they have.', 'wpcredits-program-manager' )
 		);
 
 		echo '<form class="wpcpm-request__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -1186,7 +1186,7 @@ class WPCPM_Institution_Request {
 	 * @return string
 	 */
 	private static function note_label() {
-		/* translators: The name of the box a program manager types what they did about a request from an institution in. */
+		/* translators: The name of the box an Administrator types what they did about a request from an institution in. */
 		return __( 'What you did about it', 'wpcredits-program-manager' );
 	}
 
@@ -1313,7 +1313,7 @@ class WPCPM_Institution_Request {
 		$status  = is_array( $flash ) && isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : '';
 		$about   = is_array( $flash ) && isset( $flash['student'] ) ? trim( (string) $flash['student'] ) : '';
 		$strings = array(
-			'raised'     => array( 'success', __( 'A program manager has been asked for a mentor for this student.', 'wpcredits-program-manager' ) ),
+			'raised'     => array( 'success', __( 'An Administrator has been asked for a mentor for this student.', 'wpcredits-program-manager' ) ),
 			'already'    => array( 'info', __( 'A mentor had already been asked for. The date is below, and asking again would not move it up the list.', 'wpcredits-program-manager' ) ),
 			'has-mentor' => array( 'info', __( 'This student already has a mentor, so nothing was asked for.', 'wpcredits-program-manager' ) ),
 			'error'      => array( 'error', __( 'That could not be done.', 'wpcredits-program-manager' ) ),

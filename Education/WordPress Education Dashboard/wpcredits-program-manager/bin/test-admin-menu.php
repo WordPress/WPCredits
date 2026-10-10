@@ -4,10 +4,12 @@
  *
  * One top-level entry, WPCredits Program, and under it every screen titled with its own name:
  * Overview, a screen per audience, Tools and a screen per tool, then Settings. The Overview and the
- * Tools screen call the program's parts what the Settings screen and the program manager guide call
+ * Tools screen call the program's parts what the Settings screen and the Administrator guide call
  * them, audiences and tools. Never modules: the word named the audiences on the Overview and the
- * tools in the menu, one word for two things a screen apart. Drawn through the real admin class,
- * the real audiences and the real tools, so the words checked are the ones a program manager reads.
+ * tools in the menu, one word for two things a screen apart. Never "program manager" either: the
+ * people who run the program are the Administrators in every string, guide and block description a
+ * person reads. Drawn through the real admin class, the real audiences and the real tools, so the
+ * words checked are the ones an Administrator reads.
  * What the Overview shows and how it lays it out is bin/test-overview.php's; here it is drawn on a
  * new site, through the menu's own entry, for its title and its words, and for what its Tools card
  * says beside the Tools screen.
@@ -197,6 +199,20 @@ function words_of( $html ) {
  */
 function modules_in( $words ) {
 	preg_match_all( '/\bmodules?\b/i', (string) $words, $found );
+
+	return $found[0];
+}
+
+/**
+ * Every "program manager" or "program managers" some words hold, whatever their case. The people who
+ * run the program are the Administrators in every sentence, screen and email a person reads; the
+ * plugin's own name, WPCredits Program Manager, is a product name and stays.
+ *
+ * @param string $words The words.
+ * @return string[]
+ */
+function program_managers_in( $words ) {
+	preg_match_all( '/\bprogram[\s\x{00A0}]+managers?\b/iu', str_ireplace( 'WPCredits Program Manager', '', (string) $words ), $found );
 
 	return $found[0];
 }
@@ -495,6 +511,20 @@ ck( 'every file under includes/ is read, and together they hand the translators 
 ck( 'and none of them says module, calls a tool "Tool:" or is the word "Tool" on its own, a tool\'s pill',
     $old_words, array() );
 
+// The owner's vocabulary rule of 10 October 2026: the people who run the program are the
+// Administrators wherever a person reads of them, the screens and the emails alike, never "program
+// manager". Only the plugin's name, WPCredits Program Manager, keeps the words.
+$old_title = array();
+
+foreach ( $plugin_says as $string ) {
+	if ( array() !== program_managers_in( $string ) ) {
+		$old_title[] = $string;
+	}
+}
+
+ck( 'and none of them says program manager, the Administrators\' old name: only the plugin\'s own name keeps the words',
+    array_values( array_unique( $old_title ) ), array() );
+
 // Every audience draws its own screen, so none falls back to a panel of the audience base's saying
 // the audience is not built yet: the base declares the screen without drawing one, and holds no
 // notion of an audience that is not built.
@@ -504,7 +534,7 @@ ck( 'and no audience\'s screen falls back to a panel of the audience base\'s: th
     array( $audience_base->getMethod( 'render_admin_page' )->isAbstract(), $audience_base->hasMethod( 'render_placeholder' ), $audience_base->hasMethod( 'is_implemented' ) ),
     array( true, false, false ) );
 
-echo "\n=== The program manager guide uses the same words ===\n";
+echo "\n=== The Administrator guide uses the same words ===\n";
 
 $sections = glob( WPCPM_PLUGIN_DIR . 'docs/sections/*.md' );
 $texts    = array();
@@ -548,6 +578,20 @@ foreach ( $texts as $file => $text ) {
 
 ck( 'and no guide section, nor the readme before its changelog, calls the program managers Program Administrators',
     $retired_name, array() );
+
+// And never program managers: the owner's rule of 10 October 2026 holds in the guides and in what
+// the readme says before its changelog as it does in the plugin's strings. The guide's address,
+// /program-manager-guide/, is a path and not these words, and the plugin's name keeps its own.
+$old_title_in = array();
+
+foreach ( $texts as $file => $text ) {
+	if ( array() !== program_managers_in( $text ) ) {
+		$old_title_in[ $file ] = array_values( array_unique( program_managers_in( $text ) ) );
+	}
+}
+
+ck( 'and no guide section, nor the readme before its changelog, says program manager: the people who run the program are the Administrators there too',
+    $old_title_in, array() );
 
 $table = preg_match( '/^### The words the screens use\n(.*?)(?=^#{2,3} |\z)/ms', $guide_30, $part ) ? $part[1] : '';
 
@@ -655,6 +699,21 @@ ck( 'the two blocks that draw the Report Cards are called by their pages\' names
         'student-dashboard' => array( 'Student Report Card', 'Student Report Card', true ),
         'mentor-dashboard'  => array( 'Mentor Report Card', 'Mentor Report Card', true ),
     ) );
+
+// Every block's title and description, the words the inserter prints, are held to the same rule: the
+// Administrator Dashboard's block once told the inserter it "shows program managers every queue".
+$block_words = array();
+
+foreach ( glob( WPCPM_PLUGIN_DIR . 'blocks/*/block.json' ) as $block_file ) {
+	$meta = json_decode( (string) file_get_contents( $block_file ), true );
+
+	if ( ! is_array( $meta ) || array() !== program_managers_in( ( isset( $meta['title'] ) ? $meta['title'] : '' ) . "\n" . ( isset( $meta['description'] ) ? $meta['description'] : '' ) ) ) {
+		$block_words[] = basename( dirname( $block_file ) );
+	}
+}
+
+ck( 'and no block\'s title or description, the words the inserter prints, says program manager',
+    $block_words, array() );
 
 $still = array();
 

@@ -295,7 +295,7 @@ final class WPCPM_Institution_Import_Form {
 			if ( 'tutor' === $name && empty( $options ) ) {
 				printf(
 					'<span class="wpcpm-field__hint">%s</span>',
-					esc_html__( 'The program has no tutors recorded for your institution yet. Ask a program manager to add them, and they will appear here.', 'wpcredits-program-manager' )
+					esc_html__( 'The program has no tutors recorded for your institution yet. Ask an Administrator to add them, and they will appear here.', 'wpcredits-program-manager' )
 				);
 			}
 
@@ -704,7 +704,7 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		if ( WPCPM_Institution_Import::BLOCKED === $verdict ) {
-			return __( 'This student cannot be imported from here. Ask a program manager.', 'wpcredits-program-manager' );
+			return __( 'This student cannot be imported from here. Ask an Administrator.', 'wpcredits-program-manager' );
 		}
 
 		if ( WPCPM_Institution_Import::DUPLICATE_FILE === $verdict ) {
@@ -717,7 +717,7 @@ final class WPCPM_Institution_Import_Form {
 
 		if ( WPCPM_Institution_Import::EXISTS_HERE === $verdict ) {
 			if ( ! empty( $detail['reports_only'] ) ) {
-				return __( 'This student has a program record but no enrollment record. A program manager needs to complete it.', 'wpcredits-program-manager' );
+				return __( 'This student has a program record but no enrollment record. An Administrator needs to complete it.', 'wpcredits-program-manager' );
 			}
 
 			return sprintf(
@@ -1409,8 +1409,8 @@ final class WPCPM_Institution_Import_Form {
 			// them. Named separately because a school can act on the first and only a program
 			// manager can act on the other two.
 			'agreement'            => __( 'The import stopped: this institution\'s agreement is no longer settled. Students created before it stopped are on your roster.', 'wpcredits-program-manager' ),
-			'not-allowed'          => __( 'The import stopped: the account that started it can no longer add students here. Ask a program manager.', 'wpcredits-program-manager' ),
-			'no-actor'             => __( 'The import stopped: it has no record of who started it. Ask a program manager.', 'wpcredits-program-manager' ),
+			'not-allowed'          => __( 'The import stopped: the account that started it can no longer add students here. Ask an Administrator.', 'wpcredits-program-manager' ),
+			'no-actor'             => __( 'The import stopped: it has no record of who started it. Ask an Administrator.', 'wpcredits-program-manager' ),
 			'no-institution'       => __( 'That list is not attached to an institution, so nothing was created.', 'wpcredits-program-manager' ),
 			'cancelled'            => __( 'That list was thrown away.', 'wpcredits-program-manager' ),
 			'not-cancelled'        => __( 'That list could not be thrown away. It may already have been.', 'wpcredits-program-manager' ),
@@ -1421,7 +1421,7 @@ final class WPCPM_Institution_Import_Form {
 			'too_often'            => __( 'That is several checks in a short time. Try again in an hour.', 'wpcredits-program-manager' ),
 			'rows_today'           => __( 'That is more students than this site checks for one institution in a day. Try again tomorrow, or send fewer.', 'wpcredits-program-manager' ),
 			'bad-program'          => __( 'Choose the program these students are joining.', 'wpcredits-program-manager' ),
-			'program-ungated'      => __( 'The program you chose is no longer being offered, because the Reports and Feedback automation for it is not active. Ask a program manager to tick it and try again.', 'wpcredits-program-manager' ),
+			'program-ungated'      => __( 'The program you chose is no longer being offered, because the Reports and Feedback automation for it is not active. Ask an Administrator to tick it and try again.', 'wpcredits-program-manager' ),
 			'bad-start'            => __( 'Give the date these students start, as a date.', 'wpcredits-program-manager' ),
 			'start-far'            => __( 'That start date is more than a year away. Check the year.', 'wpcredits-program-manager' ),
 			'bad-end'              => __( 'The end date has to be after the start date, and within a year of it.', 'wpcredits-program-manager' ),

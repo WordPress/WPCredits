@@ -319,7 +319,7 @@ still there, the next scan lists it again.
 #### Settings
 
 **Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let administrators delete the duplicated rows they select and confirm**, is in the Settings section at the top
-of the finder's screen, above the list, with a Save of its own. Until a program manager turns it on
+of the finder's screen, above the list, with a Save of its own. Until an Administrator turns it on
 there, the whole list is read-only: no checkbox can be ticked, **Review selection** is grayed out, and
 the list says where deleting is turned on. Scanning and reading work either way, so the list is worth
 looking at long before anyone decides to delete from it. The row's fold says what a delete does: it
@@ -547,7 +547,7 @@ being published. After that, press Publish again: it creates only the columns th
 and the log names every column the site made.
 
 What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs,
-in another tab or by another program manager, is not part of that publish: the track then
+in another tab or by another Administrator, is not part of that publish: the track then
 shows *Unpublished changes* until **Publish the changes** is pressed.
 
 After publishing, the same screen offers **Check it against Airtable**, which reads the base again and
@@ -623,5 +623,5 @@ While it is switched off, a notice above the section says so, with a link down t
 has no provider, the **Provider** row under the section says so, with a link back up. Its card on the
 **Tools** screen says which of the two it is, never the Airtable connection, which Need help? does not
 use. And a question that cannot be answered for want of a provider, a working model or a valid key
-tells the person asking that a program manager can put it right in the Settings section of the
+tells the person asking that an Administrator can put it right in the Settings section of the
 Need help? screen, under **WPCredits Program > Tools**.

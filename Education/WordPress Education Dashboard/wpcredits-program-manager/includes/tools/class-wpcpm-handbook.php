@@ -68,7 +68,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Answers questions from the WordPress documentation, for logged-in mentors and program managers. The AI provider does the searching; nothing is stored on this site.', 'wpcredits-program-manager' );
+		return __( 'Answers questions from the WordPress documentation, for logged-in mentors and Administrators. The AI provider does the searching; nothing is stored on this site.', 'wpcredits-program-manager' );
 	}
 
 	/**

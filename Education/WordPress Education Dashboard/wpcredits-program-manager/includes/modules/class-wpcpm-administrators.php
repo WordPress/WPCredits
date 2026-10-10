@@ -97,7 +97,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Program managers use the built-in WordPress Administrator role. They can read every access level and run every sync.', 'wpcredits-program-manager' );
+		return __( 'Administrators use the built-in WordPress Administrator role. They can read every access level and run every sync.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -187,7 +187,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 			'page_label'         => __( 'Administrator Dashboard:', 'wpcredits-program-manager' ),
 			'page_missing'       => WPCPM_Administrators_Dashboard::page_missing(),
 			'search'             => __( 'Search administrators', 'wpcredits-program-manager' ),
-			'list_note'          => __( 'Program managers use the built-in WordPress Administrator role and are never invited by the plugin: their accounts are added and managed on the Users screen.', 'wpcredits-program-manager' ),
+			'list_note'          => __( 'Administrators use the built-in WordPress Administrator role and are never invited by the plugin: their accounts are added and managed on the Users screen.', 'wpcredits-program-manager' ),
 		);
 	}
 

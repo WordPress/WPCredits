@@ -1168,7 +1168,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				'actor'    => get_current_user_id(),
 				'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => __( 'The first offer was seeded from the base by a manager.', 'wpcredits-program-manager' ),
+				'message'  => __( 'The first offer was seeded from the base by an Administrator.', 'wpcredits-program-manager' ),
 				'data'     => array( 'offer' => (int) $seeded ),
 			)
 		);
@@ -1754,7 +1754,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 					$posting
 						? sprintf(
 							/* translators: %s: how many accounts. */
-							_n( 'Posting is on: %s account can write posts in wp-admin; a program manager publishes them.', 'Posting is on: %s accounts can write posts in wp-admin; a program manager publishes them.', count( $members ), 'wpcredits-program-manager' ),
+							_n( 'Posting is on: %s account can write posts in wp-admin; an Administrator publishes them.', 'Posting is on: %s accounts can write posts in wp-admin; an Administrator publishes them.', count( $members ), 'wpcredits-program-manager' ),
 							number_format_i18n( count( $members ) )
 						)
 						: __( 'Posting is off for this sponsor.', 'wpcredits-program-manager' )
@@ -2322,7 +2322,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		echo '<div class="wpcpm-card">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Interests', 'wpcredits-program-manager' ), esc_html( number_format_i18n( count( $entries ) ) ) );
-		echo '<p class="description">' . esc_html__( 'What sponsors said they would like to support, from the Sponsor Dashboard. Each was mailed to the assigned program manager when it was sent.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'What sponsors said they would like to support, from the Sponsor Dashboard. Each was mailed to the assigned Administrator when it was sent.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $entries ) ) {
 			echo '<p>' . esc_html__( 'Nothing yet.', 'wpcredits-program-manager' ) . '</p></div>';
@@ -2445,7 +2445,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		echo '<ul class="wpcpm-review__checklist">';
 		printf( '<li>%s</li>', esc_html__( 'Read the whole document. There is no program template to compare it against.', 'wpcredits-program-manager' ) );
 		printf( '<li>%s</li>', esc_html__( 'It names the WordPress Foundation and the company.', 'wpcredits-program-manager' ) );
-		printf( '<li>%s</li>', esc_html__( 'It commits the program to nothing a program manager has not agreed to.', 'wpcredits-program-manager' ) );
+		printf( '<li>%s</li>', esc_html__( 'It commits the program to nothing an Administrator has not agreed to.', 'wpcredits-program-manager' ) );
 		echo '</ul>';
 
 		$flags = array_values( array_filter( array_map( 'strval', (array) $facts['flags'] ) ) );

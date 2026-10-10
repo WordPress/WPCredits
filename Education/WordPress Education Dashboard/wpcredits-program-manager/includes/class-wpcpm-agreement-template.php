@@ -336,7 +336,7 @@ class WPCPM_Agreement_Template {
 
 		if ( '' === $doc ) {
 			return self::unavailable(
-				__( 'The address of the program\'s agreement Doc is not recorded, so the plugin\'s copy cannot be checked against it. A program manager sets it in the plugin\'s settings.', 'wpcredits-program-manager' ),
+				__( 'The address of the program\'s agreement Doc is not recorded, so the plugin\'s copy cannot be checked against it. An Administrator sets it in the plugin\'s settings.', 'wpcredits-program-manager' ),
 				$language,
 				$version
 			);

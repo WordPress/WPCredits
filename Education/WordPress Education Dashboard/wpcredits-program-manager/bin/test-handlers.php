@@ -870,7 +870,7 @@ $all_bodies = implode( "\n", array_column( $manager_mails, 'body' ) );
 check( 'a session\'s cancellation is worded as the session\'s, offers nobody another booking, and the mentor\'s copy has no one student to reply to',
     array(
         0 === strpos( $manager_mails['pat@example.test']['body'] ?? '', 'The group session on ' ),
-        substr_count( $all_bodies, 'was canceled by a program manager.' ),
+        substr_count( $all_bodies, 'was canceled by an Administrator.' ),
         substr_count( $all_bodies, 'The call on ' ),
         substr_count( $all_bodies, 'book another time' ),
         0 === strpos( $manager_mails['mentor@example.test']['subj'] ?? '', '[Test Site] Group session on ' ),

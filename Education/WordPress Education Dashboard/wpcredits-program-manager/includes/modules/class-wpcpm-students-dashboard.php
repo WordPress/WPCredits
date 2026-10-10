@@ -466,7 +466,7 @@ class WPCPM_Students_Dashboard {
 		}
 
 		if ( ! $student instanceof WP_User ) {
-			wp_die( esc_html__( 'Only a student, or a program manager on their behalf, can arrange a Student Report Card.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'Only a student, or an Administrator on their behalf, can arrange a Student Report Card.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
 		}
 
 		$key       = WPCPM_Request::posted_key( self::FIELD_MODULE );
@@ -931,7 +931,7 @@ class WPCPM_Students_Dashboard {
 		// has to know the precedence table to be sure, and a later edit that adds a third
 		// clause would change the meaning silently.
 		if ( empty( $mentor ) || ( empty( $mentor['name'] ) && empty( $mentor['username'] ) ) ) {
-			echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No mentor is assigned to you yet. Your program manager will introduce you to one.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No mentor is assigned to you yet. An Administrator will introduce you to one.', 'wpcredits-program-manager' ) . '</p>';
 			echo '</section>';
 
 			return;

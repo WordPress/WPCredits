@@ -329,7 +329,7 @@ final class WPCPM_Settings_Choices {
 				break;
 
 			case 'managers':
-				return array() === self::managers() ? esc_html__( 'No program manager account with an email address was found.', 'wpcredits-program-manager' ) : '';
+				return array() === self::managers() ? esc_html__( 'No Administrator account with an email address was found.', 'wpcredits-program-manager' ) : '';
 
 			default:
 				return '';

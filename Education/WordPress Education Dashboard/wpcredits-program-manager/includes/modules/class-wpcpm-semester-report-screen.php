@@ -767,7 +767,7 @@ final class WPCPM_Semester_Report_Screen {
 				'<p class="wpcpm-report-card__note">%s</p>',
 				WPCPM_Semester_Report::STATE_APPROVED === $state
 					? esc_html__( 'This report is approved and the institution can read it. Reopen it to change anything.', 'wpcredits-program-manager' )
-					: esc_html__( 'You can read this report here. Changing it is something a program manager does.', 'wpcredits-program-manager' )
+					: esc_html__( 'You can read this report here. Changing it is something an Administrator does.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -819,7 +819,7 @@ final class WPCPM_Semester_Report_Screen {
 			esc_html(
 				WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
 					? __( 'Drafted automatically when the semester ended.', 'wpcredits-program-manager' )
-					: __( 'Drafted by a program manager.', 'wpcredits-program-manager' )
+					: __( 'Drafted by an Administrator.', 'wpcredits-program-manager' )
 			)
 		);
 
@@ -833,7 +833,7 @@ final class WPCPM_Semester_Report_Screen {
 				esc_html(
 					$by instanceof WP_User
 						? sprintf(
-							/* translators: 1: date and time, 2: a program manager's name. */
+							/* translators: 1: date and time, 2: an Administrator's name. */
 							__( 'Approved on %1$s by %2$s.', 'wpcredits-program-manager' ),
 							wp_date( $format, (int) $approved['at'] ),
 							$by->display_name
@@ -1148,7 +1148,7 @@ final class WPCPM_Semester_Report_Screen {
 		// the count is answerable and who to ask, instead of reading it as a dead end.
 		printf(
 			'<p class="wpcpm-report-card__note">%s</p>',
-			esc_html__( 'Students who have not answered yet can be sent a request to answer. A program manager sends it, and nobody is asked twice in thirty days; once they have answered, check the students\' answers again to bring the new ones in.', 'wpcredits-program-manager' )
+			esc_html__( 'Students who have not answered yet can be sent a request to answer. An Administrator sends it, and nobody is asked twice in thirty days; once they have answered, check the students\' answers again to bring the new ones in.', 'wpcredits-program-manager' )
 		);
 
 		echo '</div>';
@@ -2368,7 +2368,7 @@ final class WPCPM_Semester_Report_Screen {
 
 			$body = sprintf(
 				/* translators: 1: institution name, 2: a semester, e.g. "January to June 2026". */
-				__( 'A semester report has been drafted for %1$s, covering %2$s. It is waiting for a program manager to review and approve it; the institution cannot see it until then.', 'wpcredits-program-manager' ),
+				__( 'A semester report has been drafted for %1$s, covering %2$s. It is waiting for an Administrator to review and approve it; the institution cannot see it until then.', 'wpcredits-program-manager' ),
 				$name,
 				WPCPM_Cohort::label( $cohort )
 			) . "\n\n";
@@ -3793,7 +3793,7 @@ final class WPCPM_Semester_Report_Screen {
 			'ask-nobody'        => __( 'There is nobody to ask: everybody in this semester who has written something has either answered or been asked in the last thirty days.', 'wpcredits-program-manager' ),
 			// Said in the same words to a member as to a stranger. Naming the capability
 			// would tell whoever tried exactly which one to go looking for.
-			'ask-refused'       => __( 'Only a program manager can send that request. The students who have not answered are counted below; ask a program manager to write to them.', 'wpcredits-program-manager' ),
+			'ask-refused'       => __( 'Only an Administrator can send that request. The students who have not answered are counted below; ask an Administrator to write to them.', 'wpcredits-program-manager' ),
 			'ask-unread'        => __( 'Nobody was written to, because the program records could not be read and there is no way to tell who has already answered. Try again shortly.', 'wpcredits-program-manager' ),
 			'bad-cohort'        => __( 'Choose the semester the report is about.', 'wpcredits-program-manager' ),
 			'refused'           => __( 'That is not something you can do here.', 'wpcredits-program-manager' ),

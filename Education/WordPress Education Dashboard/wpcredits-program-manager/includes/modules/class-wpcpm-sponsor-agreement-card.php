@@ -99,7 +99,7 @@ final class WPCPM_Sponsor_Agreement_Card {
 				break;
 
 			case WPCPM_Sponsor_Agreement::SUMMARY_RETURNED:
-				printf( '<p class="wpcpm-agreement__lead">%s</p>', esc_html__( 'A program manager read your agreement and sent it back, with this note:', 'wpcredits-program-manager' ) );
+				printf( '<p class="wpcpm-agreement__lead">%s</p>', esc_html__( 'An Administrator read your agreement and sent it back, with this note:', 'wpcredits-program-manager' ) );
 				self::render_note( $record, WPCPM_Sponsor_Agreement::STATE_RETURNED );
 				self::render_upload( $record, __( 'Upload the corrected agreement, signed, as a PDF.', 'wpcredits-program-manager' ) );
 				break;

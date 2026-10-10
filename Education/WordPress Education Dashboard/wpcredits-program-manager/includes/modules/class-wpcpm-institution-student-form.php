@@ -343,7 +343,7 @@ final class WPCPM_Institution_Student_Form {
 		if ( ! $settled ) {
 			printf(
 				'<p class="wpcpm-institution__edit-note">%s</p>',
-				esc_html__( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them a change belongs to. A program manager needs to merge them first. The name on the report record can still be corrected.', 'wpcredits-program-manager' )
+				esc_html__( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the report record can still be corrected.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -482,8 +482,8 @@ final class WPCPM_Institution_Student_Form {
 	 * @return array<string, array{0:string,1:string}>
 	 */
 	public static function messages() {
-		$merge = __( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them the change belongs to, and a program manager needs to merge them first.', 'wpcredits-program-manager' );
-		$none  = __( 'The program\'s student records hold no row for this student yet, so there is nothing to write the dates or the field of study to. A program manager completes the record.', 'wpcredits-program-manager' );
+		$merge = __( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them the change belongs to, and an Administrator needs to merge them first.', 'wpcredits-program-manager' );
+		$none  = __( 'The program\'s student records hold no row for this student yet, so there is nothing to write the dates or the field of study to. An Administrator completes the record.', 'wpcredits-program-manager' );
 
 		return array(
 			'student-saved'         => array( 'success', __( 'Saved. The change is in the program records and on your roster.', 'wpcredits-program-manager' ) ),
@@ -498,7 +498,7 @@ final class WPCPM_Institution_Student_Form {
 			'student-unreadable'    => array( 'error', __( 'Nothing was saved: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'student-airtable'      => array( 'error', __( 'Nothing was saved: the program records refused the change. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
 			'student-part-airtable' => array( 'error', __( 'Part of this change was saved and part was not: the program records refused the rest. Reload this card to see what stands, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'student-unfiled'       => array( 'error', __( 'Nothing was saved: this student\'s row in the program records is not linked to any institution, so there is nothing to record the change against and this form does not make a change it cannot record. A program manager links the row first.', 'wpcredits-program-manager' ) ),
+			'student-unfiled'       => array( 'error', __( 'Nothing was saved: this student\'s row in the program records is not linked to any institution, so there is nothing to record the change against and this form does not make a change it cannot record. An Administrator links the row first.', 'wpcredits-program-manager' ) ),
 			'student-unlogged'      => array( 'error', __( 'The change reached the program records, but the entry saying who made it could not be written, so it is not in this institution\'s history. Tell your program contact, and do not save again until they have looked.', 'wpcredits-program-manager' ) ),
 		);
 	}

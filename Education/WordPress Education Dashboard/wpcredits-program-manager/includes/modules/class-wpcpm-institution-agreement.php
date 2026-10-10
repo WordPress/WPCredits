@@ -1382,7 +1382,7 @@ class WPCPM_Institution_Agreement {
 				'actor'       => get_current_user_id(),
 				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
 				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'     => __( 'A signed Collaboration Agreement was uploaded and is waiting for a program manager to read it.', 'wpcredits-program-manager' ),
+				'message'     => __( 'A signed Collaboration Agreement was uploaded and is waiting for an Administrator to read it.', 'wpcredits-program-manager' ),
 				'data'        => array(
 					'kind'     => $kind,
 					'size'     => (int) $stored['size'],
@@ -1447,7 +1447,7 @@ class WPCPM_Institution_Agreement {
 		$bytes = WPCPM_Private_Files::read( $file['path'] );
 
 		if ( is_wp_error( $bytes ) ) {
-			wp_die( esc_html__( 'That file could not be read. Tell a program manager.', 'wpcredits-program-manager' ), 500 );
+			wp_die( esc_html__( 'That file could not be read. Tell an Administrator.', 'wpcredits-program-manager' ), 500 );
 		}
 
 		nocache_headers();
@@ -3737,8 +3737,8 @@ class WPCPM_Institution_Agreement {
 				sprintf(
 					/* translators: %s: number of working days. */
 					_n(
-						'A program manager will read it and you will get an email either way, usually within %s working day.',
-						'A program manager will read it and you will get an email either way, usually within %s working days.',
+						'An Administrator will read it and you will get an email either way, usually within %s working day.',
+						'An Administrator will read it and you will get an email either way, usually within %s working days.',
 						$days,
 						'wpcredits-program-manager'
 					),
@@ -3895,13 +3895,13 @@ class WPCPM_Institution_Agreement {
 		$build = function () use ( $site, $note, $named, $headers, $when ) {
 			$lines = array(
 				sprintf(
-					/* translators: 1: date, 2: the program manager's name. */
+					/* translators: 1: date, 2: the Administrator's name. */
 					__( 'Your signed Collaboration Agreement was sent back on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
 					$when,
 					$named
 				),
 				$note,
-				__( 'Upload the corrected copy from the agreement panel on the site. Replying to this message reaches the program manager who wrote the note.', 'wpcredits-program-manager' ),
+				__( 'Upload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
 			);
 
 			return array(
@@ -3950,7 +3950,7 @@ class WPCPM_Institution_Agreement {
 		$build = function () use ( $site, $note, $named, $when, $record ) {
 			$lines = array(
 				sprintf(
-					/* translators: 1: date, 2: the program manager's name. */
+					/* translators: 1: date, 2: the Administrator's name. */
 					__( 'Your Collaboration Agreement was revoked on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
 					$when,
 					$named
@@ -4045,7 +4045,7 @@ class WPCPM_Institution_Agreement {
 		$routing = '' === $country ? null : WPCPM_Countries::routing( $country );
 
 		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
-			return __( 'Write to the program manager who has been in touch with your institution.', 'wpcredits-program-manager' );
+			return __( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' );
 		}
 
 		return sprintf(

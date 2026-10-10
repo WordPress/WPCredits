@@ -935,12 +935,12 @@ class WPCPM_Sponsor_Application {
 					$acknowledged
 						? sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We have sent an acknowledgement to %s. A program manager reads every application by hand and checks the company against the program\'s licensing and trademark rules, so a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We have sent an acknowledgement to %s. An Administrator reads every application by hand and checks the company against the program\'s licensing and trademark rules, so a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 						: sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We could not send the acknowledgement to %s today, so please keep the reference above. Your application is stored and a program manager will read it by hand; a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We could not send the acknowledgement to %s today, so please keep the reference above. Your application is stored and an Administrator will read it by hand; a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 				)
@@ -2504,10 +2504,10 @@ class WPCPM_Sponsor_Application {
 					__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 					$reference
 				),
-				__( 'What happens next: a program manager reads every application by hand and checks the company and its products against the program\'s licensing and trademark rules, so a reply takes a few working days. If the program says yes, we will set up an account on the program site and send you a link to choose a password.', 'wpcredits-program-manager' ),
+				__( 'What happens next: an Administrator reads every application by hand and checks the company and its products against the program\'s licensing and trademark rules, so a reply takes a few working days. If the program says yes, we will set up an account on the program site and send you a link to choose a password.', 'wpcredits-program-manager' ),
 				sprintf(
 					/* translators: 1: the address the message went to, 2: site name. */
-					__( 'This message went to %1$s because that address was given on the sponsor application form at %2$s. If it was not you, you can ignore it: nothing happens until a program manager decides.', 'wpcredits-program-manager' ),
+					__( 'This message went to %1$s because that address was given on the sponsor application form at %2$s. If it was not you, you can ignore it: nothing happens until an Administrator decides.', 'wpcredits-program-manager' ),
 					$email,
 					$site
 				),
@@ -3002,7 +3002,7 @@ class WPCPM_Sponsor_Application {
 
 		$build = static function () use ( $site, $reference, $said, $manager ) {
 			$lines = array(
-				__( 'Thank you for offering to sponsor the WordPress Credits Program. Before a program manager can take your application further, they have one question:', 'wpcredits-program-manager' ),
+				__( 'Thank you for offering to sponsor the WordPress Credits Program. Before an Administrator can take your application further, they have one question:', 'wpcredits-program-manager' ),
 				$said,
 				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
 			);
@@ -3294,7 +3294,7 @@ class WPCPM_Sponsor_Application {
 	 * @return string
 	 */
 	private static function question_label() {
-		/* translators: The name of the box a program manager types a question to an applicant in, the first words of its label. */
+		/* translators: The name of the box an Administrator types a question to an applicant in, the first words of its label. */
 		return __( 'Ask the applicant something', 'wpcredits-program-manager' );
 	}
 
@@ -3306,7 +3306,7 @@ class WPCPM_Sponsor_Application {
 	 * @return string
 	 */
 	private static function reason_label() {
-		/* translators: The name of the box a program manager types why an application is rejected in, the first words of its label. */
+		/* translators: The name of the box an Administrator types why an application is rejected in, the first words of its label. */
 		return __( 'Why, for the next Administrator who reads this', 'wpcredits-program-manager' );
 	}
 
@@ -4291,7 +4291,7 @@ class WPCPM_Sponsor_Application {
 		);
 
 		if ( $held ) {
-			echo '<p>' . esc_html__( 'Holding spares the managers a message and nothing more. The applicant was acknowledged exactly as any other was, and none of these checks refused anything: each one holds a row for a person to look at, which is what this is.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'Holding spares the Administrators a message and nothing more. The applicant was acknowledged exactly as any other was, and none of these checks refused anything: each one holds a row for a person to look at, which is what this is.', 'wpcredits-program-manager' ) . '</p>';
 		}
 
 		if ( empty( $signals ) ) {

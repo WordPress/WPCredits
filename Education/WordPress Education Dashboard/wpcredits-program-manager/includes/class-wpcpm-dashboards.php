@@ -201,7 +201,7 @@ class WPCPM_Dashboards {
 			// account keeps the Institution role until a manager takes it away, so "you do not
 			// hold the role" would be false for exactly the people who have just lost access.
 			'institutions'   => __( 'This page is for the institutions in the program. Your account does not act for an institution.', 'wpcredits-program-manager' ),
-			'administrators' => __( 'This page is for the program managers. Your account cannot manage the program.', 'wpcredits-program-manager' ),
+			'administrators' => __( 'This page is for the Administrators. Your account cannot manage the program.', 'wpcredits-program-manager' ),
 			'sponsors'       => __( 'This page is for the program sponsors. Your account is not attached to a sponsor.', 'wpcredits-program-manager' ),
 		);
 
@@ -251,7 +251,7 @@ class WPCPM_Dashboards {
 			// this page still resolve to nothing, because a manager falls back to the first
 			// institution with a live member. What is missing is an account, not a read.
 			'institutions'   => __( 'No institution has an account on this site yet, so there is nothing to show. Provision one on the Institutions screen and it will appear here.', 'wpcredits-program-manager' ),
-			'administrators' => __( 'Nothing is waiting for a manager right now.', 'wpcredits-program-manager' ),
+			'administrators' => __( 'Nothing is waiting for an Administrator right now.', 'wpcredits-program-manager' ),
 			'sponsors'       => __( 'No sponsor has an account yet.', 'wpcredits-program-manager' ),
 		);
 

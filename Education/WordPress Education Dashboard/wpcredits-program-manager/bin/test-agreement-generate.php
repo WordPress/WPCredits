@@ -1347,7 +1347,7 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( 'the reader is told the template needs attention, not shown a placeholder', $outcome, 'wp_die: The agreement template needs attention; a program manager has been told. Nothing was generated, and nothing is wrong at your end.' );
+ck( 'the reader is told the template needs attention, not shown a placeholder', $outcome, 'wp_die: The agreement template needs attention; an Administrator has been told. Nothing was generated, and nothing is wrong at your end.' );
 ck( 'nothing was generated and nothing was written to the base', array( count( $GLOBALS['posts'] ), count( $GLOBALS['patched'] ) ), array( 0, 0 ) );
 ck( 'and the people who can fix it were mailed', count( $GLOBALS['notified'] ) ? array( $GLOBALS['notified'][0][0], $GLOBALS['notified'][0][1] ) : array(), array( 'agreement-template', '[WordPress Education] The Collaboration Agreement template needs attention' ) );
 $refused = WPCPM_Agreement_Template::load( WPCPM_TEST_LANGUAGE );

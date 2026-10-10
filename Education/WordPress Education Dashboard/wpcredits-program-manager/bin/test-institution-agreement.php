@@ -1909,7 +1909,7 @@ ck( 'a legacy row has no file, and says so the same way', run( 'handle_download'
 download_world();
 unset( $GLOBALS['files']['2026/deadbeef.pdf'] );
 
-ck( 'a row pointing at bytes that are gone does not hand over an empty file', run( 'handle_download' ), 'died: That file could not be read. Tell a program manager.' );
+ck( 'a row pointing at bytes that are gone does not hand over an empty file', run( 'handle_download' ), 'died: That file could not be read. Tell an Administrator.' );
 
 $signed_out     = download_world();
 $GLOBALS['uid'] = 0;
@@ -2483,12 +2483,12 @@ ck( 'and wrote nothing further', count( $GLOBALS['patched'] ), 1 );
 
 $id = settled_world();
 run( 'handle_revoke' );
-ck( 'an institution the base routes nowhere gets the neutral sentence instead', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the program manager who has been in touch with your institution.' ), true );
+ck( 'an institution the base routes nowhere gets the neutral sentence instead', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the Administrator who has been in touch with your institution.' ), true );
 
 $id = settled_world();
 seed_country( $rec_a, 'recCOUNTRYAAAAAA1', 'Nigeria', '' );
 run( 'handle_revoke' );
-ck( 'and so does one whose country has nobody against it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the program manager who has been in touch with your institution.' ), true );
+ck( 'and so does one whose country has nobody against it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the Administrator who has been in touch with your institution.' ), true );
 
 $id = settled_world( 'legacy' );
 update_post_meta( $id, WPCPM_Institution_Agreement::META_NOTE, 'second folder, the 2025 copy' );

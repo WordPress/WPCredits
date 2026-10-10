@@ -1294,7 +1294,7 @@ ck( 'with no program manager to list, the text input it stands in for, the same 
     array(
         null !== $typed && false !== strpos( $typed, 'type="checkbox"' ),
         null === $typed ? null : browser_post( $typed ),
-        null !== $typed && false !== strpos( $typed, '<p class="description wpcpm-settings__fallback">Type the addresses, separated by commas. No program manager account with an email address was found.</p>' ),
+        null !== $typed && false !== strpos( $typed, '<p class="description wpcpm-settings__fallback">Type the addresses, separated by commas. No Administrator account with an email address was found.</p>' ),
         null !== $typed && false !== strpos( $typed, ' placeholder="one@example.org, two@example.org"' ),
     ),
     array( false, array( 'agreement_notify' => 'zoe@program.example,board@partner.example' ), true, true ) );
@@ -1489,6 +1489,16 @@ ck( 'each with the saved addresses nobody\'s account holds on its Other addresse
 ck( 'and the program managers are asked for once a draw, though the Institutions tab lists them twice',
     $managers_asked, 1 );
 
+// With nobody ticked every Administrator is written to, which includes the accounts WordPress gives its
+// Administrator role for technical work: the warning says that in the role's own words and does not
+// name "technical administrators" as though they were a group beside the Administrators.
+ck( 'the agreement reviewers\' warning says every account with the WordPress Administrator role is written to, technical ones too, once',
+    array(
+        substr_count( $institutions, 'That includes every account with the WordPress Administrator role, technical ones too, so set it before the first real upload.' ),
+        substr_count( $institutions, 'technical administrators' ),
+    ),
+    array( 1, 0 ) );
+
 // A live track's status as publishing appends it, trimmed alone, and its copy in the list as a Save
 // leaves it, sanitized: a run of spaces folded into one, a "<" that opens no tag kept as `&lt;`. The
 // screen locks it by the form the list keeps it in, as the save's own rule judges it
@@ -1680,7 +1690,7 @@ $sentences = array(
 	'Type one status per line. The list could not be read from Airtable just now.'                            => 2,
 	'Type the stage. The list could not be read from Airtable just now.'                                      => 1,
 	'Type one stage per line. The list could not be read from Airtable just now.'                             => 1,
-	'Type the addresses, separated by commas. No program manager account with an email address was found.'  => 3,
+	'Type the addresses, separated by commas. No Administrator account with an email address was found.'  => 3,
 );
 $said = array();
 
@@ -1788,7 +1798,7 @@ ck( 'each cause is named in its own true sentence, after what to type',
         'no Status column'               => 'Type the status. The Mentors table has no Status column.',
         'a Status column of plain text'  => 'Type the status. The Mentors table\'s Status column holds no options to choose from.',
         'Airtable failing'               => 'Type the ID. The list could not be read from Airtable just now.',
-        'nobody to list'                 => 'Type the addresses, separated by commas. No program manager account with an email address was found.',
+        'nobody to list'                 => 'Type the addresses, separated by commas. No Administrator account with an email address was found.',
     ) );
 
 /* ---- what a choice saves ------------------------------------------------------ */

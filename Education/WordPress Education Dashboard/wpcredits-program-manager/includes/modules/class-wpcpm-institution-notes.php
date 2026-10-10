@@ -293,7 +293,7 @@ class WPCPM_Institution_Notes {
 		// worded to the roster rather than to the institution.
 		printf(
 			'<p class="wpcpm-notes__intro">%s</p>',
-			esc_html__( 'These notes stay with your institution and with the program managers for as long as this student is on your roster. The mentor does not see them, and the mentor\'s own notes are not shown here. A student who transfers takes their card to their new institution and leaves these notes behind, where nobody reads them again.', 'wpcredits-program-manager' )
+			esc_html__( 'These notes stay with your institution and with the Administrators for as long as this student is on your roster. The mentor does not see them, and the mentor\'s own notes are not shown here. A student who transfers takes their card to their new institution and leaves these notes behind, where nobody reads them again.', 'wpcredits-program-manager' )
 		);
 
 		self::render_message( $message );

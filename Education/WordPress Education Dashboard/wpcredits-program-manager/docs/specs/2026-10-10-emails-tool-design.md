@@ -154,8 +154,8 @@ Four releases on the main line, each reviewed, gated, built, tried on the local 
 
 1. **1.122.18: the log.** The table, the recording, the Log tab, the cleanup, the health card, the Export and Erase tools, and the move of the 100 entries. First, because it answers "was it sent?" at once and needs no template.
 2. **1.122.19: the registry and the editor, with the Invitations** (the four invitations and the test-invitation sample), the **Signature and footer** tab, the **Contact address in emails** setting, and **Send me a test** in place of the Settings > Mail buttons. The footer starts appearing in every plugin email with this release.
-3. **1.122.20: Mentor calls and Semester reports**, 12 emails.
-4. **1.122.21: Institutions and Sponsors**, 27 emails.
+3. **1.122.21: Mentor calls and Semester reports**, 12 emails.
+4. **1.122.22: Institutions and Sponsors**, 27 emails.
 
 How each step is proved:
 

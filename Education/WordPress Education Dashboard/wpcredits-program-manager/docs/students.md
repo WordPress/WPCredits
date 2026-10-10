@@ -4,7 +4,7 @@
 
 Welcome to the WordPress Education Dashboard. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.
 
-This guide is written for students. Your mentor and the program managers have their own.
+This guide is written for students. Your mentor and the Administrators have their own.
 
 ## Signing in
 
@@ -152,7 +152,7 @@ If your graduation looks overdue, ask your mentor, or whoever runs the program.
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
-what your mentor reads. When a mentor or a program manager opens your card, your report appears as
+what your mentor reads. When a mentor or an Administrator opens your card, your report appears as
 plain text rows rather than as a form, so nothing there can be edited by mistake.
 
 Open **Your report form** and the questions are grouped in the order you meet them:
@@ -176,7 +176,7 @@ questions take a picture instead of a link: a PNG, JPEG or WebP file of up to 4 
 uploads a day across all of them. The file is kept on this site and a copy is sent to the program
 records, which is why the picture on your card is this site's copy and still there tomorrow.
 Under each picture, choosing a new file **replaces** what is there, and **Remove** deletes it from
-both places at once. Your mentor and the program managers see your screenshots when they open your
+both places at once. Your mentor and the Administrators see your screenshots when they open your
 Student Report Card, so treat one as part of your report rather than as a private note.
 
 The grades are yours to copy across from wherever you were marked - this form records them, it does
@@ -193,7 +193,7 @@ you. See *Telling us how it is going* below.
 
 The program's sponsors offer their tools to current students: a year of hosting, a premium plugin, a course. When a sponsor switches an offer on, it appears here with the sponsor's logo, what you get and how to redeem it. Press *Get my code*, beside the offer's *More information* link, and your code appears below, under *Your codes*, yours to keep; where the sponsor gives one link for everyone, *Show me the code* puts it there. Once you have claimed an offer, its card shows only the offer and the day you claimed it. Everything you have claimed stays under *Your codes*, even after an offer ends.
 
-Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code* beside it: your program contact is told the offer and the last four characters and gets back to you. A program manager looking at your card sees only how many tools you claimed.
+Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code* beside it: your program contact is told the offer and the last four characters and gets back to you. An Administrator looking at your card sees only how many tools you claimed.
 
 ### Resources
 
@@ -276,7 +276,7 @@ useful if you say what you actually think.
 
 **The exception is yours to grant, and nobody can grant it for you.** At the end of a term the
 program drafts a semester report about the students your institution sent - how many took part,
-which teams they contributed to, and what they published. A program manager reviews and approves
+which teams they contributed to, and what they published. An Administrator reviews and approves
 it, and only then can your institution read it. Two questions on the *Finishing up* form, and
 only those two, decide what of yours goes into it - whether your institution may list you (by name,
 or by your blog address alone), and whether it may quote your feedback (with your name, or without
@@ -302,8 +302,8 @@ appear when they apply - say the hours are hard to reach and a box opens asking 
 **Finishing up** ends with four optional permissions, in a box of their own: whether a quote about
 your experience may be shared publicly, whether the program may contact you about WordPress events
 and opportunities, and the two questions above about your institution's semester report. All four
-are yours to decline, and declining changes nothing else. Only you can answer them - a program
-manager looking at your form sees them and cannot fill them in for you.
+are yours to decline, and declining changes nothing else. Only you can answer them - an
+Administrator looking at your form sees them and cannot fill them in for you.
 
 ### Filling one in
 
@@ -337,4 +337,4 @@ Those four are asked for on your **report form**, and saving it writes them back
 they are yours to keep current, and the way to correct them is to correct them there.
 
 If the page shows nothing at all, or says it cannot find your record, your account exists but is
-not linked to a program record yet. That is one for the program managers.
+not linked to a program record yet. That is one for the Administrators.

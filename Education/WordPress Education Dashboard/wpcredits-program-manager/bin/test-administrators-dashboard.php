@@ -1031,6 +1031,13 @@ ck( 'and the revoked one offers reinstate with its own nonce', has( $agr_html, '
 $rep = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_reports( $data['reports'] ); } );
 ck( 'a draft to review links to the editor as that institution', has( $rep, 'wpcpm_report=2026-H1' ) && has( $rep, 'wpcpm_institution_view=' . $A ), true );
 ck( 'and says the site drafted it with one still in progress', has( $rep, 'by the site' ) && has( $rep, '>1<' ), true );
+// The Drafted column's other answer, for a draft an Administrator pressed Draft now for: the card's
+// private line, read as the card prints it (the queue above holds only a draft the site made).
+$drafted = new ReflectionMethod( 'WPCPM_Administrators_Cards', 'drafted' );
+if ( PHP_VERSION_ID < 80100 ) {
+	$drafted->setAccessible( true );
+}
+ck( 'and a draft an Administrator made says so, in the Drafted column', array( substr( $drafted->invoke( null, 1756500000, 'manager' ), -21 ), substr( $drafted->invoke( null, 1756500000, 'auto' ), -11 ) ), array( ', by an Administrator', 'by the site' ) );
 ck( 'a due cohort has a Draft now form', has( $rep, 'value="wpcpm_report_draft"' ) && has( $rep, 'name="cohort" value="2025-H2"' ), true );
 // A refusal (the semester already has a report, the ceiling is spent) has to come back here
 // rather than to wp-admin's default (final review, Important 2).
@@ -1245,7 +1252,7 @@ $GLOBALS['manage'] = array( 3 );
 ck( 'a manager\'s toolbar lists the Administrator Dashboard', in_array( 'wpcpm-administrator-dashboard', array_column( WPCPM_Dashboards::links(), 'id' ), true ), true );
 $GLOBALS['manage'] = array();
 ck( 'and a member\'s does not', in_array( 'wpcpm-administrator-dashboard', array_column( WPCPM_Dashboards::links(), 'id' ), true ), false );
-ck( 'the refusal names the audience, not the Mentor role', WPCPM_Dashboards::nothing_to_show( 'administrators', false ), 'This page is for the program managers. Your account cannot manage the program.' );
+ck( 'the refusal names the audience, not the Mentor role', WPCPM_Dashboards::nothing_to_show( 'administrators', false ), 'This page is for the Administrators. Your account cannot manage the program.' );
 ck( 'and a manager with nothing is pointed at the Administrators screen', has( WPCPM_Dashboards::nothing_to_show( 'administrators', true ), 'page=wpcpm-administrators' ), true );
 
 echo "\n=== The wiring ===\n";
@@ -1254,7 +1261,9 @@ $module_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/c
 ck( 'the module boots the dashboard, ensures the page on activation and deletes its options on uninstall', array( has( $module_src, 'WPCPM_Administrators_Dashboard::init()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::ensure_page()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_PAGE' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED' ) ), array( true, true, true, true ) );
 $block = json_decode( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/block.json' ), true );
 $asset = include WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.asset.php';
-ck( 'the block is named for the class and versioned with the release', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.92.0', '1.92.0' ) );
+ck( 'the block is named for the class and versioned with the release that last changed what its editor script and description say (1.122.20: Administrator for the manager)', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.122.20', '1.122.20' ) );
+$editor_js = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.js' );
+ck( 'and the editor\'s empty preview speaks of the Administrator viewing the page, not a manager', array( has( $editor_js, 'for the Administrator viewing it.' ), has( $editor_js, 'for the manager viewing it' ), has( $block['description'], 'Shows Administrators every queue' ) ), array( true, false, true ) );
 $dashes = array();
 foreach ( array( 'includes/modules/class-wpcpm-administrators-cards.php', 'includes/modules/class-wpcpm-administrators-dashboard.php', 'includes/class-wpcpm-return.php', 'assets/css/administrator.css', 'blocks/administrator-dashboard/editor.js', 'bin/test-administrators-dashboard.php' ) as $relative ) {
 	if ( preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( WPCPM_PLUGIN_DIR . $relative ) ) ) {

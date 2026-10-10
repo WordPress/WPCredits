@@ -1008,12 +1008,12 @@ class WPCPM_Institution_Application {
 					$acknowledged
 						? sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We have sent an acknowledgement to %s with a link that confirms the address. A program manager reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We have sent an acknowledgement to %s with a link that confirms the address. An Administrator reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 						: sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We could not send the acknowledgement to %s today, so please keep the reference above. Your application is stored and a program manager will read it by hand; a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We could not send the acknowledgement to %s today, so please keep the reference above. Your application is stored and an Administrator will read it by hand; a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 				)
@@ -1041,8 +1041,8 @@ class WPCPM_Institution_Application {
 			'busy'             => array( 'error', __( 'Several applications have already been sent from here in the last hour, so this one was not. Please try again later.', 'wpcredits-program-manager' ) ),
 			'lost'             => array( 'error', __( 'Something went wrong at our end and the application was not saved. Nothing has been sent. Please try once more.', 'wpcredits-program-manager' ) ),
 			'closed'           => array( 'info', __( 'The program is not taking applications through this form at the moment.', 'wpcredits-program-manager' ) ),
-			'verified'         => array( 'success', __( 'Thank you. Your address is confirmed, and your application is with a program manager.', 'wpcredits-program-manager' ) ),
-			'verified-already' => array( 'info', __( 'This address was already confirmed, so there is nothing more to do. Your application is with a program manager.', 'wpcredits-program-manager' ) ),
+			'verified'         => array( 'success', __( 'Thank you. Your address is confirmed, and your application is with an Administrator.', 'wpcredits-program-manager' ) ),
+			'verified-already' => array( 'info', __( 'This address was already confirmed, so there is nothing more to do. Your application is with an Administrator.', 'wpcredits-program-manager' ) ),
 			'verify-failed'    => array( 'error', __( 'That confirmation link could not be read. It may have been broken across two lines by a mail program: please try the whole link again.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -2434,13 +2434,13 @@ class WPCPM_Institution_Application {
 					__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 					$reference
 				),
-				__( 'What happens next: a program manager reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account on the program site and send you the Collaboration Agreement to sign.', 'wpcredits-program-manager' ),
+				__( 'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account on the program site and send you the Collaboration Agreement to sign.', 'wpcredits-program-manager' ),
 				__( 'Please confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:', 'wpcredits-program-manager' ),
 				$verify,
 			);
 
 			if ( '' !== $calendly ) {
-				$lines[] = __( 'You can also book a call with the program manager who looks after your country:', 'wpcredits-program-manager' );
+				$lines[] = __( 'You can also book a call with the Administrator who looks after your country:', 'wpcredits-program-manager' );
 				$lines[] = $calendly;
 			}
 

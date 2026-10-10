@@ -1351,6 +1351,10 @@ ck( 'six actions, one apiece, under the stem', array( WPCPM_Sponsor_Application:
 ck( 'every state has a label in the manager\'s words', count( array_filter( array_map( array( 'WPCPM_Sponsor_Application', 'state_label' ), WPCPM_Sponsor_Application::states() ), 'strlen' ) ), 6 );
 
 $src    = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php' );
+// What holding does, on the screen of the application that is held: it spares the Administrators a
+// message and nothing more (a held application is read in the screen's render_signals(), which no
+// suite here draws, so the sentence is held to the source).
+ck( 'the sentence on a held application says holding spares the Administrators a message, not "the managers"', array( false !== strpos( $src, 'Holding spares the Administrators a message and nothing more.' ), false !== strpos( $src, 'Holding spares the managers' ) ), array( true, false ) );
 $leaves = array();
 preg_match_all( "/self::leave\(\s*'([a-z-]+)'/", $src, $found );
 foreach ( array_unique( $found[1] ) as $slug ) {
@@ -1423,7 +1427,7 @@ $q_stored = 'Do your student plans start at fewer than &lt; 10 seats? We would a
 ck( 'the stand-in is core\'s cleaner: it hands the question back in this form', array( sanitize_textarea_field( $q_typed ), mb_strlen( $q_typed ), mb_strlen( $q_stored ) ), array( $q_stored, 103, 120 ) );
 $GLOBALS['mail'] = array();
 $asked = decide( 'handle_info', $id, array( 'wpcpm_question' => $q_typed ) );
-ck( 'the applicant, an outside company, is mailed the question as typed', array( flashed( $asked ), mail_said( 0, 'body' ) ), array( 'sapp-info', "Thank you for offering to sponsor the WordPress Credits Program. Before a program manager can take your application further, they have one question:\r\n\r\n" . $q_typed . "\r\n\r\nReply to this message and your answer reaches them directly." ) );
+ck( 'the applicant, an outside company, is mailed the question as typed', array( flashed( $asked ), mail_said( 0, 'body' ) ), array( 'sapp-info', "Thank you for offering to sponsor the WordPress Credits Program. Before an Administrator can take your application further, they have one question:\r\n\r\n" . $q_typed . "\r\n\r\nReply to this message and your answer reaches them directly." ) );
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'and the history keeps it as the cleaner stored it', end( $events )['note'], $q_stored );
 $GLOBALS['mail'] = array();

@@ -279,7 +279,7 @@ final class WPCPM_Sponsor_Agreement {
 		$max_mb = max( 1, (int) WPCPM_Settings::get_value( 'agreement_max_mb', 10 ) );
 
 		return array(
-			'agreement-uploaded'  => array( 'success', __( 'Your signed agreement is uploaded. A program manager reads it and you will get an email either way.', 'wpcredits-program-manager' ) ),
+			'agreement-uploaded'  => array( 'success', __( 'Your signed agreement is uploaded. An Administrator reads it and you will get an email either way.', 'wpcredits-program-manager' ) ),
 			'agreement-withdrawn' => array( 'success', __( 'The agreement is withdrawn and its file is deleted. Upload another whenever you are ready.', 'wpcredits-program-manager' ) ),
 			'agreement-declare'   => array( 'error', __( 'Nothing was uploaded. Tick the box to say the document you are uploading is the signed one.', 'wpcredits-program-manager' ) ),
 			'agreement-too-big'   => array(
@@ -293,7 +293,7 @@ final class WPCPM_Sponsor_Agreement {
 			'agreement-not-pdf'   => array( 'error', __( 'Nothing was uploaded. That file is not a PDF. Save or export the signed agreement as a PDF and upload it again.', 'wpcredits-program-manager' ) ),
 			'agreement-no-file'   => array( 'error', __( 'Nothing was uploaded. No file arrived with the form. Choose the signed PDF and press the button again.', 'wpcredits-program-manager' ) ),
 			'agreement-file'      => array( 'error', __( 'Nothing was uploaded. The file passed every check and this site could not store it, which is this site\'s fault and not yours. Nothing was kept. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'agreement-encrypted' => array( 'error', __( 'Nothing was uploaded. That PDF is password protected, so a program manager could not open it. Save an unprotected copy and upload that instead.', 'wpcredits-program-manager' ) ),
+			'agreement-encrypted' => array( 'error', __( 'Nothing was uploaded. That PDF is password protected, so an Administrator could not open it. Save an unprotected copy and upload that instead.', 'wpcredits-program-manager' ) ),
 			'agreement-launch'    => array( 'error', __( 'Nothing was uploaded. That PDF asks to run a program when it is opened, which a signed agreement has no reason to do. Print it to a new PDF and upload that instead.', 'wpcredits-program-manager' ) ),
 			'agreement-in-review' => array( 'error', __( 'Nothing was uploaded. An agreement from your company is already waiting for review. Withdraw it first if it was the wrong file.', 'wpcredits-program-manager' ) ),
 			'agreement-busy'      => array( 'error', __( 'Nothing was saved. Either another change to this agreement was in flight, or your company has used up the uploads one day allows. Try again in a moment, and tomorrow if it happens again.', 'wpcredits-program-manager' ) ),
@@ -979,7 +979,7 @@ final class WPCPM_Sponsor_Agreement {
 				'actor'    => get_current_user_id(),
 				'ground'   => (string) $claim['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => __( 'A signed sponsor agreement was uploaded and is waiting for a program manager to read it.', 'wpcredits-program-manager' ),
+				'message'  => __( 'A signed sponsor agreement was uploaded and is waiting for an Administrator to read it.', 'wpcredits-program-manager' ),
 				'data'     => array(
 					'size'     => (int) $stored['size'],
 					'sha256'   => (string) $stored['sha256'],
@@ -1039,7 +1039,7 @@ final class WPCPM_Sponsor_Agreement {
 		$bytes = WPCPM_Private_Files::read( $file['path'] );
 
 		if ( is_wp_error( $bytes ) ) {
-			wp_die( esc_html__( 'That file could not be read. Tell a program manager.', 'wpcredits-program-manager' ), 500 );
+			wp_die( esc_html__( 'That file could not be read. Tell an Administrator.', 'wpcredits-program-manager' ), 500 );
 		}
 
 		nocache_headers();
@@ -2297,7 +2297,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * @return string
 	 */
 	private static function revoke_label() {
-		/* translators: The name of the box a program manager types why an agreement is taken out of force in, the first words of its label. */
+		/* translators: The name of the box an Administrator types why an agreement is taken out of force in, the first words of its label. */
 		return __( 'Why it is out of force, in your own words', 'wpcredits-program-manager' );
 	}
 
@@ -2685,9 +2685,9 @@ final class WPCPM_Sponsor_Agreement {
 		$build = function () use ( $site, $note, $named, $page, $manager ) {
 			$lines = array(
 				'' === $named
-					? __( 'A program manager read your Collaboration Agreement and sent it back, with this note:', 'wpcredits-program-manager' )
+					? __( 'An Administrator read your Collaboration Agreement and sent it back, with this note:', 'wpcredits-program-manager' )
 					: sprintf(
-						/* translators: %s: the manager's name. */
+						/* translators: %s: the Administrator's name. */
 						__( '%s read your Collaboration Agreement and sent it back, with this note:', 'wpcredits-program-manager' ),
 						$named
 					),

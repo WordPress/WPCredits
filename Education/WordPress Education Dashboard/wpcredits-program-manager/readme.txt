@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.19
+Stable tag: 1.122.20
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -99,7 +99,7 @@ Past students were previously not read from Airtable at all, so **run one sync a
 
 Each student carries a running history of notes - one per call, typically - so a mentor can see what was discussed and when. Notes are written and read on the student's own card: type into **Add a note**, press **Save note**, and it appears at the top of the list stamped with the date, time and author. The collapsed row shows a note count, so it is obvious at a glance who has been spoken to and who has not.
 
-A mentor can delete their own notes; a program manager can delete any. Nobody can delete a colleague's record of a call. There is no editing - correct a mistake by deleting and writing again.
+A mentor can delete their own notes; an Administrator can delete any. Nobody can delete a colleague's record of a call. There is no editing - correct a mistake by deleting and writing again.
 
 **Past students cannot receive new notes.** A student who has graduated is not going to be called again, so the *Add a note* form is not shown for anyone in the Past students section, and a request to add one is refused rather than merely hidden. Their existing history stays readable, and still deletable.
 
@@ -123,7 +123,7 @@ Daylight saving is handled rather than hoped for. Nothing is offered inside an h
 
 **Nothing here needs JavaScript.** Months and days are links and booking is a form post. The one script offers the browser's timezone to somebody who has not set one.
 
-Past students cannot book, for the reason they cannot receive new notes. Program managers can book on a student's behalf, which a student locked out of their account still needs. Calls live in their own private post type, are never written back to Airtable, and canceling keeps the record rather than erasing it.
+Past students cannot book, for the reason they cannot receive new notes. Administrators can book on a student's behalf, which a student locked out of their account still needs. Calls live in their own private post type, are never written back to Airtable, and canceling keeps the record rather than erasing it.
 
 = Each student collapses =
 
@@ -291,6 +291,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.20 =
+
+* Every screen, email and guide now says Administrator where it said program manager, or just manager for the same people ("Nothing is waiting for an Administrator right now", "drafted by an Administrator"). That covers the Settings screen, the Tools, the Administrators screen, the Institution Dashboard, the Sponsor Dashboard, the notices, and the emails to students, mentors, institutions, sponsors and applicants ("An Administrator reads every application by hand", "Ask an Administrator"), and the student, mentor, Administrator and sponsor guides. Each sentence means what it meant.
+* The guide for the people who run the program is now the Administrator guide, in its own title and in the link to it on the Settings screen. The page keeps its address, /program-manager-guide/, so links and bookmarks keep working.
+* Tools > Need help?: the Administrator's link to the WordPress Credits section of the Make handbook is labeled WordPress Credits handbook, since it leads to the handbook and not to this site's guide.
+* The Administrator Dashboard block's description in the block inserter, and the preview text in its editor, say Administrator too.
+* The changelog below keeps the words of each release's day.
+* For developers: `bin/test-admin-menu.php`, which already refuses "module" in any string passed to a translation function, also refuses "program manager" (any case) in those strings, in every guide section, in what this readme says before its changelog and in each block's title and description; only the plugin's name, WPCredits Program Manager, keeps the words. `bin/test-invitation-text.php` still holds the invitations to the 1.122.18 recording, and applies to it the one sentence this release words differently. Airtable field names, option keys, capability names and the guide's address are data, not words on a screen, and keep their names.
 
 = 1.122.19 =
 

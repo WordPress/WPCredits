@@ -13,7 +13,7 @@ publishes the guide at /program-manager-guide/. Each setting has one sentence of
 the rest of what there is to know in a **Details** fold under that, closed until you open it.
 
 A setting that holds something Airtable or the site can list is chosen rather than typed: the base,
-the tables and their name columns, the statuses and the stages, and the program managers who are
+the tables and their name columns, the statuses and the stages, and the Administrators who are
 told about agreements, reports and sponsors' mail. When a list cannot be read, the setting is typed
 as it always was, and a sentence under it says why. A value saved that its list does not hold is
 still offered, after the list and marked *(current)*, so a Save never drops it.
@@ -75,7 +75,7 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 | **Contribution areas table** and **Contribution areas name column** | Read the same way, for the contribution team a record links to. |
 | **Tutors table** | Read when an institution enrolls students, for that institution's own tutors and no other school's. |
 | **Feedback table** | Where the students' survey answers are written: one row per student, with a column per question. |
-| **Countries table** and **Countries name column** | Read for the name of each institution's country and the program manager who looks after it; the name column holds each country's name. |
+| **Countries table** and **Countries name column** | Read for the name of each institution's country and the Administrator who looks after it; the name column holds each country's name. |
 | **Team Members table** | Read by the sponsors sync for each sponsor's program contact. Not the Contribution areas table. |
 | **Sponsors table** and **Sponsors name column** | Read by the sponsors sync, and written to whenever a sponsor's record changes on this site, from an approved application to a new logo; the name column holds each company's name, which the mentors sync reads too, for the report form's company field. |
 
@@ -165,7 +165,7 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 - **Applications from institutions** - **Take applications through the form on this site**. Off by
   default, since the form is a public page anybody can post to; its address is under the switch.
-  Every submission is stored for a program manager to read on the Institutions screen's Waiting for
+  Every submission is stored for an Administrator to read on the Institutions screen's Waiting for
   review tab and to decide on the Administrator Dashboard, and nothing is created until somebody
   approves it; while this is off, the page shows one sentence saying applications are closed. The
   form shows nothing to the public without a published privacy policy, however this is switched, and
@@ -204,10 +204,11 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Agreement review** - how many days, from 1 to 60 and 3 by default, a signed agreement may wait
   before the queue marks it overdue and the nightly digest names it.
 - **Who reviews agreements** - who is told when an agreement arrives and sent the overdue digest: a
-  box for each program manager, under **Administrators**, and an **Other addresses** line for
-  anybody else, separated by commas. With none, every program manager is written to, which reaches
-  technical administrators as well, so set it before the first real upload. Where no program manager
-  account with an email address can be listed, the addresses are typed, separated by commas.
+  box for each Administrator, under **Administrators**, and an **Other addresses** line for
+  anybody else, separated by commas. With none, every Administrator is written to. That includes
+  every account with the WordPress Administrator role, technical ones too, so set it before the
+  first real upload. Where no Administrator account with an email address can be listed, the
+  addresses are typed, separated by commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept
   on this site rather than in the code, because the document is editable by anyone holding its link
@@ -216,13 +217,13 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 #### Semester report drafting
 
 - **Drafting** - **Draft each institution's semester report when the semester ends**, on by
-  default: a daily job drafts a report for every finished semester and tells the program managers.
-  Off, drafts are written only when a manager presses Draft now.
+  default: a daily job drafts a report for every finished semester and tells the Administrators.
+  Off, drafts are written only when an Administrator presses Draft now.
 - **Drafting grace** - how many days after a semester ends, from 7 to 365 and 45 by default, the job
   waits for students still in progress before drafting anyway. The draft says how many were still
   in progress.
 - **Who reviews reports** - who is told when the job drafts a report, chosen as the agreements'
-  reviewers are. With none, every program manager is written to.
+  reviewers are. With none, every Administrator is written to.
 
 ### The Sponsors tab
 
@@ -233,7 +234,7 @@ Approved**, **Interest mail** and **Offers**.
 
 - **Applications from sponsors** - **Take sponsor applications through the form on this site**, at
   /sponsor-application/. Off by default, since it is a public page anybody can post to; its address
-  is under the switch. Every submission is stored for a program manager to read on the Sponsors
+  is under the switch. Every submission is stored for an Administrator to read on the Sponsors
   screen's Waiting for review tab and to decide on the Administrator Dashboard, and nothing is
   created in Airtable until somebody approves it; while this is off, the page shows one sentence
   saying applications are closed. As with institutions, the form shows nothing to the public
@@ -255,12 +256,12 @@ Approved**, **Interest mail** and **Offers**.
 
 #### Interest mail
 
-- **Who is mailed** - the addresses mailed in place of a sponsor's program manager when it has
-  none, chosen as the Institutions tab's reviewers are; with none here, every program manager is
-  written to. Every mail meant for a sponsor's program manager goes to its assigned program manager:
+- **Who is mailed** - the addresses mailed in place of a sponsor's Administrator when it has
+  none, chosen as the Institutions tab's reviewers are; with none here, every Administrator is
+  written to. Every mail meant for a sponsor's Administrator goes to its assigned Administrator:
   its interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one
   of its codes and a warning that its codes are running low. A sponsor with none is mailed here, and
-  every new sponsor application comes here too, since a new application has no manager yet.
+  every new sponsor application comes here too, since a new application has no Administrator yet.
 
 #### Offers
 
@@ -273,7 +274,7 @@ Approved**, **Interest mail** and **Offers**.
   a mentor sees the offers whose sponsor opened them to mentors, and the Administrator Dashboard
   shows every live offer whatever these say.
 - **Low-stock warning** - when a pool of one-time codes falls below this many codes, from 1 to 1000
-  and 10 by default, the sponsor and its program manager are mailed, once per crossing. Its fold:
+  and 10 by default, the sponsor and its Administrator are mailed, once per crossing. Its fold:
   this is the default for new offers, and each offer can set its own.
 
 ### The Security tab
@@ -367,5 +368,5 @@ proxy the two application forms believe.
 #### Lapsed invitations
 
 - **Settled invitations kept for (days)** - from 7 to 365, 30 by default: how long an invitation to
-  join an institution's account stays listed once it was accepted, canceled or ran out, so a program
-  manager can still see who was invited and never came.
+  join an institution's account stays listed once it was accepted, canceled or ran out, so an
+  Administrator can still see who was invited and never came.

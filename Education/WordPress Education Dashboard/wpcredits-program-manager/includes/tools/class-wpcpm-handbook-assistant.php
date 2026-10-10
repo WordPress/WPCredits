@@ -399,7 +399,7 @@ class WPCPM_Handbook_Assistant {
 				// Program managers: the handbook's education section is theirs as a whole, and
 				// the program's own channel is where they talk.
 				'administrator' => array(
-					'label' => __( 'Program manager guide', 'wpcredits-program-manager' ),
+					'label' => __( 'WordPress Credits handbook', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
@@ -617,7 +617,7 @@ class WPCPM_Handbook_Assistant {
 	 */
 	private static function render_empty() {
 		if ( ! WPCPM_Handbook_Answer::provider_ready() ) {
-			return self::notice( __( 'No AI provider is configured, so questions cannot be answered yet. A program manager can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' ) );
+			return self::notice( __( 'No AI provider is configured, so questions cannot be answered yet. An Administrator can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' ) );
 		}
 
 		$out = sprintf(

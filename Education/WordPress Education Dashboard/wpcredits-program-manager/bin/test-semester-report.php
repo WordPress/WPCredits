@@ -2271,7 +2271,7 @@ $GLOBALS['manage'] = true;
 $manager_screen    = screen_html( $A, $COHORT );
 $GLOBALS['manage'] = $prev_manage;
 
-ck( 'and is told a program manager can send it', has( strtolower( $manager_screen ), 'program manager' ), true );
+ck( 'and is told an Administrator can send it', has( $manager_screen, 'An Administrator sends it' ), true );
 
 // The form as the manager screen draws it, scraped rather than named, so this suite still does
 // not know what the handler's inputs are called.
@@ -3106,7 +3106,7 @@ $GLOBALS['uid']    = 3;
 $draft_editor = screen_html( $B, '2025-H2' );
 ck( 'a draft offers Approve and not Reopen', has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ) && ! has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ), true );
 ck( 'and the editing form', has( $draft_editor, '<textarea' ), true );
-ck( 'and says who drafted it', has( $draft_editor, 'Drafted by a program manager' ), true );
+ck( 'and says who drafted it', has( $draft_editor, 'Drafted by an Administrator' ), true );
 $approved_editor = screen_html( $B, '2026-H1' );
 ck( 'an approved report offers Reopen and not Approve', has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ) && ! has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ), true );
 ck( 'and no editing form', has( $approved_editor, '<textarea' ), false );

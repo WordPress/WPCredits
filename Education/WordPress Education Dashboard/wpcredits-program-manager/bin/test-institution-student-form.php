@@ -844,7 +844,7 @@ ck( 'and the Students Reports half still saves', writes_to( 'tblREPORTS' ), arra
 ck( 'the message names the merge', flash_status(), 'student-merge' );
 ck(
 	'in as many words',
-	has( WPCPM_Institution_Student_Form::messages()['student-merge'][1], 'a program manager needs to merge them first' ),
+	has( WPCPM_Institution_Student_Form::messages()['student-merge'][1], 'an Administrator needs to merge them first' ),
 	true
 );
 ck( 'and the audit row records only what landed', array_column( WPCPM_Institution_Audit::entries_for( $inst_a )[0]['data']['changes'], 'field' ), array( 'reports|Name' ) );
@@ -1123,7 +1123,7 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] 
 
 $twice = draw( 2, $report, $inst_a, 10 );
 ck( 'a student on two roster rows has the Students half switched off', 4, substr_count( $twice, 'disabled="disabled"' ) );
-ck( 'and is told why', has( $twice, 'A program manager needs to merge them first.' ), true );
+ck( 'and is told why', has( $twice, 'An Administrator needs to merge them first.' ), true );
 ck( 'while the name on the report record is still editable', has( $twice, 'name="student[' . k( 'reports', 'Name' ) . ']" value="Ada E"' ), true );
 
 

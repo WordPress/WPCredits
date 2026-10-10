@@ -70,7 +70,7 @@ $guides = array(
 	'students'       => array(
 		'title' => 'Student guide',
 		'lede'  => 'Everything on your Student Report Card, and how to book a call with your mentor.',
-		'intro' => "Welcome to the WordPress Education Dashboard. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the program managers have their own.",
+		'intro' => "Welcome to the WordPress Education Dashboard. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the Administrators have their own.",
 		'parts' => array( '00-signing-in', '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help' ),
 	),
 	'mentors'        => array(
@@ -90,7 +90,7 @@ $guides = array(
 		),
 	),
 	'administrators' => array(
-		'title' => 'Program manager guide',
+		'title' => 'Administrator guide',
 		'lede'  => 'The plugin in wp-admin - settings, tools, access levels and the sync - plus everything mentors and students are told.',
 		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Administrators are the people other people ask. Unless you are on the program as a mentor or a student too, no Student Report Card or Mentor Report Card is your own: you open anyone's through the **Viewing as** switcher, as *Viewing a page as its owner* describes.",
 		'parts' => array(

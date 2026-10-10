@@ -8,4 +8,4 @@ A student who has left the program moves to **Past students**, a collapsed secti
 the list. Their details and your notes are kept for reference; no new notes can be added.
 
 If a student you are mentoring is missing from the list entirely, the link between you is missing in
-the program records. That is one for the program managers.
+the program records. That is one for the Administrators.

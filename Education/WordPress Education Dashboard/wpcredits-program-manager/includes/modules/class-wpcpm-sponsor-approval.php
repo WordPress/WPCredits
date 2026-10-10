@@ -107,7 +107,7 @@ final class WPCPM_Sponsor_Approval {
 		// The actor is checked rather than trusted because it is the actor the audit row and
 		// the membership record will both name.
 		if ( ! user_can( $manager_id, WPCPM_Roles::CAP_MANAGE ) ) {
-			return new WP_Error( 'wpcpm_sapp_actor', __( 'Only a program manager can approve an application.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_sapp_actor', __( 'Only an Administrator can approve an application.', 'wpcredits-program-manager' ) );
 		}
 
 		$state = (string) get_post_meta( $application_id, WPCPM_Sponsor_Application::META_STATE, true );

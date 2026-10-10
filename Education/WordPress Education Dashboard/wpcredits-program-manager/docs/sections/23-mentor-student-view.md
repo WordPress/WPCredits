@@ -14,8 +14,8 @@ contributed, their reflection posts. You can read it on their card, but not type
 the student's own account of their work, and a mentor filling it in would make the record say
 something it does not mean. If something in it is wrong, that is a conversation rather than an edit.
 
-A program manager can edit it - but from the student's own card, not from yours. Opened from a
-mentor's page a report is a record whoever is reading it, so a manager helping you with a student
+An Administrator can edit it - but from the student's own card, not from yours. Opened from a
+mentor's page a report is a record whoever is reading it, so an Administrator helping you with a student
 sees exactly what you see.
 
 ## Their feedback forms
@@ -25,7 +25,7 @@ half way, and at the end. Two things about them are worth knowing.
 
 They ask about your support by name - how much it is helping, what was most helpful, what could be
 better - and **you do not see the answers**, on your page or anywhere else on this site. They are
-read by the program managers in aggregate. That is deliberate: a student who thinks their mentor is
+read by the Administrators in aggregate. That is deliberate: a student who thinks their mentor is
 reading over their shoulder writes something politer than the truth, and the answers stop being
 worth collecting.
 

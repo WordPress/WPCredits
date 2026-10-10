@@ -101,7 +101,7 @@ class WPCPM_Institution_Panel {
 			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ) ),
 			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.', 'wpcredits-program-manager' ) ),
 			'agreement-later'              => array( 'info', __( 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.', 'wpcredits-program-manager' ) ),
-			'agreement-uploaded'           => array( 'success', __( 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.', 'wpcredits-program-manager' ) ),
+			'agreement-uploaded'           => array( 'success', __( 'The signed agreement is uploaded. An Administrator reviews it and you will get an email either way.', 'wpcredits-program-manager' ) ),
 			'agreement-too-big'            => array(
 				'error',
 				sprintf(
@@ -114,11 +114,11 @@ class WPCPM_Institution_Panel {
 			'agreement-no-file'            => array( 'error', __( 'Nothing was uploaded. No file arrived with the form. Choose the signed PDF and press the button again; if you are on a slow connection, give it a moment before pressing.', 'wpcredits-program-manager' ) ),
 			'agreement-file'               => array( 'error', __( 'Nothing was uploaded. The file passed every check and this site could not store it, which is this site\'s fault and not yours. Nothing was kept. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
 			'agreement-gone'               => array( 'error', __( 'Nothing happened. That document is no longer waiting for review: somebody else has accepted, returned or withdrawn it since this page was drawn. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
-			'agreement-encrypted'          => array( 'error', __( 'Nothing was uploaded. That PDF is password protected, so a program manager could not open it. Save an unprotected copy and upload that instead.', 'wpcredits-program-manager' ) ),
+			'agreement-encrypted'          => array( 'error', __( 'Nothing was uploaded. That PDF is password protected, so an Administrator could not open it. Save an unprotected copy and upload that instead.', 'wpcredits-program-manager' ) ),
 			'agreement-launch'             => array( 'error', __( 'Nothing was uploaded. That PDF asks to run a program when it is opened, which a signed agreement has no reason to do. Print it to a new PDF and upload that instead.', 'wpcredits-program-manager' ) ),
 			'agreement-in-review'          => array( 'error', __( 'Nothing was uploaded. A signed agreement from this institution is already waiting for review. Withdraw it first if it was the wrong file.', 'wpcredits-program-manager' ) ),
 			'agreement-declare'            => array( 'error', __( 'Nothing was uploaded. Tick the box to say the document you are uploading is the signed one.', 'wpcredits-program-manager' ) ),
-			'agreement-kind'               => array( 'error', __( 'Nothing was uploaded. Say whether this is the program\'s template or an agreement of your own: a program manager reads the two differently.', 'wpcredits-program-manager' ) ),
+			'agreement-kind'               => array( 'error', __( 'Nothing was uploaded. Say whether this is the program\'s template or an agreement of your own: an Administrator reads the two differently.', 'wpcredits-program-manager' ) ),
 			'agreement-accepted'           => array( 'success', __( 'The agreement is accepted. The institution\'s account is open and everybody at the institution has been emailed.', 'wpcredits-program-manager' ) ),
 			'agreement-returned'           => array( 'success', __( 'The agreement is returned. Everybody at the institution has been emailed your note, with your address to reply to.', 'wpcredits-program-manager' ) ),
 			'agreement-withdrawn'          => array( 'success', __( 'The signed agreement is withdrawn and its file is deleted. Upload another whenever you are ready.', 'wpcredits-program-manager' ) ),
@@ -126,7 +126,7 @@ class WPCPM_Institution_Panel {
 			'agreement-return-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::return_label(), 'return' ) ),
 			'agreement-stage'              => array( 'error', __( 'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' ) ),
 			'agreement-generated-later'    => array( 'info', __( 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.', 'wpcredits-program-manager' ) ),
-			'agreement-name'               => array( 'error', __( 'Nothing was generated. The agreement needs the institution\'s name exactly as it should print on a document somebody signs. If you are not sure what to put, ask the program manager who has been in touch with your institution.', 'wpcredits-program-manager' ) ),
+			'agreement-name'               => array( 'error', __( 'Nothing was generated. The agreement needs the institution\'s name exactly as it should print on a document somebody signs. If you are not sure what to put, ask the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' ) ),
 			'agreement-name-brackets'      => array( 'error', __( 'Nothing was generated. The name cannot contain square brackets. The agreement is filled in by replacing the bracketed words in the template, so a name with brackets of its own would print as an unfilled blank on a document somebody signs. Write it without them.', 'wpcredits-program-manager' ) ),
 			'agreement-generate-in-review' => array( 'error', __( 'Nothing was generated. A signed agreement from this institution is already waiting for review. Withdraw it first if you want to start again from the template.', 'wpcredits-program-manager' ) ),
 			'agreement-generate-standing'  => array( 'error', __( 'Nothing was generated. An agreement already stands for this institution, so printing the template again would change nothing. Upload a newer signed copy to replace it.', 'wpcredits-program-manager' ) ),
@@ -771,7 +771,7 @@ class WPCPM_Institution_Panel {
 	 * @return string
 	 */
 	private static function return_label() {
-		/* translators: The name of the box a program manager types why a signed agreement is returned in, the first words of its label. */
+		/* translators: The name of the box an Administrator types why a signed agreement is returned in, the first words of its label. */
 		return __( 'What has to change, in your own words', 'wpcredits-program-manager' );
 	}
 
@@ -816,7 +816,7 @@ class WPCPM_Institution_Panel {
 					esc_html(
 						sprintf(
 							/* translators: %s: date the signed agreement was received. */
-							__( 'We received your signed agreement on %s. A program manager will review it and you will get an email either way.', 'wpcredits-program-manager' ),
+							__( 'We received your signed agreement on %s. An Administrator will review it and you will get an email either way.', 'wpcredits-program-manager' ),
 							self::post_date( $summary['pending_id'] )
 						)
 					)
@@ -831,7 +831,7 @@ class WPCPM_Institution_Panel {
 			case WPCPM_Institution_Agreement::SUMMARY_RETURNED:
 				printf(
 					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'A program manager returned your agreement, with this note:', 'wpcredits-program-manager' )
+					esc_html__( 'An Administrator returned your agreement, with this note:', 'wpcredits-program-manager' )
 				);
 				self::render_note( $record_id, WPCPM_Institution_Agreement::STATE_RETURNED );
 				self::render_upload_form(
@@ -849,7 +849,7 @@ class WPCPM_Institution_Panel {
 				self::render_note( $record_id, WPCPM_Institution_Agreement::STATE_REVOKED );
 				self::render_upload_form(
 					$record_id,
-					__( 'Upload a new signed agreement as a PDF. A program manager reviews it the same way as the first one.', 'wpcredits-program-manager' )
+					__( 'Upload a new signed agreement as a PDF. An Administrator reviews it the same way as the first one.', 'wpcredits-program-manager' )
 				);
 				self::render_contact( $row, $can_manage );
 				break;
@@ -861,7 +861,7 @@ class WPCPM_Institution_Panel {
 				// job rather than the institution's: there is nothing the reader can do.
 				printf(
 					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'This site holds an accepted agreement for your institution, but the program\'s own record does not agree with it yet, so the account stays closed. A program manager can see the difference and will settle it.', 'wpcredits-program-manager' )
+					esc_html__( 'This site holds an accepted agreement for your institution, but the program\'s own record does not agree with it yet, so the account stays closed. An Administrator can see the difference and will settle it.', 'wpcredits-program-manager' )
 				);
 				self::render_contact( $row, $can_manage );
 				break;
@@ -899,7 +899,7 @@ class WPCPM_Institution_Panel {
 		echo '<li>';
 		printf(
 			'<p class="wpcpm-agreement-panel__step">%s</p>',
-			esc_html__( 'Get the agreement: generate the program\'s template, or upload an agreement of your own. A program manager reads an institution-specific agreement in full, so that path takes longer.', 'wpcredits-program-manager' )
+			esc_html__( 'Get the agreement: generate the program\'s template, or upload an agreement of your own. An Administrator reads an institution-specific agreement in full, so that path takes longer.', 'wpcredits-program-manager' )
 		);
 		self::render_generate_form( $record_id, $row );
 		echo '</li>';
@@ -912,7 +912,7 @@ class WPCPM_Institution_Panel {
 		echo '<li>';
 		printf(
 			'<p class="wpcpm-agreement-panel__step">%s</p>',
-			esc_html__( 'Upload the signed PDF here. A program manager reviews it and you get an email either way.', 'wpcredits-program-manager' )
+			esc_html__( 'Upload the signed PDF here. An Administrator reviews it and you get an email either way.', 'wpcredits-program-manager' )
 		);
 		self::render_upload_form( $record_id, '' );
 		echo '</li>';
@@ -1123,7 +1123,7 @@ class WPCPM_Institution_Panel {
 			'<p><label for="%1$s-kind-own"><input type="radio" id="%1$s-kind-own" name="wpcpm_agreement_kind" value="%2$s" /> %3$s</label></p>',
 			esc_attr( $base ),
 			esc_attr( WPCPM_Institution_Agreement::KIND_OWN ),
-			esc_html__( 'An agreement of our own, signed. A program manager reads this one in full, so it takes longer.', 'wpcredits-program-manager' )
+			esc_html__( 'An agreement of our own, signed. An Administrator reads this one in full, so it takes longer.', 'wpcredits-program-manager' )
 		);
 		echo '</fieldset>';
 
@@ -1391,7 +1391,7 @@ class WPCPM_Institution_Panel {
 
 		printf(
 			'<p class="wpcpm-agreement-panel__on-file-note">%s</p>',
-			esc_html__( 'If your institution has already signed a Collaboration Agreement with the program, it does not need to sign again. A program manager can record the copy the program holds, and your account opens as soon as they do.', 'wpcredits-program-manager' )
+			esc_html__( 'If your institution has already signed a Collaboration Agreement with the program, it does not need to sign again. An Administrator can record the copy the program holds, and your account opens as soon as they do.', 'wpcredits-program-manager' )
 		);
 
 		self::render_contact( $row, $can_manage );
@@ -1418,7 +1418,7 @@ class WPCPM_Institution_Panel {
 		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
 			printf(
 				'<p class="wpcpm-agreement-panel__contact">%s</p>',
-				esc_html__( 'Write to the program manager who has been in touch with your institution.', 'wpcredits-program-manager' )
+				esc_html__( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' )
 			);
 
 			return;
@@ -1470,9 +1470,9 @@ class WPCPM_Institution_Panel {
 			'<footer class="wpcpm-agreement-panel__note-by">%s</footer>',
 			esc_html(
 				sprintf(
-					/* translators: 1: the program manager's name, 2: date. */
+					/* translators: 1: the Administrator's name, 2: date. */
 					__( '%1$s, %2$s', 'wpcredits-program-manager' ),
-					$who instanceof WP_User ? $who->display_name : __( 'A program manager', 'wpcredits-program-manager' ),
+					$who instanceof WP_User ? $who->display_name : __( 'An Administrator', 'wpcredits-program-manager' ),
 					'' !== $when ? $when : self::post_date( $post->ID )
 				)
 			)
@@ -1754,7 +1754,7 @@ class WPCPM_Institution_Agreement_Card {
 		if ( $pending ) {
 			printf(
 				'<p class="wpcpm-agreement-card__replace">%s</p>',
-				esc_html__( 'A newer signed agreement is waiting for review. The agreement above stays in force until a program manager accepts it.', 'wpcredits-program-manager' )
+				esc_html__( 'A newer signed agreement is waiting for review. The agreement above stays in force until an Administrator accepts it.', 'wpcredits-program-manager' )
 			);
 
 			WPCPM_Institution_Panel::render_download_link(
@@ -1768,7 +1768,7 @@ class WPCPM_Institution_Agreement_Card {
 
 		printf(
 			'<p class="wpcpm-agreement-card__replace">%s</p>',
-			esc_html__( 'Replace it by uploading a newer signed copy. The agreement above stays in force until a program manager accepts the new one.', 'wpcredits-program-manager' )
+			esc_html__( 'Replace it by uploading a newer signed copy. The agreement above stays in force until an Administrator accepts the new one.', 'wpcredits-program-manager' )
 		);
 
 		WPCPM_Institution_Panel::render_upload_form( $record_id, '' );
@@ -1794,7 +1794,7 @@ class WPCPM_Institution_Agreement_Card {
 				? __( 'Recorded from the program\'s own records: the signed copy is in the program\'s Drive folder, and nothing was signed through this site.', 'wpcredits-program-manager' )
 				: __( 'Recorded from the program\'s own records rather than through this site.', 'wpcredits-program-manager' );
 		} elseif ( $legacy ) {
-			$line = __( 'Recorded on this site by a program manager, from the copy the program holds in its Drive folder.', 'wpcredits-program-manager' );
+			$line = __( 'Recorded on this site by an Administrator, from the copy the program holds in its Drive folder.', 'wpcredits-program-manager' );
 		} else {
 			$line = __( 'Signed and accepted through this site.', 'wpcredits-program-manager' );
 		}

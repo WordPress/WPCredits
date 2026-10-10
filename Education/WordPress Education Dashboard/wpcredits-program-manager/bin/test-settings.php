@@ -2629,11 +2629,11 @@ foreach ( $design_sections as $slug => $headings ) {
 		$anchors_used[] = $anchor;
 	}
 
-	// The link reads "Program manager guide" to the eye, and to a screen reader names the section it
+	// The link reads "Administrator guide" to the eye, and to a screen reader names the section it
 	// opens the guide at, since a tab's list of links would otherwise read the same words once a
 	// section.
 	foreach ( $headings as $heading => $anchor ) {
-		$want[] = array( $heading, true, $anchor, 'Program manager guide', 'about ' . $heading . ' (opens in a new tab)', 'mail' !== $slug );
+		$want[] = array( $heading, true, $anchor, 'Administrator guide', 'about ' . $heading . ' (opens in a new tab)', 'mail' !== $slug );
 
 		if ( ! in_array( $anchor, $part_31, true ) ) {
 			$not_in_31[] = $anchor;

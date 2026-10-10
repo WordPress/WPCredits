@@ -47,7 +47,7 @@
 								components.Placeholder,
 								{ label: __( 'Administrator Dashboard', 'wpcredits-program-manager' ) },
 								__(
-									'Nothing to preview - this page is built from the program\'s queues for the manager viewing it.',
+									'Nothing to preview - this page is built from the program\'s queues for the Administrator viewing it.',
 									'wpcredits-program-manager'
 								)
 							);

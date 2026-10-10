@@ -447,7 +447,7 @@ ck( 'and not the former member', has( $card, 'Frank Former' ), false );
 ck( 'and not a member of another institution', has( $card, 'Cleo Beta' ), false );
 ck( 'the count is the live members', has( $card, '<span class="wpcpm-group__count wpcpm-people__count">3</span>' ), true );
 ck( 'each address is printed', array( has( $card, 'anna@example.test' ), has( $card, 'contact@example.test' ) ), array( true, true ) );
-ck( 'how: added by a program manager', has( $card, 'Added by a program manager' ), true );
+ck( 'how: added by an Administrator', has( $card, 'Added by an Administrator' ), true );
 ck( 'how: added by the institutions sync', has( $card, 'Added by the institutions sync' ), true );
 ck( 'how: joined by invitation', has( $card, 'Joined by invitation' ), true );
 ck( 'since: the date the stamp was written', has( $card, gmdate( 'Y-m-d' ) ), true );
@@ -509,7 +509,7 @@ ck( 'the mark is on the account holding the address Airtable names, whatever its
 ck( 'the contact\'s row carries the same control as every other', has( $card, 'nonce-wpcpm_remove_member_8' ), true );
 ck( 'so all three rows carry one', substr_count( $card, 'name="action" value="wpcpm_remove_member"' ), 3 );
 ck( 'the other two among them', array( has( $card, 'nonce-wpcpm_remove_member_7' ), has( $card, 'nonce-wpcpm_remove_member_13' ) ), array( true, true ) );
-ck( 'and no row says a manager is the only one who can', has( $card, 'is removed by a program manager' ), false );
+ck( 'and no row says a manager is the only one who can', has( $card, 'is removed by an Administrator' ), false );
 ck( 'what the mark does instead is warn, in that row\'s confirm', has( $card, 'Airtable still names this address as the institution&#039;s contact' ), true );
 ck( 'once, on that row and no other', substr_count( $card, 'Airtable still names this address' ), 1 );
 
@@ -609,7 +609,7 @@ clear_flash();
 
 $card = render_card( 7, $A );
 ck( 'the confirm warns that nobody will be left', has( $card, 'You are the last member of' ), true );
-ck( 'and that the program will be told', has( $card, 'the program managers will be told' ), true );
+ck( 'and that the program will be told', has( $card, 'the Administrators will be told' ), true );
 ck( 'and it is still a control, not a refusal', has( $card, '>Leave</button>' ), true );
 
 $GLOBALS['notified'] = array();

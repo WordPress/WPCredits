@@ -4,8 +4,9 @@
  *
  * Read by `WPCPM_Mail_Templates::all()`, which adds each email's name, area and audience from the
  * catalog. Every sentence is the one `WPCPM_Mail::welcome_email()` wrote before 1.122.19, under the
- * same translatable string, and the bodies are joined by the registry with the line ending WordPress
- * gives its own email, "\r\n".
+ * same translatable string, but one: the institution's "An Administrator then accepts it" said
+ * "A program manager then accepts it" until 1.122.20. The bodies are joined by the registry with the
+ * line ending WordPress gives its own email, "\r\n".
  *
  * Each invitation wraps WordPress's own lines: `{set_password_link}` is what WordPress wrote, its
  * sentence and the link that sets the password, kept whole so a change to how WordPress words it
@@ -148,7 +149,7 @@ return array(
 		),
 		'body'         => $wpcpm_body(
 			__( 'Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there.', 'wpcredits-program-manager' ),
-			__( 'Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program\'s or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens.', 'wpcredits-program-manager' ),
+			__( 'Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program\'s or upload your own, sign it, and upload the signed copy. An Administrator then accepts it and the rest of the site opens.', 'wpcredits-program-manager' ),
 			/* translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it. */
 			__( 'Where the agreement is uploaded:', 'wpcredits-program-manager' )
 		),

@@ -9,4 +9,4 @@ Those four are asked for on your **report form**, and saving it writes them back
 they are yours to keep current, and the way to correct them is to correct them there.
 
 If the page shows nothing at all, or says it cannot find your record, your account exists but is
-not linked to a program record yet. That is one for the program managers.
+not linked to a program record yet. That is one for the Administrators.

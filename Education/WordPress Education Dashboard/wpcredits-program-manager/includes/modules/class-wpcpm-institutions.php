@@ -1234,7 +1234,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		$build = static function () use ( $site, $reference, $said, $manager ) {
 			$lines = array(
-				__( 'Thank you for applying to the WordPress Credits Program. Before a program manager can take your application further, they have one question:', 'wpcredits-program-manager' ),
+				__( 'Thank you for applying to the WordPress Credits Program. Before an Administrator can take your application further, they have one question:', 'wpcredits-program-manager' ),
 				$said,
 				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
 			);
@@ -1758,7 +1758,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return string
 	 */
 	private static function question_label() {
-		/* translators: The name of the box a program manager types a question to an applicant in, the first words of its label. */
+		/* translators: The name of the box an Administrator types a question to an applicant in, the first words of its label. */
 		return __( 'Ask the applicant something', 'wpcredits-program-manager' );
 	}
 
@@ -1770,7 +1770,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return string
 	 */
 	private static function reason_label() {
-		/* translators: The name of the box a program manager types why an application is rejected in, the first words of its label. */
+		/* translators: The name of the box an Administrator types why an application is rejected in, the first words of its label. */
 		return __( 'Why, for the next Administrator who reads this', 'wpcredits-program-manager' );
 	}
 
@@ -2243,7 +2243,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-adopted'          => array( 'success', __( 'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' ) ),
 			'app-unknown'          => array( 'error', __( 'Nothing happened. That application no longer exists.', 'wpcredits-program-manager' ) ),
 			'app-state'            => array( 'error', __( 'Nothing happened. That application is not in a state this decision applies to; somebody may have decided it first. Reload the screen to see where it is.', 'wpcredits-program-manager' ) ),
-			'app-unverified'       => array( 'error', __( 'Nothing was created. The address on that application has not been confirmed, and approving mails a password-set link: it must never go to an address nobody has claimed. Confirming it is the applicant\'s own act and no manager can take it for them; open the application, where the line under the heading says what that means for the state this one is in.', 'wpcredits-program-manager' ) ),
+			'app-unverified'       => array( 'error', __( 'Nothing was created. The address on that application has not been confirmed, and approving mails a password-set link: it must never go to an address nobody has claimed. Confirming it is the applicant\'s own act and no Administrator can take it for them; open the application, where the line under the heading says what that means for the state this one is in.', 'wpcredits-program-manager' ) ),
 			'app-email'            => array( 'error', __( 'Nothing was created. An account on this site already holds that address. Find out whose it is first: an account found by address with no institution stamp is a conflict, not a match.', 'wpcredits-program-manager' ) ),
 			'app-country'          => array( 'error', __( 'Nothing was created. The country on the application no longer resolves in the Countries table. Run a sync and try again.', 'wpcredits-program-manager' ) ),
 			'app-busy'             => array( 'error', __( 'Nothing happened. This application was already being approved, from a sync or from somebody else pressing the same button. Give it a minute and look at the row again.', 'wpcredits-program-manager' ) ),
@@ -3221,7 +3221,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			// acknowledged like anybody else and holds the link that confirms their address,
 			// so this row can be approved. Saying otherwise would steer the decision, which
 			// is what the old wording here did.
-			echo '<p>' . esc_html__( 'Holding spares the managers a message and nothing more. The applicant was acknowledged exactly as any other was, and holds the link that confirms their address, so this application can be approved once that link is used. None of these checks refused anything: each one holds a row for a person to look at, which is what this is.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'Holding spares the Administrators a message and nothing more. The applicant was acknowledged exactly as any other was, and holds the link that confirms their address, so this application can be approved once that link is used. None of these checks refused anything: each one holds a row for a person to look at, which is what this is.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( in_array( 'mail-ceiling', $signals, true ) ) {
 				// The one exception, and the only case where nobody wrote to them.
@@ -3996,7 +3996,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			if ( null === WPCPM_Countries::routing( $country ) ) {
 				printf(
 					' <span class="wpcpm-inst-mark wpcpm-inst-mark--routing" title="%1$s">%2$s</span>',
-					esc_attr__( 'The Countries table names no program manager for this country.', 'wpcredits-program-manager' ),
+					esc_attr__( 'The Countries table names no Administrator for this country.', 'wpcredits-program-manager' ),
 					esc_html__( 'no contact', 'wpcredits-program-manager' )
 				);
 			}
@@ -4126,7 +4126,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->read_line( $read, __( 'Countries map', 'wpcredits-program-manager' ) );
 
 		if ( empty( $gaps ) ) {
-			echo '<p>' . esc_html__( 'Every country an institution names has a program manager contact.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'Every country an institution names has an Administrator contact.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}
@@ -4141,7 +4141,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		printf(
 			'<p class="wpcpm-inst-routing">%1$s %2$s</p>',
-			esc_html__( 'Countries named by institutions with no program manager contact in the Countries table:', 'wpcredits-program-manager' ),
+			esc_html__( 'Countries named by institutions with no Administrator contact in the Countries table:', 'wpcredits-program-manager' ),
 			esc_html( implode( ', ', $parts ) )
 		);
 	}
@@ -5252,7 +5252,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $total ) )
 		);
-		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; a program manager reviews and approves it on the Institution Dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; an Administrator reviews and approves it on the Institution Dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $posts ) ) {
 			echo '<p>' . esc_html__( 'No report has been drafted yet.', 'wpcredits-program-manager' ) . '</p>';
@@ -5328,7 +5328,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		$origin    = WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
 			? __( 'by the site', 'wpcredits-program-manager' )
-			: __( 'by a manager', 'wpcredits-program-manager' );
+			: __( 'by an Administrator', 'wpcredits-program-manager' );
 
 		printf(
 			'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s%4$s</td><td>%5$s</td><td>%6$s<br /><span class="description">%7$s</span></td><td>%8$s</td><td>',

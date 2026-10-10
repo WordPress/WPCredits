@@ -1370,7 +1370,7 @@ class WPCPM_Mentor_Calls {
 				$lines = array(
 					sprintf(
 						/* translators: 1: the time it used to be at, 2: the time it is at now. */
-						__( 'A program manager moved your group session that was on %1$s. It is now on %2$s.', 'wpcredits-program-manager' ),
+						__( 'An Administrator moved your group session that was on %1$s. It is now on %2$s.', 'wpcredits-program-manager' ),
 						self::format_range( $was_start, $was_end, $zone ),
 						self::format_range( $facts['start'], $facts['end'], $zone )
 					),
@@ -1846,7 +1846,7 @@ class WPCPM_Mentor_Calls {
 		// Who to name as having canceled. A program manager acting on somebody's behalf is
 		// named by their role rather than personally: to a student, an administrator they
 		// have never heard of reads as a stranger calling their call off.
-		$by = __( 'a program manager', 'wpcredits-program-manager' );
+		$by = __( 'an Administrator', 'wpcredits-program-manager' );
 
 		if ( $actor && ( $actor === (int) $facts['mentor_id'] || $actor === (int) $facts['student_id'] ) ) {
 			$by = wp_get_current_user()->display_name;

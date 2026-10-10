@@ -953,7 +953,7 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	class WPCPM_Institution_Panel {
 		public static function messages() {
 			return array(
-				'agreement-uploaded'  => array( 'success', 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.' ),
+				'agreement-uploaded'  => array( 'success', 'The signed agreement is uploaded. An Administrator reviews it and you will get an email either way.' ),
 				'agreement-withdrawn' => array( 'success', 'The signed agreement is withdrawn and its file is deleted. Upload another whenever you are ready.' ),
 			);
 		}
@@ -1879,7 +1879,7 @@ $uploaded_notice = render_tab( 'accounts' );
 $GLOBALS['uid']  = 1;
 ck( 'a manager\'s upload is told where the agreement waits and who was emailed, in words for the person who pressed', array(
 	false !== strpos( $uploaded_notice, '<div class="notice notice-success is-dismissible"><p>The signed agreement is uploaded. It waits on the Waiting for review tab, and everybody at the institution has been emailed that it arrived.</p></div>' ),
-	strpos( $uploaded_notice, 'A program manager reviews it' ),
+	strpos( $uploaded_notice, 'An Administrator reviews it' ),
 ), array( true, false ) );
 delete_user_meta( 67, WPCPM_Flash::META );
 
@@ -1964,7 +1964,7 @@ foreach ( $rows as $row ) {
 }
 ck( 'the fixture names three countries with no contact', count( array_unique( array_map( function ( $r ) { return $r['country']; }, array_filter( $rows, function ( $r ) { return '' !== $r['country'] && null === WPCPM_Countries::routing( $r['country'] ); } ) ) ) ), $seed['counts']['countries_used_without_contact'] );
 ck( 'each row naming one carries the no-contact mark', substr_count( $html, 'wpcpm-inst-mark--routing' ), $named_without_contact );
-ck( 'and the routing gaps are listed by name', preg_match( '/Countries named by institutions with no program manager contact in the Countries table: ([^<]+)</', $html, $m ), 1 );
+ck( 'and the routing gaps are listed by name', preg_match( '/Countries named by institutions with no Administrator contact in the Countries table: ([^<]+)</', $html, $m ), 1 );
 $gap_names = isset( $m[1] ) ? array_map( function ( $p ) { return preg_replace( '/ \(\d+\)$/', '', $p ); }, explode( ', ', html_entity_decode( $m[1], ENT_QUOTES ) ) ) : array();
 sort( $gap_names );
 ck( 'which are Cambodia, Nigeria and Thailand', $gap_names, array( 'Cambodia', 'Nigeria', 'Thailand' ) );
@@ -2529,7 +2529,7 @@ ck( 'each report is a row', count( $report_rows ), 2 );
 ck( 'newest edit first', false !== strpos( $report_rows[0], '2026-H1' ), true );
 ck( 'a draft says so', false !== strpos( $report_rows[0], 'Draft' ), true );
 ck( 'the draft says the site drafted it', false !== strpos( $report_rows[0], 'by the site' ), true );
-ck( 'and the approved one that a manager did', false !== strpos( $report_rows[1], 'by a manager' ), true );
+ck( 'and the approved one that a manager did', false !== strpos( $report_rows[1], 'by an Administrator' ), true );
 ck( 'and an approved report says so', false !== strpos( $report_rows[1], 'Approved' ), true );
 ck( 'drafts come first whatever their date', false !== strpos( $report_rows[0], 'Draft' ), true );
 
@@ -3610,7 +3610,7 @@ ck( 'a held one says why it is held, in the words of the checks that held it', a
 	// nothing else: the applicant is acknowledged like anybody else and holds the link that
 	// confirms their address. An earlier wording said nobody had written to them, which was
 	// the opposite of what the form does and would have steered the manager's decision.
-	false !== strpos( $open_held, 'Holding spares the managers a message and nothing more' ),
+	false !== strpos( $open_held, 'Holding spares the Administrators a message and nothing more' ),
 	false === strpos( $open_held, 'nothing on this row says the applicant was ever written to' ),
 	false !== strpos( $open_held, 'None of these checks refused anything' ),
 	false !== strpos( $open_held, 'looks able to receive mail' ),
@@ -3766,7 +3766,7 @@ WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'app-unverified' );
 $unverified_notice = render_screen();
 $GLOBALS['uid']    = 1;
 ck( 'the unverified refusal names the applicant\'s own act and no mail at all', array(
-	false !== strpos( $unverified_notice, 'Confirming it is the applicant&#039;s own act and no manager can take it for them' ),
+	false !== strpos( $unverified_notice, 'Confirming it is the applicant&#039;s own act and no Administrator can take it for them' ),
 	false !== strpos( $unverified_notice, 'open the application, where the line under the heading says what that means' ),
 	strpos( $unverified_notice, 'acknowledgement' ),
 ), array( true, true, false ) );

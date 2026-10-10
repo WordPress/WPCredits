@@ -532,7 +532,7 @@ ck( 'the log starts empty', has( $html, 'Nothing has been deleted yet.' ), true 
 $GLOBALS['switch'] = false;
 $html              = page();
 ck( 'deleting switched off: no checkbox at all, the list says why, and Review selection is disabled', array( has( $html, 'name="wpcpm_students[]"' ), has( $html, 'name="wpcpm_rows[]"' ), has( $html, 'Deleting is switched off, so this list is read-only.' ), has( $html, ' disabled>Review selection</button>' ) ), array( false, false, true, true ) );
-ck( 'and says where it is turned on: in the Settings section of this screen, linked, rather than on another screen', array( has( $html, 'A program manager turns it on in the <a href="#settings">Settings</a> section above the list.' ), has( $html, 'page=wpcpm-settings' ) ), array( true, false ) );
+ck( 'and says where it is turned on: in the Settings section of this screen, linked, rather than on another screen', array( has( $html, 'An Administrator turns it on in the <a href="#settings">Settings</a> section above the list.' ), has( $html, 'page=wpcpm-settings' ) ), array( true, false ) );
 
 /**
  * Where a piece of markup first occurs on the screen.
@@ -613,7 +613,7 @@ ck(
 $GLOBALS['switch'] = false;
 $html              = page( array(), $chosen );
 $GLOBALS['switch'] = true;
-ck( 'deleting switched off: the button is there, disabled, with the reason and where deleting is turned on', array( has( $html, 'wpcpm-duplicates__delete" disabled>' ), has( $html, 'Deleting is switched off: a program manager turns it on in the Settings section above the list.' ), has( $html, 'id="settings"' ) ), array( true, true, false ) );
+ck( 'deleting switched off: the button is there, disabled, with the reason and where deleting is turned on', array( has( $html, 'wpcpm-duplicates__delete" disabled>' ), has( $html, 'Deleting is switched off: an Administrator turns it on in the Settings section above the list.' ), has( $html, 'id="settings"' ) ), array( true, true, false ) );
 
 WPCPM_Duplicates_Scan::start();
 $html = page( array(), $chosen );
@@ -646,7 +646,7 @@ $out               = door( array( $finder, 'handle_delete' ) );
 $_POST             = array();
 ck( 'Delete checks the nonce of exactly the rows its student keys and pairs stand for, and of nothing else', $GLOBALS['nonces'], array( 'wpcpm_duplicates_delete_' . WPCPM_Duplicate_Finder::rows_hash( WPCPM_Duplicate_Rules::expand( WPCPM_Duplicates_Scan::report(), array( $ada ), array( 'students:' . rid( 'othold' ) ) )['rows'] ) ) );
 ck( 'then hands them to the delete and comes back to the screen', $out, 'redirect ' . $url );
-ck( 'where the notice says what the delete answered, and where deleting is turned on', has( page(), 'Nothing was deleted: deleting is switched off, and a program manager turns it on in the Settings section above the list.' ), true );
+ck( 'where the notice says what the delete answered, and where deleting is turned on', has( page(), 'Nothing was deleted: deleting is switched off, and an Administrator turns it on in the Settings section above the list.' ), true );
 
 // A scan that finishes between the two presses can change what a student's key stands for; the
 // token then no longer matches, so the confirmation's token cannot delete the new set.

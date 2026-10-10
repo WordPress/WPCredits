@@ -6,7 +6,7 @@ Three guides, one per audience:
 | --- | --- | --- |
 | [Student guide](students.md) | The Student Report Card and booking a call. | `/student-guide/`, Student level |
 | [Mentor guide](mentors.md) | The Mentor Report Card, availability, **and the whole student guide**. | `/mentor-guide/`, Mentor level |
-| [Program manager guide](administrators.md) | wp-admin, settings, access levels, the sync, **and both guides above**. | `/program-manager-guide/`, Administrators only |
+| [Administrator guide](administrators.md) | wp-admin, settings, access levels, the sync, **and both guides above**. | `/program-manager-guide/`, Administrators only |
 
 ## Why each guide repeats the ones below it
 

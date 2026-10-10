@@ -91,7 +91,7 @@ Your company's page on the WordPress Education Dashboard is the Sponsor Dashboar
 
 **Mentors.** *Your mentors* lists the mentors your company sponsors and how many students each one guides. *Mentors looking for a sponsor* lists the active mentors who asked to be listed; one press tells your program contact you would like to sponsor one of them.
 
-Above the cards, *Program updates and announcements* carries what the program publishes for sponsors, and *Resources* has this guide, the program's Slack channel and the Need help? button. *Your contact at the program* names the program manager who looks after your company, with a link to book a call.
+Above the cards, *Program updates and announcements* carries what the program publishes for sponsors, and *Resources* has this guide, the program's Slack channel and the Need help? button. *Your contact at the program* names the Administrator who looks after your company, with a link to book a call.
 
 ## Offers, codes and claims
 
@@ -114,8 +114,8 @@ The Sponsor Dashboard shows your company its own things: its profile, its people
 - **Students.** You see counts: how many students each of your mentors guides, how many people claimed an offer. You do not see names, addresses, reports, grades or the notes of a call.
 - **Mentors.** You see the mentors your company sponsors by name and WordPress.org profile, with how many students each one guides, and the active mentors who asked to be listed as looking for a sponsor. You do not see a mentor's calendar, notes or feedback.
 - **Claims.** You see numbers, by month and by offer. The program keeps the list of who claimed which code, so that it can help a person whose code failed, and does not share it with sponsors.
-- **Records.** The details you save on your profile card, your logo, the offer marked *shown in the program records* and what you send from *What else would you like to support?* are written to the program's records, where program managers read them.
-- **The program's people.** Program managers see your page as you see it, and can act on it for you: create an account for a colleague, record your agreement as on file, review a post. The switcher above the page, *Viewing as sponsor*, is theirs alone.
+- **Records.** The details you save on your profile card, your logo, the offer marked *shown in the program records* and what you send from *What else would you like to support?* are written to the program's records, where Administrators read them.
+- **The program's people.** Administrators see your page as you see it, and can act on it for you: create an account for a colleague, record your agreement as on file, review a post. The switcher above the page, *Viewing as sponsor*, is theirs alone.
 
 What you write on the dashboard is kept under the program's privacy policy, linked from the bottom of every page. Ask your program contact if you want something removed.
 
@@ -125,7 +125,7 @@ Your company can write posts for the program's students: a tutorial for your pro
 
 **Writing.** Press *Write a post*, write in the editor, and submit the post for review. A post carries your company's byline and lands in your company's category, so readers know who wrote it. A post can carry images and links; it cannot carry code that runs on the page.
 
-**Review.** Every post is read by a program manager before it is published. The manager can **publish** it, or **return** it with a note that says what to change; a returned post comes back to you with the note on it, and you can submit it again. A published post appears to students and mentors under *Guides from your company* on your offer's card in their Tools section, and in the site's Sponsors category, which only signed-in participants can read.
+**Review.** Every post is read by an Administrator before it is published. The Administrator can **publish** it, or **return** it with a note that says what to change; a returned post comes back to you with the note on it, and you can submit it again. A published post appears to students and mentors under *Guides from your company* on your offer's card in their Tools section, and in the site's Sponsors category, which only signed-in participants can read.
 
 **Rules.** Posts are for the program's participants: useful to a student learning WordPress, honest about what your product does, free of pricing pressure. The program's licensing and trademark rules apply to what a post says and links to. A post that reads as an advertisement is returned.
 

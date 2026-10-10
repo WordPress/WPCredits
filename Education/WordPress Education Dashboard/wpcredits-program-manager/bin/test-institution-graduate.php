@@ -605,7 +605,7 @@ $GLOBALS['users'][5]   = new WP_User( 5, 'A Registrar', 'registrar@example.test'
 $GLOBALS['members'][5] = array( $inst_a );
 press( 5, $student, 'graduated' );
 ck( 'and the card says graduating is switched off, in so many words',
-    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Program managers record graduations in Airtable.</p>' ), true );
+    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in Airtable.</p>' ), true );
 
 press( 2, $student, 'paused' );
 ck( 'any other state this screen does not make keeps the general refusal', flash_outcome(), 'status-unknown' );
@@ -625,7 +625,7 @@ $graduate_card = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 // and the placement already recorded as finished, never "not on the program right now".
 ck( 'a graduate\'s card draws no control', has( $graduate_card, '<form' ), false );
 ck( 'and says the placement is already recorded as finished, quoting the records',
-    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. A program manager changes it in the program records. They say: Graduate.</p>' ), true );
+    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduate.</p>' ), true );
 ck( 'and not that the student is off the program', has( $graduate_card, 'not on the program right now' ), false );
 
 ck( 'graduation_offered() answers no by default', WPCPM_Institution_Students::graduation_offered(), false );
@@ -817,7 +817,7 @@ ck( 'and says it cannot be recalled', has( $confirm, 'cannot be recalled' ), tru
 ck( 'and says the change is logged under your name', has( $confirm, 'logged under your name' ), true );
 // There is no un-graduate control, so the dialog says where the way back is rather than leaving
 // somebody hunting the card for one.
-ck( 'and says a program manager is the way back', has( $confirm, 'program manager' ), true );
+ck( 'and says an Administrator is the way back', has( $confirm, 'an Administrator changes it back' ), true );
 
 $dropped = WPCPM_Institution_Students::confirm( 'withdrawn', 'Anna Nowak' );
 
@@ -866,7 +866,7 @@ $html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 ck( 'a finished row draws no control', has( $html, '<form' ), false );
 ck( 'and says the placement is already recorded as finished', has( $html, 'already recorded as finished' ), true );
 ck( 'and quotes what the records say', has( $html, 'They say: Graduate.' ), true );
-ck( 'and says who changes it', has( $html, 'A program manager changes it' ), true );
+ck( 'and says who changes it', has( $html, 'An Administrator changes it' ), true );
 
 reset_world( 'In Sensei' );
 WPCPM_Roster_Index::update( $inst_a, $student, array( 'status' => 'Not moving forward' ) );
@@ -1045,7 +1045,7 @@ foreach ( array_keys( $states ) as $state ) {
 ck( 'the graduate message says the certificate notice is on its way',
     has( $messages['status-graduated'][1], 'certificate notice' ), true );
 ck( 'and that it cannot be recalled from here', has( $messages['status-graduated'][1], 'cannot be recalled from here' ), true );
-ck( 'and who changes it back', has( $messages['status-graduated'][1], 'A program manager changes it' ), true );
+ck( 'and who changes it back', has( $messages['status-graduated'][1], 'An Administrator changes it' ), true );
 ck( 'the dropped out message says a notice went out', has( $messages['status-withdrawn'][1], 'their own notice' ), true );
 
 // The outcome slugs go through sanitize_key() on the way back out of the flash, so one that did

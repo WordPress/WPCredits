@@ -1085,7 +1085,7 @@ ck( 'and the option holds the link with no name on it',
 
 $site_card = card( $rec_a );
 ck( 'the card at the foot names the date', false !== strpos( $site_card, 'Accepted on 2025-09-01.' ), true );
-ck( 'and says a manager recorded it here from the program\'s copy', false !== strpos( $site_card, 'Recorded on this site by a program manager' ), true );
+ck( 'and says a manager recorded it here from the program\'s copy', false !== strpos( $site_card, 'Recorded on this site by an Administrator' ), true );
 ck( 'the panel has nothing left to say', panel( $rec_a ), '' );
 
 /* ---- one accepted document at a time ------------------------------------- */
@@ -2066,7 +2066,7 @@ $accepted_card = card( $rec_a );
 
 ck( 'the card offers the accepted copy', false !== strpos( $accepted_card, 'action=wpcpm_agreement_download&post=' . $accepted_id ), true );
 ck( 'and the upload form that replaces it', forms_in( $accepted_card )['upload'], 1 );
-ck( 'saying plainly that the current one stays in force', false !== strpos( $accepted_card, 'stays in force until a program manager accepts the new one' ), true );
+ck( 'saying plainly that the current one stays in force', false !== strpos( $accepted_card, 'stays in force until an Administrator accepts the new one' ), true );
 ck( 'and the file is not named anywhere on it', false !== strpos( $accepted_card, '0123456789abcdef' ), false );
 
 // A replacement already waiting: the upload would refuse ("one in review at a time"), so the

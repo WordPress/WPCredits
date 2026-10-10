@@ -661,8 +661,13 @@ $elsewhere = render_block( 8, $A, $S2 );
 $here      = render_block( 8, $A, $S1 );
 
 ck( 'another student\'s card says nothing about it', has( $elsewhere, 'wpcpm-request__message' ), false );
-ck( 'the card it happened on says it', has( $here, 'A program manager has been asked for a mentor' ), true );
+ck( 'the card it happened on says it', has( $here, 'An Administrator has been asked for a mentor' ), true );
 ck( 'once', substr_count( $here, 'wpcpm-request__message' ), 1 );
+// The waiting note knows no assigned Administrator (the card holds the request and the date only), so it
+// sends a reader who has waited long to the program's Administrators, not to "your Administrator", which
+// a member can take for their own institution's administrator.
+ck( 'and the note under the date sends a long wait to the program\'s Administrators, not to "your Administrator"',
+    array( has( $here, 'If it has been a long time, write to the program&#039;s Administrators.' ), has( $here, 'your Administrator' ) ), array( true, false ) );
 ck( 'and the card now shows the date it was asked for instead of the control', array(
 	has( $here, 'A mentor was asked for on' ),
 	has( $here, 'Ask for a mentor' ),

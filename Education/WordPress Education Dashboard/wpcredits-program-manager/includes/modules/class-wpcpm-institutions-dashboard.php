@@ -578,7 +578,7 @@ class WPCPM_Institutions_Dashboard {
 		}
 
 		if ( '' === $record ) {
-			wp_die( esc_html__( 'Only a representative of the institution, or a program manager on their behalf, can arrange an Institution Dashboard.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'Only a representative of the institution, or an Administrator on their behalf, can arrange an Institution Dashboard.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
 		}
 
 		$key       = WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_MODULE );

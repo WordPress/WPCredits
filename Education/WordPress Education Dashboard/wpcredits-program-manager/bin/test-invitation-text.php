@@ -18,6 +18,13 @@
  * The recording is made once: `--record` refuses when the file is there, and the suite pins the
  * file's sha256, so a recording made again from later code can never stand in for 1.122.18's.
  *
+ * One sentence has changed since, on purpose, in 1.122.20: the people who run the program are the
+ * Administrators in every text a person reads, so the institution's invitation says "An
+ * Administrator then accepts it" where 1.122.18 said "A program manager then accepts it". The
+ * recording stays as 1.122.18 wrote it; the suite applies that one change to it before comparing,
+ * and checks it fell on the institution's three invitations that ask for the Collaboration Agreement
+ * and nowhere else.
+ *
  * Run from the plugin root:  php bin/test-invitation-text.php
  * Record (once, against 1.122.18, before the move):  php bin/test-invitation-text.php --record
  */
@@ -235,6 +242,17 @@ function footer_of() {
 	return "\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n";
 }
 
+/**
+ * The 1.122.18 recording with the one sentence 1.122.20 words differently put in its new words.
+ *
+ * @param string $message The recorded body.
+ * @param int    $count   How many times the sentence was there.
+ * @return string
+ */
+function reworded( $message, &$count = 0 ) {
+	return str_replace( 'A program manager then accepts it', 'An Administrator then accepts it', (string) $message, $count );
+}
+
 $fixture = __DIR__ . '/fixtures/invitations-1-122-18.json';
 
 if ( in_array( '--record', $argv, true ) ) {
@@ -266,13 +284,24 @@ $cases    = cases();
 ck( 'the recording is there, and holds every case', is_array( $recorded ) && isset( $recorded['cases'] ) ? array_keys( $recorded['cases'] ) : null, array_keys( $cases ) );
 ck( 'the recording is the one made from 1.122.18', is_file( $fixture ) ? hash_file( 'sha256', $fixture ) : null, 'd6174c852747000d5164f20d25cc42d4568ce442f16224913673eea18622e5f1' );
 
+$reworded_in = array();
+
 foreach ( $cases as $name => $case ) {
 	$want = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : array( 'subject' => null, 'message' => null );
 	$got  = invitation( $case );
+	$hits = 0;
+	$body = null === $want['message'] ? null : reworded( $want['message'], $hits );
+
+	if ( $hits > 0 ) {
+		$reworded_in[] = $name . ' x' . $hits;
+	}
 
 	ck( $name . ': the subject, byte for byte', $got['subject'], $want['subject'] );
-	ck( $name . ': the body, byte for byte, then the signature and footer', $got['message'], null === $want['message'] ? null : $want['message'] . footer_of() );
+	ck( $name . ': the body, byte for byte, then the signature and footer', $got['message'], null === $body ? null : $body . footer_of() );
 }
+
+ck( 'and the one sentence worded differently since 1.122.18 is in the institution\'s three invitations that ask for the Collaboration Agreement, once each, and in no other',
+    $reworded_in, array( 'institution-7-1 x1', 'institution-7-1-no-page x1', 'institution-6-5 x1' ) );
 
 ck( 'and the recording holds no real key: every link carries the fixed fake', is_file( $fixture ) && preg_match_all( '/key=([^&\s]+)/', (string) file_get_contents( $fixture ), $keys ) > 0 ? array_values( array_unique( $keys[1] ) ) : array(), array( 'TEST-KEY-NOT-A-REAL-LINK' ) );
 

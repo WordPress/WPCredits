@@ -399,7 +399,7 @@ final class WPCPM_Institution_Students {
 		if ( self::STATE_GRADUATED === $state ) {
 			return sprintf(
 				/* translators: %s: the student's name. */
-				__( 'Mark %s as graduated? The program records will email them a certificate notice that cannot be recalled, and the change is logged under your name. There is no un-graduate on this screen: a program manager changes it back in the program records.', 'wpcredits-program-manager' ),
+				__( 'Mark %s as graduated? The program records will email them a certificate notice that cannot be recalled, and the change is logged under your name. There is no un-graduate on this screen: an Administrator changes it back in the program records.', 'wpcredits-program-manager' ),
 				$name
 			);
 		}
@@ -407,7 +407,7 @@ final class WPCPM_Institution_Students {
 		if ( self::STATE_WITHDRAWN === $state ) {
 			return sprintf(
 				/* translators: %s: the student's name. */
-				__( 'Mark %s as dropped out? The program records will email them a notice that cannot be recalled, and the change is logged under your name. There is no undo on this screen: a program manager changes it back in the program records.', 'wpcredits-program-manager' ),
+				__( 'Mark %s as dropped out? The program records will email them a notice that cannot be recalled, and the change is logged under your name. There is no undo on this screen: an Administrator changes it back in the program records.', 'wpcredits-program-manager' ),
 				$name
 			);
 		}
@@ -700,9 +700,9 @@ final class WPCPM_Institution_Students {
 	 */
 	public static function notes() {
 		return array(
-			self::OUT_ALREADY   => __( 'This placement is already recorded as finished, so there is nothing to record here. A program manager changes it in the program records.', 'wpcredits-program-manager' ),
+			self::OUT_ALREADY   => __( 'This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records.', 'wpcredits-program-manager' ),
 			self::OUT_PAUSED    => self::paused_sentence(),
-			self::OUT_UNTRACKED => __( 'This student is not on the program right now, so how their placement ended is a program manager\'s to record.', 'wpcredits-program-manager' ),
+			self::OUT_UNTRACKED => __( 'This student is not on the program right now, so how their placement ended is an Administrator\'s to record.', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -717,22 +717,22 @@ final class WPCPM_Institution_Students {
 	 * @return array<string, array{0:string,1:string}>
 	 */
 	public static function messages() {
-		$manager = __( 'A program manager changes it in the program records.', 'wpcredits-program-manager' );
+		$manager = __( 'An Administrator changes it in the program records.', 'wpcredits-program-manager' );
 
 		return array(
 			'status-' . self::STATE_GRADUATED => array( 'success', __( 'Saved. This student is recorded as graduated, and their certificate notice is on its way from the program records. It cannot be recalled from here, and neither can the change.', 'wpcredits-program-manager' ) . ' ' . $manager ),
 			'status-' . self::STATE_WITHDRAWN => array( 'success', __( 'Saved. This student is recorded as dropped out, and the program records have sent them their own notice. It cannot be recalled from here, and neither can the change.', 'wpcredits-program-manager' ) . ' ' . $manager ),
 			self::OUT_ALREADY                 => array( 'info', __( 'Nothing was changed: the program records already say this.', 'wpcredits-program-manager' ) ),
 			self::OUT_PAUSED                  => array( 'error', __( 'Nothing was changed.', 'wpcredits-program-manager' ) . ' ' . self::paused_sentence() ),
-			self::OUT_UNTRACKED               => array( 'error', __( 'Nothing was changed: this student is not on the program right now, so how their placement ended is a program manager\'s to record.', 'wpcredits-program-manager' ) ),
+			self::OUT_UNTRACKED               => array( 'error', __( 'Nothing was changed: this student is not on the program right now, so how their placement ended is an Administrator\'s to record.', 'wpcredits-program-manager' ) ),
 			'status-unknown'                  => array( 'error', __( 'Nothing was changed: that is not a change this screen makes. Graduated and dropped out are the two it records; everything else about a student\'s status is the program\'s.', 'wpcredits-program-manager' ) ),
-			'status-graduation-off'           => array( 'error', __( 'Nothing was changed: marking a student as graduated is switched off on this screen for now. Program managers record graduations in Airtable.', 'wpcredits-program-manager' ) ),
+			'status-graduation-off'           => array( 'error', __( 'Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in Airtable.', 'wpcredits-program-manager' ) ),
 			'status-refused'                  => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
 			'status-unreadable'               => array( 'error', __( 'Nothing was changed: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'status-airtable'                 => array( 'error', __( 'Nothing was changed: the program records refused the change. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'status-no-row'                   => array( 'error', __( 'Nothing was changed: the program records hold no student row to write this to. A program manager completes the record first.', 'wpcredits-program-manager' ) ),
+			'status-no-row'                   => array( 'error', __( 'Nothing was changed: the program records hold no student row to write this to. An Administrator completes the record first.', 'wpcredits-program-manager' ) ),
 			'status-column'                   => array( 'error', __( 'Nothing was changed: this site cannot tell which column in the program records holds a student\'s status, so it did not guess. Tell your program contact.', 'wpcredits-program-manager' ) ),
-			'status-unfiled'                  => array( 'error', __( 'Nothing was changed: this student\'s row in the program records is not linked to any institution, so there is nothing to record the change against and this screen does not make a change it cannot record. A program manager links the row first.', 'wpcredits-program-manager' ) ),
+			'status-unfiled'                  => array( 'error', __( 'Nothing was changed: this student\'s row in the program records is not linked to any institution, so there is nothing to record the change against and this screen does not make a change it cannot record. An Administrator links the row first.', 'wpcredits-program-manager' ) ),
 			'status-unlogged'                 => array( 'error', __( 'The change reached the program records, but the entry saying who made it could not be written, so it is not in this institution\'s history. Tell your program contact, and do not press this again until they have looked.', 'wpcredits-program-manager' ) ),
 		);
 	}

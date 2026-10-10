@@ -69,7 +69,7 @@ one-to-one calls, and a session's places are its own.
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
 to all of them. Move a session after its reminder has gone out and everybody on it is reminded again
 before the new time. **Cancel the session** asks before it goes, and if you cancel it, every student
-on it is told. A program manager can change your session too; if they move it, you are emailed as
+on it is told. An Administrator can change your session too; if they move it, you are emailed as
 well, with an invitation that moves it in your calendar.
 
 A series is planned all or nothing: a date that has passed, a date given twice, a date on which

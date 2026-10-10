@@ -71,7 +71,7 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Finds students who have more than one row in Students, Students Reports or Feedback, and deletes the older rows a program manager selects and confirms.', 'wpcredits-program-manager' );
+		return __( 'Finds students who have more than one row in Students, Students Reports or Feedback, and deletes the older rows an Administrator selects and confirms.', 'wpcredits-program-manager' );
 	}
 
 	/**

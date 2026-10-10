@@ -136,7 +136,7 @@ class WPCPM_Institution_Approval {
 		// the person pressing the button may manage the program; this asks whether the person
 		// the row is about to credit may.
 		if ( ! user_can( $manager_id, WPCPM_Roles::CAP_MANAGE ) ) {
-			return new WP_Error( 'wpcpm_app_actor', __( 'Only a program manager can approve an application.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_app_actor', __( 'Only an Administrator can approve an application.', 'wpcredits-program-manager' ) );
 		}
 
 		$state = (string) get_post_meta( $application_id, WPCPM_Institution_Application::META_STATE, true );

@@ -1042,7 +1042,7 @@ class WPCPM_Agreement_Generate {
 
 		WPCPM_Institutions::notify_managers( self::NOTIFY_TEMPLATE, $build );
 
-		wp_die( esc_html__( 'The agreement template needs attention; a program manager has been told. Nothing was generated, and nothing is wrong at your end.', 'wpcredits-program-manager' ), 500 );
+		wp_die( esc_html__( 'The agreement template needs attention; an Administrator has been told. Nothing was generated, and nothing is wrong at your end.', 'wpcredits-program-manager' ), 500 );
 	}
 
 	/**

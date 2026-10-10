@@ -297,7 +297,7 @@ class WPCPM_Institution_People {
 
 		printf(
 			' <span class="wpcpm-people__facts wpcpm-people__status">%s</span>',
-			esc_html__( 'Named in the program records, with no account on this site yet. A program manager can add one so they can see this page.', 'wpcredits-program-manager' )
+			esc_html__( 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.', 'wpcredits-program-manager' )
 		);
 
 		echo '</li>';
@@ -382,13 +382,13 @@ class WPCPM_Institution_People {
 	private static function confirm_text( WP_User $member, $name, $is_self, $is_contact, $others ) {
 		$who  = '' !== trim( (string) $member->display_name ) ? $member->display_name : $member->user_login;
 		$note = $is_contact
-			? ' ' . __( 'Airtable still names this address as the institution\'s contact: a program manager changes that there.', 'wpcredits-program-manager' )
+			? ' ' . __( 'Airtable still names this address as the institution\'s contact: an Administrator changes that there.', 'wpcredits-program-manager' )
 			: '';
 
 		if ( $is_self && 0 === (int) $others ) {
 			return sprintf(
 				/* translators: %s: institution name. */
-				__( 'You are the last member of %s. Leave anyway? Nobody will be left who can act for it on this site, the program managers will be told, and your account is kept.', 'wpcredits-program-manager' ),
+				__( 'You are the last member of %s. Leave anyway? Nobody will be left who can act for it on this site, the Administrators will be told, and your account is kept.', 'wpcredits-program-manager' ),
 				$name
 			) . $note;
 		}
@@ -410,7 +410,7 @@ class WPCPM_Institution_People {
 		if ( 0 === (int) $others ) {
 			return sprintf(
 				/* translators: 1: member name, 2: institution name. */
-				__( 'Remove %1$s\'s access to %2$s\'s students on this site? They will be emailed that their access was removed, nobody will be left who can act for the institution, the program managers will be told, and the account is kept.', 'wpcredits-program-manager' ),
+				__( 'Remove %1$s\'s access to %2$s\'s students on this site? They will be emailed that their access was removed, nobody will be left who can act for the institution, the Administrators will be told, and the account is kept.', 'wpcredits-program-manager' ),
 				$who,
 				$name
 			) . $note;
@@ -476,7 +476,7 @@ class WPCPM_Institution_People {
 		$labels = array(
 			WPCPM_Institution_Members::HOW_PROVISIONED => __( 'Added by the institutions sync', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Members::HOW_APPROVED    => __( 'Added when the application was approved', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Members::HOW_MANAGER     => __( 'Added by a program manager', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Members::HOW_MANAGER     => __( 'Added by an Administrator', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Members::HOW_INVITED     => __( 'Joined by invitation', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Members::HOW_LEGACY      => __( 'Added before memberships were recorded', 'wpcredits-program-manager' ),
 		);

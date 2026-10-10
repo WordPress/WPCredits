@@ -1452,7 +1452,7 @@ final class WPCPM_Administrators_Cards {
 				'<span class="wpcpm-administrator__fact">%s</span>',
 				esc_html(
 					sprintf(
-						/* translators: %s: a program manager's name or address. */
+						/* translators: %s: an Administrator's name or address. */
 						__( 'Routed to %s', 'wpcredits-program-manager' ),
 						$manager
 					)
@@ -1680,7 +1680,7 @@ final class WPCPM_Administrators_Cards {
 					esc_html( WPCPM_Cohort::label( $row['cohort'] ) ),
 					esc_html(
 						$by instanceof WP_User
-							? sprintf( /* translators: 1: a date, 2: a program manager's name. */ __( 'approved on %1$s by %2$s', 'wpcredits-program-manager' ), self::when( (int) $row['approved_at'] ), $by->display_name )
+							? sprintf( /* translators: 1: a date, 2: an Administrator's name. */ __( 'approved on %1$s by %2$s', 'wpcredits-program-manager' ), self::when( (int) $row['approved_at'] ), $by->display_name )
 							: sprintf( /* translators: %s: a date. */ __( 'approved on %s', 'wpcredits-program-manager' ), self::when( (int) $row['approved_at'] ) )
 					),
 					esc_url( self::report_link( $row['institution'], $row['cohort'] ) ),
@@ -2159,6 +2159,6 @@ final class WPCPM_Administrators_Cards {
 	 * @return string
 	 */
 	private static function drafted( $timestamp, $origin ) {
-		return self::when( $timestamp ) . ', ' . ( 'auto' === $origin ? __( 'by the site', 'wpcredits-program-manager' ) : __( 'by a manager', 'wpcredits-program-manager' ) );
+		return self::when( $timestamp ) . ', ' . ( 'auto' === $origin ? __( 'by the site', 'wpcredits-program-manager' ) : __( 'by an Administrator', 'wpcredits-program-manager' ) );
 	}
 }

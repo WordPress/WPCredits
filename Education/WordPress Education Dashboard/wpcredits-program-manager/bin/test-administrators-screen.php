@@ -665,10 +665,10 @@ ck( 'no bulk actions: the table offers none, so the list\'s form holds no bulk s
 ck( 'the list is one form, sent to the screen by GET with its page and its tab, with the search box, and no form in a row',
 	array( has( $form, '<input type="hidden" name="page" value="wpcpm-administrators" />' ), has( $form, '<input type="hidden" name="tab" value="accounts" />' ), has( $form, 'name="s"' ), has( $form, 'value="Search administrators"' ), substr_count( $html, '<form' ) ),
 	array( true, true, true, true, 1 ) );
-ck( 'above it the Administrator Dashboard\'s address, and below it that program managers use the Administrator role and are never invited by the plugin',
+ck( 'above it the Administrator Dashboard\'s address, and below it that Administrators use the Administrator role and are never invited by the plugin',
 	array(
 		has( $html, '<p>Administrator Dashboard: <a href="https://example.test/administrator-dashboard/">https://example.test/administrator-dashboard/</a></p>' ),
-		has( $html, '<p class="description">Program managers use the built-in WordPress Administrator role and are never invited by the plugin: their accounts are added and managed on the Users screen.</p>' ),
+		has( $html, '<p class="description">Administrators use the built-in WordPress Administrator role and are never invited by the plugin: their accounts are added and managed on the Users screen.</p>' ),
 	),
 	array( true, true ) );
 

@@ -304,13 +304,13 @@ ck( 'and an unknown module ID still lands on the mentor wording it always did',
 
 // The fourth audience. A non-manager is told whose page this is and never about the Mentor
 // role; a manager with nothing waiting is pointed at the Administrators screen.
-ck( 'a non-manager is told the Administrator Dashboard is for the program managers',
+ck( 'a non-manager is told the Administrator Dashboard is for the Administrators',
     WPCPM_Dashboards::nothing_to_show( 'administrators', false ),
-    'This page is for the program managers. Your account cannot manage the program.' );
+    'This page is for the Administrators. Your account cannot manage the program.' );
 $manager_admin_sees = WPCPM_Dashboards::nothing_to_show( 'administrators', true );
 ck( 'a manager with nothing waiting is sent to the Administrators screen',
     array(
-        false !== strpos( $manager_admin_sees, 'Nothing is waiting for a manager right now.' ),
+        false !== strpos( $manager_admin_sees, 'Nothing is waiting for an Administrator right now.' ),
         false !== strpos( $manager_admin_sees, 'admin.php?page=wpcpm-administrators' ),
     ),
     array( true, true ) );

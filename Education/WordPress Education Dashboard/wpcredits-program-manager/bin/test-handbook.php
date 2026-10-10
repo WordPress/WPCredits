@@ -965,6 +965,15 @@ ck( 'the lockup is asked for by height and keeps its proportions',
 // this suite already guards the card's copy the same way, and the alternative is no cover at all.
 $student_page_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php' );
 
+// A student has no "Administrator" of their own: the empty mentor line says that an Administrator will
+// introduce a mentor, not "your Administrator" (which reads as the student's own, or a school's, admin).
+ck( 'the empty My mentor line says an Administrator will introduce one, and not "your Administrator"',
+    array(
+        false !== strpos( $student_page_src, 'No mentor is assigned to you yet. An Administrator will introduce you to one.' ),
+        false !== strpos( $student_page_src, 'Your Administrator will introduce you' ),
+    ),
+    array( true, false ) );
+
 ck( 'the course and the report form are separate sections',
     array(
         false !== strpos( $student_page_src, "__( 'My course', 'wpcredits-program-manager' )" ),
@@ -1141,14 +1150,15 @@ ck( 'and it names every kind of site record that locks a row, audit log entries 
     array( true, true, true, true ) );
 
 // The reason a duplicate exists at all, and the reason to use this tool rather than Airtable.
-ck( 'and it tells a program manager not to delete duplicates by hand in Airtable, and why',
+ck( 'and it tells an Administrator not to delete duplicates by hand in Airtable, and why',
     array(
 		false !== strpos( $built, '>Delete duplicates here, not by hand in Airtable</h4>' ),
 		false !== strpos( $built, 'stops showing their program' ),
 	),
     array( true, true ) );
 
-ck( 'the program managers\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
+ck( 'the Administrators\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
+ck( 'and its link says what it is, the WordPress Credits handbook, since the site\'s own Administrator guide is another page', $guides['administrator']['label'], 'WordPress Credits handbook' );
 ck( 'and their channel is the program\'s', $guides['administrator']['slack'], $guides['institution']['slack'] );
 ck( 'the institution\'s guide is the handbook page written for them', $guides['institution']['url'], 'https://make.wordpress.org/community/handbook/education/credits/institutions/' );
 ck( 'and its channel is the program\'s own, not a student or mentor one',

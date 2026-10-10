@@ -735,7 +735,7 @@ class WPCPM_Settings_Screen {
 
 		return array(
 			'url'   => $url,
-			'label' => __( 'Program manager guide', 'wpcredits-program-manager' ),
+			'label' => __( 'Administrator guide', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -810,7 +810,7 @@ class WPCPM_Settings_Screen {
 		WPCPM_Settings_Rows::select_row( 'teams_name_field', __( 'Contribution areas name column', 'wpcredits-program-manager' ), $settings['teams_name_field'], WPCPM_Settings_Choices::columns( $settings['teams_table'] ), '', WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['teams_table'] ) ) );
 		WPCPM_Settings_Rows::select_row( 'tutors_table', __( 'Tutors table', 'wpcredits-program-manager' ), $settings['tutors_table'], $tables, __( 'Read when an institution enrolls students, for that institution\'s own tutors.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'feedback_table', __( 'Feedback table', 'wpcredits-program-manager' ), $settings['feedback_table'], $tables, __( 'Where the students\' survey answers are written: one row per student, with a column per question.', 'wpcredits-program-manager' ), $by_id );
-		WPCPM_Settings_Rows::select_row( 'countries_table', __( 'Countries table', 'wpcredits-program-manager' ), $settings['countries_table'], $tables, __( 'Read for the name of each institution\'s country and the program manager who looks after it.', 'wpcredits-program-manager' ), $by_id );
+		WPCPM_Settings_Rows::select_row( 'countries_table', __( 'Countries table', 'wpcredits-program-manager' ), $settings['countries_table'], $tables, __( 'Read for the name of each institution\'s country and the Administrator who looks after it.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'countries_name_field', __( 'Countries name column', 'wpcredits-program-manager' ), $settings['countries_name_field'], self::name_columns( $settings['countries_table'] ), __( 'The column of the Countries table that holds each country\'s name.', 'wpcredits-program-manager' ), WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['countries_table'] ) ) );
 		WPCPM_Settings_Rows::select_row( 'team_members_table', __( 'Team Members table', 'wpcredits-program-manager' ), $settings['team_members_table'], $tables, __( 'Read by the sponsors sync for each sponsor\'s program contact, and not the Contribution areas table above.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'sponsors_table', __( 'Sponsors table', 'wpcredits-program-manager' ), $settings['sponsors_table'], $tables, __( 'Read by the sponsors sync, and written to whenever a sponsor\'s record changes on this site, from an approved application to a new logo.', 'wpcredits-program-manager' ), $by_id );
@@ -1125,7 +1125,7 @@ class WPCPM_Settings_Screen {
 				: ''
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
 
 		// Beside the applications switch, because the two are the same kind of decision: both
 		// open a route by which people outside the program put names into it, and a site that
@@ -1226,8 +1226,8 @@ class WPCPM_Settings_Screen {
 			'agreement_notify',
 			__( 'Who reviews agreements', 'wpcredits-program-manager' ),
 			(string) $settings['agreement_notify'],
-			__( 'Addresses told when an agreement arrives and sent the overdue digest; with none, every program manager is written to.', 'wpcredits-program-manager' ),
-			__( 'That reaches technical administrators as well, so set it before the first real upload.', 'wpcredits-program-manager' )
+			__( 'Addresses told when an agreement arrives and sent the overdue digest; with none, every Administrator is written to.', 'wpcredits-program-manager' ),
+			__( 'That includes every account with the WordPress Administrator role, technical ones too, so set it before the first real upload.', 'wpcredits-program-manager' )
 		);
 
 		$wording = __( 'The agreement wording', 'wpcredits-program-manager' );
@@ -1254,7 +1254,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Drafting', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['report_autodraft'] ), true, false ),
 			esc_html__( 'Draft each institution\'s semester report when the semester ends', 'wpcredits-program-manager' ),
-			esc_html__( 'A daily job drafts a report for every finished semester and tells the program managers; off, drafts are written only when a manager presses Draft now.', 'wpcredits-program-manager' )
+			esc_html__( 'A daily job drafts a report for every finished semester and tells the Administrators; off, drafts are written only when an Administrator presses Draft now.', 'wpcredits-program-manager' )
 		);
 
 		printf(
@@ -1269,7 +1269,7 @@ class WPCPM_Settings_Screen {
 			'report_notify',
 			__( 'Who reviews reports', 'wpcredits-program-manager' ),
 			(string) $settings['report_notify'],
-			__( 'Addresses told when the job drafts a report; with none, every program manager is written to.', 'wpcredits-program-manager' )
+			__( 'Addresses told when the job drafts a report; with none, every Administrator is written to.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1308,7 +1308,7 @@ class WPCPM_Settings_Screen {
 				: ''
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 
@@ -1364,7 +1364,7 @@ class WPCPM_Settings_Screen {
 		// which says who the mail goes to.
 		$this->open_section(
 			__( 'Interest mail', 'wpcredits-program-manager' ),
-			__( 'Where a sponsor\'s interest, and its other mail for a program manager, goes when no program manager is assigned to the sponsor.', 'wpcredits-program-manager' ),
+			__( 'Where a sponsor\'s interest, and its other mail for an Administrator, goes when no Administrator is assigned to the sponsor.', 'wpcredits-program-manager' ),
 			'interest-mail'
 		);
 
@@ -1375,8 +1375,8 @@ class WPCPM_Settings_Screen {
 			'sponsor_notify',
 			__( 'Who is mailed', 'wpcredits-program-manager' ),
 			isset( $settings['sponsor_notify'] ) ? (string) $settings['sponsor_notify'] : '',
-			__( 'Addresses mailed in place of a sponsor\'s program manager when it has none; with none here, every program manager is written to.', 'wpcredits-program-manager' ),
-			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes and a warning that its codes are running low go to its assigned program manager, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no manager yet.', 'wpcredits-program-manager' )
+			__( 'Addresses mailed in place of a sponsor\'s Administrator when it has none; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
+			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes and a warning that its codes are running low go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1417,7 +1417,7 @@ class WPCPM_Settings_Screen {
 			esc_html( $low_stock ),
 			isset( $settings['offer_low_stock'] ) ? (int) $settings['offer_low_stock'] : 10,
 			esc_html__( 'codes left', 'wpcredits-program-manager' ),
-			esc_html__( 'When a pool of one-time codes falls below this many, the sponsor and its program manager are mailed once.', 'wpcredits-program-manager' )
+			esc_html__( 'When a pool of one-time codes falls below this many, the sponsor and its Administrator are mailed once.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $low_stock, __( 'This is the default for new offers; each offer can set its own.', 'wpcredits-program-manager' ) );
 
@@ -1757,7 +1757,7 @@ class WPCPM_Settings_Screen {
 			'lapsed-invitations'
 		);
 
-		WPCPM_Settings_Rows::number_row( 'invite_retention_days', __( 'Settled invitations kept for (days)', 'wpcredits-program-manager' ), $settings['invite_retention_days'], 7, 365, __( 'A settled invitation stays listed this many days, so a program manager can still see who was invited and never came.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'invite_retention_days', __( 'Settled invitations kept for (days)', 'wpcredits-program-manager' ), $settings['invite_retention_days'], 7, 365, __( 'A settled invitation stays listed this many days, so an Administrator can still see who was invited and never came.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 	}

@@ -185,7 +185,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 					wp_kses(
 						sprintf(
 							/* translators: %s: a link to this screen's Settings section, called Settings. */
-							__( 'Deleting is switched off, so this list is read-only. A program manager turns it on in the %s section above the list.', 'wpcredits-program-manager' ),
+							__( 'Deleting is switched off, so this list is read-only. An Administrator turns it on in the %s section above the list.', 'wpcredits-program-manager' ),
 							'<a href="' . esc_url( '#settings' ) . '">' . esc_html__( 'Settings', 'wpcredits-program-manager' ) . '</a>'
 						),
 						array( 'a' => array( 'href' => true ) )
@@ -274,7 +274,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 
 		$blocked = '';
 		if ( empty( $args['enabled'] ) ) {
-			$blocked = __( 'Deleting is switched off: a program manager turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
+			$blocked = __( 'Deleting is switched off: an Administrator turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
 		} elseif ( ! empty( $args['running'] ) ) {
 			$blocked = __( 'A scan is running and is about to write a new list. Wait for it to finish, then review the selection again.', 'wpcredits-program-manager' );
 		}
@@ -386,7 +386,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 				break;
 			case 'switched-off':
 				$type     = 'warning';
-				$sentence = __( 'Nothing was deleted: deleting is switched off, and a program manager turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
+				$sentence = __( 'Nothing was deleted: deleting is switched off, and an Administrator turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
 				break;
 			case 'scan-running':
 				$type     = 'warning';

@@ -83,7 +83,7 @@ final class WPCPM_Sponsor_Logo {
 			'logo-removed'          => array( 'success', __( 'Your logo is removed here and from the program records. Upload a new one whenever you like.', 'wpcredits-program-manager' ) ),
 			'logo-removed-airtable' => array( 'error', __( 'Nothing was removed: the program records could not be told just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'logo-none'             => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
-			'logo-not-site'         => array( 'error', __( 'There is no uploaded logo to remove here. The logo shown comes from Airtable; a program manager can change it there.', 'wpcredits-program-manager' ) ),
+			'logo-not-site'         => array( 'error', __( 'There is no uploaded logo to remove here. The logo shown comes from Airtable; an Administrator can change it there.', 'wpcredits-program-manager' ) ),
 			'logo-refused'          => array(
 				'error',
 				sprintf(

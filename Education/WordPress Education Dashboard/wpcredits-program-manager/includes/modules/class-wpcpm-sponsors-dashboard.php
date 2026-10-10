@@ -484,7 +484,7 @@ final class WPCPM_Sponsors_Dashboard {
 			array(
 				'id'    => 'offer',
 				'title' => __( 'What you offer', 'wpcredits-program-manager' ),
-				'lead'  => __( 'What you give the program\'s students and mentors. Publish offers: a pool of one-time codes you paste or upload, or one code or link everyone uses, switched on when ready. See how many people claimed each month, with nobody named. Tell the program what else you would like to support. Write posts that appear on the Student Report Card and the Mentor Report Card once a program manager publishes them.', 'wpcredits-program-manager' ),
+				'lead'  => __( 'What you give the program\'s students and mentors. Publish offers: a pool of one-time codes you paste or upload, or one code or link everyone uses, switched on when ready. See how many people claimed each month, with nobody named. Tell the program what else you would like to support. Write posts that appear on the Student Report Card and the Mentor Report Card once an Administrator publishes them.', 'wpcredits-program-manager' ),
 				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts' ),
 			),
 			array(

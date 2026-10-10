@@ -954,7 +954,7 @@ $with_fifth = render();
 ck( 'it appears when there is somebody in it', group_count( $with_fifth, 'Not yet in the Students table' ), 1 );
 ck( 'with the person named', has( $with_fifth, 'Nia Example' ), true );
 ck( 'and the explanation of whose job the missing record is',
-	has( $with_fifth, 'A program manager needs to complete the record.' ), true );
+	has( $with_fifth, 'An Administrator needs to complete the record.' ), true );
 ck( 'they are not in any of the four groups', group_count( $with_fifth, 'Current' ), 2 );
 
 // A student's address is a manager's to see, not the school's: the export has no email column

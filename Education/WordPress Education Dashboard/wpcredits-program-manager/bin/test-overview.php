@@ -739,7 +739,7 @@ ck( 'a tile without a screen on the map is still on the list, its label and coun
 $nothing = card( draw(), 'Waiting for a decision' );
 
 ck( 'with nothing waiting, the card says so in the words the dashboards keep for a manager with nothing waiting, and lists nothing',
-	array( 1 === preg_match( '#^<p>Nothing is waiting for a manager right now\.</p>#', $nothing ), has( $nothing, '<ul' ) ),
+	array( 1 === preg_match( '#^<p>Nothing is waiting for an Administrator right now\.</p>#', $nothing ), has( $nothing, '<ul' ) ),
 	array( true, false ) );
 
 ck( 'and the sentence is the dashboards\' own, read from them rather than copied',
@@ -749,7 +749,7 @@ ck( 'and the sentence is the dashboards\' own, read from them rather than copied
 				return WPCPM_Dashboards::empty_sentence( 'administrators' );
 			}
 		),
-		0 === strpos( WPCPM_Dashboards::nothing_to_show( 'administrators', true ), 'Nothing is waiting for a manager right now. <a ' ),
+		0 === strpos( WPCPM_Dashboards::nothing_to_show( 'administrators', true ), 'Nothing is waiting for an Administrator right now. <a ' ),
 		is_file( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-overview.php' ) && ! has( file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-overview.php' ), 'Nothing is waiting' ),
 		attempt(
 			static function () {
@@ -757,7 +757,7 @@ ck( 'and the sentence is the dashboards\' own, read from them rather than copied
 			}
 		),
 	),
-	array( 'Nothing is waiting for a manager right now.', true, true, '' ) );
+	array( 'Nothing is waiting for an Administrator right now.', true, true, '' ) );
 
 // The page the decisions are made on, and the same card while that page is missing.
 $with_page                         = card( draw( $three ), 'Waiting for a decision' );

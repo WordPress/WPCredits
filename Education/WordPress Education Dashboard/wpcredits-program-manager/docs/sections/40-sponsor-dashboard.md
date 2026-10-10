@@ -8,4 +8,4 @@ Your company's page on the WordPress Education Dashboard is the Sponsor Dashboar
 
 **Mentors.** *Your mentors* lists the mentors your company sponsors and how many students each one guides. *Mentors looking for a sponsor* lists the active mentors who asked to be listed; one press tells your program contact you would like to sponsor one of them.
 
-Above the cards, *Program updates and announcements* carries what the program publishes for sponsors, and *Resources* has this guide, the program's Slack channel and the Need help? button. *Your contact at the program* names the program manager who looks after your company, with a link to book a call.
+Above the cards, *Program updates and announcements* carries what the program publishes for sponsors, and *Resources* has this guide, the program's Slack channel and the Need help? button. *Your contact at the program* names the Administrator who looks after your company, with a link to book a call.
