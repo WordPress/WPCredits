@@ -808,7 +808,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>With a webhook saved, every action that promotes sends <strong>one</strong> message once it has finished: a run, whether the daily one, <strong>Run check and promote</strong> or <code>wp wpcredits check-mentors --promote</code>; <strong>Promote all eligible</strong>; or <strong>Promote</strong> on one row. It calls the channel (<code>@channel</code>), says how many mentors were moved to the status they were promoted to and which channel to add them to, and lists each one with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is the name to type when adding them, shown as code so that an address typed there is not a link. The last line says who promoted: <em>the daily check</em>, <em>WP-CLI</em> or the administrator who pressed the button. Only mentors whose status was actually written are named; an action that moved nobody sends nothing, and a long list goes in messages of 25. The message is in the site's language, whoever pressed the button.</p>
+<p>With a webhook saved, every action that promotes sends <strong>one</strong> message once it has finished: a run, whether the daily one, <strong>Run check and promote</strong> or <code>wp wpcredits check_mentors --promote</code>; <strong>Promote all eligible</strong>; or <strong>Promote</strong> on one row. It calls the channel (<code>@channel</code>), says how many mentors were moved to the status they were promoted to and which channel to add them to, and lists each one with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is the name to type when adding them, shown as code so that an address typed there is not a link. The last line says who promoted: <em>the daily check</em>, <em>WP-CLI</em> or the administrator who pressed the button. Only mentors whose status was actually written are named; an action that moved nobody sends nothing, and a long list goes in messages of 25. The message is in the site's language, whoever pressed the button.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -1213,7 +1213,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one of the four is ever missing, <code>wp wpcredits seed-tracks</code> on the command line puts it back; it is the same command a site runs on itself the first time it reaches the Track Builder.</p>
+<p>A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one of the four is ever missing, <code>wp wpcredits seed_tracks</code> on the command line puts it back; it is the same command a site runs on itself the first time it reaches the Track Builder.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -1221,7 +1221,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a seeding cut short leaves no half-made track behind, and <code>wp wpcredits seed-tracks</code> puts back any of the four that is missing, then as at any other time.</p>
+<p>A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a seeding cut short leaves no half-made track behind, and <code>wp wpcredits seed_tracks</code> puts back any of the four that is missing, then as at any other time.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"need-help"} -->

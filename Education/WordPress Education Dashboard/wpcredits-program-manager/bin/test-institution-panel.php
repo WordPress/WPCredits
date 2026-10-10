@@ -2412,6 +2412,18 @@ ck( 'no rule with a leading-edge bar pads its two sides unequally', $shorthand, 
 ck( 'and the five quote-like rules pad on the inline axis', $unpadded, array() );
 ck( 'the roster strip puts its bar where the banner does', false !== strpos( $inst_rules['.wpcpm-roster__strip'] ?? '', 'border-inline-start-width: 4px' ), true );
 
+// The "Not yet in the Students table" list prints an address beside a name, and an address is
+// one long word: on a phone it ran past the section's edge and the page scrolled sideways. The
+// list is the view's own markup, so the check reads the class from the view as well, and a
+// rename on one side fails here rather than leaving the rule naming nothing.
+$roster_view = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' );
+
+ck( 'the roster still prints its Not yet in the Students table list under the class the sheet dresses', array(
+	false !== strpos( $roster_view, "<ul class=\"wpcpm-roster__unlinked\">" ),
+	false !== strpos( $roster_view, "' <span class=\"wpcpm-muted\">%s</span>'" ),
+), array( true, true ) );
+ck( 'and an address in it breaks where the line ends, which inheritance carries from the row to the address', false !== strpos( $inst_rules['.wpcpm-roster__unlinked li'] ?? '', 'overflow-wrap: anywhere;' ), true );
+
 // Free text on the printed report wraps anywhere, as the link already did: the narrative the
 // school typed and a student's quoted words can carry a pasted address, and the column is
 // 174mm of paper with no scrollbar. The report is the institution dashboard's own document,

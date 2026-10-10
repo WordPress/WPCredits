@@ -678,7 +678,7 @@ settings**:
 #### The Slack message after a promotion
 
 With a webhook saved, every action that promotes sends **one** message once it has finished: a run,
-whether the daily one, **Run check and promote** or `wp wpcredits check-mentors --promote`; **Promote
+whether the daily one, **Run check and promote** or `wp wpcredits check_mentors --promote`; **Promote
 all eligible**; or **Promote** on one row. It calls the channel (`@channel`), says how many mentors
 were moved to the status they were promoted to and which channel to add them to, and lists each one
 with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is
@@ -1093,7 +1093,7 @@ publish them exactly like a track you make yourself.
 
 A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from
 the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one
-of the four is ever missing, `wp wpcredits seed-tracks` on the command line puts it back; it is the
+of the four is ever missing, `wp wpcredits seed_tracks` on the command line puts it back; it is the
 same command a site runs on itself the first time it reaches the Track Builder.
 
 **Their statuses and keys belong to them.** No other track can take the Airtable status or the key of
@@ -1104,7 +1104,7 @@ change instead.
 
 A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing
 for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a
-seeding cut short leaves no half-made track behind, and `wp wpcredits seed-tracks` puts back any of
+seeding cut short leaves no half-made track behind, and `wp wpcredits seed_tracks` puts back any of
 the four that is missing, then as at any other time.
 
 ### Need help?

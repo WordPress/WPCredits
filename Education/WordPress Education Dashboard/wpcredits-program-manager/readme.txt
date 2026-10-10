@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.15
+Stable tag: 1.122.16
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -222,7 +222,7 @@ A run never leaves you guessing whether it is working. Starting a sync returns i
 
 The screen both reports the progress *and* drives the work: each poll performs one slice, so the sync advances even where WP-Cron is unreliable, and the numbers move every few seconds rather than every eighteen. Cron remains the fallback if you close the tab, and a lock prevents the two from processing the same page twice. With JavaScript off the page refreshes itself instead and cron does the work.
 
-If a run genuinely stops advancing for more than two minutes, the screen says so rather than spinning forever. `wp wpcredits sync-mentors` prints the same percentage and counts, one line per slice.
+If a run genuinely stops advancing for more than two minutes, the screen says so rather than spinning forever. `wp wpcredits sync_mentors` prints the same percentage and counts, one line per slice.
 
 = Tools: Mentor Status Checker =
 
@@ -240,7 +240,7 @@ It reads every mentor whose Airtable status is `Vetted - positive`, looks up the
 
 Promoting writes to Airtable, so it needs the `data.records:write` scope. Everything else is read-only.
 
-`wp wpcredits check-mentors [--promote]` does the same from the command line.
+`wp wpcredits check_mentors [--promote]` does the same from the command line.
 
 = Requirements =
 
@@ -291,6 +291,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.16 =
+
+* Institution Dashboard, the roster's **Not yet in the Students table** list: a long email address breaks where the line ends, inside the card, instead of running past the edge of a phone's screen and letting the whole page scroll sideways.
+* Sponsor posts, Return with a note: the note is counted as its box counts what was typed, as the sponsor application's and the Collaboration Agreement's notes have been since 1.122.13. A note the box took, up to 2,000 characters, is no longer refused because the text cleaner writes a character such as a tab entity longer than it was typed.
+* Tools from our sponsors, on the Student Report Card, the Mentor Report Card and the Administrator Dashboard: a claimed code that is a long link breaks at the edge of its card instead of running out of it on a phone. A click still selects the whole code.
+* WP-CLI: the help, the readme and the Administrators' guide name each command as WP-CLI registers it, `wp wpcredits sync_mentors`, `wp wpcredits check_mentors` and `wp wpcredits seed_tracks`; the help said `sync-mentors`, `check-mentors` and `seed-tracks`, which WP-CLI does not know. Older entries below keep the names they used.
 
 = 1.122.15 =
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * The WP-CLI command that needs no Airtable: `wp wpcredits seed-tracks` (Track Builder, phase T3c).
+ * The WP-CLI command that needs no Airtable: `wp wpcredits seed_tracks` (Track Builder, phase T3c).
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -49,7 +49,7 @@ class WPCPM_Track_Store {
 	public static function compile() { ++self::$compiled; }
 }
 
-/** The Mentor Status Checker, for `wp wpcredits check-mentors`: one mentor promoted, and a sentence about the Slack message. */
+/** The Mentor Status Checker, for `wp wpcredits check_mentors`: one mentor promoted, and a sentence about the Slack message. */
 class WPCPM_Mentor_Checker {
 	public static function is_configured() { return true; }
 	public static function config() { return array( 'source_status' => 'Vetted - positive', 'target_status' => 'Active', 'course_title' => 'The course' ); }
@@ -101,7 +101,7 @@ function run_seed() {
 	return 0;
 }
 
-echo "=== wp wpcredits seed-tracks ===\n";
+echo "=== wp wpcredits seed_tracks ===\n";
 
 WPCPM_Track_Store::$seeded = array( '150h' => 41, 'sensei' => false, 'design' => 43, 'dev' => 44 );
 $exit                      = run_seed();
@@ -142,7 +142,7 @@ ck( 'a seed that fails is warned about, the rest are still tried and compiled on
         1,
     ) );
 
-echo "\n=== wp wpcredits check-mentors ===\n";
+echo "\n=== wp wpcredits check_mentors ===\n";
 
 // Since 1.122.4 a promoting run sends the Slack message as it ends, and whoever ran it from a shell
 // sees how that went, after the counts and before the last word.
@@ -162,6 +162,69 @@ WPCPM_Mentor_Checker_Slack::$sentence = '';
 ( new WPCPM_CLI() )->check_mentors( array(), array() );
 
 ck( 'and says nothing of Slack when there is nothing to say', array_slice( WP_CLI::$lines, -2 ), array( 'log: promoted     1', 'success: Mentor status check complete.' ) );
+
+echo "\n=== The help names each command as WP-CLI registers it ===\n";
+
+// WP-CLI registers each public method under its own name, underscores and all, unless a
+// `@subcommand` tag gives another (CommandFactory::create_subcommand() reads the tag, then the
+// method's name, and replaces nothing). `sync_mentors` is `wp wpcredits sync_mentors`; the hyphen
+// form is no command, and an example that says so is copied into an error. So the examples of each
+// command, and every sentence naming one, are read here against the names WP-CLI would register.
+$main    = (string) file_get_contents( __DIR__ . '/../wpcredits-program-manager.php' );
+$reflect = new ReflectionClass( 'WPCPM_CLI' );
+$root    = 1 === preg_match( "/WP_CLI::add_command\( '([a-z-]+)', 'WPCPM_CLI' \)/", $main, $found ) ? $found[1] : '';
+
+$registered = array();
+
+foreach ( $reflect->getMethods( ReflectionMethod::IS_PUBLIC ) as $method ) {
+	// What WP-CLI's own is_good_method() lets through: public, not static, not a magic method.
+	if ( $method->isStatic() || 0 === strpos( $method->getName(), '__' ) ) {
+		continue;
+	}
+
+	$doc                 = (string) $method->getDocComment();
+	$name                = 1 === preg_match( '/^\s*\*\s*@subcommand\s+(\S+)/m', $doc, $tag ) ? $tag[1] : $method->getName();
+	$registered[ $name ] = $doc;
+}
+
+/** The commands a text runs, as `wp wpcredits <command>` names them. */
+function named_commands( $text, $root ) {
+	preg_match_all( '/\bwp\s+' . preg_quote( $root, '/' ) . '\s+([A-Za-z0-9_-]+)/', (string) $text, $named );
+
+	return $named[1];
+}
+
+ck( 'the plugin registers the class as the command the help names', $root, 'wpcredits' );
+ck( 'and the commands whose names carry an underscore are registered with it', array(
+	isset( $registered['sync_mentors'] ),
+	isset( $registered['check_mentors'] ),
+	isset( $registered['seed_tracks'] ),
+	isset( $registered['sync-mentors'] ),
+), array( true, true, true, false ) );
+
+foreach ( $registered as $name => $doc ) {
+	ck( sprintf( '%s: its examples run %s, and it has at least one', $name, $name ), array_values( array_unique( named_commands( $doc, $root ) ) ), array( $name ) );
+}
+
+ck( 'the class description names only commands that are registered', array_values( array_diff( named_commands( $reflect->getDocComment(), $root ), array_keys( $registered ) ) ), array() );
+
+// The readme's description and the guides say how to run these from a shell too. The readme's
+// changelog is what each release said at the time, so it is left as it was written.
+$texts = array( 'readme.txt' => (string) preg_replace( '/^== Changelog ==.*\z/ms', '', (string) file_get_contents( __DIR__ . '/../readme.txt' ) ) );
+
+foreach ( array_merge( (array) glob( __DIR__ . '/../docs/*.md' ), (array) glob( __DIR__ . '/../docs/sections/*.md' ) ) as $guide ) {
+	$texts[ 'docs/' . ( 'sections' === basename( dirname( $guide ) ) ? 'sections/' : '' ) . basename( $guide ) ] = (string) file_get_contents( $guide );
+}
+
+$unknown = array();
+
+foreach ( $texts as $file => $text ) {
+	foreach ( array_unique( array_diff( named_commands( $text, $root ), array_keys( $registered ) ) ) as $word ) {
+		$unknown[] = $file . ': ' . $word;
+	}
+}
+
+ck( 'the readme and the guides name only commands that are registered', $unknown, array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

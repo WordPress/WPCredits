@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * A CLI path matters here because the sync is cron-driven: on a site with
  * WP-Cron disabled, or when a run has to be reproduced while reading the output,
- * `wp wpcredits sync-mentors` runs every phase to completion in the foreground.
+ * `wp wpcredits sync_mentors` runs every phase to completion in the foreground.
  */
 class WPCPM_CLI {
 
@@ -28,8 +28,8 @@ class WPCPM_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wpcredits sync-mentors
-	 *     wp wpcredits sync-mentors --dry-run
+	 *     wp wpcredits sync_mentors
+	 *     wp wpcredits sync_mentors --dry-run
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Associative arguments.
@@ -173,8 +173,8 @@ class WPCPM_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wpcredits check-mentors
-	 *     wp wpcredits check-mentors --promote
+	 *     wp wpcredits check_mentors
+	 *     wp wpcredits check_mentors --promote
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Associative arguments.
@@ -269,7 +269,7 @@ class WPCPM_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wpcredits seed-tracks
+	 *     wp wpcredits seed_tracks
 	 */
 	public function seed_tracks() {
 		$failed = array();

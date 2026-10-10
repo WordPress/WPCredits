@@ -986,13 +986,16 @@
 	margin: 0 0 0.35em;
 }
 
-/* Monospaced and selectable as one: forms.js selects it on click. */
+/* Monospaced and selectable as one: forms.js selects it on click. A code that is a long link is
+   one long word, so it breaks where its card ends rather than running out of it on a phone; the
+   selection takes the whole of it however many lines it is drawn on. */
 .wpcpm-tools__code {
 	background: var( --wpcpm-surface );
 	border: 1px solid var( --wpcpm-border );
 	border-radius: 6px;
 	cursor: pointer;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	overflow-wrap: anywhere;
 	padding: 0.1em 0.5em;
 	user-select: all;
 }

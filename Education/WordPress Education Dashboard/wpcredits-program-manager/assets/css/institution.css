@@ -711,6 +711,13 @@
 	opacity: 0.9;
 }
 
+/* A manager sees an address beside the name here, and an address is one long word: it breaks
+   where the line ends rather than running past the section's edge on a phone. The row carries
+   the rule to the address inside it; a short one breaks nowhere. */
+.wpcpm-roster__unlinked li {
+	overflow-wrap: anywhere;
+}
+
 .wpcpm-roster__read--footer {
 	margin: 1.5em 0 0;
 }

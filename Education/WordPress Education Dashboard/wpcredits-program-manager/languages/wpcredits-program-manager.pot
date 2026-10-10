@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.15\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.16\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-09T23:15:57+00:00\n"
+"POT-Creation-Date: 2026-10-10T07:27:05+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -181,7 +181,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1503
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1605
 #: includes/modules/class-wpcpm-sponsor-application.php:2901
-#: includes/modules/class-wpcpm-sponsor-posts.php:1406
+#: includes/modules/class-wpcpm-sponsor-posts.php:1414
 #: includes/modules/class-wpcpm-sponsors.php:661
 #: includes/modules/class-wpcpm-sync-module.php:71
 #: includes/tools/class-wpcpm-duplicate-finder.php:227
@@ -12508,13 +12508,13 @@ msgid "A sponsor post was published."
 msgstr ""
 
 #. translators: %s: the post title.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1364
+#: includes/modules/class-wpcpm-sponsor-posts.php:1372
 #, php-format
 msgid "Your post \"%s\" needs a change before it is published"
 msgstr ""
 
 #. translators: 1: the author's name, 2: the post title, 3: the manager's note, 4: the wp-admin posts list URL.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1367
+#: includes/modules/class-wpcpm-sponsor-posts.php:1375
 #, php-format
 msgid ""
 "Hello %1$s,\n"
@@ -12528,22 +12528,22 @@ msgid ""
 "The WordPress Credits program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1386
+#: includes/modules/class-wpcpm-sponsor-posts.php:1394
 msgid "A sponsor post was returned to its author with a note."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1488
-#: includes/modules/class-wpcpm-sponsor-posts.php:1511
+#: includes/modules/class-wpcpm-sponsor-posts.php:1496
+#: includes/modules/class-wpcpm-sponsor-posts.php:1519
 msgid "A sponsor of the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1539
+#: includes/modules/class-wpcpm-sponsor-posts.php:1547
 #: includes/modules/class-wpcpm-sponsor-tools.php:427
 msgid "A sponsor"
 msgstr ""
 
 #. translators: %s: the company name, possibly linked.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1558
+#: includes/modules/class-wpcpm-sponsor-posts.php:1566
 #, php-format
 msgid "A guide from %s, a sponsor of the WordPress Credits program."
 msgstr ""

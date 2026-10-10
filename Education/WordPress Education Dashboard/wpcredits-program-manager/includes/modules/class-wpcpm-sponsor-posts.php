@@ -41,7 +41,7 @@ class WPCPM_Sponsor_Posts {
 	/** When it went back, Unix time. */
 	const META_RETURNED = '_wpcpm_sponsor_returned';
 
-	/** A return note's longest, in characters as the manager typed it (`WPCPM_Typed_Text::typed_length()`). */
+	/** A return note's longest, in characters as the manager typed it (`WPCPM_Typed_Text::box_length()`). */
 	const MAX_NOTE = 2000;
 
 	/** A manager switches posting for a sponsor, from wp-admin. Nonce `wpcpm_sponsor_flags_<record>`. */
@@ -1296,11 +1296,13 @@ class WPCPM_Sponsor_Posts {
 	 * A manager returns a pending post to its author as a draft, with a note that is kept on
 	 * the post and mailed to the author.
 	 *
-	 * The note is counted as the manager typed it (`WPCPM_Typed_Text::typed_length()`): the
-	 * entities the cleaner writes for a "<" and the quote marks and ampersands after it, and the
-	 * two bytes of a line break, are one character each, as the box counts them. One over
-	 * `MAX_NOTE` is refused rather than cut, because a note cut short reaches the author missing
-	 * its end. It is kept as the cleaner left it, and mailed as it was typed.
+	 * The note is counted as the manager typed it (`WPCPM_Typed_Text::box_length()`, on what
+	 * `WPCPM_Request::posted_raw()` read): the entities the cleaner writes for a "<" and the quote
+	 * marks and ampersands after it, a reference it writes in core's longer form (`&#9;` as
+	 * `&#009;`), and the two bytes of a line break, are as many characters as the person typed
+	 * them with, as the box counts them. One over `MAX_NOTE` is refused rather than cut, because a
+	 * note cut short reaches the author missing its end. It is kept as the cleaner left it, and
+	 * mailed as it was typed.
 	 *
 	 * A note the cleaner would take words from is refused before anything is written or mailed:
 	 * returned, it would reach the author missing them without a word said. That refusal and the
@@ -1327,7 +1329,13 @@ class WPCPM_Sponsor_Posts {
 			self::leave( 'post-note-missing', $opened['record'] );
 		}
 
-		if ( WPCPM_Typed_Text::typed_length( $note ) > self::MAX_NOTE ) {
+		// Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`):
+		// past the loss check, the typing and what the cleaner keeps hold the same words, and only
+		// the typing tells an entity typed out from one the cleaner wrote. A note the box took is
+		// never refused for what the cleaner made of it.
+		$length = WPCPM_Typed_Text::box_length( $typed );
+
+		if ( $length > self::MAX_NOTE ) {
 			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::leave( 'post-note-long', $opened['record'] );
 		}
@@ -1384,10 +1392,10 @@ class WPCPM_Sponsor_Posts {
 				'ground'   => $opened['claim']['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => __( 'A sponsor post was returned to its author with a note.', 'wpcredits-program-manager' ),
-				// The note's length, never the note: the audit is about the act.
+				// The note's length as the limit counted it, never the note: the audit is about the act.
 				'data'     => array(
 					'post'        => (int) $post->ID,
-					'note_length' => WPCPM_Typed_Text::typed_length( $note ),
+					'note_length' => $length,
 				),
 			)
 		);

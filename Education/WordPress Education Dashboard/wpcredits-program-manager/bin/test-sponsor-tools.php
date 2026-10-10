@@ -595,5 +595,15 @@ ck( 'and resets the button so a code still looks like a code (FFRNT-6)', false !
 $rule = static function ( $selector ) use ( $css ) { return preg_match( '/\n' . preg_quote( $selector, '/' ) . ' \{([^}]*)\}/', $css, $m ) ? $m[1] : ''; };
 ck( 'the stylesheet lays the link and its button out as one row, and each code with its problem button as another, with the forms\' own margins taken off inside them', array( false !== strpos( $rule( '.wpcpm-tools__actions' ), 'display: flex;' ), false !== strpos( $rule( '.wpcpm-tools__codes li' ), 'display: flex;' ), false !== strpos( $rule( ".wpcpm-tools__actions .wpcpm-tools__more,\n.wpcpm-tools__actions .wpcpm-tools__form" ), 'margin: 0;' ), false !== strpos( $rule( '.wpcpm-tools__codes .wpcpm-tools__form' ), 'margin: 0;' ) ), array( true, true, true, true ) );
 
+// A claimed code can be a long link, which is one long word: it breaks where its card ends rather
+// than running out of it on a phone. The rule is on the class both forms carry, the checkout link
+// and the button, and the button's own rule leaves the wrapping alone, so the one line decides it.
+// Selecting is not affected: forms.js selects the element's contents (`selectNodeContents`), and
+// `user-select: all` takes the code as one unit however many lines it is drawn on.
+$code_source = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php' );
+ck( 'a claimed code is drawn as a link or as a button, both under the one class', array( 1 === preg_match( '/<a class="wpcpm-tools__code" href=/', $code_source ), 1 === preg_match( '/<button type="button" class="wpcpm-tools__code" data-wpcpm-select /', $code_source ) ), array( true, true ) );
+ck( 'and that class breaks a long code at its card\'s edge, as a link and as the button', array( false !== strpos( $rule( '.wpcpm-tools__code' ), 'overflow-wrap: anywhere;' ), false === strpos( $rule( '.wpcpm-tools__code' ), 'white-space' ), false === strpos( $rule( 'button.wpcpm-tools__code' ), 'overflow-wrap' ), false === strpos( $rule( 'button.wpcpm-tools__code' ), 'white-space' ) ), array( true, true, true, true ) );
+ck( 'with the code still selected as one unit on a click', array( false !== strpos( $rule( '.wpcpm-tools__code' ), 'user-select: all;' ), false !== strpos( $js, 'range.selectNodeContents( target );' ) ), array( true, true ) );
+
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

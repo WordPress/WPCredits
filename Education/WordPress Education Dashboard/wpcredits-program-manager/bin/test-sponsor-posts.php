@@ -708,6 +708,19 @@ $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
 $over_post = posts_pending( 'Fifth guide' );
 ck( 'one character more is refused with its own sentence, and the post waits as it was: no note, no mail, no audit row', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $over_post, 'wpcpm_note' => $r_at . 'x' ) ), get_post( $over_post )->post_status, get_post_meta( $over_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), $GLOBALS['mail'], $GLOBALS['audit'] ), array( 'post-note-long|posts|' . $S . '|', 'pending', '', array(), array() ) );
 ck( 'the sentence says what the limit is and what to do', WPCPM_Sponsor_Posts::messages()['post-note-long'] ?? null, array( 'error', 'The note is longer than 2000 characters. Shorten it and return the post again.' ) );
+
+// The limit is counted on what was typed, as the box counts it: past the loss check, a reference
+// typed out after a "<", which the cleaner writes in core's longer form (`&#9;` as `&#009;`), is
+// as many characters as it was typed with, so a note the box took is not refused for what the
+// cleaner made of it, and the row that logs the act logs the length the limit was checked on.
+$p_at_most = str_repeat( 'Ages 8 < 12 &#9; ok. ', 95 ) . 'Done.';
+ck( 'the note below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $p_at_most ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $p_at_most ) ) > WPCPM_Sponsor_Posts::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $p_at_most, 'lines' ) ), array( WPCPM_Sponsor_Posts::MAX_NOTE, true, false ) );
+$GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$ref_post = posts_pending( 'Sixth guide' );
+ck( 'a note of exactly 2,000 characters as typed, with "&#9;" after a "<", returns the post, mails the author once and logs the length as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $ref_post, 'wpcpm_note' => $p_at_most ) ), get_post( $ref_post )->post_status, get_post_meta( $ref_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) === sanitize_textarea_field( $p_at_most ), count( $GLOBALS['mail'] ), end( $GLOBALS['audit'] )['data']['note_length'] ?? null ), array( 'post-returned|posts|' . $S . '|', 'draft', true, 1, 2000 ) );
+$GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$ref_over = posts_pending( 'Seventh guide' );
+ck( 'and one character more is refused as too long, and the post waits as it was: no note, no mail, no audit row', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $ref_over, 'wpcpm_note' => $p_at_most . 'x' ) ), get_post( $ref_over )->post_status, get_post_meta( $ref_over, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), $GLOBALS['mail'], $GLOBALS['audit'] ), array( 'post-note-long|posts|' . $S . '|', 'pending', '', array(), array() ) );
 $GLOBALS['uid'] = 1;
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $over_post, WPCPM_Return::DASHBOARD ); $r_box = ob_get_clean();
 ck( 'the note\'s box holds no more than that', 1 === preg_match( '/<textarea id="wpcpm-post-note-' . $over_post . '" name="wpcpm_note" rows="2" maxlength="2000" required placeholder="/', $r_box ), true );

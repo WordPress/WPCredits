@@ -322,11 +322,13 @@ class WPCPM_Request {
 	 * A posted value as it was typed: unslashed, and not cleaned, trimmed or folded at all.
 	 *
 	 * `posted_text()` and `posted_lines()` hand back what the cleaner kept, and whether the cleaner
-	 * took words away can only be told from what was typed. So this is for two jobs and no other:
-	 * `WPCPM_Typed_Text::cleaner_loses()`, which asks that of the typing, and the typing a refused
-	 * form keeps for the one time it is drawn again (`WPCPM_Typed_Text::keep()`). What it returns is
-	 * never stored as a field's value and never printed unescaped: a save stores what the cleaning
-	 * readers return, and a kept typing is drawn back through `esc_textarea()` or `esc_attr()`.
+	 * took words away can only be told from what was typed. So this is for three jobs and no other:
+	 * `WPCPM_Typed_Text::cleaner_loses()`, which asks that of the typing; the typing a refused form
+	 * keeps for the one time it is drawn again (`WPCPM_Typed_Text::keep()`); and a note's length
+	 * against its limit, counted as its box counts (`WPCPM_Typed_Text::box_length()`), since the
+	 * cleaner writes some characters longer than they were typed. What it returns is never stored
+	 * as a field's value and never printed unescaped: a save stores what the cleaning readers
+	 * return, and a kept typing is drawn back through `esc_textarea()` or `esc_attr()`.
 	 *
 	 * Same standing as the rest of this class: the handler has already checked the nonce and the
 	 * capability.
