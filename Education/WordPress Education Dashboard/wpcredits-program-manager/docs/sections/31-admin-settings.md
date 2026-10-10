@@ -18,15 +18,16 @@ told about agreements, reports and sponsors' mail. When a list cannot be read, t
 as it always was, and a sentence under it says why. A value saved that its list does not hold is
 still offered, after the list and marked *(current)*, so a Save never drops it.
 
-Three tools keep settings of their own, the **Mentor Status Checker**, the **Student Duplicate Finder**
-and **Need help?**, and each keeps them on its own screen, in a **Settings** section at the top with a
-Save of its own, rather than on this one. The Connection tab's first line names the three, each a
-link to its Settings section, and the next part of this guide, on the tools, says what each of those
-settings does.
+Four tools keep settings of their own, the **Mentor Status Checker**, the **Student Duplicate Finder**,
+**Need help?** and **Emails**, and each keeps them on its own screen, in a **Settings** section with a
+Save of its own, rather than on this one: at the top of the screen, or for Emails at the top of its
+**Signature and footer** tab. The Connection tab's first line names the four, each a link to its
+Settings section, and the next part of this guide, on the tools, says what each of those settings
+does.
 
 ### The Connection tab
 
-Its first line names the three tools that keep their settings on their own screens. Then two
+Its first line names the four tools that keep their settings on their own screens. Then two
 sections, **Airtable** and **Tables**, the tab's **Save settings**, and under it a button of its own,
 **Read the lists from Airtable again**.
 
@@ -296,16 +297,17 @@ One section, **Two-factor authentication**.
 
 ### The Mail tab
 
-Two sections, headed on the screen **Invitations** and **Recent mail**. No settings and no Save: each
-button is a form of its own.
+Two sections, headed on the screen **Invitations** and **Recent mail**. No settings and no Save:
+each points to the **Emails** tool, where the emails are edited and their record is kept.
 
-#### Sending yourself an invitation
+#### Invitations waiting to be sent
 
-The student, mentor, institution and sponsor invitations say different things, so you can send
-yourself any of the four before real people read it, each with a button of its own: **Email me the
-student invitation** and its three siblings. The sample goes to your own address. Above the
-buttons, how many invitations are still waiting to be sent, when any are; they go out a few at a
-time in the background.
+How many invitations are still waiting to be sent, when any are; they go out a few at a time in the
+background. What each invitation says, and a test of it sent to your own address, are in
+**WPCredits Program > Tools > Emails**, on its **Templates** tab, which **Open the email templates**
+opens. Until 1.122.19 this section had a button for each of the four invitations that emailed you a
+sample; **Send me a test** on each template's editor does that now, with the invitation as it is
+saved.
 
 #### Recent mail
 

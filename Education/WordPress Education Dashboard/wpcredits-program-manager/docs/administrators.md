@@ -95,8 +95,9 @@ until the next page opens, so a double press acts once: the decisions and the qu
 application, on the Sponsors and Institutions screens; on the Sponsors screen, the offer and code
 forms, a sponsor's **Attach account**, **Remove** and posting switch, and the agreement forms; on
 the Institutions screen, the signed agreement's upload and withdrawal and the semester report
-buttons; the test invitations on **Settings > Mail**; and the Track Builder's **Create the track**
-and **Make the copy**. The Sponsors screen's sync buttons lock without changing their words. Every
+buttons; **Save**, **Send me a test** and **Restore the original** in
+**WPCredits Program > Tools > Emails**; and the Track Builder's **Create the track** and
+**Make the copy**. The Sponsors screen's sync buttons lock without changing their words. Every
 other form works as it always has, searching, filtering, a list's **Apply** and **Screen Options**
 among them.
 
@@ -243,9 +244,9 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 The **Tools** submenu lists the parts of the program that are run and configured on their own
 rather than belonging to one audience - currently **Header notices**, **Emails**, **Need help?**, the
 **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
-behind an *Open tool* button. Three of them, the **Mentor Status Checker**, the
-**Student Duplicate Finder** and **Need help?**, keep their settings in a **Settings** section at the
-top of that screen, rather than on the Settings screen.
+behind an *Open tool* button. Four of them, the **Mentor Status Checker**, the
+**Student Duplicate Finder**, **Need help?** and **Emails**, keep their settings in a **Settings**
+section on that screen, rather than on the Settings screen.
 
 ## Settings
 
@@ -267,15 +268,16 @@ told about agreements, reports and sponsors' mail. When a list cannot be read, t
 as it always was, and a sentence under it says why. A value saved that its list does not hold is
 still offered, after the list and marked *(current)*, so a Save never drops it.
 
-Three tools keep settings of their own, the **Mentor Status Checker**, the **Student Duplicate Finder**
-and **Need help?**, and each keeps them on its own screen, in a **Settings** section at the top with a
-Save of its own, rather than on this one. The Connection tab's first line names the three, each a
-link to its Settings section, and the next part of this guide, on the tools, says what each of those
-settings does.
+Four tools keep settings of their own, the **Mentor Status Checker**, the **Student Duplicate Finder**,
+**Need help?** and **Emails**, and each keeps them on its own screen, in a **Settings** section with a
+Save of its own, rather than on this one: at the top of the screen, or for Emails at the top of its
+**Signature and footer** tab. The Connection tab's first line names the four, each a link to its
+Settings section, and the next part of this guide, on the tools, says what each of those settings
+does.
 
 ### The Connection tab
 
-Its first line names the three tools that keep their settings on their own screens. Then two
+Its first line names the four tools that keep their settings on their own screens. Then two
 sections, **Airtable** and **Tables**, the tab's **Save settings**, and under it a button of its own,
 **Read the lists from Airtable again**.
 
@@ -545,16 +547,17 @@ One section, **Two-factor authentication**.
 
 ### The Mail tab
 
-Two sections, headed on the screen **Invitations** and **Recent mail**. No settings and no Save: each
-button is a form of its own.
+Two sections, headed on the screen **Invitations** and **Recent mail**. No settings and no Save:
+each points to the **Emails** tool, where the emails are edited and their record is kept.
 
-#### Sending yourself an invitation
+#### Invitations waiting to be sent
 
-The student, mentor, institution and sponsor invitations say different things, so you can send
-yourself any of the four before real people read it, each with a button of its own: **Email me the
-student invitation** and its three siblings. The sample goes to your own address. Above the
-buttons, how many invitations are still waiting to be sent, when any are; they go out a few at a
-time in the background.
+How many invitations are still waiting to be sent, when any are; they go out a few at a time in the
+background. What each invitation says, and a test of it sent to your own address, are in
+**WPCredits Program > Tools > Emails**, on its **Templates** tab, which **Open the email templates**
+opens. Until 1.122.19 this section had a button for each of the four invitations that emailed you a
+sample; **Send me a test** on each template's editor does that now, with the invitation as it is
+saved.
 
 #### Recent mail
 
@@ -650,9 +653,84 @@ button underneath.
 
 ### Emails
 
-**WPCredits Program > Tools > Emails.** A record of every email the site sends, kept for 30 days:
-the plugin's own, WordPress's (a password reset, for example) and the Two Factor plugin's sign-in
-codes. Use it to answer "did they get the email?".
+**WPCredits Program > Tools > Emails.** The plugin's emails you can edit, by area. One you have not
+edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and
+footer. The tool also keeps a record of every email the site sends, for 30 days. Three tabs,
+**Templates**, **Signature and footer** and **Log**; the tool's own address opens Templates.
+
+#### Templates
+
+The plugin's emails, grouped by area. In this version the area is **Invitations**: the student's,
+the mentor's and the sponsor's invitation, and the institution's two, one for an institution whose
+Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
+Each row names the email, who receives it and what sends it, its state, and who edited it last and
+when. The states:
+
+- **Shipped text**: the email is sent as the plugin ships it, which is word for word what it said
+  before 1.122.19.
+- **Edited**: it is sent as an Administrator wrote it, to everybody, in that wording.
+- **Edited, and the shipped text has changed since**: an update changed the shipped text after the
+  edit was saved. The edit is still the one sent, and its editor opens the new shipped text under
+  the buttons, to compare. Saving your edit again clears this state.
+- **Edit set aside**: the edit uses a placeholder the email no longer has, lacks one it now needs, or
+  has one in its subject that goes in the body, so the shipped text is sent until the edit is saved
+  again; the state says which placeholder.
+
+**Edit** opens the email's editor: a **Subject** and a **Body**, the email's placeholders, each with
+what it means and an example, and a **Preview** of the email filled with the examples and ending
+with the signature and footer. A placeholder, such as `{set_password_link}`, is a word in braces that
+is replaced by its value as the email is sent. A sentence whose placeholders are all empty is left
+out, and so is a line left with nothing on it, together with the line ending in a colon directly
+above it when that line holds no placeholder: an invitation with no dashboard page published leaves
+out the line that would name it, as it always did. A sentence ends at a full stop followed by a
+space; a question or exclamation mark does not end one. So in "Thanks! Write to {program_contact}."
+with no contact address set, the whole of it goes, "Thanks!" with it, and in "e.g. " the full stop
+ends a sentence.
+
+- **Save** stores the subject and the body. It is refused, nothing is stored, and the editor comes
+  back with what you typed, when a box is empty, a required placeholder is missing (every invitation
+  needs `{set_password_link}`, the link that sets the password, in its body, never in the subject:
+  a subject is not a link anybody can follow, and the Log keeps it), a placeholder is not one of the
+  email's (a misspelled one is named as one the email does not have; a misspelled
+  `{set_password_link}` is reported as the missing link instead), WordPress would remove part of the
+  text, or the subject is longer than 200 characters or the body longer than 10,000. A save of the
+  shipped text as it stands stores nothing, so the email stays shipped text.
+- **Send me a test**, beside **Save**, sends the email as it is saved, filled with the example values
+  and with "[Test]" before its subject, to your own address and to nobody else. The Log marks it
+  **Test**. Save what you typed first: pressed with typing not saved yet, it sends nothing, and the
+  editor comes back with your typing and says so.
+- **Restore the original** is there once the email is edited. It asks first, then drops the edit,
+  and the shipped text is sent from then on.
+
+#### Signature and footer
+
+The one block every email the plugin sends ends with, after a blank line and a line holding `-- `.
+It is not added to the emails WordPress and the Two Factor plugin send themselves. Its placeholders
+are `{site_name}`; `{dashboard_link}`, the recipient's dashboard, which is empty for somebody with
+no account, such as an applicant, and for an email that names the dashboard already, as every
+invitation does, so its line is left out and no email names the address twice; and
+`{program_contact}`, the address in **Contact address in emails**, which is empty until it is set,
+so its sentence is left out. It ships as three lines:
+
+- `WordPress Credits, WordPress Education`
+- `{dashboard_link}`
+- `This email comes from the WordPress Credits program. Questions? Write to {program_contact}.`
+
+The tab edits it with the editor every template has, without a subject, with **Save**, **Send me a
+test** (a short email that ends with the block) and **Restore the original**. An empty block is not
+saved, since every email ends with it.
+
+#### Settings
+
+At the top of the Signature and footer tab, the tool's one setting, **Contact address in emails**:
+a mailbox the Administrators read, which the footer names for questions. Left empty, the footer
+leaves that sentence out. An address that is not one is not saved, and the tab says so.
+
+#### Log
+
+A record of every email the site sends, kept for 30 days: the plugin's own, WordPress's (a password
+reset, for example) and the Two Factor plugin's sign-in codes. Use it to answer "did they get the
+email?".
 
 Each row is one recipient of one email: when it was sent, in the site's time zone; the address as
 plain text, and under it the person's name when the address belonged to an account at the time,
@@ -667,9 +745,9 @@ Two Factor or Other); which email it was; its subject; and its status. The statu
 - **Not confirmed**: another plugin took the email over before WordPress could say what happened,
   or the request ended, with a fatal error for example, before it did.
 
-A **Test** mark beside the status shows a sample you sent yourself from Settings > Mail. It is not
-a fourth status: the sample has one of the three as well, and the **Status** filter has a **Test**
-choice that lists the samples.
+A **Test** mark beside the status shows a test you sent yourself with **Send me a test** (or, before
+1.122.19, a sample from Settings > Mail). It is not a fourth status: the test has one of the three
+as well, and the **Status** filter has a **Test** choice that lists the tests.
 
 To find an email, type part of an address, a name or a subject into the search box, or narrow the
 list by **Area**, **Recipient type**, **Status**, **Email** or **When** (today, the last 7 days, the

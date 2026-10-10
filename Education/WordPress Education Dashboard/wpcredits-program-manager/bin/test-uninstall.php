@@ -674,6 +674,8 @@ $GLOBALS['opts']['wpcpm_mail_log']     = array( array( 'to' => 'student-one@exam
 // The email log's schema version and the time of its last cleanup (1.122.18); its table is dropped.
 $GLOBALS['opts']['wpcpm_mail_log_version'] = 1;
 $GLOBALS['opts']['wpcpm_mail_log_purged']  = time();
+// The Administrators' edits of the emails and the footer (1.122.19), with who saved each.
+$GLOBALS['opts']['wpcpm_mail_templates'] = array( 'templates' => array( 'invite-student' => array( 'subject' => 'Hi', 'body' => '{set_password_link}', 'by' => 1, 'at' => time(), 'shipped' => 'x' ) ), 'footer' => null );
 $GLOBALS['opts']['wpcpm_invite_queue'] = array( 7 );
 $GLOBALS['opts']['wpcpm_invite_run']   = array( 'total' => 241, 'started' => time() - HOUR_IN_SECONDS, 'finished' => 0 );
 
@@ -857,6 +859,7 @@ echo "\n=== The mail log and the queue ===\n";
 
 ck( 'the mail log goes, with the addresses in it', get_option( 'wpcpm_mail_log', 'gone' ), 'gone' );
 ck( 'and so do the email log\'s table, its schema version and the time of its last cleanup', array( in_array( 'DROP TABLE IF EXISTS wp_wpcpm_mail_log', $wpdb->queries, true ), get_option( 'wpcpm_mail_log_version', 'gone' ), get_option( 'wpcpm_mail_log_purged', 'gone' ) ), array( true, 'gone', 'gone' ) );
+ck( 'and so do the Administrators\' edits of the emails and the footer', get_option( 'wpcpm_mail_templates', 'gone' ), 'gone' );
 ck( 'and so does everybody still waiting for an invitation', get_option( 'wpcpm_invite_queue', 'gone' ), 'gone' );
 ck( 'and the counts and times of the last bulk invite', get_option( 'wpcpm_invite_run', 'gone' ), 'gone' );
 
@@ -901,6 +904,7 @@ $names = array(
 	'WPCPM_Mail_Log::OPT_VERSION'                   => 'wpcpm_mail_log_version',
 	'WPCPM_Mail_Log::OPT_PURGED'                    => 'wpcpm_mail_log_purged',
 	'WPCPM_Mail_Log::PURGE_HOOK'                    => 'wpcpm_mail_log_purge',
+	'WPCPM_Mail_Templates::OPTION'                  => 'wpcpm_mail_templates',
 	'WPCPM_Private_Files::OPT_KEY'                  => 'wpcpm_private_key',
 	'WPCPM_Track_Publish::OPT_LOCK'                 => 'wpcpm_track_publish_lock',
 	'WPCPM_Airtable::SCHEMA_TRANSIENT'              => 'wpcpm_airtable_schema',

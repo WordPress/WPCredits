@@ -1371,8 +1371,8 @@ class WPCPM_Sponsor_Posts {
 					/* translators: %s: the post title. */
 					'subject'       => sprintf( __( 'Your post "%s" needs a change before it is published', 'wpcredits-program-manager' ), $title ),
 					'body'          => sprintf(
-						/* translators: 1: the author's name, 2: the post title, 3: the manager's note, 4: the wp-admin posts list URL. */
-						__( "Hello %1\$s,\n\nA program manager read your post \"%2\$s\" and sent it back as a draft with this note:\n\n%3\$s\n\nEdit it here and submit it for review again: %4\$s\n\nThe WordPress Credits program", 'wpcredits-program-manager' ),
+						/* translators: 1: the author's name, 2: the post title, 3: the Administrator's note, 4: the wp-admin posts list URL. */
+						__( "Hello %1\$s,\n\nAn Administrator read your post \"%2\$s\" and sent it back as a draft with this note:\n\n%3\$s\n\nEdit it here and submit it for review again: %4\$s", 'wpcredits-program-manager' ),
 						$author->display_name,
 						$title,
 						$said,

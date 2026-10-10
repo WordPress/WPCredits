@@ -94,10 +94,17 @@ final class WPCPM_Mail_Capture {
 	 */
 	public static function open( $atts ) {
 		$context = class_exists( 'WPCPM_Mail' ) ? (string) WPCPM_Mail::take_context() : '';
+		$test    = class_exists( 'WPCPM_Mail' ) && WPCPM_Mail::take_test();
 		$id      = '' !== $context ? $context : ( '' !== self::$hint ? self::$hint : WPCPM_Mail_Catalog::OTHER );
 
 		self::$hint    = '';
-		self::$stack[] = array_merge( array( 'template' => $id ), self::email( $atts ) );
+		self::$stack[] = array_merge(
+			array(
+				'template' => $id,
+				'test'     => $test,
+			),
+			self::email( $atts )
+		);
 
 		return $atts;
 	}
@@ -229,7 +236,7 @@ final class WPCPM_Mail_Capture {
 					'subject'        => $email['subject'],
 					'status'         => $status,
 					'error'          => $error,
-					'is_test'        => null !== $entry && $entry['test'],
+					'is_test'        => ! empty( $email['test'] ) || ( null !== $entry && $entry['test'] ),
 				)
 			);
 		}

@@ -282,19 +282,20 @@ ck( 'and the handle it names is registered on init by the call calendar, which t
     ),
     array( true, true ) );
 
-// The wp-admin forms whose second press does harm and that carried no guard: the sample
-// invitations on Settings > Mail, one form drawn for each audience, where a second press mails
-// the presser again, and the Track Builder's Create the track and Make the copy, where two presses
-// that overlap can make two tracks. Each method draws one form, and it carries the attribute and
-// its busy word, translated and escaped for the attribute, with a `<button>` to show the word on:
-// the guard swaps a button's text, and an input's label is its value, which it leaves alone.
-$settings_src = (string) file_get_contents( $root . '/includes/class-wpcpm-settings-screen.php' );
-$builder_src  = (string) file_get_contents( $root . '/includes/tools/class-wpcpm-track-builder-screen.php' );
-$mail_card    = method_code( $settings_src, 'private function render_mail_card()' );
-$marked       = array();
+// The wp-admin forms whose second press does harm and that carried no guard: the Emails tool's
+// Save form, whose second button, Send me a test, mails the presser again at a second press (the
+// sample invitations of Settings > Mail did, until 1.122.19 put Send me a test in their place), and
+// the Track Builder's Create the track and Make the copy, where two presses that overlap can make
+// two tracks. Each method draws one form, and it carries the attribute and its busy word, translated
+// and escaped for the attribute, with a `<button>` to show the word on: the guard swaps a button's
+// text, and an input's label is its value, which it leaves alone. The Save form has two buttons, and
+// its busy word, Working, holds for either.
+$emails_src  = (string) file_get_contents( $root . '/includes/tools/class-wpcpm-emails.php' );
+$builder_src = (string) file_get_contents( $root . '/includes/tools/class-wpcpm-track-builder-screen.php' );
+$marked      = array();
 
 foreach ( array(
-	'Settings > Mail'  => array( $mail_card, 'Sending' ),
+	'the Emails editor\'s Save' => array( method_code( $emails_src, 'private function render_editor( $id )' ), 'Working' ),
 	'Create the track' => array( method_code( $builder_src, 'public static function render_new( array $args )' ), 'Creating' ),
 	'Make the copy'    => array( method_code( $builder_src, 'public static function render_duplicate( array $args )' ), 'Copying' ),
 ) as $form => $drawn ) {
@@ -306,15 +307,27 @@ foreach ( array(
 	);
 }
 
-ck( 'the Settings > Mail sample forms, Create the track and Make the copy each carry data-wpcpm-once and their busy word, Sending, Creating and Copying, on a button',
+ck( 'the Emails editor\'s Save form, Create the track and Make the copy each carry data-wpcpm-once and their busy word, Working, Creating and Copying, on a button: two on the Save form, Save and Send me a test',
     $marked,
     array(
-        'Settings > Mail'  => array( 1, true, 1, 1 ),
-        'Create the track' => array( 1, true, 1, 1 ),
-        'Make the copy'    => array( 1, true, 1, 1 ),
+        'the Emails editor\'s Save' => array( 1, true, 1, 2 ),
+        'Create the track'          => array( 1, true, 1, 1 ),
+        'Make the copy'             => array( 1, true, 1, 1 ),
     ) );
-ck( 'and the Mail tab draws its one form once for each of the four audiences',
-    (bool) preg_match( '/foreach \( array\(\s*\'student\'\s+=>.*?\'mentor\'\s+=>.*?\'institution\'\s+=>.*?\'sponsor\'\s+=>.*?\) as \$kind => \$label \) \{\s*printf\(\s*\'<form /s', $mail_card ) );
+
+// Restore the original is a form of its own, drawn by one method, which carries the attribute and the
+// busy word its caller hands it, Restoring, translated there, on a button; and the Mail tab draws no
+// form at all any more.
+$button = method_code( $emails_src, 'private function render_button( $id, $action, $label, $busy, $question )' );
+ck( 'and Restore the original is a form of its own, locked at the first press with the busy word its caller translates, on a button; the Mail tab draws none',
+    array(
+        substr_count( $button, '<form' ),
+        (bool) preg_match( '/<form [^>]*data-wpcpm-once data-wpcpm-busy="%2\$s"/', $button ),
+        substr_count( $button, '<button type="submit"' ),
+        substr_count( $emails_src, "__( 'Restoring', 'wpcredits-program-manager' )" ),
+        substr_count( method_code( (string) file_get_contents( $root . '/includes/class-wpcpm-settings-screen.php' ), 'private function render_mail_card()' ), '<form' ),
+    ),
+    array( 1, true, 1, 1, 0 ) );
 
 /*
  * Every confirm is a `data-wpcpm-confirm` sentence forms.js asks (1.122.6), so nothing under
@@ -593,6 +606,7 @@ $surfaces = array(
 	// fragment, which the Mentor Report Card and the Institution's student page insert after they load, is
 	// read only and prints none (bin/test-report-images.php draws it).
 	'includes/modules/class-wpcpm-student-report-form.php'               => array( 'student-report-card' ),
+	'includes/tools/class-wpcpm-emails.php'                              => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-builder-screen.php'                => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-editor-screen.php'                 => array( 'admin' ),
 );

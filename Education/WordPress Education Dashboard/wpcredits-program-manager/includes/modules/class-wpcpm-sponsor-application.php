@@ -3083,9 +3083,9 @@ class WPCPM_Sponsor_Application {
 		// builder's scope is what stops a later edit reaching for it "just for the subject".
 		$build = static function () use ( $site ) {
 			$lines = array(
-				__( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time it took to write to us.', 'wpcredits-program-manager' ),
-				__( 'A program manager has read your application and we are not taking it forward. We are sorry not to have better news.', 'wpcredits-program-manager' ),
-				__( 'Companies apply again as their products and the program change, and an application now says nothing about a later one.', 'wpcredits-program-manager' ),
+				__( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us.', 'wpcredits-program-manager' ),
+				__( 'We have read your company\'s application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news.', 'wpcredits-program-manager' ),
+				__( 'You are welcome to apply again later, for example when your products or the program change. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
 			);
 
 			return array(

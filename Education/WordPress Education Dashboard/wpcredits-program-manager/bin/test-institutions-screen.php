@@ -4139,7 +4139,7 @@ ck( 'handle_reject mails a neutral acknowledgement with no reason anywhere in it
 	$reject_mail[0] ?? '',
 	$reject_mail[1] ?? '',
 	$reject_mail[2] ?? '',
-	false !== strpos( $reject_mail[3]['body'] ?? '', 'we are not taking it forward' ),
+	0 === strpos( $reject_mail[3]['body'] ?? '', implode( "\r\n\r\n", array( 'Thank you for applying to the WordPress Credits Program, and for the time you took to write to us.', 'We have read your institution\'s application, and we cannot accept it into the program at this time. We are sorry not to have better news.', 'You are welcome to apply again later, for example when your programs change. A new application is read on its own merits, and this decision does not count against it.' ) ) ),
 	strpos( json_encode( $GLOBALS['mail'] ), 'Duplicate of APP-2026-0007' ),
 	strpos( json_encode( $GLOBALS['mail'] ), 'department does not exist' ),
 	(string) get_post_meta( 502, WPCPM_Institution_Application::META_STATE, true ),

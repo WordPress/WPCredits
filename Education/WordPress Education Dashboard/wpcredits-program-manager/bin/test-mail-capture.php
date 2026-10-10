@@ -141,8 +141,10 @@ class WPCPM_Roles {
 }
 // Stands in for the real class: only the context passes between the two.
 class WPCPM_Mail {
-	public static $ctx = '';
+	public static $ctx  = '';
+	public static $test = false;
 	public static function take_context() { $c = self::$ctx; self::$ctx = ''; return $c; }
+	public static function take_test() { $t = self::$test; self::$test = false; return $t; }
 }
 
 require __DIR__ . '/stubs/sqlite-wpdb.php';
@@ -425,6 +427,16 @@ wipe();
 WPCPM_Mail::$ctx = 'test-mentor';
 send( 'cy@example.test', 'Sample' );
 ck( 'a sample invitation is marked Test', (int) rows()[0]['is_test'], 1 );
+
+// Send me a test, since 1.122.19: under the template's own id, with the test flag the mail layer hands
+// over beside the context, which the next email does not inherit.
+wipe();
+WPCPM_Mail::$ctx  = 'invite-student';
+WPCPM_Mail::$test = true;
+send( 'cy@example.test', '[Test] Welcome' );
+WPCPM_Mail::$ctx = 'invite-student';
+send( 'ada@example.test', 'Welcome' );
+ck( 'a test sent under a template\'s own id is marked Test, and the invitation after it is not', array( array_column( rows(), 'template' ), array_map( 'intval', array_column( rows(), 'is_test' ) ) ), array( array( 'invite-student', 'invite-student' ), array( 0, 1 ) ) );
 
 // No body is stored: every column of every row written in this run, read back from the table.
 wipe();

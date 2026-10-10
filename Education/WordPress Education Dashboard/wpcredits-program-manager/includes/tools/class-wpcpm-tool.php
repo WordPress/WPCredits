@@ -167,6 +167,16 @@ abstract class WPCPM_Tool {
 	protected function render_settings_rows() {}
 
 	/**
+	 * Where the tool's Settings section is drawn, which a Save of it comes back to and the Settings
+	 * screen's Connection tab links: the tool's screen, or a tab of it.
+	 *
+	 * @return string
+	 */
+	public function settings_url() {
+		return $this->admin_url();
+	}
+
+	/**
 	 * Admin page slug.
 	 *
 	 * @return string

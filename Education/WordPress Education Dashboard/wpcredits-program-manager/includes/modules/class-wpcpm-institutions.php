@@ -1318,9 +1318,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// builder's scope is what stops a later edit reaching for it "just for the subject".
 		$build = static function () use ( $site ) {
 			$lines = array(
-				__( 'Thank you for your interest in the WordPress Credits Program, and for the time it took to write to us.', 'wpcredits-program-manager' ),
-				__( 'A program manager has read your application and we are not taking it forward. We are sorry not to have better news.', 'wpcredits-program-manager' ),
-				__( 'Institutions apply again as their programs change, and an application now says nothing about a later one.', 'wpcredits-program-manager' ),
+				__( 'Thank you for applying to the WordPress Credits Program, and for the time you took to write to us.', 'wpcredits-program-manager' ),
+				__( 'We have read your institution\'s application, and we cannot accept it into the program at this time. We are sorry not to have better news.', 'wpcredits-program-manager' ),
+				__( 'You are welcome to apply again later, for example when your programs change. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
 			);
 
 			return array(

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.18
+Stable tag: 1.122.19
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,19 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.19 =
+
+* WPCredits Program > Tools > Emails has three tabs: Templates, Signature and footer, and Log. The tool's own address opens Templates; every link to the Log keeps working.
+* Templates: the plugin's emails as text an Administrator edits, grouped by area, each with who receives it, what sends it, its state (Shipped text, Edited, Edited and the shipped text has changed since, or an edit set aside, with why) and who edited it last and when. In this version they are the Invitations: the student's, the mentor's and the sponsor's, and the institution's two, for an institution whose Collaboration Agreement is not on file yet and for one whose agreement is on file. The shipped text is word for word what the invitations said before.
+* The editor: a Subject and a Body, the email's placeholders with what each means and an example, and a preview filled with the examples. Save refuses, stores nothing and gives back what was typed, when a box is empty, a required placeholder is missing (every invitation needs its set-password link, in its body, never in the subject), a placeholder is not the email's, WordPress would remove part of the text, or the subject passes 200 characters or the body 10,000. Send me a test, beside Save, sends the email as it is saved, with "[Test]" before its subject, to the Administrator who pressed and to nobody else, and the Log marks it Test; pressed with typing not saved yet, it sends nothing and keeps the typing. Restore the original asks first, then drops the edit. An edit that an update no longer fits is set aside and the shipped text sent.
+* Signature and footer: every email the plugin sends now ends with one block, after a line holding "-- ", which names the program, the recipient's dashboard (left out for somebody with no account, and for an email that names it already, as an invitation does) and, once it is set, the program's contact address. It is edited, tested and restored on its own tab, an empty one is not saved, and it is never added to WordPress's or the Two Factor plugin's emails.
+* A new setting, Contact address in emails, at the top of the Signature and footer tab: the address the footer names for questions. It ships empty, and the footer leaves that sentence out until it is set.
+* Settings > Mail: the four "Email me the ... invitation" buttons are gone; Send me a test on each template's editor takes their place. The Invitations section now says how many invitations are waiting and links the templates; Recent mail is unchanged.
+* The email that returns a sponsor's post no longer signs off with its own line, since the footer now ends it, and says "An Administrator read your post" where it said "A program manager".
+* Invitations: a "%" in the site's name, or in a subject an Administrator writes, no longer stops the invitation going out. WordPress reads the subject as a format a second time, and the "%" made that fail.
+* The two application-declined emails, the institution's and the sponsor's, now say plainly that the application was read and not accepted, and that a new application later is welcome and is read on its own merits. The subjects are unchanged, and neither email ever carries the reason.
+* For developers: `WPCPM_Mail_Templates` (includes/mail/class-wpcpm-mail-templates.php, with each area's emails in includes/mail/templates/) holds every editable email by its catalog id, and `render()`, `add_footer()` and `send_test()` are its doors; a placeholder marked `body_only`, as the set-password link is, goes in the body alone; the edits are kept in the `wpcpm_mail_templates` option, not autoloaded, and deleted on uninstall. `WPCPM_Mail_Catalog` gains `invite-institution-settled` and `footer-test`; the four `test-*` ids stay, to name the rows they left in the Log. `WPCPM_Mail::send()`'s builder may now return `test` and `footer_values`, and `WPCPM_Mail::take_test()` hands the test mark to the capture. `WPCPM_Tool::settings_url()` says where a tool's Settings section is. Gone: `WPCPM_Mail::handle_test()` and `WPCPM_Mail::ACTION_TEST`.
 
 = 1.122.18 =
 

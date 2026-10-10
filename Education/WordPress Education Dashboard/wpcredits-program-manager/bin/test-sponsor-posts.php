@@ -697,7 +697,7 @@ $r_sent_cl = "We &lt;3 our team, all\r\nAges 8 < 12 welcome, adults > 18 pay.\r\
 ck( 'a note with line breaks, a "<3", a "<" and the ampersands after one returns the post, and is kept as the cleaner left it', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $typed_post, 'wpcpm_note' => $r_sent ) ), get_post( $typed_post )->post_status, get_post_meta( $typed_post, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', 'draft', $r_sent_cl ) );
 $r_mail = isset( $GLOBALS['mail'][0]['mail'] ) ? $GLOBALS['mail'][0]['mail'] : array();
 ck( 'the mail\'s subject carries the title as it reads, "Q&A" and "<3", and is marked plain text so the mail layer keeps them', array( $r_mail['subject'] ?? null, $r_mail['plain_subject'] ?? null ), array( 'Your post "' . $r_title_as . '" needs a change before it is published', true ) );
-ck( 'and its body carries the title and the note as typed, line by line, with no entity in either', $r_mail['body'] ?? null, "Hello Member One,\n\nA program manager read your post \"" . $r_title_as . "\" and sent it back as a draft with this note:\n\n" . $r_sent . "\n\nEdit it here and submit it for review again: https://example.test/wp-admin/edit.php\n\nThe WordPress Credits program" );
+ck( 'and its body carries the title and the note as typed, line by line, with no entity in either', $r_mail['body'] ?? null, "Hello Member One,\n\nAn Administrator read your post \"" . $r_title_as . "\" and sent it back as a draft with this note:\n\n" . $r_sent . "\n\nEdit it here and submit it for review again: https://example.test/wp-admin/edit.php" );
 
 $r_at = posts_filled( "Ages 8 < 12. Q&A: \"blocks\" & themes, it's free.\r\n", 2000 );
 $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();

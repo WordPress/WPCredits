@@ -304,10 +304,8 @@ class WPCPM_Mentors_Sync {
 	}
 }
 
-/** The mail layer, for the Mail tab: what is queued, and the sample buttons' action. */
+/** The mail layer, for the Mail tab: what is queued. */
 class WPCPM_Mail {
-	const ACTION_TEST = 'wpcpm_send_test_mail';
-
 	public static $queued = 0;
 
 	public static function queued() {
@@ -495,6 +493,8 @@ $probe = array(
 	'sponsor_notify'                => 'probe-one@example.org,probe-two@example.org',
 	'logo_max_kb'                   => '2048',
 	'offer_low_stock'               => '250',
+	// The Emails tool's contact address (1.122.19).
+	'mail_contact'                  => 'programs@example.test',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
@@ -609,6 +609,15 @@ ck( 'the word remove takes it away, and then there is no mask to show',
 
 $channel = WPCPM_Settings::save( array( 'checker_slack_channel' => ' #mentors ' ), 'tool:mentor-status-checker' );
 ck( 'the channel the message names is saved as typed, trimmed', $channel['checker_slack_channel'], '#mentors' );
+
+// The Emails tool's Contact address in emails, which every email's footer names (1.122.19): an
+// address, or blank for none; anything else keeps the one saved, and the Signature and footer tab
+// is told why.
+$contact = WPCPM_Settings::save( array( 'mail_contact' => ' programs@example.test ' ), 'tool:emails' );
+$typo    = WPCPM_Settings::save( array( 'mail_contact' => 'programs@' ), 'tool:emails' );
+ck( 'the contact address in emails is saved trimmed, and one that is not an address is refused: the one saved stays, and the tab is told',
+    array( $contact['mail_contact'], $typo['mail_contact'], WPCPM_Flash::take( 'emails-contact-refused' ) ), array( 'programs@example.test', 'programs@example.test', true ) );
+ck( 'and a blank one clears it', WPCPM_Settings::save( array( 'mail_contact' => '' ), 'tool:emails' )['mail_contact'], '' );
 
 // Only providers the plugin can actually talk to.
 $saved = WPCPM_Settings::save( array( 'handbook_provider' => 'nonsense' ) );
@@ -1538,13 +1547,13 @@ foreach ( array_keys( $defaults ) as $key ) {
 
 ck( 'every setting is in exactly one scope, so a setting added without one, or put in two, fails here', $not_once, array() );
 ck( 'and no scope names a setting that does not exist', array_values( array_diff( $in_scope, array_keys( $defaults ) ) ), array() );
-ck( 'the scopes are the six tabs that save, in their order, then the three tools that keep settings; Mail saves nothing of its own',
+ck( 'the scopes are the six tabs that save, in their order, then the four tools that keep settings; Mail saves nothing of its own',
     array_keys( $scopes ),
-    array( 'connection', 'people', 'institutions', 'sponsors', 'security', 'advanced', 'tool:mentor-status-checker', 'tool:duplicate-finder', 'tool:handbook' ) );
+    array( 'connection', 'people', 'institutions', 'sponsors', 'security', 'advanced', 'tool:mentor-status-checker', 'tool:duplicate-finder', 'tool:handbook', 'tool:emails' ) );
 
 $tool_scopes = array();
 
-foreach ( array( new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder(), new WPCPM_Handbook() ) as $tool ) {
+foreach ( array( new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder(), new WPCPM_Handbook(), new WPCPM_Emails() ) as $tool ) {
 	$tool_scopes[] = 'tool:' . $tool->id();
 }
 
@@ -1562,6 +1571,7 @@ $by_design = array(
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
 	'tool:duplicate-finder'      => array( 'duplicate_delete_enabled' ),
 	'tool:handbook'              => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'handbook_' ); } ) ),
+	'tool:emails'                => array( 'mail_contact' ),
 );
 
 $sorted = static function ( array $map ) {
@@ -1830,20 +1840,21 @@ WPCPM_Flash::set( 'settings-scope', 'sponsors' );
 press_tab( 'no-such-tab', array( 'logo_max_kb' => '4096' ) );
 $scope_after_refused = $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-scope'] ?? null;
 
-// The Mail tab's sample buttons post to a handler of their own, which queues its outcome on the same
-// channel, through the same door: the sample's notice cannot be read with a scope another save left.
-$scope_after_sample = null;
-$mail_source        = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' );
+// An outcome that names no scope, the lists read again, queues its notice through the same door,
+// which sets the scope with it. The mail layer queues none since 1.122.19: the Mail tab's sample
+// buttons, whose handler did, are gone, and Send me a test in the Emails tool says its own.
+$scope_after_lists = null;
+$mail_source       = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' );
 
 if ( is_callable( array( 'WPCPM_Settings_Screen', 'flash_outcome' ) ) ) {
 	WPCPM_Flash::set( 'settings-scope', 'sponsors' );
-	WPCPM_Settings_Screen::flash_outcome( 'test-sent' );
-	$scope_after_sample = array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings'] ?? null, $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-scope'] ?? null );
+	WPCPM_Settings_Screen::flash_outcome( 'lists-read' );
+	$scope_after_lists = array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings'] ?? null, $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-scope'] ?? null );
 }
 
-ck( 'a scope left queued by a notice nobody saw is replaced on every outcome, so it cannot name another tab\'s save, a refusal or a sample invitation, which the mail handler queues through the same door',
-    array( $scope_after_tab, $scope_after_none, $scope_after_refused, $scope_after_sample, substr_count( method_source( $mail_source, 'handle_test' ), 'WPCPM_Settings_Screen::flash_outcome( ' ), substr_count( $mail_source, "WPCPM_Flash::set( 'settings'" ) ),
-    array( 'people', '', '', array( 'test-sent', '' ), 1, 0 ) );
+ck( 'a scope left queued by a notice nobody saw is replaced on every outcome, so it cannot name another tab\'s save, a refusal or the lists read again, and the mail layer queues no notice of this screen\'s',
+    array( $scope_after_tab, $scope_after_none, $scope_after_refused, $scope_after_lists, substr_count( $mail_source, 'WPCPM_Settings_Screen::flash_outcome( ' ), substr_count( $mail_source, "WPCPM_Flash::set( 'settings'" ) ),
+    array( 'people', '', '', array( 'lists-read', '' ), 0, 0 ) );
 
 // The tracks are compiled against the two status lists, so only a save that changed one of them
 // has anything to compile (decision 14).
@@ -1922,13 +1933,14 @@ ck( 'the notice names the tab, or the tool, that was saved',
         'tool:mentor-status-checker' => array( 'success', 'Settings saved for the Mentor Status Checker tool.' ),
         'tool:duplicate-finder'      => array( 'success', 'Settings saved for the Student Duplicate Finder tool.' ),
         'tool:handbook'              => array( 'success', 'Settings saved for the Need help? tool.' ),
+        'tool:emails'                => array( 'success', 'Settings saved for the Emails tool.' ),
     ) );
 
 $messages = WPCPM_Settings_Screen::settings_messages();
 
 ck( 'every outcome the settings flash can carry has words, the refusal among them as an error that says what the form asked for',
     array( array_keys( $messages ), $messages['refused'] ),
-    array( array( 'saved', 'refused', 'test-sent', 'test-failed', 'log-cleared', 'lists-read' ), array( 'error', 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.' ) ) );
+    array( array( 'saved', 'refused', 'log-cleared', 'lists-read' ), array( 'error', 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.' ) ) );
 
 WPCPM_Tracks::$live = array();
 $GLOBALS['umeta']   = array();
@@ -2258,11 +2270,14 @@ $want_tabs = array(
 $saving        = array( 'connection', 'people', 'institutions', 'sponsors', 'security', 'advanced' );
 $settings_home = 'https://example.test/wp-admin/admin.php?page=wpcpm-settings';
 
-// The three tools that keep settings, each by its ID, its scope and its screen's address.
+// The four tools that keep settings, each by its ID, its scope and the address of its Settings
+// section: its screen, or for the Emails tool the Signature and footer tab, where the footer that
+// names its contact address is.
 $keeping = array(
 	'mentor-status-checker' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-mentor-status-checker',
 	'duplicate-finder'      => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder',
 	'handbook'              => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-handbook',
+	'emails'                => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=footer',
 );
 
 ck( 'the screen has the design\'s seven tabs in its order, and no tab for the tools, whose settings are on their own screens',
@@ -2581,7 +2596,7 @@ $design_sections = array(
 		'Two-factor authentication' => 'two-factor-authentication',
 	),
 	'mail'         => array(
-		'Invitations' => 'sending-yourself-an-invitation',
+		'Invitations' => 'invitations-waiting-to-be-sent',
 		'Recent mail' => 'recent-mail',
 	),
 	'advanced'     => array(
@@ -2625,7 +2640,7 @@ foreach ( $design_sections as $slug => $headings ) {
 		}
 	}
 
-	ck( sprintf( 'the %s tab\'s sections are the design\'s, in its order, each its heading, one sentence ending in a link to its own section of the program manager guide on this site, named for a screen reader, then its rows in a form table%s', $want_tabs[ $slug ], 'mail' === $slug ? ' (Mail\'s are its forms and its log)' : '' ),
+	ck( sprintf( 'the %s tab\'s sections are the design\'s, in its order, each its heading, one sentence ending in a link to its own section of the program manager guide on this site, named for a screen reader, then its rows in a form table%s', $want_tabs[ $slug ], 'mail' === $slug ? ' (Mail\'s are its links)' : '' ),
 	    array( $drawn, preg_match_all( '#<h2[ >]#', preg_replace( '#<nav class="nav-tab-wrapper[^"]*"[^>]*>.*?</nav>#s', '', $html ) ) ),
 	    array( $want, count( $headings ) ) );
 }
@@ -2685,39 +2700,19 @@ ck( 'and a filter that answers no address leaves the intros without a link', $go
 
 $GLOBALS['pages'] = array();
 
-// Mail saves nothing of its own: each control is a form posting to its own handler, and a Save there
-// would post a tab that holds no settings.
+// Mail saves nothing: it says what is waiting to be sent, and links where the invitations' wording is
+// and where the record of what went out is. Its four sample buttons, a form each, went in 1.122.19,
+// with Send me a test on each template's editor in the Emails tool in their place.
 WPCPM_Mail::$queued = 3;
 $mail_html          = draw_settings( 'mail' );
 WPCPM_Mail::$queued = 0;
-$drawn              = array();
 
-foreach ( forms_of( $mail_html ) as $form ) {
-	$drawn[] = array(
-		false !== strpos( $form['open'], 'action="https://example.test/wp-admin/admin-post.php"' ),
-		preg_match( '#name="action" value="([^"]*)"#', $form['body'], $posted ) ? $posted[1] : null,
-		preg_match( '#name="kind" value="([^"]*)"#', $form['body'], $posted ) ? $posted[1] : null,
-		$form['tab'],
-		$form['saves'],
-	);
-}
-
-ck( 'the Mail tab has no Save: its four sample buttons are each a form posting to their own handler, one for each audience',
-    $drawn,
-    array(
-        array( true, 'wpcpm_send_test_mail', 'student', null, 0 ),
-        array( true, 'wpcpm_send_test_mail', 'mentor', null, 0 ),
-        array( true, 'wpcpm_send_test_mail', 'institution', null, 0 ),
-        array( true, 'wpcpm_send_test_mail', 'sponsor', null, 0 ),
-    ) );
-// A second press mailed the presser a second sample, so each form carries the double-press guard,
-// which locks it at the first press and swaps the button's words for its busy word.
-ck( 'and each sample form locks at its first press and says Sending while its mail is on the way',
-    array_map( function ( $form ) { return trim( $form['open'] ); }, forms_of( $mail_html ) ),
-    array_fill( 0, 4, 'method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Sending"' ) );
-ck( 'and it draws what is waiting to be sent and the way to the email log, with no Save anywhere on it',
-    array( false !== strpos( $mail_html, '3 invitations are waiting to be sent.' ), false !== strpos( $mail_html, '<a class="button" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), substr_count( $mail_html, 'value="Save settings"' ) ),
-    array( true, true, 0 ) );
+ck( 'the Mail tab has no form and no Save: its sample buttons are gone, and with them their action',
+    array( forms_of( $mail_html ), substr_count( $mail_html, 'value="Save settings"' ), false !== strpos( $mail_html, 'wpcpm_send_test_mail' ) ),
+    array( array(), 0, false ) );
+ck( 'it draws what is waiting to be sent, the way to the email templates and the way to the email log',
+    array( false !== strpos( $mail_html, '3 invitations are waiting to be sent.' ), false !== strpos( $mail_html, '<a class="button" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates">Open the email templates</a>' ), false !== strpos( $mail_html, '<a class="button" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ) ),
+    array( true, true, true ) );
 
 // Recent mail points to the Emails tool's Log, which keeps every email for 30 days, and says how many
 // failed in that time, linked to them; with none failed it says nothing of failures.
@@ -2746,6 +2741,7 @@ foreach ( array( 'the tool registered' => array(), 'at another address' => array
 	$log_links[ $case ] = array(
 		preg_match( '#<a class="button" href="([^"]*)">Open the email log</a>#', $drawn_mail, $open ) ? $open[1] : null,
 		preg_match( '#<a href="([^"]*)">Show the failed emails</a>#', $drawn_mail, $failed_link ) ? $failed_link[1] : null,
+		preg_match( '#<a class="button" href="([^"]*)">Open the email templates</a>#', $drawn_mail, $templates_link ) ? $templates_link[1] : null,
 	);
 }
 
@@ -2753,29 +2749,12 @@ WPCPM_Tools::$instead   = array();
 WPCPM_Tools::$removed   = array();
 WPCPM_Mail_Log::$failed = 0;
 
-ck( 'Recent mail links the Log at the Emails tool\'s own address with the Log tab, as the registry has it, and at the address the tool would have when it is filtered out',
+ck( 'Recent mail links the Log, and Invitations the templates, at the Emails tool\'s own address with their tab, as the registry has it, and at the address the tool would have when it is filtered out',
     $log_links,
     array(
-        'the tool registered' => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed' ),
-        'at another address'  => array( 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log&status=failed' ),
-        'filtered out'        => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed' ),
-    ) );
-
-// Each sample form carries its nonce under the name its handler reads it by, in a field with an id of
-// its own: core's nonce field takes its id from its name, which gave four elements of the tab one id.
-$mail_nonces = array();
-
-foreach ( forms_of( $mail_html ) as $form ) {
-	$mail_nonces[] = preg_match( '#<input type="hidden" id="([^"]*)" name="wpcpm_send_test_mail" value="([^"]*)" />#', $form['body'], $nonce ) ? array( $nonce[1], $nonce[2] ) : null;
-}
-
-ck( 'each sample form carries the nonce its handler checks, under the name the handler reads, each in a field with an id of its own',
-    $mail_nonces,
-    array(
-        array( 'wpcpm_send_test_mail-student', 'nonce:wpcpm_send_test_mail' ),
-        array( 'wpcpm_send_test_mail-mentor', 'nonce:wpcpm_send_test_mail' ),
-        array( 'wpcpm_send_test_mail-institution', 'nonce:wpcpm_send_test_mail' ),
-        array( 'wpcpm_send_test_mail-sponsor', 'nonce:wpcpm_send_test_mail' ),
+        'the tool registered' => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates' ),
+        'at another address'  => array( 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log&status=failed', 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=templates' ),
+        'filtered out'        => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates' ),
     ) );
 
 $twice = array();
@@ -2961,6 +2940,7 @@ ck( 'and the notice a tool\'s Save leaves is printed on the tool\'s screen, abov
         'mentor-status-checker' => 'Settings saved for the Mentor Status Checker tool.',
         'duplicate-finder'      => 'Settings saved for the Student Duplicate Finder tool.',
         'handbook'              => 'Settings saved for the Need help? tool.',
+        'emails'                => 'Settings saved for the Emails tool.',
     ) );
 
 $GLOBALS['umeta'] = array();
@@ -4012,14 +3992,15 @@ foreach ( array_keys( $want_tabs ) as $slug ) {
 	}
 }
 
-ck( 'the Connection tab opens on one sentence naming the three tools that keep their settings on their own screens, each a link to its Settings section there, and no other tab says it',
+ck( 'the Connection tab opens on one sentence naming the four tools that keep their settings on their own screens, each a link to its Settings section there, and no other tab says it',
     array( html_entity_decode( strip_tags( $connection_lede ), ENT_QUOTES ), $linked, $keeps, $ledes_elsewhere ),
     array(
-        'The Mentor Status Checker, the Student Duplicate Finder and Need help? keep their settings on their own screens, under WPCredits Program > Tools.',
+        'The Mentor Status Checker, the Student Duplicate Finder, Need help? and Emails keep their settings on their own screens, under WPCredits Program > Tools.',
         array(
             array( 'Mentor Status Checker', $keeping['mentor-status-checker'] . '#settings' ),
             array( 'Student Duplicate Finder', $keeping['duplicate-finder'] . '#settings' ),
             array( 'Need help?', $keeping['handbook'] . '#settings' ),
+            array( 'Emails', $keeping['emails'] . '#settings' ),
         ),
         array_fill_keys( array_keys( $keeping ), true ),
         array(),
@@ -4036,21 +4017,21 @@ ck( 'and with one of the three taken out of the registry, the sentence is not dr
 
 echo "\n=== The guides say where each tool's settings are ===\n";
 
-// Guide 31 is the Settings screen's: it has no Tools tab, and says where the three tools' settings
-// went. Guide 32 is the tools': each of the three has a Settings section there, as on its screen.
+// Guide 31 is the Settings screen's: it has no Tools tab, and says where the four tools' settings
+// went. Guide 32 is the tools': each of the four has a Settings section there, as on its screen.
 $guide_31 = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/31-admin-settings.md' );
 $guide_32 = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/32-admin-tools.md' );
 
 $tool_parts = array();
 
-foreach ( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?' ) as $tool_name ) {
+foreach ( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?', 'Emails' ) as $tool_name ) {
 	$part                     = preg_match( '/^### ' . preg_quote( $tool_name, '/' ) . '\n(.*?)(?=^### |\z)/ms', $guide_32, $found ) ? $found[1] : '';
 	$tool_parts[ $tool_name ] = 1 === preg_match( '/^#### Settings$/m', $part );
 }
 
-ck( 'guide 31 has no Tools tab and says the three tools keep their settings on their own screens, and guide 32 gives each of the three a Settings section',
-    array( 1 === preg_match( '/^### The Tools tab$/m', $guide_31 ), false !== strpos( $guide_31, 'eighth' ), 1 === preg_match( '/Mentor Status Checker.*Student Duplicate Finder.*Need help\?.*own screen/s', $guide_31 ), $tool_parts ),
-    array( false, false, true, array_fill_keys( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?' ), true ) ) );
+ck( 'guide 31 has no Tools tab and says the four tools keep their settings on their own screens, and guide 32 gives each of the four a Settings section',
+    array( 1 === preg_match( '/^### The Tools tab$/m', $guide_31 ), false !== strpos( $guide_31, 'eighth' ), 1 === preg_match( '/Mentor Status Checker.*Student Duplicate Finder.*Need help\?.*Emails.*own screen/s', $guide_31 ), $tool_parts ),
+    array( false, false, true, array_fill_keys( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?', 'Emails' ), true ) ) );
 
 echo "\n=== airtable_record_url() ===\n";
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( WPCPM_Settings::defaults(), array( 'base_id' => 'appTEST', 'students_table' => 'tbl STU', 'reports_table' => '' ) );

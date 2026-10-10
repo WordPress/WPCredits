@@ -62,7 +62,28 @@ function wp_unslash( $v ) { return $v; }
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
-function add_query_arg( $k, $v, $u ) { return $u . ( false === strpos( $u, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
+// Core's two forms: `add_query_arg( $key, $value, $url )`, the Log's own links, and
+// `add_query_arg( $args, $url )`, the tab bar's.
+function add_query_arg( ...$args ) {
+	if ( is_array( $args[0] ) ) {
+		$url = (string) $args[1];
+
+		foreach ( $args[0] as $k => $v ) {
+			$url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . $v;
+		}
+
+		return $url;
+	}
+
+	return $args[2] . ( false === strpos( $args[2], '?' ) ? '?' : '&' ) . $args[0] . '=' . $args[1];
+}
+// The flash the screen reads a press's notice from: one Administrator's, in user meta.
+$GLOBALS['umeta'] = array();
+function get_current_user_id() { return 1; }
+function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ $id ][ $k ] ?? ''; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ $id ][ $k ] = $v; return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ $id ][ $k ] ); return true; }
+function wp_slash( $v ) { return $v; }
 // Core's, as `selected()` writes it: a string comparison, so 7 and '7' are one value.
 function selected( $a, $b, $echo = true ) {
 	$out = ( (string) $a === (string) $b ) ? " selected='selected'" : '';
@@ -104,6 +125,8 @@ $GLOBALS['wpdb'] = new WPCPM_Test_Wpdb();
 $GLOBALS['wpdb']->create_mail_log();
 
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log.php';
@@ -149,7 +172,7 @@ $tool = new WPCPM_Emails();
 ck( 'the tool is Emails at wpcpm-tool-emails, always ready', array( $tool->id(), $tool->label(), $tool->page_slug(), $tool->is_ready() ), array( 'emails', 'Emails', 'wpcpm-tool-emails', true ) );
 
 $tool->boot();
-ck( 'it boots its stylesheet\'s hook and nothing else: the log boots from the plugin\'s bootstrap', array_map( function ( $h ) { return $h[0]; }, $GLOBALS['hooked'] ), array( 'admin_enqueue_scripts' ) );
+ck( 'it boots its stylesheet\'s hook and the editor\'s two forms, and nothing else: the log boots from the plugin\'s bootstrap', array_map( function ( $h ) { return $h[0]; }, $GLOBALS['hooked'] ), array( 'admin_enqueue_scripts', 'admin_post_wpcpm_email_save', 'admin_post_wpcpm_email_restore' ) );
 $tool->enqueue_assets( 'index.php' );
 $tool->enqueue_assets( 'wpcredits-program_page_wpcpm-tool-emails' );
 ck( 'its stylesheet loads on its screen alone', $GLOBALS['styles'], array( 'wpcpm-emails' => WPCPM_PLUGIN_URL . 'assets/css/emails.css' ) );
@@ -201,6 +224,7 @@ $html  = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'when' =>
 $form  = preg_match( '#<form method="get" class="wpcpm-emails__filters">(.*?)</form>#s', $html, $found ) ? $found[1] : '';
 $words = words_of( $html );
 
+ck( 'the Log is the tab shown, between Templates and Signature and footer and its own link', array( 1 === preg_match( '#<a href="https://example.test/wp-admin/admin.php\?page=wpcpm-tool-emails&tab=log" class="nav-tab nav-tab-active" aria-current="page">Log</a>#', $html ), 1 === preg_match( '#>Templates</a><a [^>]*>Signature and footer</a><a [^>]*>Log</a></nav>#', $html ) ), array( true, true ) );
 ck( 'the row shows its time in the site\'s zone, its address, its person linked, its area and its email', array( false !== strpos( $html, '10 Oct 2026, 01:30' ), false !== strpos( $html, 'ada@example.test' ), false !== strpos( $html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=7">Ada Lin</a>' ), false !== strpos( $html, 'Mentor calls' ), false !== strpos( $html, 'Call booked' ) ), array( true, true, true, true, true ) );
 ck( 'the count is shown', false !== strpos( $html, '1 email matches.' ), true );
 ck( 'the screen says, under the table, what Handed to the mail server means', strpos( $html, 'means the site passed the email on, not that it reached the inbox' ) > strpos( $html, '</table>' ), true );
@@ -305,7 +329,7 @@ ck( '50 a page, and the next page\'s link keeps the Log tab and the filter', arr
 // No table: the screen says the log is not ready, and draws no table.
 $GLOBALS['wpdb']->drop_mail_log();
 WPCPM_Mail_Log::reset();
-$missing = screen( array( 'page' => 'wpcpm-tool-emails' ) );
+$missing = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log' ) );
 ck( 'with no table the screen says the log is not ready yet, and draws no table', array( false !== strpos( $missing, 'The email log is not ready yet' ), strpos( $missing, '<table' ) ), array( true, false ) );
 
 // Only Administrators.

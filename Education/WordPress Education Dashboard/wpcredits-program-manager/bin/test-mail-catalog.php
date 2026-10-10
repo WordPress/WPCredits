@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the 42 contexts the plugin sends today', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 42 );
+ck( 'the catalog names the plugin\'s 44 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file and the test of the signature and footer', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 44 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -50,7 +50,8 @@ foreach ( $emails as $id => $e ) {
 }
 ck( 'every entry has a key of letters, digits and hyphens, a label, a known area and a known audience', $bad, array() );
 
-ck( 'the four samples from Settings > Mail are tests, nothing else is', array_keys( array_filter( $emails, function ( $e ) { return $e['test']; } ) ), array( 'test-student', 'test-mentor', 'test-institution', 'test-sponsor' ) );
+ck( 'the four samples from Settings > Mail and the test of the signature and footer are tests, nothing else is', array_keys( array_filter( $emails, function ( $e ) { return $e['test']; } ) ), array( 'test-student', 'test-mentor', 'test-institution', 'test-sponsor', 'footer-test' ) );
+ck( 'the test of the signature and footer belongs to no area, and goes to an Administrator', WPCPM_Mail_Catalog::get( 'footer-test' ), array( 'label' => 'Test of the signature and footer', 'module' => 'other', 'audience' => 'administrator', 'test' => true ) );
 
 ck( 'an unknown id is "Other email" in the Other area', array( WPCPM_Mail_Catalog::label( 'no-such' ), WPCPM_Mail_Catalog::module_of( 'no-such' ), WPCPM_Mail_Catalog::label( '' ) ), array( 'Other email', 'other', 'Other email' ) );
 
@@ -79,18 +80,40 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 	if ( preg_match( '/mail_manager\(\s*[^,()]+,\s*\$\w+\s*\)/', $src ) ) {
 		$contexts['sponsor-interest'] = true;
 	}
-	foreach ( array( 'invite-', 'test-' ) as $built ) {
-		if ( false !== strpos( $src, "'" . $built . "' . " ) ) {
-			foreach ( array( 'student', 'mentor', 'institution', 'sponsor' ) as $k ) {
-				$contexts[ $built . $k ] = true;
-			}
+	if ( false !== strpos( $src, "'invite-' . " ) ) {
+		foreach ( array( 'student', 'mentor', 'institution', 'sponsor' ) as $k ) {
+			$contexts[ 'invite-' . $k ] = true;
 		}
+	}
+	if ( false !== strpos( $src, "'test-' . " ) ) {
+		$contexts['test- built from a kind'] = true;
 	}
 }
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 42 of them (it is not reading nothing)', count( $contexts ), 42 );
+ck( 'and the scan found all 39 of them (it is not reading nothing)', count( $contexts ), 39 );
+
+// The template registry's ids, read from its definition files as each file writes them: one at the
+// start of each line of the array the file returns. An invitation is named by its template's id,
+// and one of them, the institution invitation for an agreement on file, is set from a choice
+// between two ids rather than passed as a literal the scan above can read.
+$templates = array();
+foreach ( glob( __DIR__ . '/../includes/mail/templates/*.php' ) as $file ) {
+	preg_match_all( "/^\t'([a-z0-9-]+)'\s*=>\s*array\(/m", (string) file_get_contents( $file ), $t );
+	$templates = array_merge( $templates, $t[1] );
+}
+ck( 'every template the registry defines is in the catalog', array_values( array_diff( $templates, array_keys( $emails ) ) ), array() );
+// The four samples Settings > Mail sent until 1.122.19 stay in the catalog, so the Log names the rows
+// they left, which it keeps for 30 days; nothing sends them now: Send me a test logs a test under its
+// template's own id.
+$retired    = array( 'test-student', 'test-mentor', 'test-institution', 'test-sponsor' );
+$plugin_ids = array_values( array_diff( array_keys( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), $retired ) );
+$sent_ids   = array_unique( array_merge( array_keys( $contexts ), $templates ) );
+sort( $plugin_ids );
+sort( $sent_ids );
+ck( 'and every email of the plugin\'s the catalog names is one the source sends or a template the registry holds, but the four samples Settings > Mail sent before 1.122.19', $plugin_ids, $sent_ids );
+ck( 'which nothing sends any more', array_values( array_intersect( $retired, $sent_ids ) ), array() );
 
 $filters = WPCPM_Mail_Catalog::wordpress_filters();
 $unnamed = array_values( array_diff( array_values( $filters ), array_keys( $emails ) ) );

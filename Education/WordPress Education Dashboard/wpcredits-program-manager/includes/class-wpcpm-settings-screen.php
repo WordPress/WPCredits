@@ -51,11 +51,11 @@ class WPCPM_Settings_Screen {
 	const GUIDE_PAGE_PATH = 'program-manager-guide';
 
 	/**
-	 * The three tools that keep settings of their own, in the order the Connection tab's first line
+	 * The four tools that keep settings of their own, in the order the Connection tab's first line
 	 * names them (`render_tools_lede()`): each keeps them in the Settings section of its own screen.
 	 * bin/test-admin-menu.php holds the list to the registry's tools that keep settings.
 	 */
-	const TOOLS_WITH_SETTINGS = array( 'mentor-status-checker', 'duplicate-finder', 'handbook' );
+	const TOOLS_WITH_SETTINGS = array( 'mentor-status-checker', 'duplicate-finder', 'handbook', 'emails' );
 
 	/**
 	 * Boolean settings that no settings form draws yet, neither a tab of this screen nor a tool's
@@ -306,7 +306,7 @@ class WPCPM_Settings_Screen {
 		$tool = self::tool_of( $scope );
 
 		if ( null !== $tool ) {
-			return $tool->admin_url();
+			return $tool->settings_url();
 		}
 
 		return 0 === strpos( (string) $scope, 'tool:' ) ? self::settings_url() : self::settings_url( $scope );
@@ -402,12 +402,11 @@ class WPCPM_Settings_Screen {
 
 	/**
 	 * Queue the outcome a notice of this screen says, and the scope it names, always together: every
-	 * writer of the `settings` channel queues through here, this screen's handlers and the Mail tab's
-	 * sample invitations (`WPCPM_Mail::handle_test()`).
+	 * writer of the `settings` channel queues through here, this screen's handlers alone.
 	 *
-	 * The scope is set on every outcome, to nothing for an outcome that names none, a refusal, the
-	 * lists read again or a sample sent: a scope still queued from a notice that was never drawn would
-	 * otherwise name the next save.
+	 * The scope is set on every outcome, to nothing for an outcome that names none, a refusal or the
+	 * lists read again: a scope still queued from a notice that was never drawn would otherwise name
+	 * the next save.
 	 *
 	 * @param string $outcome A key of `settings_messages()`.
 	 * @param string $scope   The scope saved: a key of `WPCPM_Settings::scopes()`, or ''.
@@ -444,8 +443,6 @@ class WPCPM_Settings_Screen {
 		return array(
 			'saved'       => array( 'success', $saved ),
 			'refused'     => array( 'error', __( 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.', 'wpcredits-program-manager' ) ),
-			'test-sent'   => array( 'success', __( 'The sample invitation is on its way to your own address.', 'wpcredits-program-manager' ) ),
-			'test-failed' => array( 'error', __( 'The sample could not be sent. Whatever handles mail on this site refused it, so a real invitation would not arrive either.', 'wpcredits-program-manager' ) ),
 			'log-cleared' => array( 'success', __( 'The mail log is empty.', 'wpcredits-program-manager' ) ),
 			'lists-read'  => array( 'success', __( 'The lists were read again.', 'wpcredits-program-manager' ) ),
 		);
@@ -473,7 +470,7 @@ class WPCPM_Settings_Screen {
 	 * The notice a settings save left for the screen it went back to, naming what it saved: this
 	 * screen, or a tool's own, whose Settings section saves through the same handler
 	 * (`WPCPM_Tool::render_settings()`); or the notice another outcome of this screen left, a
-	 * refusal, the lists read again or a sample invitation. Read once, as every flash is.
+	 * refusal or the lists read again. Read once, as every flash is.
 	 */
 	public static function render_outcome_notice() {
 		$status   = (string) WPCPM_Flash::take( 'settings' );
@@ -743,7 +740,7 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The Connection tab: where the three tools keep their settings, how the plugin reaches Airtable,
+	 * The Connection tab: where the four tools keep their settings, how the plugin reaches Airtable,
 	 * and which table of the base holds what.
 	 *
 	 * The tutors, feedback, countries and sponsors tables and the name columns of the last two are
@@ -850,12 +847,12 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The Connection tab's first line: the three tools that keep settings of their own keep them on
+	 * The Connection tab's first line: the four tools that keep settings of their own keep them on
 	 * their own screens, each named with a link to its Settings section there, for the manager who
 	 * remembers them on this screen and opens it, on this tab, looking for them.
 	 *
-	 * Drawn only while the registry holds all three: a tool a site's `wpcpm_tools` filter took away
-	 * has no screen to send anybody to, and the sentence names three.
+	 * Drawn only while the registry holds all four: a tool a site's `wpcpm_tools` filter took away
+	 * has no screen to send anybody to, and the sentence names four.
 	 */
 	private function render_tools_lede() {
 		$links = array();
@@ -867,15 +864,16 @@ class WPCPM_Settings_Screen {
 				return;
 			}
 
-			$links[] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( $tool->admin_url() . '#settings' ), esc_html( $tool->label() ) );
+			$links[] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( $tool->settings_url() . '#settings' ), esc_html( $tool->label() ) );
 		}
 
 		$sentence = sprintf(
-			/* translators: 1: Mentor Status Checker, 2: Student Duplicate Finder, 3: Need help?, each a tool's name as a link to the Settings section of its screen. */
-			esc_html__( 'The %1$s, the %2$s and %3$s keep their settings on their own screens, under WPCredits Program > Tools.', 'wpcredits-program-manager' ),
+			/* translators: 1: Mentor Status Checker, 2: Student Duplicate Finder, 3: Need help?, 4: Emails, each a tool's name as a link to the Settings section of its screen. */
+			esc_html__( 'The %1$s, the %2$s, %3$s and %4$s keep their settings on their own screens, under WPCredits Program > Tools.', 'wpcredits-program-manager' ),
 			$links[0],
 			$links[1],
-			$links[2]
+			$links[2],
+			$links[3]
 		);
 
 		printf( '<p class="wpcpm-lede">%s</p>', $sentence ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sentence escaped above, and each link built from escaped parts.
@@ -1534,17 +1532,17 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The Mail tab: what is waiting to be sent, a sample of each invitation sent to yourself, and
-	 * what has gone out.
+	 * The Mail tab: what is waiting to be sent, where the emails' wording is, and what has gone out.
 	 *
-	 * No Save: nothing here is a setting, and each button is a form of its own posting to the
-	 * sample handler, which comes back to this tab.
+	 * No Save: nothing here is a setting. What each invitation says, and a test of it sent to
+	 * yourself, are in the Emails tool, on its Templates tab, since 1.122.19; the tab's sample
+	 * buttons went with that.
 	 */
 	private function render_mail_card() {
 		$this->section_heading(
 			__( 'Invitations', 'wpcredits-program-manager' ),
-			__( 'Send yourself the invitation a student, a mentor, an institution or a sponsor receives, before ninety real people read it: the four say different things.', 'wpcredits-program-manager' ),
-			'sending-yourself-an-invitation'
+			__( 'What each invitation says, and a test of it sent to your own address, are in WPCredits Program > Tools > Emails, on its Templates tab.', 'wpcredits-program-manager' ),
+			'invitations-waiting-to-be-sent'
 		);
 
 		$queued = WPCPM_Mail::queued();
@@ -1567,34 +1565,14 @@ class WPCPM_Settings_Screen {
 			);
 		}
 
-		foreach ( array(
-			'student'     => __( 'Email me the student invitation', 'wpcredits-program-manager' ),
-			'mentor'      => __( 'Email me the mentor invitation', 'wpcredits-program-manager' ),
-			'institution' => __( 'Email me the institution invitation', 'wpcredits-program-manager' ),
-			'sponsor'     => __( 'Email me the sponsor invitation', 'wpcredits-program-manager' ),
-		) as $kind => $label ) {
-			// Locked at its first press, saying so while the mail is on the way: the handler mails
-			// the sample for every press it is sent, so a double press mailed two.
-			printf(
-				'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
-				esc_url( admin_url( 'admin-post.php' ) ),
-				esc_attr__( 'Sending', 'wpcredits-program-manager' )
-			);
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Mail::ACTION_TEST ) );
-			printf( '<input type="hidden" name="kind" value="%s" />', esc_attr( $kind ) );
-			// The nonce under the name the handler reads it by, in a field with an id of its own:
-			// `wp_nonce_field()` gives its field its name as its id, which four forms on one tab
-			// would give to four elements.
-			printf(
-				'<input type="hidden" id="%1$s" name="%2$s" value="%3$s" />',
-				esc_attr( WPCPM_Mail::ACTION_TEST . '-' . $kind ),
-				esc_attr( WPCPM_Mail::ACTION_TEST ),
-				esc_attr( wp_create_nonce( WPCPM_Mail::ACTION_TEST ) )
-			);
-			wp_referer_field();
-			printf( '<button type="submit" class="button">%s</button>', esc_html( $label ) );
-			echo '</form> ';
-		}
+		// The Templates tab, whichever way the tool is reached, as Recent mail finds the Log.
+		$tool = WPCPM_Tools::get( 'emails' );
+
+		printf(
+			'<p><a class="button" href="%1$s">%2$s</a></p>',
+			esc_url( add_query_arg( 'tab', 'templates', $tool ? $tool->admin_url() : admin_url( 'admin.php?page=wpcpm-tool-emails' ) ) ),
+			esc_html__( 'Open the email templates', 'wpcredits-program-manager' )
+		);
 
 		$this->render_mail_log();
 	}

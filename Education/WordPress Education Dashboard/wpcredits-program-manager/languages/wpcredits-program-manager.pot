@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.18\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.19\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-10T13:44:12+00:00\n"
+"POT-Creation-Date: 2026-10-10T21:17:13+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -122,6 +122,8 @@ msgid "Nothing to send: none of the selected accounts needs a first invitation."
 msgstr ""
 
 #: includes/class-wpcpm-accounts-table.php:1130
+#: includes/tools/class-wpcpm-emails.php:359
+#: includes/tools/class-wpcpm-emails.php:372
 #: includes/tools/class-wpcpm-track-builder-screen.php:116
 #: includes/tools/class-wpcpm-track-editor-screen.php:620
 msgid "Edit"
@@ -152,7 +154,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:108
 #: includes/class-wpcpm-admin.php:109
 #: includes/class-wpcpm-overview.php:277
-#: includes/class-wpcpm-settings-screen.php:509
+#: includes/class-wpcpm-settings-screen.php:506
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:189
 #: includes/tools/class-wpcpm-tool.php:128
 msgid "Settings"
@@ -160,11 +162,10 @@ msgstr ""
 
 #: includes/class-wpcpm-admin.php:121
 #: includes/class-wpcpm-admin.php:230
-#: includes/class-wpcpm-mail.php:808
-#: includes/class-wpcpm-mail.php:1316
+#: includes/class-wpcpm-mail.php:839
 #: includes/class-wpcpm-settings-screen.php:151
 #: includes/class-wpcpm-settings-screen.php:283
-#: includes/class-wpcpm-settings-screen.php:501
+#: includes/class-wpcpm-settings-screen.php:498
 #: includes/modules/class-wpcpm-institution-agreement.php:843
 #: includes/modules/class-wpcpm-institution-agreement.php:1083
 #: includes/modules/class-wpcpm-institution-agreement.php:1487
@@ -187,7 +188,8 @@ msgstr ""
 #: includes/tools/class-wpcpm-duplicate-finder.php:227
 #: includes/tools/class-wpcpm-duplicate-finder.php:264
 #: includes/tools/class-wpcpm-duplicate-finder.php:383
-#: includes/tools/class-wpcpm-emails.php:222
+#: includes/tools/class-wpcpm-emails.php:298
+#: includes/tools/class-wpcpm-emails.php:742
 #: includes/tools/class-wpcpm-handbook.php:418
 #: includes/tools/class-wpcpm-header-notices.php:107
 #: includes/tools/class-wpcpm-header-notices.php:131
@@ -666,91 +668,91 @@ msgid "Learn WordPress answered with status %d instead of the course."
 msgstr ""
 
 #. translators: %d: a number of minutes.
-#: includes/class-wpcpm-mail.php:685
+#: includes/class-wpcpm-mail.php:716
 #, php-format
 msgid "This person was sent an invitation less than %d minutes ago. Another one now would cancel the link in it, so nothing was sent."
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:717
+#: includes/class-wpcpm-mail.php:748
 msgid "Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email."
 msgstr ""
 
 #. translators: %d: a number of minutes.
-#: includes/class-wpcpm-mail.php:722
+#: includes/class-wpcpm-mail.php:753
 #, php-format
 msgid "Nothing was sent: this person was sent an invitation less than %d minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later."
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:889
+#: includes/class-wpcpm-mail.php:920
 msgid "people"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:895
-#: includes/class-wpcpm-settings-screen.php:1545
-#: includes/class-wpcpm-settings-screen.php:1777
+#: includes/class-wpcpm-mail.php:926
+#: includes/class-wpcpm-settings-screen.php:1543
+#: includes/class-wpcpm-settings-screen.php:1755
 #: includes/mail/class-wpcpm-mail-catalog.php:59
 msgid "Invitations"
 msgstr ""
 
 #. translators: 1: sent so far, 2: total in this run.
-#: includes/class-wpcpm-mail.php:909
+#: includes/class-wpcpm-mail.php:940
 #, php-format
 msgid "Sending: %1$d of %2$d sent."
 msgstr ""
 
 #. translators: 1: how many are left, 2: batch size, 3: human time until the next batch.
-#: includes/class-wpcpm-mail.php:922
+#: includes/class-wpcpm-mail.php:953
 #, php-format
 msgid "%1$d still to go. They go out %2$d at a time, so this finishes on its own - you can leave this page. Next batch %3$s."
 msgstr ""
 
 #. translators: %s: human time difference.
-#: includes/class-wpcpm-mail.php:925
+#: includes/class-wpcpm-mail.php:956
 #, php-format
 msgid "in about %s"
 msgstr ""
 
 #. translators: %s: human time difference.
-#: includes/class-wpcpm-mail.php:925
+#: includes/class-wpcpm-mail.php:956
 msgid "shortly"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:928
+#: includes/class-wpcpm-mail.php:959
 #: includes/modules/class-wpcpm-mentors.php:466
 #: includes/modules/class-wpcpm-students.php:438
 msgid "Invitations sent"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:937
+#: includes/class-wpcpm-mail.php:968
 msgid "Stop sending? Invitations already sent cannot be recalled."
 msgstr ""
 
 #. translators: %d: how many are still queued.
-#: includes/class-wpcpm-mail.php:951
+#: includes/class-wpcpm-mail.php:982
 #, php-format
 msgid "Stop and cancel the remaining %d"
 msgstr ""
 
 #. translators: 1: how many were sent, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:972
+#: includes/class-wpcpm-mail.php:1003
 #, php-format
 msgid "Finished: %1$d invitation sent to %2$s."
 msgid_plural "Finished: %1$d invitations sent to %2$s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-mail.php:982
+#: includes/class-wpcpm-mail.php:1013
 msgid "Dismiss"
 msgstr ""
 
 #. translators: %s: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:992
+#: includes/class-wpcpm-mail.php:1023
 #, php-format
 msgid "Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row."
 msgstr ""
 
 #. translators: 1: how many people, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1012
+#: includes/class-wpcpm-mail.php:1043
 #, php-format
 msgid "Send an invitation to %1$d of the %2$s? It cannot be recalled once sent."
 msgid_plural "Send an invitation to %1$d of the %2$s? They cannot be recalled once sent."
@@ -758,7 +760,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many people, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1033
+#: includes/class-wpcpm-mail.php:1064
 #, php-format
 msgid "Invite %1$d %2$s who has never been invited"
 msgid_plural "Invite %1$d %2$s who have never been invited"
@@ -766,135 +768,9 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: batch size.
-#: includes/class-wpcpm-mail.php:1047
+#: includes/class-wpcpm-mail.php:1078
 #, php-format
 msgid "Anybody already invited is skipped, so this is safe to run twice. Messages go out %d at a time in the background."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1186
-msgid "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1187
-msgid "Set your password using the link below, then publish the hours you are free so your students can book calls with you."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1188
-msgid "Your students:"
-msgstr ""
-
-#. translators: %s: site name.
-#: includes/class-wpcpm-mail.php:1190
-#, php-format
-msgid "[%s] Your mentor account is ready"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1214
-msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1215
-msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1217
-msgid "Set your password using the link below. Your Collaboration Agreement is on file, so your account is open."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1218
-msgid "Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program's or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1220
-msgid "Your Institution Dashboard:"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1221
-msgid "Where the agreement is uploaded:"
-msgstr ""
-
-#. translators: %s: site name.
-#: includes/class-wpcpm-mail.php:1223
-#, php-format
-msgid "[%s] Your institution account is ready"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1230
-msgid "Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1231
-msgid "Set your password using the link below, then check your company profile and tell us how you would like to support the program."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1232
-msgid "Your Sponsor Dashboard:"
-msgstr ""
-
-#. translators: %s: site name.
-#: includes/class-wpcpm-mail.php:1234
-#, php-format
-msgid "[%s] Your sponsor account is ready"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1237
-msgid "You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1238
-msgid "Set your password using the link below, then check your details and book your first call with your mentor."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1239
-#: includes/modules/class-wpcpm-mentor-calls.php:1334
-msgid "Your Student Report Card:"
-msgstr ""
-
-#. translators: %s: site name.
-#: includes/class-wpcpm-mail.php:1241
-#, php-format
-msgid "[%s] Welcome to the WordPress Credits Program"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1261
-msgid "The link above sets your password and stops working after a day."
-msgstr ""
-
-#. translators: %s: the WordPress username.
-#: includes/class-wpcpm-mail.php:1267
-#, php-format
-msgid "Your username is %s."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1281
-msgid "After that, sign in at the login page. If the password link has expired, open the login page, choose \"Lost your password?\" and enter your username or email address to get a fresh one."
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1286
-msgid "Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest."
-msgstr ""
-
-#. translators: %s: WordPress username.
-#: includes/class-wpcpm-mail.php:1375
-#, php-format
-msgid "Username: %s"
-msgstr ""
-
-#: includes/class-wpcpm-mail.php:1378
-msgid "To set your password, visit the following address:"
-msgstr ""
-
-#. translators: %s: the invitation email as it would be received.
-#: includes/class-wpcpm-mail.php:1391
-#, php-format
-msgid ""
-"This is a sample of the invitation email, sent to you so you can read it before anybody else does.\n"
-"\n"
-"Two differences from the real thing: the reset link below is a marked example rather than a working one, because generating a real one would invalidate your own password, and the second address is the plain login page, exactly as WordPress puts it there.\n"
-"\n"
-"---\n"
-"\n"
-"%s"
 msgstr ""
 
 #: includes/class-wpcpm-module-order.php:108
@@ -969,7 +845,7 @@ msgstr ""
 
 #: includes/class-wpcpm-notices.php:79
 #: includes/class-wpcpm-settings-choices.php:584
-#: includes/class-wpcpm-settings-screen.php:1471
+#: includes/class-wpcpm-settings-screen.php:1469
 #: includes/modules/class-wpcpm-administrators.php:82
 msgid "Administrators"
 msgstr ""
@@ -1049,7 +925,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-table.php:98
 #: includes/modules/class-wpcpm-sponsors-table.php:159
 #: includes/modules/class-wpcpm-sponsors.php:2268
-#: includes/tools/class-wpcpm-emails.php:268
+#: includes/tools/class-wpcpm-emails.php:979
 #: includes/tools/class-wpcpm-track-builder-screen.php:55
 msgid "Status"
 msgstr ""
@@ -1201,7 +1077,7 @@ msgid "Sponsor"
 msgstr ""
 
 #: includes/class-wpcpm-screen-tabs.php:35
-#: includes/class-wpcpm-settings-screen.php:608
+#: includes/class-wpcpm-settings-screen.php:605
 msgid "Secondary menu"
 msgstr ""
 
@@ -1387,302 +1263,294 @@ msgstr ""
 msgid "Everything else was saved. \"Past students\" was left as it was, because %s: no track runs on a past status, so saving the list would have taken the track off the live site, and its students would have lost its form. Take the track off the live site in the Track Builder first, then add its status here. The program's four original tracks always run, so their statuses are never past statuses."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:434
+#: includes/class-wpcpm-settings-screen.php:433
 msgid "Settings saved."
 msgstr ""
 
 #. translators: %s: a tool's name, such as Mentor Status Checker.
-#: includes/class-wpcpm-settings-screen.php:438
+#: includes/class-wpcpm-settings-screen.php:437
 #, php-format
 msgid "Settings saved for the %s tool."
 msgstr ""
 
 #. translators: %s: the name of a Settings tab, such as Sponsors.
-#: includes/class-wpcpm-settings-screen.php:441
+#: includes/class-wpcpm-settings-screen.php:440
 #, php-format
 msgid "%s settings saved."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:446
+#: includes/class-wpcpm-settings-screen.php:445
 msgid "Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:447
-msgid "The sample invitation is on its way to your own address."
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:448
-msgid "The sample could not be sent. Whatever handles mail on this site refused it, so a real invitation would not arrive either."
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:449
+#: includes/class-wpcpm-settings-screen.php:446
 msgid "The mail log is empty."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:450
+#: includes/class-wpcpm-settings-screen.php:447
 msgid "The lists were read again."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:538
+#: includes/class-wpcpm-settings-screen.php:535
 msgid "The bases, statuses and stages are read once a day, the tables and columns every fifteen minutes, and all of them again after a Save of this tab."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:540
+#: includes/class-wpcpm-settings-screen.php:537
 msgid "Read the lists from Airtable again"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:580
+#: includes/class-wpcpm-settings-screen.php:577
 msgid "This tab has nothing to show yet, so it has nothing to save."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:645
+#: includes/class-wpcpm-settings-screen.php:642
 #: includes/tools/class-wpcpm-tool.php:144
 msgid "Save settings"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:697
+#: includes/class-wpcpm-settings-screen.php:694
 msgid "(opens in a new tab)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:741
+#: includes/class-wpcpm-settings-screen.php:738
 #: includes/tools/class-wpcpm-handbook-assistant.php:402
 msgid "Program manager guide"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:759
+#: includes/class-wpcpm-settings-screen.php:756
 msgid "Airtable"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:760
+#: includes/class-wpcpm-settings-screen.php:757
 msgid "How the plugin reaches the program's Airtable base: the token it reads and writes with, the token that creates columns, and the base."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:766
+#: includes/class-wpcpm-settings-screen.php:763
 msgid "Personal Access Token"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:768
+#: includes/class-wpcpm-settings-screen.php:765
 msgid "Stored in the database and never sent to the browser - leave blank to keep the current token."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:774
+#: includes/class-wpcpm-settings-screen.php:771
 msgid "Schema token"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:776
+#: includes/class-wpcpm-settings-screen.php:773
 msgid "Optional, and used by the Track Builder alone: the token that creates a track's columns when it is published."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:780
+#: includes/class-wpcpm-settings-screen.php:777
 msgid "It needs the \"schema.bases:write\" scope and must belong to somebody with the base creator role on the base. Leave blank to keep the current one, or type remove to take it away. Without it, publishing lists the columns for somebody to create by hand."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:785
+#: includes/class-wpcpm-settings-screen.php:782
 msgid "Base ID"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:790
+#: includes/class-wpcpm-settings-screen.php:787
 msgid "Tables"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:791
+#: includes/class-wpcpm-settings-screen.php:788
 msgid "Which table of the base holds each part of the program, by its ID, and which column holds the names of a linked table's rows."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:800
+#: includes/class-wpcpm-settings-screen.php:797
 msgid "Mentors table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:801
+#: includes/class-wpcpm-settings-screen.php:798
 msgid "Students Reports table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:801
+#: includes/class-wpcpm-settings-screen.php:798
 msgid "Holds the internship dates, links and contribution team shown on the mentor page."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:802
+#: includes/class-wpcpm-settings-screen.php:799
 msgid "Students table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:802
+#: includes/class-wpcpm-settings-screen.php:799
 msgid "Read only for the Tutor column, which does not exist on Students Reports."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:803
+#: includes/class-wpcpm-settings-screen.php:800
 msgid "Institutions table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:806
+#: includes/class-wpcpm-settings-screen.php:803
 msgid "Institutions name column"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:809
+#: includes/class-wpcpm-settings-screen.php:806
 msgid "Only used when the token lacks <code>schema.bases:read</code>: with that scope the primary column is detected automatically."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:812
+#: includes/class-wpcpm-settings-screen.php:809
 msgid "Contribution areas table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:813
+#: includes/class-wpcpm-settings-screen.php:810
 msgid "Contribution areas name column"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:814
+#: includes/class-wpcpm-settings-screen.php:811
 msgid "Tutors table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:814
+#: includes/class-wpcpm-settings-screen.php:811
 msgid "Read when an institution enrolls students, for that institution's own tutors."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:815
+#: includes/class-wpcpm-settings-screen.php:812
 msgid "Feedback table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:815
+#: includes/class-wpcpm-settings-screen.php:812
 msgid "Where the students' survey answers are written: one row per student, with a column per question."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:816
+#: includes/class-wpcpm-settings-screen.php:813
 msgid "Countries table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:816
+#: includes/class-wpcpm-settings-screen.php:813
 msgid "Read for the name of each institution's country and the program manager who looks after it."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:817
+#: includes/class-wpcpm-settings-screen.php:814
 msgid "Countries name column"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:817
+#: includes/class-wpcpm-settings-screen.php:814
 msgid "The column of the Countries table that holds each country's name."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:818
+#: includes/class-wpcpm-settings-screen.php:815
 msgid "Team Members table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:818
+#: includes/class-wpcpm-settings-screen.php:815
 msgid "Read by the sponsors sync for each sponsor's program contact, and not the Contribution areas table above."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:819
+#: includes/class-wpcpm-settings-screen.php:816
 msgid "Sponsors table"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:819
+#: includes/class-wpcpm-settings-screen.php:816
 msgid "Read by the sponsors sync, and written to whenever a sponsor's record changes on this site, from an approved application to a new logo."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:820
+#: includes/class-wpcpm-settings-screen.php:817
 msgid "Sponsors name column"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:820
+#: includes/class-wpcpm-settings-screen.php:817
 msgid "The column of the Sponsors table that holds each company's name, read by the sponsors sync and by the mentors sync."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:849
+#: includes/class-wpcpm-settings-screen.php:846
 msgid "None (the built-in column)"
 msgstr ""
 
-#. translators: 1: Mentor Status Checker, 2: Student Duplicate Finder, 3: Need help?, each a tool's name as a link to the Settings section of its screen.
-#: includes/class-wpcpm-settings-screen.php:875
+#. translators: 1: Mentor Status Checker, 2: Student Duplicate Finder, 3: Need help?, 4: Emails, each a tool's name as a link to the Settings section of its screen.
+#: includes/class-wpcpm-settings-screen.php:872
 #, php-format
-msgid "The %1$s, the %2$s and %3$s keep their settings on their own screens, under WPCredits Program > Tools."
+msgid "The %1$s, the %2$s, %3$s and %4$s keep their settings on their own screens, under WPCredits Program > Tools."
 msgstr ""
 
 #. translators: %s: a track's name.
-#: includes/class-wpcpm-settings-screen.php:938
+#: includes/class-wpcpm-settings-screen.php:936
 #, php-format
 msgid "Kept while %s is live in the Track Builder."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:951
+#: includes/class-wpcpm-settings-screen.php:949
 msgid "A live track's status cannot be a past status."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:958
+#: includes/class-wpcpm-settings-screen.php:956
 msgid "Who is on the program"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:959
+#: includes/class-wpcpm-settings-screen.php:957
 msgid "The Airtable statuses that make a student current or past, and the one that gives a mentor an account."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:965
-#: includes/class-wpcpm-settings.php:1182
+#: includes/class-wpcpm-settings-screen.php:963
+#: includes/class-wpcpm-settings.php:1205
 #: includes/modules/class-wpcpm-mentors-dashboard.php:702
 msgid "Currently mentoring"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:968
+#: includes/class-wpcpm-settings-screen.php:966
 msgid "Students holding any of these appear under \"Currently mentoring\" on their mentor's page."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:975
+#: includes/class-wpcpm-settings-screen.php:973
 #: includes/modules/class-wpcpm-mentors-dashboard.php:725
 msgid "Past students"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:978
+#: includes/class-wpcpm-settings-screen.php:976
 msgid "Statuses that mean mentoring has finished: these students appear in a separate, collapsed section."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:982
+#: includes/class-wpcpm-settings-screen.php:980
 msgid "With none, only current students are shown. A status in both lists counts as current."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:986
-#: includes/class-wpcpm-settings.php:1181
+#: includes/class-wpcpm-settings-screen.php:984
+#: includes/class-wpcpm-settings.php:1204
 msgid "Mentor status to sync"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:986
+#: includes/class-wpcpm-settings-screen.php:984
 msgid "Only mentors holding this Airtable status get an account."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:991
+#: includes/class-wpcpm-settings-screen.php:989
 msgid "When someone leaves"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:992
+#: includes/class-wpcpm-settings-screen.php:990
 msgid "What the sync does with the account of a mentor or a student who is no longer on the program."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1000
+#: includes/class-wpcpm-settings-screen.php:998
 msgid "When a mentor is no longer active"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1002
+#: includes/class-wpcpm-settings-screen.php:1000
 msgid "Remove the Mentor role and clear their student list"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1004
-#: includes/class-wpcpm-settings-screen.php:1014
+#: includes/class-wpcpm-settings-screen.php:1002
+#: includes/class-wpcpm-settings-screen.php:1012
 msgid "Leave the role in place"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1005
+#: includes/class-wpcpm-settings-screen.php:1003
 msgid "The account itself is never deleted either way."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1010
+#: includes/class-wpcpm-settings-screen.php:1008
 msgid "When a student leaves the program"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1012
+#: includes/class-wpcpm-settings-screen.php:1010
 msgid "Remove the Student role, so they lose access to Student-level content"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1015
+#: includes/class-wpcpm-settings-screen.php:1013
 msgid "The account itself is never deleted either way, and their program details are kept."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1021
+#: includes/class-wpcpm-settings-screen.php:1019
 #: includes/modules/class-wpcpm-administrators.php:241
 #: includes/modules/class-wpcpm-institutions.php:2315
 #: includes/modules/class-wpcpm-sponsors.php:1452
@@ -1691,257 +1559,257 @@ msgstr ""
 msgid "Accounts"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1022
+#: includes/class-wpcpm-settings-screen.php:1020
 msgid "Whether a new account is emailed its invitation, and whether Airtable is read on a schedule."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1026
+#: includes/class-wpcpm-settings-screen.php:1024
 msgid "Invitation emails"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1032
+#: includes/class-wpcpm-settings-screen.php:1030
 msgid "Email each new mentor and student a password-reset link as their account is created"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1033
+#: includes/class-wpcpm-settings-screen.php:1031
 msgid "Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1035
+#: includes/class-wpcpm-settings-screen.php:1033
 msgid "Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen's list and invite them together."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1045
+#: includes/class-wpcpm-settings-screen.php:1043
 msgid "Automatic sync"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1051
+#: includes/class-wpcpm-settings-screen.php:1049
 msgid "Read Airtable on a schedule"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1052
+#: includes/class-wpcpm-settings-screen.php:1050
 msgid "Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1054
+#: includes/class-wpcpm-settings-screen.php:1052
 msgid "The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1059
+#: includes/class-wpcpm-settings-screen.php:1057
 msgid "Landing pages"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1060
+#: includes/class-wpcpm-settings-screen.php:1058
 msgid "Where mentors and students go when they log in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1066
+#: includes/class-wpcpm-settings-screen.php:1064
 msgid "Mentor landing page"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1068
+#: includes/class-wpcpm-settings-screen.php:1066
 msgid "Use the Mentor Report Card page as the mentor dashboard"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1069
+#: includes/class-wpcpm-settings-screen.php:1067
 msgid "Mentors go there when they log in and in place of the wp-admin Dashboard, and get a \"Mentor Report Card\" link in the toolbar."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1071
+#: includes/class-wpcpm-settings-screen.php:1069
 msgid "They keep access to their own profile screen, and a mentor who followed a link to somewhere specific still lands there instead. Administrators are unaffected."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1076
+#: includes/class-wpcpm-settings-screen.php:1074
 msgid "Student landing page"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1078
+#: includes/class-wpcpm-settings-screen.php:1076
 msgid "Use the Student Report Card page as the student dashboard"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1079
+#: includes/class-wpcpm-settings-screen.php:1077
 msgid "Students go there when they log in and in place of the wp-admin Dashboard, and get a \"Student Report Card\" link in the toolbar."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1081
+#: includes/class-wpcpm-settings-screen.php:1079
 msgid "Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1103
+#: includes/class-wpcpm-settings-screen.php:1101
 msgid "Applications and enrollment"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1104
+#: includes/class-wpcpm-settings-screen.php:1102
 msgid "How schools join the program and put their students on it: the public application form, enrollment lists, and accounts the sync creates."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1117
+#: includes/class-wpcpm-settings-screen.php:1115
 msgid "Applications from institutions"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1123
+#: includes/class-wpcpm-settings-screen.php:1121
 msgid "Take applications through the form on this site"
+msgstr ""
+
+#: includes/class-wpcpm-settings-screen.php:1122
+#: includes/class-wpcpm-settings-screen.php:1305
+msgid "A public page anybody can post to."
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1124
 #: includes/class-wpcpm-settings-screen.php:1307
-msgid "A public page anybody can post to."
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:1126
-#: includes/class-wpcpm-settings-screen.php:1309
 msgid "No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings > Privacy."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1130
+#: includes/class-wpcpm-settings-screen.php:1128
 msgid "Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1135
+#: includes/class-wpcpm-settings-screen.php:1133
 msgid "Enrollment lists from institutions"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1141
+#: includes/class-wpcpm-settings-screen.php:1139
 msgid "Let an institution send a list of students to enroll"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1142
+#: includes/class-wpcpm-settings-screen.php:1140
 msgid "Adds an \"Enroll students\" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1147
+#: includes/class-wpcpm-settings-screen.php:1145
 msgid "The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all."
 msgstr ""
 
 #. translators: 1: checks per hour, 2: rows per day.
-#: includes/class-wpcpm-settings-screen.php:1150
+#: includes/class-wpcpm-settings-screen.php:1148
 #, php-format
 msgid "Ceilings per institution: %1$s checks an hour and %2$s students a day. Files are read and never stored."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1157
+#: includes/class-wpcpm-settings-screen.php:1155
 msgid "Create accounts automatically"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1163
+#: includes/class-wpcpm-settings-screen.php:1161
 msgid "Let the sync create the first account for a Confirmed institution"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1164
+#: includes/class-wpcpm-settings-screen.php:1162
 msgid "From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1166
+#: includes/class-wpcpm-settings-screen.php:1164
 msgid "An address that already belongs to an account is left alone, and the institution is listed with the reason on the No account view of the Institutions screen's Accounts tab. With this off, accounts are created only when somebody presses Create account there."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1171
-#: includes/class-wpcpm-settings-screen.php:1318
+#: includes/class-wpcpm-settings-screen.php:1169
+#: includes/class-wpcpm-settings-screen.php:1316
 msgid "Landing page"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1172
+#: includes/class-wpcpm-settings-screen.php:1170
 msgid "Where institution accounts go when they log in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1178
+#: includes/class-wpcpm-settings-screen.php:1176
 msgid "Institution landing page"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1180
+#: includes/class-wpcpm-settings-screen.php:1178
 msgid "Use the Institution Dashboard page as the institution dashboard"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1181
+#: includes/class-wpcpm-settings-screen.php:1179
 msgid "Institution accounts go there when they log in and in place of the wp-admin Dashboard, and get an \"Institution Dashboard\" link in the toolbar."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1183
+#: includes/class-wpcpm-settings-screen.php:1181
 msgid "Same exceptions as for mentors and students."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1189
-#: includes/class-wpcpm-settings-screen.php:1202
+#: includes/class-wpcpm-settings-screen.php:1187
+#: includes/class-wpcpm-settings-screen.php:1200
 msgid "When an institution leaves the pipeline"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1190
+#: includes/class-wpcpm-settings-screen.php:1188
 msgid "What the sync does with the people of an institution that Airtable moves out of the pipeline."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1197
+#: includes/class-wpcpm-settings-screen.php:1195
 msgid "Its people"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1204
+#: includes/class-wpcpm-settings-screen.php:1202
 msgid "Remove its people, so they lose access to its students"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1206
-#: includes/class-wpcpm-settings-screen.php:1358
+#: includes/class-wpcpm-settings-screen.php:1204
+#: includes/class-wpcpm-settings-screen.php:1356
 msgid "Leave their access in place"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1207
+#: includes/class-wpcpm-settings-screen.php:1205
 msgid "The accounts themselves are never deleted either way, and the agreement and the roster are kept."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1209
+#: includes/class-wpcpm-settings-screen.php:1207
 msgid "An institution leaves the pipeline when Airtable moves it out of the stages the program treats as active, which the Advanced tab lists."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1214
+#: includes/class-wpcpm-settings-screen.php:1212
 #: includes/modules/class-wpcpm-administrators-cards.php:1494
 #: includes/modules/class-wpcpm-institution-agreement.php:377
 msgid "Collaboration Agreements"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1215
+#: includes/class-wpcpm-settings-screen.php:1213
 msgid "How long a signed agreement may wait for review, who reviews it, and where its wording lives."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1221
+#: includes/class-wpcpm-settings-screen.php:1219
 msgid "Agreement review"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1223
-#: includes/class-wpcpm-settings-screen.php:1266
+#: includes/class-wpcpm-settings-screen.php:1221
+#: includes/class-wpcpm-settings-screen.php:1264
 msgid "days"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1224
+#: includes/class-wpcpm-settings-screen.php:1222
 msgid "How long a signed agreement may wait before the queue marks it overdue and the nightly digest names it."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1229
+#: includes/class-wpcpm-settings-screen.php:1227
 msgid "Who reviews agreements"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1231
+#: includes/class-wpcpm-settings-screen.php:1229
 msgid "Addresses told when an agreement arrives and sent the overdue digest; with none, every program manager is written to."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1232
+#: includes/class-wpcpm-settings-screen.php:1230
 msgid "That reaches technical administrators as well, so set it before the first real upload."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1235
+#: includes/class-wpcpm-settings-screen.php:1233
 msgid "The agreement wording"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1241
+#: includes/class-wpcpm-settings-screen.php:1239
 msgid "https://docs.google.com/document/d/..."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1242
+#: includes/class-wpcpm-settings-screen.php:1240
 msgid "The Google Doc the plugin's copy of the Collaboration Agreement was taken from, used by the Check against the Doc button; Google addresses only."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1244
+#: includes/class-wpcpm-settings-screen.php:1242
 msgid "Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin's source is public."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1249
+#: includes/class-wpcpm-settings-screen.php:1247
 #: includes/mail/class-wpcpm-mail-catalog.php:62
 #: includes/modules/class-wpcpm-administrators-cards.php:1605
 #: includes/modules/class-wpcpm-institutions.php:2316
@@ -1950,287 +1818,267 @@ msgstr ""
 msgid "Semester reports"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1250
+#: includes/class-wpcpm-settings-screen.php:1248
 msgid "When each institution's semester report is drafted, and who is told when it is."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1256
+#: includes/class-wpcpm-settings-screen.php:1254
 msgid "Drafting"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1258
+#: includes/class-wpcpm-settings-screen.php:1256
 msgid "Draft each institution's semester report when the semester ends"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1259
+#: includes/class-wpcpm-settings-screen.php:1257
 msgid "A daily job drafts a report for every finished semester and tells the program managers; off, drafts are written only when a manager presses Draft now."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1264
+#: includes/class-wpcpm-settings-screen.php:1262
 msgid "Drafting grace"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1267
+#: includes/class-wpcpm-settings-screen.php:1265
 msgid "How long after a semester ends the job waits for students still in progress before drafting anyway; the draft says how many were."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1272
+#: includes/class-wpcpm-settings-screen.php:1270
 msgid "Who reviews reports"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1274
+#: includes/class-wpcpm-settings-screen.php:1272
 msgid "Addresses told when the job drafts a report; with none, every program manager is written to."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1287
-#: includes/class-wpcpm-settings-screen.php:1740
+#: includes/class-wpcpm-settings-screen.php:1285
+#: includes/class-wpcpm-settings-screen.php:1718
 msgid "Applications"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1288
+#: includes/class-wpcpm-settings-screen.php:1286
 msgid "Whether companies can apply to sponsor the program through the public form on this site."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1300
+#: includes/class-wpcpm-settings-screen.php:1298
 msgid "Applications from sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1306
+#: includes/class-wpcpm-settings-screen.php:1304
 msgid "Take sponsor applications through the form on this site"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1313
+#: includes/class-wpcpm-settings-screen.php:1311
 msgid "Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1319
+#: includes/class-wpcpm-settings-screen.php:1317
 msgid "Where sponsor accounts go when they log in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1327
+#: includes/class-wpcpm-settings-screen.php:1325
 msgid "Sponsor landing page"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1329
+#: includes/class-wpcpm-settings-screen.php:1327
 msgid "Send sponsor accounts to the Sponsor Dashboard when they log in"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1330
+#: includes/class-wpcpm-settings-screen.php:1328
 msgid "Instead of the wp-admin Dashboard; accounts that can also edit content or manage the program are left where WordPress sends them."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1337
-#: includes/class-wpcpm-settings-screen.php:1354
+#: includes/class-wpcpm-settings-screen.php:1335
+#: includes/class-wpcpm-settings-screen.php:1352
 msgid "When a sponsor is no longer Approved"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1338
+#: includes/class-wpcpm-settings-screen.php:1336
 msgid "What the sync does with the accounts of a sponsor whose Airtable status is no longer Approved."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1349
+#: includes/class-wpcpm-settings-screen.php:1347
 msgid "Its accounts"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1356
+#: includes/class-wpcpm-settings-screen.php:1354
 msgid "Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1359
+#: includes/class-wpcpm-settings-screen.php:1357
 msgid "Nothing is ever deleted, and Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1361
+#: includes/class-wpcpm-settings-screen.php:1359
 msgid "Airtable's Status is the record: choose the other answer to have the sync remove the accounts from any sponsor whose Status is no longer Approved."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1368
+#: includes/class-wpcpm-settings-screen.php:1366
 msgid "Interest mail"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1369
+#: includes/class-wpcpm-settings-screen.php:1367
 msgid "Where a sponsor's interest, and its other mail for a program manager, goes when no program manager is assigned to the sponsor."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1378
+#: includes/class-wpcpm-settings-screen.php:1376
 msgid "Who is mailed"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1380
+#: includes/class-wpcpm-settings-screen.php:1378
 msgid "Addresses mailed in place of a sponsor's program manager when it has none; with none here, every program manager is written to."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1381
+#: includes/class-wpcpm-settings-screen.php:1379
 msgid "A sponsor's interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes and a warning that its codes are running low go to its assigned program manager, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no manager yet."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1387
+#: includes/class-wpcpm-settings-screen.php:1385
 msgid "Offers"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1388
+#: includes/class-wpcpm-settings-screen.php:1386
 msgid "The sponsors' logos and offers: how large a logo may be, where students and mentors see the offers, and when a pool of codes is running low."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1396
+#: includes/class-wpcpm-settings-screen.php:1394
 msgid "Largest logo"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1398
+#: includes/class-wpcpm-settings-screen.php:1396
 msgid "KB"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1399
+#: includes/class-wpcpm-settings-screen.php:1397
 msgid "Applies to the logos the sync copies from Airtable, the ones sponsors upload and the ones sent with an application: PNG, JPEG and WebP only, never SVG."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1402
+#: includes/class-wpcpm-settings-screen.php:1400
 #: includes/modules/class-wpcpm-sponsor-tools.php:313
 #: includes/modules/class-wpcpm-students-dashboard.php:412
 msgid "Tools from our sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1408
+#: includes/class-wpcpm-settings-screen.php:1406
 msgid "Show the section on the Student Report Card"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1410
+#: includes/class-wpcpm-settings-screen.php:1408
 msgid "Show the section on the Mentor Report Card"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1411
+#: includes/class-wpcpm-settings-screen.php:1409
 msgid "The section lists the live offers, each with its claim button."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1413
+#: includes/class-wpcpm-settings-screen.php:1411
 msgid "A student always sees offers open to students; a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1415
+#: includes/class-wpcpm-settings-screen.php:1413
 msgid "Low-stock warning"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1421
+#: includes/class-wpcpm-settings-screen.php:1419
 msgid "codes left"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1422
+#: includes/class-wpcpm-settings-screen.php:1420
 msgid "When a pool of one-time codes falls below this many, the sponsor and its program manager are mailed once."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1424
+#: includes/class-wpcpm-settings-screen.php:1422
 msgid "This is the default for new offers; each offer can set its own."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1447
+#: includes/class-wpcpm-settings-screen.php:1445
 msgid "Two-factor authentication"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1448
+#: includes/class-wpcpm-settings-screen.php:1446
 msgid "Which roles must give a code as well as their password when they sign in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1452
+#: includes/class-wpcpm-settings-screen.php:1450
 msgid "Roles that must use it"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1460
+#: includes/class-wpcpm-settings-screen.php:1458
 msgid "Nobody is asked for a second factor, because the Two Factor plugin is not active on this site."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1491
+#: includes/class-wpcpm-settings-screen.php:1489
 msgid "An account in a ticked role is asked for a code as well as its password from its next sign-in, with nothing to set up first: the code is emailed."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1492
+#: includes/class-wpcpm-settings-screen.php:1490
 msgid "Install and activate the Two Factor plugin, and the roles ticked here are asked for a code as well as a password at their next sign-in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1495
+#: includes/class-wpcpm-settings-screen.php:1493
 msgid "Students are left off by default: a student account holds that student's own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn it on for themselves."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1500
+#: includes/class-wpcpm-settings-screen.php:1498
 msgid "Each person can then set up an authenticator app on their own profile screen, which is quicker and does not depend on their email. Untick everything to ask nobody."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1505
+#: includes/class-wpcpm-settings-screen.php:1503
 msgid "Where it stands"
 msgstr ""
 
 #. translators: 1: role name, 2: accounts covered, 3: accounts in the role, 4: accounts using an app.
-#: includes/class-wpcpm-settings-screen.php:1515
+#: includes/class-wpcpm-settings-screen.php:1513
 #, php-format
 msgid "%1$s: %2$d of %3$d covered, %4$d using an authenticator app."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1527
+#: includes/class-wpcpm-settings-screen.php:1525
 msgid "Counted now, on this screen; an account that is covered but has no app is using emailed codes."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1546
-msgid "Send yourself the invitation a student, a mentor, an institution or a sponsor receives, before ninety real people read it: the four say different things."
+#: includes/class-wpcpm-settings-screen.php:1544
+msgid "What each invitation says, and a test of it sent to your own address, are in WPCredits Program > Tools > Emails, on its Templates tab."
 msgstr ""
 
 #. translators: %s: number of invitations.
-#: includes/class-wpcpm-settings-screen.php:1558
+#: includes/class-wpcpm-settings-screen.php:1556
 #, php-format
 msgid "%s invitation is waiting to be sent. They go out a few at a time in the background."
 msgid_plural "%s invitations are waiting to be sent. They go out a few at a time in the background."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-settings-screen.php:1571
-msgid "Email me the student invitation"
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:1572
-msgid "Email me the mentor invitation"
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:1573
-msgid "Email me the institution invitation"
-msgstr ""
-
 #: includes/class-wpcpm-settings-screen.php:1574
-msgid "Email me the sponsor invitation"
+msgid "Open the email templates"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1581
-#: includes/modules/class-wpcpm-semester-report-screen.php:1203
-#: includes/modules/class-wpcpm-sponsor-interests.php:388
-#: includes/modules/class-wpcpm-sponsor-mentors.php:424
-#: includes/modules/class-wpcpm-sponsor-tools.php:555
-msgid "Sending"
-msgstr ""
-
-#: includes/class-wpcpm-settings-screen.php:1611
+#: includes/class-wpcpm-settings-screen.php:1589
 msgid "Recent mail"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1612
+#: includes/class-wpcpm-settings-screen.php:1590
 msgid "Every email the site sends is kept for 30 days in WPCredits Program > Tools > Emails, where it can be searched and filtered."
 msgstr ""
 
 #. translators: %s: number of failures.
-#: includes/class-wpcpm-settings-screen.php:1629
+#: includes/class-wpcpm-settings-screen.php:1607
 #, php-format
 msgid "%s email failed in the last 30 days."
 msgid_plural "%s emails failed in the last 30 days."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-settings-screen.php:1634
+#: includes/class-wpcpm-settings-screen.php:1612
 #: includes/modules/class-wpcpm-administrators-cards.php:1972
 msgid "Show the failed emails"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1638
+#: includes/class-wpcpm-settings-screen.php:1616
 #: includes/modules/class-wpcpm-administrators-cards.php:1958
 msgid "Open the email log"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1654
+#: includes/class-wpcpm-settings-screen.php:1632
 #: includes/modules/class-wpcpm-institution-application.php:1156
 #: includes/modules/class-wpcpm-institution-import-form.php:237
 #: includes/modules/class-wpcpm-institution-import-form.php:261
@@ -2241,185 +2089,186 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-offers.php:1759
 #: includes/modules/class-wpcpm-sponsors.php:2608
 #: includes/modules/class-wpcpm-student-report-form.php:1042
+#: includes/tools/class-wpcpm-emails.php:646
 msgid "Required"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1655
+#: includes/class-wpcpm-settings-screen.php:1633
 msgid "Reading mentors, students and tutors."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1659
+#: includes/class-wpcpm-settings-screen.php:1637
 msgid "Required by the Mentor Status Checker"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1660
+#: includes/class-wpcpm-settings-screen.php:1638
 msgid "Changing a mentor's status when you promote them. Without it the tool can still run in report-only mode, but promoting fails."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1664
+#: includes/class-wpcpm-settings-screen.php:1642
 msgid "Optional"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1665
+#: includes/class-wpcpm-settings-screen.php:1643
 msgid "Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1669
+#: includes/class-wpcpm-settings-screen.php:1647
 msgid "Token scopes"
 msgstr ""
 
 #. translators: %s: the word the fold under the sentence shows, Details, which holds the list of scopes.
-#: includes/class-wpcpm-settings-screen.php:1677
+#: includes/class-wpcpm-settings-screen.php:1655
 #, php-format
 msgid "Set the scopes listed under %s on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1699
+#: includes/class-wpcpm-settings-screen.php:1677
 msgid "Scopes cannot be checked from here without writing to the base, so this list is the reference."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1717
+#: includes/class-wpcpm-settings-screen.php:1695
 msgid "Pipeline stages"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1718
+#: includes/class-wpcpm-settings-screen.php:1696
 msgid "The Airtable stages of an institution's pipeline: the one an approved application starts at, and the ones that count as being in it."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1725
-#: includes/class-wpcpm-settings.php:1184
+#: includes/class-wpcpm-settings-screen.php:1703
+#: includes/class-wpcpm-settings.php:1207
 msgid "Institution starting stage"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1725
+#: includes/class-wpcpm-settings-screen.php:1703
 msgid "The Current Stage an institution is created at in Airtable when its application is approved; the stage cannot be left blank."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1729
-#: includes/class-wpcpm-settings.php:1183
+#: includes/class-wpcpm-settings-screen.php:1707
+#: includes/class-wpcpm-settings.php:1206
 msgid "Institution pipeline stages"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1732
+#: includes/class-wpcpm-settings-screen.php:1710
 msgid "An institution at any of these stages is in the pipeline, and one whose stage leaves the list is treated as having left it, so the list cannot be left empty."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1741
+#: includes/class-wpcpm-settings-screen.php:1719
 msgid "How long a decided institution or sponsor application is kept, and the one proxy the two application forms believe about a sender's address."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1745
+#: includes/class-wpcpm-settings-screen.php:1723
 msgid "Spam kept for (days)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1745
+#: includes/class-wpcpm-settings-screen.php:1723
 msgid "An application marked as spam is deleted this many days after it was marked."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1746
+#: includes/class-wpcpm-settings-screen.php:1724
 msgid "Rejected kept for (days)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1746
+#: includes/class-wpcpm-settings-screen.php:1724
 msgid "A rejected application, or one the checks held, is deleted this many days after the decision: long enough to recognize the same applicant applying again."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1747
+#: includes/class-wpcpm-settings-screen.php:1725
 msgid "Approved kept for (days)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1747
+#: includes/class-wpcpm-settings-screen.php:1725
 msgid "0 keeps approved applications forever: they are the record of who was let in."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1752
+#: includes/class-wpcpm-settings-screen.php:1730
 msgid "Trusted proxy"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1754
+#: includes/class-wpcpm-settings-screen.php:1732
 msgid "The one IP address, not a range, of the proxy whose forwarded header the application forms believe for a sender's address."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1758
+#: includes/class-wpcpm-settings-screen.php:1736
 msgid "The forms' limits count by the sender's address, so leave it empty unless the site sits behind a proxy: anybody can send that header. Anything but one address, a range included, is saved as empty."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1764
+#: includes/class-wpcpm-settings-screen.php:1742
 #: includes/modules/class-wpcpm-institutions.php:2317
 #: includes/modules/class-wpcpm-sponsors.php:1455
 #: includes/modules/class-wpcpm-sponsors.php:2378
 msgid "Agreements"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1765
+#: includes/class-wpcpm-settings-screen.php:1743
 msgid "The limits on uploading and generating Collaboration Agreements, and how long a withdrawn or returned file is kept."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1769
+#: includes/class-wpcpm-settings-screen.php:1747
 msgid "Largest upload (MB)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1769
+#: includes/class-wpcpm-settings-screen.php:1747
 msgid "The largest signed agreement an institution or a sponsor can upload."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1770
+#: includes/class-wpcpm-settings-screen.php:1748
 msgid "Uploads per day"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1770
+#: includes/class-wpcpm-settings-screen.php:1748
 msgid "How many files one institution or one sponsor can upload in a day."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1771
+#: includes/class-wpcpm-settings-screen.php:1749
 msgid "Generations per day"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1771
+#: includes/class-wpcpm-settings-screen.php:1749
 msgid "How many times one institution can generate its agreement from the template in a day."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1772
+#: includes/class-wpcpm-settings-screen.php:1750
 msgid "Discarded files kept for (days)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1772
+#: includes/class-wpcpm-settings-screen.php:1750
 msgid "A withdrawn or returned file is deleted this many days after it was set aside; an accepted agreement never is."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1778
+#: includes/class-wpcpm-settings-screen.php:1756
 msgid "How long an invitation to join an institution's account is kept once it was accepted, canceled or ran out."
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1782
+#: includes/class-wpcpm-settings-screen.php:1760
 msgid "Settled invitations kept for (days)"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:1782
+#: includes/class-wpcpm-settings-screen.php:1760
 msgid "A settled invitation stays listed this many days, so a program manager can still see who was invited and never came."
 msgstr ""
 
 #. translators: 1: setting label, 2: its default value.
-#: includes/class-wpcpm-settings.php:1215
+#: includes/class-wpcpm-settings.php:1238
 #, php-format
 msgid "%1$s (now %2$s)"
 msgstr ""
 
 #. translators: %s: the settings that were reset, with their defaults.
-#: includes/class-wpcpm-settings.php:1227
+#: includes/class-wpcpm-settings.php:1250
 #, php-format
 msgid "These settings cannot be left blank, so their defaults were put back: %s."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1235
+#: includes/class-wpcpm-settings.php:1258
 msgid "With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1239
+#: includes/class-wpcpm-settings.php:1262
 msgid "With no stage in the pipeline, the institutions sync would count every institution as having left it."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1243
+#: includes/class-wpcpm-settings.php:1266
 msgid "An approved application's institution is created in Airtable at the starting stage, so there has to be one."
 msgstr ""
 
@@ -2559,242 +2408,250 @@ msgid "Invitation: institution"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:112
-msgid "Invitation: sponsor"
+msgid "Invitation: institution, agreement on file"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:113
-msgid "Sample invitation: student"
+msgid "Invitation: sponsor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:114
-msgid "Sample invitation: mentor"
+msgid "Sample invitation: student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:115
-msgid "Sample invitation: institution"
+msgid "Sample invitation: mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:116
+msgid "Sample invitation: institution"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:117
 msgid "Sample invitation: sponsor"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:118
+#: includes/mail/class-wpcpm-mail-catalog.php:119
 msgid "Call booked"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:119
+#: includes/mail/class-wpcpm-mail-catalog.php:120
 msgid "Joined a session series"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:120
+#: includes/mail/class-wpcpm-mail-catalog.php:121
 msgid "Group session moved"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:121
+#: includes/mail/class-wpcpm-mail-catalog.php:122
 msgid "Call canceled"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:122
+#: includes/mail/class-wpcpm-mail-catalog.php:123
 msgid "Call reminder"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:124
+#: includes/mail/class-wpcpm-mail-catalog.php:125
 msgid "Application received, to the applicant"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:125
+#: includes/mail/class-wpcpm-mail-catalog.php:126
 msgid "New institution application, to Administrators"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:126
+#: includes/mail/class-wpcpm-mail-catalog.php:127
 msgid "Question about an application"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:127
+#: includes/mail/class-wpcpm-mail-catalog.php:128
 msgid "Application declined"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:128
+#: includes/mail/class-wpcpm-mail-catalog.php:129
 msgid "Invitation to join an institution"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:129
+#: includes/mail/class-wpcpm-mail-catalog.php:130
 msgid "Agreement received, to the institution"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:130
+#: includes/mail/class-wpcpm-mail-catalog.php:131
 msgid "Agreement uploaded, to Administrators"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:131
+#: includes/mail/class-wpcpm-mail-catalog.php:132
 msgid "Agreement accepted"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:132
+#: includes/mail/class-wpcpm-mail-catalog.php:133
 msgid "Agreement returned with a note"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:133
+#: includes/mail/class-wpcpm-mail-catalog.php:134
 msgid "Agreement taken out of force"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:134
+#: includes/mail/class-wpcpm-mail-catalog.php:135
 msgid "Agreements waiting for review"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:135
+#: includes/mail/class-wpcpm-mail-catalog.php:136
 msgid "Agreement could not be generated"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:136
+#: includes/mail/class-wpcpm-mail-catalog.php:137
 msgid "Institution has no members left, to Administrators"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:138
+#: includes/mail/class-wpcpm-mail-catalog.php:139
 msgid "Semester report drafted"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:139
+#: includes/mail/class-wpcpm-mail-catalog.php:140
 msgid "Semester report approved"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:140
+#: includes/mail/class-wpcpm-mail-catalog.php:141
 msgid "Consent for the semester report"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:142
+#: includes/mail/class-wpcpm-mail-catalog.php:143
 msgid "Sponsor application received, to the applicant"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:143
+#: includes/mail/class-wpcpm-mail-catalog.php:144
 msgid "New sponsor application, to Administrators"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:144
+#: includes/mail/class-wpcpm-mail-catalog.php:145
 msgid "Question about a sponsor application"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:145
+#: includes/mail/class-wpcpm-mail-catalog.php:146
 msgid "Sponsor application declined"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:146
+#: includes/mail/class-wpcpm-mail-catalog.php:147
 msgid "Collaboration Agreement received"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:147
+#: includes/mail/class-wpcpm-mail-catalog.php:148
 msgid "Collaboration Agreement accepted"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:148
+#: includes/mail/class-wpcpm-mail-catalog.php:149
 msgid "Collaboration Agreement returned with a note"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:149
+#: includes/mail/class-wpcpm-mail-catalog.php:150
 msgid "Collaboration Agreement taken out of force"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:150
+#: includes/mail/class-wpcpm-mail-catalog.php:151
 msgid "Collaboration Agreement back in force"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:151
+#: includes/mail/class-wpcpm-mail-catalog.php:152
 msgid "Sponsor interest"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:152
+#: includes/mail/class-wpcpm-mail-catalog.php:153
 msgid "Codes running low"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:153
+#: includes/mail/class-wpcpm-mail-catalog.php:154
 msgid "Problem with a claimed code"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:154
+#: includes/mail/class-wpcpm-mail-catalog.php:155
 msgid "Sponsor post returned with a note"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:156
+#: includes/mail/class-wpcpm-mail-catalog.php:157
 msgid "Password reset"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:157
+#: includes/mail/class-wpcpm-mail-catalog.php:158
 msgid "Password changed"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:158
+#: includes/mail/class-wpcpm-mail-catalog.php:159
 msgid "Password changed, to the site's address"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:159
+#: includes/mail/class-wpcpm-mail-catalog.php:160
 msgid "Email address changed"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:160
+#: includes/mail/class-wpcpm-mail-catalog.php:161
 msgid "Confirm a new email address"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:161
+#: includes/mail/class-wpcpm-mail-catalog.php:162
 msgid "New account"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:162
+#: includes/mail/class-wpcpm-mail-catalog.php:163
 msgid "New account, to the site's address"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:163
+#: includes/mail/class-wpcpm-mail-catalog.php:164
 msgid "Confirm the site's new address"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:164
+#: includes/mail/class-wpcpm-mail-catalog.php:165
 msgid "The site's address changed"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:165
+#: includes/mail/class-wpcpm-mail-catalog.php:166
 msgid "Personal data request"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:166
+#: includes/mail/class-wpcpm-mail-catalog.php:167
 msgid "Personal data request confirmed, to the site's address"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:167
+#: includes/mail/class-wpcpm-mail-catalog.php:168
 msgid "Personal data export ready"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:168
+#: includes/mail/class-wpcpm-mail-catalog.php:169
 msgid "Personal data erased"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:169
+#: includes/mail/class-wpcpm-mail-catalog.php:170
 msgid "WordPress updated"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:170
+#: includes/mail/class-wpcpm-mail-catalog.php:171
 msgid "Plugins or themes updated"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:171
+#: includes/mail/class-wpcpm-mail-catalog.php:172
 msgid "Background update details"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:172
+#: includes/mail/class-wpcpm-mail-catalog.php:173
 msgid "Recovery mode"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:173
+#: includes/mail/class-wpcpm-mail-catalog.php:174
 msgid "New comment"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:174
+#: includes/mail/class-wpcpm-mail-catalog.php:175
 msgid "Comment waiting for moderation"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:176
+#: includes/mail/class-wpcpm-mail-catalog.php:177
 msgid "Sign-in code"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:214
+#: includes/mail/class-wpcpm-mail-catalog.php:179
+msgid "Test of the signature and footer"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:217
 msgid "Other email"
 msgstr ""
 
@@ -2802,22 +2659,22 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-log.php:505
 #: includes/modules/class-wpcpm-sponsors.php:2334
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
-#: includes/tools/class-wpcpm-emails.php:299
+#: includes/tools/class-wpcpm-emails.php:1010
 msgid "When"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:55
-#: includes/tools/class-wpcpm-emails.php:312
+#: includes/tools/class-wpcpm-emails.php:1023
 msgid "To"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:56
-#: includes/tools/class-wpcpm-emails.php:265
+#: includes/tools/class-wpcpm-emails.php:976
 msgid "Recipient type"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:57
-#: includes/tools/class-wpcpm-emails.php:264
+#: includes/tools/class-wpcpm-emails.php:975
 msgid "Area"
 msgstr ""
 
@@ -2826,12 +2683,15 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1166
 #: includes/modules/class-wpcpm-students-dashboard.php:740
 #: includes/modules/class-wpcpm-students-dashboard.php:992
-#: includes/tools/class-wpcpm-emails.php:289
+#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:1000
 msgid "Email"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:59
 #: includes/mail/class-wpcpm-mail-log.php:513
+#: includes/mail/class-wpcpm-mail-templates.php:606
+#: includes/tools/class-wpcpm-emails.php:579
 msgid "Subject"
 msgstr ""
 
@@ -2848,7 +2708,7 @@ msgid "Not recorded"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:172
-#: includes/tools/class-wpcpm-emails.php:273
+#: includes/tools/class-wpcpm-emails.php:984
 msgid "Test"
 msgstr ""
 
@@ -2869,6 +2729,299 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log.php:577
 msgid "Not confirmed"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:570
+msgid "Nothing was saved: the subject is empty."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:575
+msgid "Nothing was saved: the signature and footer is empty."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:576
+msgid "Nothing was saved: the body is empty."
+msgstr ""
+
+#. translators: %s: the placeholders the email needs, such as {set_password_link}.
+#: includes/mail/class-wpcpm-mail-templates.php:584
+#, php-format
+msgid "Nothing was saved: this email needs %s."
+msgstr ""
+
+#. translators: %s: the placeholders that go in the body alone, such as {set_password_link}.
+#: includes/mail/class-wpcpm-mail-templates.php:592
+#, php-format
+msgid "Nothing was saved: %s goes in the body, never in the subject."
+msgid_plural "Nothing was saved: %s go in the body, never in the subject."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: the placeholders the email does not have, such as {student_nmae}.
+#: includes/mail/class-wpcpm-mail-templates.php:600
+#, php-format
+msgid "Nothing was saved: %s is not a placeholder of this email."
+msgid_plural "Nothing was saved: %s are not placeholders of this email."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:610
+#: includes/mail/class-wpcpm-mail-templates.php:846
+#: includes/tools/class-wpcpm-emails.php:256
+#: includes/tools/class-wpcpm-emails.php:502
+#: includes/tools/class-wpcpm-emails.php:587
+msgid "Signature and footer"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:610
+#: includes/tools/class-wpcpm-emails.php:587
+msgid "Body"
+msgstr ""
+
+#. translators: %s: the most characters a subject may have.
+#: includes/mail/class-wpcpm-mail-templates.php:616
+#, php-format
+msgid "Nothing was saved: the subject is longer than %s characters."
+msgstr ""
+
+#. translators: %s: the most characters the signature and footer may have.
+#: includes/mail/class-wpcpm-mail-templates.php:625
+#, php-format
+msgid "Nothing was saved: the signature and footer is longer than %s characters."
+msgstr ""
+
+#. translators: %s: the most characters a body may have.
+#: includes/mail/class-wpcpm-mail-templates.php:627
+#, php-format
+msgid "Nothing was saved: the body is longer than %s characters."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:654
+#: includes/tools/class-wpcpm-emails.php:782
+msgid "Nothing was saved: the site has no such email."
+msgstr ""
+
+#. translators: %s: the placeholders the edit uses, such as {topic}.
+#: includes/mail/class-wpcpm-mail-templates.php:766
+#, php-format
+msgid "Edit set aside: it uses %s, which this email no longer has."
+msgstr ""
+
+#. translators: %s: the placeholders the email needs, such as {set_password_link}.
+#: includes/mail/class-wpcpm-mail-templates.php:772
+#, php-format
+msgid "Edit set aside: it lacks %s, which this email needs."
+msgstr ""
+
+#. translators: %s: the placeholders that go in the body alone, such as {set_password_link}.
+#: includes/mail/class-wpcpm-mail-templates.php:778
+#, php-format
+msgid "Edit set aside: its subject uses %s, which goes in the body."
+msgid_plural "Edit set aside: its subject uses %s, which go in the body."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:808
+msgid "Edited"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:810
+msgid "Edited, and the shipped text has changed since"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:815
+msgid "Shipped text"
+msgstr ""
+
+#. translators: The signature and footer every email of the plugin ends with, three lines. Keep {dashboard_link} and {program_contact} as they are: the site puts the person's dashboard and the program's contact address in their place, and leaves out the line or the sentence that has nothing to say, reading a full stop followed by a space as the end of a sentence.
+#: includes/mail/class-wpcpm-mail-templates.php:833
+msgid ""
+"WordPress Credits, WordPress Education\n"
+"{dashboard_link}\n"
+"This email comes from the WordPress Credits program. Questions? Write to {program_contact}."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:849
+msgid "Added to the end of every email the plugin sends."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:865
+#: includes/mail/templates/invitations.php:27
+msgid "The site's name."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:872
+msgid "The recipient's dashboard. Empty for somebody with no account, and for an email that names it already, which leaves its line out."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:880
+msgid "The address in Contact address in emails. Empty leaves its sentence out."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/class-wpcpm-mail-templates.php:1035
+#, php-format
+msgid "[%s] The signature and footer"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1038
+msgid "This is how every email the plugin sends ends, filled as an Administrator's own would be."
+msgstr ""
+
+#. translators: %s: the email's subject.
+#: includes/mail/class-wpcpm-mail-templates.php:1067
+#, php-format
+msgid "[Test] %s"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:34
+msgid "WordPress's own lines with the link that sets the password. Every invitation needs it, in its body."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:36
+msgid "To set your password, visit the following address:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:51
+msgid "The person's username, when WordPress's own lines do not show it. Empty leaves its sentence out."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:56
+msgid "The login page."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:63
+msgid "The person's dashboard, while its page is published. Empty leaves its lines out."
+msgstr ""
+
+#. translators: A sentence of its own. End it with a full stop: the site reads a full stop followed by a space as the end of a sentence, and leaves the sentence after it, the username's, out on its own when there is no username to give.
+#: includes/mail/templates/invitations.php:92
+msgid "The link above sets your password and stops working after a day."
+msgstr ""
+
+#. translators: %s: the WordPress username. A sentence of its own, ending in a full stop, after the one on the link: the site leaves it out when the username is not needed, and keeps the sentence before it.
+#: includes/mail/templates/invitations.php:94
+#, php-format
+msgid "Your username is %s."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:98
+msgid "After that, sign in at the login page. If the password link has expired, open the login page, choose \"Lost your password?\" and enter your username or email address to get a fresh one."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:101
+msgid "Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:111
+msgid "When a student is sent the invitation to their account: from the Students screen, or as the sync creates the account with invitation emails on."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/templates/invitations.php:114
+#, php-format
+msgid "[%s] Welcome to the WordPress Credits Program"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:118
+msgid "You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:119
+msgid "Set your password using the link below, then check your details and book your first call with your mentor."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/invitations.php:121
+#: includes/modules/class-wpcpm-mentor-calls.php:1334
+msgid "Your Student Report Card:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:127
+msgid "When a mentor is sent the invitation to their account: from the Mentors screen, or as the sync creates the account with invitation emails on."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/templates/invitations.php:130
+#, php-format
+msgid "[%s] Your mentor account is ready"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:134
+msgid "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:135
+msgid "Set your password using the link below, then publish the hours you are free so your students can book calls with you."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/invitations.php:137
+msgid "Your students:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:143
+msgid "When an institution's member is sent the invitation to its account before the institution's Collaboration Agreement is on file."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/templates/invitations.php:146
+#: includes/mail/templates/invitations.php:162
+#, php-format
+msgid "[%s] Your institution account is ready"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:150
+msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:151
+msgid "Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program's or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/invitations.php:153
+msgid "Where the agreement is uploaded:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:159
+msgid "When an institution's member is sent the invitation to its account once the institution's Collaboration Agreement is on file."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:166
+msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:167
+msgid "Set your password using the link below. Your Collaboration Agreement is on file, so your account is open."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/invitations.php:169
+msgid "Your Institution Dashboard:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:175
+msgid "When a sponsor's member is sent the invitation to its account, from the Sponsors screen."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/templates/invitations.php:178
+#, php-format
+msgid "[%s] Your sponsor account is ready"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:182
+msgid "Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:183
+msgid "Set your password using the link below, then check your company profile and tell us how you would like to support the program."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/invitations.php:185
+msgid "Your Sponsor Dashboard:"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:204
@@ -3468,6 +3621,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-offers.php:1902
 #: includes/modules/class-wpcpm-sponsor-usage.php:70
 #: includes/modules/class-wpcpm-sponsors.php:1250
+#: includes/tools/class-wpcpm-emails.php:355
 #: includes/tools/class-wpcpm-track-builder-screen.php:56
 msgid "State"
 msgstr ""
@@ -3517,7 +3671,7 @@ msgid "No email has been sent yet."
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1947
-#: includes/tools/class-wpcpm-emails.php:71
+#: includes/tools/class-wpcpm-emails.php:104
 msgid "The email log is not ready yet."
 msgstr ""
 
@@ -6125,9 +6279,11 @@ msgstr ""
 
 #. translators: 1: the program manager's name, 2: date.
 #. translators: 1: company name, 2: website.
+#. translators: 1: who saved the edit, 2: when.
 #. translators: 1: what happened, 2: a date and time, then who did it.
 #: includes/modules/class-wpcpm-institution-panel.php:1474
 #: includes/modules/class-wpcpm-sponsor-application.php:2566
+#: includes/tools/class-wpcpm-emails.php:479
 #: includes/tools/class-wpcpm-track-history-screen.php:202
 #, php-format
 msgid "%1$s, %2$s"
@@ -7588,16 +7744,15 @@ msgid "[%1$s] A question about your application (%2$s)"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:1321
-msgid "Thank you for your interest in the WordPress Credits Program, and for the time it took to write to us."
+msgid "Thank you for applying to the WordPress Credits Program, and for the time you took to write to us."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:1322
-#: includes/modules/class-wpcpm-sponsor-application.php:3087
-msgid "A program manager has read your application and we are not taking it forward. We are sorry not to have better news."
+msgid "We have read your institution's application, and we cannot accept it into the program at this time. We are sorry not to have better news."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:1323
-msgid "Institutions apply again as their programs change, and an application now says nothing about a later one."
+msgid "You are welcome to apply again later, for example when your programs change. A new application is read on its own merits, and this decision does not count against it."
 msgstr ""
 
 #. translators: %s: site name.
@@ -8318,6 +8473,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3805
 #: includes/modules/class-wpcpm-sponsor-application.php:3625
+#: includes/tools/class-wpcpm-emails.php:570
 msgid "Working"
 msgstr ""
 
@@ -8759,6 +8915,7 @@ msgid "Asking writes one short message to each student in that semester who wrot
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5291
+#: includes/tools/class-wpcpm-emails.php:355
 msgid "Last edited"
 msgstr ""
 
@@ -10511,6 +10668,13 @@ msgstr ""
 msgid "Students who have not answered yet can be sent a request to answer. A program manager sends it, and nobody is asked twice in thirty days; once they have answered, check the students' answers again to bring the new ones in."
 msgstr ""
 
+#: includes/modules/class-wpcpm-semester-report-screen.php:1203
+#: includes/modules/class-wpcpm-sponsor-interests.php:388
+#: includes/modules/class-wpcpm-sponsor-mentors.php:424
+#: includes/modules/class-wpcpm-sponsor-tools.php:555
+msgid "Sending"
+msgstr ""
+
 #: includes/modules/class-wpcpm-semester-report-screen.php:1204
 msgid "Ask the students"
 msgstr ""
@@ -11523,11 +11687,15 @@ msgid "Thank you for offering to sponsor the WordPress Credits Program. Before a
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-application.php:3086
-msgid "Thank you for your interest in sponsoring the WordPress Credits Program, and for the time it took to write to us."
+msgid "Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-application.php:3087
+msgid "We have read your company's application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-application.php:3088
-msgid "Companies apply again as their products and the program change, and an application now says nothing about a later one."
+msgid "You are welcome to apply again later, for example when your products or the program change. A new application is read on its own merits, and this decision does not count against it."
 msgstr ""
 
 #. translators: %s: site name.
@@ -12783,6 +12951,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1059
 #: includes/modules/class-wpcpm-sponsors.php:1901
+#: includes/tools/class-wpcpm-emails.php:675
 #: includes/tools/class-wpcpm-track-builder-screen.php:118
 #: includes/tools/class-wpcpm-track-builder-screen.php:735
 msgid "Preview"
@@ -12847,19 +13016,17 @@ msgstr ""
 msgid "Your post \"%s\" needs a change before it is published"
 msgstr ""
 
-#. translators: 1: the author's name, 2: the post title, 3: the manager's note, 4: the wp-admin posts list URL.
+#. translators: 1: the author's name, 2: the post title, 3: the Administrator's note, 4: the wp-admin posts list URL.
 #: includes/modules/class-wpcpm-sponsor-posts.php:1375
 #, php-format
 msgid ""
 "Hello %1$s,\n"
 "\n"
-"A program manager read your post \"%2$s\" and sent it back as a draft with this note:\n"
+"An Administrator read your post \"%2$s\" and sent it back as a draft with this note:\n"
 "\n"
 "%3$s\n"
 "\n"
-"Edit it here and submit it for review again: %4$s\n"
-"\n"
-"The WordPress Credits program"
+"Edit it here and submit it for review again: %4$s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1394
@@ -14505,7 +14672,7 @@ msgid "All institutions"
 msgstr ""
 
 #: includes/modules/class-wpcpm-students-table.php:438
-#: includes/tools/class-wpcpm-emails.php:322
+#: includes/tools/class-wpcpm-emails.php:1033
 msgid "Filter"
 msgstr ""
 
@@ -15276,95 +15443,278 @@ msgstr ""
 msgid "Grouping the rows by address"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:43
+#: includes/tools/class-wpcpm-emails.php:76
 msgid "Emails"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:52
-msgid "Every email the site sent in the last 30 days: who it went to, which email, and whether WordPress handed it to the mail server."
+#: includes/tools/class-wpcpm-emails.php:85
+msgid "The plugin's emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and footer. The Log holds every email the site sent in the last 30 days."
 msgstr ""
 
 #. translators: %s: number of emails.
-#: includes/tools/class-wpcpm-emails.php:78
+#: includes/tools/class-wpcpm-emails.php:111
 #, php-format
 msgid "%s email in the last 30 days."
 msgid_plural "%s emails in the last 30 days."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-emails.php:208
+#: includes/tools/class-wpcpm-emails.php:245
 msgid "Every email"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:229
+#: includes/tools/class-wpcpm-emails.php:255
+msgid "Templates"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:257
+msgid "Log"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:339
+msgid "The plugin's emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and footer."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:355
+msgid "Who receives it"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:355
+msgid "What sends it"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:387
+msgid "Contact address in emails was not saved: what was typed is not an email address. The one saved before is kept."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:419
+msgid "The address every email names for questions, in its signature and footer."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:430
+msgid "Contact address in emails"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:432
+msgid "A mailbox the Administrators read; left empty, the footer leaves out the sentence that names it."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:446
+msgid "The people it concerns"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:471
+msgid "Not edited"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:475
+msgid "An account since removed"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:526
+msgid "All templates"
+msgstr ""
+
+#. translators: %s: the separator line, two hyphens and a space, shown as code.
+#: includes/tools/class-wpcpm-emails.php:537
+#, php-format
+msgid "Every email the plugin sends ends with this block, after a line holding %s. It is not added to the emails WordPress and the Two Factor plugin send themselves."
+msgstr ""
+
+#. translators: 1: who receives the email, such as Student, 2: what sends it, a sentence.
+#: includes/tools/class-wpcpm-emails.php:547
+#, php-format
+msgid "To: %1$s. %2$s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:557
+msgid "State:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:562
+msgid "The shipped text is sent until the edit is saved again in a form this email can use."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:564
+msgid "An update changed the shipped text since this edit was saved. Your edit is still the one sent; the new shipped text is under the buttons, to compare. Saving your edit again clears this."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:596
+msgid "Save"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:598
+msgid "Send me a test"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:600
+msgid "Send me a test sends the email as it is saved, filled with the example values and marked [Test], to your own address and to nobody else. Save what you typed first: pressed with typing not saved yet, it sends nothing."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:608
+msgid "Restore the original"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:608
+msgid "Restoring"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:608
+msgid "Restore the original? Your edit is dropped, and the shipped text is sent from now on."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:611
+msgid "The shipped text"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:614
+#: includes/tools/class-wpcpm-emails.php:680
+msgid "Subject:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:630
+msgid "Placeholders"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:631
+msgid "Each one is replaced by its value as the email is sent. A sentence whose placeholders are all empty is left out, and so is a line left with nothing on it, together with a line ending in a colon directly above it that holds no placeholder. A sentence ends at a full stop followed by a space; a question or exclamation mark does not end one."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:634
+msgid "Placeholder"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:634
+msgid "What it means"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:634
+msgid "Example"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:648
+msgid "Empty here"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:666
+msgid "The text of the email."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:676
+msgid "As it is sent now, with the example values and the signature and footer."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:782
+msgid "Nothing was sent: the site has no such email."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:804
+msgid "Saved. It reads as the shipped text, so it is sent as shipped."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:807
+msgid "Saved. Every email ends with the signature and footer as you wrote it from now on."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:807
+msgid "Saved. The email is sent as you wrote it from now on."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:819
+msgid "Nothing was restored: the site has no such email."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:823
+msgid "The original is back: the shipped text is sent from now on."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:826
+msgid "There was no edit to restore: the shipped text is already the one sent."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:844
+msgid "Nothing was sent: what you typed is not saved yet. Save it first, then send the test."
+msgstr ""
+
+#. translators: %s: the Administrator's own email address.
+#: includes/tools/class-wpcpm-emails.php:855
+#, php-format
+msgid "The test is on its way to your own address, %s."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:861
+msgid "The test could not be sent: whatever handles mail on this site refused it, so the real email would not arrive either."
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:941
 msgid "The email log is not ready yet. It is created the next time a page of the site loads; if this stays, tell whoever looks after the site."
 msgstr ""
 
 #. translators: %d: days kept.
-#: includes/tools/class-wpcpm-emails.php:248
+#: includes/tools/class-wpcpm-emails.php:959
 #, php-format
 msgid "Every email the site sent in the last %d days, newest first."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:260
+#: includes/tools/class-wpcpm-emails.php:971
 msgid "Search address, name or subject"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:264
+#: includes/tools/class-wpcpm-emails.php:975
 msgid "Every area"
 msgstr ""
 
 #. translators: %s: how many emails the Email filter's list shows, as a number.
-#: includes/tools/class-wpcpm-emails.php:280
+#: includes/tools/class-wpcpm-emails.php:991
 #, php-format
 msgid "Emails in the list: %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:290
+#: includes/tools/class-wpcpm-emails.php:1001
 msgid "Type to find an email"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:291
+#: includes/tools/class-wpcpm-emails.php:1002
 msgid "No email has that name."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:301
+#: includes/tools/class-wpcpm-emails.php:1012
 msgid "Today"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:302
+#: includes/tools/class-wpcpm-emails.php:1013
 msgid "The last 7 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:303
+#: includes/tools/class-wpcpm-emails.php:1014
 msgid "The last 30 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:304
+#: includes/tools/class-wpcpm-emails.php:1015
 msgid "From and to dates"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:307
+#: includes/tools/class-wpcpm-emails.php:1018
 msgid "Any time"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:311
+#: includes/tools/class-wpcpm-emails.php:1022
 msgid "From"
 msgstr ""
 
 #. translators: %s: number of emails.
-#: includes/tools/class-wpcpm-emails.php:332
+#: includes/tools/class-wpcpm-emails.php:1043
 #, php-format
 msgid "%s email matches."
 msgid_plural "%s emails match."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-emails.php:341
+#: includes/tools/class-wpcpm-emails.php:1052
 msgid "\"Handed to the mail server\" means the site passed the email on, not that it reached the inbox."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:1065
 msgid "All"
 msgstr ""
 

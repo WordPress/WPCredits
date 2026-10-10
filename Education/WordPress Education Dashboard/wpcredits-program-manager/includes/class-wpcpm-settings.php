@@ -222,6 +222,11 @@ class WPCPM_Settings {
 			// default because this code is published and the channel is private.
 			'checker_slack_webhook'         => '',
 			'checker_slack_channel'         => '',
+
+			// Tool - Emails. The address the signature and footer every email ends with names for
+			// questions (`{program_contact}`), which the Administrators read. Empty until they name the
+			// mailbox, and the footer then leaves that sentence out.
+			'mail_contact'                  => '',
 		);
 	}
 
@@ -231,8 +236,8 @@ class WPCPM_Settings {
 	 *
 	 * `save()` given a scope reads that scope's settings and leaves every other setting as it was,
 	 * so the Save on one tab cannot switch off a box, or reset a rule, that another tab draws. Every
-	 * setting is in exactly one scope, and the Mail tab, whose controls are forms of their own, has
-	 * none (bin/test-settings.php holds both). The tables and columns no screen drew sit with the
+	 * setting is in exactly one scope, and the Mail tab, which saves nothing, has none
+	 * (bin/test-settings.php holds both). The tables and columns no screen drew sit with the
 	 * rest of the connection; `advanced` holds the other settings that had no control.
 	 *
 	 * @return array<string, string[]> Scope => the settings it saves.
@@ -334,6 +339,9 @@ class WPCPM_Settings {
 				'handbook_model',
 				'handbook_access',
 				'handbook_limit',
+			),
+			'tool:emails'                => array(
+				'mail_contact',
 			),
 		);
 	}
@@ -710,6 +718,21 @@ class WPCPM_Settings {
 				} else {
 					WPCPM_Flash::set( 'checker-webhook-refused', true );
 				}
+			}
+		}
+
+		// The contact address the emails' footer names: an address, or blank to name none. Anything else
+		// keeps the one saved, and the Emails tool's Signature and footer tab says why: a footer naming
+		// a mistyped address would send every question nowhere.
+		if ( isset( $input['mail_contact'] ) ) {
+			$contact = is_string( $input['mail_contact'] ) ? trim( wp_unslash( $input['mail_contact'] ) ) : null;
+
+			if ( '' === $contact ) {
+				$clean['mail_contact'] = '';
+			} elseif ( is_string( $contact ) && is_email( $contact ) && sanitize_email( $contact ) === $contact ) {
+				$clean['mail_contact'] = $contact;
+			} else {
+				WPCPM_Flash::set( 'emails-contact-refused', true );
 			}
 		}
 

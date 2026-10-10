@@ -109,6 +109,7 @@ final class WPCPM_Mail_Catalog {
 			'invite-student'                     => array( __( 'Invitation: student', 'wpcredits-program-manager' ), $i, self::TYPE_STUDENT ),
 			'invite-mentor'                      => array( __( 'Invitation: mentor', 'wpcredits-program-manager' ), $i, self::TYPE_MENTOR ),
 			'invite-institution'                 => array( __( 'Invitation: institution', 'wpcredits-program-manager' ), $i, self::TYPE_INSTITUTION ),
+			'invite-institution-settled'         => array( __( 'Invitation: institution, agreement on file', 'wpcredits-program-manager' ), $i, self::TYPE_INSTITUTION ),
 			'invite-sponsor'                     => array( __( 'Invitation: sponsor', 'wpcredits-program-manager' ), $i, self::TYPE_SPONSOR ),
 			'test-student'                       => array( __( 'Sample invitation: student', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
 			'test-mentor'                        => array( __( 'Sample invitation: mentor', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
@@ -174,6 +175,8 @@ final class WPCPM_Mail_Catalog {
 			'wp-comment-moderation'              => array( __( 'Comment waiting for moderation', 'wpcredits-program-manager' ), $w, '' ),
 			// The Two Factor plugin's.
 			'two-factor-code'                    => array( __( 'Sign-in code', 'wpcredits-program-manager' ), self::MODULE_TWO_FACTOR, '' ),
+			// The Emails tool's test of the signature and footer, which belongs to no area.
+			'footer-test'                        => array( __( 'Test of the signature and footer', 'wpcredits-program-manager' ), self::MODULE_OTHER, self::TYPE_ADMIN, true ),
 		);
 
 		$out = array();

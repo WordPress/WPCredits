@@ -50,6 +50,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-log.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-teams.php';
@@ -283,6 +284,8 @@ wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 // and the daily cleanup; anyone still waiting for an invitation that is no longer coming, and the
 // counts and times of the last bulk invite (the final fix wave of the deep check of 1.109.1).
 WPCPM_Mail_Log::uninstall();
+// The Administrators' edits of the emails and of the signature and footer (1.122.19).
+delete_option( WPCPM_Mail_Templates::OPTION );
 WPCPM_Mail::clear_queue();
 delete_option( WPCPM_Mail::RUN_OPTION );
 

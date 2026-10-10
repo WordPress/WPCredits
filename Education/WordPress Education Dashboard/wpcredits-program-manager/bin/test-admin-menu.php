@@ -731,8 +731,8 @@ $named_there = defined( 'WPCPM_Settings_Screen::TOOLS_WITH_SETTINGS' ) ? WPCPM_S
 sort( $keeping_own );
 sort( $named_there );
 
-ck( 'the tools the Connection tab names as keeping their settings on their own screens are the registry\'s tools that keep settings, all three of them',
-    array( $named_there, count( $keeping_own ) ), array( $keeping_own, 3 ) );
+ck( 'the tools the Connection tab names as keeping their settings on their own screens are the registry\'s tools that keep settings, all four of them',
+    array( $named_there, count( $keeping_own ) ), array( $keeping_own, 4 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

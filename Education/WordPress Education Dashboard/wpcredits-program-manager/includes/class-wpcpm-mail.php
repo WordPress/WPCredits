@@ -75,9 +75,6 @@ class WPCPM_Mail {
 	 */
 	const RUN_OPTION = 'wpcpm_invite_run';
 
-	/** Admin-post action for the sample send. */
-	const ACTION_TEST = 'wpcpm_send_test_mail';
-
 	/** Admin-post action that cancels whatever is left of a bulk invite. */
 	const ACTION_STOP = 'wpcpm_stop_invites';
 
@@ -99,12 +96,19 @@ class WPCPM_Mail {
 	private static $context = '';
 
 	/**
+	 * Whether what is currently being sent is a test, which the mail log marks Test: set and taken
+	 * with the context (`take_test()`).
+	 *
+	 * @var bool
+	 */
+	private static $test = false;
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
 		add_filter( 'wp_new_user_notification_email', array( __CLASS__, 'welcome_email' ), 10, 3 );
 		add_action( self::CRON_QUEUE, array( __CLASS__, 'drain_queue' ) );
-		add_action( 'admin_post_' . self::ACTION_TEST, array( __CLASS__, 'handle_test' ) );
 		add_action( 'admin_post_' . self::ACTION_STOP, array( __CLASS__, 'handle_stop' ) );
 		add_action( 'admin_post_' . self::ACTION_DISMISS, array( __CLASS__, 'handle_dismiss' ) );
 
@@ -125,6 +129,19 @@ class WPCPM_Mail {
 		return $context;
 	}
 
+	/**
+	 * Whether the email being sent is a test, cleared as it is read: the mail log's capture takes it
+	 * with the context (`WPCPM_Mail_Capture::open()`).
+	 *
+	 * @return bool
+	 */
+	public static function take_test() {
+		$test       = self::$test;
+		self::$test = false;
+
+		return $test;
+	}
+
 	/*
 	 * Sending
 	 * --------------------------------------------------------------------
@@ -137,8 +154,11 @@ class WPCPM_Mail {
 	 * @param string      $context   The email's id in `WPCPM_Mail_Catalog`, e.g. `call-booked`.
 	 * @param callable    $build     Receives the recipient as a `WP_User` and returns an
 	 *                               array with `subject`, `body`, and optionally `headers`,
-	 *                               `attachments`, `cleanup` and `plain_subject` (see
-	 *                               `subject()`).
+	 *                               `attachments`, `cleanup`, `plain_subject` (see
+	 *                               `subject()`), `test` (the mail log marks it Test) and
+	 *                               `footer_values` (the signature and footer's values in
+	 *                               place of the recipient's, see
+	 *                               `WPCPM_Mail_Templates::add_footer()`).
 	 * @return bool Whether the message was handed off successfully.
 	 */
 	public static function send( $recipient, $context, $build ) {
@@ -239,8 +259,17 @@ class WPCPM_Mail {
 				'attachments'   => array(),
 				'cleanup'       => array(),
 				'plain_subject' => false,
+				'test'          => false,
+				'footer_values' => null,
 			)
 		);
+
+		// Every email the plugin sends ends with the signature and footer, filled for its recipient,
+		// and before the filter, so the filter sees the email as it goes out. A builder can hand over
+		// the footer's values itself, as a test hands over examples (`footer_values`).
+		if ( class_exists( 'WPCPM_Mail_Templates' ) ) {
+			$mail['body'] = WPCPM_Mail_Templates::add_footer( (string) $mail['body'], $recipient, $context, is_array( $mail['footer_values'] ) ? $mail['footer_values'] : null );
+		}
 
 		/**
 		 * Filter a message before it is sent.
@@ -263,6 +292,7 @@ class WPCPM_Mail {
 
 		if ( '' !== trim( (string) $mail['subject'] ) ) {
 			self::$context = sanitize_key( $context );
+			self::$test    = ! empty( $mail['test'] );
 
 			$sent = wp_mail(
 				$to,
@@ -273,6 +303,7 @@ class WPCPM_Mail {
 			);
 
 			self::$context = '';
+			self::$test    = false;
 		}
 
 		foreach ( (array) $mail['cleanup'] as $path ) {
@@ -1134,7 +1165,7 @@ class WPCPM_Mail {
 	 * Give the login invitation some context.
 	 *
 	 * WordPress sends a username, a reset link and a login URL. Arriving cold that reads as
-	 * a phishing attempt: a site the reader may not recognise telling them to set a password,
+	 * a phishing attempt: a site the reader may not recognize telling them to set a password,
 	 * with no mention of the program, who they are to it, or what to do next. A mentor, a
 	 * student and an institution's contact are also arriving for entirely different reasons,
 	 * and get different copy.
@@ -1143,6 +1174,10 @@ class WPCPM_Mail {
 	 * would lengthen the window on every password reset on the site, not just these - so
 	 * instead the mail says what to do when the link has gone stale, which is the case that
 	 * actually bites when ninety invitations go out and some are opened on Thursday.
+	 *
+	 * The wording is the template registry's (`WPCPM_Mail_Templates`, the Invitations area), which
+	 * an Administrator can edit in WPCredits Program > Tools > Emails; this works out which of the
+	 * five invitations the account is sent and the values its placeholders take.
 	 *
 	 * @param array   $email    `to`, `subject`, `message`, `headers`.
 	 * @param WP_User $user     The new user.
@@ -1181,75 +1216,48 @@ class WPCPM_Mail {
 			$kind = 'student';
 		}
 
+		$id = 'invite-' . $kind;
+
 		if ( 'mentor' === $kind ) {
-			$page    = WPCPM_Mentors_Dashboard::page_url();
-			$opening = __( 'You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.', 'wpcredits-program-manager' );
-			$next    = __( 'Set your password using the link below, then publish the hours you are free so your students can book calls with you.', 'wpcredits-program-manager' );
-			$label   = __( 'Your students:', 'wpcredits-program-manager' );
-			/* translators: %s: site name. */
-			$subject = __( '[%s] Your mentor account is ready', 'wpcredits-program-manager' );
+			$page = WPCPM_Mentors_Dashboard::page_url();
 		} elseif ( 'institution' === $kind ) {
 			// Whether the institution's Collaboration Agreement is already on file, asked of the
-			// agreement module at send time, because the two next steps are different in kind:
-			// a new institution has to produce and sign the agreement before anything else
-			// opens, while one whose agreement is on file walks straight in. The two classes
-			// arrive in the next phase; until both exist the answer is no, which is right for a
-			// new institution and merely redundant for a legacy one. Array callables rather than
-			// static calls, because `bin/check-references.php` would rightly flag a call to a
-			// method that is not declared yet.
-			$settled = false;
-
+			// agreement module at send time, because the two next steps are different in kind: a
+			// new institution has to produce and sign the agreement before anything else opens,
+			// while one whose agreement is on file walks straight in. So the two are two templates.
+			// Array callables rather than static calls, because `bin/check-references.php` would
+			// flag a call to a method of a class a site may not have loaded.
 			if ( class_exists( 'WPCPM_Institution_Agreement' ) && class_exists( 'WPCPM_Institution_Members' ) ) {
-				$record  = (string) call_user_func( array( 'WPCPM_Institution_Members', 'institution_of' ), $user );
-				$settled = '' !== $record && (bool) call_user_func( array( 'WPCPM_Institution_Agreement', 'is_settled' ), $record );
+				$record = (string) call_user_func( array( 'WPCPM_Institution_Members', 'institution_of' ), $user );
+
+				if ( '' !== $record && (bool) call_user_func( array( 'WPCPM_Institution_Agreement', 'is_settled' ), $record ) ) {
+					$id = 'invite-institution-settled';
+				}
 			}
 
-			// The institution dashboard arrives with the same phase. Until then there is no
-			// address to print, and a line pointing at nothing is worse than no line.
+			// No line pointing at the dashboard while there is no address to print.
 			$page = method_exists( 'WPCPM_Institutions_Dashboard', 'page_url' )
 				? (string) call_user_func( array( 'WPCPM_Institutions_Dashboard', 'page_url' ) )
 				: '';
-
-			$opening = $settled
-				? __( 'Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there.', 'wpcredits-program-manager' )
-				: __( 'Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there.', 'wpcredits-program-manager' );
-			$next    = $settled
-				? __( 'Set your password using the link below. Your Collaboration Agreement is on file, so your account is open.', 'wpcredits-program-manager' )
-				: __( 'Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program\'s or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens.', 'wpcredits-program-manager' );
-			$label   = $settled
-				? __( 'Your Institution Dashboard:', 'wpcredits-program-manager' )
-				: __( 'Where the agreement is uploaded:', 'wpcredits-program-manager' );
-			/* translators: %s: site name. */
-			$subject = __( '[%s] Your institution account is ready', 'wpcredits-program-manager' );
 		} elseif ( 'sponsor' === $kind ) {
-			// The Sponsor Dashboard's class lands with the same phase; an array callable so
-			// `bin/check-references.php` never sees a call to a method that is not declared.
-			$page    = class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'page_url' )
+			// An array callable so `bin/check-references.php` never sees a call to a method that is
+			// not declared.
+			$page = class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'page_url' )
 				? (string) call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'page_url' ) )
 				: '';
-			$opening = __( 'Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there.', 'wpcredits-program-manager' );
-			$next    = __( 'Set your password using the link below, then check your company profile and tell us how you would like to support the program.', 'wpcredits-program-manager' );
-			$label   = __( 'Your Sponsor Dashboard:', 'wpcredits-program-manager' );
-			/* translators: %s: site name. */
-			$subject = __( '[%s] Your sponsor account is ready', 'wpcredits-program-manager' );
 		} else {
-			$page    = WPCPM_Students_Dashboard::page_url();
-			$opening = __( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' );
-			$next    = __( 'Set your password using the link below, then check your details and book your first call with your mentor.', 'wpcredits-program-manager' );
-			$label   = __( 'Your Student Report Card:', 'wpcredits-program-manager' );
-			/* translators: %s: site name. */
-			$subject = __( '[%s] Welcome to the WordPress Credits Program', 'wpcredits-program-manager' );
+			$page = WPCPM_Students_Dashboard::page_url();
 		}
 
 		// Core's own body, kept whole in the middle rather than rebuilt, so a change to how
-		// WordPress words or forms the reset link arrives here on its own. What core prints around
-		// the link has changed once already: until WordPress 7.1 the body opened with the username
-		// and closed with the plain login page on a line of its own, and 7.1 prints the keyed link
-		// alone, which left a sentence here naming "the two addresses above" pointing at one (a
-		// mentor's invitation, 14 September 2026; 1.106.1). So the facts a person needs are stated
-		// below from what the body carries: the username when core left it out, and the login
-		// page always, labeled, with core's own bare copy of it taken off the end first so no
-		// address appears twice.
+		// WordPress words or forms the reset link arrives here on its own: it is the template's
+		// `{set_password_link}`. What core prints around the link has changed once already: until
+		// WordPress 7.1 the body opened with the username and closed with the plain login page on a
+		// line of its own, and 7.1 prints the keyed link alone, which left a sentence here naming
+		// "the two addresses above" pointing at one (a mentor's invitation, 14 September 2026;
+		// 1.106.1). So the facts a person needs are stated from what the body carries: the username
+		// when core left it out, and the login page always, labeled, with core's own bare copy of
+		// it taken off the end first so no address appears twice.
 		$body  = rtrim( (string) $email['message'] );
 		$login = wp_login_url();
 		$tail  = substr( $body, -strlen( $login ) );
@@ -1258,150 +1266,32 @@ class WPCPM_Mail {
 			$body = rtrim( substr( $body, 0, -strlen( $login ) ) );
 		}
 
-		$link = __( 'The link above sets your password and stops working after a day.', 'wpcredits-program-manager' );
-
-		// The site's language is English, and so is the line core prints, "Username: ...".
-		if ( ! preg_match( '/^Username: /m', $body ) ) {
-			$link .= ' ' . sprintf(
-				/* translators: %s: the WordPress username. */
-				__( 'Your username is %s.', 'wpcredits-program-manager' ),
-				$user->user_login
-			);
-		}
-
-		$lines = array(
-			$opening,
-			'',
-			$next,
-			'',
-			$body,
-			'',
-			$link,
-			'',
-			__( 'After that, sign in at the login page. If the password link has expired, open the login page, choose "Lost your password?" and enter your username or email address to get a fresh one.', 'wpcredits-program-manager' ),
-			$login,
-			'',
-			// Each invitation and each password email mints a new link and cancels the one before
-			// it, and somebody holding several tries the first they find (1.101.1).
-			__( 'Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.', 'wpcredits-program-manager' ),
+		$mail = WPCPM_Mail_Templates::render(
+			$id,
+			array(
+				'site_name'         => wp_specialchars_decode( (string) $blogname, ENT_QUOTES ),
+				'set_password_link' => $body,
+				// The site's language is English, and so is the line core prints, "Username: ...".
+				'username'          => preg_match( '/^Username: /m', $body ) ? '' : $user->user_login,
+				'login_url'         => $login,
+				'dashboard_link'    => $page,
+			)
 		);
 
-		if ( '' !== $page ) {
-			$lines[] = '';
-			$lines[] = $label;
-			$lines[] = $page;
+		if ( null === $mail ) {
+			return $email;
 		}
 
-		$email['subject'] = sprintf( $subject, wp_specialchars_decode( (string) $blogname, ENT_QUOTES ) );
-
-		$email['message'] = implode( "\r\n", $lines ) . "\r\n";
+		// WordPress passes the subject through `sprintf()` with the site's name once more before it
+		// sends it, so each "%" is written twice to come out once: a "%" in a site's name, or in a
+		// subject an Administrator wrote, would otherwise be read as a format and fail the send.
+		$email['subject'] = str_replace( '%', '%%', $mail['subject'] );
+		$email['message'] = WPCPM_Mail_Templates::add_footer( $mail['body'], $user, $id );
 
 		// WordPress is about to call `wp_mail()` itself, so this is the only moment at which
 		// the log can be told that what follows is an invitation and whose it is.
-		self::$context = 'invite-' . $kind;
+		self::$context = $id;
 
 		return $email;
-	}
-
-	/**
-	 * Send the current user a sample of the invitation.
-	 *
-	 * Ninety people is a bad audience for a first look at a template. The nonce first, then the
-	 * right, as the Settings screen's own handlers ask them: the buttons are on its Mail tab.
-	 */
-	public static function handle_test() {
-		check_admin_referer( self::ACTION_TEST, self::ACTION_TEST );
-
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		// The audiences a button can ask for, and the role each is previewed as.
-		$roles = array(
-			'student'     => WPCPM_Roles::ROLE_STUDENT,
-			'mentor'      => WPCPM_Roles::ROLE_MENTOR,
-			'institution' => WPCPM_Roles::ROLE_INSTITUTION,
-			'sponsor'     => WPCPM_Roles::ROLE_SPONSOR,
-		);
-
-		// `posted_key()`, not `key()`: the two buttons are forms that post to `admin-post.php`,
-		// so the audience arrives in `$_POST`. Reading `$_GET` returned the fallback every
-		// time, which meant both buttons sent the student template.
-		$kind = WPCPM_Request::posted_key( 'kind' );
-		$kind = isset( $roles[ $kind ] ) ? $kind : 'student';
-
-		$viewer = wp_get_current_user();
-
-		// The real filter, against the real user, with the role it is being previewed as
-		// stood in temporarily - so what arrives is what a student, a mentor or an institution would get and
-		// not a second template that only looks like it.
-		$role = $roles[ $kind ];
-
-		$preview = function ( $email, $user, $blogname ) use ( $role ) {
-			$stand_in        = clone $user;
-			$stand_in->roles = array( $role );
-
-			return self::welcome_email( $email, $stand_in, $blogname );
-		};
-
-		$sent = self::send(
-			$viewer,
-			'test-' . $kind,
-			function ( $user ) use ( $preview ) {
-				// Core's body printed two URLs until WordPress 7.1, in this order: the one-use
-				// reset link carrying a key, then the plain login page; 7.1 prints the keyed link
-				// alone. The stand-in below keeps the older, fuller shape, which the template
-				// must handle as well as the newer one (it takes the bare login page off the end
-				// and prints its own, labeled). Standing the login URL in for both lines made the
-				// sample print the same address twice, which reads as a bug in the template
-				// rather than a shortcut in the preview, so the reset link is visibly an example
-				// and not a live one, because generating one would invalidate the reader's own
-				// password.
-				$example_reset = add_query_arg(
-					array(
-						'action' => 'rp',
-						'key'    => 'EXAMPLE-KEY-NOT-A-REAL-LINK',
-						'login'  => rawurlencode( $user->user_login ),
-					),
-					wp_login_url()
-				);
-
-				$email = $preview(
-					array(
-						'to'      => $user->user_email,
-						'subject' => sprintf( '[%s] Login Details', self::site_name() ),
-						'message' => sprintf(
-							/* translators: %s: WordPress username. */
-							__( 'Username: %s', 'wpcredits-program-manager' ),
-							$user->user_login
-						) . "\r\n\r\n"
-							. __( 'To set your password, visit the following address:', 'wpcredits-program-manager' ) . "\r\n\r\n"
-							. $example_reset . "\r\n\r\n"
-							. wp_login_url() . "\r\n",
-						'headers' => '',
-					),
-					$user,
-					get_bloginfo( 'name' )
-				);
-
-				return array(
-					'subject' => $email['subject'],
-					'body'    => sprintf(
-						/* translators: %s: the invitation email as it would be received. */
-						__( "This is a sample of the invitation email, sent to you so you can read it before anybody else does.\n\nTwo differences from the real thing: the reset link below is a marked example rather than a working one, because generating a real one would invalidate your own password, and the second address is the plain login page, exactly as WordPress puts it there.\n\n---\n\n%s", 'wpcredits-program-manager' ),
-						$email['message']
-					),
-				);
-			}
-		);
-
-		// The Settings screen's notice, queued through its own door, which sets the scope with the
-		// outcome: a scope a save left queued cannot name the sample's.
-		WPCPM_Settings_Screen::flash_outcome( $sent ? 'test-sent' : 'test-failed' );
-
-		// Back to the Mail tab, where the button was pressed. The sample is recorded in the email log
-		// (Tools > Emails), which the Recent mail section there points to.
-		wp_safe_redirect( WPCPM_Settings_Screen::settings_url( 'mail' ) );
-		exit;
 	}
 }

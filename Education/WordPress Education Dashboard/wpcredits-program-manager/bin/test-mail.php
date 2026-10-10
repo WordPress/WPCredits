@@ -229,10 +229,12 @@ function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array
 		$contents[ $path ] = $present[ $path ] ? (string) file_get_contents( $path ) : '';
 	}
 
-	// Taken where the capture takes it, so a context left standing would show on the next message.
+	// Taken where the capture takes it, so a context left standing would show on the next message;
+	// and so is whether the email is a test, which the capture marks Test.
 	$context = WPCPM_Mail::take_context();
+	$test    = WPCPM_Mail::take_test();
 
-	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present', 'contents', 'context' );
+	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present', 'contents', 'context', 'test' );
 
 	if ( ! empty( $GLOBALS['mail_fails'] ) ) {
 		do_action( 'wp_mail_failed', new WP_Error( 'fail', 'nope', compact( 'to', 'subject' ) ) );
@@ -255,6 +257,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+// The template registry the invitations are built from since 1.122.19, and the catalog that names them.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 // The Settings screen the sample handler goes back to, and whose outcome it queues through the
 // screen's own door: the real one, since a stand-in's pairing of the two channels would only agree
 // with itself.
@@ -396,6 +401,57 @@ ck( 'newlines are stripped from its subject too',
 $GLOBALS['mail'] = array();
 $sent = WPCPM_Mail::send_to( 'not-an-address', 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
 ck( 'something that is not an address is refused', array( $sent, count( $GLOBALS['mail'] ) ), array( false, 0 ) );
+
+/* ---- the signature and footer ------------------------------------------- */
+
+echo "\n=== The signature and footer every email ends with ===\n";
+
+// Since 1.122.19 every email that leaves through the mail layer ends with the one footer, filled for
+// its recipient. Lu has an account, but no dashboard page is published here, so no dashboard line;
+// an applicant has no account at all; and Contact address in emails ships empty.
+$footer           = "\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.";
+$GLOBALS['mail']  = array();
+$filter_saw       = array();
+$GLOBALS['filters']['wpcpm_mail'][] = function ( $mail ) use ( &$filter_saw ) {
+	$filter_saw[] = $mail['body'];
+
+	return $mail;
+};
+WPCPM_Mail::send( 30, 'call-booked', function () {
+	return array( 'subject' => 'Booked', 'body' => "Your call is booked.\nSee you then." );
+} );
+WPCPM_Mail::send_to( 'applicant@example.test', 'institution-applied', function () {
+	return array( 'subject' => 'Received', 'body' => 'We have your application.' );
+} );
+array_pop( $GLOBALS['filters']['wpcpm_mail'] );
+ck( 'an email to an account and one to an applicant both end with the footer, after a blank line and the "-- " line, the applicant\'s with no dashboard line',
+    array_column( $GLOBALS['mail'], 'body' ),
+    array( "Your call is booked.\nSee you then." . $footer, 'We have your application.' . $footer ) );
+ck( 'and the wpcpm_mail filter sees each email with its footer, as it goes out', $filter_saw, array_column( $GLOBALS['mail'], 'body' ) );
+
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send( 30, 'call-booked', function () {
+	return array( 'subject' => 'Booked', 'body' => 'Hi.', 'footer_values' => array( 'dashboard_link' => 'https://example.test/example/', 'program_contact' => 'help@example.test' ) );
+} );
+ck( 'a builder can hand the footer its values, as a test hands it examples', $GLOBALS['mail'][0]['body'], "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/example/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
+
+// The one way out: no file under includes/ calls wp_mail() but the mail layer's hand-off, where the
+// footer is added, and the inventory mailed to the site's own address when the plugin is uninstalled,
+// which is not a program email.
+$callers = array();
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $source ) {
+	if ( 'php' !== $source->getExtension() ) {
+		continue;
+	}
+
+	foreach ( token_get_all( (string) file_get_contents( $source->getPathname() ) ) as $i => $token ) {
+		if ( is_array( $token ) && T_STRING === $token[0] && 'wp_mail' === $token[1] ) {
+			$callers[] = $source->getFilename();
+		}
+	}
+}
+sort( $callers );
+ck( 'every plugin email leaves through the hand-off that adds the footer: wp_mail() is called there and in the uninstall inventory alone', $callers, array( 'class-wpcpm-institution-agreement.php', 'class-wpcpm-mail.php' ) );
 
 /* ---- a subject marked as plain text ------------------------------------- */
 
@@ -548,6 +604,14 @@ ck( 'a send that fails carries its context too', end( $GLOBALS['mail'] )['contex
 // Mail belonging to WordPress or another plugin carries none: the capture names it otherwise.
 wp_mail( 'someone@example.test', 'Comment awaiting moderation', 'body' );
 ck( 'a message the plugin did not send carries no context', end( $GLOBALS['mail'] )['context'], '' );
+
+// A test, since 1.122.19 (Send me a test in WPCredits Program > Tools > Emails), is sent under its
+// template's own id and marked as one, which the capture takes beside the context.
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send( 30, 'invite-student', function () { return array( 'subject' => '[Test] Welcome', 'body' => 'x', 'test' => true ); } );
+WPCPM_Mail::send( 30, 'invite-student', function () { return array( 'subject' => 'Welcome', 'body' => 'x' ); } );
+ck( 'a builder that says it is a test hands wp_mail() a test under its own context, and the next email is not one', array( array_column( $GLOBALS['mail'], 'context' ), array_column( $GLOBALS['mail'], 'test' ) ), array( array( 'invite-student', 'invite-student' ), array( true, false ) ) );
+ck( 'and once taken the mark is gone', WPCPM_Mail::take_test(), false );
 
 /* ---- the invitation queue ---------------------------------------------- */
 
@@ -1148,6 +1212,23 @@ ck( 'an institution whose agreement is on file is told its account is open',
     ),
     array( true, false, false, '[WordPress Education Dashboard] Your institution account is ready' ) );
 
+// Two templates since 1.122.19, because the two say different things, and each is named in the log by
+// its own id.
+WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
+wp_mail( 'contact@oscar.example', $on_file['subject'], $on_file['message'] );
+ck( 'and that invitation is the registry\'s second institution template, under its own id in the mail log', end( $GLOBALS['mail'] )['context'], 'invite-institution-settled' );
+
+// WordPress runs the subject through sprintf() with the site's name once more before sending it, so a
+// "%" in the name came back as a format: "100% Credits" failed the send with a ValueError.
+$percent = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][30], '100% Credits' );
+$as_sent = null;
+try {
+	$as_sent = sprintf( $percent['subject'], '100% Credits' );
+} catch ( Throwable $e ) {
+	$as_sent = get_class( $e );
+}
+ck( 'a "%" in the site\'s name survives WordPress\'s own sprintf() of the subject', $as_sent, '[100% Credits] Welcome to the WordPress Credits Program' );
+
 // The dashboard line. There is no institution dashboard until Phase 1, and until there is one
 // there must be no line pointing at it. The stand-in below is declared here rather than with
 // the other stubs so the invitation is first built with no such page at all - the way it is in
@@ -1680,114 +1761,17 @@ $cross = WPCPM_Mentor_Calls::format_range( $start, $start + 1800, new DateTimeZo
 ck( 'a call crossing midnight dates its end',
     array( false !== strpos( $cross, 'August 4, 2026' ) ), array( true ) );
 
-/* ---- the sample invitation ---------------------------------------------- */
+/* ---- the sample invitation, gone ---------------------------------------- */
 
-echo "\n=== The sample invitation ===\n";
+echo "\n=== The sample invitation is gone ===\n";
 
-// Two bugs lived here and nothing was watching. The sample stood the plain login URL in for
-// *both* of core's addresses, so it printed the same link twice; and the audience was read
-// from `$_GET` while the buttons post it, so both of them sent the student template. Both
-// were found by somebody pressing the button, which is the wrong way to find out.
-//
-// **Driven through `$_POST`**, because that is where the real form puts the field. The first
-// version of this test set `$_GET` by hand and passed against the broken code - a harness
-// that arranges the world to suit the implementation tests nothing.
-$GLOBALS['uid']    = 20;
-$GLOBALS['manage'] = array( 20 );
-
-/**
- * Press one of the two sample buttons and return the message it produced.
- *
- * @param string $kind `student` or `mentor`.
- * @return array The mail, or an empty array if none was sent.
- */
-function press_sample_button( $kind ) {
-	$GLOBALS['mail'] = array();
-
-	$_GET  = array();
-	$_POST = array( 'kind' => $kind );
-
-	try {
-		WPCPM_Mail::handle_test();
-	} catch ( Exception $e ) {
-		// The handler ends in a redirect, which the stub raises.
-		$GLOBALS['last_redirect'] = $e->getMessage();
-	}
-
-	return $GLOBALS['mail'] ? $GLOBALS['mail'][0] : array();
-}
-
-$student_sample = press_sample_button( 'student' );
-$mentor_sample  = press_sample_button( 'mentor' );
-
-ck( 'the sample handler finishes and redirects',
-    array( isset( $GLOBALS['last_redirect'] ), ! empty( $student_sample ) ), array( true, true ) );
-
-// The sample buttons are on the Mail tab of the Settings screen, which is where the manager pressed
-// one and where its notice and the log it adds to are: back to the screen alone would open it on
-// Connection.
-ck( 'and goes back to the Mail tab its buttons are on',
-    $GLOBALS['last_redirect'], 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-settings&tab=mail' );
-
-// The audience actually asked for. Both buttons sending the same template is the bug this
-// pins, and it is invisible from the plugin's own screens.
-ck( 'the student button sends the student invitation',
-    array( $student_sample['subject'] ),
-    array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
-ck( 'the mentor button sends the mentor invitation',
-    array( $mentor_sample['subject'] ),
-    array( '[WordPress Education Dashboard] Your mentor account is ready' ) );
-ck( 'the two samples say different things',
-    array( $student_sample['body'] === $mentor_sample['body'] ), array( false ) );
-ck( 'and each carries its own audience\'s context to the mail log',
-    array( $student_sample['context'], $mentor_sample['context'] ), array( 'test-student', 'test-mentor' ) );
-
-// The sample's notice is the Settings screen's, on the same channel a save's is, and its outcome is
-// queued through the screen's own door, which sets the scope with it: a scope a save left queued,
-// whose notice nobody saw, cannot name the sample's.
-WPCPM_Flash::set( 'settings-scope', 'sponsors' );
-press_sample_button( 'mentor' );
-$sample_queued = $GLOBALS['umeta'][20][ WPCPM_Flash::META ] ?? array();
-
-ck( 'and its notice is queued with the scope set to none, replacing a scope a save left queued',
-    array( $sample_queued['settings'] ?? null, $sample_queued['settings-scope'] ?? null ),
-    array( 'test-sent', '' ) );
-
-$institution_sample = press_sample_button( 'institution' );
-
-ck( 'the institution button sends the institution invitation',
-    array( $institution_sample['subject'], $institution_sample['context'] ),
-    array( '[WordPress Education Dashboard] Your institution account is ready', 'test-institution' ) );
-
-$sponsor_sample = press_sample_button( 'sponsor' );
-
-ck( 'the sponsor button sends the sponsor invitation',
-    array( $sponsor_sample['subject'], $sponsor_sample['context'] ),
-    array( '[WordPress Education Dashboard] Your sponsor account is ready', 'test-sponsor' ) );
-
-// A kind nobody offers a button for falls back to the student template rather than to nothing.
-// Not 'sponsor' any more - the fourth button now offers exactly that kind (below).
-ck( 'an unknown kind previews the student invitation',
-    array( press_sample_button( 'nonsense' )['subject'] ),
-    array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
-
-$sample = $student_sample['body'];
-
-preg_match_all( '#https?://\S+#', $sample, $urls );
-$found  = $urls[0];
-$unique = array_values( array_unique( $found ) );
-
-ck( 'no address appears twice', array( count( $found ) === count( $unique ) ), array( true ) );
-ck( 'the reset stand-in is marked as an example, not a live link',
-    array(
-        false !== strpos( $sample, 'EXAMPLE-KEY-NOT-A-REAL-LINK' ),
-        false !== strpos( $sample, 'action=rp' ),
-    ),
-    array( true, true ) );
-ck( 'and the login page is there once, on its own',
-    array( count( preg_grep( '#/wp-login\.php$#', $found ) ) ), array( 1 ) );
-ck( 'the sample says what the link does and where to sign in afterward',
-    array( false !== strpos( $sample, 'The link above sets your password' ), false !== strpos( $sample, 'sign in at the login page' ) ), array( true, true ) );
+// Settings > Mail's four "Email me the ... invitation" buttons and their handler went in 1.122.19:
+// Send me a test, on each template's editor in WPCredits Program > Tools > Emails, sends the
+// invitation as it is saved, with its example values, and its tests are bin/test-mail-templates.php's
+// and bin/test-emails-templates.php's.
+ck( 'the mail layer has no sample handler, no action for one, and hooks none',
+    array( method_exists( 'WPCPM_Mail', 'handle_test' ), defined( 'WPCPM_Mail::ACTION_TEST' ), isset( $GLOBALS['filters']['admin_post_wpcpm_send_test_mail'] ) ),
+    array( false, false, false ) );
 
 /* ---- the meeting link -------------------------------------------------- */
 
@@ -1831,7 +1815,7 @@ sort( $bare );
 ck( 'no constant string in the PHP under includes/ says a bare "report card": it is the Student Report Card or the Mentor Report Card', $bare, array() );
 ck( 'the student\'s welcome and the notice that a group session moved name the Student Report Card',
     array(
-        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' ), "__( 'Your Student Report Card:'" ),
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/templates/invitations.php' ), "__( 'Your Student Report Card:'" ),
         substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), "__( 'Your Student Report Card:'" ),
         substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), 'you can leave the session from your Student Report Card.' ),
     ),

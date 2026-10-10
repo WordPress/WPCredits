@@ -90,12 +90,12 @@ A save is refused, nothing is stored, and the form comes back as it was typed, w
 
 ### Signature and footer
 
-One block, added after a line holding `-- ` at the end of every plugin email. Its placeholders: `{site_name}`, `{dashboard_link}` (empty for a recipient with no account, so that line is left out) and `{program_contact}`, an address from a new setting, **Contact address in emails**, which the Administrators read (empty leaves its sentence out). The default, for the owner to rewrite in review:
+One block, added after a line holding `-- ` at the end of every plugin email. Its placeholders: `{site_name}`, `{dashboard_link}` (empty for a recipient with no account, so that line is left out) and `{program_contact}`, an address from a new setting, **Contact address in emails**, which the Administrators read (empty leaves its sentence out; it ships empty, the owner's decision of 10 Oct 2026). The default, as the owner approved it on 10 Oct 2026:
 
 ```
 WordPress Credits, WordPress Education
 {dashboard_link}
-You receive this email because you take part in the WordPress Credits program. Questions? Write to {program_contact}.
+This email comes from the WordPress Credits program. Questions? Write to {program_contact}.
 ```
 
 The footer is not added to WordPress's or the Two Factor plugin's emails.
@@ -173,8 +173,8 @@ How each step is proved:
 
 ## Open for the owner's review
 
-- The footer's wording (the default above).
-- Which mailbox `{program_contact}` should name.
+- The footer's wording: settled 10 Oct 2026 (the default above, worded so it holds for applicants, declined applicants and Administrators too; a body that already names the dashboard address leaves the footer's address line out).
+- Which mailbox `{program_contact}` should name: settled 10 Oct 2026, none yet (the setting ships empty).
 - The templates' names, which are this design's suggestions.
 
 ## Risks

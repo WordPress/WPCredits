@@ -1,5 +1,5 @@
-/* The Emails screen: the Log's filters, its Email field, and the Test mark. Loaded on that screen
-   only (WPCPM_Emails::enqueue_assets()), in wp-admin's own colors. */
+/* The Emails screen: the Templates tab and the editor, the Log's filters, its Email field, and the
+   Test mark. Loaded on that screen only (WPCPM_Emails::enqueue_assets()), in wp-admin's own colors. */
 
 /* The filters, as one row that wraps: each its label over its field, so a phone stacks them. */
 .wpcpm-emails__filters {
@@ -128,4 +128,60 @@
 	position: absolute;
 	white-space: nowrap;
 	width: 1px;
+}
+
+/* The Templates tab's tables scroll inside their own box on a screen narrower than their columns,
+   never the page. Positioned, so anything absolutely placed inside stays inside the box. */
+.wpcpm-emails__scroll {
+	overflow-x: auto;
+	position: relative;
+}
+
+/* The Templates tab: each email's state as a chip. The words say the state; the color repeats them. */
+.wpcpm-emails__templates td,
+.wpcpm-emails__placeholders td {
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-emails__state {
+	background: #f0f0f1;
+	border-radius: 2px;
+	display: inline-block;
+	padding: 0 0.4em;
+}
+
+.wpcpm-emails__state--edited,
+.wpcpm-emails__state--changed {
+	background: #e7f5fe;
+}
+
+.wpcpm-emails__state--set-aside {
+	background: #fcf9e8;
+}
+
+/* The editor: its parts spaced as the card's sections, the required placeholders by weight. */
+.wpcpm-emails__editor h3 {
+	margin-top: 1.5em;
+}
+
+.wpcpm-emails__required {
+	font-weight: 600;
+}
+
+.wpcpm-emails__buttons {
+	margin: 1.5em 0 1em;
+}
+
+/* The preview and the shipped text: the email's own lines, wrapped at the card's width. */
+.wpcpm-emails__preview {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	padding: 0 1em;
+}
+
+.wpcpm-emails__text {
+	font-family: Consolas, Monaco, monospace;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
 }

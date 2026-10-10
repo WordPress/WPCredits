@@ -10,8 +10,9 @@ until the next page opens, so a double press acts once: the decisions and the qu
 application, on the Sponsors and Institutions screens; on the Sponsors screen, the offer and code
 forms, a sponsor's **Attach account**, **Remove** and posting switch, and the agreement forms; on
 the Institutions screen, the signed agreement's upload and withdrawal and the semester report
-buttons; the test invitations on **Settings > Mail**; and the Track Builder's **Create the track**
-and **Make the copy**. The Sponsors screen's sync buttons lock without changing their words. Every
+buttons; **Save**, **Send me a test** and **Restore the original** in
+**WPCredits Program > Tools > Emails**; and the Track Builder's **Create the track** and
+**Make the copy**. The Sponsors screen's sync buttons lock without changing their words. Every
 other form works as it always has, searching, filtering, a list's **Apply** and **Screen Options**
 among them.
 
@@ -156,6 +157,6 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 The **Tools** submenu lists the parts of the program that are run and configured on their own
 rather than belonging to one audience - currently **Header notices**, **Emails**, **Need help?**, the
 **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
-behind an *Open tool* button. Three of them, the **Mentor Status Checker**, the
-**Student Duplicate Finder** and **Need help?**, keep their settings in a **Settings** section at the
-top of that screen, rather than on the Settings screen.
+behind an *Open tool* button. Four of them, the **Mentor Status Checker**, the
+**Student Duplicate Finder**, **Need help?** and **Emails**, keep their settings in a **Settings**
+section on that screen, rather than on the Settings screen.

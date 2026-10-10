@@ -2723,10 +2723,11 @@ check( 'and a failed nonce is the first thing it answers', $GLOBALS['died_with']
 $GLOBALS['nonce_fails'] = false;
 $_POST                  = array();
 
-echo "\n=== The Settings screen's save and the Mail tab's samples check the nonce before the right ===\n";
+echo "\n=== The Settings screen's save checks the nonce before the right ===\n";
 
-// The screen's three handlers answer in one order: the nonce first, then whether the person may manage
-// the program. The settings save still asks first whether a settings form was posted at all, since it
+// The screen's handlers answer in one order: the nonce first, then whether the person may manage the
+// program (the button that reads the lists again is pressed above; the Mail tab's sample buttons went
+// in 1.122.19). The settings save still asks first whether a settings form was posted at all, since it
 // runs on every admin request, and a request without the settings nonce's field is not its to answer.
 $GLOBALS['caps']        = false;
 $GLOBALS['nonce_fails'] = true;
@@ -2736,19 +2737,11 @@ $_POST = array( WPCPM_Settings_Screen::SETTINGS_NONCE => 'x', WPCPM_Settings_Scr
 run( 'handle_settings_save (no capability, and the nonce fails too)', array( new WPCPM_Settings_Screen(), 'handle_settings_save' ) );
 $first_answers['handle_settings_save'] = $GLOBALS['died_with'];
 
-$_POST = array( 'action' => WPCPM_Mail::ACTION_TEST, 'kind' => 'student' );
-run( 'WPCPM_Mail::handle_test (no capability, and the nonce fails too)', array( 'WPCPM_Mail', 'handle_test' ) );
-$first_answers['handle_test'] = $GLOBALS['died_with'];
-
 $GLOBALS['nonce_fails'] = false;
 
 $_POST = array( WPCPM_Settings_Screen::SETTINGS_NONCE => 'x', WPCPM_Settings_Screen::SETTINGS_TAB_FIELD => 'sponsors' );
 run( 'handle_settings_save (no capability)', array( new WPCPM_Settings_Screen(), 'handle_settings_save' ) );
 $first_answers['handle_settings_save, the nonce good'] = $GLOBALS['died_with'];
-
-$_POST = array( 'action' => WPCPM_Mail::ACTION_TEST, 'kind' => 'student' );
-run( 'WPCPM_Mail::handle_test (no capability)', array( 'WPCPM_Mail', 'handle_test' ) );
-$first_answers['handle_test, the nonce good'] = $GLOBALS['died_with'];
 
 // And with no settings form posted, the save does nothing at all, whatever the nonce or the right.
 $GLOBALS['nonce_fails'] = true;
@@ -2765,14 +2758,12 @@ $GLOBALS['nonce_fails'] = false;
 $GLOBALS['caps']        = true;
 $_POST                  = array();
 
-check( 'the settings save and the sample invitation answer a failed nonce before the right, and a missing right once the nonce holds, and the save leaves a request with no settings form alone',
+check( 'the settings save answers a failed nonce before the right, and a missing right once the nonce holds, and leaves a request with no settings form alone',
     array( $first_answers, $ignored ),
     array(
         array(
             'handle_settings_save'                 => 'The link you followed has expired.',
-            'handle_test'                          => 'The link you followed has expired.',
             'handle_settings_save, the nonce good' => 'You do not have permission to manage the program.',
-            'handle_test, the nonce good'          => 'You do not have permission to manage the program.',
         ),
         'returned',
     ) );
