@@ -141,9 +141,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-modules.php';
-// The five tools and their registry, the same way.
+// The six tools and their registry, the same way.
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
@@ -247,6 +248,7 @@ ck( 'under it, in order: the Overview, the five audiences, Tools with each tool 
         array( 'Administrators', 'Administrators', 'wpcpm-administrators' ),
         array( 'Tools', 'Tools', 'wpcpm-tools' ),
         array( 'Header notices', "-\u{2009}Header notices", 'wpcpm-tool-header-notices' ),
+        array( 'Emails', "-\u{2009}Emails", 'wpcpm-tool-emails' ),
         array( 'Need help?', "-\u{2009}Need help?", 'wpcpm-tool-handbook' ),
         array( 'Mentor Status Checker', "-\u{2009}Mentor Status Checker", 'wpcpm-tool-mentor-status-checker' ),
         array( 'Student Duplicate Finder', "-\u{2009}Student Duplicate Finder", 'wpcpm-tool-duplicate-finder' ),
@@ -311,7 +313,7 @@ ck( 'the Tools screen\'s heading is its name, as the menu titles the page, and i
 ck( 'a card for each tool, each opening the tool\'s screen',
     array( array_map( 'words_of', $tools[2] ), $opens[1], array_values( array_unique( array_map( 'words_of', $opens[2] ) ) ) ),
     array(
-        array( 'Header notices', 'Need help?', 'Mentor Status Checker', 'Student Duplicate Finder', 'Track Builder' ),
+        array( 'Header notices', 'Emails', 'Need help?', 'Mentor Status Checker', 'Student Duplicate Finder', 'Track Builder' ),
         $tools[1],
         array( 'Open tool' ),
     ) );
@@ -367,13 +369,15 @@ function overview_lines( $html ) {
 
 // A tool that cannot run says why on its card, as a warning, in its own words: the Mentor Status
 // Checker and the Student Duplicate Finder need Airtable, and Need help? needs its switch and a
-// provider and no Airtable at all. On a new site nothing is connected and no provider is set. The
+// provider and no Airtable at all. Emails needs nothing, and counts what its log holds, which on a
+// new site is nothing. On a new site nothing is connected and no provider is set. The
 // line is the card's status line either way, with its rule above it, and its words the warning.
 // The Overview's Tools card says the same of each tool, the same warning included, in a row of its
 // own: both screens print a tool's line the one way (`WPCPM_Admin::render_tool_status()`).
 $airtable_missing = 'Airtable is not connected yet, so this tool cannot run.';
 $new_site_lines   = array(
 	'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
+	'Emails'                   => array( array( 'wpcpm-tool-status', false, '0 emails in the last 30 days.' ) ),
 	'Need help?'               => array( array( 'wpcpm-tool-status', true, 'No AI provider is configured, so questions cannot be answered.' ) ),
 	'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
 	'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
@@ -408,6 +412,7 @@ ck( 'Need help? switched off says so as its warning, and with Airtable connected
         array( array( 'wpcpm-tool-status', true, 'Switched off.' ) ),
         array(
             'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
+            'Emails'                   => array( array( 'wpcpm-tool-status', false, '0 emails in the last 30 days.' ) ),
             'Need help?'               => array( array( 'wpcpm-tool-status', false, 'Answering through Google AI Studio (Gemini).' ) ),
             'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', false, 'Never run.' ) ),
             'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', false, 'No scan has run yet.' ) ),

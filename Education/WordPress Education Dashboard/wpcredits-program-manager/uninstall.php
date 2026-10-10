@@ -49,6 +49,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-refusal-meter.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-log.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-teams.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-typed-text.php';
@@ -153,6 +156,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-adminis
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-tool.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-header-notices.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-emails.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook.php';
@@ -275,9 +279,10 @@ wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
 wp_clear_scheduled_hook( 'wpcpm_handbook_sync_daily' );
 wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 
-// The mail log, anyone still waiting for an invitation that is no longer coming, and the counts
-// and times of the last bulk invite (the final fix wave of the deep check of 1.109.1).
-WPCPM_Mail::clear_log();
+// The email log's table, its two options, the option the plugin kept its mail in before 1.122.18
+// and the daily cleanup; anyone still waiting for an invitation that is no longer coming, and the
+// counts and times of the last bulk invite (the final fix wave of the deep check of 1.109.1).
+WPCPM_Mail_Log::uninstall();
 WPCPM_Mail::clear_queue();
 delete_option( WPCPM_Mail::RUN_OPTION );
 

@@ -671,6 +671,9 @@ set_transient( 'wpcpm_learn_structure_1', array(), DAY_IN_SECONDS );
 // The mail log holds the addresses mail went to; the queue, the people still waiting for one; the
 // run, the counts and times of the last bulk invite (the final fix wave, item 6).
 $GLOBALS['opts']['wpcpm_mail_log']     = array( array( 'to' => 'student-one@example.test' ) );
+// The email log's schema version and the time of its last cleanup (1.122.18); its table is dropped.
+$GLOBALS['opts']['wpcpm_mail_log_version'] = 1;
+$GLOBALS['opts']['wpcpm_mail_log_purged']  = time();
 $GLOBALS['opts']['wpcpm_invite_queue'] = array( 7 );
 $GLOBALS['opts']['wpcpm_invite_run']   = array( 'total' => 241, 'started' => time() - HOUR_IN_SECONDS, 'finished' => 0 );
 
@@ -751,7 +754,7 @@ $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts'
 // The cron schedule: the ten hooks the file clears itself, every hook the modules and the tools
 // clear, and one of core's.
 $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick' );
-$other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge' );
+$other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge' );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -853,6 +856,7 @@ ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['
 echo "\n=== The mail log and the queue ===\n";
 
 ck( 'the mail log goes, with the addresses in it', get_option( 'wpcpm_mail_log', 'gone' ), 'gone' );
+ck( 'and so do the email log\'s table, its schema version and the time of its last cleanup', array( in_array( 'DROP TABLE IF EXISTS wp_wpcpm_mail_log', $wpdb->queries, true ), get_option( 'wpcpm_mail_log_version', 'gone' ), get_option( 'wpcpm_mail_log_purged', 'gone' ) ), array( true, 'gone', 'gone' ) );
 ck( 'and so does everybody still waiting for an invitation', get_option( 'wpcpm_invite_queue', 'gone' ), 'gone' );
 ck( 'and the counts and times of the last bulk invite', get_option( 'wpcpm_invite_run', 'gone' ), 'gone' );
 
@@ -891,9 +895,12 @@ $names = array(
 	'WPCPM_Track_Store::OPT_UPGRADE_LOCK'           => 'wpcpm_tracks_upgrade_lock',
 	'WPCPM_Track_Store::META_DEFINITION'            => '_wpcpm_track_definition',
 	'WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_institution_modules_',
-	'WPCPM_Mail::LOG_OPTION'                        => 'wpcpm_mail_log',
 	'WPCPM_Mail::QUEUE_OPTION'                      => 'wpcpm_invite_queue',
 	'WPCPM_Mail::RUN_OPTION'                        => 'wpcpm_invite_run',
+	'WPCPM_Mail_Log::OLD_OPTION'                    => 'wpcpm_mail_log',
+	'WPCPM_Mail_Log::OPT_VERSION'                   => 'wpcpm_mail_log_version',
+	'WPCPM_Mail_Log::OPT_PURGED'                    => 'wpcpm_mail_log_purged',
+	'WPCPM_Mail_Log::PURGE_HOOK'                    => 'wpcpm_mail_log_purge',
 	'WPCPM_Private_Files::OPT_KEY'                  => 'wpcpm_private_key',
 	'WPCPM_Track_Publish::OPT_LOCK'                 => 'wpcpm_track_publish_lock',
 	'WPCPM_Airtable::SCHEMA_TRANSIENT'              => 'wpcpm_airtable_schema',

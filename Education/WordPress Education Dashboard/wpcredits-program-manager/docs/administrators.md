@@ -108,7 +108,7 @@ The screens, the settings and this guide call each thing by one name.
 | --- | --- | --- |
 | **WPCredits Program** | The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu, and a screen's place in it, written with ">" between the steps, such as **WPCredits Program > Settings**. |
 | **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The menu, each audience's own screen, and the Settings tabs. |
-| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
+| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Emails**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
 | **Landing page** | Where an account goes when it logs in: the **Mentor**, **Student**, **Institution** and **Sponsor landing page**, each with the page's address under its switch. | The Students and mentors, Institutions and Sponsors tabs of Settings. |
 | **Remove** and **Leave** | The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way. | The Settings sections **When someone leaves**, **When an institution leaves the pipeline** and **When a sponsor is no longer Approved**. |
 
@@ -241,8 +241,8 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 ### Tools
 
 The **Tools** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience - currently **Header notices**, **Need help?**, the **Mentor
-Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
+rather than belonging to one audience - currently **Header notices**, **Emails**, **Need help?**, the
+**Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
 behind an *Open tool* button. Three of them, the **Mentor Status Checker**, the
 **Student Duplicate Finder** and **Need help?**, keep their settings in a **Settings** section at the
 top of that screen, rather than on the Settings screen.
@@ -558,11 +558,9 @@ time in the background.
 
 #### Recent mail
 
-A log of the last 25 messages the plugin sent: bookings, cancellations, reminders and invitations,
-each with when, to whom, its subject and what it was, and whether the site accepted it. "Accepted"
-means the site handed the message off without complaint; it cannot tell you the message was
-delivered or read. A message the site refused is marked **Refused**, and a line above the log counts
-them: that is a delivery problem to fix, not a program one.
+This section points to **WPCredits Program > Tools > Emails**, which keeps every email the site
+sends for 30 days, with **Open the email log**. When an email failed in the last 30 days, the
+section says how many and links to them.
 
 ### The Advanced tab
 
@@ -649,6 +647,44 @@ button underneath.
   dashboard card - not above the site header.
 - Links and simple emphasis survive; scripts and other markup are stripped **on save**, so nothing
   dangerous is stored rather than merely hidden at render time.
+
+### Emails
+
+**WPCredits Program > Tools > Emails.** A record of every email the site sends, kept for 30 days:
+the plugin's own, WordPress's (a password reset, for example) and the Two Factor plugin's sign-in
+codes. Use it to answer "did they get the email?".
+
+Each row is one recipient of one email: when it was sent, in the site's time zone; the address as
+plain text, and under it the person's name when the address belonged to an account at the time,
+which is a link to the account for as long as the account exists; the recipient type (Student,
+Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
+area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, WordPress,
+Two Factor or Other); which email it was; its subject; and its status. The status is one of three:
+
+- **Handed to the mail server**: the site passed the email on. This does not prove it reached the
+  inbox: a full mailbox or a spam filter can still stop it after it leaves the site.
+- **Failed**: WordPress could not hand it over; the reason it gave is shown under the status.
+- **Not confirmed**: another plugin took the email over before WordPress could say what happened,
+  or the request ended, with a fatal error for example, before it did.
+
+A **Test** mark beside the status shows a sample you sent yourself from Settings > Mail. It is not
+a fourth status: the sample has one of the three as well, and the **Status** filter has a **Test**
+choice that lists the samples.
+
+To find an email, type part of an address, a name or a subject into the search box, or narrow the
+list by **Area**, **Recipient type**, **Status**, **Email** or **When** (today, the last 7 days, the
+last 30 days, or from and to dates), and press **Filter**. The **Email** filter is one field: type
+a few letters of the email's name and pick it from the list. Fifty rows show a page, newest first,
+with the count above them.
+
+The log never keeps the text of an email, its attachments, or anything secret such as a sign-in
+code or a password link. Entries older than 30 days are deleted every day. WordPress's **Export
+Personal Data** and **Erase Personal Data** tools include a person's entries, found by their
+address. Erasing a person's entries is followed by WordPress's own confirmation email to that
+address, and the log records that email too, so a fresh row for the address after an erasure is
+expected. The emails the plugin had recorded before 1.122.18 (Settings > Mail showed the last 25 of
+up to a hundred) move into the log, with their addresses masked as they were kept, no subject and no
+recipient type; those older than 30 days are deleted with the rest.
 
 ### Mentor Status Checker
 
@@ -1304,7 +1340,7 @@ deleted**, and their program details in Airtable are untouched.
 | Details are stale on a Student Report Card or Mentor Report Card | Run the sync by hand; the page renders from what the last sync stored. |
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
 | Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
-| Invitations are not arriving | The **Mail** tab on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
+| Invitations are not arriving | **WPCredits Program > Tools > Emails**, filtered to the **Invitations** area. **Handed to the mail server** means the site passed it on; anything after that is between the site and its mail service. |
 | A password link says it is invalid | An older invitation. Each one cancels the link in the one before, so ask them to use their newest email. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 

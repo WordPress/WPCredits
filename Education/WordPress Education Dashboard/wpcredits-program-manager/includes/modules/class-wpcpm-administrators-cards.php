@@ -1174,7 +1174,8 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * The syncs, the private storage probe, the last mail and the invitation run.
+	 * The syncs, the private storage probe, the latest email and the last day's failures from the
+	 * email log (and whether the log's table is there yet), and the invitation run.
 	 *
 	 * @return array
 	 */
@@ -1219,8 +1220,8 @@ final class WPCPM_Administrators_Cards {
 			);
 		}
 
-		$probe = WPCPM_Private_Files::probe_result();
-		$log   = WPCPM_Mail::log();
+		$probe  = WPCPM_Private_Files::probe_result();
+		$latest = WPCPM_Mail_Log::latest();
 
 		return array(
 			'syncs'   => $syncs,
@@ -1228,7 +1229,12 @@ final class WPCPM_Administrators_Cards {
 				'verdict' => is_array( $probe ) ? WPCPM_Private_Files::verdict( $probe ) : 'unknown',
 				'time'    => is_array( $probe ) && isset( $probe['time'] ) ? (int) $probe['time'] : 0,
 			),
-			'mail'    => isset( $log[0] ) && is_array( $log[0] ) ? $log[0] : array(),
+			'mail'    => array(
+				// Whether the log's table is there: with none, "nothing sent" would be a guess.
+				'ready'  => (bool) WPCPM_Mail_Log::exists(),
+				'latest' => is_array( $latest ) ? $latest : array(),
+				'failed' => (int) WPCPM_Mail_Log::failures_since( gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ),
+			),
 			'invites' => array(
 				'run'    => WPCPM_Mail::run(),
 				'queued' => (int) WPCPM_Mail::queued(),
@@ -1926,14 +1932,46 @@ final class WPCPM_Administrators_Cards {
 			'<li>%s</li>',
 			esc_html( sprintf( /* translators: 1: the verdict, 2: a date. */ __( 'Private storage: %1$s (probed %2$s).', 'wpcredits-program-manager' ), $probe['verdict'], empty( $probe['time'] ) ? __( 'never', 'wpcredits-program-manager' ) : self::when( (int) $probe['time'] ) ) )
 		);
+		// The latest email by name, and the last day's failures, each linked to the Emails tool's Log.
+		// The address is masked: this is a page of the site, and the full one is the Log's, in wp-admin.
+		$latest = isset( $mail['latest'] ) ? (array) $mail['latest'] : array();
+		$failed = isset( $mail['failed'] ) ? (int) $mail['failed'] : 0;
+		$ready  = ! isset( $mail['ready'] ) || $mail['ready'];
+		$tool   = WPCPM_Tools::get( 'emails' );
+		$log    = add_query_arg( 'tab', 'log', $tool ? $tool->admin_url() : admin_url( 'admin.php?page=wpcpm-tool-emails' ) );
+
 		printf(
-			'<li>%s</li>',
+			'<li>%1$s <a href="%2$s">%3$s</a></li>',
 			esc_html(
-				empty( $mail )
-					? __( 'No mail has been sent yet.', 'wpcredits-program-manager' )
-					: sprintf( /* translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed. */ __( 'Last mail: %1$s to %2$s on %3$s, %4$s.', 'wpcredits-program-manager' ), isset( $mail['context'] ) ? $mail['context'] : '', isset( $mail['to'] ) ? $mail['to'] : '', self::when( isset( $mail['time'] ) ? (int) $mail['time'] : 0 ), ! empty( $mail['sent'] ) ? __( 'sent', 'wpcredits-program-manager' ) : __( 'failed', 'wpcredits-program-manager' ) )
-			)
+				empty( $latest )
+					? ( $ready ? __( 'No email has been sent yet.', 'wpcredits-program-manager' ) : __( 'The email log is not ready yet.', 'wpcredits-program-manager' ) )
+					: sprintf(
+						/* translators: 1: an email's name, 2: a masked address, 3: a date, 4: the email's status. */
+						__( 'Last email: %1$s to %2$s on %3$s. Status: %4$s.', 'wpcredits-program-manager' ),
+						WPCPM_Mail_Catalog::label( isset( $latest['template'] ) ? $latest['template'] : '' ),
+						WPCPM_Mail::mask_address( isset( $latest['to_email'] ) ? $latest['to_email'] : '' ),
+						self::when( isset( $latest['sent_at'] ) ? (int) strtotime( $latest['sent_at'] . ' UTC' ) : 0 ),
+						WPCPM_Mail_Log::status_label( isset( $latest['status'] ) ? $latest['status'] : '' )
+					)
+			),
+			esc_url( $log ),
+			esc_html__( 'Open the email log', 'wpcredits-program-manager' )
 		);
+
+		if ( $failed ) {
+			printf(
+				'<li>%1$s <a href="%2$s">%3$s</a></li>',
+				esc_html(
+					sprintf(
+						/* translators: %s: number of failures. */
+						_n( '%s email failed in the last day.', '%s emails failed in the last day.', $failed, 'wpcredits-program-manager' ),
+						number_format_i18n( $failed )
+					)
+				),
+				esc_url( add_query_arg( 'status', WPCPM_Mail_Log::STATUS_FAILED, $log ) ),
+				esc_html__( 'Show the failed emails', 'wpcredits-program-manager' )
+			);
+		}
 
 		// Only while the run is still going: run() also answers the last run to finish, and its
 		// 'finished' is a non-zero timestamp then - printing "N of M sent" for a run that is

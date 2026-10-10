@@ -1,0 +1,131 @@
+/* The Emails screen: the Log's filters, its Email field, and the Test mark. Loaded on that screen
+   only (WPCPM_Emails::enqueue_assets()), in wp-admin's own colors. */
+
+/* The filters, as one row that wraps: each its label over its field, so a phone stacks them. */
+.wpcpm-emails__filters {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em 1.25em;
+	margin: 1em 0;
+}
+
+.wpcpm-emails__filter {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+	max-width: 100%;
+}
+
+.wpcpm-emails__filter select,
+.wpcpm-emails__filter input {
+	max-width: 100%;
+}
+
+.wpcpm-emails__count {
+	margin: 0.75em 0;
+}
+
+.wpcpm-emails__test {
+	background: #f0f0f1;
+	border-radius: 2px;
+	padding: 0 0.4em;
+}
+
+/* The Email field: the combobox assets/js/switcher.js shows in the select's place, as the Viewing as
+   switcher's (assets/css/dashboard.css), without the theme's colors. An author `display` beats the
+   browser's `[hidden]`, so the hidden state is said again. */
+.wpcpm-emails .wpcpm-emails__email select[hidden],
+.wpcpm-emails .wpcpm-dashboard__switcher-combo[hidden],
+.wpcpm-emails .wpcpm-dashboard__switcher-list[hidden] {
+	display: none;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-combo {
+	box-sizing: border-box;
+	max-width: 100%;
+	position: relative;
+	width: 18em;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-input {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+/* The field's list: under the field, at its width, over the table. About ten rows show before it
+   scrolls: switcher.js sets the height from a row it measures, and this one stands until it does. */
+.wpcpm-emails .wpcpm-dashboard__switcher-list {
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.12 );
+	box-sizing: border-box;
+	color: #1d2327;
+	left: 0;
+	list-style: none;
+	margin: 0;
+	max-height: 24em;
+	overflow-y: auto;
+	padding: 0;
+	position: absolute;
+	top: calc( 100% + 2px );
+	width: 100%;
+	z-index: 10;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-option,
+.wpcpm-emails .wpcpm-dashboard__switcher-empty {
+	margin: 0;
+	overflow-wrap: anywhere;
+	padding: 0.375em 0.5em;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-option {
+	cursor: pointer;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-option:hover {
+	background: #f0f0f1;
+}
+
+/* The highlighted row, the one Enter picks. */
+.wpcpm-emails .wpcpm-dashboard__switcher-option.is-active {
+	background: #2271b1;
+	color: #fff;
+}
+
+/* The email picked, which the select holds: by weight, so it is not told by a color alone. */
+.wpcpm-emails .wpcpm-dashboard__switcher-option.is-current {
+	font-weight: 600;
+}
+
+.wpcpm-emails .wpcpm-dashboard__switcher-empty {
+	color: #646970;
+}
+
+/* Forced colors replace the backgrounds; the system's own pair keeps the highlighted row apart. */
+@media ( forced-colors: active ) {
+
+	.wpcpm-emails .wpcpm-dashboard__switcher-option.is-active {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+}
+
+/* For a screen reader: how many emails the list shows, or that none match. Out of sight but never
+   out of the page, because a status region that is not in the page when its text arrives is not
+   read out. */
+.wpcpm-emails .wpcpm-dashboard__switcher-status {
+	border: 0;
+	clip: rect( 0 0 0 0 );
+	clip-path: inset( 50% );
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}

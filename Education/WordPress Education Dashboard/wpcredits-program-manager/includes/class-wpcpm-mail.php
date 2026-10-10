@@ -21,18 +21,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - **A reply that goes somewhere.** Mail otherwise leaves as `wordpress@…`, so a mentor
  *   answering "Call booked with your mentor" is writing to a mailbox nobody reads.
  * - **A record.** `wp_mail()` returns a boolean that every caller discarded, so "the student
- *   says they got nothing" was unanswerable. The record holds a masked address and the
- *   template's context, never the subject: see `record()`.
+ *   says they got nothing" was unanswerable. The context each message carries names it in the
+ *   mail log (`WPCPM_Mail_Log`, WPCredits Program > Tools > Emails), which keeps who, what, when
+ *   and status for 30 days and never the message text.
  * - **One filter.** `wpcpm_mail` sees subject, body and headers together, so a site can
  *   change any of it without patching a template.
  */
 class WPCPM_Mail {
-
-	/** Option holding the recent-mail log. */
-	const LOG_OPTION = 'wpcpm_mail_log';
-
-	/** How many sends to remember. Enough to answer a question, not enough to bloat an option. */
-	const LOG_MAX = 100;
 
 	/** Option holding user IDs waiting for an invitation. */
 	const QUEUE_OPTION = 'wpcpm_invite_queue';
@@ -93,12 +88,11 @@ class WPCPM_Mail {
 	const ACTION_DISMISS = 'wpcpm_dismiss_invite_run';
 
 	/**
-	 * What is currently being sent, if it is ours.
+	 * What is currently being sent, if it is ours: the email's id in `WPCPM_Mail_Catalog`.
 	 *
-	 * Set immediately before handing a message to `wp_mail()` and read by the outcome hooks.
-	 * Empty means the message belongs to WordPress or another plugin, and is none of this
-	 * log's business - the log exists to answer "did *our* mail arrive", and a site's entire
-	 * mail volume would bury that.
+	 * Set immediately before handing a message to `wp_mail()` (and, for an invitation, in
+	 * `welcome_email()`, which WordPress's own `wp_mail()` call follows), and taken by the mail log's
+	 * capture at the `wp_mail` filter (`take_context()`), so it names that email and no later one.
 	 *
 	 * @var string
 	 */
@@ -116,33 +110,19 @@ class WPCPM_Mail {
 
 		// Before wpcomsh's own `login_init` callback, which runs at -1. See the method.
 		add_action( 'login_init', array( __CLASS__, 'keep_password_links_working' ), -2 );
-
-		// The outcome, rather than the attempt. `wp_mail()` returns a boolean that says
-		// whether the message was accepted for delivery; these two hooks carry the same
-		// answer and also fire for the invitations, which WordPress sends itself and which
-		// therefore never pass through `send()` at all.
-		add_action( 'wp_mail_succeeded', array( __CLASS__, 'mail_succeeded' ) );
-		add_action( 'wp_mail_failed', array( __CLASS__, 'mail_failed' ) );
 	}
 
 	/**
-	 * Record a message that was accepted for delivery.
+	 * The id of the email being sent, if the plugin set one, cleared as it is read: the mail log's
+	 * capture takes it at the `wp_mail` filter (`WPCPM_Mail_Capture::open()`).
 	 *
-	 * @param array $mail_data `to`, `subject`, `message`, `headers`, `attachments`.
+	 * @return string
 	 */
-	public static function mail_succeeded( $mail_data ) {
-		self::record( (array) $mail_data, true );
-	}
+	public static function take_context() {
+		$context       = self::$context;
+		self::$context = '';
 
-	/**
-	 * Record a message that was refused.
-	 *
-	 * @param WP_Error $error The failure, carrying the message in its error data.
-	 */
-	public static function mail_failed( $error ) {
-		$data = $error instanceof WP_Error ? $error->get_error_data() : array();
-
-		self::record( is_array( $data ) ? $data : array(), false );
+		return $context;
 	}
 
 	/*
@@ -154,7 +134,7 @@ class WPCPM_Mail {
 	 * Send one message to one person.
 	 *
 	 * @param int|WP_User $recipient Who it is for. Their locale is used to build it.
-	 * @param string      $context   Short label for the log, e.g. `call-booked`.
+	 * @param string      $context   The email's id in `WPCPM_Mail_Catalog`, e.g. `call-booked`.
 	 * @param callable    $build     Receives the recipient as a `WP_User` and returns an
 	 *                               array with `subject`, `body`, and optionally `headers`,
 	 *                               `attachments`, `cleanup` and `plain_subject` (see
@@ -199,7 +179,7 @@ class WPCPM_Mail {
 	 * is known. Left empty, the message is built in whatever locale the request is in.
 	 *
 	 * @param string   $email   Where it goes. Refused unless `is_email()` accepts it.
-	 * @param string   $context Short label for the log, e.g. `institution-applied`.
+	 * @param string   $context The email's id in `WPCPM_Mail_Catalog`, e.g. `institution-applied`.
 	 * @param callable $build   Receives the address as a string and returns the same array
 	 *                          `send()`'s builder does.
 	 * @param string   $locale  Locale to build the message in, e.g. `es_ES`. Empty for the
@@ -244,7 +224,7 @@ class WPCPM_Mail {
 	 * differently, so it stays with them.
 	 *
 	 * @param string       $to        Address the message goes to.
-	 * @param string       $context   Short label for the log.
+	 * @param string       $context   The email's id in `WPCPM_Mail_Catalog`.
 	 * @param mixed        $mail      What the builder returned.
 	 * @param WP_User|null $recipient The recipient's account, or null when there is none.
 	 * @return bool Whether the message was handed off successfully.
@@ -374,81 +354,17 @@ class WPCPM_Mail {
 	}
 
 	/*
-	 * The log
+	 * An address, masked
 	 * --------------------------------------------------------------------
 	 */
 
 	/**
-	 * Remember one send, if it was ours.
-	 *
-	 * The row is when, a masked address, the context and the outcome. Not the subject, and
-	 * not the address as written: the log exists to answer "did our mail leave", and the
-	 * hundred rows it keeps would otherwise be a contact list in `wp_options`. Recipients
-	 * include applicants and invitees who never became users, and subjects carry other
-	 * people's names ("Call booked with <student>"). The context names the template that
-	 * went out, which is what tracing a missing message needs, and `a***@example.org` is
-	 * enough to tell whose it was next to the account it belongs to.
-	 *
-	 * @param array $mail_data The message, as `wp_mail()` saw it.
-	 * @param bool  $sent      Outcome.
-	 */
-	private static function record( array $mail_data, $sent ) {
-		if ( '' === self::$context ) {
-			return;
-		}
-
-		$context = self::$context;
-
-		// Cleared here rather than by the caller: whichever of the two outcome hooks fires,
-		// this message is finished, and a context left standing would mislabel whatever the
-		// site sends next.
-		self::$context = '';
-
-		$log = self::log();
-
-		array_unshift(
-			$log,
-			array(
-				'time'    => time(),
-				'to'      => self::mask_recipients( isset( $mail_data['to'] ) ? $mail_data['to'] : '' ),
-				'context' => $context,
-				'sent'    => (bool) $sent,
-			)
-		);
-
-		update_option( self::LOG_OPTION, array_slice( $log, 0, self::LOG_MAX ), false );
-	}
-
-	/**
-	 * The `to` of a message as the log keeps it: every address masked.
-	 *
-	 * @param string|string[] $to What `wp_mail()` was given: one address, a comma-separated list
-	 *                            or an array, any of them possibly in `Name <address>` form.
-	 * @return string Masked addresses, comma-separated.
-	 */
-	private static function mask_recipients( $to ) {
-		$list = is_array( $to ) ? $to : explode( ',', (string) $to );
-		$out  = array();
-
-		foreach ( $list as $address ) {
-			$masked = self::mask_address( $address );
-
-			if ( '' !== $masked ) {
-				$out[] = $masked;
-			}
-		}
-
-		return implode( ', ', $out );
-	}
-
-	/**
 	 * An address reduced to what identifies it without disclosing it: `a***@example.org`.
 	 *
-	 * The first character of the mailbox and the whole domain. Enough to tell a student's
-	 * address from their mentor's when both got the same message, and to see which mail host
-	 * is refusing, which is the delivery question the log is for. A `Name <address>` form is
-	 * masked by its address and the name dropped; anything that is not an address at all
-	 * becomes `***`, so a malformed recipient still shows as a row.
+	 * The first character of the mailbox and the whole domain: what the Administrator Dashboard's
+	 * health card shows of the latest email's recipient, since that card is a page of the site and
+	 * the full address is the mail log's, in wp-admin. A `Name <address>` form is masked by its
+	 * address and the name dropped; anything that is not an address at all becomes `***`.
 	 *
 	 * @param string $address One recipient, as handed to `wp_mail()`.
 	 * @return string The masked form, or an empty string for a blank.
@@ -471,41 +387,6 @@ class WPCPM_Mail {
 		}
 
 		return sanitize_text_field( mb_substr( $address, 0, 1 ) . '***' . substr( $address, $at ) );
-	}
-
-	/**
-	 * The recent-mail log, newest first.
-	 *
-	 * @return array
-	 */
-	public static function log() {
-		$log = get_option( self::LOG_OPTION, array() );
-
-		return is_array( $log ) ? $log : array();
-	}
-
-	/**
-	 * Forget every recorded send.
-	 */
-	public static function clear_log() {
-		delete_option( self::LOG_OPTION );
-	}
-
-	/**
-	 * How many of the recorded sends failed.
-	 *
-	 * @return int
-	 */
-	public static function failures() {
-		$failed = 0;
-
-		foreach ( self::log() as $entry ) {
-			if ( empty( $entry['sent'] ) ) {
-				++$failed;
-			}
-		}
-
-		return $failed;
 	}
 
 	/*
@@ -1518,7 +1399,8 @@ class WPCPM_Mail {
 		// outcome: a scope a save left queued cannot name the sample's.
 		WPCPM_Settings_Screen::flash_outcome( $sent ? 'test-sent' : 'test-failed' );
 
-		// Back to the Mail tab, where the button was pressed and the log it just added to is.
+		// Back to the Mail tab, where the button was pressed. The sample is recorded in the email log
+		// (Tools > Emails), which the Recent mail section there points to.
 		wp_safe_redirect( WPCPM_Settings_Screen::settings_url( 'mail' ) );
 		exit;
 	}

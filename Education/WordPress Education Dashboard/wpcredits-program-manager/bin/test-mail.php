@@ -211,7 +211,8 @@ function switch_to_locale( $locale ) { $GLOBALS['locales'][] = (string) $locale;
 function restore_previous_locale() { array_pop( $GLOBALS['locales'] ); return true; }
 
 /**
- * `wp_mail()`, recording what it was handed and firing the outcome hook the log listens to.
+ * `wp_mail()`, recording what it was handed and the context the mail log's capture takes at the
+ * `wp_mail` filter (`WPCPM_Mail::take_context()`), and firing the outcome hooks as core does.
  */
 function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array() ) {
 	// Whether each attachment still exists *at send time* is the assertion that matters:
@@ -228,7 +229,10 @@ function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array
 		$contents[ $path ] = $present[ $path ] ? (string) file_get_contents( $path ) : '';
 	}
 
-	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present', 'contents' );
+	// Taken where the capture takes it, so a context left standing would show on the next message.
+	$context = WPCPM_Mail::take_context();
+
+	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present', 'contents', 'context' );
 
 	if ( ! empty( $GLOBALS['mail_fails'] ) ) {
 		do_action( 'wp_mail_failed', new WP_Error( 'fail', 'nope', compact( 'to', 'subject' ) ) );
@@ -333,7 +337,6 @@ echo "\n=== WPCPM_Mail::send_to ===\n";
 // An applicant is an address and nothing else. Before `send_to()`, mail to one went to
 // `wp_mail()` directly and so past the filter, the log and the subject sanitising - which is
 // why every claim made about `send()` above is made again here, against a bare address.
-WPCPM_Mail::clear_log();
 $GLOBALS['mail'] = array();
 $seen_locale     = null;
 $seen_to         = null;
@@ -361,10 +364,7 @@ ck( 'an address with no account is mailed', array( $sent, $GLOBALS['mail'][0]['t
 ck( 'the builder is handed the address, there being no user', array( $seen_to ), array( 'applicant@example.test' ) );
 ck( 'the template is built inside the locale the caller named', array( $seen_locale ), array( 'es_ES' ) );
 ck( 'and that locale is restored afterwards', $GLOBALS['locales'], array() );
-ck( 'the send is logged under its context',
-    array( WPCPM_Mail::log()[0]['context'], WPCPM_Mail::log()[0]['to'] ),
-    // The log keeps a masked address: enough to tell whose it was, never a contact list.
-    array( 'institution-applied', 'a***@example.test' ) );
+ck( 'the send carries its context to the mail log', array( $GLOBALS['mail'][0]['context'] ), array( 'institution-applied' ) );
 ck( 'the filter runs, with nobody as the recipient', array( $seen_recipient ), array( null ) );
 
 // Null is the exception for an address with no account, not a change: the same filter still
@@ -525,30 +525,29 @@ ck( 'a name cannot break out of the header',
     array( false !== strpos( $header[0], "\n" ), false !== strpos( $header[0], '"Ke l Bcc: attacker@example.test"' ) ),
     array( false, true ) );
 
-/* ---- the log ------------------------------------------------------------ */
+/* ---- the context the mail log names a send by ---------------------------- */
 
-echo "\n=== The log ===\n";
+echo "\n=== The context the mail log names a send by ===\n";
 
-WPCPM_Mail::clear_log();
+// The record of what was sent is the mail log's (WPCPM_Mail_Log, WPCPM_Mail_Capture): the mail
+// layer keeps none of its own, and hands the capture the email's id as `wp_mail()` runs.
+ck( 'the mail layer listens to neither outcome of a send: the mail log\'s capture does', array( isset( $GLOBALS['filters']['wp_mail_succeeded'] ), isset( $GLOBALS['filters']['wp_mail_failed'] ), method_exists( 'WPCPM_Mail', 'log' ), defined( 'WPCPM_Mail::LOG_OPTION' ) ), array( false, false, false, false ) );
+
+$GLOBALS['mail'] = array();
 WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
 
-$log = WPCPM_Mail::log();
-ck( 'a send is recorded with its outcome and context',
-    array( count( $log ), $log[0]['context'], $log[0]['sent'], $log[0]['to'] ),
-    array( 1, 'call-booked', true, 'l***@example.test' ) );
+ck( 'a send hands wp_mail() its context, for the capture to take', array( count( $GLOBALS['mail'] ), end( $GLOBALS['mail'] )['context'] ), array( 1, 'call-booked' ) );
+ck( 'and once taken it is gone, so it cannot name the next email', WPCPM_Mail::take_context(), '' );
 
 $GLOBALS['mail_fails'] = true;
 WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
 $GLOBALS['mail_fails'] = false;
 
-$log = WPCPM_Mail::log();
-ck( 'a refusal is recorded as one', array( $log[0]['sent'] ), array( false ) );
-ck( 'and counted', array( WPCPM_Mail::failures() ), array( 1 ) );
+ck( 'a send that fails carries its context too', end( $GLOBALS['mail'] )['context'], 'call-booked' );
 
-// Mail belonging to WordPress or another plugin must not be swept into this log.
-WPCPM_Mail::clear_log();
+// Mail belonging to WordPress or another plugin carries none: the capture names it otherwise.
 wp_mail( 'someone@example.test', 'Comment awaiting moderation', 'body' );
-ck( 'somebody else\'s mail is not recorded', array( count( WPCPM_Mail::log() ) ), array( 0 ) );
+ck( 'a message the plugin did not send carries no context', end( $GLOBALS['mail'] )['context'], '' );
 
 /* ---- the invitation queue ---------------------------------------------- */
 
@@ -1121,11 +1120,10 @@ ck( 'an account holding the Mentor and Institution roles is sent the mentor\'s i
     array( '[WordPress Education Dashboard] Your mentor account is ready', true ) );
 
 // The context is observed the way production observes it: WordPress calls `wp_mail()` itself
-// straight after the filter, and the outcome hook reads what the filter left behind.
-WPCPM_Mail::clear_log();
+// straight after the filter, and the capture takes what the filter left behind.
 WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
 wp_mail( 'contact@oscar.example', $institution['subject'], $institution['message'] );
-ck( 'the invitation is logged as an institution\'s', array( WPCPM_Mail::log()[0]['context'] ), array( 'invite-institution' ) );
+ck( 'the invitation carries an institution\'s context to the mail log', array( end( $GLOBALS['mail'] )['context'] ), array( 'invite-institution' ) );
 
 // The agreement module answers `is_settled()` once it exists; the next phase ships it and the
 // members module beside it. A legacy institution whose agreement is already on file must not
@@ -1211,10 +1209,9 @@ ck( 'a sponsor gets the sponsor subject', $sponsor_mail['subject'], '[Site] Your
 ck( 'and the sponsor opening', false !== strpos( $sponsor_mail['message'], 'set up as a sponsor of the WordPress Credits Program' ), true );
 ck( 'and the dashboard label, when the page exists', false !== strpos( $sponsor_mail['message'], 'Your Sponsor Dashboard:' ), true );
 
-WPCPM_Mail::clear_log();
 WPCPM_Mail::welcome_email( $sponsor_email, $sponsor, 'Site' );
 wp_mail( 'rep@sponsor.example.test', $sponsor_mail['subject'], $sponsor_mail['message'] );
-ck( 'the invitation is logged as a sponsor\'s', array( WPCPM_Mail::log()[0]['context'] ), array( 'invite-sponsor' ) );
+ck( 'the invitation carries a sponsor\'s context to the mail log', array( end( $GLOBALS['mail'] )['context'] ), array( 'invite-sponsor' ) );
 
 /* ---- calendar invitations ---------------------------------------------- */
 
@@ -1742,8 +1739,8 @@ ck( 'the mentor button sends the mentor invitation',
     array( '[WordPress Education Dashboard] Your mentor account is ready' ) );
 ck( 'the two samples say different things',
     array( $student_sample['body'] === $mentor_sample['body'] ), array( false ) );
-ck( 'and each is logged under its own audience',
-    array( WPCPM_Mail::log()[0]['context'] ), array( 'test-mentor' ) );
+ck( 'and each carries its own audience\'s context to the mail log',
+    array( $student_sample['context'], $mentor_sample['context'] ), array( 'test-student', 'test-mentor' ) );
 
 // The sample's notice is the Settings screen's, on the same channel a save's is, and its outcome is
 // queued through the screen's own door, which sets the scope with it: a scope a save left queued,
@@ -1759,13 +1756,13 @@ ck( 'and its notice is queued with the scope set to none, replacing a scope a sa
 $institution_sample = press_sample_button( 'institution' );
 
 ck( 'the institution button sends the institution invitation',
-    array( $institution_sample['subject'], WPCPM_Mail::log()[0]['context'] ),
+    array( $institution_sample['subject'], $institution_sample['context'] ),
     array( '[WordPress Education Dashboard] Your institution account is ready', 'test-institution' ) );
 
 $sponsor_sample = press_sample_button( 'sponsor' );
 
 ck( 'the sponsor button sends the sponsor invitation',
-    array( $sponsor_sample['subject'], WPCPM_Mail::log()[0]['context'] ),
+    array( $sponsor_sample['subject'], $sponsor_sample['context'] ),
     array( '[WordPress Education Dashboard] Your sponsor account is ready', 'test-sponsor' ) );
 
 // A kind nobody offers a button for falls back to the student template rather than to nothing.
@@ -1801,7 +1798,7 @@ ck( 'a javascript URL is not',  array( WPCPM_Mentor_Availability::meeting_url( '
 ck( 'nor a data URL',           array( WPCPM_Mentor_Availability::meeting_url( 'data:text/html,<script>' ) ), array( '' ) );
 ck( 'blank stays blank',        array( WPCPM_Mentor_Availability::meeting_url( '   ' ) ), array( '' ) );
 
-echo "\n=== The log's masked address ===\n";
+echo "\n=== The masked address the health card shows ===\n";
 
 ck( 'a bare address keeps its first letter and its domain', WPCPM_Mail::mask_address( 'lu@example.test' ), 'l***@example.test' );
 ck( 'a display name is dropped and the address inside the brackets masked', WPCPM_Mail::mask_address( 'Lu Example <lu@example.test>' ), 'l***@example.test' );

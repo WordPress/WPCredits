@@ -73,7 +73,7 @@ deleted**, and their program details in Airtable are untouched.
 | Details are stale on a Student Report Card or Mentor Report Card | Run the sync by hand; the page renders from what the last sync stored. |
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
 | Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
-| Invitations are not arriving | The **Mail** tab on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
+| Invitations are not arriving | **WPCredits Program > Tools > Emails**, filtered to the **Invitations** area. **Handed to the mail server** means the site passed it on; anything after that is between the site and its mail service. |
 | A password link says it is invalid | An older invitation. Each one cancels the link in the one before, so ask them to use their newest email. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 

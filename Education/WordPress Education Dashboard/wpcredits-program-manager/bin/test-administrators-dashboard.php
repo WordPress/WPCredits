@@ -241,6 +241,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
+// The names the health card gives the emails it reads, which are the catalog's own data.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 
 /* ---- the collaborators, stubbed to their contracts ----------------------- */
 
@@ -512,9 +514,26 @@ class WPCPM_Private_Files {
 	public static function verdict( array $r ) { return ! empty( $r['blocked'] ) ? 'blocked' : ( $r['status'] >= 200 && $r['status'] < 300 ? 'served' : 'unknown' ); }
 }
 class WPCPM_Mail {
-	public static function log() { return isset( $GLOBALS['mail_log'] ) ? $GLOBALS['mail_log'] : array(); }
 	public static function run() { return isset( $GLOBALS['invite_run'] ) ? $GLOBALS['invite_run'] : array(); }
 	public static function queued() { return isset( $GLOBALS['invite_queued'] ) ? (int) $GLOBALS['invite_queued'] : 0; }
+	// The real one's rule: the mailbox's first character and the whole domain.
+	public static function mask_address( $a ) { $at = strrpos( (string) $a, '@' ); return false === $at || 0 === $at ? ( '' === (string) $a ? '' : '***' ) : substr( (string) $a, 0, 1 ) . '***' . substr( (string) $a, $at ); }
+}
+// The email log the health card reads: its latest row, and how many failed since the time asked.
+class WPCPM_Mail_Log {
+	const STATUS_FAILED = 'failed';
+	// Whether the log's table is there; a check that takes it away sets `$GLOBALS['mail_log_missing']`.
+	public static function exists() { return empty( $GLOBALS['mail_log_missing'] ); }
+	// With no table the real ones find nothing: no latest row, no failures.
+	public static function latest() { return isset( $GLOBALS['mail_latest'] ) && self::exists() ? $GLOBALS['mail_latest'] : null; }
+	public static function failures_since( $since ) { $GLOBALS['mail_failed_since'][] = $since; return isset( $GLOBALS['mail_failed'] ) && self::exists() ? (int) $GLOBALS['mail_failed'] : 0; }
+	public static function status_label( $status ) { return 'sent' === $status ? 'Handed to the mail server' : ( 'failed' === $status ? 'Failed' : 'Not recorded' ); }
+}
+// The tool registry, with the Emails tool filtered out of it: the card links the Log at the address
+// the tool would have. A check registers a tool by putting one in `$emails`.
+class WPCPM_Tools {
+	public static $emails = null;
+	public static function get( $id ) { return 'emails' === $id ? self::$emails : null; }
 }
 class WPCPM_Handbook_Assistant {
 	public static function render_resources( $audience = '', $extra = '' ) { $GLOBALS['resources'][] = $audience; return '<section class="wpcpm-handbook__resources" data-audience="' . esc_attr( $audience ) . '"></section>'; }
@@ -776,7 +795,8 @@ $GLOBALS['sync'] = array(
 	'sponsors'     => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => '', 'elapsed' => 0 ),
 );
 $GLOBALS['probe']         = array( 'status' => 403, 'time' => 1756700000, 'blocked' => true, 'error' => '', 'control_status' => 200, 'encrypted' => true );
-$GLOBALS['mail_log']      = array( array( 'time' => 1756990000, 'to' => 'm***@a8c.com', 'context' => 'report-drafted', 'sent' => true ) );
+$GLOBALS['mail_latest']   = array( 'sent_at' => '2026-09-04 12:46:40', 'to_email' => 'mia@example.test', 'template' => 'report-drafted', 'status' => 'sent' );
+$GLOBALS['mail_failed']   = 1;
 $GLOBALS['invite_run']    = array( 'total' => 5, 'started' => 1756990000, 'finished' => 0 );
 $GLOBALS['invite_queued'] = 2;
 $GLOBALS['next']['wpcpm_sponsors_daily'] = 1756990000 + 3600;
@@ -1062,7 +1082,52 @@ ck( 'and the institutions sync opens its screen at the Sync and storage tab, whe
 	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=sync', true ) );
 ck( 'the error is printed verbatim and escaped', has( $health, 'HTTP 429 from Airtable &lt;b&gt;x&lt;/b&gt;' ), true );
 ck( 'the locked account is named', has( $health, 'Rep One' ), true );
-ck( 'the probe verdict, the last mail and the invitation run are there', has( $health, 'blocked' ) && has( $health, 'report-drafted' ) && has( $health, '3 of 5' ), true );
+ck( 'the probe verdict and the invitation run are there', has( $health, 'blocked' ) && has( $health, '3 of 5' ), true );
+// The mail line reads the email log: the latest email by its name, its address masked, when, and its
+// status in a sentence of its own; then the last day's failures; each linked to the Emails tool's Log.
+$failed_since = isset( $GLOBALS['mail_failed_since'][0] ) ? (int) strtotime( $GLOBALS['mail_failed_since'][0] . ' UTC' ) : 0;
+ck( 'the mail line names the latest email, masks its address, and gives its status in a sentence of its own',
+	array( has( $health, 'Last email: Semester report drafted to m***@example.test on ' ), has( $health, '. Status: Handed to the mail server. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), has( $health, 'mia@example.test' ) ),
+	array( true, true, false ) );
+ck( 'and counts the failures of the last day, linked to the Log\'s failed emails',
+	array( has( $health, '<li>1 email failed in the last day. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed">Show the failed emails</a></li>' ), abs( $failed_since - ( time() - DAY_IN_SECONDS ) ) <= 5 ),
+	array( true, true ) );
+$health_quiet         = $data['health'];
+$health_quiet['mail'] = array( 'latest' => array(), 'failed' => 0 );
+$health_quiet         = capture( static function () use ( $health_quiet, $data ) { WPCPM_Administrators_Cards::render_health( $health_quiet, $data['locked'] ); } );
+ck( 'with nothing sent yet the line says so, still linked to the Log, and no failures are counted',
+	array( has( $health_quiet, '<li>No email has been sent yet. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a></li>' ), has( $health_quiet, 'failed in the last day' ) ),
+	array( true, false ) );
+
+// With no table the log has nothing to show, which is not the same as no email sent: the line says
+// the log is not ready, and the data the card reads says so.
+$GLOBALS['mail_log_missing'] = true;
+$health_missing_data         = WPCPM_Administrators_Cards::health();
+$GLOBALS['mail_log_missing'] = false;
+$health_ready_data           = WPCPM_Administrators_Cards::health();
+ck( 'the health data says whether the email log is ready', array( $health_ready_data['mail']['ready'] ?? null, $health_missing_data['mail']['ready'] ?? null ), array( true, false ) );
+$health_missing = capture( static function () use ( $health_missing_data, $data ) { WPCPM_Administrators_Cards::render_health( $health_missing_data, $data['locked'] ); } );
+ck( 'with no table the line says the log is not ready yet, never that no email has been sent, still linked to the Log',
+	array( has( $health_missing, '<li>The email log is not ready yet. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a></li>' ), has( $health_missing, 'No email has been sent yet.' ), has( $health_missing, 'failed in the last day' ) ),
+	array( true, false, false ) );
+$health_ready_empty                  = $health_ready_data;
+$health_ready_empty['mail']['latest'] = array();
+$health_ready_empty['mail']['failed'] = 0;
+$health_ready_empty                  = capture( static function () use ( $health_ready_empty, $data ) { WPCPM_Administrators_Cards::render_health( $health_ready_empty, $data['locked'] ); } );
+ck( 'and a log that is ready but empty still says no email has been sent',
+	array( has( $health_ready_empty, '<li>No email has been sent yet. <a href=' ), has( $health_ready_empty, 'not ready yet' ) ),
+	array( true, false ) );
+
+// With the Emails tool registered the card asks it for its address, whatever that is, and keeps the
+// Log tab and the failed emails' status on it.
+WPCPM_Tools::$emails = new class() {
+	public function admin_url() { return 'https://example.test/wp-admin/admin.php?page=moved-emails'; }
+};
+$health_registered   = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] ); } );
+WPCPM_Tools::$emails = null;
+ck( 'with the Emails tool registered the card links the Log at the tool\'s own address, the Log tab and the failed emails kept',
+	array( has( $health_registered, '<a href="https://example.test/wp-admin/admin.php?page=moved-emails&tab=log">Open the email log</a>' ), has( $health_registered, '<a href="https://example.test/wp-admin/admin.php?page=moved-emails&tab=log&status=failed">Show the failed emails</a>' ), has( $health_registered, 'page=wpcpm-tool-emails' ) ),
+	array( true, true, false ) );
 
 // A sync that has not run, and one with no run booked, in the Last run and Next run cells: the
 // words the Overview's Syncs table says the same two facts in, a cell's sentence case. The probe's

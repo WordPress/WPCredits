@@ -344,17 +344,39 @@ class WPCPM_Private_Files {
 	}
 }
 
-/** The mail log and the invitation run: nothing sent, nothing queued. */
+/** The invitation run: nothing queued. */
 class WPCPM_Mail {
-	public static function log() {
-		return array();
-	}
-
 	public static function run() {
 		return array();
 	}
 
 	public static function queued() {
 		return 0;
+	}
+}
+
+/** The email log, which a new site has, empty: nothing sent, nothing failed. */
+class WPCPM_Mail_Log {
+	const KEEP_DAYS     = 30;
+	const STATUS_FAILED = 'failed';
+
+	public static function exists() {
+		return true;
+	}
+
+	public static function count_since( $since_utc ) {
+		return 0;
+	}
+
+	public static function latest() {
+		return null;
+	}
+
+	public static function failures_since( $since_utc ) {
+		return 0;
+	}
+
+	public static function status_label( $status ) {
+		return 'Not recorded';
 	}
 }

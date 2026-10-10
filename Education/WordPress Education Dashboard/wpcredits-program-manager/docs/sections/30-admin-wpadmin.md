@@ -23,7 +23,7 @@ The screens, the settings and this guide call each thing by one name.
 | --- | --- | --- |
 | **WPCredits Program** | The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu, and a screen's place in it, written with ">" between the steps, such as **WPCredits Program > Settings**. |
 | **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The menu, each audience's own screen, and the Settings tabs. |
-| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
+| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Emails**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
 | **Landing page** | Where an account goes when it logs in: the **Mentor**, **Student**, **Institution** and **Sponsor landing page**, each with the page's address under its switch. | The Students and mentors, Institutions and Sponsors tabs of Settings. |
 | **Remove** and **Leave** | The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way. | The Settings sections **When someone leaves**, **When an institution leaves the pipeline** and **When a sponsor is no longer Approved**. |
 
@@ -154,8 +154,8 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 ### Tools
 
 The **Tools** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience - currently **Header notices**, **Need help?**, the **Mentor
-Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
+rather than belonging to one audience - currently **Header notices**, **Emails**, **Need help?**, the
+**Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
 behind an *Open tool* button. Three of them, the **Mentor Status Checker**, the
 **Student Duplicate Finder** and **Need help?**, keep their settings in a **Settings** section at the
 top of that screen, rather than on the Settings screen.

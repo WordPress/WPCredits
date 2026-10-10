@@ -274,7 +274,8 @@ class WPCPM_Dashboards {
 	 * and without the script it is the switcher, with nothing beside it that does nothing. The field
 	 * carries no name, so the GET form posts the same field it posted before. All of it sits inside
 	 * the form, because the WordPress Credits theme lifts the form above the dashboard card by its
-	 * opening tag. The script is enqueued here, so only a page that draws a switcher loads it.
+	 * opening tag. The label, the list and the field are `render_combo()`'s, which enqueues the
+	 * script, so only a page that draws a switcher, or another form's field, loads it.
 	 *
 	 * Everything after the page ID is one block of fields, which the stylesheet lays out as a grid
 	 * on one row: the label, the list or the field in its place, Show and the note. The note is the
@@ -316,19 +317,6 @@ class WPCPM_Dashboards {
 			return;
 		}
 
-		// Registered here the first time a switcher is drawn, in the footer, which a block's render
-		// still reaches: the four dashboards share the handle and whichever draws first wins.
-		if ( ! wp_script_is( self::SWITCHER_SCRIPT, 'registered' ) ) {
-			wp_register_script( self::SWITCHER_SCRIPT, WPCPM_PLUGIN_URL . 'assets/js/switcher.js', array(), WPCPM_VERSION, true );
-		}
-
-		wp_enqueue_script( self::SWITCHER_SCRIPT );
-
-		$id    = (string) $args['id'];
-		$field = $id . '-input';
-		$list  = $id . '-list';
-		$named = $id . '-label';
-
 		echo '<form class="wpcpm-dashboard__switcher" method="get">';
 
 		// Without pretty permalinks the page is addressed by query string, which a GET form
@@ -342,13 +330,84 @@ class WPCPM_Dashboards {
 		}
 
 		echo '<div class="wpcpm-dashboard__switcher-fields">';
+		self::render_combo( array_merge( $args, array( 'options' => $options ) ) );
+		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
+		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
+		echo '</div>';
+		echo '</form>';
+	}
+
+	/**
+	 * The one field for a long list (the owner's rule of 9 October 2026): its label, the select a form
+	 * sends, and beside it, hidden, the combobox assets/js/switcher.js shows in the select's place, a
+	 * text field that drops down, takes typing and narrows its list. The Viewing as switcher draws it
+	 * between its block of fields' opening and Show (`render_switcher()`); the Emails tool's Log draws
+	 * it as its Email filter. The options are drawn in the order given, so the caller sorts them, and
+	 * a caller decides whether one entry is worth a field.
+	 *
+	 * The script finds the parts through their ARIA: the field names its list (`aria-controls`), the
+	 * list names the label (`aria-labelledby`, the label's `{id}-label`), and the label names the
+	 * select (`for`). The label is drawn here for that reason, so no form can draw the field with a
+	 * label the list does not name. The script is registered and enqueued here, so every page that
+	 * draws the field loads it.
+	 *
+	 * @param array $args {
+	 *     The field.
+	 *
+	 *     @type string     $id      The select's ID; the field takes it with `-input` added, its list of
+	 *                              names with `-list` and the label with `-label`.
+	 *     @type string     $name    The query argument the select posts.
+	 *     @type array      $options Value to label, in the order to draw them.
+	 *     @type string|int $current The value chosen, selected in the select.
+	 *     @type string     $label   The label.
+	 *     @type string     $find    The field's placeholder, which it shows while it is empty.
+	 *     @type string     $none    What the field's list says when nothing matches what was typed.
+	 *     @type string     $count   The status line's sentence for how many entries the list shows,
+	 *                              with %s for the number; the Viewing as sentence when empty.
+	 * }
+	 */
+	public static function render_combo( array $args ) {
+		$args = array_merge(
+			array(
+				'id'      => '',
+				'name'    => '',
+				'options' => array(),
+				'current' => '',
+				'label'   => '',
+				'find'    => '',
+				'none'    => '',
+				'count'   => '',
+			),
+			$args
+		);
+
+		// Registered here the first time a field is drawn, in the footer, which a block's render still
+		// reaches: the four dashboards and the Emails screen share the handle and whichever draws first
+		// wins.
+		if ( ! wp_script_is( self::SWITCHER_SCRIPT, 'registered' ) ) {
+			wp_register_script( self::SWITCHER_SCRIPT, WPCPM_PLUGIN_URL . 'assets/js/switcher.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( self::SWITCHER_SCRIPT );
+
+		$id    = (string) $args['id'];
+		$field = $id . '-input';
+		$list  = $id . '-list';
+		$named = $id . '-label';
+		$count = (string) $args['count'];
+
+		if ( '' === $count ) {
+			/* translators: %s: how many names the Viewing as list shows, as a number. */
+			$count = __( 'Names in the list: %s', 'wpcredits-program-manager' );
+		}
+
 		printf( '<label for="%1$s" id="%2$s">%3$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ) );
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
 		printf( '<select name="%1$s" id="%2$s" autocomplete="off">', esc_attr( $args['name'] ), esc_attr( $id ) );
 
-		foreach ( $options as $value => $label ) {
+		foreach ( (array) $args['options'] as $value => $label ) {
 			printf(
 				'<option value="%1$s"%2$s>%3$s</option>',
 				esc_attr( $value ),
@@ -375,15 +434,10 @@ class WPCPM_Dashboards {
 		// count's needs no plural, since the script fills in the number.
 		printf(
 			'<span class="wpcpm-dashboard__switcher-status" role="status" data-wpcpm-count="%1$s" data-wpcpm-none="%2$s"></span>',
-			/* translators: %s: how many names the Viewing as list shows, as a number. */
-			esc_attr( __( 'Names in the list: %s', 'wpcredits-program-manager' ) ),
+			esc_attr( $count ),
 			esc_attr( $args['none'] )
 		);
 		echo '</div> ';
-		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
-		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
-		echo '</div>';
-		echo '</form>';
 	}
 
 	/**

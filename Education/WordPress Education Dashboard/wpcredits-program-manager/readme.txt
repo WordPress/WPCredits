@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.17
+Stable tag: 1.122.18
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -22,7 +22,7 @@ The plugin is organized around five audiences:
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
 
-Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the audiences stay a stable description of the program while tools come and go as needed. It currently holds five tools: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Three of them, the Mentor Status Checker, the Student Duplicate Finder and Need help?, keep their settings in a Settings section on their own screens.
+Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the audiences stay a stable description of the program while tools come and go as needed. It currently holds six tools: **Header notices**, **Emails**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Three of them, the Mentor Status Checker, the Student Duplicate Finder and Need help?, keep their settings in a Settings section on their own screens.
 
 = Roles and capabilities =
 
@@ -291,6 +291,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.18 =
+
+* WPCredits Program > Tools > Emails: a record of every email the site sends, kept for 30 days. Each row is one recipient of one email: when, to whom (with the person's name when the address belongs to an account), the recipient type, the area that sent it, which email it was, its subject, and whether WordPress handed it to the mail server, failed, or did not say. Search by address, name or subject, and filter by area, recipient type, status, email and time; the Email filter is one field to type into and pick from. It covers the plugin's emails, WordPress's own and the Two Factor plugin's sign-in codes, and never keeps an email's text, attachments or anything secret.
+* Settings > Mail: Recent mail, which showed the last 25 of the emails the plugin had recorded, now points to the new log, and says how many emails failed in the last 30 days when any failed. The emails recorded before this version (up to a hundred) move into the log, with their addresses masked as they were kept, no subject and no recipient type; those older than 30 days are deleted with the rest.
+* Administrator Dashboard, the site health card: the last email (its name, the masked address it went to, when it went and its status) and how many failed in the last day, each linked to the log. Until the log's table exists, the line says the email log is not ready yet.
+* Privacy: WordPress's Export Personal Data and Erase Personal Data tools include a person's entries in the log. Uninstalling the plugin removes the log's table.
+* For developers: `WPCPM_Mail_Log` (the table `{prefix}wpcpm_mail_log`, created on `init` and stamped in `wpcpm_mail_log_version`, booted from the plugin's bootstrap), `WPCPM_Mail_Capture` (the `wp_mail`, `pre_wp_mail`, `wp_mail_succeeded`, `wp_mail_failed`, `shutdown` and `wp_php_error_args` hooks) and `WPCPM_Mail_Catalog` (every email's name, area and audience). `WPCPM_Dashboards::render_combo()` draws the one field for a long list that the Viewing as switcher and the Email filter share. Gone from `WPCPM_Mail`: `log()`, `failures()`, `clear_log()`, `mail_succeeded()`, `mail_failed()` and the constants `LOG_OPTION` and `LOG_MAX`; the `wpcpm_mail_log` option goes with them, and the two outcome hooks are the capture's now; `WPCPM_Mail::take_context()` hands the email's id to the capture.
 
 = 1.122.17 =
 

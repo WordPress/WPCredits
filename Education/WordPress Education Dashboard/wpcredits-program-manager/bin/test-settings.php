@@ -231,6 +231,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-slack
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
+// And the Emails tool, which keeps no settings but is registered: the Mail tab links its Log through
+// the registry, so the real tool answers for its own address.
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
 // The guide the Resources section links for program managers, which the Administrator Dashboard's
 // Resources button opens and the screen's intros leave alone: the real list, since a stand-in's
 // address would only agree with itself.
@@ -301,7 +304,7 @@ class WPCPM_Mentors_Sync {
 	}
 }
 
-/** The mail layer, for the Mail tab: what is queued, the sample buttons' action, the log. */
+/** The mail layer, for the Mail tab: what is queued, and the sample buttons' action. */
 class WPCPM_Mail {
 	const ACTION_TEST = 'wpcpm_send_test_mail';
 
@@ -310,15 +313,20 @@ class WPCPM_Mail {
 	public static function queued() {
 		return self::$queued;
 	}
+}
 
-	public static function log() {
-		return array(
-			array( 'time' => 1757000000, 'to' => 'maciej@a8c.com', 'subject' => 'Welcome', 'context' => 'invite-student', 'sent' => true ),
-		);
-	}
+/** The email log, for the Mail tab's Recent mail: how many failed, and since when it was asked. */
+class WPCPM_Mail_Log {
+	const KEEP_DAYS     = 30;
+	const STATUS_FAILED = 'failed';
 
-	public static function failures() {
-		return 0;
+	public static $failed = 0;
+	public static $asked  = array();
+
+	public static function failures_since( $since_utc ) {
+		self::$asked[] = $since_utc;
+
+		return self::$failed;
 	}
 }
 
@@ -1415,14 +1423,30 @@ class WPCPM_Mentor_Checker_Runner {
 }
 
 /**
- * The tool registry, over the three real tools that keep settings, less any a check takes out of it,
- * as a site's `wpcpm_tools` filter may.
+ * The Emails tool at an address of its own, as a site's `wpcpm_tools` filter could register it: the
+ * Mail tab's links to the Log are the registered tool's address, whatever it is.
+ */
+class Moved_Emails_Tool extends WPCPM_Emails {
+	public function admin_url() {
+		return 'https://example.test/wp-admin/admin.php?page=moved-emails';
+	}
+}
+
+/**
+ * The tool registry, over the three real tools that keep settings and the Emails tool the Mail tab
+ * links, less any a check takes out of it, as a site's `wpcpm_tools` filter may, or in place of
+ * which it registers another by the same ID.
  */
 class WPCPM_Tools {
 	public static $removed = array();
+	public static $instead = array();
 
 	public static function get( $id ) {
-		foreach ( array( new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder(), new WPCPM_Handbook() ) as $tool ) {
+		if ( isset( self::$instead[ $id ] ) && ! in_array( $id, self::$removed, true ) ) {
+			return self::$instead[ $id ];
+		}
+
+		foreach ( array( new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder(), new WPCPM_Handbook(), new WPCPM_Emails() ) as $tool ) {
 			if ( $tool->id() === $id && ! in_array( $id, self::$removed, true ) ) {
 				return $tool;
 			}
@@ -2691,9 +2715,51 @@ ck( 'the Mail tab has no Save: its four sample buttons are each a form posting t
 ck( 'and each sample form locks at its first press and says Sending while its mail is on the way',
     array_map( function ( $form ) { return trim( $form['open'] ); }, forms_of( $mail_html ) ),
     array_fill( 0, 4, 'method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="Sending"' ) );
-ck( 'and it draws what is waiting to be sent and the recent mail, with no Save anywhere on it',
-    array( false !== strpos( $mail_html, '3 invitations are waiting to be sent.' ), false !== strpos( $mail_html, '<td>maciej@a8c.com</td>' ), substr_count( $mail_html, 'value="Save settings"' ) ),
+ck( 'and it draws what is waiting to be sent and the way to the email log, with no Save anywhere on it',
+    array( false !== strpos( $mail_html, '3 invitations are waiting to be sent.' ), false !== strpos( $mail_html, '<a class="button" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), substr_count( $mail_html, 'value="Save settings"' ) ),
     array( true, true, 0 ) );
+
+// Recent mail points to the Emails tool's Log, which keeps every email for 30 days, and says how many
+// failed in that time, linked to them; with none failed it says nothing of failures.
+WPCPM_Mail_Log::$failed = 2;
+WPCPM_Mail_Log::$asked  = array();
+$mail_failed_html       = draw_settings( 'mail' );
+WPCPM_Mail_Log::$failed = 0;
+$asked_since            = isset( WPCPM_Mail_Log::$asked[0] ) ? (int) strtotime( WPCPM_Mail_Log::$asked[0] . ' UTC' ) : 0;
+
+ck( 'Recent mail says the log keeps every email for 30 days, and counts the failures of those 30 days, linked to the failed emails',
+    array( false !== strpos( $mail_failed_html, 'Every email the site sends is kept for 30 days in WPCredits Program &gt; Tools &gt; Emails, where it can be searched and filtered.' ), false !== strpos( $mail_failed_html, '2 emails failed in the last 30 days. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed">Show the failed emails</a>' ), abs( $asked_since - ( time() - 30 * DAY_IN_SECONDS ) ) <= 5, false !== strpos( $mail_html, 'failed in the last 30 days' ) ),
+    array( true, true, true, false ) );
+
+// The Log's links are found through the registry: the registered tool's own address with the Log tab,
+// the failed emails' link adding the status; a tool registered at another address is linked at that one
+// (the registry is asked, not the fallback); and with the tool filtered out the link is the address it
+// would have.
+WPCPM_Mail_Log::$failed = 2;
+$log_links              = array();
+
+foreach ( array( 'the tool registered' => array(), 'at another address' => array( 'emails' => new Moved_Emails_Tool() ), 'filtered out' => array() ) as $case => $registered ) {
+	WPCPM_Tools::$instead = $registered;
+	WPCPM_Tools::$removed = 'filtered out' === $case ? array( 'emails' ) : array();
+	$drawn_mail           = draw_settings( 'mail' );
+
+	$log_links[ $case ] = array(
+		preg_match( '#<a class="button" href="([^"]*)">Open the email log</a>#', $drawn_mail, $open ) ? $open[1] : null,
+		preg_match( '#<a href="([^"]*)">Show the failed emails</a>#', $drawn_mail, $failed_link ) ? $failed_link[1] : null,
+	);
+}
+
+WPCPM_Tools::$instead   = array();
+WPCPM_Tools::$removed   = array();
+WPCPM_Mail_Log::$failed = 0;
+
+ck( 'Recent mail links the Log at the Emails tool\'s own address with the Log tab, as the registry has it, and at the address the tool would have when it is filtered out',
+    $log_links,
+    array(
+        'the tool registered' => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed' ),
+        'at another address'  => array( 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=moved-emails&tab=log&status=failed' ),
+        'filtered out'        => array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed' ),
+    ) );
 
 // Each sample form carries its nonce under the name its handler reads it by, in a field with an id of
 // its own: core's nonce field takes its id from its name, which gave four elements of the tab one id.

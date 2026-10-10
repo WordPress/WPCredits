@@ -309,11 +309,9 @@ time in the background.
 
 #### Recent mail
 
-A log of the last 25 messages the plugin sent: bookings, cancellations, reminders and invitations,
-each with when, to whom, its subject and what it was, and whether the site accepted it. "Accepted"
-means the site handed the message off without complaint; it cannot tell you the message was
-delivered or read. A message the site refused is marked **Refused**, and a line above the log counts
-them: that is a delivery problem to fix, not a program one.
+This section points to **WPCredits Program > Tools > Emails**, which keeps every email the site
+sends for 30 days, with **Open the email log**. When an email failed in the last 30 days, the
+section says how many and links to them.
 
 ### The Advanced tab
 

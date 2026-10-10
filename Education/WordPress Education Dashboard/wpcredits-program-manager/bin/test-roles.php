@@ -378,14 +378,21 @@ foreach ( $in_uninstall[1] as $rel ) {
 // listed here, so the next file is covered the day it lands.
 preg_match_all( "/require_once WPCPM_PLUGIN_DIR \. '([^']+)';/", $loader_src, $anywhere );
 $on_disk = array();
-// `includes/tracks` since the Track Builder's classes landed there (1.100.0).
-foreach ( array( 'includes', 'includes/modules', 'includes/tools', 'includes/tracks' ) as $dir ) {
+// `includes/tracks` since the Track Builder's classes landed there (1.100.0), and `includes/mail`
+// since the mail log's (1.122.18).
+foreach ( array( 'includes', 'includes/modules', 'includes/tools', 'includes/tracks', 'includes/mail' ) as $dir ) {
 	foreach ( glob( dirname( __DIR__ ) . '/' . $dir . '/class-wpcpm-*.php' ) as $path ) {
 		$on_disk[] = $dir . '/' . basename( $path );
 	}
 }
-ck( 'every class file under includes/ is required by the loader',
-    array_values( array_diff( $on_disk, $anywhere[1] ) ), array() );
+// But one: the Log's list table extends core's list table, which wp-admin loads after the plugins,
+// so the Emails tool requires it on its own screen, as the audience screens load their account
+// lists (`wpcpm_load_accounts_tables()`), and the loader leaves it out.
+$on_screen = array( 'includes/mail/class-wpcpm-mail-log-table.php' );
+ck( 'every class file under includes/ is required by the loader, but the Log\'s list table',
+    array_values( array_diff( $on_disk, $anywhere[1], $on_screen ) ), array() );
+ck( 'which the Emails tool requires on its screen, and the loader does not',
+    array( false !== strpos( (string) file_get_contents( dirname( __DIR__ ) . '/includes/tools/class-wpcpm-emails.php' ), "require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log-table.php';" ), in_array( $on_screen[0], $anywhere[1], true ) ), array( true, false ) );
 
 // A tool reaches the menu, the Tools screen and the uninstall fan-out through the registry and
 // nowhere else, so a tool that loads and is never registered is a screen nobody can open and data
@@ -393,6 +400,8 @@ ck( 'every class file under includes/ is required by the loader',
 // need every tool's dependencies (the Student Duplicate Finder, 1.102.0).
 ck( 'the Student Duplicate Finder is registered as a tool',
     array( false !== strpos( (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-wpcpm-tools.php' ), 'new WPCPM_Duplicate_Finder()' ) ), array( true ) );
+ck( 'and so is Emails',
+    array( false !== strpos( (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-wpcpm-tools.php' ), 'new WPCPM_Emails()' ) ), array( true ) );
 
 // The institution dashboard's own wiring, asserted from the day the file exists rather than
 // from a name written here in advance. Its page ID and its title-version flag are two options

@@ -27,6 +27,44 @@ button underneath.
 - Links and simple emphasis survive; scripts and other markup are stripped **on save**, so nothing
   dangerous is stored rather than merely hidden at render time.
 
+### Emails
+
+**WPCredits Program > Tools > Emails.** A record of every email the site sends, kept for 30 days:
+the plugin's own, WordPress's (a password reset, for example) and the Two Factor plugin's sign-in
+codes. Use it to answer "did they get the email?".
+
+Each row is one recipient of one email: when it was sent, in the site's time zone; the address as
+plain text, and under it the person's name when the address belonged to an account at the time,
+which is a link to the account for as long as the account exists; the recipient type (Student,
+Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
+area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, WordPress,
+Two Factor or Other); which email it was; its subject; and its status. The status is one of three:
+
+- **Handed to the mail server**: the site passed the email on. This does not prove it reached the
+  inbox: a full mailbox or a spam filter can still stop it after it leaves the site.
+- **Failed**: WordPress could not hand it over; the reason it gave is shown under the status.
+- **Not confirmed**: another plugin took the email over before WordPress could say what happened,
+  or the request ended, with a fatal error for example, before it did.
+
+A **Test** mark beside the status shows a sample you sent yourself from Settings > Mail. It is not
+a fourth status: the sample has one of the three as well, and the **Status** filter has a **Test**
+choice that lists the samples.
+
+To find an email, type part of an address, a name or a subject into the search box, or narrow the
+list by **Area**, **Recipient type**, **Status**, **Email** or **When** (today, the last 7 days, the
+last 30 days, or from and to dates), and press **Filter**. The **Email** filter is one field: type
+a few letters of the email's name and pick it from the list. Fifty rows show a page, newest first,
+with the count above them.
+
+The log never keeps the text of an email, its attachments, or anything secret such as a sign-in
+code or a password link. Entries older than 30 days are deleted every day. WordPress's **Export
+Personal Data** and **Erase Personal Data** tools include a person's entries, found by their
+address. Erasing a person's entries is followed by WordPress's own confirmation email to that
+address, and the log records that email too, so a fresh row for the address after an erasure is
+expected. The emails the plugin had recorded before 1.122.18 (Settings > Mail showed the last 25 of
+up to a hundred) move into the log, with their addresses masked as they were kept, no subject and no
+recipient type; those older than 30 days are deleted with the rest.
+
 ### Mentor Status Checker
 
 **WPCredits Program > Tools > Mentor Status Checker.** Promotes mentors from *Vetted - positive* to

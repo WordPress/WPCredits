@@ -1600,96 +1600,42 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The recent-mail log, the Mail tab's second section.
+	 * The Mail tab's second section: where the record of sent email is.
 	 *
-	 * Exists to answer one question - "the student says they got nothing" - which was
-	 * previously unanswerable, because every caller threw away what `wp_mail()` told them.
+	 * Until 1.122.18 this drew the plugin's last hundred emails from an option. The Emails tool's Log
+	 * keeps every email the site sends for 30 days, so the section points there, with how many of
+	 * them failed, when any did.
 	 */
 	private function render_mail_log() {
-		$log = WPCPM_Mail::log();
-
 		$this->section_heading(
 			__( 'Recent mail', 'wpcredits-program-manager' ),
-			__( 'What the plugin has sent lately, and whether the site accepted each message.', 'wpcredits-program-manager' ),
+			__( 'Every email the site sends is kept for 30 days in WPCredits Program > Tools > Emails, where it can be searched and filtered.', 'wpcredits-program-manager' ),
 			'recent-mail'
 		);
 
-		if ( empty( $log ) ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html__( 'Nothing sent yet. Bookings, cancellations, reminders and invitations are all recorded here once they are.', 'wpcredits-program-manager' )
-			);
+		// The Log tab, whichever way the tool is reached: through the registry, or, with the tool
+		// filtered out of it, at the address it would have.
+		$tool = WPCPM_Tools::get( 'emails' );
+		$log  = add_query_arg( 'tab', 'log', $tool ? $tool->admin_url() : admin_url( 'admin.php?page=wpcpm-tool-emails' ) );
 
-			return;
-		}
-
-		$failed = WPCPM_Mail::failures();
+		$failed = WPCPM_Mail_Log::failures_since( gmdate( 'Y-m-d H:i:s', time() - WPCPM_Mail_Log::KEEP_DAYS * DAY_IN_SECONDS ) );
 
 		if ( $failed ) {
 			printf(
-				'<p class="wpcpm-warning">%s</p>',
+				'<p class="wpcpm-warning">%1$s <a href="%2$s">%3$s</a></p>',
 				esc_html(
 					sprintf(
 						/* translators: %s: number of failures. */
-						_n(
-							'%s of these was refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one.',
-							'%s of these were refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one.',
-							$failed,
-							'wpcredits-program-manager'
-						),
+						_n( '%s email failed in the last 30 days.', '%s emails failed in the last 30 days.', $failed, 'wpcredits-program-manager' ),
 						number_format_i18n( $failed )
 					)
-				)
+				),
+				esc_url( add_query_arg( 'status', WPCPM_Mail_Log::STATUS_FAILED, $log ) ),
+				esc_html__( 'Show the failed emails', 'wpcredits-program-manager' )
 			);
 		}
 
-		echo '<table class="wp-list-table widefat striped">';
-		printf(
-			'<thead><tr><th scope="col">%1$s</th><th scope="col">%2$s</th><th scope="col">%3$s</th><th scope="col">%4$s</th></tr></thead>',
-			esc_html__( 'When', 'wpcredits-program-manager' ),
-			esc_html__( 'To', 'wpcredits-program-manager' ),
-			esc_html__( 'Message', 'wpcredits-program-manager' ),
-			esc_html__( 'Accepted', 'wpcredits-program-manager' )
-		);
-		echo '<tbody>';
-
-		foreach ( array_slice( $log, 0, 25 ) as $entry ) {
-			$when = isset( $entry['time'] ) ? (int) $entry['time'] : 0;
-
-			echo '<tr>';
-			printf(
-				'<td>%s</td>',
-				esc_html(
-					$when
-						? sprintf(
-							/* translators: %s: human-readable time difference, e.g. "2 hours". */
-							__( '%s ago', 'wpcredits-program-manager' ),
-							human_time_diff( $when )
-						)
-						: '-'
-				)
-			);
-			printf( '<td>%s</td>', esc_html( isset( $entry['to'] ) ? $entry['to'] : '' ) );
-			printf(
-				'<td>%1$s<br><span class="description">%2$s</span></td>',
-				esc_html( isset( $entry['subject'] ) ? $entry['subject'] : '' ),
-				esc_html( isset( $entry['context'] ) ? $entry['context'] : '' )
-			);
-			printf(
-				'<td>%s</td>',
-				empty( $entry['sent'] )
-					? '<strong>' . esc_html__( 'Refused', 'wpcredits-program-manager' ) . '</strong>'
-					: esc_html__( 'Yes', 'wpcredits-program-manager' )
-			);
-			echo '</tr>';
-		}
-
-		echo '</tbody></table>';
-
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( '"Accepted" means the site handed the message off without complaint. It cannot tell you the message was delivered, or read - no sender can.', 'wpcredits-program-manager' )
-		);
+		printf( '<p><a class="button" href="%1$s">%2$s</a></p>', esc_url( $log ), esc_html__( 'Open the email log', 'wpcredits-program-manager' ) );
 	}
 
 	/**

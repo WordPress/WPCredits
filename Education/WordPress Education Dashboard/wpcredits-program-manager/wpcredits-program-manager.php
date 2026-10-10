@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.122.17
+ * Version:           1.122.18
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.122.17' );
+define( 'WPCPM_VERSION', '1.122.18' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -44,6 +44,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-refusal-meter.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-contribution-teams.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -139,6 +142,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators.php
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-modules.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
@@ -209,6 +213,9 @@ function wpcpm_bootstrap() {
 	WPCPM_Privacy_Guard::init();
 	WPCPM_Notices::init();
 	WPCPM_Mail::init();
+	// The email log, booted here rather than by the Emails tool, so a site that filters the tool out
+	// of `wpcpm_tools` still keeps it (1.122.18).
+	WPCPM_Mail_Log::init();
 	// The Track Builder's tracks reach the program map through its filters (1.100.0), hooked
 	// before any module asks the map anything.
 	WPCPM_Track_Store::init();
@@ -254,6 +261,7 @@ register_activation_hook( __FILE__, 'wpcpm_activate' );
 function wpcpm_deactivate() {
 	WPCPM_Modules::deactivate();
 	WPCPM_Tools::deactivate();
+	WPCPM_Mail_Log::deactivate();
 	flush_rewrite_rules();
 }
 register_deactivation_hook( __FILE__, 'wpcpm_deactivate' );
