@@ -59,6 +59,7 @@
 /* Wide tables scroll inside their card, never the page. */
 .wpcpm-duplicates__scroll {
 	overflow-x: auto;
+	position: relative;
 }
 
 .wpcpm-duplicates__scroll table {

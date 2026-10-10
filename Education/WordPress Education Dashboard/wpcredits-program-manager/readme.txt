@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.16
+Stable tag: 1.122.17
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.17 =
+
+* Administrator Dashboard on a phone: a table that scrolls sideways inside its card keeps everything drawn in it inside it, including a label hidden for screen readers, such as the longer name of a button. Such a label would be laid out past the table's edge and widen the whole page, so the page would scroll sideways and zoom out, and a tap could land on the wrong control. No table on the dashboard holds such a label today, so nothing you see changes; the rule is in place before one does.
+* The same holds for the Student Duplicate Finder's tables in wp-admin and for the answers in the **Need help?** panel.
+* For developers: `bin/test-institution-panel.php` refuses a rule in `assets/css/` that lets a box scroll (any value of `overflow`, `overflow-x` or `overflow-y` set to `auto`, `scroll` or `overlay`) without a position in the same rule.
 
 = 1.122.16 =
 

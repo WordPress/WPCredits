@@ -221,6 +221,7 @@
 	flex: 1 1 auto;
 	overflow-y: auto;
 	padding: 1.25em;
+	position: relative;
 }
 
 .wpcpm-hb-panel__answer > :first-child {

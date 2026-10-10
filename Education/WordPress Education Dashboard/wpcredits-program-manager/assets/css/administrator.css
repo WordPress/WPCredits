@@ -196,9 +196,11 @@
 	padding-left: 1.25em;
 }
 
+/* Positioned, so a screen-reader label inside a scrolled row stays in the table rather than widening the page. */
 @media ( max-width: 782px ) {
 	.wpcpm-admin-table {
 		display: block;
 		overflow-x: auto;
+		position: relative;
 	}
 }

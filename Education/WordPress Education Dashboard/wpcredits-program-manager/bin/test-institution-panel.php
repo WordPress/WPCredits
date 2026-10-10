@@ -2346,6 +2346,36 @@ foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
 
 ck( 'no plugin stylesheet has a comment between two selectors', $welded, array() );
 
+// A box that scrolls holds what is drawn inside it only if it is positioned. An absolutely
+// positioned descendant, such as the `.screen-reader-text` span a button's longer name is hidden
+// in, takes its place from the nearest positioned ancestor, so in a scroll box that is not
+// positioned it is laid out past the box's edge without being clipped by it, and it widens the
+// whole page: on a phone the page would scroll sideways and zoom out, and a tap could land on the
+// wrong control. A box counts as scrolling when any value of its `overflow`, `overflow-x` or
+// `overflow-y` is `auto`, `scroll` or `overlay`, in any case.
+$scroll_boxes = array();
+$unheld       = array();
+
+foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
+	preg_match_all( '/([^{}]+)\{([^{}]*)\}/', (string) preg_replace( '#/\*.*?\*/#s', '', (string) file_get_contents( $sheet ) ), $found, PREG_SET_ORDER );
+
+	foreach ( $found as $rule ) {
+		if ( ! preg_match( '/(^|;)\s*overflow(-x|-y)?\s*:[^;]*\b(auto|scroll|overlay)\b/i', $rule[2] ) ) {
+			continue;
+		}
+
+		$box            = basename( $sheet ) . ': ' . trim( preg_replace( '/\s+/', ' ', $rule[1] ) );
+		$scroll_boxes[] = $box;
+
+		if ( ! preg_match( '/(^|;)\s*position\s*:\s*(relative|absolute|fixed|sticky)\b/i', $rule[2] ) ) {
+			$unheld[] = $box;
+		}
+	}
+}
+
+ck( 'the check finds the scroll boxes the stylesheets draw: the admin tables on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'administrator.css: .wpcpm-admin-table', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
+ck( 'and each of them is positioned, so what is drawn inside it stays inside it', $unheld, array() );
+
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the
 // steps list, because the same form is drawn on five surfaces and only one of them is a step;
 // the tighter margin is, because the step is what it is about - and it is the step's alone,
