@@ -3,12 +3,19 @@
  * The template registry: what each email says, and how a text is filled.
  *
  * - **The catalog stays the one list of names.** Every template's id is a catalog id, its name, area
- *   and audience are the catalog's, and the Invitations are the four invitations and the institution's
- *   second one, for an institution whose Collaboration Agreement is on file.
+ *   and audience are the catalog's; the Invitations are the four invitations and the institution's
+ *   second one, for an institution whose Collaboration Agreement is on file, and the Mentor calls and
+ *   the Semester reports follow, each email that says different words a template of its own.
  * - **Every template is whole.** Each placeholder its text uses is one it declares, each required one
  *   is in the body, none that goes in the body alone is in the subject, every declared one says what
  *   it means and has an example, and filled with the examples no placeholder is left. The
- *   set-password link is required in every invitation, in its body.
+ *   set-password link is required in every invitation, in its body; an email about a call needs its
+ *   time, and a meeting link, and what a student or a mentor typed, go in the body alone. The
+ *   examples read as a real email to the Administrator looking would: a call tomorrow at 3 pm on
+ *   their own clock, invented names, and links of the site's or of example.test.
+ * - **Built once a request for each language**, and an edit whose subject fills to nothing, as the
+ *   mail layer will clean it, is sent with the shipped subject, since the mail layer sends no email
+ *   without one.
  * - **Filling.** A value is never read as a placeholder; an optional sentence with nothing to say
  *   goes, and so does a line left with nothing, the colon line above it and the blank line it leaves
  *   doubled; only a full stop followed by a space ends a sentence; a required placeholder's line
@@ -45,17 +52,31 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 
-$GLOBALS['opts']     = array();
+$GLOBALS['opts']     = array(
+	'date_format' => 'F j, Y',
+	'time_format' => 'g:i a',
+);
 $GLOBALS['autoload'] = array();
 $GLOBALS['locales']  = array();
 
-function __( $s, $d = null ) { return $s; }
+// Each string asked for is counted, so a check can tell whether the registry was built again.
+function __( $s, $d = null ) { $GLOBALS['translated'] = ( $GLOBALS['translated'] ?? 0 ) + 1; return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
-// Core's `add_query_arg( $args, $url )`, as the example set-password link is built over the login page.
-function add_query_arg( $args, $url ) { foreach ( $args as $k => $v ) { $url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . $v; } return $url; }
+// Core's two forms, `add_query_arg( $args, $url )`, as the example set-password link is built over the
+// login page, and `add_query_arg( $key, $value, $url )`, as a report's address is.
+function add_query_arg( ...$args ) {
+	$pairs = is_array( $args[0] ) ? $args[0] : array( $args[0] => $args[1] );
+	$url   = (string) ( is_array( $args[0] ) ? $args[1] : $args[2] );
+
+	foreach ( $pairs as $k => $v ) {
+		$url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . $v;
+	}
+
+	return $url;
+}
 function get_bloginfo( $k = 'name' ) { $GLOBALS['site_name_read'] = ( $GLOBALS['site_name_read'] ?? 0 ) + 1; return 'WordPress Credits'; }
 function is_email( $s ) { return false !== filter_var( (string) $s, FILTER_VALIDATE_EMAIL ) ? $s : false; }
 // Nobody here may manage the program, so each account is the kind its role says.
@@ -63,8 +84,18 @@ function user_can( $user, $cap ) { return false; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $autoload = null ) { $GLOBALS['opts'][ $k ] = $v; $GLOBALS['autoload'][ $k ] = $autoload; return true; }
 function current_user_can( $cap ) { return false; }
-// The language the fingerprint of a shipped text is built in, recorded: the site's.
-function get_locale() { return 'en_US'; }
+// The language the fingerprint of a shipped text is built in, recorded: the site's, or the one a
+// check sets.
+function get_locale() { return $GLOBALS['locale'] ?? 'en_US'; }
+// Who is looking at an example, and the clock their account keeps: a call's examples are on it.
+$GLOBALS['uid']   = 0;
+$GLOBALS['umeta'] = array();
+function get_current_user_id() { return $GLOBALS['uid']; }
+function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
+function wp_timezone_string() { return 'Europe/Warsaw'; }
+function wp_timezone() { return new DateTimeZone( wp_timezone_string() ); }
+function wp_date( $format, $timestamp = null, $zone = null ) { return ( new DateTimeImmutable( '@' . (int) ( null === $timestamp ? time() : $timestamp ) ) )->setTimezone( $zone instanceof DateTimeZone ? $zone : wp_timezone() )->format( $format ); }
+function human_time_diff( $from, $to = 0 ) { return round( abs( (int) $to - (int) $from ) / HOUR_IN_SECONDS ) . ' hours'; }
 function switch_to_locale( $locale ) { $GLOBALS['locales'][] = $locale; return true; }
 function restore_previous_locale() { $GLOBALS['locales'][] = 'restored'; return true; }
 function add_action() {}
@@ -88,6 +119,12 @@ require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 // Which kind of person an account is, which the footer's dashboard line reads.
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-capture.php';
+// What the examples of the Mentor calls and the Semester reports are worked out with, as their emails
+// are: a call's times on a clock, and a semester and its report's address.
+require_once __DIR__ . '/../includes/class-wpcpm-cohort.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-availability.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-semester-report-screen.php';
 
 /** The one setting the footer reads, Contact address in emails, as a check sets it. */
 class WPCPM_Settings {
@@ -137,7 +174,39 @@ echo "=== The registry ===\n";
 
 $all = WPCPM_Mail_Templates::all();
 
-ck( 'the Invitations are the four invitations and the institution\'s second one, in that order', array_keys( $all ), array( 'invite-student', 'invite-mentor', 'invite-institution', 'invite-institution-settled', 'invite-sponsor' ) );
+ck(
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, then the Semester reports, in that order',
+	array_keys( $all ),
+	array(
+		'invite-student',
+		'invite-mentor',
+		'invite-institution',
+		'invite-institution-settled',
+		'invite-sponsor',
+		'call-booked-mentor',
+		'call-booked-mentor-no-link',
+		'call-booked-student',
+		'session-joined-mentor',
+		'session-joined-mentor-no-link',
+		'session-joined-student',
+		'series-joined-mentor',
+		'series-joined-mentor-no-link',
+		'series-joined-student',
+		'session-moved-student',
+		'session-moved-mentor',
+		'session-left',
+		'session-released',
+		'call-cancelled-mentor',
+		'call-cancelled-student',
+		'session-cancelled',
+		'call-reminder-mentor',
+		'call-reminder-student',
+		'session-reminder',
+		'report-drafted',
+		'report-approved',
+		'report-consent',
+	)
+);
 
 $named = array();
 foreach ( $all as $id => $entry ) {
@@ -182,11 +251,45 @@ foreach ( $all as $id => $entry ) {
 		'link'       => array( WPCPM_Mail_Templates::required( $entry['placeholders'] ), WPCPM_Mail_Templates::body_only( $entry['placeholders'] ) ),
 	);
 }
-$want_whole = array_fill_keys(
-	array_keys( $all ),
-	array( 'trigger' => true, 'undeclared' => array(), 'unused' => array(), 'missing' => array(), 'in_subject' => array(), 'about' => true, 'left' => array(), 'eol' => "\r\n", 'link' => array( array( 'set_password_link' ), array( 'set_password_link' ) ) )
+// Each template's line ending, the placeholders it needs, and the ones that go in its body alone: the
+// invitations and the two moved emails keep the line ending WordPress gives its own email, as the
+// code wrote them; every email about a call needs its time; the mentor's confirmations sent only
+// while the mentor has a meeting link need it; and a meeting link and what somebody typed go in the
+// body wherever they are.
+$shape = array(
+	'invite-student'                => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	'invite-mentor'                 => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	'invite-institution'            => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	'invite-institution-settled'    => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	'invite-sponsor'                => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	'call-booked-mentor'            => array( "\n", array( 'when', 'meeting_place' ), array( 'meeting_place', 'topic' ) ),
+	'call-booked-mentor-no-link'    => array( "\n", array( 'when' ), array( 'topic' ) ),
+	'call-booked-student'           => array( "\n", array( 'when' ), array( 'meeting_place', 'topic' ) ),
+	'session-joined-mentor'         => array( "\n", array( 'when', 'meeting_place' ), array( 'meeting_place', 'session_topic' ) ),
+	'session-joined-mentor-no-link' => array( "\n", array( 'when' ), array( 'session_topic' ) ),
+	'session-joined-student'        => array( "\n", array( 'when' ), array( 'meeting_place', 'session_topic' ) ),
+	'series-joined-mentor'          => array( "\n", array( 'session_dates', 'meeting_place' ), array( 'meeting_place', 'session_topic' ) ),
+	'series-joined-mentor-no-link'  => array( "\n", array( 'session_dates' ), array( 'session_topic' ) ),
+	'series-joined-student'         => array( "\n", array( 'session_dates' ), array( 'meeting_place', 'session_topic' ) ),
+	'session-moved-student'         => array( "\r\n", array( 'when' ), array( 'session_topic' ) ),
+	'session-moved-mentor'          => array( "\r\n", array( 'when' ), array( 'session_topic' ) ),
+	'session-left'                  => array( "\n", array( 'when' ), array( 'session_topic' ) ),
+	'session-released'              => array( "\n", array( 'when' ), array( 'session_topic' ) ),
+	'call-cancelled-mentor'         => array( "\n", array( 'when' ), array() ),
+	'call-cancelled-student'        => array( "\n", array( 'when' ), array() ),
+	'session-cancelled'             => array( "\n", array( 'when' ), array() ),
+	'call-reminder-mentor'          => array( "\n", array( 'when' ), array( 'meeting_place', 'topic' ) ),
+	'call-reminder-student'         => array( "\n", array( 'when' ), array( 'meeting_place', 'topic' ) ),
+	'session-reminder'              => array( "\n", array( 'when' ), array( 'meeting_place', 'session_topic' ) ),
+	'report-drafted'                => array( "\n", array( 'semester' ), array() ),
+	'report-approved'               => array( "\n", array( 'semester' ), array() ),
+	'report-consent'                => array( "\n", array( 'semester' ), array() ),
 );
-ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, and keeps WordPress\'s line ending', $whole, $want_whole );
+$want_whole = array();
+foreach ( $shape as $id => $want ) {
+	$want_whole[ $id ] = array( 'trigger' => true, 'undeclared' => array(), 'unused' => array(), 'missing' => array(), 'in_subject' => array(), 'about' => true, 'left' => array(), 'eol' => $want[0], 'link' => array( $want[1], $want[2] ) );
+}
+ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, every email about a call its time, and a meeting link and what somebody typed go in the body alone', $whole, $want_whole );
 
 $student = WPCPM_Mail_Templates::render( 'invite-student', WPCPM_Mail_Templates::example_values( 'invite-student' ) );
 ck( 'filled with its examples, an invitation carries a marked example link and the dashboard of its audience', array( false !== strpos( $student['body'], 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $student['body'], "Your Student Report Card:\r\nhttps://example.test/student-report-card/" ), $student['subject'] ), array( true, true, '[WordPress Credits] Welcome to the WordPress Credits Program' ) );
@@ -199,7 +302,113 @@ foreach ( $all as $entry ) {
 	}
 }
 ck( 'no trigger or placeholder description says module', array_values( preg_grep( '/\bmodules?\b/i', $words ) ), array() );
-ck( 'and no em or en dash in the registry or its definitions', preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php' ) . (string) file_get_contents( __DIR__ . '/../includes/mail/templates/invitations.php' ) ), 0 );
+$sources = (string) file_get_contents( __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php' );
+foreach ( WPCPM_Mail_Templates::AREAS as $file ) {
+	$sources .= (string) file_get_contents( __DIR__ . '/../includes/mail/templates/' . $file . '.php' );
+}
+ck( 'and no em or en dash in the registry or its definitions', preg_match( '/\x{2013}|\x{2014}/u', $sources ), 0 );
+
+echo "\n=== The examples ===\n";
+
+// The Administrator looking at a preview, or pressing Send me a test, keeps Tokyo's clock: an email
+// about a call is filled with a call tomorrow at 3 pm on that clock, half an hour long.
+$GLOBALS['uid']                             = 9;
+$GLOBALS['umeta'][9]['wpcpm_timezone']      = 'Asia/Tokyo';
+$tokyo                                      = new DateTimeZone( 'Asia/Tokyo' );
+$tomorrow                                   = ( new DateTimeImmutable( 'tomorrow 15:00', $tokyo ) )->getTimestamp();
+$booked                                     = WPCPM_Mail_Templates::example_values( 'call-booked-mentor' );
+$series                                     = WPCPM_Mail_Templates::example_values( 'series-joined-student' );
+ck(
+	'an email about a call is filled with a call tomorrow at 3 pm on the clock of the Administrator looking at it, that clock named, and the day and the hours to go worked out from it',
+	array( $booked['when'], $booked['time_zone'], WPCPM_Mail_Templates::example_values( 'call-cancelled-mentor' )['call_date'], WPCPM_Mail_Templates::example_values( 'call-reminder-mentor' )['in_how_long'] ),
+	array( wp_date( 'F j, Y', $tomorrow, $tokyo ) . ' 3:00 pm to 3:30 pm', 'Asia / Tokyo', wp_date( 'F j, Y', $tomorrow, $tokyo ), WPCPM_Mentor_Calls::relative( $tomorrow ) )
+);
+ck(
+	'a series, three weekly sessions from then, one to a line, counted in words',
+	array( $series['session_dates'], $series['date_count'], $series['group_session_count'], WPCPM_Mail_Templates::example_values( 'series-joined-mentor' )['session_count'] ),
+	array(
+		implode(
+			"\n",
+			array_map(
+				function ( $days ) use ( $tomorrow, $tokyo ) {
+					return wp_date( 'F j, Y', $tomorrow + $days * DAY_IN_SECONDS, $tokyo ) . ' 3:00 pm to 3:30 pm';
+				},
+				array( 0, 7, 14 )
+			)
+		),
+		'3 dates',
+		'3 group sessions',
+		'3 sessions',
+	)
+);
+
+// The same examples on a clock that changes. An Administrator in Warsaw, whose summer time ends on
+// 25 Oct 2026, reads every example session at 3:00 pm, the three of a series and the time a session had
+// before it moved, as a real session, kept on its clock and not moved by a count of seconds, would be.
+// Read on the real clock, so it can fail only while a change falls within a fortnight of tomorrow, as
+// it does in the days before 25 Oct 2026 (and before 1 Nov 2026 for the zones of the United States).
+$GLOBALS['umeta'][9]['wpcpm_timezone'] = 'Europe/Warsaw';
+$warsaw                                = new DateTimeZone( 'Europe/Warsaw' );
+$warsaw_start                          = new DateTimeImmutable( 'tomorrow 15:00', $warsaw );
+$warsaw_series                         = WPCPM_Mail_Templates::example_values( 'series-joined-student' )['session_dates'];
+$warsaw_moved                          = WPCPM_Mail_Templates::example_values( 'session-moved-student' );
+ck(
+	'on a clock that changes, every session of a series, and the time a session had before it moved, keeps its clock time',
+	array( $warsaw_series, $warsaw_moved['was_when'], $warsaw_moved['when'] ),
+	array(
+		implode(
+			"\n",
+			array_map(
+				function ( $days ) use ( $warsaw_start, $warsaw ) {
+					return wp_date( 'F j, Y', $warsaw_start->modify( '+' . $days . ' days' )->getTimestamp(), $warsaw ) . ' 3:00 pm to 3:30 pm';
+				},
+				array( 0, 7, 14 )
+			)
+		),
+		wp_date( 'F j, Y', $warsaw_start->modify( '+1 day' )->getTimestamp(), $warsaw ) . ' 3:00 pm to 3:30 pm',
+		wp_date( 'F j, Y', $warsaw_start->getTimestamp(), $warsaw ) . ' 3:00 pm to 3:30 pm',
+	)
+);
+unset( $GLOBALS['umeta'][9]['wpcpm_timezone'] );
+
+$GLOBALS['uid'] = 0;
+ck( 'and with nobody signed in, on the site\'s clock', WPCPM_Mail_Templates::example_values( 'session-reminder' )['time_zone'], 'Europe / Warsaw' );
+
+$links = array();
+$names = array();
+foreach ( array_keys( $all ) as $id ) {
+	foreach ( WPCPM_Mail_Templates::example_values( $id ) as $name => $value ) {
+		if ( preg_match_all( '#https?://[^\s/]+#', $value, $hosts ) ) {
+			$links = array_merge( $links, $hosts[0] );
+		}
+		if ( in_array( $name, array( 'student_name', 'mentor_name', 'with_whom', 'canceled_by', 'institution_name' ), true ) ) {
+			$names[] = $value;
+		}
+	}
+}
+ck( 'every example link is the site\'s own or example.test\'s, and every example name is an invented one', array( array_values( array_unique( $links ) ), array_values( array_unique( $names ) ) ), array( array( 'https://example.test', 'https://meet.example.test' ), array( 'Ada Okonjo', 'Ben Lindqvist', 'Example University' ) ) );
+ck(
+	'a semester report\'s examples name the semester running now and its report on the Institution Dashboard, and how many students were still in progress, with their verb',
+	array_intersect_key( WPCPM_Mail_Templates::example_values( 'report-drafted' ), array_flip( array( 'semester', 'students_in_progress', 'review_link' ) ) ),
+	array(
+		'semester'             => WPCPM_Cohort::label( WPCPM_Cohort::current() ),
+		'students_in_progress' => '2 students in this semester were',
+		'review_link'          => 'https://example.test/institution-dashboard/?wpcpm_report=' . WPCPM_Cohort::current() . '#wpcpm-report',
+	)
+);
+
+echo "\n=== Built once a request for each language ===\n";
+
+WPCPM_Mail_Templates::all();
+$GLOBALS['translated'] = 0;
+$again                 = WPCPM_Mail_Templates::all();
+$read_again            = $GLOBALS['translated'];
+$GLOBALS['locale']     = 'pl_PL';
+$GLOBALS['translated'] = 0;
+$polish                = WPCPM_Mail_Templates::all();
+$read_polish           = $GLOBALS['translated'];
+unset( $GLOBALS['locale'] );
+ck( 'asked again in the same language, the registry is the one already built, and nothing is translated again; asked in another, it is built again, in that one', array( $read_again, $read_polish > 0, array_keys( $polish ) === array_keys( $again ) ), array( 0, true, true ) );
 
 echo "\n=== Filling a text ===\n";
 
@@ -318,6 +527,18 @@ ck( 'and so is one without the set-password link, which never goes out without i
 $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-mentor']['subject'] = 'Your link: {set_password_link}';
 $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-mentor']['body']    = "Welcome, mentor.\n\n{set_password_link}";
 ck( 'and so is one whose subject holds the set-password link, so no subject carries the key: the shipped subject is sent', array( WPCPM_Mail_Templates::state_label( WPCPM_Mail_Templates::state( 'invite-mentor' ) ), WPCPM_Mail_Templates::render( 'invite-mentor', array( 'site_name' => 'WordPress Credits', 'set_password_link' => 'LINK' ) )['subject'] ), array( 'Edit set aside: its subject uses {set_password_link}, which goes in the body.', '[WordPress Credits] Your mentor account is ready' ) );
+
+// An edit whose every word is an optional placeholder can fill to nothing, or to a value the mail
+// layer's cleaner removes whole, such as a tag: the mail layer sends no email without a subject, so
+// the shipped subject is sent, filled, and the edit's body.
+$late = array( 'site_name' => 'WordPress Credits', 'call_date' => 'July 15, 2036', 'when' => 'July 15, 2036 9:00 am to 9:30 am' );
+ck( 'an edit whose subject is optional placeholders alone saves', WPCPM_Mail_Templates::save( 'call-cancelled-student', '{canceled_by}', 'The call on {when} is off.', 7 ), true );
+ck(
+	'and while they fill to nothing, the email goes out with the shipped subject and the edit\'s body, and so when they fill to a tag the mail layer would remove; with a value, with the edit\'s subject',
+	array( WPCPM_Mail_Templates::render( 'call-cancelled-student', $late ), WPCPM_Mail_Templates::render( 'call-cancelled-student', $late + array( 'canceled_by' => 'Ben Lindqvist' ) )['subject'], WPCPM_Mail_Templates::render( 'call-cancelled-student', $late + array( 'canceled_by' => '<b></b>' ) )['subject'] ),
+	array( array( 'subject' => '[WordPress Credits] Call on July 15, 2036 canceled', 'body' => 'The call on July 15, 2036 9:00 am to 9:30 am is off.' ), 'Ben Lindqvist', '[WordPress Credits] Call on July 15, 2036 canceled' )
+);
+WPCPM_Mail_Templates::restore( 'call-cancelled-student' );
 
 ck( 'Restore the original drops the edit, and the email is shipped text again', array( WPCPM_Mail_Templates::restore( 'invite-mentor' ), WPCPM_Mail_Templates::edit( 'invite-mentor' ), WPCPM_Mail_Templates::state( 'invite-mentor' )['state'] ), array( true, null, 'shipped' ) );
 ck( 'and there is nothing to restore a second time', WPCPM_Mail_Templates::restore( 'invite-mentor' ), false );

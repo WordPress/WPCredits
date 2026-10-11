@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.20
+Stable tag: 1.122.21
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.21 =
+
+* WPCredits Program > Tools > Emails, Templates: the Mentor calls and the Semester reports emails can be edited too, each with who receives it, what sends it, its state, Send me a test and Restore the original, as the invitations can. Their shipped text is word for word what they said before; the one line that changes is in the drafted and approved report emails, when the Institution Dashboard page is not published, which no longer leave a second blank line above the signature and footer.
+* Mentor calls: where the mentor and the student are told different words, each now has an email of its own, named for whom it goes to (such as "Call booked, to the mentor" and "Call booked, to the student"), and a one-to-one call and a group session each have their own. A group session's cancellation and its reminder say the same words to the mentor and to every student, so each is one email. The mentor's confirmations of a call, a join and a series each have a second email for a mentor who has not set a meeting link yet. Every time stays on its recipient's own clock.
+* Every email about a call needs its time, `{when}`, or a series its dates, `{session_dates}`, and a semester report its semester, `{semester}`; the mentor's confirmation sent with a meeting link needs `{meeting_place}`. A mentor's meeting link, `{meeting_place}`, and what a student or a mentor typed, `{topic}` and `{session_topic}`, go in the body, never in the subject, since a meeting link can carry the meeting's passcode and the Log keeps every subject.
+* A mentor who is also a student is sent the emails written for the mentor (a booking, a join, a series, a move, a call's cancellation and its reminder) as a mentor: the Log reads them as one, and the signature and footer no longer adds the Student Report Card under a body that names the Mentor Report Card. A group session's cancellation and reminder, which use the same words for the mentor and the students, still treat an account that is both a mentor and a student as a student: the Log lists it as a student, and the footer gives the Student Report Card address.
+* An edited subject made of placeholders alone that all come out empty is sent as the shipped subject, so the email still goes out.
+* The Log names the rows the Mentor calls left before this version by the five names they were sent under then, which end "(until 1.122.21)", such as "Call booked (until 1.122.21)", for the 30 days it keeps them.
+* For developers: the registry's areas gain includes/mail/templates/calls.php and reports.php, and `WPCPM_Mail_Templates::all()` is built once a request for each language. `WPCPM_Mail_Catalog` gains the nineteen Mentor calls ids; the five the area was sent under until this version, `call-booked` among them, stay, to name the rows they left, and nothing sends them now. The `wpcpm_mail` filter is handed the new ids as `$context`; a filter keyed on `call-booked` and the four others no longer matches. In `WPCPM_Mentor_Calls`, `mail_body()` is `calendar_text()`, the calendar file's description alone, and `series_mail_body()` is gone. `bin/test-calls-reports-text.php` holds every Mentor calls and Semester reports email to a recording made from 1.122.20 before the move.
 
 = 1.122.20 =
 

@@ -151,7 +151,7 @@ class WPCPM_Mail {
 	 * Send one message to one person.
 	 *
 	 * @param int|WP_User $recipient Who it is for. Their locale is used to build it.
-	 * @param string      $context   The email's id in `WPCPM_Mail_Catalog`, e.g. `call-booked`.
+	 * @param string      $context   The email's id in `WPCPM_Mail_Catalog`, e.g. `call-booked-student`.
 	 * @param callable    $build     Receives the recipient as a `WP_User` and returns an
 	 *                               array with `subject`, `body`, and optionally `headers`,
 	 *                               `attachments`, `cleanup`, `plain_subject` (see

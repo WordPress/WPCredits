@@ -24,8 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * `audience` is who an email is for when the account cannot say: an applicant or an invitee has no
  * account, and a person with two roles is shown as the one this email is for. Empty means the email
- * goes to people of several kinds (a call booked mails the mentor and the student) and the account
- * decides.
+ * goes to people of several kinds in the same words (a group session canceled mails the mentor and
+ * every student on it) and the account decides.
  */
 final class WPCPM_Mail_Catalog {
 
@@ -115,12 +115,35 @@ final class WPCPM_Mail_Catalog {
 			'test-mentor'                        => array( __( 'Sample invitation: mentor', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
 			'test-institution'                   => array( __( 'Sample invitation: institution', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
 			'test-sponsor'                       => array( __( 'Sample invitation: sponsor', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
-			// Mentor calls: to the mentor and the students, so the account decides.
-			'call-booked'                        => array( __( 'Call booked', 'wpcredits-program-manager' ), $c, '' ),
-			'series-joined'                      => array( __( 'Joined a session series', 'wpcredits-program-manager' ), $c, '' ),
-			'session-moved'                      => array( __( 'Group session moved', 'wpcredits-program-manager' ), $c, '' ),
-			'call-cancelled'                     => array( __( 'Call canceled', 'wpcredits-program-manager' ), $c, '' ),
-			'call-reminder'                      => array( __( 'Call reminder', 'wpcredits-program-manager' ), $c, '' ),
+			// Mentor calls. Until 1.122.21 these five named every email of the area, to the mentor and to
+			// the students alike, about a call and a session alike; they stay so the Log names the rows
+			// they left, which it keeps for 30 days, and nothing sends them now. Their labels say so,
+			// since the Log's Email field lists them beside the new names.
+			'call-booked'                        => array( __( 'Call booked (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			'series-joined'                      => array( __( 'Joined a session series (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			'session-moved'                      => array( __( 'Group session moved (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			'call-cancelled'                     => array( __( 'Call canceled (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			'call-reminder'                      => array( __( 'Call reminder (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			// Since 1.122.21, one email each, as the template registry holds them.
+			'call-booked-mentor'                 => array( __( 'Call booked, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'call-booked-mentor-no-link'         => array( __( 'Call booked, to a mentor with no meeting link', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'call-booked-student'                => array( __( 'Call booked, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-joined-mentor'              => array( __( 'Group session joined, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'session-joined-mentor-no-link'      => array( __( 'Group session joined, to a mentor with no meeting link', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'session-joined-student'             => array( __( 'Group session joined, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'series-joined-mentor'               => array( __( 'Session series joined, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'series-joined-mentor-no-link'       => array( __( 'Session series joined, to a mentor with no meeting link', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'series-joined-student'              => array( __( 'Session series joined, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-moved-student'              => array( __( 'Group session moved, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-moved-mentor'               => array( __( 'Group session moved, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'session-left'                       => array( __( 'Left a group session, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-released'                   => array( __( 'Place on a group session released, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'call-cancelled-mentor'              => array( __( 'Call canceled, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'call-cancelled-student'             => array( __( 'Call canceled, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-cancelled'                  => array( __( 'Group session canceled', 'wpcredits-program-manager' ), $c, '' ),
+			'call-reminder-mentor'               => array( __( 'Call reminder, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
+			'call-reminder-student'              => array( __( 'Call reminder, to the student', 'wpcredits-program-manager' ), $c, self::TYPE_STUDENT ),
+			'session-reminder'                   => array( __( 'Group session reminder', 'wpcredits-program-manager' ), $c, '' ),
 			// Institutions.
 			'institution-applied'                => array( __( 'Application received, to the applicant', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-application'            => array( __( 'New institution application, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),

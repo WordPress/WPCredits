@@ -8,9 +8,10 @@
  *
  * - **The tabs**: the screen's own address opens Templates, a tab it does not have does too, and
  *   the bar is WordPress's own, Templates, Signature and footer, Log, in that order.
- * - **The Templates tab** lists the templates by area, each with who receives it, what sends it,
- *   where it stands and who edited it last, and an Edit link to its editor; the Invitations alone,
- *   and nothing about what is not there.
+ * - **The Templates tab** lists the templates by area, in the catalog's order, each area in a table
+ *   of its own, each row with who receives it, what sends it, where it stands and who edited it last,
+ *   and an Edit link to its editor: the Invitations, the Mentor calls and the Semester reports, and
+ *   nothing about the areas whose emails are not editable yet.
  * - **The editor**: the boxes hold the shipped text, then the edit read back as it was typed; the
  *   placeholders say what they mean, the required one marked; the preview is filled with the
  *   examples and ends with the footer; Restore asks first, and is there only for an edit.
@@ -19,6 +20,11 @@
  *   to the presser's own address and to nobody a press names, and only for the text as saved:
  *   pressed with typing not saved yet, it sends nothing and gives the typing back as a refused save
  *   does.
+ * - **The Mentor calls and the Semester reports** work in the same editor, with the same buttons:
+ *   each email's preview and test are filled as a real email to the presser would be, a call
+ *   tomorrow at 3 pm on the presser's own clock among them; a save without a call's time, or with a
+ *   meeting link or a typed topic in the subject, is refused; and an edit is saved, tested and
+ *   restored.
  *
  * Run from the plugin root:  php bin/test-emails-templates.php
  */
@@ -55,7 +61,11 @@ class WP_Error {
 class RedirectSignal extends Exception {}
 class DieSignal extends Exception {}
 
-$GLOBALS['opts']   = array( 'timezone_string' => 'Europe/Warsaw' );
+$GLOBALS['opts']   = array(
+	'timezone_string' => 'Europe/Warsaw',
+	'date_format'     => 'F j, Y',
+	'time_format'     => 'g:i a',
+);
 $GLOBALS['umeta']  = array();
 $GLOBALS['hooked'] = array();
 $GLOBALS['mail']   = array();
@@ -114,8 +124,10 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
-function wp_timezone() { return new DateTimeZone( (string) get_option( 'timezone_string', 'UTC' ) ); }
-function wp_date( $format, $timestamp = null ) { return ( new DateTimeImmutable( '@' . (int) $timestamp ) )->setTimezone( wp_timezone() )->format( $format ); }
+function wp_timezone_string() { return (string) get_option( 'timezone_string', 'UTC' ); }
+function wp_timezone() { return new DateTimeZone( wp_timezone_string() ); }
+function wp_date( $format, $timestamp = null, $zone = null ) { return ( new DateTimeImmutable( '@' . (int) ( null === $timestamp ? time() : $timestamp ) ) )->setTimezone( $zone instanceof DateTimeZone ? $zone : wp_timezone() )->format( $format ); }
+function human_time_diff( $from, $to = 0 ) { return round( abs( (int) $to - (int) $from ) / HOUR_IN_SECONDS ) . ' hours'; }
 function add_action( $h, $cb, $p = 10, $n = 1 ) { $GLOBALS['hooked'][] = $h; return true; }
 function add_filter( $h, $cb, $p = 10, $n = 1 ) { return true; }
 function apply_filters( $h, $v ) { return $v; }
@@ -148,6 +160,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
+// What the Mentor calls' and the Semester reports' examples are worked out with, as their emails are.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availability.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php';
 
 /** The dashboards, each published at an address of its own. */
 class WPCPM_Students_Dashboard {
@@ -156,6 +173,14 @@ class WPCPM_Students_Dashboard {
 /** As above. */
 class WPCPM_Administrators_Dashboard {
 	public static function page_url() { return 'https://example.test/administrator-dashboard/'; }
+}
+/** As above. */
+class WPCPM_Mentors_Dashboard {
+	public static function page_url() { return 'https://example.test/mentor-report-card/'; }
+}
+/** As above. */
+class WPCPM_Institutions_Dashboard {
+	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
 
 $fails = 0;
@@ -261,10 +286,10 @@ echo "\n=== The Templates tab ===\n";
 
 preg_match_all( '#<h2>([^<]*)</h2>#', $home, $areas );
 preg_match_all( '#<tr><td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td><span class="wpcpm-emails__state wpcpm-emails__state--([a-z-]+)">([^<]*)</span></td><td>([^<]*)</td><td><a href="([^"]*)">Edit<span class="screen-reader-text"> ([^<]*)</span></a></td></tr>#', $home, $rows, PREG_SET_ORDER );
-ck( 'the templates are listed by area: the Invitations, and nothing about any other', $areas[1], array( 'Invitations' ) );
+ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls and the Semester reports, and nothing about any other', $areas[1], array( 'Invitations', 'Mentor calls', 'Semester reports' ) );
 ck(
 	'each row names the email, who receives it, what sends it, its state and who edited it last, and links its editor by its name',
-	array_map( function ( $row ) { return array( html_entity_decode( $row[1], ENT_QUOTES ), $row[2], $row[5], $row[6], $row[7], $row[8] ); }, $rows ),
+	array_map( function ( $row ) { return array( html_entity_decode( $row[1], ENT_QUOTES ), $row[2], $row[5], $row[6], $row[7], $row[8] ); }, array_slice( $rows, 0, 5 ) ),
 	array(
 		array( 'Invitation: student', 'Student', 'Shipped text', 'Not edited', $editor_url, 'Invitation: student' ),
 		array( 'Invitation: mentor', 'Mentor', 'Shipped text', 'Not edited', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=invite-mentor', 'Invitation: mentor' ),
@@ -273,10 +298,38 @@ ck(
 		array( 'Invitation: sponsor', 'Sponsor member', 'Shipped text', 'Not edited', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=invite-sponsor', 'Invitation: sponsor' ),
 	)
 );
-ck( 'and what sends each is the registry\'s sentence', html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), WPCPM_Mail_Templates::get( 'invite-student' )['trigger'] );
+ck(
+	'and after the invitations, every email of the Mentor calls and the Semester reports, each with who receives it, as shipped text, its editor linked by its id',
+	array_map( function ( $row ) { return html_entity_decode( $row[1], ENT_QUOTES ) . ' / ' . $row[2] . ' / ' . $row[5] . ' / ' . substr( $row[7], strlen( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' ) ); }, array_slice( $rows, 5 ) ),
+	array(
+		'Call booked, to the mentor / Mentor / Shipped text / call-booked-mentor',
+		'Call booked, to a mentor with no meeting link / Mentor / Shipped text / call-booked-mentor-no-link',
+		'Call booked, to the student / Student / Shipped text / call-booked-student',
+		'Group session joined, to the mentor / Mentor / Shipped text / session-joined-mentor',
+		'Group session joined, to a mentor with no meeting link / Mentor / Shipped text / session-joined-mentor-no-link',
+		'Group session joined, to the student / Student / Shipped text / session-joined-student',
+		'Session series joined, to the mentor / Mentor / Shipped text / series-joined-mentor',
+		'Session series joined, to a mentor with no meeting link / Mentor / Shipped text / series-joined-mentor-no-link',
+		'Session series joined, to the student / Student / Shipped text / series-joined-student',
+		'Group session moved, to the student / Student / Shipped text / session-moved-student',
+		'Group session moved, to the mentor / Mentor / Shipped text / session-moved-mentor',
+		'Left a group session, to the student / Student / Shipped text / session-left',
+		'Place on a group session released, to the student / Student / Shipped text / session-released',
+		'Call canceled, to the mentor / Mentor / Shipped text / call-cancelled-mentor',
+		'Call canceled, to the student / Student / Shipped text / call-cancelled-student',
+		'Group session canceled / The people it concerns / Shipped text / session-cancelled',
+		'Call reminder, to the mentor / Mentor / Shipped text / call-reminder-mentor',
+		'Call reminder, to the student / Student / Shipped text / call-reminder-student',
+		'Group session reminder / The people it concerns / Shipped text / session-reminder',
+		'Semester report drafted / Administrator / Shipped text / report-drafted',
+		'Semester report approved / Institution member / Shipped text / report-approved',
+		'Consent for the semester report / Student / Shipped text / report-consent',
+	)
+);
+ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[26][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
-ck( 'each area\'s table is printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 1, 1, true, true ) );
+ck( 'each of the three areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 3, 3, true, true ) );
 ck( 'no word on the tab says module, and no em or en dash', array( preg_match_all( '/\bmodules?\b/i', words_of( $home ) ), preg_match( '/\x{2013}|\x{2014}/u', $home ) ), array( 0, 0 ) );
 ck( 'an Edit link naming an email the registry does not hold opens the list', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked' ) ), '<h2>Invitations</h2>' ), true );
 
@@ -454,6 +507,175 @@ WPCPM_Mail_Templates::restore( 'invite-student' );
 new_administrator();
 $GLOBALS['mail'] = array();
 ck( 'a press naming an email the screen does not edit goes to the list, saying so, and sends nothing', array( press( 'handle_save', array( 'wpcpm_email' => 'call-booked', 'wpcpm_then' => 'test' ) ), $GLOBALS['mail'], false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails' ) ), 'Nothing was sent: the site has no such email.' ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates', array(), true ) );
+
+echo "\n=== The Mentor calls and the Semester reports ===\n";
+
+// An Administrator who keeps Tokyo's clock opens the mentor's booking confirmation: an editor as an
+// invitation's, its placeholders the call's, the call's time and the meeting link required, and a
+// preview of a call tomorrow at 3 pm on that clock.
+$tokyo                                                  = new DateTimeZone( 'Asia/Tokyo' );
+$tomorrow                                               = ( new DateTimeImmutable( 'tomorrow 15:00', $tokyo ) )->getTimestamp();
+$in_tokyo                                               = new_administrator();
+$GLOBALS['umeta'][ $in_tokyo->ID ]['wpcpm_timezone']    = 'Asia/Tokyo';
+$booking                                                = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked-mentor' ) );
+preg_match_all( '#<tr><td><code>\{([a-z_]+)\}</code>( <span class="wpcpm-emails__required">Required</span>)?</td>#', $booking, $marks, PREG_SET_ORDER );
+preg_match( '#<div class="wpcpm-emails__preview"><p><strong>Subject:</strong> ([^<]*)</p><pre class="wpcpm-emails__text">(.*?)</pre></div>#s', $booking, $booked );
+ck(
+	'the mentor\'s booking confirmation says who receives it and what sends it, and marks the call\'s time and the meeting link required',
+	array( false !== strpos( words_of( $booking ), 'To: Mentor. ' . WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'] ), array_map( function ( $mark ) { return $mark[1] . ( empty( $mark[2] ) ? '' : ' (required)' ); }, $marks ) ),
+	array( true, array( 'site_name', 'student_name', 'when (required)', 'time_zone', 'meeting_place (required)', 'topic', 'dashboard_link' ) )
+);
+ck(
+	'and its preview is the email as a mentor reads it, the call tomorrow at 3 pm on the Administrator\'s own clock, the Mentor Report Card named once, and the footer',
+	array( html_entity_decode( $booked[1] ?? '', ENT_QUOTES ), html_entity_decode( $booked[2] ?? '', ENT_QUOTES ) ),
+	array(
+		'[WordPress Credits] Call booked with Ada Okonjo',
+		'Ada Okonjo booked a call with you on ' . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 3:00 pm to 3:30 pm.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist\n\nWhat the student would like to discuss:\nMy first plugin, and how to get it reviewed\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+	)
+);
+
+// A save that drops the call's time, or puts the meeting link, which can carry the meeting's passcode,
+// or the topic the student typed in the subject the Log keeps, is refused with its sentence, and the
+// typing comes back.
+$shipped_booking = WPCPM_Mail_Templates::get( 'call-booked-mentor' );
+$refused_saves   = array();
+foreach ( array(
+	'the call\'s time dropped'              => array( $shipped_booking['subject'], str_replace( ' on {when}', '', $shipped_booking['body'] ) ),
+	'the meeting link in the subject'       => array( $shipped_booking['subject'] . ' {meeting_place}', $shipped_booking['body'] ),
+	'the typed topic in the subject'        => array( $shipped_booking['subject'] . ': {topic}', $shipped_booking['body'] ),
+) as $what => $typed ) {
+	new_administrator();
+	press( 'handle_save', array( 'wpcpm_email' => 'call-booked-mentor', 'subject' => $typed[0], 'body' => $typed[1] ) );
+	$back                   = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked-mentor' ) );
+	$refused_saves[ $what ] = array( preg_match( '#<div class="notice notice-error is-dismissible"><p>([^<]*)</p></div>#', $back, $said ) ? html_entity_decode( $said[1], ENT_QUOTES ) : null, box( $back, 'wpcpm-email-subject' ) === $typed[0] && box( $back, 'wpcpm-email-body' ) === $typed[1] );
+}
+ck(
+	'a save of a call\'s email without its time, or with its meeting link or a typed topic in the subject, is refused, stores nothing, and gives the typing back',
+	array( $refused_saves, WPCPM_Mail_Templates::edit( 'call-booked-mentor' ) ),
+	array(
+		array(
+			'the call\'s time dropped'        => array( 'Nothing was saved: this email needs {when}.', true ),
+			'the meeting link in the subject' => array( 'Nothing was saved: {meeting_place} goes in the body, never in the subject.', true ),
+			'the typed topic in the subject'  => array( 'Nothing was saved: {topic} goes in the body, never in the subject.', true ),
+		),
+		null,
+	)
+);
+
+// A real edit of it saves, is what its test sends, and Restore the original drops it again, as for
+// every email.
+$edited = array(
+	'subject' => $shipped_booking['subject'],
+	'body'    => $shipped_booking['body'] . "\n\nSee you there.",
+);
+new_administrator();
+press( 'handle_save', array( 'wpcpm_email' => 'call-booked-mentor' ) + $edited );
+$was_edited      = WPCPM_Mail_Templates::state( 'call-booked-mentor' )['state'];
+$GLOBALS['mail'] = array();
+press( 'handle_save', array( 'wpcpm_email' => 'call-booked-mentor', 'wpcpm_then' => 'test' ) + $edited );
+$edit_test = $GLOBALS['mail'][0]['body'] ?? '';
+press( 'handle_restore', array( 'wpcpm_email' => 'call-booked-mentor' ) );
+ck(
+	'a real edit of it is saved, its test sends the edit, and Restore the original drops it',
+	array( $was_edited, false !== strpos( $edit_test, "\n\nSee you there.\n\n-- \nWordPress Credits, WordPress Education\n" ), WPCPM_Mail_Templates::edit( 'call-booked-mentor' ), WPCPM_Mail_Templates::state( 'call-booked-mentor' )['state'] ),
+	array( 'edited', true, null, 'shipped' )
+);
+
+// Every email of the two areas, through its editor and its Send me a test, as an Administrator who
+// keeps Tokyo's clock opens and presses them. A preview or a test is only filled if each example of a
+// placeholder its text uses is in it, where the text puts the placeholder: an empty fill leaves no
+// brace, so "no placeholder left" cannot tell it from a full one. Nor may a placeholder its text uses
+// have no example here: every one has, the dashboards being published in this suite.
+$works = array();
+$wants = array();
+$plain = function ( $text ) {
+	return str_replace( array( "\r\n", "\r" ), "\n", html_entity_decode( (string) $text, ENT_QUOTES ) );
+};
+$gaps  = function ( array $template, array $examples, $subject, $body ) use ( $plain ) {
+	$gone = array();
+
+	foreach ( array( 'subject' => $plain( $subject ), 'body' => $plain( $body ) ) as $part => $text ) {
+		foreach ( WPCPM_Mail_Templates::placeholders_in( $template[ $part ] ) as $name ) {
+			$example = $plain( $examples[ $name ] ?? '' );
+			$example = 'subject' === $part ? preg_replace( '/\n/', ' ', $example ) : $example;
+
+			if ( '' !== $example && false === strpos( $text, $example ) ) {
+				$gone[] = $part . ':' . $name;
+			}
+		}
+	}
+
+	return $gone;
+};
+foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
+	if ( WPCPM_Mail_Catalog::MODULE_INVITATIONS === $template['module'] ) {
+		continue;
+	}
+
+	$presser                                            = new_administrator();
+	$GLOBALS['umeta'][ $presser->ID ]['wpcpm_timezone'] = 'Asia/Tokyo';
+	$page                                               = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => $id ) );
+	$examples                                           = WPCPM_Mail_Templates::example_values( $id );
+	$bare                                               = array_values(
+		array_filter(
+			WPCPM_Mail_Templates::placeholders_in( $template['subject'] . "\n" . $template['body'] ),
+			function ( $name ) use ( $examples ) {
+				return '' === ( $examples[ $name ] ?? '' );
+			}
+		)
+	);
+	$GLOBALS['mail']                                    = array();
+	$went                                               = press( 'handle_save', array( 'wpcpm_email' => $id, 'wpcpm_then' => 'test', 'subject' => $template['subject'], 'body' => str_replace( "\n", "\r\n", $template['body'] ), 'to' => 'someone@example.test' ) );
+	$test                                               = $GLOBALS['mail'];
+
+	preg_match( '#<div class="wpcpm-emails__preview">(.*?)</div>#s', $page, $shown );
+	preg_match( '#<p><strong>Subject:</strong> ([^<]*)</p>#', $page, $shown_subject );
+	preg_match( '#<pre class="wpcpm-emails__text">(.*?)</pre>#s', $page, $shown_body );
+	$works[ $id ] = array(
+		'bare'    => $bare,
+		'editor'  => false !== strpos( $page, '<h2>' . esc_html( $template['label'] ) . '</h2>' ) && false !== strpos( $page, '>Save</button>' ) && false !== strpos( $page, 'value="test">Send me a test</button>' ),
+		'preview' => array(
+			'left' => isset( $shown[1] ) ? WPCPM_Mail_Templates::placeholders_in( html_entity_decode( $shown[1], ENT_QUOTES ) ) : null,
+			'gone' => $gaps( $template, $examples, $shown_subject[1] ?? '', $shown_body[1] ?? '' ),
+		),
+		'test'    => array(
+			'sent'   => array( $went, count( $test ), $test[0]['to'] ?? null, 0 === strpos( $test[0]['subject'] ?? '', '[Test] ' ), $test[0]['context'] ?? null, $test[0]['test'] ?? null ),
+			'braces' => false !== strpbrk( ( $test[0]['subject'] ?? '' ) . ( $test[0]['body'] ?? '' ), '{}' ),
+			'gone'   => $gaps( $template, $examples, $test[0]['subject'] ?? '', $test[0]['body'] ?? '' ),
+		),
+	);
+	$wants[ $id ] = array(
+		'bare'    => array(),
+		'editor'  => true,
+		'preview' => array( 'left' => array(), 'gone' => array() ),
+		'test'    => array(
+			'sent'   => array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' . $id, 1, $presser->user_email, true, $id, true ),
+			'braces' => false,
+			'gone'   => array(),
+		),
+	);
+
+	if ( 'series-joined-student' === $id ) {
+		$series_test = $test[0]['body'] ?? '';
+	}
+}
+ck( 'every email of the Mentor calls and the Semester reports opens in the editor, with Save and Send me a test, every placeholder of its text given an example, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
+ck(
+	'a series\' test names its three weekly sessions on the presser\'s clock, one to a line',
+	false !== strpos(
+		$series_test ?? '',
+		"You are on 3 group sessions with Ben Lindqvist:\n" . implode(
+			"\n",
+			array_map(
+				function ( $days ) use ( $tomorrow, $tokyo ) {
+					return wp_date( 'F j, Y', $tomorrow + $days * DAY_IN_SECONDS, $tokyo ) . ' 3:00 pm to 3:30 pm';
+				},
+				array( 0, 7, 14 )
+			)
+		) . "\n\nTimes are shown in Asia / Tokyo."
+	),
+	true
+);
 
 echo "\n=== The Signature and footer tab ===\n";
 

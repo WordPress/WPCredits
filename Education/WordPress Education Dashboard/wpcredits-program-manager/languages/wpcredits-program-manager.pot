@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.20\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.21\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-10T22:10:59+00:00\n"
+"POT-Creation-Date: 2026-10-11T08:26:38+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -2430,227 +2430,303 @@ msgstr ""
 msgid "Sample invitation: sponsor"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:119
-msgid "Call booked"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:120
-msgid "Joined a session series"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:121
-msgid "Group session moved"
-msgstr ""
-
 #: includes/mail/class-wpcpm-mail-catalog.php:122
-msgid "Call canceled"
+msgid "Call booked (until 1.122.21)"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:123
-msgid "Call reminder"
+msgid "Joined a session series (until 1.122.21)"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:124
+msgid "Group session moved (until 1.122.21)"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:125
-msgid "Application received, to the applicant"
+msgid "Call canceled (until 1.122.21)"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:126
-msgid "New institution application, to Administrators"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:127
-msgid "Question about an application"
+msgid "Call reminder (until 1.122.21)"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:128
-msgid "Application declined"
+msgid "Call booked, to the mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:129
-msgid "Invitation to join an institution"
+msgid "Call booked, to a mentor with no meeting link"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:130
-msgid "Agreement received, to the institution"
+msgid "Call booked, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:131
-msgid "Agreement uploaded, to Administrators"
+msgid "Group session joined, to the mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:132
-msgid "Agreement accepted"
+msgid "Group session joined, to a mentor with no meeting link"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:133
-msgid "Agreement returned with a note"
+msgid "Group session joined, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:134
-msgid "Agreement taken out of force"
+msgid "Session series joined, to the mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:135
-msgid "Agreements waiting for review"
+msgid "Session series joined, to a mentor with no meeting link"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:136
-msgid "Agreement could not be generated"
+msgid "Session series joined, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:137
-msgid "Institution has no members left, to Administrators"
+msgid "Group session moved, to the student"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:138
+msgid "Group session moved, to the mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:139
-msgid "Semester report drafted"
+msgid "Left a group session, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:140
-msgid "Semester report approved"
+msgid "Place on a group session released, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:141
-msgid "Consent for the semester report"
+msgid "Call canceled, to the mentor"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:142
+msgid "Call canceled, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:143
-msgid "Sponsor application received, to the applicant"
+msgid "Group session canceled"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:144
-msgid "New sponsor application, to Administrators"
+msgid "Call reminder, to the mentor"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:145
-msgid "Question about a sponsor application"
+msgid "Call reminder, to the student"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:146
-msgid "Sponsor application declined"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:147
-msgid "Collaboration Agreement received"
+msgid "Group session reminder"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:148
-msgid "Collaboration Agreement accepted"
+msgid "Application received, to the applicant"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:149
-msgid "Collaboration Agreement returned with a note"
+msgid "New institution application, to Administrators"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:150
-msgid "Collaboration Agreement taken out of force"
+msgid "Question about an application"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:151
-msgid "Collaboration Agreement back in force"
+msgid "Application declined"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:152
-msgid "Sponsor interest"
+msgid "Invitation to join an institution"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:153
-msgid "Codes running low"
+msgid "Agreement received, to the institution"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:154
-msgid "Problem with a claimed code"
+msgid "Agreement uploaded, to Administrators"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:155
-msgid "Sponsor post returned with a note"
+msgid "Agreement accepted"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:156
+msgid "Agreement returned with a note"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:157
-msgid "Password reset"
+msgid "Agreement taken out of force"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:158
-msgid "Password changed"
+msgid "Agreements waiting for review"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:159
-msgid "Password changed, to the site's address"
+msgid "Agreement could not be generated"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:160
-msgid "Email address changed"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:161
-msgid "Confirm a new email address"
+msgid "Institution has no members left, to Administrators"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:162
-msgid "New account"
+msgid "Semester report drafted"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:163
-msgid "New account, to the site's address"
+msgid "Semester report approved"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:164
-msgid "Confirm the site's new address"
-msgstr ""
-
-#: includes/mail/class-wpcpm-mail-catalog.php:165
-msgid "The site's address changed"
+msgid "Consent for the semester report"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:166
-msgid "Personal data request"
+msgid "Sponsor application received, to the applicant"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:167
-msgid "Personal data request confirmed, to the site's address"
+msgid "New sponsor application, to Administrators"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:168
-msgid "Personal data export ready"
+msgid "Question about a sponsor application"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:169
-msgid "Personal data erased"
+msgid "Sponsor application declined"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:170
-msgid "WordPress updated"
+msgid "Collaboration Agreement received"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:171
-msgid "Plugins or themes updated"
+msgid "Collaboration Agreement accepted"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:172
-msgid "Background update details"
+msgid "Collaboration Agreement returned with a note"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:173
-msgid "Recovery mode"
+msgid "Collaboration Agreement taken out of force"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:174
-msgid "New comment"
+msgid "Collaboration Agreement back in force"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:175
-msgid "Comment waiting for moderation"
+msgid "Sponsor interest"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:176
+msgid "Codes running low"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:177
+msgid "Problem with a claimed code"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:178
+msgid "Sponsor post returned with a note"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:180
+msgid "Password reset"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:181
+msgid "Password changed"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:182
+msgid "Password changed, to the site's address"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:183
+msgid "Email address changed"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:184
+msgid "Confirm a new email address"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:185
+msgid "New account"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:186
+msgid "New account, to the site's address"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:187
+msgid "Confirm the site's new address"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:188
+msgid "The site's address changed"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:189
+msgid "Personal data request"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:190
+msgid "Personal data request confirmed, to the site's address"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:191
+msgid "Personal data export ready"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:192
+msgid "Personal data erased"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:193
+msgid "WordPress updated"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:194
+msgid "Plugins or themes updated"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:195
+msgid "Background update details"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:196
+msgid "Recovery mode"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:197
+msgid "New comment"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:198
+msgid "Comment waiting for moderation"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-catalog.php:200
 msgid "Sign-in code"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:179
+#: includes/mail/class-wpcpm-mail-catalog.php:202
 msgid "Test of the signature and footer"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-catalog.php:217
+#: includes/mail/class-wpcpm-mail-catalog.php:240
 msgid "Other email"
 msgstr ""
 
@@ -2689,7 +2765,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:59
 #: includes/mail/class-wpcpm-mail-log.php:513
-#: includes/mail/class-wpcpm-mail-templates.php:606
+#: includes/mail/class-wpcpm-mail-templates.php:647
 #: includes/tools/class-wpcpm-emails.php:579
 msgid "Subject"
 msgstr ""
@@ -2730,26 +2806,26 @@ msgstr ""
 msgid "Not confirmed"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:570
+#: includes/mail/class-wpcpm-mail-templates.php:611
 msgid "Nothing was saved: the subject is empty."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:575
+#: includes/mail/class-wpcpm-mail-templates.php:616
 msgid "Nothing was saved: the signature and footer is empty."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:576
+#: includes/mail/class-wpcpm-mail-templates.php:617
 msgid "Nothing was saved: the body is empty."
 msgstr ""
 
 #. translators: %s: the placeholders the email needs, such as {set_password_link}.
-#: includes/mail/class-wpcpm-mail-templates.php:584
+#: includes/mail/class-wpcpm-mail-templates.php:625
 #, php-format
 msgid "Nothing was saved: this email needs %s."
 msgstr ""
 
 #. translators: %s: the placeholders that go in the body alone, such as {set_password_link}.
-#: includes/mail/class-wpcpm-mail-templates.php:592
+#: includes/mail/class-wpcpm-mail-templates.php:633
 #, php-format
 msgid "Nothing was saved: %s goes in the body, never in the subject."
 msgid_plural "Nothing was saved: %s go in the body, never in the subject."
@@ -2757,120 +2833,539 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the placeholders the email does not have, such as {student_nmae}.
-#: includes/mail/class-wpcpm-mail-templates.php:600
+#: includes/mail/class-wpcpm-mail-templates.php:641
 #, php-format
 msgid "Nothing was saved: %s is not a placeholder of this email."
 msgid_plural "Nothing was saved: %s are not placeholders of this email."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:610
-#: includes/mail/class-wpcpm-mail-templates.php:846
+#: includes/mail/class-wpcpm-mail-templates.php:651
+#: includes/mail/class-wpcpm-mail-templates.php:887
 #: includes/tools/class-wpcpm-emails.php:256
 #: includes/tools/class-wpcpm-emails.php:502
 #: includes/tools/class-wpcpm-emails.php:587
 msgid "Signature and footer"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:610
+#: includes/mail/class-wpcpm-mail-templates.php:651
 #: includes/tools/class-wpcpm-emails.php:587
 msgid "Body"
 msgstr ""
 
 #. translators: %s: the most characters a subject may have.
-#: includes/mail/class-wpcpm-mail-templates.php:616
+#: includes/mail/class-wpcpm-mail-templates.php:657
 #, php-format
 msgid "Nothing was saved: the subject is longer than %s characters."
 msgstr ""
 
 #. translators: %s: the most characters the signature and footer may have.
-#: includes/mail/class-wpcpm-mail-templates.php:625
+#: includes/mail/class-wpcpm-mail-templates.php:666
 #, php-format
 msgid "Nothing was saved: the signature and footer is longer than %s characters."
 msgstr ""
 
 #. translators: %s: the most characters a body may have.
-#: includes/mail/class-wpcpm-mail-templates.php:627
+#: includes/mail/class-wpcpm-mail-templates.php:668
 #, php-format
 msgid "Nothing was saved: the body is longer than %s characters."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:654
+#: includes/mail/class-wpcpm-mail-templates.php:695
 #: includes/tools/class-wpcpm-emails.php:782
 msgid "Nothing was saved: the site has no such email."
 msgstr ""
 
 #. translators: %s: the placeholders the edit uses, such as {topic}.
-#: includes/mail/class-wpcpm-mail-templates.php:766
+#: includes/mail/class-wpcpm-mail-templates.php:807
 #, php-format
 msgid "Edit set aside: it uses %s, which this email no longer has."
 msgstr ""
 
 #. translators: %s: the placeholders the email needs, such as {set_password_link}.
-#: includes/mail/class-wpcpm-mail-templates.php:772
+#: includes/mail/class-wpcpm-mail-templates.php:813
 #, php-format
 msgid "Edit set aside: it lacks %s, which this email needs."
 msgstr ""
 
 #. translators: %s: the placeholders that go in the body alone, such as {set_password_link}.
-#: includes/mail/class-wpcpm-mail-templates.php:778
+#: includes/mail/class-wpcpm-mail-templates.php:819
 #, php-format
 msgid "Edit set aside: its subject uses %s, which goes in the body."
 msgid_plural "Edit set aside: its subject uses %s, which go in the body."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:808
+#: includes/mail/class-wpcpm-mail-templates.php:849
 msgid "Edited"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:810
+#: includes/mail/class-wpcpm-mail-templates.php:851
 msgid "Edited, and the shipped text has changed since"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:815
+#: includes/mail/class-wpcpm-mail-templates.php:856
 msgid "Shipped text"
 msgstr ""
 
 #. translators: The signature and footer every email of the plugin ends with, three lines. Keep {dashboard_link} and {program_contact} as they are: the site puts the person's dashboard and the program's contact address in their place, and leaves out the line or the sentence that has nothing to say, reading a full stop followed by a space as the end of a sentence.
-#: includes/mail/class-wpcpm-mail-templates.php:833
+#: includes/mail/class-wpcpm-mail-templates.php:874
 msgid ""
 "WordPress Credits, WordPress Education\n"
 "{dashboard_link}\n"
 "This email comes from the WordPress Credits program. Questions? Write to {program_contact}."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:849
+#: includes/mail/class-wpcpm-mail-templates.php:890
 msgid "Added to the end of every email the plugin sends."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:865
+#: includes/mail/class-wpcpm-mail-templates.php:906
+#: includes/mail/templates/calls.php:48
 #: includes/mail/templates/invitations.php:28
 msgid "The site's name."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:872
+#: includes/mail/class-wpcpm-mail-templates.php:913
 msgid "The recipient's dashboard. Empty for somebody with no account, and for an email that names it already, which leaves its line out."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:880
+#: includes/mail/class-wpcpm-mail-templates.php:921
 msgid "The address in Contact address in emails. Empty leaves its sentence out."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/class-wpcpm-mail-templates.php:1035
+#: includes/mail/class-wpcpm-mail-templates.php:1076
 #, php-format
 msgid "[%s] The signature and footer"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:1038
+#: includes/mail/class-wpcpm-mail-templates.php:1079
 msgid "This is how every email the plugin sends ends, filled as an Administrator's own would be."
 msgstr ""
 
 #. translators: %s: the email's subject.
-#: includes/mail/class-wpcpm-mail-templates.php:1067
+#: includes/mail/class-wpcpm-mail-templates.php:1108
 #, php-format
 msgid "[Test] %s"
+msgstr ""
+
+#: includes/mail/templates/calls.php:54
+msgid "The student's name; \"your student\" when the call holds none."
+msgstr ""
+
+#: includes/mail/templates/calls.php:58
+msgid "The mentor's name."
+msgstr ""
+
+#: includes/mail/templates/calls.php:62
+msgid "Who the session is with: the mentor's name, or, in the mentor's copy, how many students are coming, such as \"3 students\"."
+msgstr ""
+
+#: includes/mail/templates/calls.php:66
+msgid "When the call is, from its start to its end, on the recipient's own clock. Every email about a call needs it."
+msgstr ""
+
+#: includes/mail/templates/calls.php:74
+msgid "When the session was before it moved, on the recipient's own clock."
+msgstr ""
+
+#: includes/mail/templates/calls.php:82
+msgid "The day of the call, on the recipient's own clock."
+msgstr ""
+
+#: includes/mail/templates/calls.php:90
+msgid "When each session is, one to a line, on the recipient's own clock. The email needs them."
+msgstr ""
+
+#: includes/mail/templates/calls.php:103
+msgid "How many sessions the student joined, counted: \"3 sessions\"."
+msgstr ""
+
+#. translators: %d: how many sessions.
+#: includes/mail/templates/calls.php:107
+#: includes/modules/class-wpcpm-group-sessions.php:1628
+#: includes/modules/class-wpcpm-mentor-calls.php:2185
+#, php-format
+msgid "%d session"
+msgid_plural "%d sessions"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/templates/calls.php:113
+msgid "How many group sessions the student joined, counted: \"3 group sessions\"."
+msgstr ""
+
+#. translators: %d: how many sessions.
+#: includes/mail/templates/calls.php:117
+#: includes/modules/class-wpcpm-mentor-calls.php:2190
+#, php-format
+msgid "%d group session"
+msgid_plural "%d group sessions"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/templates/calls.php:123
+msgid "How many dates the student joined, counted: \"3 dates\"."
+msgstr ""
+
+#. translators: %d: how many dates.
+#: includes/mail/templates/calls.php:127
+#: includes/modules/class-wpcpm-mentor-calls.php:2195
+#, php-format
+msgid "%d date"
+msgid_plural "%d dates"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/templates/calls.php:133
+msgid "How long until the call starts, such as \"in 23 hours\"."
+msgstr ""
+
+#: includes/mail/templates/calls.php:141
+msgid "The recipient's time zone, which every time in the email is shown in."
+msgstr ""
+
+#: includes/mail/templates/calls.php:149
+msgid "The meeting link the mentor set beside their availability. Empty, while the mentor has set none, leaves its lines out. It can carry the meeting's passcode, so it goes in the body, never in the subject."
+msgstr ""
+
+#: includes/mail/templates/calls.php:151
+msgid "The meeting link the mentor set beside their availability, which this email is sent only with. It can carry the meeting's passcode, so it goes in the body, never in the subject."
+msgstr ""
+
+#: includes/mail/templates/calls.php:158
+msgid "What the student said they would like to talk about, as they typed it. Empty leaves its lines out. It goes in the body, never in the subject, which the mail log keeps."
+msgstr ""
+
+#: includes/mail/templates/calls.php:163
+msgid "What the session is about, as the mentor typed it. Empty leaves its lines out. It goes in the body, never in the subject, which the mail log keeps."
+msgstr ""
+
+#: includes/mail/templates/calls.php:168
+msgid "Who canceled: their name, or \"an Administrator\" when an Administrator did."
+msgstr ""
+
+#: includes/mail/templates/calls.php:172
+msgid "The recipient's dashboard, while its page is published. Empty leaves its lines out."
+msgstr ""
+
+#. translators: %s: timezone name.
+#: includes/mail/templates/calls.php:203
+#, php-format
+msgid "Times are shown in %s."
+msgstr ""
+
+#. translators: The line above the mentor's meeting link. Keep the colon at the end; the site leaves this line out with the link under it while the mentor has set none.
+#: includes/mail/templates/calls.php:208
+#: includes/modules/class-wpcpm-mentor-calls.php:2233
+msgid "Where you will meet:"
+msgstr ""
+
+#: includes/mail/templates/calls.php:210
+msgid "You have not set a meeting link yet, so this confirmation cannot tell your student where to go. You can add one beside your availability on the program site."
+msgstr ""
+
+#. translators: The line above what the student typed. Keep the colon at the end; the site leaves this line out with the words under it when there are none.
+#: includes/mail/templates/calls.php:213
+msgid "What the student would like to discuss:"
+msgstr ""
+
+#. translators: The line above what the student typed, in the student's own copy. Keep the colon at the end; the site leaves this line out with the words under it when there are none.
+#: includes/mail/templates/calls.php:216
+#: includes/modules/class-wpcpm-mentor-calls.php:2243
+msgid "What you said you would like to discuss:"
+msgstr ""
+
+#. translators: The line above what the mentor typed about the session. Keep the colon at the end; the site leaves this line out with the words under it when there are none.
+#: includes/mail/templates/calls.php:219
+#: includes/modules/class-wpcpm-mentor-calls.php:2242
+msgid "What the session is about:"
+msgstr ""
+
+#. translators: The line above what the mentor typed about the series. Keep the colon at the end; the site leaves this line out with the words under it when there are none.
+#: includes/mail/templates/calls.php:222
+msgid "What the sessions are about:"
+msgstr ""
+
+#. translators: %s: what the session is about. The site leaves this line out when the mentor wrote nothing.
+#: includes/mail/templates/calls.php:226
+#, php-format
+msgid "What it is about: %s"
+msgstr ""
+
+#. translators: 1: student name, 2: date and time.
+#: includes/mail/templates/calls.php:247
+#, php-format
+msgid "%1$s booked a call with you on %2$s."
+msgstr ""
+
+#. translators: 1: student name, 2: date and time.
+#: includes/mail/templates/calls.php:254
+#, php-format
+msgid "%1$s joined your group session on %2$s."
+msgstr ""
+
+#. translators: 1: student name, 2: how many group sessions, counted, such as "3 group sessions".
+#: includes/mail/templates/calls.php:261
+#, php-format
+msgid "%1$s joined %2$s of yours:"
+msgstr ""
+
+#: includes/mail/templates/calls.php:266
+msgid "The attached calendar file adds all of them to your calendar at once."
+msgstr ""
+
+#: includes/mail/templates/calls.php:270
+msgid "When a student books a one-to-one call with a mentor who has set a meeting link."
+msgstr ""
+
+#. translators: 1: site name, 2: student name.
+#: includes/mail/templates/calls.php:273
+#: includes/mail/templates/calls.php:284
+#, php-format
+msgid "[%1$s] Call booked with %2$s"
+msgstr ""
+
+#: includes/mail/templates/calls.php:281
+msgid "When a student books a one-to-one call with a mentor who has not set a meeting link yet."
+msgstr ""
+
+#: includes/mail/templates/calls.php:292
+msgid "When the student books a one-to-one call with their mentor."
+msgstr ""
+
+#. translators: 1: site name, 2: mentor name.
+#: includes/mail/templates/calls.php:295
+#, php-format
+msgid "[%1$s] Your call with %2$s is booked"
+msgstr ""
+
+#. translators: 1: mentor name, 2: date and time.
+#: includes/mail/templates/calls.php:303
+#, php-format
+msgid "Your call with %1$s is booked for %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:316
+msgid "When a student joins a group session of a mentor who has set a meeting link."
+msgstr ""
+
+#. translators: 1: site name, 2: student name.
+#: includes/mail/templates/calls.php:319
+#: includes/mail/templates/calls.php:330
+#, php-format
+msgid "[%1$s] %2$s joined your group session"
+msgstr ""
+
+#: includes/mail/templates/calls.php:327
+msgid "When a student joins a group session of a mentor who has not set a meeting link yet."
+msgstr ""
+
+#: includes/mail/templates/calls.php:338
+msgid "When the student joins a group session of their mentor's."
+msgstr ""
+
+#. translators: 1: site name, 2: mentor name.
+#: includes/mail/templates/calls.php:341
+#, php-format
+msgid "[%1$s] You are on the group session with %2$s"
+msgstr ""
+
+#. translators: 1: mentor name, 2: date and time.
+#: includes/mail/templates/calls.php:349
+#, php-format
+msgid "You are on the group session with %1$s on %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:362
+msgid "When a student joins the sessions of a series at once, with Join all, and the mentor has set a meeting link."
+msgstr ""
+
+#. translators: 1: site name, 2: student name, 3: how many sessions, counted, such as "3 sessions".
+#: includes/mail/templates/calls.php:365
+#: includes/mail/templates/calls.php:377
+#, php-format
+msgid "[%1$s] %2$s joined your series: %3$s"
+msgstr ""
+
+#: includes/mail/templates/calls.php:374
+msgid "When a student joins the sessions of a series at once, with Join all, and the mentor has not set a meeting link yet."
+msgstr ""
+
+#: includes/mail/templates/calls.php:386
+msgid "When the student joins the sessions of a series at once, with Join all."
+msgstr ""
+
+#. translators: 1: site name, 2: mentor name, 3: how many dates, counted, such as "3 dates".
+#: includes/mail/templates/calls.php:389
+#, php-format
+msgid "[%1$s] Group sessions with %2$s: %3$s"
+msgstr ""
+
+#. translators: 1: mentor name, 2: how many group sessions, counted, such as "3 group sessions".
+#: includes/mail/templates/calls.php:398
+#, php-format
+msgid "You are on %2$s with %1$s:"
+msgstr ""
+
+#: includes/mail/templates/calls.php:412
+msgid "When a group session the student is on moves to another time."
+msgstr ""
+
+#. translators: 1: site name, 2: mentor name.
+#: includes/mail/templates/calls.php:415
+#, php-format
+msgid "[%1$s] The group session with %2$s has moved"
+msgstr ""
+
+#. translators: 1: the time it used to be at, 2: the time it is at now. Two sentences: the site reads a full stop followed by a space as the end of a sentence.
+#: includes/mail/templates/calls.php:423
+#, php-format
+msgid "The group session that was on %1$s has moved. It is now on %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:428
+msgid "Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your Student Report Card."
+msgstr ""
+
+#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/calls.php:431
+#: includes/mail/templates/invitations.php:122
+msgid "Your Student Report Card:"
+msgstr ""
+
+#: includes/mail/templates/calls.php:439
+msgid "When an Administrator moves a group session of the mentor's to another time."
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/mail/templates/calls.php:442
+#, php-format
+msgid "[%s] Your group session has moved"
+msgstr ""
+
+#. translators: 1: the time it used to be at, 2: the time it is at now. Two sentences: the site reads a full stop followed by a space as the end of a sentence.
+#: includes/mail/templates/calls.php:449
+#, php-format
+msgid "An Administrator moved your group session that was on %1$s. It is now on %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:454
+msgid "Everybody on the session has been sent a new invitation, and the one attached replaces the one already in your calendar."
+msgstr ""
+
+#: includes/mail/templates/calls.php:463
+msgid "When the student leaves a group session."
+msgstr ""
+
+#. translators: 1: site name, 2: mentor name.
+#: includes/mail/templates/calls.php:466
+#, php-format
+msgid "[%1$s] You left the group session with %2$s"
+msgstr ""
+
+#. translators: 1: mentor name, 2: date and time.
+#: includes/mail/templates/calls.php:474
+#, php-format
+msgid "You have left the group session with %1$s on %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:486
+msgid "When the students sync takes the student off a former mentor's group session, after the student was given a new mentor."
+msgstr ""
+
+#. translators: 1: site name, 2: the former mentor's name.
+#: includes/mail/templates/calls.php:489
+#, php-format
+msgid "[%1$s] Your place on the group session with %2$s is released"
+msgstr ""
+
+#. translators: 1: the former mentor's name, 2: date and time.
+#: includes/mail/templates/calls.php:497
+#, php-format
+msgid "You have a new mentor, so your place on the group session with %1$s on %2$s is released."
+msgstr ""
+
+#: includes/mail/templates/calls.php:509
+msgid "When the student or an Administrator cancels a one-to-one call."
+msgstr ""
+
+#. translators: 1: site name, 2: date of the canceled call.
+#: includes/mail/templates/calls.php:512
+#: includes/mail/templates/calls.php:535
+#, php-format
+msgid "[%1$s] Call on %2$s canceled"
+msgstr ""
+
+#. translators: 1: date and time of the call, 2: who canceled.
+#: includes/mail/templates/calls.php:520
+#: includes/mail/templates/calls.php:543
+#, php-format
+msgid "The call on %1$s was canceled by %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:525
+msgid "The slot is free again, and your student can book another time whenever suits them."
+msgstr ""
+
+#: includes/mail/templates/calls.php:532
+msgid "When the mentor or an Administrator cancels a one-to-one call."
+msgstr ""
+
+#: includes/mail/templates/calls.php:548
+msgid "The slot is free again, so you can book another time."
+msgstr ""
+
+#: includes/mail/templates/calls.php:555
+msgid "When a group session is canceled: to the mentor and to every student on it, but the person who canceled it."
+msgstr ""
+
+#. translators: 1: site name, 2: date of the canceled session.
+#: includes/mail/templates/calls.php:558
+#, php-format
+msgid "[%1$s] Group session on %2$s canceled"
+msgstr ""
+
+#. translators: 1: date and time of the session, 2: who canceled.
+#: includes/mail/templates/calls.php:566
+#, php-format
+msgid "The group session on %1$s was canceled by %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:577
+#: includes/mail/templates/calls.php:602
+msgid "A day before a one-to-one call, unless it was booked within that day."
+msgstr ""
+
+#. translators: 1: site name, 2: the other person's name.
+#: includes/mail/templates/calls.php:580
+#: includes/mail/templates/calls.php:605
+#, php-format
+msgid "[%1$s] Reminder: your call with %2$s"
+msgstr ""
+
+#. translators: 1: the other person's name, 2: date and time, 3: "in 4 hours".
+#: includes/mail/templates/calls.php:588
+#: includes/mail/templates/calls.php:613
+#, php-format
+msgid "Your call with %1$s is %3$s, on %2$s."
+msgstr ""
+
+#: includes/mail/templates/calls.php:627
+msgid "A day before a group session, unless it was created within that day: to the mentor and to every student on it."
+msgstr ""
+
+#. translators: 1: site name, 2: the mentor's name, or how many students are coming.
+#: includes/mail/templates/calls.php:630
+#, php-format
+msgid "[%1$s] Reminder: your group session with %2$s"
+msgstr ""
+
+#. translators: 1: the mentor's name, or how many students are coming, 2: date and time, 3: "in 4 hours".
+#: includes/mail/templates/calls.php:638
+#, php-format
+msgid "Your group session with %1$s is %3$s, on %2$s."
 msgstr ""
 
 #: includes/mail/templates/invitations.php:35
@@ -2928,12 +3423,6 @@ msgstr ""
 
 #: includes/mail/templates/invitations.php:120
 msgid "Set your password using the link below, then check your details and book your first call with your mentor."
-msgstr ""
-
-#. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:122
-#: includes/modules/class-wpcpm-mentor-calls.php:1334
-msgid "Your Student Report Card:"
 msgstr ""
 
 #: includes/mail/templates/invitations.php:128
@@ -3021,6 +3510,107 @@ msgstr ""
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
 #: includes/mail/templates/invitations.php:186
 msgid "Your Sponsor Dashboard:"
+msgstr ""
+
+#: includes/mail/templates/reports.php:20
+msgid "The semester the report covers, such as \"January to June 2026\". The email needs it."
+msgstr ""
+
+#: includes/mail/templates/reports.php:29
+msgid "When the daily job drafts a semester report for an institution: to the addresses in Who reviews reports, or, with none set, to every Administrator."
+msgstr ""
+
+#. translators: %s: institution name.
+#: includes/mail/templates/reports.php:32
+#, php-format
+msgid "Semester report drafted: %s"
+msgstr ""
+
+#. translators: 1: institution name, 2: a semester, e.g. "January to June 2026". Two sentences: the site reads a full stop followed by a space as the end of a sentence.
+#: includes/mail/templates/reports.php:40
+#, php-format
+msgid "A semester report has been drafted for %1$s, covering %2$s. It is waiting for an Administrator to review and approve it; the institution cannot see it until then."
+msgstr ""
+
+#. translators: %s: how many students, counted with the verb that goes with the number, such as "3 students in this semester were". The site leaves this sentence out when there were none.
+#: includes/mail/templates/reports.php:46
+#, php-format
+msgid "%s still in progress when the draft was written."
+msgstr ""
+
+#. translators: The line above the link to the draft. Keep the colon at the end; the site leaves this line out with the link under it when the Institution Dashboard page is not published.
+#: includes/mail/templates/reports.php:50
+msgid "Review it here:"
+msgstr ""
+
+#: includes/mail/templates/reports.php:55
+msgid "The institution's name; its Airtable record when the index holds no name for it."
+msgstr ""
+
+#: includes/mail/templates/reports.php:61
+msgid "How many of the semester's students were still in progress when the draft was written, counted with the verb that goes with the number: \"3 students in this semester were\". Empty when none were, which leaves its sentence out."
+msgstr ""
+
+#. translators: %s: a number of students.
+#: includes/mail/templates/reports.php:65
+#: includes/modules/class-wpcpm-semester-report-screen.php:2381
+#, php-format
+msgid "%s student in this semester was"
+msgid_plural "%s students in this semester were"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/mail/templates/reports.php:72
+msgid "The draft on the Institution Dashboard, as an Administrator reviews it. Empty, while that page is not published, leaves its lines out."
+msgstr ""
+
+#: includes/mail/templates/reports.php:81
+msgid "When an Administrator approves an institution's semester report: to each of the institution's accounts."
+msgstr ""
+
+#: includes/mail/templates/reports.php:82
+msgid "Your semester report is ready"
+msgstr ""
+
+#. translators: %s: a semester, e.g. "January to June 2026". Two sentences: the site reads a full stop followed by a space as the end of a sentence.
+#: includes/mail/templates/reports.php:85
+#, php-format
+msgid "The semester report on %s has been approved by the WordPress Credits program. You can read it on your Institution Dashboard and download it as a PDF."
+msgstr ""
+
+#: includes/mail/templates/reports.php:91
+msgid "The report on the Institution Dashboard. Empty, while that page is not published, leaves its line out."
+msgstr ""
+
+#: includes/mail/templates/reports.php:100
+msgid "When an Administrator asks the students of a semester report whether it may mention them; those one press cannot reach are written to a few minutes later."
+msgstr ""
+
+#: includes/mail/templates/reports.php:101
+msgid "May your institution mention you in its semester report?"
+msgstr ""
+
+#. translators: %s: a semester, e.g. "January to June 2026".
+#: includes/mail/templates/reports.php:107
+#, php-format
+msgid "Your institution is writing its report on %s."
+msgstr ""
+
+#: includes/mail/templates/reports.php:110
+msgid "Two questions on your own form decide what it may say about you: whether your institution may list you in the report, and whether it may quote the feedback you wrote. Both are yours to answer, and either answer is fine. Nothing you wrote is shown to your institution until you have said it may be."
+msgstr ""
+
+#. translators: The line above the address of the student's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
+#: includes/mail/templates/reports.php:112
+msgid "Your answers live on your dashboard:"
+msgstr ""
+
+#: includes/mail/templates/reports.php:113
+msgid "If you would rather not answer, you do not have to. You will not be asked about this report again."
+msgstr ""
+
+#: includes/mail/templates/reports.php:119
+msgid "The student's Student Report Card, where the two questions are, while its page is published. Empty leaves its lines out."
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:204
@@ -3252,7 +3842,7 @@ msgstr ""
 #. translators: %s: how long ago.
 #. translators: %s: human-readable time difference.
 #: includes/modules/class-wpcpm-administrators-cards.php:689
-#: includes/modules/class-wpcpm-mentor-calls.php:2505
+#: includes/modules/class-wpcpm-mentor-calls.php:2307
 #, php-format
 msgid "%s ago"
 msgstr ""
@@ -3583,7 +4173,7 @@ msgstr ""
 #. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #: includes/modules/class-wpcpm-administrators-cards.php:1831
-#: includes/modules/class-wpcpm-mentor-calls.php:2483
+#: includes/modules/class-wpcpm-mentor-calls.php:2285
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1493
 #, php-format
 msgid "%1$s to %2$s"
@@ -4196,14 +4786,6 @@ msgstr ""
 msgid "Group sessions with your mentor"
 msgstr ""
 
-#. translators: %d: how many sessions.
-#: includes/modules/class-wpcpm-group-sessions.php:1628
-#, php-format
-msgid "%d session"
-msgid_plural "%d sessions"
-msgstr[0] ""
-msgstr[1] ""
-
 #. translators: 1: "1 session", 2: its date.
 #: includes/modules/class-wpcpm-group-sessions.php:1633
 #, php-format
@@ -4234,7 +4816,7 @@ msgstr ""
 #. translators: %s: human time difference, e.g. "3 days".
 #. translators: %s: human-readable time difference, e.g. "2 hours".
 #: includes/modules/class-wpcpm-group-sessions.php:1748
-#: includes/modules/class-wpcpm-mentor-calls.php:2501
+#: includes/modules/class-wpcpm-mentor-calls.php:2303
 #, php-format
 msgid "in %s"
 msgstr ""
@@ -5327,7 +5909,7 @@ msgid "This site is not taking imports right now."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-import-form.php:1418
-#: includes/modules/class-wpcpm-semester-report-screen.php:3799
+#: includes/modules/class-wpcpm-semester-report-screen.php:3792
 msgid "That is not something you can do here."
 msgstr ""
 
@@ -5776,7 +6358,7 @@ msgid "Nothing was saved: this student is not linked to an institution in the pr
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-notes.php:455
-#: includes/modules/class-wpcpm-mentor-calls.php:1519
+#: includes/modules/class-wpcpm-mentor-calls.php:1438
 #: includes/modules/class-wpcpm-mentor-notes.php:659
 msgid "That note could not be saved."
 msgstr ""
@@ -8929,12 +9511,12 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5341
 #: includes/modules/class-wpcpm-semester-report-screen.php:524
-#: includes/modules/class-wpcpm-semester-report-screen.php:3446
+#: includes/modules/class-wpcpm-semester-report-screen.php:3439
 msgid "Approved"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5341
-#: includes/modules/class-wpcpm-semester-report-screen.php:3447
+#: includes/modules/class-wpcpm-semester-report-screen.php:3440
 #: includes/modules/class-wpcpm-sponsor-posts.php:777
 #: includes/tools/class-wpcpm-track-builder-screen.php:1106
 msgid "Draft"
@@ -9374,320 +9956,187 @@ msgstr ""
 msgid "Please log in first."
 msgstr ""
 
-#. translators: 1: the time it used to be at, 2: the time it is at now.
-#: includes/modules/class-wpcpm-mentor-calls.php:1309
-#, php-format
-msgid "The group session that was on %1$s has moved. It is now on %2$s."
-msgstr ""
-
-#. translators: %s: timezone name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1316
-#: includes/modules/class-wpcpm-mentor-calls.php:1380
-#: includes/modules/class-wpcpm-mentor-calls.php:1902
-#: includes/modules/class-wpcpm-mentor-calls.php:2255
-#: includes/modules/class-wpcpm-mentor-calls.php:2400
-#, php-format
-msgid "Times are shown in %s."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1320
-msgid "Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your Student Report Card."
-msgstr ""
-
-#. translators: %s: what the session is about.
-#: includes/modules/class-wpcpm-mentor-calls.php:1327
-#: includes/modules/class-wpcpm-mentor-calls.php:1391
-#, php-format
-msgid "What it is about: %s"
-msgstr ""
-
-#. translators: 1: site name, 2: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1341
-#, php-format
-msgid "[%1$s] The group session with %2$s has moved"
-msgstr ""
-
-#. translators: 1: the time it used to be at, 2: the time it is at now.
-#: includes/modules/class-wpcpm-mentor-calls.php:1373
-#, php-format
-msgid "An Administrator moved your group session that was on %1$s. It is now on %2$s."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1384
-msgid "Everybody on the session has been sent a new invitation, and the one attached replaces the one already in your calendar."
-msgstr ""
-
-#. translators: %s: site name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1404
-#, php-format
-msgid "[%s] Your group session has moved"
-msgstr ""
-
-#. translators: 1: site name, 2: the former mentor's name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1458
-#, php-format
-msgid "[%1$s] Your place on the group session with %2$s is released"
-msgstr ""
-
-#. translators: 1: site name, 2: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1464
-#, php-format
-msgid "[%1$s] You left the group session with %2$s"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1491
+#: includes/modules/class-wpcpm-mentor-calls.php:1410
 msgid "Your call is booked. It is in the list above, and your mentor can see it too."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1492
+#: includes/modules/class-wpcpm-mentor-calls.php:1411
 msgid "That call is canceled and the slot is free again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1493
+#: includes/modules/class-wpcpm-mentor-calls.php:1412
 msgid "Times are now shown in your timezone."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1494
+#: includes/modules/class-wpcpm-mentor-calls.php:1413
 msgid "Somebody booked that slot first. Please pick another one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1495
+#: includes/modules/class-wpcpm-mentor-calls.php:1414
 msgid "Another booking was going through at the same moment. Please try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1496
+#: includes/modules/class-wpcpm-mentor-calls.php:1415
 msgid "That call could not be booked. The calendar below says why."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1497
+#: includes/modules/class-wpcpm-mentor-calls.php:1416
 msgid "No mentor is linked to your account yet, so there is nobody to book with."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1498
+#: includes/modules/class-wpcpm-mentor-calls.php:1417
 msgid "That call could not be saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1501
+#: includes/modules/class-wpcpm-mentor-calls.php:1420
 msgid "Your group session is created. Your students can see it and join."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1502
+#: includes/modules/class-wpcpm-mentor-calls.php:1421
 msgid "You are on the session. It is in your list above, and there is an invitation in your email."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1503
+#: includes/modules/class-wpcpm-mentor-calls.php:1422
 msgid "You have left that session, and your place is free for somebody else."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1506
+#: includes/modules/class-wpcpm-mentor-calls.php:1425
 msgid "That session is canceled, and everybody who was on it has been emailed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1507
+#: includes/modules/class-wpcpm-mentor-calls.php:1426
 msgid "That session filled up while you were reading it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1508
+#: includes/modules/class-wpcpm-mentor-calls.php:1427
 msgid "That session is no longer open."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1509
+#: includes/modules/class-wpcpm-mentor-calls.php:1428
 msgid "That session belongs to a different mentor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1510
+#: includes/modules/class-wpcpm-mentor-calls.php:1429
 msgid "You are already on that session."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1511
+#: includes/modules/class-wpcpm-mentor-calls.php:1430
 msgid "A session needs a date and a start time."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1512
+#: includes/modules/class-wpcpm-mentor-calls.php:1431
 msgid "That session length is not a number of minutes this can use."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1513
+#: includes/modules/class-wpcpm-mentor-calls.php:1432
 msgid "A group session holds between 2 and 50 students."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1514
+#: includes/modules/class-wpcpm-mentor-calls.php:1433
 msgid "That start time has already passed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1515
+#: includes/modules/class-wpcpm-mentor-calls.php:1434
 msgid "Something else of yours overlaps that time."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1516
+#: includes/modules/class-wpcpm-mentor-calls.php:1435
 msgid "Your group session is updated. If the time changed, everybody on it has been emailed a new invitation."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1517
+#: includes/modules/class-wpcpm-mentor-calls.php:1436
 msgid "That is fewer places than there are students already on the session. Remove somebody first, or keep the places."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1518
+#: includes/modules/class-wpcpm-mentor-calls.php:1437
 msgid "Your note is saved, and it is on every card of everybody who was there."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1521
+#: includes/modules/class-wpcpm-mentor-calls.php:1440
 #: includes/modules/class-wpcpm-mentor-notes.php:460
 msgid "You cannot add notes for everybody on that session."
 msgstr ""
 
 #. translators: %d: how many sessions were planned.
-#: includes/modules/class-wpcpm-mentor-calls.php:1525
+#: includes/modules/class-wpcpm-mentor-calls.php:1444
 #, php-format
 msgid "Your %d sessions are planned. Your students can see the series and join it."
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-mentor-calls.php:1527
+#: includes/modules/class-wpcpm-mentor-calls.php:1446
 #, php-format
 msgid "One of the dates has passed: %s."
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-mentor-calls.php:1529
+#: includes/modules/class-wpcpm-mentor-calls.php:1448
 #, php-format
 msgid "One of the dates is given twice: %s."
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-mentor-calls.php:1531
+#: includes/modules/class-wpcpm-mentor-calls.php:1450
 #, php-format
 msgid "Something else of yours overlaps that time on %s."
 msgstr ""
 
 #. translators: %d: how many sessions a series holds at most.
-#: includes/modules/class-wpcpm-mentor-calls.php:1533
+#: includes/modules/class-wpcpm-mentor-calls.php:1452
 #, php-format
 msgid "A series holds %d sessions at most; plan the rest in a second go."
 msgstr ""
 
 #. translators: %s: what the box held.
-#: includes/modules/class-wpcpm-mentor-calls.php:1535
+#: includes/modules/class-wpcpm-mentor-calls.php:1454
 #, php-format
 msgid "One of the boxes holds something that is not a date: %s."
 msgstr ""
 
 #. translators: %d: how many sessions a series holds at most.
-#: includes/modules/class-wpcpm-mentor-calls.php:1537
+#: includes/modules/class-wpcpm-mentor-calls.php:1456
 #, php-format
 msgid "Say how many sessions the repeat should make, from 2 to %d."
 msgstr ""
 
 #. translators: %d: how many sessions the student is on.
-#: includes/modules/class-wpcpm-mentor-calls.php:1539
+#: includes/modules/class-wpcpm-mentor-calls.php:1458
 #, php-format
 msgid "You are on all %d sessions. They are in your list above, and one email holds the ones you joined just now for your calendar."
 msgstr ""
 
 #. translators: 1: sessions the student is on, 2: sessions in the series, 3: sessions that were full.
-#: includes/modules/class-wpcpm-mentor-calls.php:1541
+#: includes/modules/class-wpcpm-mentor-calls.php:1460
 #, php-format
 msgid "You are on %1$d of the %2$d sessions; %3$d had no place left."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1542
+#: includes/modules/class-wpcpm-mentor-calls.php:1461
 msgid "There was nothing to join: you are on every session of the series that has a place."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1546
+#: includes/modules/class-wpcpm-mentor-calls.php:1465
 msgid "That start time does not exist on that date: the clocks jump over it."
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-mentor-calls.php:1548
+#: includes/modules/class-wpcpm-mentor-calls.php:1467
 #, php-format
 msgid "One of the dates has no such time on it, since the clocks jump over it: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-calls.php:1652
-#: includes/modules/class-wpcpm-mentor-calls.php:2044
+#: includes/modules/class-wpcpm-mentor-calls.php:1591
+#: includes/modules/class-wpcpm-mentor-calls.php:1936
 msgid "your student"
 msgstr ""
 
-#. translators: 1: site name, 2: student name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1671
-#, php-format
-msgid "[%1$s] %2$s joined your group session"
-msgstr ""
-
-#. translators: 1: site name, 2: student name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1677
-#, php-format
-msgid "[%1$s] Call booked with %2$s"
-msgstr ""
-
-#. translators: 1: site name, 2: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1703
-#, php-format
-msgid "[%1$s] You are on the group session with %2$s"
-msgstr ""
-
-#. translators: 1: site name, 2: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:1709
-#, php-format
-msgid "[%1$s] Your call with %2$s is booked"
-msgstr ""
-
-#. translators: 1: site name, 2: student name, 3: how many sessions.
-#: includes/modules/class-wpcpm-mentor-calls.php:1763
-#, php-format
-msgid "[%1$s] %2$s joined your series: %3$d session"
-msgid_plural "[%1$s] %2$s joined your series: %3$d sessions"
-msgstr[0] ""
-msgstr[1] ""
-
-#. translators: 1: site name, 2: mentor name, 3: how many dates.
-#: includes/modules/class-wpcpm-mentor-calls.php:1785
-#, php-format
-msgid "[%1$s] Group sessions with %2$s: %3$d date"
-msgid_plural "[%1$s] Group sessions with %2$s: %3$d dates"
-msgstr[0] ""
-msgstr[1] ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1849
+#: includes/modules/class-wpcpm-mentor-calls.php:1798
 msgid "an Administrator"
-msgstr ""
-
-#. translators: 1: date and time of the session, 2: who canceled.
-#: includes/modules/class-wpcpm-mentor-calls.php:1889
-#, php-format
-msgid "The group session on %1$s was canceled by %2$s."
-msgstr ""
-
-#. translators: 1: date and time of the call, 2: who canceled.
-#: includes/modules/class-wpcpm-mentor-calls.php:1895
-#, php-format
-msgid "The call on %1$s was canceled by %2$s."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1912
-msgid "The slot is free again, and your student can book another time whenever suits them."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:1913
-msgid "The slot is free again, so you can book another time."
-msgstr ""
-
-#. translators: 1: site name, 2: date of the canceled session.
-#: includes/modules/class-wpcpm-mentor-calls.php:1925
-#, php-format
-msgid "[%1$s] Group session on %2$s canceled"
-msgstr ""
-
-#. translators: 1: site name, 2: date of the canceled call.
-#: includes/modules/class-wpcpm-mentor-calls.php:1931
-#, php-format
-msgid "[%1$s] Call on %2$s canceled"
 msgstr ""
 
 #. translators: %s: number of students attending.
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-mentor-calls.php:2051
+#: includes/modules/class-wpcpm-mentor-calls.php:1944
 #: includes/modules/class-wpcpm-semester-report-screen.php:1668
 #, php-format
 msgid "%s student"
@@ -9695,135 +10144,29 @@ msgid_plural "%s students"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: 1: site name, 2: the mentor's name, or how many students are coming.
-#: includes/modules/class-wpcpm-mentor-calls.php:2071
-#, php-format
-msgid "[%1$s] Reminder: your group session with %2$s"
-msgstr ""
-
-#. translators: 1: site name, 2: the other person's name.
-#: includes/modules/class-wpcpm-mentor-calls.php:2077
-#, php-format
-msgid "[%1$s] Reminder: your call with %2$s"
-msgstr ""
-
 #. translators: %s: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:2136
-#: includes/modules/class-wpcpm-mentor-calls.php:2194
+#: includes/modules/class-wpcpm-mentor-calls.php:2004
+#: includes/modules/class-wpcpm-mentor-calls.php:2062
 #, php-format
 msgid "Group session with %s"
 msgstr ""
 
 #. translators: 1: mentor name, 2: student name.
-#: includes/modules/class-wpcpm-mentor-calls.php:2141
+#: includes/modules/class-wpcpm-mentor-calls.php:2009
 #, php-format
 msgid "Mentor call: %1$s and %2$s"
 msgstr ""
 
-#. translators: 1: student name, 2: how many sessions.
-#: includes/modules/class-wpcpm-mentor-calls.php:2237
-#, php-format
-msgid "%1$s joined %2$d group session of yours:"
-msgid_plural "%1$s joined %2$d group sessions of yours:"
-msgstr[0] ""
-msgstr[1] ""
-
-#. translators: 1: mentor name, 2: how many sessions.
-#: includes/modules/class-wpcpm-mentor-calls.php:2243
-#, php-format
-msgid "You are on %2$d group session with %1$s:"
-msgid_plural "You are on %2$d group sessions with %1$s:"
-msgstr[0] ""
-msgstr[1] ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2263
-#: includes/modules/class-wpcpm-mentor-calls.php:2410
-msgid "Where you will meet:"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2271
-#: includes/modules/class-wpcpm-mentor-calls.php:2415
-msgid "You have not set a meeting link yet, so this confirmation cannot tell your student where to go. You can add one beside your availability on the program site."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2276
-msgid "What the sessions are about:"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2281
-msgid "The attached calendar file adds all of them to your calendar at once."
-msgstr ""
-
-#. translators: 1: the mentor's name, or how many students are coming, 2: date and time, 3: "in 4 hours".
-#: includes/modules/class-wpcpm-mentor-calls.php:2322
-#, php-format
-msgid "Your group session with %1$s is %3$s, on %2$s."
-msgstr ""
-
-#. translators: 1: the other person's name, 2: date and time, 3: "in 4 hours".
-#: includes/modules/class-wpcpm-mentor-calls.php:2329
-#, php-format
-msgid "Your call with %1$s is %3$s, on %2$s."
-msgstr ""
-
-#. translators: 1: mentor name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2339
-#, php-format
-msgid "You have left the group session with %1$s on %2$s."
-msgstr ""
-
-#. translators: 1: the former mentor's name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2348
-#, php-format
-msgid "You have a new mentor, so your place on the group session with %1$s on %2$s is released."
-msgstr ""
-
 #. translators: %s: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:2358
+#: includes/modules/class-wpcpm-mentor-calls.php:2219
 #, php-format
 msgid "A group session on the WordPress Credits Program with %s."
 msgstr ""
 
 #. translators: %s: mentor name.
-#: includes/modules/class-wpcpm-mentor-calls.php:2363
+#: includes/modules/class-wpcpm-mentor-calls.php:2224
 #, php-format
 msgid "A mentor call on the WordPress Credits Program with %s."
-msgstr ""
-
-#. translators: 1: student name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2370
-#, php-format
-msgid "%1$s joined your group session on %2$s."
-msgstr ""
-
-#. translators: 1: student name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2376
-#, php-format
-msgid "%1$s booked a call with you on %2$s."
-msgstr ""
-
-#. translators: 1: mentor name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2384
-#, php-format
-msgid "You are on the group session with %1$s on %2$s."
-msgstr ""
-
-#. translators: 1: mentor name, 2: date and time.
-#: includes/modules/class-wpcpm-mentor-calls.php:2390
-#, php-format
-msgid "Your call with %1$s is booked for %2$s."
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2424
-msgid "What the session is about:"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2429
-msgid "What the student would like to discuss:"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-calls.php:2430
-msgid "What you said you would like to discuss:"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-notes.php:103
@@ -10790,86 +11133,30 @@ msgstr[1] ""
 msgid "These numbers were read from the program records on %s."
 msgstr ""
 
-#. translators: 1: institution name, 2: a semester, e.g. "January to June 2026".
-#: includes/modules/class-wpcpm-semester-report-screen.php:2371
-#, php-format
-msgid "A semester report has been drafted for %1$s, covering %2$s. It is waiting for an Administrator to review and approve it; the institution cannot see it until then."
-msgstr ""
-
-#. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:2379
-#, php-format
-msgid "%s student in this semester was still in progress when the draft was written."
-msgid_plural "%s students in this semester were still in progress when the draft was written."
-msgstr[0] ""
-msgstr[1] ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:2385
-msgid "Review it here:"
-msgstr ""
-
-#. translators: %s: institution name.
-#: includes/modules/class-wpcpm-semester-report-screen.php:2391
-#, php-format
-msgid "Semester report drafted: %s"
-msgstr ""
-
-#. translators: %s: a semester, e.g. "January to June 2026".
-#: includes/modules/class-wpcpm-semester-report-screen.php:2411
-#, php-format
-msgid "The semester report on %s has been approved by the WordPress Credits program. You can read it on your Institution Dashboard and download it as a PDF."
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:2420
-msgid "Your semester report is ready"
-msgstr ""
-
-#. translators: %s: a semester, e.g. "January to June 2026".
-#: includes/modules/class-wpcpm-semester-report-screen.php:3032
-#, php-format
-msgid "Your institution is writing its report on %s."
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:3036
-msgid "Two questions on your own form decide what it may say about you: whether your institution may list you in the report, and whether it may quote the feedback you wrote. Both are yours to answer, and either answer is fine. Nothing you wrote is shown to your institution until you have said it may be."
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:3039
-msgid "Your answers live on your dashboard:"
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:3042
-msgid "If you would rather not answer, you do not have to. You will not be asked about this report again."
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:3045
-msgid "May your institution mention you in its semester report?"
-msgstr ""
-
-#: includes/modules/class-wpcpm-semester-report-screen.php:3211
+#: includes/modules/class-wpcpm-semester-report-screen.php:3204
 msgid "That report is not on this site."
 msgstr ""
 
 #. translators: 1: messages sent now, 2: messages still to go.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3693
+#: includes/modules/class-wpcpm-semester-report-screen.php:3686
 #, php-format
 msgid "%1$s students have been asked. %2$s more are queued and will be written to shortly."
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3701
+#: includes/modules/class-wpcpm-semester-report-screen.php:3694
 #, php-format
 msgid "%s student has been asked."
 msgid_plural "%s students have been asked."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3710
+#: includes/modules/class-wpcpm-semester-report-screen.php:3703
 msgid "Approved. No institution account to notify; send the PDF by hand."
 msgstr ""
 
 #. translators: %s: a number of accounts.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3715
+#: includes/modules/class-wpcpm-semester-report-screen.php:3708
 #, php-format
 msgid "Approved. The institution can now read and download it; %s of its accounts was told."
 msgid_plural "Approved. The institution can now read and download it; %s of its accounts were told."
@@ -10877,116 +11164,116 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the reason, from the program records.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3726
+#: includes/modules/class-wpcpm-semester-report-screen.php:3719
 #, php-format
 msgid "That did not work: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3754
+#: includes/modules/class-wpcpm-semester-report-screen.php:3747
 msgid "The program records are busy at the moment. Try again in a minute."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3770
+#: includes/modules/class-wpcpm-semester-report-screen.php:3763
 msgid "The first draft is ready. Nothing in it has been sent anywhere."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3771
+#: includes/modules/class-wpcpm-semester-report-screen.php:3764
 msgid "The report could not be written, because the program records could not be read. Nothing was saved. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3772
+#: includes/modules/class-wpcpm-semester-report-screen.php:3765
 msgid "There is already a report for that semester."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3773
+#: includes/modules/class-wpcpm-semester-report-screen.php:3766
 msgid "That report is being written right now. Give it a moment and look again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3774
+#: includes/modules/class-wpcpm-semester-report-screen.php:3767
 msgid "Saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3778
+#: includes/modules/class-wpcpm-semester-report-screen.php:3771
 msgid "Someone at your institution saved this report after you opened it. Nothing you sent was lost: your words are in the boxes below, above the version that was saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3779
+#: includes/modules/class-wpcpm-semester-report-screen.php:3772
 msgid "The draft is ready for review. Nothing in it has been sent anywhere, and the institution cannot see it until it is approved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3780
+#: includes/modules/class-wpcpm-semester-report-screen.php:3773
 msgid "There is already a report for that semester. It is open below."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3781
+#: includes/modules/class-wpcpm-semester-report-screen.php:3774
 msgid "That institution has no students in that semester, so there is nothing to report on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3782
+#: includes/modules/class-wpcpm-semester-report-screen.php:3775
 msgid "That is enough drafts for one day. Try again tomorrow."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3783
+#: includes/modules/class-wpcpm-semester-report-screen.php:3776
 msgid "That report is approved. Reopen it before changing anything."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3784
+#: includes/modules/class-wpcpm-semester-report-screen.php:3777
 msgid "Approved. The institution can now read and download it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3785
+#: includes/modules/class-wpcpm-semester-report-screen.php:3778
 msgid "The report was not approved, because the students' answers could not be read just now. Nothing changed. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3786
+#: includes/modules/class-wpcpm-semester-report-screen.php:3779
 msgid "That report is a draft already, so there was nothing to reopen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3787
+#: includes/modules/class-wpcpm-semester-report-screen.php:3780
 msgid "This report is a draft again. The institution no longer sees it until it is approved once more."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3788
+#: includes/modules/class-wpcpm-semester-report-screen.php:3781
 msgid "That version is back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3789
+#: includes/modules/class-wpcpm-semester-report-screen.php:3782
 msgid "That version could not be put back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3790
+#: includes/modules/class-wpcpm-semester-report-screen.php:3783
 msgid "The students' answers have been read again, and the report shows what they say now."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3791
+#: includes/modules/class-wpcpm-semester-report-screen.php:3784
 msgid "The students' answers could not be read just now. The report is unchanged. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3792
+#: includes/modules/class-wpcpm-semester-report-screen.php:3785
 msgid "The students have been asked."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3793
+#: includes/modules/class-wpcpm-semester-report-screen.php:3786
 msgid "There is nobody to ask: everybody in this semester who has written something has either answered or been asked in the last thirty days."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3796
+#: includes/modules/class-wpcpm-semester-report-screen.php:3789
 msgid "Only an Administrator can send that request. The students who have not answered are counted below; ask an Administrator to write to them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3797
+#: includes/modules/class-wpcpm-semester-report-screen.php:3790
 msgid "Nobody was written to, because the program records could not be read and there is no way to tell who has already answered. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3798
+#: includes/modules/class-wpcpm-semester-report-screen.php:3791
 msgid "Choose the semester the report is about."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3800
+#: includes/modules/class-wpcpm-semester-report-screen.php:3793
 msgid "Semester reports are not available on this site yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3801
+#: includes/modules/class-wpcpm-semester-report-screen.php:3794
 msgid "Something about that report could not be read."
 msgstr ""
 

@@ -661,14 +661,31 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area. In this version the area is **Invitations**: the student's,
-the mentor's and the sponsor's invitation, and the institution's two, one for an institution whose
-Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
-Each row names the email, who receives it and what sends it, its state, and who edited it last and
-when. The states:
+The plugin's emails, grouped by area, each area in a table of its own. In this version there are
+three:
+
+- **Invitations**: the student's, the mentor's and the sponsor's invitation, and the institution's
+  two, one for an institution whose Collaboration Agreement is not on file yet and one for an
+  institution whose agreement is on file.
+- **Mentor calls**: what the mentor and the students are told about one-to-one calls, group sessions
+  and series of sessions: a booking, a join, a series joined, a session moved, a place left or
+  released, a call or a session canceled, and the reminder a day before. Where the mentor and the
+  student are told different words, each has an email of its own, named for whom it goes to; a
+  group session's cancellation and its reminder say the same words to the mentor and to every
+  student on it, so each is one email. A mentor who has not set a meeting link yet is told so where
+  the others are told where to meet, so the mentor's three confirmations, of a call, of a join and of
+  a series, each have a second email for that case.
+- **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
+  approval to the institution's accounts, and the question to the students whether the report may
+  mention them.
+
+The emails of the Institutions and the Sponsors areas are not in the list yet, and go out as the
+plugin writes them. Each row names the email, who receives it and what sends it, its state, and who
+edited it last and when. The states:
 
 - **Shipped text**: the email is sent as the plugin ships it, which is word for word what it said
-  before 1.122.19.
+  before it could be edited: before 1.122.19 for the Invitations, before 1.122.21 for the Mentor
+  calls and the Semester reports.
 - **Edited**: it is sent as an Administrator wrote it, to everybody, in that wording.
 - **Edited, and the shipped text has changed since**: an update changed the shipped text after the
   edit was saved. The edit is still the one sent, and its editor opens the new shipped text under
@@ -688,18 +705,32 @@ space; a question or exclamation mark does not end one. So in "Thanks! Write to 
 with no contact address set, the whole of it goes, "Thanks!" with it, and in "e.g. " the full stop
 ends a sentence.
 
+An email about a call shows every time on its recipient's own clock: `{when}` is the call's start
+and end as the recipient reads them, and `{time_zone}` names that clock, so a mentor in Tokyo and a
+student in Warsaw each read the call at their own hour. A count arrives in words, such as
+`{session_count}`, "3 sessions", so no template needs a rule for one and several.
+
 - **Save** stores the subject and the body. It is refused, nothing is stored, and the editor comes
   back with what you typed, when a box is empty, a required placeholder is missing (every invitation
-  needs `{set_password_link}`, the link that sets the password, in its body, never in the subject:
-  a subject is not a link anybody can follow, and the Log keeps it), a placeholder is not one of the
-  email's (a misspelled one is named as one the email does not have; a misspelled
-  `{set_password_link}` is reported as the missing link instead), WordPress would remove part of the
-  text, or the subject is longer than 200 characters or the body longer than 10,000. A save of the
-  shipped text as it stands stores nothing, so the email stays shipped text.
+  needs `{set_password_link}`, the link that sets the password; every email about a call needs
+  `{when}`, its time (a series, `{session_dates}`), the mentor's confirmation sent with a meeting
+  link needs `{meeting_place}`, and a semester report `{semester}`), a link or a typed text that goes
+  in the body is in the subject (`{set_password_link}`; a mentor's meeting link, `{meeting_place}`,
+  which can carry the meeting's passcode; and what a student or a mentor typed, `{topic}` and
+  `{session_topic}`: a subject is not a link anybody can follow, and the Log keeps it), a placeholder
+  is not one of the email's (a misspelled one is named as one the email does not have; a misspelled
+  required one is reported as missing instead), WordPress would remove part of the text, or the
+  subject is longer than 200
+  characters or the body longer than 10,000. A save of the shipped text as it stands stores nothing,
+  so the email stays shipped text. A subject made of placeholders alone, such as `{mentor_name}`,
+  is saved; if they all come out empty, the email goes out with its shipped subject rather than with
+  none, since an email with no subject is not sent.
 - **Send me a test**, beside **Save**, sends the email as it is saved, filled with the example values
   and with "[Test]" before its subject, to your own address and to nobody else. The Log marks it
   **Test**. Save what you typed first: pressed with typing not saved yet, it sends nothing, and the
-  editor comes back with your typing and says so.
+  editor comes back with your typing and says so. A test carries the subject and the body alone: the
+  calendar file and the reply address that a Mentor calls email goes out with are added when it is
+  really sent, so a test of one arrives without them.
 - **Restore the original** is there once the email is edited. It asks first, then drops the edit,
   and the shipped text is sent from then on.
 
@@ -754,7 +785,10 @@ To find an email, type part of an address, a name or a subject into the search b
 list by **Area**, **Recipient type**, **Status**, **Email** or **When** (today, the last 7 days, the
 last 30 days, or from and to dates), and press **Filter**. The **Email** filter is one field: type
 a few letters of the email's name and pick it from the list. Fifty rows show a page, newest first,
-with the count above them.
+with the count above them. Until 1.122.21 the Mentor calls emails were named by five names that each
+covered the mentor's copy and the students' alike, such as **Call booked** and **Call reminder**;
+the rows sent before keep those names, which now end "(until 1.122.21)", for the 30 days the log
+keeps them.
 
 The log never keeps the text of an email, its attachments, or anything secret such as a sign-in
 code or a password link. Entries older than 30 days are deleted every day. WordPress's **Export

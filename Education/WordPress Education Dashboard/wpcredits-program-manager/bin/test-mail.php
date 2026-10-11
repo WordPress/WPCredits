@@ -1816,8 +1816,8 @@ ck( 'no constant string in the PHP under includes/ says a bare "report card": it
 ck( 'the student\'s welcome and the notice that a group session moved name the Student Report Card',
     array(
         substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/templates/invitations.php' ), "__( 'Your Student Report Card:'" ),
-        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), "__( 'Your Student Report Card:'" ),
-        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' ), 'you can leave the session from your Student Report Card.' ),
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/templates/calls.php' ), "__( 'Your Student Report Card:'" ),
+        substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/templates/calls.php' ), 'you can leave the session from your Student Report Card.' ),
     ),
     array( 1, 1, 1 ) );
 ck( 'and the Institutions screen says a semester report is approved on the Institution Dashboard, by its name',

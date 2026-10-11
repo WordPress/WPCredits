@@ -2348,7 +2348,9 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The message to the managers when the job drafts a report.
+	 * The message to the Administrators when the job drafts a report: the template registry's
+	 * `report-drafted`, filled with the institution, the semester, how many of its students were still
+	 * in progress, and the draft's address.
 	 *
 	 * @param string $institution Institutions record ID.
 	 * @param string $cohort      Cohort key.
@@ -2366,61 +2368,64 @@ final class WPCPM_Semester_Report_Screen {
 			$url  = self::report_url( $cohort );
 			$url  = '' !== $url ? add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $institution, $url ) : '';
 
-			$body = sprintf(
-				/* translators: 1: institution name, 2: a semester, e.g. "January to June 2026". */
-				__( 'A semester report has been drafted for %1$s, covering %2$s. It is waiting for an Administrator to review and approve it; the institution cannot see it until then.', 'wpcredits-program-manager' ),
-				$name,
-				WPCPM_Cohort::label( $cohort )
-			) . "\n\n";
-
-			if ( $in_progress > 0 ) {
-				$body .= sprintf(
-					/* translators: %s: a number of students. */
-					_n( '%s student in this semester was still in progress when the draft was written.', '%s students in this semester were still in progress when the draft was written.', $in_progress, 'wpcredits-program-manager' ),
-					number_format_i18n( $in_progress )
-				) . "\n\n";
-			}
-
-			if ( '' !== $url ) {
-				$body .= __( 'Review it here:', 'wpcredits-program-manager' ) . "\n" . $url . "\n";
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: institution name. */
-					__( 'Semester report drafted: %s', 'wpcredits-program-manager' ),
-					$name
-				),
-				'body'    => $body,
+			return self::rendered(
+				self::MAIL_DRAFTED,
+				array(
+					'institution_name'     => $name,
+					'semester'             => WPCPM_Cohort::label( $cohort ),
+					// Counted here with the verb that goes with the number, so the template never
+					// needs a plural rule; none in progress leaves the sentence out.
+					'students_in_progress' => $in_progress > 0
+						? sprintf(
+							/* translators: %s: a number of students. */
+							_n( '%s student in this semester was', '%s students in this semester were', $in_progress, 'wpcredits-program-manager' ),
+							number_format_i18n( $in_progress )
+						)
+						: '',
+					'review_link'          => $url,
+				)
 			);
 		};
 	}
 
 	/**
-	 * The message to an institution's accounts when a report is approved.
+	 * The message to an institution's accounts when a report is approved: the template registry's
+	 * `report-approved`, filled with the semester and the report's address.
 	 *
 	 * @param string $cohort Cohort key.
 	 * @return callable A builder for `WPCPM_Mail::send()`.
 	 */
 	private static function approved_message( $cohort ) {
 		return function () use ( $cohort ) {
-			$url = self::report_url( $cohort );
-
-			$body = sprintf(
-				/* translators: %s: a semester, e.g. "January to June 2026". */
-				__( 'The semester report on %s has been approved by the WordPress Credits program. You can read it on your Institution Dashboard and download it as a PDF.', 'wpcredits-program-manager' ),
-				WPCPM_Cohort::label( $cohort )
-			) . "\n\n";
-
-			if ( '' !== $url ) {
-				$body .= $url . "\n";
-			}
-
-			return array(
-				'subject' => __( 'Your semester report is ready', 'wpcredits-program-manager' ),
-				'body'    => $body,
+			return self::rendered(
+				self::MAIL_APPROVED,
+				array(
+					'semester'    => WPCPM_Cohort::label( $cohort ),
+					'report_link' => self::report_url( $cohort ),
+				)
 			);
 		};
+	}
+
+	/**
+	 * One of the screen's emails, as the mail layer takes it: the template registry's subject and
+	 * body, filled with the values given.
+	 *
+	 * @param string $id     The template's id.
+	 * @param array  $values Each placeholder's value, by name.
+	 * @return array{subject:string,body:string} With no such template, no subject, so nothing is sent.
+	 */
+	private static function rendered( $id, array $values ) {
+		$mail = WPCPM_Mail_Templates::render( $id, $values );
+
+		if ( null === $mail ) {
+			return array(
+				'subject' => '',
+				'body'    => '',
+			);
+		}
+
+		return $mail;
 	}
 
 	/**
@@ -3011,7 +3016,8 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The consent message.
+	 * The consent message: the template registry's `report-consent`, filled with the semester and
+	 * the student's dashboard, where the two questions are.
 	 *
 	 * **It names no institution and quotes nothing.** The student knows which school they
 	 * are at, and a message repeating a sentence they wrote about their term back at them,
@@ -3025,25 +3031,12 @@ final class WPCPM_Semester_Report_Screen {
 	 */
 	private static function ask_message( $cohort ) {
 		return function () use ( $cohort ) {
-			$page = class_exists( 'WPCPM_Students_Dashboard' ) ? WPCPM_Students_Dashboard::page_url() : '';
-
-			$body = sprintf(
-				/* translators: %s: a semester, e.g. "January to June 2026". */
-				__( 'Your institution is writing its report on %s.', 'wpcredits-program-manager' ),
-				WPCPM_Cohort::label( $cohort )
-			) . "\n\n";
-
-			$body .= __( 'Two questions on your own form decide what it may say about you: whether your institution may list you in the report, and whether it may quote the feedback you wrote. Both are yours to answer, and either answer is fine. Nothing you wrote is shown to your institution until you have said it may be.', 'wpcredits-program-manager' ) . "\n\n";
-
-			if ( '' !== $page ) {
-				$body .= __( 'Your answers live on your dashboard:', 'wpcredits-program-manager' ) . "\n" . $page . "\n\n";
-			}
-
-			$body .= __( 'If you would rather not answer, you do not have to. You will not be asked about this report again.', 'wpcredits-program-manager' );
-
-			return array(
-				'subject' => __( 'May your institution mention you in its semester report?', 'wpcredits-program-manager' ),
-				'body'    => $body,
+			return self::rendered(
+				self::MAIL_CONTEXT,
+				array(
+					'semester'       => WPCPM_Cohort::label( $cohort ),
+					'dashboard_link' => class_exists( 'WPCPM_Students_Dashboard' ) ? WPCPM_Students_Dashboard::page_url() : '',
+				)
 			);
 		};
 	}

@@ -1260,7 +1260,7 @@ class WPCPM_Mentor_Calls {
 	 * Tell everybody on a session that it has moved, and move it in their calendars.
 	 *
 	 * Sent only when the time changed, and to the students; to the mentor as well when somebody
-	 * else moved it. A program manager may move a mentor's session, and the mentor, who holds the
+	 * else moved it. An Administrator may move a mentor's session, and the mentor, who holds the
 	 * session in their calendar from the joins, kept the old time and could turn up at it (the deep
 	 * check of 1.109.1, SESSIONS-11). The invitation carries the session's revision as its
 	 * `SEQUENCE`, which is what makes a calendar treat it as a move of the entry it already holds
@@ -1268,7 +1268,8 @@ class WPCPM_Mentor_Calls {
 	 * side by side and no way to tell which is real.
 	 *
 	 * The old time is named in the message, because "your session has moved" on its own leaves
-	 * somebody who has three of them wondering which.
+	 * somebody who has three of them wondering which. The words are the template registry's
+	 * (`session-moved-student`, `session-moved-mentor`); the invitation stays here.
 	 *
 	 * @param int $call_id   Session post ID.
 	 * @param int $was_start The start it had before, as a timestamp.
@@ -1297,55 +1298,18 @@ class WPCPM_Mentor_Calls {
 
 			WPCPM_Mail::send(
 				$student,
-				'session-moved',
+				'session-moved-student',
 				function ( $recipient ) use ( $facts, $mentor, $student, $was_start, $was_end, $revision ) {
-					$zone   = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
 					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $recipient, $revision );
-					$page   = WPCPM_Students_Dashboard::page_url();
 
-					$lines = array(
-						sprintf(
-							/* translators: 1: the time it used to be at, 2: the time it is at now. */
-							__( 'The group session that was on %1$s has moved. It is now on %2$s.', 'wpcredits-program-manager' ),
-							self::format_range( $was_start, $was_end, $zone ),
-							self::format_range( $facts['start'], $facts['end'], $zone )
-						),
-						'',
-						sprintf(
-							/* translators: %s: timezone name. */
-							__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
-							WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-						),
-						'',
-						__( 'Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your Student Report Card.', 'wpcredits-program-manager' ),
-					);
-
-					if ( '' !== trim( (string) $facts['topic'] ) ) {
-						$lines[] = '';
-						$lines[] = sprintf(
-							/* translators: %s: what the session is about. */
-							__( 'What it is about: %s', 'wpcredits-program-manager' ),
-							$facts['topic']
-						);
-					}
-
-					if ( '' !== $page ) {
-						$lines[] = '';
-						$lines[] = __( 'Your Student Report Card:', 'wpcredits-program-manager' );
-						$lines[] = $page;
-					}
-
-					return array(
-						'subject'     => sprintf(
-							/* translators: 1: site name, 2: mentor name. */
-							__( '[%1$s] The group session with %2$s has moved', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$mentor instanceof WP_User ? $mentor->display_name : ''
-						),
-						'body'        => implode( "\r\n", $lines ) . "\r\n",
-						'headers'     => WPCPM_Mail::reply_to( $mentor ),
-						'attachments' => $invite,
-						'cleanup'     => $invite,
+					return self::mail_of(
+						'session-moved-student',
+						self::moved_values( $facts, $recipient, false, $mentor, $was_start, $was_end ),
+						array(
+							'headers'     => WPCPM_Mail::reply_to( $mentor ),
+							'attachments' => $invite,
+							'cleanup'     => $invite,
+						)
 					);
 				}
 			);
@@ -1361,52 +1325,17 @@ class WPCPM_Mentor_Calls {
 
 		WPCPM_Mail::send(
 			$mentor,
-			'session-moved',
+			'session-moved-mentor',
 			function ( $recipient ) use ( $facts, $mentor, $first, $was_start, $was_end, $revision ) {
-				$zone   = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
 				$invite = self::calendar( $facts, WPCPM_ICS::METHOD_REQUEST, $mentor, $first instanceof WP_User ? $first : null, $recipient, $revision );
-				$page   = WPCPM_Mentors_Dashboard::page_url();
 
-				$lines = array(
-					sprintf(
-						/* translators: 1: the time it used to be at, 2: the time it is at now. */
-						__( 'An Administrator moved your group session that was on %1$s. It is now on %2$s.', 'wpcredits-program-manager' ),
-						self::format_range( $was_start, $was_end, $zone ),
-						self::format_range( $facts['start'], $facts['end'], $zone )
-					),
-					'',
-					sprintf(
-						/* translators: %s: timezone name. */
-						__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
-						WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-					),
-					'',
-					__( 'Everybody on the session has been sent a new invitation, and the one attached replaces the one already in your calendar.', 'wpcredits-program-manager' ),
-				);
-
-				if ( '' !== trim( (string) $facts['topic'] ) ) {
-					$lines[] = '';
-					$lines[] = sprintf(
-						/* translators: %s: what the session is about. */
-						__( 'What it is about: %s', 'wpcredits-program-manager' ),
-						$facts['topic']
-					);
-				}
-
-				if ( '' !== $page ) {
-					$lines[] = '';
-					$lines[] = $page;
-				}
-
-				return array(
-					'subject'     => sprintf(
-						/* translators: %s: site name. */
-						__( '[%s] Your group session has moved', 'wpcredits-program-manager' ),
-						WPCPM_Mail::site_name()
-					),
-					'body'        => implode( "\r\n", $lines ) . "\r\n",
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				return self::mail_of(
+					'session-moved-mentor',
+					self::moved_values( $facts, $recipient, true, $mentor, $was_start, $was_end ),
+					array(
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
@@ -1418,7 +1347,7 @@ class WPCPM_Mentor_Calls {
 	 * Only them: the session goes ahead for everybody else, so telling the rest that somebody left
 	 * would be noise - and telling them *who* left would be worse. A student the students sync took
 	 * off, their pairing having settled on a new mentor, is told that rather than that they left
-	 * (SESSIONS-7).
+	 * (SESSIONS-7): two templates, `session-released` and `session-left`.
 	 *
 	 * @param int      $call_id    Session post ID.
 	 * @param int      $student_id Who left.
@@ -1441,36 +1370,26 @@ class WPCPM_Mentor_Calls {
 
 		$facts  = self::details( $call );
 		$mentor = get_user_by( 'id', $facts['mentor_id'] );
+		$id     = $repaired ? 'session-released' : 'session-left';
 
 		WPCPM_Mail::send(
 			$student,
-			'call-cancelled',
-			function ( $recipient ) use ( $facts, $mentor, $student, $revision, $repaired ) {
+			$id,
+			function ( $recipient ) use ( $id, $facts, $mentor, $student, $revision ) {
 				// `METHOD:CANCEL` with the same UID as the invitation, so the entry disappears
 				// from their calendar rather than sitting there for a session they left.
 				$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $student, $recipient, $revision );
-				$name   = $mentor instanceof WP_User ? $mentor->display_name : '';
 
-				return array(
-					'subject'     => $repaired
-						? sprintf(
-							/* translators: 1: site name, 2: the former mentor's name. */
-							__( '[%1$s] Your place on the group session with %2$s is released', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$name
-						)
-						: sprintf(
-							/* translators: 1: site name, 2: mentor name. */
-							__( '[%1$s] You left the group session with %2$s', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$name
-						),
-					'body'        => self::mail_body( $facts, $recipient, $name, false, $repaired ? 'repaired' : 'left' ),
-					// A reply goes to the mentor, as every other message about the session does
-					// (SESSIONS-12: this one had nobody to reply to).
-					'headers'     => WPCPM_Mail::reply_to( $mentor ),
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				return self::mail_of(
+					$id,
+					array( 'mentor_name' => $mentor instanceof WP_User ? $mentor->display_name : '' ) + self::call_values( $facts, $recipient, false ),
+					array(
+						// A reply goes to the mentor, as every other message about the session does
+						// (SESSIONS-12: this one had nobody to reply to).
+						'headers'     => WPCPM_Mail::reply_to( $mentor ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
@@ -1634,6 +1553,11 @@ class WPCPM_Mentor_Calls {
 	 * Plain mail, deliberately: a call nobody is told about is a call nobody attends, and
 	 * neither party is necessarily going to revisit the dashboard.
 	 *
+	 * Each copy is a template of its own (`WPCPM_Mail_Templates`, the Mentor calls area): a call's
+	 * and a session's say different words, and the mentor's copy says where to meet while the
+	 * mentor has a meeting link and that they have none otherwise, so the mentor's is chosen by the
+	 * link as well.
+	 *
 	 * @param int          $call_id  Call post ID.
 	 * @param WP_User      $mentor   Mentor.
 	 * @param WP_User|null $student  Student.
@@ -1649,39 +1573,38 @@ class WPCPM_Mentor_Calls {
 
 		$facts   = self::details( $call );
 		$session = ! empty( $facts['is_group'] );
-		$name    = '' !== $facts['name'] ? $facts['name'] : __( 'your student', 'wpcredits-program-manager' );
+		$linked  = '' !== WPCPM_Mentor_Availability::meeting_place( (int) $facts['mentor_id'] );
 
-		// A session carries no student's name of its own, so its joiner is named from their account:
-		// "your student booked a call" told the mentor nothing about who was coming (the deep check
-		// of 1.109.1, SESSIONS-12).
-		if ( $session && $student instanceof WP_User ) {
-			$name = $student->display_name;
+		if ( $session ) {
+			$to_mentor  = $linked ? 'session-joined-mentor' : 'session-joined-mentor-no-link';
+			$to_student = 'session-joined-student';
+		} else {
+			$to_mentor  = $linked ? 'call-booked-mentor' : 'call-booked-mentor-no-link';
+			$to_student = 'call-booked-student';
 		}
 
 		WPCPM_Mail::send(
 			$mentor,
-			'call-booked',
-			function ( $recipient ) use ( $facts, $name, $mentor, $student, $revision, $session ) {
+			$to_mentor,
+			function ( $recipient ) use ( $to_mentor, $facts, $mentor, $student, $revision, $session ) {
 				$invite = self::calendar( $facts, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $recipient, $revision );
+				$name   = '' !== $facts['name'] ? $facts['name'] : __( 'your student', 'wpcredits-program-manager' );
 
-				return array(
-					'subject'     => $session
-						? sprintf(
-							/* translators: 1: site name, 2: student name. */
-							__( '[%1$s] %2$s joined your group session', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$name
-						)
-						: sprintf(
-							/* translators: 1: site name, 2: student name. */
-							__( '[%1$s] Call booked with %2$s', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$name
-						),
-					'body'        => self::mail_body( $facts, $recipient, $name, true, 'booked' ),
-					'headers'     => WPCPM_Mail::reply_to( $student ),
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				// A session carries no student's name of its own, so its joiner is named from their
+				// account: "your student booked a call" told the mentor nothing about who was coming
+				// (the deep check of 1.109.1, SESSIONS-12).
+				if ( $session && $student instanceof WP_User ) {
+					$name = $student->display_name;
+				}
+
+				return self::mail_of(
+					$to_mentor,
+					array( 'student_name' => $name ) + self::call_values( $facts, $recipient, true ),
+					array(
+						'headers'     => WPCPM_Mail::reply_to( $student ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
@@ -1692,28 +1615,18 @@ class WPCPM_Mentor_Calls {
 
 		WPCPM_Mail::send(
 			$student,
-			'call-booked',
-			function ( $recipient ) use ( $facts, $mentor, $student, $revision, $session ) {
+			$to_student,
+			function ( $recipient ) use ( $to_student, $facts, $mentor, $student, $revision ) {
 				$invite = self::calendar( $facts, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $recipient, $revision );
 
-				return array(
-					'subject'     => $session
-						? sprintf(
-							/* translators: 1: site name, 2: mentor name. */
-							__( '[%1$s] You are on the group session with %2$s', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$mentor->display_name
-						)
-						: sprintf(
-							/* translators: 1: site name, 2: mentor name. */
-							__( '[%1$s] Your call with %2$s is booked', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name(),
-							$mentor->display_name
-						),
-					'body'        => self::mail_body( $facts, $recipient, $mentor->display_name, false, 'booked' ),
-					'headers'     => WPCPM_Mail::reply_to( $mentor ),
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				return self::mail_of(
+					$to_student,
+					array( 'mentor_name' => $mentor->display_name ) + self::call_values( $facts, $recipient, false ),
+					array(
+						'headers'     => WPCPM_Mail::reply_to( $mentor ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
@@ -1721,7 +1634,8 @@ class WPCPM_Mentor_Calls {
 
 	/**
 	 * Tell both people a student joined a series: one message each, with one calendar file holding
-	 * every session the student was put on (the design's section 6, 1.108.0).
+	 * every session the student was put on (the design's section 6, 1.108.0). The mentor's copy is
+	 * chosen by the mentor's meeting link, as a single booking's is.
 	 *
 	 * @param int[]        $call_ids  The sessions the student was put on, soonest first.
 	 * @param WP_User      $mentor    Mentor.
@@ -1749,48 +1663,41 @@ class WPCPM_Mentor_Calls {
 			return;
 		}
 
-		$count = count( $facts_list );
+		$first     = reset( $facts_list );
+		$to_mentor = '' !== WPCPM_Mentor_Availability::meeting_place( (int) $first['mentor_id'] ) ? 'series-joined-mentor' : 'series-joined-mentor-no-link';
 
 		WPCPM_Mail::send(
 			$mentor,
-			'series-joined',
-			function ( $recipient ) use ( $facts_list, $count, $mentor, $student ) {
+			$to_mentor,
+			function ( $recipient ) use ( $to_mentor, $facts_list, $mentor, $student ) {
 				$invite = self::calendar_many( $facts_list, $mentor, $student, $recipient );
 
-				return array(
-					'subject'     => sprintf(
-						/* translators: 1: site name, 2: student name, 3: how many sessions. */
-						_n( '[%1$s] %2$s joined your series: %3$d session', '[%1$s] %2$s joined your series: %3$d sessions', $count, 'wpcredits-program-manager' ),
-						WPCPM_Mail::site_name(),
-						$student->display_name,
-						$count
-					),
-					'body'        => self::series_mail_body( $facts_list, $recipient, $student->display_name, true ),
-					'headers'     => WPCPM_Mail::reply_to( $student ),
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				return self::mail_of(
+					$to_mentor,
+					array( 'student_name' => $student->display_name ) + self::series_values( $facts_list, $recipient, true ),
+					array(
+						'headers'     => WPCPM_Mail::reply_to( $student ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
 
 		WPCPM_Mail::send(
 			$student,
-			'series-joined',
-			function ( $recipient ) use ( $facts_list, $count, $mentor, $student ) {
+			'series-joined-student',
+			function ( $recipient ) use ( $facts_list, $mentor, $student ) {
 				$invite = self::calendar_many( $facts_list, $mentor, $student, $recipient );
 
-				return array(
-					'subject'     => sprintf(
-						/* translators: 1: site name, 2: mentor name, 3: how many dates. */
-						_n( '[%1$s] Group sessions with %2$s: %3$d date', '[%1$s] Group sessions with %2$s: %3$d dates', $count, 'wpcredits-program-manager' ),
-						WPCPM_Mail::site_name(),
-						$mentor->display_name,
-						$count
-					),
-					'body'        => self::series_mail_body( $facts_list, $recipient, $mentor->display_name, false ),
-					'headers'     => WPCPM_Mail::reply_to( $mentor ),
-					'attachments' => $invite,
-					'cleanup'     => $invite,
+				return self::mail_of(
+					'series-joined-student',
+					array( 'mentor_name' => $mentor->display_name ) + self::series_values( $facts_list, $recipient, false ),
+					array(
+						'headers'     => WPCPM_Mail::reply_to( $mentor ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					)
 				);
 			}
 		);
@@ -1828,6 +1735,10 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * Tell everybody else a call was canceled.
 	 *
+	 * A session's cancellation says the same words to its mentor and to every student on it
+	 * (`session-cancelled`); a one-to-one call's tells the mentor that the student can book again and
+	 * the student that they can (`call-cancelled-mentor`, `call-cancelled-student`).
+	 *
 	 * @param WP_Post  $call     Call post.
 	 * @param array    $facts    Its facts, read under the booking lock as it was trashed, so the
 	 *                           people told are the people who were on it (SESSIONS-5).
@@ -1843,13 +1754,14 @@ class WPCPM_Mentor_Calls {
 		$mentor  = get_user_by( 'id', $facts['mentor_id'] );
 		$student = get_user_by( 'id', $facts['student_id'] );
 
-		// Who to name as having canceled. A program manager acting on somebody's behalf is
-		// named by their role rather than personally: to a student, an administrator they
-		// have never heard of reads as a stranger calling their call off.
-		$by = __( 'an Administrator', 'wpcredits-program-manager' );
+		// Who to name as having canceled: the mentor or the student by name. An Administrator acting
+		// on somebody's behalf is named by their role rather than personally (null here, worded in
+		// each recipient's language below): to a student, an Administrator they have never heard of
+		// reads as a stranger calling their call off.
+		$by = null;
 
 		if ( $actor && ( $actor === (int) $facts['mentor_id'] || $actor === (int) $facts['student_id'] ) ) {
-			$by = wp_get_current_user()->display_name;
+			$by = (string) wp_get_current_user()->display_name;
 		}
 
 		foreach ( self::recipients( $facts ) as $person ) {
@@ -1869,73 +1781,26 @@ class WPCPM_Mentor_Calls {
 			// attendee, whom the mentor already knows.
 			$named = ( ! $to_mentor && $session ) ? $person : $student;
 
+			if ( $session ) {
+				$id = 'session-cancelled';
+			} else {
+				$id = $to_mentor ? 'call-cancelled-mentor' : 'call-cancelled-student';
+			}
+
 			WPCPM_Mail::send(
 				$person,
-				'call-cancelled',
-				function ( $recipient ) use ( $facts, $by, $to_mentor, $mentor, $named, $other, $revision, $session ) {
-					$zone   = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
+				$id,
+				function ( $recipient ) use ( $id, $facts, $by, $to_mentor, $mentor, $named, $other, $revision ) {
 					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $named, $recipient, $revision );
-					$page   = $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url();
-					$range  = self::format_range( $facts['start'], $facts['end'], $zone );
 
-					// A session's cancellation in the session's own words, and with no offer of another
-					// booking: a session's time is not a slot anybody books again (the fix round of
-					// SESSIONS-12; it read "The call on ..." and offered one to the mentor and to
-					// every student).
-					$lines = array(
-						$session
-							? sprintf(
-								/* translators: 1: date and time of the session, 2: who canceled. */
-								__( 'The group session on %1$s was canceled by %2$s.', 'wpcredits-program-manager' ),
-								$range,
-								$by
-							)
-							: sprintf(
-								/* translators: 1: date and time of the call, 2: who canceled. */
-								__( 'The call on %1$s was canceled by %2$s.', 'wpcredits-program-manager' ),
-								$range,
-								$by
-							),
-						'',
-						sprintf(
-							/* translators: %s: timezone name. */
-							__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
-							WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-						),
-					);
-
-					if ( ! $session ) {
-						$lines[] = '';
-						// Mentors do not book their own calls, so telling them to book
-						// another one is somebody else's instruction.
-						$lines[] = $to_mentor
-							? __( 'The slot is free again, and your student can book another time whenever suits them.', 'wpcredits-program-manager' )
-							: __( 'The slot is free again, so you can book another time.', 'wpcredits-program-manager' );
-					}
-
-					if ( '' !== $page ) {
-						$lines[] = '';
-						$lines[] = $page;
-					}
-
-					return array(
-						'subject'     => $session
-							? sprintf(
-								/* translators: 1: site name, 2: date of the canceled session. */
-								__( '[%1$s] Group session on %2$s canceled', 'wpcredits-program-manager' ),
-								WPCPM_Mail::site_name(),
-								wp_date( get_option( 'date_format' ), (int) $facts['start'], $zone )
-							)
-							: sprintf(
-								/* translators: 1: site name, 2: date of the canceled call. */
-								__( '[%1$s] Call on %2$s canceled', 'wpcredits-program-manager' ),
-								WPCPM_Mail::site_name(),
-								wp_date( get_option( 'date_format' ), (int) $facts['start'], $zone )
-							),
-						'body'        => implode( "\n", $lines ),
-						'headers'     => WPCPM_Mail::reply_to( $other ),
-						'attachments' => $invite,
-						'cleanup'     => $invite,
+					return self::mail_of(
+						$id,
+						array( 'canceled_by' => null === $by ? __( 'an Administrator', 'wpcredits-program-manager' ) : $by ) + self::call_values( $facts, $recipient, $to_mentor ),
+						array(
+							'headers'     => WPCPM_Mail::reply_to( $other ),
+							'attachments' => $invite,
+							'cleanup'     => $invite,
+						)
 					);
 				}
 			);
@@ -2023,6 +1888,10 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * Send one call's reminder to both parties.
 	 *
+	 * A one-to-one call's reminder is the mentor's and the student's own template; a group session's
+	 * says the same words to everybody on it, the mentor told how many are coming where a student is
+	 * told the mentor's name (`session-reminder`).
+	 *
 	 * @param WP_Post $call Call post.
 	 * @param int     $lead Reminder lead time in hours.
 	 */
@@ -2041,45 +1910,44 @@ class WPCPM_Mentor_Calls {
 
 		$mentor  = get_user_by( 'id', $facts['mentor_id'] );
 		$student = get_user_by( 'id', $facts['student_id'] );
-		$name    = '' !== $facts['name'] ? $facts['name'] : __( 'your student', 'wpcredits-program-manager' );
-
-		// A group session has no single other person to name, so the mentor is told how many are
-		// coming instead. Naming one of several attendees would be worse than naming none.
-		if ( $facts['is_group'] ) {
-			$name = sprintf(
-				/* translators: %s: number of students attending. */
-				_n( '%s student', '%s students', count( $facts['attendees'] ), 'wpcredits-program-manager' ),
-				number_format_i18n( count( $facts['attendees'] ) )
-			);
-		}
 
 		foreach ( self::recipients( $facts ) as $person ) {
 			$to_mentor = (int) $person->ID === (int) $facts['mentor_id'];
 			// The mentor's copy of a session's reminder has nobody to reply to: the first student to
 			// join is one of several, and replying to them alone was wrong (SESSIONS-12).
-			$other      = $to_mentor ? ( $facts['is_group'] ? null : $student ) : $mentor;
-			$other_name = $to_mentor ? $name : ( $mentor instanceof WP_User ? $mentor->display_name : '' );
+			$other = $to_mentor ? ( $facts['is_group'] ? null : $student ) : $mentor;
+
+			if ( $facts['is_group'] ) {
+				$id = 'session-reminder';
+			} else {
+				$id = $to_mentor ? 'call-reminder-mentor' : 'call-reminder-student';
+			}
 
 			WPCPM_Mail::send(
 				$person,
-				'call-reminder',
-				function ( $recipient ) use ( $facts, $other_name, $to_mentor, $other ) {
-					return array(
-						'subject' => $facts['is_group']
-							? sprintf(
-								/* translators: 1: site name, 2: the mentor's name, or how many students are coming. */
-								__( '[%1$s] Reminder: your group session with %2$s', 'wpcredits-program-manager' ),
-								WPCPM_Mail::site_name(),
-								$other_name
-							)
-							: sprintf(
-								/* translators: 1: site name, 2: the other person's name. */
-								__( '[%1$s] Reminder: your call with %2$s', 'wpcredits-program-manager' ),
-								WPCPM_Mail::site_name(),
-								$other_name
-							),
-						'body'    => self::mail_body( $facts, $recipient, $other_name, $to_mentor, 'reminder' ),
-						'headers' => WPCPM_Mail::reply_to( $other ),
+				$id,
+				function ( $recipient ) use ( $id, $facts, $to_mentor, $mentor, $other ) {
+					$mentor_name = $mentor instanceof WP_User ? $mentor->display_name : '';
+					$coming      = count( $facts['attendees'] );
+
+					return self::mail_of(
+						$id,
+						array(
+							'student_name' => '' !== $facts['name'] ? $facts['name'] : __( 'your student', 'wpcredits-program-manager' ),
+							'mentor_name'  => $mentor_name,
+							// A group session has no single other person to name, so the mentor is told how
+							// many are coming instead. Naming one of several attendees would be worse than
+							// naming none.
+							'with_whom'    => $to_mentor
+								? sprintf(
+									/* translators: %s: number of students attending. */
+									_n( '%s student', '%s students', $coming, 'wpcredits-program-manager' ),
+									number_format_i18n( $coming )
+								)
+								: $mentor_name,
+							'in_how_long'  => self::relative( $facts['start'] ),
+						) + self::call_values( $facts, $recipient, $to_mentor ),
+						array( 'headers' => WPCPM_Mail::reply_to( $other ) )
 					);
 				}
 			);
@@ -2147,7 +2015,7 @@ class WPCPM_Mentor_Calls {
 			? WPCPM_Mentor_Availability::meeting_place( $mentor->ID )
 			: '';
 
-		$description = self::mail_body( $facts, $recipient, $mentor_name, false, 'calendar' );
+		$description = self::calendar_text( $facts, $mentor_name );
 
 		$ics  = WPCPM_ICS::build( $facts, $method, $mentor, $student, $summary, $description, $where, $sequence );
 		$path = WPCPM_ICS::tempfile( $ics );
@@ -2203,7 +2071,7 @@ class WPCPM_Mentor_Calls {
 		$described = array();
 
 		foreach ( $facts_list as $facts ) {
-			$facts['description'] = self::mail_body( $facts, $recipient, $mentor->display_name, false, 'calendar' );
+			$facts['description'] = self::calendar_text( $facts, $mentor->display_name );
 			$described[]          = $facts;
 		}
 
@@ -2216,230 +2084,164 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
-	 * The body of a series message: every session on the reader's clock, the topic, the place,
-	 * and what the attached file does (the design's section 6, 1.108.0).
+	 * One email of the Mentor calls area as the mail layer takes it: its subject and body, the
+	 * template registry's (`WPCPM_Mail_Templates`) filled with the values given, and what stays
+	 * here, its Reply-To and its calendar file: a template is a subject and a body.
 	 *
-	 * @param array[] $facts_list Call facts, one per session, soonest first.
-	 * @param WP_User $recipient  Who is reading it.
-	 * @param string  $other      The other person's name.
-	 * @param bool    $to_mentor  Whether the reader is the mentor.
-	 * @return string
+	 * @param string $id     The template's id.
+	 * @param array  $values Each placeholder's value, by name, worked out in the recipient's language
+	 *                       and on their clock.
+	 * @param array  $extra  The headers, and the attachments and their cleanup.
+	 * @return array What a builder of `WPCPM_Mail::send()` returns; with no such template, no subject,
+	 *               so nothing is sent.
 	 */
-	private static function series_mail_body( array $facts_list, WP_User $recipient, $other, $to_mentor ) {
-		$zone  = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
-		$first = reset( $facts_list );
-		$count = count( $facts_list );
-		$lines = array();
+	private static function mail_of( $id, array $values, array $extra ) {
+		$mail = WPCPM_Mail_Templates::render( $id, $values );
 
-		$lines[] = $to_mentor
-			? sprintf(
-				/* translators: 1: student name, 2: how many sessions. */
-				_n( '%1$s joined %2$d group session of yours:', '%1$s joined %2$d group sessions of yours:', $count, 'wpcredits-program-manager' ),
-				$other,
-				$count
-			)
-			: sprintf(
-				/* translators: 1: mentor name, 2: how many sessions. */
-				_n( 'You are on %2$d group session with %1$s:', 'You are on %2$d group sessions with %1$s:', $count, 'wpcredits-program-manager' ),
-				$other,
-				$count
+		if ( null === $mail ) {
+			$mail = array(
+				'subject' => '',
+				'body'    => '',
 			);
-
-		foreach ( $facts_list as $facts ) {
-			$lines[] = self::format_range( $facts['start'], $facts['end'], $zone );
 		}
 
-		$lines[] = '';
-		$lines[] = sprintf(
-			/* translators: %s: timezone name. */
-			__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-		);
-
-		$where = WPCPM_Mentor_Availability::meeting_place( (int) $first['mentor_id'] );
-
-		if ( '' !== $where ) {
-			$lines[] = '';
-			$lines[] = __( 'Where you will meet:', 'wpcredits-program-manager' );
-			$lines[] = $where;
-		} elseif ( $to_mentor ) {
-			// Only the mentor can fix this, and only they should be told about it (the final review
-			// of 1.108.0: the series message arranges several sessions at once, so it must not be
-			// the one that leaves this out). The same sentence a single booking uses, word for word,
-			// so no second string of the same meaning goes to the translators.
-			$lines[] = '';
-			$lines[] = __( 'You have not set a meeting link yet, so this confirmation cannot tell your student where to go. You can add one beside your availability on the program site.', 'wpcredits-program-manager' );
-		}
-
-		if ( '' !== trim( (string) $first['topic'] ) ) {
-			$lines[] = '';
-			$lines[] = __( 'What the sessions are about:', 'wpcredits-program-manager' );
-			$lines[] = $first['topic'];
-		}
-
-		$lines[] = '';
-		$lines[] = __( 'The attached calendar file adds all of them to your calendar at once.', 'wpcredits-program-manager' );
-
-		$page = $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url();
-
-		if ( '' !== $page ) {
-			$lines[] = '';
-			$lines[] = $page;
-		}
-
-		return implode( "\n", $lines );
+		return array_merge( $mail, $extra );
 	}
 
 	/**
-	 * The body of a booking, reminder or calendar description.
+	 * The values an email about one call or session fills its placeholders with, for one recipient:
+	 * the site's name, the call's time on the recipient's own clock and that clock's name, its day,
+	 * where to meet, what it is about, and the recipient's dashboard. A template uses the ones it has.
 	 *
-	 * Built here rather than at each caller so the facts are stated in the same order and
-	 * the same clock every time - and, because this runs inside the recipient's locale, in
-	 * the same language as everything else they are sent.
+	 * Worked out here, inside the recipient's language, for the reason the class's mail always was:
+	 * the facts are stated in the same order and on the same clock every time.
 	 *
 	 * @param array   $facts     Call facts.
 	 * @param WP_User $recipient Who is reading it.
-	 * @param string  $other     The other person's name.
-	 * @param bool    $to_mentor Whether the reader is the mentor.
-	 * @param string  $kind      `booked`, `reminder`, `calendar`, `left` (a student who left a
-	 *                           session) or `repaired` (a student the students sync took off a
-	 *                           former mentor's session, SESSIONS-7).
+	 * @param bool    $to_mentor Whether the reader is the mentor, whose dashboard is the mentor's.
+	 * @param bool    $trimmed   Whether a topic of spaces alone counts as none, as the moved and the
+	 *                           series emails count it; a booking, a reminder and a leave print it.
+	 * @return array<string,string>
+	 */
+	private static function call_values( array $facts, WP_User $recipient, $to_mentor, $trimmed = false ) {
+		$zone  = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
+		$topic = (string) $facts['topic'];
+		$topic = $trimmed && '' === trim( $topic ) ? '' : $topic;
+
+		return array(
+			'site_name'      => WPCPM_Mail::site_name(),
+			'when'           => self::format_range( $facts['start'], $facts['end'], $zone ),
+			'call_date'      => wp_date( get_option( 'date_format' ), (int) $facts['start'], $zone ),
+			'time_zone'      => WPCPM_Mentor_Availability::zone_label( $zone->getName() ),
+			'meeting_place'  => WPCPM_Mentor_Availability::meeting_place( (int) $facts['mentor_id'] ),
+			'topic'          => $topic,
+			'session_topic'  => $topic,
+			'dashboard_link' => $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url(),
+		);
+	}
+
+	/**
+	 * The values a moved session's email fills in: `call_values()`'s, the mentor's name, and the time
+	 * the session had before, on the recipient's clock.
+	 *
+	 * @param array        $facts     Call facts, at the new time.
+	 * @param WP_User      $recipient Who is reading it.
+	 * @param bool         $to_mentor Whether the reader is the mentor.
+	 * @param WP_User|null $mentor    The mentor.
+	 * @param int          $was_start The start it had before, as a timestamp.
+	 * @param int          $was_end   The end it had before.
+	 * @return array<string,string>
+	 */
+	private static function moved_values( array $facts, WP_User $recipient, $to_mentor, $mentor, $was_start, $was_end ) {
+		return array(
+			'mentor_name' => $mentor instanceof WP_User ? $mentor->display_name : '',
+			'was_when'    => self::format_range( $was_start, $was_end, WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID ) ),
+		) + self::call_values( $facts, $recipient, $to_mentor, true );
+	}
+
+	/**
+	 * The values a series email fills in: the first session's, as `call_values()` gives them, every
+	 * session's time on the recipient's clock, one to a line, and how many there are, counted in
+	 * words, so the template never needs a plural rule (the design's section 6, 1.108.0).
+	 *
+	 * @param array[] $facts_list Call facts, one per session, soonest first.
+	 * @param WP_User $recipient  Who is reading it.
+	 * @param bool    $to_mentor  Whether the reader is the mentor.
+	 * @return array<string,string>
+	 */
+	private static function series_values( array $facts_list, WP_User $recipient, $to_mentor ) {
+		$zone  = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
+		$count = count( $facts_list );
+		$dates = array();
+
+		foreach ( $facts_list as $facts ) {
+			$dates[] = self::format_range( $facts['start'], $facts['end'], $zone );
+		}
+
+		return array(
+			'session_dates'       => implode( "\n", $dates ),
+			'session_count'       => sprintf(
+				/* translators: %d: how many sessions. */
+				_n( '%d session', '%d sessions', $count, 'wpcredits-program-manager' ),
+				$count
+			),
+			'group_session_count' => sprintf(
+				/* translators: %d: how many sessions. */
+				_n( '%d group session', '%d group sessions', $count, 'wpcredits-program-manager' ),
+				$count
+			),
+			'date_count'          => sprintf(
+				/* translators: %d: how many dates. */
+				_n( '%d date', '%d dates', $count, 'wpcredits-program-manager' ),
+				$count
+			),
+		) + self::call_values( reset( $facts_list ), $recipient, $to_mentor, true );
+	}
+
+	/**
+	 * What a call's calendar entry says under its title: what it is and with whom, where to meet,
+	 * and what it is about. The calendar already shows when it is, so no time is repeated here. A
+	 * calendar file is an attachment, so its words stay here, while the emails that carry it are the
+	 * template registry's; it is built inside the recipient's language, as the email is.
+	 *
+	 * @param array  $facts  Call facts.
+	 * @param string $mentor The mentor's name.
 	 * @return string
 	 */
-	private static function mail_body( array $facts, WP_User $recipient, $other, $to_mentor, $kind = 'booked' ) {
-		$zone  = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
-		$range = self::format_range( $facts['start'], $facts['end'], $zone );
-
-		// A group session is not a one-to-one call, and its messages and calendar files are worded
-		// as the session they are about (the deep check of 1.109.1, SESSIONS-12).
+	private static function calendar_text( array $facts, $mentor ) {
+		// A group session is not a one-to-one call, and its calendar files are worded as the session
+		// they are about (the deep check of 1.109.1, SESSIONS-12).
 		$session = ! empty( $facts['is_group'] );
-		$lines   = array();
-
-		if ( 'reminder' === $kind ) {
-			$lines[] = $session
-				? sprintf(
-					/* translators: 1: the mentor's name, or how many students are coming, 2: date and time, 3: "in 4 hours". */
-					__( 'Your group session with %1$s is %3$s, on %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range,
-					self::relative( $facts['start'] )
-				)
-				: sprintf(
-					/* translators: 1: the other person's name, 2: date and time, 3: "in 4 hours". */
-					__( 'Your call with %1$s is %3$s, on %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range,
-					self::relative( $facts['start'] )
-				);
-		} elseif ( 'left' === $kind ) {
-			// A leave used to fall through to the booking's own words, "Your call with ... is
-			// booked for ...", in the message that says the student left.
-			$lines[] = sprintf(
-				/* translators: 1: mentor name, 2: date and time. */
-				__( 'You have left the group session with %1$s on %2$s.', 'wpcredits-program-manager' ),
-				$other,
-				$range
-			);
-		} elseif ( 'repaired' === $kind ) {
-			// Taken off by the students sync, not by a press of theirs, so the student is told why
-			// (SESSIONS-7).
-			$lines[] = sprintf(
-				/* translators: 1: the former mentor's name, 2: date and time. */
-				__( 'You have a new mentor, so your place on the group session with %1$s on %2$s is released.', 'wpcredits-program-manager' ),
-				$other,
-				$range
-			);
-		} elseif ( 'calendar' === $kind ) {
-			// The calendar already shows when it is; repeating the time in the description
-			// is noise beside the event's own start and end.
-			$lines[] = $session
+		$lines   = array(
+			$session
 				? sprintf(
 					/* translators: %s: mentor name. */
 					__( 'A group session on the WordPress Credits Program with %s.', 'wpcredits-program-manager' ),
-					$other
+					$mentor
 				)
 				: sprintf(
 					/* translators: %s: mentor name. */
 					__( 'A mentor call on the WordPress Credits Program with %s.', 'wpcredits-program-manager' ),
-					$other
-				);
-		} elseif ( $to_mentor ) {
-			$lines[] = $session
-				? sprintf(
-					/* translators: 1: student name, 2: date and time. */
-					__( '%1$s joined your group session on %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range
-				)
-				: sprintf(
-					/* translators: 1: student name, 2: date and time. */
-					__( '%1$s booked a call with you on %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range
-				);
-		} else {
-			$lines[] = $session
-				? sprintf(
-					/* translators: 1: mentor name, 2: date and time. */
-					__( 'You are on the group session with %1$s on %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range
-				)
-				: sprintf(
-					/* translators: 1: mentor name, 2: date and time. */
-					__( 'Your call with %1$s is booked for %2$s.', 'wpcredits-program-manager' ),
-					$other,
-					$range
-				);
-		}
+					$mentor
+				),
+		);
 
-		if ( 'calendar' !== $kind ) {
-			$lines[] = '';
-			$lines[] = sprintf(
-				/* translators: %s: timezone name. */
-				__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
-				WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-			);
-		}
-
-		// Where to meet means nothing to a student no longer on the session.
-		$where = in_array( $kind, array( 'left', 'repaired' ), true ) ? '' : WPCPM_Mentor_Availability::meeting_place( (int) $facts['mentor_id'] );
+		$where = WPCPM_Mentor_Availability::meeting_place( (int) $facts['mentor_id'] );
 
 		if ( '' !== $where ) {
 			$lines[] = '';
 			$lines[] = __( 'Where you will meet:', 'wpcredits-program-manager' );
 			$lines[] = $where;
-		} elseif ( $to_mentor && 'booked' === $kind ) {
-			// Only the mentor can fix this, and only they should be told about it.
-			$lines[] = '';
-			$lines[] = __( 'You have not set a meeting link yet, so this confirmation cannot tell your student where to go. You can add one beside your availability on the program site.', 'wpcredits-program-manager' );
 		}
 
 		if ( '' !== $facts['topic'] ) {
 			$lines[] = '';
-
-			if ( $session ) {
-				// A session's topic is the mentor's, written for everybody on it: labeled as what the
-				// student wanted, it put the mentor's words in the student's mouth (SESSIONS-12).
-				$lines[] = __( 'What the session is about:', 'wpcredits-program-manager' );
-			} else {
-				// The student is reading about something they wrote themselves, so they are
-				// addressed as themselves rather than described in the third person.
-				$lines[] = $to_mentor
-					? __( 'What the student would like to discuss:', 'wpcredits-program-manager' )
-					: __( 'What you said you would like to discuss:', 'wpcredits-program-manager' );
-			}
-
+			// A session's topic is the mentor's, written for everybody on it (SESSIONS-12); a call's
+			// is what the student wrote, and the student is addressed as themselves.
+			$lines[] = $session
+				? __( 'What the session is about:', 'wpcredits-program-manager' )
+				: __( 'What you said you would like to discuss:', 'wpcredits-program-manager' );
 			$lines[] = $facts['topic'];
-		}
-
-		if ( 'calendar' !== $kind ) {
-			$page = $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url();
-
-			if ( '' !== $page ) {
-				$lines[] = '';
-				$lines[] = $page;
-			}
 		}
 
 		return implode( "\n", $lines );

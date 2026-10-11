@@ -991,6 +991,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 // land full; the real option-backed class is not loaded here, and nothing this suite exercises
 // (class-wpcpm-student-report-form.php's fields() included) calls the real one.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+// The template registry, which words the screen's three emails since 1.122.21, and the catalog that
+// names them.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 
 // The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
 WPCPM_Tracks::init();

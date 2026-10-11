@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 44 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file and the test of the signature and footer', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 44 );
+ck( 'the catalog names the plugin\'s 63 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, and the 19 Mentor calls emails of their own since 1.122.21', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 63 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -55,7 +55,58 @@ ck( 'the test of the signature and footer belongs to no area, and goes to an Adm
 
 ck( 'an unknown id is "Other email" in the Other area', array( WPCPM_Mail_Catalog::label( 'no-such' ), WPCPM_Mail_Catalog::module_of( 'no-such' ), WPCPM_Mail_Catalog::label( '' ) ), array( 'Other email', 'other', 'Other email' ) );
 
-ck( 'a known id reads back', array( WPCPM_Mail_Catalog::label( 'call-booked' ), WPCPM_Mail_Catalog::module_of( 'call-booked' ) ), array( 'Call booked', 'calls' ) );
+ck( 'a known id reads back', array( WPCPM_Mail_Catalog::label( 'call-booked' ), WPCPM_Mail_Catalog::module_of( 'call-booked' ) ), array( 'Call booked (until 1.122.21)', 'calls' ) );
+
+// Each email of the Mentor calls area that says words of its own has an id of its own, named for who
+// receives it; the two a group session sends its mentor and its students in the same words are one
+// each, and the account decides who it is to. The five ids the area was sent under before 1.122.21
+// keep their names with " (until 1.122.21)" after them, so the Log's Email field, which lists them
+// beside the new names, tells the old from the new.
+$calls = array();
+foreach ( $emails as $id => $e ) {
+	if ( 'calls' === $e['module'] ) {
+		$calls[ $id ] = $e['label'] . ' / ' . ( '' === $e['audience'] ? 'the account decides' : $e['audience'] );
+	}
+}
+ck(
+	'the Mentor calls area names its five ids of before 1.122.21, each labeled as one of before, and the nineteen emails it sends since, each with who receives it',
+	$calls,
+	array(
+		'call-booked'                   => 'Call booked (until 1.122.21) / the account decides',
+		'series-joined'                 => 'Joined a session series (until 1.122.21) / the account decides',
+		'session-moved'                 => 'Group session moved (until 1.122.21) / the account decides',
+		'call-cancelled'                => 'Call canceled (until 1.122.21) / the account decides',
+		'call-reminder'                 => 'Call reminder (until 1.122.21) / the account decides',
+		'call-booked-mentor'            => 'Call booked, to the mentor / mentor',
+		'call-booked-mentor-no-link'    => 'Call booked, to a mentor with no meeting link / mentor',
+		'call-booked-student'           => 'Call booked, to the student / student',
+		'session-joined-mentor'         => 'Group session joined, to the mentor / mentor',
+		'session-joined-mentor-no-link' => 'Group session joined, to a mentor with no meeting link / mentor',
+		'session-joined-student'        => 'Group session joined, to the student / student',
+		'series-joined-mentor'          => 'Session series joined, to the mentor / mentor',
+		'series-joined-mentor-no-link'  => 'Session series joined, to a mentor with no meeting link / mentor',
+		'series-joined-student'         => 'Session series joined, to the student / student',
+		'session-moved-student'         => 'Group session moved, to the student / student',
+		'session-moved-mentor'          => 'Group session moved, to the mentor / mentor',
+		'session-left'                  => 'Left a group session, to the student / student',
+		'session-released'              => 'Place on a group session released, to the student / student',
+		'call-cancelled-mentor'         => 'Call canceled, to the mentor / mentor',
+		'call-cancelled-student'        => 'Call canceled, to the student / student',
+		'session-cancelled'             => 'Group session canceled / the account decides',
+		'call-reminder-mentor'          => 'Call reminder, to the mentor / mentor',
+		'call-reminder-student'         => 'Call reminder, to the student / student',
+		'session-reminder'              => 'Group session reminder / the account decides',
+	)
+);
+ck(
+	'and the Semester reports area\'s three ids are its three emails, as they were',
+	array_map( function ( $id ) { return WPCPM_Mail_Catalog::get( $id ); }, array( 'report-drafted', 'report-approved', 'report-consent' ) ),
+	array(
+		array( 'label' => 'Semester report drafted', 'module' => 'reports', 'audience' => 'administrator', 'test' => false ),
+		array( 'label' => 'Semester report approved', 'module' => 'reports', 'audience' => 'institution', 'test' => false ),
+		array( 'label' => 'Consent for the semester report', 'module' => 'reports', 'audience' => 'student', 'test' => false ),
+	)
+);
 
 ck( 'the last member leaving an institution is named, as the Administrators\' email it is', WPCPM_Mail_Catalog::get( 'member-last' ), array( 'label' => 'Institution has no members left, to Administrators', 'module' => 'institutions', 'audience' => 'administrator', 'test' => false ) );
 
@@ -92,7 +143,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 39 of them (it is not reading nothing)', count( $contexts ), 39 );
+ck( 'and the scan found all 37 of them (it is not reading nothing)', count( $contexts ), 37 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,
@@ -104,15 +155,16 @@ foreach ( glob( __DIR__ . '/../includes/mail/templates/*.php' ) as $file ) {
 	$templates = array_merge( $templates, $t[1] );
 }
 ck( 'every template the registry defines is in the catalog', array_values( array_diff( $templates, array_keys( $emails ) ) ), array() );
-// The four samples Settings > Mail sent until 1.122.19 stay in the catalog, so the Log names the rows
-// they left, which it keeps for 30 days; nothing sends them now: Send me a test logs a test under its
-// template's own id.
-$retired    = array( 'test-student', 'test-mentor', 'test-institution', 'test-sponsor' );
+// The four samples Settings > Mail sent until 1.122.19, and the five ids the Mentor calls were sent
+// under until 1.122.21, stay in the catalog, so the Log names the rows they left, which it keeps for
+// 30 days; nothing sends them now: Send me a test logs a test under its template's own id, and each
+// email of the Mentor calls is sent under its own template's.
+$retired    = array( 'test-student', 'test-mentor', 'test-institution', 'test-sponsor', 'call-booked', 'series-joined', 'session-moved', 'call-cancelled', 'call-reminder' );
 $plugin_ids = array_values( array_diff( array_keys( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), $retired ) );
 $sent_ids   = array_unique( array_merge( array_keys( $contexts ), $templates ) );
 sort( $plugin_ids );
 sort( $sent_ids );
-ck( 'and every email of the plugin\'s the catalog names is one the source sends or a template the registry holds, but the four samples Settings > Mail sent before 1.122.19', $plugin_ids, $sent_ids );
+ck( 'and every email of the plugin\'s the catalog names is one the source sends or a template the registry holds, but the four samples Settings > Mail sent before 1.122.19 and the five Mentor calls ids of before 1.122.21', $plugin_ids, $sent_ids );
 ck( 'which nothing sends any more', array_values( array_intersect( $retired, $sent_ids ) ), array() );
 
 $filters = WPCPM_Mail_Catalog::wordpress_filters();

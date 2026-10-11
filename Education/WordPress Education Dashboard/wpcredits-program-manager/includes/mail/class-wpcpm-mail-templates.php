@@ -19,8 +19,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * an area joins `AREAS` when its emails move here.
  *
  * The shipped text is the wording the code wrote before the move, word for word. It is built with
- * `__()` each time it is asked for, so it is in the language the email is being built in, the
- * recipient's, as it was before.
+ * `__()` once a request for each language (`all()`), so it is in the language the email is being
+ * built in, the recipient's, as it was before.
  *
  * Filling a text (`fill()`):
  *
@@ -51,6 +51,8 @@ final class WPCPM_Mail_Templates {
 	 */
 	const AREAS = array(
 		WPCPM_Mail_Catalog::MODULE_INVITATIONS => 'invitations',
+		WPCPM_Mail_Catalog::MODULE_CALLS       => 'calls',
+		WPCPM_Mail_Catalog::MODULE_REPORTS     => 'reports',
 	);
 
 	/** What a placeholder looks like: a word in braces. */
@@ -85,11 +87,21 @@ final class WPCPM_Mail_Templates {
 	 * name, area and audience, then the registry's own fields. An id the catalog does not hold is left
 	 * out, since it has no name to show.
 	 *
-	 * Built each time it is asked for, so the shipped text is in the language of the moment.
+	 * Built once a request for each language it is asked in, and kept for the rest of the request, so
+	 * the shipped text is in the language of the moment: an email is built in its recipient's, and a
+	 * request that sends emails in two languages builds the registry twice, once in each.
 	 *
 	 * @return array<string,array{id:string,label:string,module:string,audience:string,trigger:string,subject:string,body:string,eol:string,placeholders:array}>
 	 */
 	public static function all() {
+		static $built = array();
+
+		$locale = self::locale();
+
+		if ( isset( $built[ $locale ] ) ) {
+			return $built[ $locale ];
+		}
+
 		$out = array();
 
 		foreach ( self::AREAS as $file ) {
@@ -116,7 +128,23 @@ final class WPCPM_Mail_Templates {
 			}
 		}
 
+		$built[ $locale ] = $out;
+
 		return $out;
+	}
+
+	/**
+	 * The language the shipped text is built in now: the one WordPress loads translations in, which a
+	 * switch into a recipient's language changes.
+	 *
+	 * @return string A locale, such as `en_US`; '' where WordPress cannot say.
+	 */
+	private static function locale() {
+		if ( function_exists( 'determine_locale' ) ) {
+			return (string) determine_locale();
+		}
+
+		return function_exists( 'get_locale' ) ? (string) get_locale() : '';
 	}
 
 	/**
@@ -316,6 +344,13 @@ final class WPCPM_Mail_Templates {
 	 * when one fits, the shipped text otherwise (`text_of()`). No footer: the signature and footer is
 	 * added once, where the email leaves, never by a builder.
 	 *
+	 * An edit whose subject fills to nothing, each of its words an optional placeholder that came out
+	 * empty, or to nothing the mail layer's cleaner would keep, is sent with the shipped subject,
+	 * filled. The mail layer sends no email without a subject, but `WPCPM_Mail::hand_off()` checks the
+	 * subject before cleaning it: a subject the cleaner would empty, such as a value that reads as a
+	 * tag, passes that check and would go out with no subject. That is why the subject tested here is
+	 * the cleaned one.
+	 *
 	 * @param string $id     The email's id.
 	 * @param array  $values Each placeholder's value, by name, worked out by whatever sends it.
 	 * @return array{subject:string,body:string}|null Null when the registry has no such email.
@@ -327,10 +362,16 @@ final class WPCPM_Mail_Templates {
 			return null;
 		}
 
-		$text = self::text_of( $id );
+		$text    = self::text_of( $id );
+		$subject = self::fill( $text['subject'], $values, $entry['placeholders'], $entry['eol'], false );
+
+		// As the mail layer will clean it: a value the cleaner reads as a tag leaves nothing either.
+		if ( '' === trim( function_exists( 'sanitize_text_field' ) ? sanitize_text_field( $subject ) : $subject ) ) {
+			$subject = self::fill( $entry['subject'], $values, $entry['placeholders'], $entry['eol'], false );
+		}
 
 		return array(
-			'subject' => self::fill( $text['subject'], $values, $entry['placeholders'], $entry['eol'], false ),
+			'subject' => $subject,
 			'body'    => self::fill( $text['body'], $values, $entry['placeholders'], $entry['eol'] ),
 		);
 	}
