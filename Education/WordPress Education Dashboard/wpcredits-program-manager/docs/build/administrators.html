@@ -796,7 +796,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The plugin's emails, grouped by area, each area in a table of its own. In this version there are three:</p>
+<p>The plugin's emails, grouped by area, each area in a table of its own. There are five:</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
@@ -808,19 +808,29 @@
 <li><strong>Mentor calls</strong>: what the mentor and the students are told about one-to-one calls, group sessions and series of sessions: a booking, a join, a series joined, a session moved, a place left or released, a call or a session canceled, and the reminder a day before. Where the mentor and the student are told different words, each has an email of its own, named for whom it goes to; a group session's cancellation and its reminder say the same words to the mentor and to every student on it, so each is one email. A mentor who has not set a meeting link yet is told so where the others are told where to meet, so the mentor's three confirmations, of a call, of a join and of a series, each have a second email for that case.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><strong>Institutions</strong>: what an institution and the Administrators are told from its application to its last member: the acknowledgement of an application, the notice of it to the Administrators, an Administrator's question and the rejection; a member's invitation to a colleague; the institution's Collaboration Agreement received, uploaded, accepted, put back in force, returned with a note and revoked, the daily list of agreements waiting too long, and the notice that the agreement's template could not be used; and the notice that an institution has no members left. An email that says other words in one case than in another is two: the acknowledgement for a country with a call to book and for one without, the upload with the courtesy scan's notes and without, and the revocation with a country contact named and without one.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><strong>Semester reports</strong>: the notice to the Administrators that the daily job drafted a report, the approval to the institution's accounts, and the question to the students whether the report may mention them.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Sponsors</strong>: the acknowledgement of a sponsor application (and its twin for an application whose logo files were not kept), the notice of it to the Administrators, an Administrator's question and the rejection; the sponsor's Collaboration Agreement received, accepted, returned with a note, out of force and back in force; what a sponsor says on the Sponsor Dashboard it would like to support, and its request to sponsor a mentor; the warning that an offer's codes are running low and a claimant's report of a code that did not work; and a sponsor's post sent back to its author.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>The emails of the Institutions and the Sponsors areas are not in the list yet, and go out as the plugin writes them. Each row names the email, who receives it and what sends it, its state, and who edited it last and when. The states:</p>
+<p>Where an email is two, as the mentor's confirmations with and without a meeting link and the four above are, each of the two is edited on its own: an edit of one leaves the other as shipped.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Each row names the email, who receives it and what sends it, its state, and who edited it last and when. The states:</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Shipped text</strong>: the email is sent as the plugin ships it, which is word for word what it said before it could be edited: before 1.122.19 for the Invitations, before 1.122.21 for the Mentor calls and the Semester reports.</li>
+<li><strong>Shipped text</strong>: the email is sent as the plugin ships it, which is word for word what it said before it could be edited: before 1.122.19 for the Invitations, before 1.122.21 for the Mentor calls and the Semester reports, and before 1.122.22 for the Institutions and the Sponsors.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Edited</strong>: it is sent as an Administrator wrote it, to everybody, in that wording.</li>
@@ -839,22 +849,53 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>An email about a call shows every time on its recipient's own clock: <code>{when}</code> is the call's start and end as the recipient reads them, and <code>{time_zone}</code> names that clock, so a mentor in Tokyo and a student in Warsaw each read the call at their own hour. A count arrives in words, such as <code>{session_count}</code>, "3 sessions", so no template needs a rule for one and several.</p>
+<p>An email about a call shows every time on its recipient's own clock: <code>{when}</code> is the call's start and end as the recipient reads them, and <code>{time_zone}</code> names that clock, so a mentor in Tokyo and a student in Warsaw each read the call at their own hour. A date in an Institutions or a Sponsors email, such as <code>{accepted_on}</code>, is the site's, as it always was. A count arrives in words, such as <code>{session_count}</code>, "3 sessions", or <code>{review_window}</code>, "3 working days", so most templates need no rule for one and several. The number of codes left in the warning that an offer's codes are running low, <code>{codes_left}</code>, arrives as a number, so an edit can reword "codes" but not make it agree.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Save</strong> stores the subject and the body. It is refused, nothing is stored, and the editor comes back with what you typed, when a box is empty, a required placeholder is missing (every invitation needs <code>{set_password_link}</code>, the link that sets the password; every email about a call needs <code>{when}</code>, its time (a series, <code>{session_dates}</code>), the mentor's confirmation sent with a meeting link needs <code>{meeting_place}</code>, and a semester report <code>{semester}</code>), a link or a typed text that goes in the body is in the subject (<code>{set_password_link}</code>; a mentor's meeting link, <code>{meeting_place}</code>, which can carry the meeting's passcode; and what a student or a mentor typed, <code>{topic}</code> and <code>{session_topic}</code>: a subject is not a link anybody can follow, and the Log keeps it), a placeholder is not one of the email's (a misspelled one is named as one the email does not have; a misspelled required one is reported as missing instead), WordPress would remove part of the text, or the subject is longer than 200 characters or the body longer than 10,000. A save of the shipped text as it stands stores nothing, so the email stays shipped text. A subject made of placeholders alone, such as <code>{mentor_name}</code>, is saved; if they all come out empty, the email goes out with its shipped subject rather than with none, since an email with no subject is not sent.</li>
+<li><strong>Save</strong> stores the subject and the body, and is refused in the cases below.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Send me a test</strong>, beside <strong>Save</strong>, sends the email as it is saved, filled with the example values and with "[Test]" before its subject, to your own address and to nobody else. The Log marks it <strong>Test</strong>. Save what you typed first: pressed with typing not saved yet, it sends nothing, and the editor comes back with your typing and says so. A test carries the subject and the body alone: the calendar file and the reply address that a Mentor calls email goes out with are added when it is really sent, so a test of one arrives without them.</li>
+<li><strong>Send me a test</strong>, beside <strong>Save</strong>, sends the email as it is saved, filled with the example values and with "[Test]" before its subject, to your own address and to nobody else. The Log marks it <strong>Test</strong>. Save what you typed first: pressed with typing not saved yet, it sends nothing, and the editor comes back with your typing and says so. A test carries the subject and the body alone: the calendar file a Mentor calls email carries, and the reply address that several emails go out with (a Mentor calls email, an Administrator's question to an applicant, an agreement sent back with a note, a sponsor's agreement taken out of force, a colleague's invitation, a code that did not work), are added when it is really sent, so a test of one arrives without them.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Restore the original</strong> is there once the email is edited. It asks first, then drops the edit, and the shipped text is sent from then on.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><strong>Save</strong> is refused, nothing is stored, and the editor comes back with what you typed, when:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>a box is empty;</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>a required placeholder is missing. Every invitation needs <code>{set_password_link}</code>, the link that sets the password, and so does every other link that carries a secret: an institution application's confirmation link, <code>{verify_link}</code>, and a colleague's invitation to an institution, <code>{accept_link}</code>. Every email about a call needs <code>{when}</code>, its time (a series, <code>{session_dates}</code>), and a semester report <code>{semester}</code>. What an Administrator or a sponsor wrote, where it is the email's point, is needed too: a question to an applicant, <code>{question}</code>; a note on a returned or revoked agreement or a returned post, <code>{note}</code>; and what a sponsor said, <code>{interest}</code>. A returned post needs its title and its author's name, <code>{post_title}</code> and <code>{author_name}</code>, either of which can be empty. And an email sent only with a value its other words lack needs it: the mentor's confirmation sent with a meeting link, <code>{meeting_place}</code>; the acknowledgement with a call to book, <code>{booking_link}</code>; the upload with the scan's notes, <code>{scan_flags}</code>; the revocation with a country contact, <code>{country_contact}</code>;</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>a link or a typed text that goes in the body is in the subject: a link that carries a secret, a mentor's meeting link, <code>{meeting_place}</code>, which can carry the meeting's passcode, a code's last characters, <code>{code_ending}</code>, what a person typed, such as <code>{topic}</code>, <code>{question}</code> or <code>{note}</code>, or an applicant's own answers (an address, a website, a contact, a city). A subject is not a link anybody can follow, and the Log keeps it;</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>a placeholder is not one of the email's (a misspelled one is named as one the email does not have; a misspelled required one is reported as missing instead);</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>WordPress would remove part of the text; or</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>the subject is longer than 200 characters or the body longer than 10,000.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>A save of the shipped text as it stands stores nothing, so the email stays shipped text. A subject made of placeholders alone, such as <code>{mentor_name}</code>, is saved; if they all come out empty, the email goes out with its shipped subject rather than with none, since an email with no subject is not sent.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"signature-and-footer"} -->
 <h4 class="wp-block-heading" id="signature-and-footer">Signature and footer</h4>
@@ -921,7 +962,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>To find an email, type part of an address, a name or a subject into the search box, or narrow the list by <strong>Area</strong>, <strong>Recipient type</strong>, <strong>Status</strong>, <strong>Email</strong> or <strong>When</strong> (today, the last 7 days, the last 30 days, or from and to dates), and press <strong>Filter</strong>. The <strong>Email</strong> filter is one field: type a few letters of the email's name and pick it from the list. Fifty rows show a page, newest first, with the count above them. Until 1.122.21 the Mentor calls emails were named by five names that each covered the mentor's copy and the students' alike, such as <strong>Call booked</strong> and <strong>Call reminder</strong>; the rows sent before keep those names, which now end "(until 1.122.21)", for the 30 days the log keeps them.</p>
+<p>To find an email, type part of an address, a name or a subject into the search box, or narrow the list by <strong>Area</strong>, <strong>Recipient type</strong>, <strong>Status</strong>, <strong>Email</strong> or <strong>When</strong> (today, the last 7 days, the last 30 days, or from and to dates), and press <strong>Filter</strong>. The <strong>Email</strong> filter is one field: type a few letters of the email's name and pick it from the list. Fifty rows show a page, newest first, with the count above them. Until 1.122.21 the Mentor calls emails were named by five names that each covered the mentor's copy and the students' alike, such as <strong>Call booked</strong> and <strong>Call reminder</strong>; the rows sent before keep those names, which now end "(until 1.122.21)", for the 30 days the log keeps them. Until 1.122.22 a Collaboration Agreement put back in force was logged as an acceptance and a sponsor's request to sponsor a mentor as <strong>Sponsor interest</strong>; each has a name of its own since. The institution's agreement emails, the rows sent before included, are named for the Collaboration Agreement in full, such as <strong>Collaboration Agreement accepted, to the institution</strong>, and the sponsor's five agreement emails say who receives them, such as <strong>Collaboration Agreement accepted, to the sponsor</strong>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->

@@ -1233,21 +1233,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$said = WPCPM_Typed_Text::mail_text( $question );
 
 		$build = static function () use ( $site, $reference, $said, $manager ) {
-			$lines = array(
-				__( 'Thank you for applying to the WordPress Credits Program. Before an Administrator can take your application further, they have one question:', 'wpcredits-program-manager' ),
-				$said,
-				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: application reference, e.g. APP-2026-0007. */
-					__( '[%1$s] A question about your application (%2$s)', 'wpcredits-program-manager' ),
-					$site,
-					$reference
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_INFO,
+				array(
+					'site_name' => $site,
+					'reference' => $reference,
+					'question'  => $said,
 				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => WPCPM_Mail::reply_to( $manager ),
+				array( 'headers' => WPCPM_Mail::reply_to( $manager ) )
 			);
 		};
 
@@ -1317,20 +1310,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// The reason is deliberately not captured by this closure. Keeping it out of the
 		// builder's scope is what stops a later edit reaching for it "just for the subject".
 		$build = static function () use ( $site ) {
-			$lines = array(
-				__( 'Thank you for applying to the WordPress Credits Program, and for the time you took to write to us.', 'wpcredits-program-manager' ),
-				__( 'We have read your institution\'s application, and we cannot accept it into the program at this time. We are sorry not to have better news.', 'wpcredits-program-manager' ),
-				__( 'You are welcome to apply again later, for example when your programs change. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] About your application to the WordPress Credits Program', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-			);
+			return WPCPM_Mail_Templates::mail( self::MAIL_DECLINED, array( 'site_name' => $site ) );
 		};
 
 		if ( is_email( $email ) ) {

@@ -564,7 +564,7 @@ subject_sent( 'x', true );
 
 unset( $GLOBALS['filters']['wpcpm_mail'] );
 
-ck( 'the wpcpm_mail filter is handed plain_subject: false unless the builder marked the subject', $seen_plain, array( false, true ) );
+ck( 'the wpcpm_mail filter is handed plain_subject: false for an email sent as shipped, unless its builder marked the subject', $seen_plain, array( false, true ) );
 
 /* ---- Reply-To ----------------------------------------------------------- */
 

@@ -264,6 +264,14 @@ class WPCPM_Mail {
 			)
 		);
 
+		// An email an Administrator edited goes out with its subject as they typed it, a "<" or an
+		// "&" in it a character, as its preview and its test show it: the subject is plain text.
+		// Decided here, once for every sender, from whether the email is sent as edited; its values
+		// are filled as for the email sent as shipped, which is cleaned as it always was.
+		if ( empty( $mail['plain_subject'] ) && class_exists( 'WPCPM_Mail_Templates' ) && WPCPM_Mail_Templates::sent_as_edited( $context ) ) {
+			$mail['plain_subject'] = true;
+		}
+
 		// Every email the plugin sends ends with the signature and footer, filled for its recipient,
 		// and before the filter, so the filter sees the email as it goes out. A builder can hand over
 		// the footer's values itself, as a test hands over examples (`footer_values`).
@@ -327,11 +335,12 @@ class WPCPM_Mail {
 	 * "<" or the end, it writes as `&lt;` and keeps, with the quote marks and the ampersands after
 	 * it as entities. A builder whose subject carries what a person typed, its entities read back
 	 * (`WPCPM_Typed_Text::mail_text()`), says the subject is plain text (`plain_subject`): "We <3
-	 * our team > all" would otherwise go out as "We all". Such a subject goes through the cleaner
-	 * with each "&" and "<" held as an entity, so it finds no tag, and the two are read back after,
-	 * once and no deeper: a typed-out `&lt;` goes out as typed. The cleaner reads no markup without
-	 * a "<", so the line is cleaned as every other subject is, and the "<" is kept as text. The
-	 * read-back writes no CR or LF.
+	 * our team > all" would otherwise go out as "We all". So is the subject of an email sent as
+	 * an Administrator edited it, which `hand_off()` marks itself. Such a subject goes through the
+	 * cleaner with each "&" and "<" held as an entity, so it finds no tag, and the two are read
+	 * back after, once and no deeper: a typed-out `&lt;` goes out as typed. The cleaner reads no
+	 * markup without a "<", so the line is cleaned as every other subject is, and the "<" is kept
+	 * as text. The read-back writes no CR or LF.
 	 *
 	 * @param array $mail The message: its `subject`, and `plain_subject`.
 	 * @return string

@@ -1845,34 +1845,17 @@ class WPCPM_Institution_Invite {
 		$sender  = get_user_by( 'id', $actor );
 		$headers = WPCPM_Mail::reply_to( $sender instanceof WP_User ? $sender : null );
 
-		$build = function () use ( $site, $school, $who, $link, $until, $headers ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name. */
-					__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on %3$s.', 'wpcredits-program-manager' ),
-					$who,
-					$school,
-					$site
+		$build = static function () use ( $site, $school, $who, $link, $until, $headers ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_INVITE,
+				array(
+					'site_name'        => $site,
+					'inviter_name'     => $who,
+					'institution_name' => $school,
+					'accept_link'      => $link,
+					'expiry_date'      => $until,
 				),
-				__( 'Open this link, and press Accept on the page it opens:', 'wpcredits-program-manager' ),
-				$link,
-				sprintf(
-					/* translators: %s: the date the invitation stops working. */
-					__( 'The link works until %s and can only be used once. If you do not have an account here yet, one is made for you and you get a second email with a link to set your password.', 'wpcredits-program-manager' ),
-					$until
-				),
-				__( 'If you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches the person who sent it.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: the institution's name. */
-					__( '[%1$s] An invitation to %2$s', 'wpcredits-program-manager' ),
-					$site,
-					$school
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => $headers,
+				array( 'headers' => $headers )
 			);
 		};
 

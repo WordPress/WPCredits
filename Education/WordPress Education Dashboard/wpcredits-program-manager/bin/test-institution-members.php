@@ -75,7 +75,9 @@ function absint( $v ) { return abs( (int) $v ); }
 function add_action() {} function add_filter() {} function register_post_type() {}
 function wp_specialchars_decode( $s, $q = null ) { return html_entity_decode( (string) $s, ENT_QUOTES ); }
 function get_bloginfo( $k = 'name' ) { return 'WordPress Education Dashboard'; }
-function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
+// The day as WordPress writes it, in the language in force: a builder run inside the language of the
+// Administrator it is for writes it in theirs, which the stand-in marks with the language's name.
+function wp_date( $f, $t = null ) { return ( isset( $GLOBALS['language'] ) ? $GLOBALS['language'] . ':' : '' ) . gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
@@ -179,16 +181,23 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 if ( ! class_exists( 'WPCPM_Institutions' ) ) {
 	/**
 	 * Contract 12: records the context and runs the builder once, the way `send()` would,
-	 * so the subject and body can be looked at. Returns the number "sent".
+	 * inside the language of the Administrator it is for, Polish here, so the subject and
+	 * body can be looked at. Returns the number "sent".
 	 */
 	class WPCPM_Institutions {
 		public static function notify_managers( $context, $build ) {
-			$GLOBALS['notified'][] = array( 'context' => $context, 'mail' => call_user_func( $build, new WP_User( 1, 'Manager', 'm@example.test' ) ) );
+			$GLOBALS['language'] = 'pl_PL';
+			$mail                = call_user_func( $build, new WP_User( 1, 'Manager', 'm@example.test' ) );
+			unset( $GLOBALS['language'] );
+			$GLOBALS['notified'][] = array( 'context' => $context, 'mail' => $mail );
 			return 1;
 		}
 	}
 }
 
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-members.php';
 
@@ -395,6 +404,7 @@ ck( 'the body names who, the record and the reason', array(
 	false !== strpos( $mail['body'], $A ),
 	false !== strpos( $mail['body'], '(left)' ),
 ), array( true, true, true ) );
+ck( 'and the day the membership ended, written inside the builder, in the language of the Administrator it is for, as the words around it are', (bool) preg_match( '/ pl_PL:\d{4}-\d{2}-\d{2}\b/', $mail['body'] ), true );
 ck( 'nobody is left', WPCPM_Institution_Members::members_of( $A ), array() );
 ck( 'three former members', $ids( WPCPM_Institution_Members::former_members_of( $A ) ), array( 7, 10, 11 ) );
 ck( 'a second detach of the same account is refused: nothing to end', code( WPCPM_Institution_Members::detach( 11, 'left', 11 ) ), 'wpcpm_member_none' );

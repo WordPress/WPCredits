@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.21
+Stable tag: 1.122.22
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.22 =
+
+* WPCredits Program > Tools > Emails, Templates: the Institutions and the Sponsors emails can be edited too, so every email the plugin sends while it runs is now in the list, in five areas: Invitations, Mentor calls, Institutions, Semester reports and Sponsors. Each has who receives it, what sends it, its state, Send me a test and Restore the original. Their shipped text is word for word what they said before.
+* Where one email said other words in one case than in another, each case is an email of its own: the acknowledgement of an institution's application with a call to book and without one, the notice of an uploaded agreement with the courtesy scan's notes and without, the revocation with a country contact named and without, and the acknowledgement of a sponsor application whose logo files were not kept. A Collaboration Agreement put back in force, logged as an acceptance until now, and a sponsor's request to sponsor a mentor, logged as its interest, have names of their own.
+* Every link that carries a secret, an institution application's confirmation link and a colleague's invitation to an institution, is needed in its email and goes in the body, never in the subject. What an Administrator or a sponsor wrote, a question, a note or a sponsor's message, is needed where it is the email's point and goes in the body; so does a code's last four characters, and an applicant's own answers (an address, a website, a contact, a city). A returned post needs its title and its author's name, either of which can be empty. A rejection still carries none of the reason the Administrator wrote.
+* An uploader with no name ("a member of your institution") and the day a membership ended are worded in the recipient's language, as the rest of their email always was, where they used the language of whoever pressed.
+* The institution's agreement emails are named for the Collaboration Agreement in full in the Templates tab and the Log, such as "Collaboration Agreement accepted, to the institution", and the sponsor's five agreement emails say who receives them, such as "Collaboration Agreement accepted, to the sponsor".
+* An edited subject goes out as the Administrator typed it, a "<" or an "&" in it included, as its preview and Send me a test show it. Until now a "<" in the edited subject of a Mentor calls or a Semester reports email reached its recipients written as `&lt;`, with an "&" or a quote mark after it written as an entity too; the invitations were never affected. An email sent with its shipped text goes out as before.
+* For developers: the registry's areas gain includes/mail/templates/institutions.php and sponsors.php, each area's file read in a scope of its own (`WPCPM_Mail_Templates::area()`), and `WPCPM_Mail_Templates::mail()` hands a builder its email as the mail layer takes it. `WPCPM_Mail_Templates::sent_as_edited()` says whether an email goes out as an Administrator edited it, and the mail layer marks such an email's subject plain text, so the `wpcpm_mail` filter is handed it with `plain_subject` true. `WPCPM_Mail_Catalog` gains six ids, `institution-applied-no-call`, `agreement-landed-flagged`, `agreement-reinstated`, `agreement-revoked-no-contact`, `sponsor-applied-no-logo` and `sponsor-mentor-interest`, and the `wpcpm_mail` filter is handed them as `$context`, where it was handed `institution-applied`, `agreement-landed`, `agreement-accepted`, `agreement-revoked`, `sponsor-applied` and `sponsor-interest` for those emails. `WPCPM_Institution_Agreement::contact_line()` is `contact_of()`, the contact's facts alone. `bin/test-institutions-sponsors-text.php` holds every Institutions and Sponsors email to a recording made from 1.122.21 before the move.
 
 = 1.122.21 =
 

@@ -50,9 +50,11 @@ final class WPCPM_Mail_Templates {
 	 * @var array<string,string>
 	 */
 	const AREAS = array(
-		WPCPM_Mail_Catalog::MODULE_INVITATIONS => 'invitations',
-		WPCPM_Mail_Catalog::MODULE_CALLS       => 'calls',
-		WPCPM_Mail_Catalog::MODULE_REPORTS     => 'reports',
+		WPCPM_Mail_Catalog::MODULE_INVITATIONS  => 'invitations',
+		WPCPM_Mail_Catalog::MODULE_CALLS        => 'calls',
+		WPCPM_Mail_Catalog::MODULE_INSTITUTIONS => 'institutions',
+		WPCPM_Mail_Catalog::MODULE_REPORTS      => 'reports',
+		WPCPM_Mail_Catalog::MODULE_SPONSORS     => 'sponsors',
 	);
 
 	/** What a placeholder looks like: a word in braces. */
@@ -105,7 +107,7 @@ final class WPCPM_Mail_Templates {
 		$out = array();
 
 		foreach ( self::AREAS as $file ) {
-			$defined = require __DIR__ . '/templates/' . $file . '.php';
+			$defined = self::area( $file );
 
 			foreach ( (array) $defined as $id => $entry ) {
 				$named = WPCPM_Mail_Catalog::get( $id );
@@ -131,6 +133,18 @@ final class WPCPM_Mail_Templates {
 		$built[ $locale ] = $out;
 
 		return $out;
+	}
+
+	/**
+	 * One area's emails, as its file under includes/mail/templates/ returns them, read in a scope of its
+	 * own: a variable one file sets is never seen by another, so each file names its helpers as it
+	 * likes and none can lean on another's by accident.
+	 *
+	 * @param string $file The area's file, without its extension.
+	 * @return mixed What the file returns: its emails, by id.
+	 */
+	private static function area( $file ) {
+		return require __DIR__ . '/templates/' . $file . '.php';
 	}
 
 	/**
@@ -377,6 +391,30 @@ final class WPCPM_Mail_Templates {
 	}
 
 	/**
+	 * An email as a builder of `WPCPM_Mail::send()` hands it to the mail layer: its subject and body as
+	 * `render()` fills them with the values given, beside what stays in the sender's code (its Reply-To,
+	 * and whether its subject is plain text). With no such template the subject is empty, so the mail
+	 * layer sends nothing.
+	 *
+	 * @param string $id     The email's id.
+	 * @param array  $values Each placeholder's value, by name, worked out in the recipient's language.
+	 * @param array  $extra  What the builder hands over beside the subject and the body.
+	 * @return array
+	 */
+	public static function mail( $id, array $values, array $extra = array() ) {
+		$mail = self::render( $id, $values );
+
+		if ( null === $mail ) {
+			$mail = array(
+				'subject' => '',
+				'body'    => '',
+			);
+		}
+
+		return array_merge( $mail, $extra );
+	}
+
+	/**
 	 * The values an email is previewed and tested with: each placeholder's example, worked out now
 	 * where a definition gives a function for it (the site's name, its login page, a dashboard).
 	 *
@@ -453,9 +491,9 @@ final class WPCPM_Mail_Templates {
 			return null;
 		}
 
-		$edit = self::edit( $id );
+		$edit = self::fitting_edit( (string) $id, $entry );
 
-		if ( null === $edit || array() !== self::misfit( $entry['placeholders'], $edit['subject'], $edit['body'] ) ) {
+		if ( null === $edit ) {
 			return array(
 				'subject' => $entry['subject'],
 				'body'    => $entry['body'],
@@ -466,6 +504,40 @@ final class WPCPM_Mail_Templates {
 			'subject' => WPCPM_Typed_Text::mail_text( $edit['subject'] ),
 			'body'    => WPCPM_Typed_Text::mail_text( $edit['body'] ),
 		);
+	}
+
+	/**
+	 * Whether an email goes out as an Administrator edited it: the registry holds it, and it has
+	 * an edit that fits, the text `text_of()` gives. The mail layer asks it of every email it
+	 * sends (`WPCPM_Mail::hand_off()`), since an edited subject is what an Administrator typed,
+	 * and goes out as plain text, as its preview and its test show it.
+	 *
+	 * @param string $id The email's id in the catalog.
+	 * @return bool False for an email sent as shipped, an edit set aside, and an id the registry
+	 *              does not hold, the signature and footer's included.
+	 */
+	public static function sent_as_edited( $id ) {
+		$entry = self::get( (string) $id );
+
+		return null !== $entry && null !== self::fitting_edit( (string) $id, $entry );
+	}
+
+	/**
+	 * An email's edit while it fits the email (`misfit()`), the one `text_of()` sends.
+	 *
+	 * @param string $id    The email's id, or `FOOTER`.
+	 * @param array  $entry What `entry_of()` holds for it.
+	 * @return array|null The edit, as `edit()` gives it; null when there is none, or it no longer
+	 *                    fits.
+	 */
+	private static function fitting_edit( $id, array $entry ) {
+		$edit = self::edit( $id );
+
+		if ( null === $edit || array() !== self::misfit( $entry['placeholders'], $edit['subject'], $edit['body'] ) ) {
+			return null;
+		}
+
+		return $edit;
 	}
 
 	/**
@@ -986,15 +1058,22 @@ final class WPCPM_Mail_Templates {
 
 	/**
 	 * The signature and footer's values for a preview or a test of an email: the site's name, the
-	 * dashboard of the email's audience (a student's, for an email to several kinds of people), and
-	 * the contact address as set.
+	 * dashboard of the email's audience, and the contact address as set. An email to several kinds
+	 * of people shows the dashboard of the people it is written for first: a sponsor's in the
+	 * Sponsors area, whose one such email, the codes running low, goes to the sponsor's accounts
+	 * and to an Administrator, and a student's elsewhere, as a group session's goes to its
+	 * students and their mentor.
 	 *
 	 * @param string $context The email's id in the catalog.
 	 * @return array<string,string>
 	 */
 	public static function footer_examples( $context ) {
 		$named    = WPCPM_Mail_Catalog::get( $context );
-		$audience = null === $named || '' === $named['audience'] ? WPCPM_Mail_Catalog::TYPE_STUDENT : $named['audience'];
+		$audience = null === $named ? '' : $named['audience'];
+
+		if ( '' === $audience ) {
+			$audience = null !== $named && WPCPM_Mail_Catalog::MODULE_SPONSORS === $named['module'] ? WPCPM_Mail_Catalog::TYPE_SPONSOR : WPCPM_Mail_Catalog::TYPE_STUDENT;
+		}
 
 		return array(
 			'site_name'       => WPCPM_Mail::site_name(),

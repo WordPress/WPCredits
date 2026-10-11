@@ -289,19 +289,13 @@ final class WPCPM_Sponsor_Interests {
 		WPCPM_Sponsors_Index::patch( $record, $patch );
 
 		$sponsor = '' === trim( $row['name'] ) ? $record : trim( $row['name'] );
-		$build   = static function ( $user ) use ( $sponsor, $said ) {
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: company name. */
-					__( '[WordPress Credits] %s would like to support the program', 'wpcredits-program-manager' ),
-					$sponsor
-				),
-				'body'    => sprintf(
-					/* translators: 1: company name, 2: the dated line. */
-					__( "%1\$s said on the Sponsor Dashboard:\n\n%2\$s\n\nThe full history is in the Sponsorship interests column of the Sponsors table.", 'wpcredits-program-manager' ),
-					$sponsor,
-					$said
-				),
+		$build   = static function () use ( $sponsor, $said ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_CONTEXT,
+				array(
+					'company_name' => $sponsor,
+					'interest'     => $said,
+				)
 			);
 		};
 
@@ -335,10 +329,12 @@ final class WPCPM_Sponsor_Interests {
 	 *
 	 * @param string   $record  Sponsor record ID.
 	 * @param callable $build   The mail builder `WPCPM_Mail::send()` takes.
-	 * @param string   $context The mail log's context; this card's own by default. The low-stock
-	 *                          and claim-problem mails (WPCPM_Sponsor_Claims) route through here
-	 *                          with their own, so every mail to a sponsor's manager takes the one
-	 *                          road: the assigned manager, else `sponsor_notify`, else every manager.
+	 * @param string   $context The mail log's context; this card's own by default. Every other mail
+	 *                          to a sponsor's manager routes through here under its own: the
+	 *                          agreement receipt (WPCPM_Sponsor_Agreement), the request to sponsor
+	 *                          a mentor (WPCPM_Sponsor_Mentors), and the low-stock and claim-problem
+	 *                          mails (WPCPM_Sponsor_Claims), so each takes the one road: the
+	 *                          assigned manager, else `sponsor_notify`, else every manager.
 	 * @return int How many were sent.
 	 */
 	public static function mail_manager( $record, $build, $context = self::MAIL_CONTEXT ) {

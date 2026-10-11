@@ -309,6 +309,9 @@ require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
@@ -505,7 +508,7 @@ $GLOBALS['sponsorship'] = $saved_sponsorship;
 $GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array();
 WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
-ck( 'interest in a mentor is sent to the manager and logged, and lands on the looking card', array( $r[0], $r[1], $GLOBALS['sent'][0][2], end( $GLOBALS['audit'] )['kind'] ), array( 'mentor-interest-sent', 'looking', 'sponsor-interest', 'sponsor_interest_mentor' ) );
+ck( 'interest in a mentor is sent to the manager under its own id, a sponsor\'s interest\'s until 1.122.22, and logged, and lands on the looking card', array( $r[0], $r[1], $GLOBALS['sent'][0][2], end( $GLOBALS['audit'] )['kind'] ), array( 'mentor-interest-sent', 'looking', 'sponsor-mentor-interest', 'sponsor_interest_mentor' ) );
 ck( 'the mail names the mentor', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Ana Looking' ), true );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M1 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
 ck( 'a mentor who is not looking cannot be asked for', $r[0], 'mentor-interest-unknown' );

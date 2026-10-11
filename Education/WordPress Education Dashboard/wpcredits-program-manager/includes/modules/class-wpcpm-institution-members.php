@@ -475,30 +475,19 @@ class WPCPM_Institution_Members {
 		$name    = is_array( $profile ) && ! empty( $profile['name'] ) ? (string) $profile['name'] : $record_id;
 		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 		$who     = $user->display_name;
-		$when    = wp_date( get_option( 'date_format' ) );
 
-		$build = function () use ( $site, $name, $record_id, $who, $reason, $when ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: person, 2: institution name, 3: record ID, 4: reason, 5: date. */
-					__( '%1$s is no longer a member of %2$s (%3$s) as of %5$s (%4$s). No account can act for this institution on the site now.', 'wpcredits-program-manager' ),
-					$who,
-					$name,
-					$record_id,
-					$reason,
-					$when
-				),
-				__( 'The Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: institution name. */
-					__( '[%1$s] %2$s has no members left', 'wpcredits-program-manager' ),
-					$site,
-					$name
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		// The day written here, in the Administrator's language, as the sentence around it is.
+		$build = static function () use ( $site, $name, $record_id, $who, $reason ) {
+			return WPCPM_Mail_Templates::mail(
+				self::NOTIFY_LAST_MEMBER,
+				array(
+					'site_name'          => $site,
+					'member_name'        => $who,
+					'institution_name'   => $name,
+					'institution_record' => $record_id,
+					'left_on'            => wp_date( get_option( 'date_format' ) ),
+					'ended_because'      => $reason,
+				)
 			);
 		};
 

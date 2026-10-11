@@ -262,12 +262,15 @@ class WPCPM_Institution_Agreement {
 	const STAGE_CONFIRMED = 'Confirmed';
 
 	/** Mail contexts, so every send is in the log under a name a manager can search for. */
-	const MAIL_RECEIVED = 'agreement-received';
-	const MAIL_ACCEPTED = 'agreement-accepted';
-	const MAIL_RETURNED = 'agreement-returned';
-	const MAIL_LANDED   = 'agreement-landed';
-	const MAIL_REMINDER = 'agreement-reminder';
-	const MAIL_REVOKED  = 'agreement-revoked';
+	const MAIL_RECEIVED           = 'agreement-received';
+	const MAIL_ACCEPTED           = 'agreement-accepted';
+	const MAIL_REINSTATED         = 'agreement-reinstated';
+	const MAIL_RETURNED           = 'agreement-returned';
+	const MAIL_LANDED             = 'agreement-landed';
+	const MAIL_LANDED_FLAGGED     = 'agreement-landed-flagged';
+	const MAIL_REMINDER           = 'agreement-reminder';
+	const MAIL_REVOKED            = 'agreement-revoked';
+	const MAIL_REVOKED_NO_CONTACT = 'agreement-revoked-no-contact';
 
 	/**
 	 * What the event rows on a document say, in the same voice as the two Phase 2 rows.
@@ -2412,26 +2415,14 @@ class WPCPM_Institution_Agreement {
 		$site  = WPCPM_Mail::site_name();
 		$queue = admin_url( 'admin.php?page=wpcpm-institutions' );
 
-		$build = function () use ( $site, $overdue, $queue, $days ) {
-			// One plural form and one number that never needs pluralising: the days are
-			// written as "the 3-day review window" so that a translator has one rule to
-			// follow rather than two counts crossing in one sentence.
-			$lines = array(
-				sprintf(
-					/* translators: 1: number of agreements, 2: number of days in the review window. */
-					_n(
-						'%1$s signed agreement has been waiting longer than the %2$s-day review window.',
-						'%1$s signed agreements have been waiting longer than the %2$s-day review window.',
-						count( $overdue ),
-						'wpcredits-program-manager'
-					),
-					number_format_i18n( count( $overdue ) ),
-					number_format_i18n( $days )
-				),
-			);
+		$build = static function () use ( $site, $overdue, $queue, $days ) {
+			// The count with its verb, in the subject's words and the first line's, and the days
+			// as "the 3-day review window", so a translator has one rule to follow rather than two
+			// counts crossing in one sentence. The list is one value, an agreement to a paragraph.
+			$items = array();
 
 			foreach ( $overdue as $facts ) {
-				$lines[] = sprintf(
+				$items[] = sprintf(
 					/* translators: 1: institution name, 2: date the agreement was uploaded. */
 					__( '%1$s, uploaded %2$s', 'wpcredits-program-manager' ),
 					$facts['institution_name'],
@@ -2439,21 +2430,24 @@ class WPCPM_Institution_Agreement {
 				);
 			}
 
-			$lines[] = $queue;
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: number of agreements. */
-					_n(
-						'[%1$s] %2$s signed agreement is waiting for review',
-						'[%1$s] %2$s signed agreements are waiting for review',
-						count( $overdue ),
-						'wpcredits-program-manager'
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_REMINDER,
+				array(
+					'site_name'          => $site,
+					'agreements_waiting' => sprintf(
+						/* translators: %s: a number of signed agreements. */
+						_n( '%s signed agreement is', '%s signed agreements are', count( $overdue ), 'wpcredits-program-manager' ),
+						number_format_i18n( count( $overdue ) )
 					),
-					$site,
-					number_format_i18n( count( $overdue ) )
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+					'agreements_overdue' => sprintf(
+						/* translators: %s: a number of signed agreements. */
+						_n( '%s signed agreement has been', '%s signed agreements have been', count( $overdue ), 'wpcredits-program-manager' ),
+						number_format_i18n( count( $overdue ) )
+					),
+					'review_days'        => number_format_i18n( $days ),
+					'overdue_list'       => implode( "\r\n\r\n", $items ),
+					'queue_link'         => $queue,
+				)
 			);
 		};
 
@@ -3724,36 +3718,21 @@ class WPCPM_Institution_Agreement {
 
 		$site = WPCPM_Mail::site_name();
 		$days = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
-		$who  = '' === $facts['uploaded_by'] ? __( 'a member of your institution', 'wpcredits-program-manager' ) : $facts['uploaded_by'];
 
-		$build = function () use ( $site, $facts, $days, $who ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: date the file arrived, 2: who uploaded it. */
-					__( 'We received your signed Collaboration Agreement on %1$s, uploaded by %2$s.', 'wpcredits-program-manager' ),
-					$facts['uploaded_at'],
-					$who
-				),
-				sprintf(
-					/* translators: %s: number of working days. */
-					_n(
-						'An Administrator will read it and you will get an email either way, usually within %s working day.',
-						'An Administrator will read it and you will get an email either way, usually within %s working days.',
-						$days,
-						'wpcredits-program-manager'
+		// Worked out in the member's language, the uploader's name and the working days alike.
+		$build = static function () use ( $site, $facts, $days ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_RECEIVED,
+				array(
+					'site_name'     => $site,
+					'uploaded_on'   => $facts['uploaded_at'],
+					'uploaded_by'   => '' === $facts['uploaded_by'] ? __( 'a member of your institution', 'wpcredits-program-manager' ) : $facts['uploaded_by'],
+					'review_window' => sprintf(
+						/* translators: %s: a number of working days. */
+						_n( '%s working day', '%s working days', $days, 'wpcredits-program-manager' ),
+						number_format_i18n( $days )
 					),
-					number_format_i18n( $days )
-				),
-				__( 'If it was the wrong file, withdraw it from the agreement panel on the site and upload the right one.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] We received your signed agreement', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+				)
 			);
 		};
 
@@ -3779,38 +3758,24 @@ class WPCPM_Institution_Agreement {
 
 		$site  = WPCPM_Mail::site_name();
 		$queue = admin_url( 'admin.php?page=wpcpm-institutions' );
+		// What the courtesy scan noticed, or nothing: two emails in other words.
+		$id = $facts['flags'] ? self::MAIL_LANDED_FLAGGED : self::MAIL_LANDED;
 
-		$build = function () use ( $site, $facts, $queue ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: institution name, 2: date, 3: who uploaded it. */
-					__( '%1$s uploaded a signed Collaboration Agreement on %2$s (%3$s).', 'wpcredits-program-manager' ),
-					$facts['institution_name'],
-					$facts['uploaded_at'],
-					'' === $facts['uploaded_by'] ? $facts['institution'] : $facts['uploaded_by']
-				),
-				$facts['flags']
-					? sprintf(
-						/* translators: %s: comma-separated list of PDF feature names. */
-						__( 'The courtesy scan noticed: %s. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.', 'wpcredits-program-manager' ),
-						implode( ', ', $facts['flags'] )
-					)
-					: __( 'The courtesy scan noticed nothing. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.', 'wpcredits-program-manager' ),
-				$queue,
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: institution name. */
-					__( '[%1$s] Signed agreement from %2$s is waiting for review', 'wpcredits-program-manager' ),
-					$site,
-					$facts['institution_name']
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $id, $site, $facts, $queue ) {
+			return WPCPM_Mail_Templates::mail(
+				$id,
+				array(
+					'site_name'        => $site,
+					'institution_name' => $facts['institution_name'],
+					'uploaded_on'      => $facts['uploaded_at'],
+					'uploaded_by'      => '' === $facts['uploaded_by'] ? $facts['institution'] : $facts['uploaded_by'],
+					'scan_flags'       => implode( ', ', $facts['flags'] ),
+					'queue_link'       => $queue,
+				)
 			);
 		};
 
-		return (int) WPCPM_Institutions::notify_managers( self::MAIL_LANDED, $build );
+		return (int) WPCPM_Institutions::notify_managers( $id, $build );
 	}
 
 	/**
@@ -3835,27 +3800,14 @@ class WPCPM_Institution_Agreement {
 		$when = wp_date( 'Y-m-d' );
 		$page = WPCPM_Institutions_Dashboard::page_url();
 
-		$build = function () use ( $site, $when, $page ) {
-			$lines = array(
-				sprintf(
-					/* translators: %s: date the agreement was accepted. */
-					__( 'Your Collaboration Agreement was accepted on %s. Your account on the site is open.', 'wpcredits-program-manager' ),
-					$when
-				),
-				__( 'You can now see your students and their progress, open one student to read their Student Report Card, and download your own copy of the signed agreement from the card at the foot of the page.', 'wpcredits-program-manager' ),
-			);
-
-			if ( '' !== $page ) {
-				$lines[] = $page;
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your agreement is accepted', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $when, $page ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_ACCEPTED,
+				array(
+					'site_name'      => $site,
+					'accepted_on'    => $when,
+					'dashboard_link' => $page,
+				)
 			);
 		};
 
@@ -3892,26 +3844,16 @@ class WPCPM_Institution_Agreement {
 		$headers = WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null );
 		$when    = wp_date( 'Y-m-d' );
 
-		$build = function () use ( $site, $note, $named, $headers, $when ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: date, 2: the Administrator's name. */
-					__( 'Your signed Collaboration Agreement was sent back on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
-					$when,
-					$named
+		$build = static function () use ( $site, $note, $named, $headers, $when ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_RETURNED,
+				array(
+					'site_name'          => $site,
+					'returned_on'        => $when,
+					'administrator_name' => $named,
+					'note'               => $note,
 				),
-				$note,
-				__( 'Upload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your signed agreement needs a change', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => $headers,
+				array( 'headers' => $headers )
 			);
 		};
 
@@ -3927,7 +3869,8 @@ class WPCPM_Institution_Agreement {
 	 * their students is deleted by a revocation, and it names the country contact so there is
 	 * somebody to write to who is not the address this mail was sent from.
 	 *
-	 * The note is read back to what was typed, as in `mail_returned()`.
+	 * The note is read back to what was typed, as in `mail_returned()`. A country with a contact
+	 * on file and one with none are two emails in other words (`contact_of()`).
 	 *
 	 * @param string $record  Institutions record ID.
 	 * @param int    $post_id The revoked document.
@@ -3946,44 +3889,35 @@ class WPCPM_Institution_Agreement {
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
 		$when    = wp_date( 'Y-m-d' );
+		$contact = self::contact_of( $record );
+		$id      = null === $contact ? self::MAIL_REVOKED_NO_CONTACT : self::MAIL_REVOKED;
 
-		$build = function () use ( $site, $note, $named, $when, $record ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: date, 2: the Administrator's name. */
-					__( 'Your Collaboration Agreement was revoked on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
-					$when,
-					$named
-				),
-				$note,
-				__( 'Your account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
-				// Built here rather than above, because `WPCPM_Mail::send()` calls this
-				// builder inside the recipient's own locale and a sentence translated
-				// outside it would reach them in the site's language.
-				self::contact_line( $record ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your agreement has been revoked', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		// The country's name and contact read here, as stored; the sentence around them is the
+		// template's, worded in the member's language.
+		$build = static function () use ( $id, $site, $note, $named, $when, $contact ) {
+			return WPCPM_Mail_Templates::mail(
+				$id,
+				array(
+					'site_name'          => $site,
+					'revoked_on'         => $when,
+					'administrator_name' => $named,
+					'note'               => $note,
+					'country'            => null === $contact ? '' : WPCPM_Countries::name_of( $contact['country'] ),
+					'country_contact'    => null === $contact ? '' : $contact['email'],
+				)
 			);
 		};
 
-		return self::mail_members( $record, self::MAIL_REVOKED, $build );
+		return self::mail_members( $record, $id, $build );
 	}
 
 	/**
 	 * Tell the institution its agreement is in force again (T9).
 	 *
-	 * The `agreement-accepted` context with the reinstated wording, because that is what this
-	 * is: the same account opening, and a manager searching the mail log for why an
-	 * institution was let back in should find it filed with every other acceptance. The
-	 * second line answers the question the first raises, which is what happened to everything
-	 * while the account was shut.
+	 * Sent under the `agreement-accepted` context until 1.122.22, as the same account opening; an
+	 * email of its own since, `agreement-reinstated`, as every email that says words of its own
+	 * is. The second line answers the question the first raises, which is what happened to
+	 * everything while the account was shut.
 	 *
 	 * @param string $record  Institutions record ID.
 	 * @param int    $post_id The reinstated document.
@@ -4000,59 +3934,42 @@ class WPCPM_Institution_Agreement {
 		$when = wp_date( 'Y-m-d' );
 		$page = WPCPM_Institutions_Dashboard::page_url();
 
-		$build = function () use ( $site, $when, $page ) {
-			$lines = array(
-				sprintf(
-					/* translators: %s: date the agreement was put back in force. */
-					__( 'Your Collaboration Agreement was put back in force on %s. Your account on the site is open again.', 'wpcredits-program-manager' ),
-					$when
-				),
-				__( 'Nothing was removed while it was out of force: your students, their progress and your copy of the signed agreement are where they were.', 'wpcredits-program-manager' ),
-			);
-
-			if ( '' !== $page ) {
-				$lines[] = $page;
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your agreement is in force again', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $when, $page ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_REINSTATED,
+				array(
+					'site_name'      => $site,
+					'reinstated_on'  => $when,
+					'dashboard_link' => $page,
+				)
 			);
 		};
 
-		return self::mail_members( $record, self::MAIL_ACCEPTED, $build );
+		return self::mail_members( $record, self::MAIL_REINSTATED, $build );
 	}
 
 	/**
-	 * Who to write to about a revoked agreement, in one sentence.
-	 *
-	 * The country contact when the base names one, and the panel's own neutral sentence when
-	 * it does not, so the two places an institution reads this read the same. Named in the
-	 * body and never added as a recipient: that is the rule design spec 7.4 sets for this
-	 * address everywhere it appears, and this mail is not the country contact's business
-	 * unless the institution decides it is.
+	 * Who to write to about a revoked agreement: the country contact when the base names one, or
+	 * null when it does not, and the email then says the panel's own neutral sentence, so the two
+	 * places an institution reads this read the same. Named in the body and never added as a
+	 * recipient: that is the rule design spec 7.4 sets for this address everywhere it appears, and
+	 * this mail is not the country contact's business unless the institution decides it is.
 	 *
 	 * @param string $record Institutions record ID.
-	 * @return string
+	 * @return array{country:string,email:string}|null The country and its contact's address.
 	 */
-	private static function contact_line( $record ) {
+	private static function contact_of( $record ) {
 		$row     = WPCPM_Institutions_Index::row( $record );
 		$country = is_array( $row ) ? (string) $row['country'] : '';
 		$routing = '' === $country ? null : WPCPM_Countries::routing( $country );
 
 		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
-			return __( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' );
+			return null;
 		}
 
-		return sprintf(
-			/* translators: 1: country name, 2: the contact's email address. */
-			__( 'Your program contact for %1$s is %2$s.', 'wpcredits-program-manager' ),
-			WPCPM_Countries::name_of( $country ),
-			trim( (string) $routing['email'] )
+		return array(
+			'country' => $country,
+			'email'   => trim( (string) $routing['email'] ),
 		);
 	}
 

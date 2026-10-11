@@ -2583,37 +2583,21 @@ final class WPCPM_Sponsor_Agreement {
 		$days  = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
 		$queue = admin_url( 'admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements' );
 
-		$build = function () use ( $site, $facts, $days, $queue ) {
-			$lines = array(
-				sprintf(
-					/* translators: 1: company name, 2: date, 3: who uploaded it. */
-					__( '%1$s uploaded a signed Collaboration Agreement on %2$s (%3$s).', 'wpcredits-program-manager' ),
-					$facts['sponsor_name'],
-					$facts['uploaded_at'],
-					'' === $facts['uploaded_by'] ? __( 'somebody at the company', 'wpcredits-program-manager' ) : $facts['uploaded_by']
-				),
-				sprintf(
-					/* translators: %s: number of working days. */
-					_n(
-						'The program aims to answer within %s working day.',
-						'The program aims to answer within %s working days.',
-						$days,
-						'wpcredits-program-manager'
+		$build = static function () use ( $site, $facts, $days, $queue ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_RECEIVED,
+				array(
+					'site_name'     => $site,
+					'company_name'  => $facts['sponsor_name'],
+					'uploaded_on'   => $facts['uploaded_at'],
+					'uploaded_by'   => '' === $facts['uploaded_by'] ? __( 'somebody at the company', 'wpcredits-program-manager' ) : $facts['uploaded_by'],
+					'review_window' => sprintf(
+						/* translators: %s: a number of working days. */
+						_n( '%s working day', '%s working days', $days, 'wpcredits-program-manager' ),
+						number_format_i18n( $days )
 					),
-					number_format_i18n( $days )
-				),
-				__( 'Accept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:', 'wpcredits-program-manager' ),
-				$queue,
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: company name. */
-					__( '[%1$s] %2$s uploaded a signed Collaboration Agreement', 'wpcredits-program-manager' ),
-					$site,
-					$facts['sponsor_name']
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+					'queue_link'    => $queue,
+				)
 			);
 		};
 
@@ -2638,27 +2622,14 @@ final class WPCPM_Sponsor_Agreement {
 		$when = wp_date( 'Y-m-d' );
 		$page = WPCPM_Sponsors_Dashboard::page_url();
 
-		$build = function () use ( $site, $when, $page ) {
-			$lines = array(
-				sprintf(
-					/* translators: %s: date the agreement was accepted. */
-					__( 'Your Collaboration Agreement was accepted on %s. Nothing about your dashboard changes: it never depended on an agreement.', 'wpcredits-program-manager' ),
-					$when
-				),
-				__( 'You can download the copy we hold from the agreement card on your dashboard.', 'wpcredits-program-manager' ),
-			);
-
-			if ( '' !== $page ) {
-				$lines[] = $page;
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your Collaboration Agreement is accepted', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $when, $page ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_ACCEPTED,
+				array(
+					'site_name'      => $site,
+					'accepted_on'    => $when,
+					'dashboard_link' => $page,
+				)
 			);
 		};
 
@@ -2682,31 +2653,18 @@ final class WPCPM_Sponsor_Agreement {
 		$page    = WPCPM_Sponsors_Dashboard::page_url();
 		$note    = WPCPM_Typed_Text::mail_text( $note );
 
-		$build = function () use ( $site, $note, $named, $page, $manager ) {
-			$lines = array(
-				'' === $named
-					? __( 'An Administrator read your Collaboration Agreement and sent it back, with this note:', 'wpcredits-program-manager' )
-					: sprintf(
-						/* translators: %s: the Administrator's name. */
-						__( '%s read your Collaboration Agreement and sent it back, with this note:', 'wpcredits-program-manager' ),
-						$named
-					),
-				$note,
-				__( 'Upload the corrected document from the agreement card on your dashboard, or reply to this message.', 'wpcredits-program-manager' ),
-			);
-
-			if ( '' !== $page ) {
-				$lines[] = $page;
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your Collaboration Agreement came back with a note', 'wpcredits-program-manager' ),
-					$site
+		$build = static function () use ( $site, $note, $named, $page, $manager ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_RETURNED,
+				array(
+					'site_name'      => $site,
+					// The Administrator by name, or, for an account that holds none, in the member's
+					// language.
+					'returned_by'    => '' === $named ? __( 'An Administrator', 'wpcredits-program-manager' ) : $named,
+					'note'           => $note,
+					'dashboard_link' => $page,
 				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null ),
+				array( 'headers' => WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null ) )
 			);
 		};
 
@@ -2727,21 +2685,14 @@ final class WPCPM_Sponsor_Agreement {
 		$manager = wp_get_current_user();
 		$note    = WPCPM_Typed_Text::mail_text( $note );
 
-		$build = function () use ( $site, $note, $manager ) {
-			$lines = array(
-				__( 'Your Collaboration Agreement is no longer in force, with this note from the program:', 'wpcredits-program-manager' ),
-				$note,
-				__( 'Your dashboard, your offers and your codes are unchanged: they never depended on an agreement. Reply to this message if you would like to talk about a new one.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your Collaboration Agreement is no longer in force', 'wpcredits-program-manager' ),
-					$site
+		$build = static function () use ( $site, $note, $manager ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_REVOKED,
+				array(
+					'site_name' => $site,
+					'note'      => $note,
 				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null ),
+				array( 'headers' => WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null ) )
 			);
 		};
 
@@ -2758,18 +2709,13 @@ final class WPCPM_Sponsor_Agreement {
 		$site = WPCPM_Mail::site_name();
 		$when = wp_date( 'Y-m-d' );
 
-		$build = function () use ( $site, $when ) {
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Your Collaboration Agreement is back in force', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => sprintf(
-					/* translators: %s: today's date. */
-					__( 'Your Collaboration Agreement is in force again as of %s. Nothing else changed.', 'wpcredits-program-manager' ),
-					$when
-				),
+		$build = static function () use ( $site, $when ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_REINSTATED,
+				array(
+					'site_name'     => $site,
+					'reinstated_on' => $when,
+				)
 			);
 		};
 

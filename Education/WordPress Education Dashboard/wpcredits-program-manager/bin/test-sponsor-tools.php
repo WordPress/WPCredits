@@ -234,6 +234,9 @@ class WPCPM_Institution_Export {
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';

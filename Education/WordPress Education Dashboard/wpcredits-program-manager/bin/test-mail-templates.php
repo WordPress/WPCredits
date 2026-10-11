@@ -4,15 +4,18 @@
  *
  * - **The catalog stays the one list of names.** Every template's id is a catalog id, its name, area
  *   and audience are the catalog's; the Invitations are the four invitations and the institution's
- *   second one, for an institution whose Collaboration Agreement is on file, and the Mentor calls and
- *   the Semester reports follow, each email that says different words a template of its own.
+ *   second one, for an institution whose Collaboration Agreement is on file, and the Mentor calls, the
+ *   Institutions, the Semester reports and the Sponsors follow, each email that says different words
+ *   a template of its own. Each area's file is read in a scope of its own and leans on no other's.
  * - **Every template is whole.** Each placeholder its text uses is one it declares, each required one
  *   is in the body, none that goes in the body alone is in the subject, every declared one says what
  *   it means and has an example, and filled with the examples no placeholder is left. The
  *   set-password link is required in every invitation, in its body; an email about a call needs its
- *   time, and a meeting link, and what a student or a mentor typed, go in the body alone. The
- *   examples read as a real email to the Administrator looking would: a call tomorrow at 3 pm on
- *   their own clock, invented names, and links of the site's or of example.test.
+ *   time, and a meeting link, and what a student or a mentor typed, go in the body alone; a link
+ *   that carries a secret is needed, in the body alone, and so is what an Administrator or a sponsor
+ *   wrote. The examples read as a real email to the Administrator looking would: a call tomorrow at
+ *   3 pm on their own clock, an agreement decided today, invented names, links of the site's or of
+ *   example.test, and fake secrets; and no area's file works a date out by adding seconds.
  * - **Built once a request for each language**, and an edit whose subject fills to nothing, as the
  *   mail layer will clean it, is sent with the shipped subject, since the mail layer sends no email
  *   without one.
@@ -65,6 +68,7 @@ function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 // Core's two forms, `add_query_arg( $args, $url )`, as the example set-password link is built over the
 // login page, and `add_query_arg( $key, $value, $url )`, as a report's address is.
 function add_query_arg( ...$args ) {
@@ -92,7 +96,8 @@ $GLOBALS['uid']   = 0;
 $GLOBALS['umeta'] = array();
 function get_current_user_id() { return $GLOBALS['uid']; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function wp_timezone_string() { return 'Europe/Warsaw'; }
+// The site's clock: Warsaw's, unless a check sets another.
+function wp_timezone_string() { return $GLOBALS['site_zone'] ?? 'Europe/Warsaw'; }
 function wp_timezone() { return new DateTimeZone( wp_timezone_string() ); }
 function wp_date( $format, $timestamp = null, $zone = null ) { return ( new DateTimeImmutable( '@' . (int) ( null === $timestamp ? time() : $timestamp ) ) )->setTimezone( $zone instanceof DateTimeZone ? $zone : wp_timezone() )->format( $format ); }
 function human_time_diff( $from, $to = 0 ) { return round( abs( (int) $to - (int) $from ) / HOUR_IN_SECONDS ) . ' hours'; }
@@ -100,7 +105,15 @@ function switch_to_locale( $locale ) { $GLOBALS['locales'][] = $locale; return t
 function restore_previous_locale() { $GLOBALS['locales'][] = 'restored'; return true; }
 function add_action() {}
 function add_filter() {}
-function apply_filters( $hook, $value ) { return $value; }
+// What the `wpcpm_mail` filter is handed, kept, so a check can read whether a subject went as plain text.
+$GLOBALS['filtered'] = array();
+function apply_filters( $hook, $value ) {
+	if ( 'wpcpm_mail' === $hook ) {
+		$GLOBALS['filtered'][] = $value;
+	}
+
+	return $value;
+}
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a ); }
 // What the mail layer hands WordPress, with the id and the test mark the mail log's capture takes.
@@ -125,6 +138,12 @@ require_once __DIR__ . '/../includes/class-wpcpm-cohort.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-availability.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-semester-report-screen.php';
+// And the Institutions' and the Sponsors' examples: an application's confirmation link, an
+// invitation's link and how long it works, a sponsor's dated line, and the sponsor an Offers link names.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-application.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-invite.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 
 /** The one setting the footer reads, Contact address in emails, as a check sets it. */
 class WPCPM_Settings {
@@ -175,7 +194,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, then the Semester reports, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -202,9 +221,41 @@ ck(
 		'call-reminder-mentor',
 		'call-reminder-student',
 		'session-reminder',
+		'institution-applied',
+		'institution-applied-no-call',
+		'institution-application',
+		'institution-information',
+		'institution-declined',
+		'institution-invite',
+		'agreement-received',
+		'agreement-landed',
+		'agreement-landed-flagged',
+		'agreement-accepted',
+		'agreement-reinstated',
+		'agreement-returned',
+		'agreement-revoked',
+		'agreement-revoked-no-contact',
+		'agreement-reminder',
+		'agreement-template',
+		'member-last',
 		'report-drafted',
 		'report-approved',
 		'report-consent',
+		'sponsor-applied',
+		'sponsor-applied-no-logo',
+		'sponsor-application',
+		'sponsor-information',
+		'sponsor-declined',
+		'sponsor-agreement-received',
+		'sponsor-agreement-accepted',
+		'sponsor-agreement-returned',
+		'sponsor-agreement-revoked',
+		'sponsor-agreement-reinstated',
+		'sponsor-interest',
+		'sponsor-mentor-interest',
+		'offer-low-stock',
+		'claim-problem',
+		'sponsor-post-returned',
 	)
 );
 
@@ -215,14 +266,90 @@ foreach ( $all as $id => $entry ) {
 }
 ck( 'every template is a catalog id, and its name, area and audience are the catalog\'s', $named, array_fill_keys( array_keys( $all ), true ) );
 
-$areas = array();
+// Each area's file read alone, in a scope of its own, as the registry reads it: a file that leaned on a
+// variable another file set would find it unset here, and say so.
+$areas    = array();
+$warnings = array();
+set_error_handler(
+	function ( $number, $message, $file, $line ) use ( &$warnings ) {
+		$warnings[] = basename( $file ) . ':' . $line . ': ' . $message;
+		return true;
+	}
+);
 foreach ( WPCPM_Mail_Templates::AREAS as $module => $file ) {
-	$defined = require __DIR__ . '/../includes/mail/templates/' . $file . '.php';
-	foreach ( array_keys( $defined ) as $id ) {
+	$defined = ( static function ( $path ) {
+		return require $path;
+	} )( __DIR__ . '/../includes/mail/templates/' . $file . '.php' );
+	foreach ( array_keys( (array) $defined ) as $id ) {
 		$areas[ $id ] = array( $module, WPCPM_Mail_Catalog::module_of( $id ) );
 	}
 }
+restore_error_handler();
 ck( 'each area\'s file defines that area\'s emails, and every id it defines is the catalog\'s', array_values( array_filter( $areas, function ( $pair ) { return $pair[0] !== $pair[1]; } ) ), array() );
+ck( 'and each, read alone, leans on nothing another file set: no warning', $warnings, array() );
+// The registry read by its tokens, so a comment or a string that names a require counts for nothing,
+// and the way the code is spaced or wrapped does not matter: the class includes a file in one place
+// alone, area(), whose body is that one statement, and all() reads each area through it.
+$registry = array_values(
+	array_filter(
+		token_get_all( (string) file_get_contents( __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php' ) ),
+		function ( $token ) {
+			return ! is_array( $token ) || ! in_array( $token[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true );
+		}
+	)
+);
+$spelled = function ( $token ) {
+	return is_array( $token ) ? $token[1] : $token;
+};
+// A method's body, its tokens one space apart: what lies between the brace after its name and the
+// brace that closes it. Null for a method the class does not have.
+$body_of = function ( $method ) use ( $registry, $spelled ) {
+	foreach ( $registry as $at => $token ) {
+		if ( ! is_array( $token ) || T_FUNCTION !== $token[0] || ! isset( $registry[ $at + 1 ] ) || $method !== $spelled( $registry[ $at + 1 ] ) ) {
+			continue;
+		}
+
+		$depth = 0;
+		$body  = array();
+
+		for ( $i = $at + 2, $n = count( $registry ); $i < $n; $i++ ) {
+			$opens = '{' === $registry[ $i ] || ( is_array( $registry[ $i ] ) && in_array( $registry[ $i ][0], array( T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES ), true ) );
+
+			if ( '}' === $registry[ $i ] && 1 === $depth ) {
+				return implode( ' ', $body );
+			}
+
+			if ( $depth > 0 ) {
+				$body[] = $spelled( $registry[ $i ] );
+			}
+
+			$depth += $opens ? 1 : ( '}' === $registry[ $i ] ? -1 : 0 );
+		}
+	}
+
+	return null;
+};
+$included = array();
+foreach ( $registry as $token ) {
+	if ( is_array( $token ) && in_array( $token[0], array( T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE ), true ) ) {
+		$included[] = $token[1];
+	}
+}
+ck(
+	'and the registry reads each in a scope of its own: read by its tokens, it includes a file once, with a require, in area(), whose body is that one statement, and all() reads each area through it',
+	array( $included, $body_of( 'area' ), false !== strpos( (string) $body_of( 'all' ), '$defined = self :: area ( $file ) ;' ) ),
+	array( array( 'require' ), 'return require __DIR__ . \'/templates/\' . $file . \'.php\' ;', true )
+);
+// No example day is worked out by adding seconds: a day is not always 86,400 of them, and a date so
+// built is an hour off across a change of summer time (1.122.21's fix). Each file moves along the
+// clock, with modify().
+$by_seconds = array();
+foreach ( glob( __DIR__ . '/../includes/mail/templates/*.php' ) as $path ) {
+	if ( preg_match( '/\b(?:DAY|WEEK)_IN_SECONDS\b/', (string) file_get_contents( $path ) ) ) {
+		$by_seconds[] = basename( $path );
+	}
+}
+ck( 'no area\'s file builds a date by adding seconds', $by_seconds, array() );
 ck( 'and the registry names no email itself: no label, area or audience in a definition', array_values( array_filter( array_map( function ( $file ) { return preg_match( "/'(label|module|audience)'\s*=>/", (string) file_get_contents( __DIR__ . '/../includes/mail/templates/' . $file . '.php' ) ) ? $file : null; }, WPCPM_Mail_Templates::AREAS ) ) ), array() );
 ck( 'the institution invitation for an agreement on file is the catalog\'s, in the Invitations area, to institution members', WPCPM_Mail_Catalog::get( 'invite-institution-settled' ), array( 'label' => 'Invitation: institution, agreement on file', 'module' => 'invitations', 'audience' => 'institution', 'test' => false ) );
 ck( 'an id the registry does not hold is null', array( WPCPM_Mail_Templates::get( 'call-booked' ), WPCPM_Mail_Templates::render( 'no-such', array() ) ), array( null, null ) );
@@ -252,9 +379,14 @@ foreach ( $all as $id => $entry ) {
 	);
 }
 // Each template's line ending, the placeholders it needs, and the ones that go in its body alone: the
-// invitations and the two moved emails keep the line ending WordPress gives its own email, as the
-// code wrote them; every email about a call needs its time; the mentor's confirmations sent only
-// while the mentor has a meeting link need it; and a meeting link and what somebody typed go in the
+// invitations, the two moved emails and most of the Institutions' and the Sponsors' keep the line
+// ending their code wrote, "\r\n"; every email about a call needs its time; the mentor's
+// confirmations sent only while the mentor has a meeting link need it, and so does each email sent
+// only with a value its other words lack (a call to book, the scan's notes, a country contact); every
+// link that carries a secret is needed, in the body alone; what an Administrator or a sponsor wrote
+// is needed where it is the email's point, and goes in the body alone; a post's title and its
+// author's name are needed, since either may be empty and its line must stay; and a meeting link, a
+// code's last characters and what somebody typed, an applicant's own answers among them, go in the
 // body wherever they are.
 $shape = array(
 	'invite-student'                => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
@@ -281,15 +413,59 @@ $shape = array(
 	'call-reminder-mentor'          => array( "\n", array( 'when' ), array( 'meeting_place', 'topic' ) ),
 	'call-reminder-student'         => array( "\n", array( 'when' ), array( 'meeting_place', 'topic' ) ),
 	'session-reminder'              => array( "\n", array( 'when' ), array( 'meeting_place', 'session_topic' ) ),
+	'institution-applied'           => array( "\r\n", array( 'verify_link', 'booking_link' ), array( 'verify_link', 'applicant_email' ) ),
+	'institution-applied-no-call'   => array( "\r\n", array( 'verify_link' ), array( 'verify_link', 'applicant_email' ) ),
+	'institution-application'       => array( "\r\n", array(), array( 'city', 'contact_name', 'contact_email' ) ),
+	'institution-information'       => array( "\r\n", array( 'question' ), array( 'question' ) ),
+	'institution-declined'          => array( "\r\n", array(), array() ),
+	'institution-invite'            => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
+	'agreement-received'            => array( "\r\n", array(), array() ),
+	'agreement-landed'              => array( "\r\n", array(), array() ),
+	'agreement-landed-flagged'      => array( "\r\n", array( 'scan_flags' ), array() ),
+	'agreement-accepted'            => array( "\r\n", array(), array() ),
+	'agreement-reinstated'          => array( "\r\n", array(), array() ),
+	'agreement-returned'            => array( "\r\n", array( 'note' ), array( 'note' ) ),
+	'agreement-revoked'             => array( "\r\n", array( 'note', 'country_contact' ), array( 'note' ) ),
+	'agreement-revoked-no-contact'  => array( "\r\n", array( 'note' ), array( 'note' ) ),
+	'agreement-reminder'            => array( "\r\n", array(), array() ),
+	'agreement-template'            => array( "\r\n", array(), array( 'name_asked_for' ) ),
+	'member-last'                   => array( "\r\n", array(), array() ),
 	'report-drafted'                => array( "\n", array( 'semester' ), array() ),
 	'report-approved'               => array( "\n", array( 'semester' ), array() ),
 	'report-consent'                => array( "\n", array( 'semester' ), array() ),
+	'sponsor-applied'               => array( "\r\n", array(), array( 'applicant_email' ) ),
+	'sponsor-applied-no-logo'       => array( "\r\n", array(), array( 'applicant_email' ) ),
+	'sponsor-application'           => array( "\r\n", array(), array( 'website', 'contact_name', 'contact_email' ) ),
+	'sponsor-information'           => array( "\r\n", array( 'question' ), array( 'question' ) ),
+	'sponsor-declined'              => array( "\r\n", array(), array() ),
+	'sponsor-agreement-received'    => array( "\r\n", array(), array() ),
+	'sponsor-agreement-accepted'    => array( "\r\n", array(), array() ),
+	'sponsor-agreement-returned'    => array( "\r\n", array( 'note' ), array( 'note' ) ),
+	'sponsor-agreement-revoked'     => array( "\r\n", array( 'note' ), array( 'note' ) ),
+	'sponsor-agreement-reinstated'  => array( "\r\n", array(), array() ),
+	'sponsor-interest'              => array( "\n", array( 'interest' ), array( 'interest' ) ),
+	'sponsor-mentor-interest'       => array( "\n", array(), array() ),
+	'offer-low-stock'               => array( "\n", array(), array() ),
+	'claim-problem'                 => array( "\n", array(), array( 'code_ending' ) ),
+	'sponsor-post-returned'         => array( "\n", array( 'post_title', 'author_name', 'note' ), array( 'note' ) ),
 );
 $want_whole = array();
 foreach ( $shape as $id => $want ) {
 	$want_whole[ $id ] = array( 'trigger' => true, 'undeclared' => array(), 'unused' => array(), 'missing' => array(), 'in_subject' => array(), 'about' => true, 'left' => array(), 'eol' => $want[0], 'link' => array( $want[1], $want[2] ) );
 }
-ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, every email about a call its time, and a meeting link and what somebody typed go in the body alone', $whole, $want_whole );
+ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, every email about a call its time, every link with a secret is needed, in the body alone, and a meeting link and what somebody typed go in the body alone', $whole, $want_whole );
+
+// In the emails about an application the institution's or the company's name is the one the
+// application gave, and the placeholder says so there; everywhere else it keeps its area's words.
+$as_applied = array();
+foreach ( $all as $id => $entry ) {
+	foreach ( array( 'institution_name' => 'The institution\'s name as the application gave it.', 'company_name' => 'The company\'s name as the application gave it.' ) as $name => $applied_means ) {
+		if ( isset( $entry['placeholders'][ $name ] ) && ( $applied_means === $entry['placeholders'][ $name ]['means'] ) !== in_array( $id, array( 'institution-applied', 'institution-applied-no-call', 'institution-application', 'sponsor-applied', 'sponsor-applied-no-logo', 'sponsor-application' ), true ) ) {
+			$as_applied[] = $id . ' {' . $name . '}';
+		}
+	}
+}
+ck( 'the institution\'s and the company\'s name say they are the name the application gave in the six emails about an application, and only there', $as_applied, array() );
 
 $student = WPCPM_Mail_Templates::render( 'invite-student', WPCPM_Mail_Templates::example_values( 'invite-student' ) );
 ck( 'filled with its examples, an invitation carries a marked example link and the dashboard of its audience', array( false !== strpos( $student['body'], 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $student['body'], "Your Student Report Card:\r\nhttps://example.test/student-report-card/" ), $student['subject'] ), array( true, true, '[WordPress Credits] Welcome to the WordPress Credits Program' ) );
@@ -345,8 +521,8 @@ ck(
 // The same examples on a clock that changes. An Administrator in Warsaw, whose summer time ends on
 // 25 Oct 2026, reads every example session at 3:00 pm, the three of a series and the time a session had
 // before it moved, as a real session, kept on its clock and not moved by a count of seconds, would be.
-// Read on the real clock, so it can fail only while a change falls within a fortnight of tomorrow, as
-// it does in the days before 25 Oct 2026 (and before 1 Nov 2026 for the zones of the United States).
+// Read on the real clock, and on Warsaw's alone, so it can fail only while Warsaw's clock changes
+// within a fortnight of tomorrow, as it does in the days before 25 Oct 2026 and 28 Mar 2027.
 $GLOBALS['umeta'][9]['wpcpm_timezone'] = 'Europe/Warsaw';
 $warsaw                                = new DateTimeZone( 'Europe/Warsaw' );
 $warsaw_start                          = new DateTimeImmutable( 'tomorrow 15:00', $warsaw );
@@ -381,12 +557,12 @@ foreach ( array_keys( $all ) as $id ) {
 		if ( preg_match_all( '#https?://[^\s/]+#', $value, $hosts ) ) {
 			$links = array_merge( $links, $hosts[0] );
 		}
-		if ( in_array( $name, array( 'student_name', 'mentor_name', 'with_whom', 'canceled_by', 'institution_name' ), true ) ) {
+		if ( in_array( $name, array( 'student_name', 'mentor_name', 'with_whom', 'canceled_by', 'institution_name', 'company_name', 'contact_name', 'inviter_name', 'uploaded_by', 'administrator_name', 'member_name', 'returned_by', 'claimant_name', 'author_name', 'name_asked_for' ), true ) ) {
 			$names[] = $value;
 		}
 	}
 }
-ck( 'every example link is the site\'s own or example.test\'s, and every example name is an invented one', array( array_values( array_unique( $links ) ), array_values( array_unique( $names ) ) ), array( array( 'https://example.test', 'https://meet.example.test' ), array( 'Ada Okonjo', 'Ben Lindqvist', 'Example University' ) ) );
+ck( 'every example link is the site\'s own, example.test\'s or a WordPress.org profile of an invented handle, and every example name is an invented one', array( array_values( array_unique( $links ) ), array_values( array_unique( $names ) ) ), array( array( 'https://example.test', 'https://meet.example.test', 'https://calendly.example.test', 'https://hosting.example.test', 'https://profiles.wordpress.org' ), array( 'Ada Okonjo', 'Ben Lindqvist', 'Example University', 'Cleo Marsh', 'Example Hosting' ) ) );
 ck(
 	'a semester report\'s examples name the semester running now and its report on the Institution Dashboard, and how many students were still in progress, with their verb',
 	array_intersect_key( WPCPM_Mail_Templates::example_values( 'report-drafted' ), array_flip( array( 'semester', 'students_in_progress', 'review_link' ) ) ),
@@ -395,6 +571,66 @@ ck(
 		'students_in_progress' => '2 students in this semester were',
 		'review_link'          => 'https://example.test/institution-dashboard/?wpcpm_report=' . WPCPM_Cohort::current() . '#wpcpm-report',
 	)
+);
+
+// The Institutions' and the Sponsors' examples read as a real email would on the day it is looked at,
+// on the site's clock: an agreement accepted, returned, revoked or put back in force today and
+// uploaded yesterday, an invitation that works fourteen days from today, a membership ended today,
+// the program's working days as set (three, by default), and every link that carries a secret
+// carrying a fake one. Read twice, by an Administrator whose clock and the site's are a day apart at
+// every hour, on the two sides of the date line, each the site's once: a day on the Administrator's
+// clock, or on UTC's, cannot then pass for the site's. Zones the server knows by name, since one it
+// does not know is read as the site's.
+$examples = array();
+$wanted   = array();
+foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pacific/Kiritimati', 'Pacific/Pago_Pago' ) ) as $zones ) {
+	$who                                   = 'the site in ' . $zones[0] . ', the Administrator in ' . $zones[1];
+	$GLOBALS['site_zone']                  = $zones[0];
+	$GLOBALS['uid']                        = 9;
+	$GLOBALS['umeta'][9]['wpcpm_timezone'] = $zones[1];
+	$today                                 = new DateTimeImmutable( 'now', wp_timezone() );
+	// Each an email's id and one of its placeholders: an email may be read for two.
+	foreach ( array( array( 'agreement-accepted', 'accepted_on' ), array( 'agreement-reinstated', 'reinstated_on' ), array( 'agreement-returned', 'returned_on' ), array( 'agreement-revoked', 'revoked_on' ), array( 'agreement-received', 'uploaded_on' ), array( 'institution-invite', 'expiry_date' ), array( 'member-last', 'left_on' ), array( 'agreement-received', 'review_window' ), array( 'sponsor-agreement-accepted', 'accepted_on' ), array( 'sponsor-agreement-received', 'review_window' ) ) as $pair ) {
+		list( $id, $name )                    = $pair;
+		$examples[ $who ][ $id . ' ' . $name ] = WPCPM_Mail_Templates::example_values( $id )[ $name ];
+	}
+	$wanted[ $who ] = array(
+		'agreement-accepted accepted_on'         => $today->format( 'Y-m-d' ),
+		'agreement-reinstated reinstated_on'     => $today->format( 'Y-m-d' ),
+		'agreement-returned returned_on'         => $today->format( 'Y-m-d' ),
+		'agreement-revoked revoked_on'           => $today->format( 'Y-m-d' ),
+		'agreement-received uploaded_on'         => $today->modify( '-1 day' )->format( 'Y-m-d' ),
+		'institution-invite expiry_date'         => $today->modify( '+14 days' )->format( 'Y-m-d' ),
+		'member-last left_on'                    => $today->format( 'F j, Y' ),
+		'agreement-received review_window'       => '3 working days',
+		'sponsor-agreement-accepted accepted_on' => $today->format( 'Y-m-d' ),
+		'sponsor-agreement-received review_window' => '3 working days',
+	);
+}
+unset( $GLOBALS['site_zone'], $GLOBALS['umeta'][9]['wpcpm_timezone'] );
+$GLOBALS['uid'] = 0;
+ck(
+	'an agreement is decided today and was uploaded yesterday, an invitation works fourteen days from today, a membership ended today, and the program takes the working days set, all on the site\'s clock, whatever the clock of the Administrator looking at them',
+	array( array_values( array_diff( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), DateTimeZone::listIdentifiers() ) ), $examples ),
+	array( array(), $wanted )
+);
+$secrets = array();
+foreach ( array( 'institution-applied' => 'verify_link', 'institution-invite' => 'accept_link' ) as $id => $name ) {
+	parse_str( (string) parse_url( WPCPM_Mail_Templates::example_values( $id )[ $name ], PHP_URL_QUERY ), $query );
+	$secrets[ $id ] = array( $query['action'] ?? '', $query['t'] ?? '' );
+}
+ck(
+	'and an application\'s confirmation link and an invitation\'s link are the site\'s own, to the handlers they open, each with a fake secret',
+	$secrets,
+	array(
+		'institution-applied' => array( WPCPM_Institution_Application::ACTION_VERIFY, 'EXAMPLE-NOT-A-REAL-SIGNATURE' ),
+		'institution-invite'  => array( WPCPM_Institution_Invite::ACTION_ACCEPT, 'EXAMPLE-NOT-A-REAL-TOKEN' ),
+	)
+);
+ck(
+	'a sponsor\'s uploaded agreement links the agreements waiting on the Sponsors screen, as its email does, and a sponsor application the screen\'s queue',
+	array( WPCPM_Mail_Templates::example_values( 'sponsor-agreement-received' )['queue_link'], WPCPM_Mail_Templates::example_values( 'sponsor-application' )['queue_link'] ),
+	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements', 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue' )
 );
 
 echo "\n=== Built once a request for each language ===\n";
@@ -570,6 +806,10 @@ WPCPM_Settings::$contact = '';
 ck( 'a body written with CR LF that ends with one gets the footer in CR LF, and ends with one', WPCPM_Mail_Templates::add_footer( "Hello.\r\n", null, 'call-booked' ), "Hello.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n" );
 ck( 'a test hands its own values over, in place of the recipient\'s', WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked', array( 'dashboard_link' => 'https://example.test/x/', 'program_contact' => 'help@example.test' ) ), "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/x/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
 ck( 'and an email\'s examples are its audience\'s dashboard and the contact as set', array( WPCPM_Mail_Templates::footer_examples( 'invite-sponsor' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'call-booked' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'call-booked' )['program_contact'] ), array( 'https://example.test/sponsor-dashboard/', 'https://example.test/student-report-card/', '' ) );
+// An email to several kinds of people is previewed with the dashboard of those it is written for
+// first: the codes running low, to a sponsor's accounts and an Administrator, with the Sponsor
+// Dashboard's; a group session's, to its students and their mentor, with the Student Report Card's.
+ck( 'and an email to several kinds of people shows the Sponsor Dashboard in the Sponsors area and the Student Report Card elsewhere', array( WPCPM_Mail_Templates::footer_examples( 'offer-low-stock' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'session-cancelled' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'session-reminder' )['dashboard_link'] ), array( 'https://example.test/sponsor-dashboard/', 'https://example.test/student-report-card/', 'https://example.test/student-report-card/' ) );
 
 /** What a save of the footer answers: true, or the sentence that refused it. */
 function save_footer( $body ) {
@@ -606,6 +846,147 @@ ck( 'the footer\'s test is a short email that ends with it, filled as an Adminis
 
 $GLOBALS['mail'] = array();
 ck( 'and an email the registry does not hold sends nothing', array( WPCPM_Mail_Templates::send_test( 'call-booked', $admin ), $GLOBALS['mail'] ), array( false, array() ) );
+
+echo "\n=== An email as a builder hands it over ===\n";
+
+// What a builder of the Institutions and the Sponsors returns, `mail()`: the email `render()` fills,
+// with what stays in the sender's code beside it, or, for an id the registry does not hold, no subject
+// and no body, so the mail layer sends nothing, with what the sender handed over still beside them.
+$declined_values = array( 'site_name' => 'WordPress Credits' );
+$reply           = array( 'headers' => array( 'Reply-To: cleo@example.test' ) );
+$GLOBALS['mail'] = array();
+ck(
+	'mail() is render() with what the sender hands over beside it, and for an id the registry does not hold, an empty subject and body beside it, which the mail layer sends nothing for',
+	array(
+		WPCPM_Mail_Templates::mail( 'institution-declined', $declined_values, $reply ),
+		WPCPM_Mail_Templates::mail( 'institution-declined', $declined_values ),
+		WPCPM_Mail_Templates::mail( 'no-such', $declined_values, $reply ),
+		WPCPM_Mail::send(
+			$admin,
+			'no-such',
+			function () use ( $declined_values ) {
+				return WPCPM_Mail_Templates::mail( 'no-such', $declined_values );
+			}
+		),
+		$GLOBALS['mail'],
+	),
+	array(
+		WPCPM_Mail_Templates::render( 'institution-declined', $declined_values ) + $reply,
+		WPCPM_Mail_Templates::render( 'institution-declined', $declined_values ),
+		array(
+			'subject' => '',
+			'body'    => '',
+		) + $reply,
+		false,
+		array(),
+	)
+);
+
+echo "\n=== An edited subject, as it is sent ===\n";
+
+/**
+ * A private method of a class, as its own class calls it.
+ *
+ * @param string $class  The class.
+ * @param string $method The method.
+ * @return ReflectionMethod
+ */
+function reach( $class, $method ) {
+	$reached = new ReflectionMethod( $class, $method );
+
+	if ( PHP_VERSION_ID < 80100 ) {
+		$reached->setAccessible( true );
+	}
+
+	return $reached;
+}
+
+// An Administrator's edit goes out as they typed it: a "<" or an "&" in its subject reaches every
+// recipient as a character, as the preview and Send me a test show it, never as an entity, and the
+// values around it arrive exactly as the email sent as shipped carries them, a name WordPress stores
+// with an entity in it included. The edit puts its typing before the shipped subject, so every value
+// follows a "<". One email of each kind of sender, each through its own builder and the real mail
+// layer: the Institutions' and the Sponsors' `mail()`, the Mentor calls' `mail_of()`, the Semester
+// reports' `rendered()`; each sent as shipped, then edited, then restored. The builder hands over no
+// mark of its own: the mail layer reads whether the email goes out as edited, once, for all of them,
+// and the `wpcpm_mail` filter is handed the subject marked plain text.
+$typed    = 'Codes < 5 & we <3 you: ';
+$site     = 'Credits & Co';
+$builders = array(
+	'institution-application'    => function () use ( $site ) {
+		return WPCPM_Mail_Templates::mail( 'institution-application', array( 'site_name' => $site, 'institution_name' => 'Arts &amp; Sciences "North"' ) + WPCPM_Mail_Templates::example_values( 'institution-application' ) );
+	},
+	'sponsor-agreement-received' => function () use ( $site ) {
+		return WPCPM_Mail_Templates::mail( 'sponsor-agreement-received', array( 'site_name' => $site, 'company_name' => 'Example Hosting &amp; "Partners"' ) + WPCPM_Mail_Templates::example_values( 'sponsor-agreement-received' ) );
+	},
+	'call-booked-student'        => function () use ( $site ) {
+		return reach( 'WPCPM_Mentor_Calls', 'mail_of' )->invoke( null, 'call-booked-student', array( 'site_name' => $site, 'mentor_name' => 'Seán O\'Example &amp; Ana' ) + WPCPM_Mail_Templates::example_values( 'call-booked-student' ), array() );
+	},
+	'report-drafted'             => function () {
+		return reach( 'WPCPM_Semester_Report_Screen', 'rendered' )->invoke( null, 'report-drafted', array( 'institution_name' => 'Example College &amp; "Arts"' ) + WPCPM_Mail_Templates::example_values( 'report-drafted' ) );
+	},
+);
+$as_shipped = array(
+	'institution-application'    => '[Credits & Co] New institution application from Arts &amp; Sciences "North"',
+	'sponsor-agreement-received' => '[Credits & Co] Example Hosting &amp; "Partners" uploaded a signed Collaboration Agreement',
+	'call-booked-student'        => '[Credits & Co] Your call with Seán O\'Example &amp; Ana is booked',
+	'report-drafted'             => 'Semester report drafted: Example College &amp; "Arts"',
+);
+/** The subject an email's real send hands `wp_mail()`, and whether the filter was handed it marked plain text. */
+$sent_subject = function ( $id ) use ( $admin, &$builders ) {
+	$GLOBALS['mail']     = array();
+	$GLOBALS['filtered'] = array();
+	WPCPM_Mail::send( $admin, $id, $builders[ $id ] );
+
+	return array( $GLOBALS['mail'][0]['subject'] ?? null, $GLOBALS['filtered'][0]['plain_subject'] ?? null );
+};
+$edited_sends = array();
+$wanted_sends = array();
+foreach ( $builders as $id => $build ) {
+	$shipped_send = $sent_subject( $id );
+	$saved        = WPCPM_Mail_Templates::save( $id, $typed . WPCPM_Mail_Templates::get( $id )['subject'], WPCPM_Mail_Templates::get( $id )['body'], 7 );
+	$edited_send  = $sent_subject( $id );
+	$handed       = $build();
+	WPCPM_Mail_Templates::restore( $id );
+
+	$edited_sends[ $id ] = array(
+		'shipped'  => $shipped_send,
+		'saved'    => $saved,
+		'edited'   => $edited_send,
+		'builder'  => array( $handed['subject'] ?? null, array_key_exists( 'plain_subject', $handed ) ),
+		'restored' => $sent_subject( $id ),
+	);
+	$wanted_sends[ $id ] = array(
+		'shipped'  => array( $as_shipped[ $id ], false ),
+		'saved'    => true,
+		'edited'   => array( $typed . $as_shipped[ $id ], true ),
+		'builder'  => array( $typed . $as_shipped[ $id ], false ),
+		'restored' => array( $as_shipped[ $id ], false ),
+	);
+}
+ck( 'an edited subject reaches every recipient as the Administrator typed it, "<" and "&" as characters, with each value as the email sent as shipped carries it, for an email of the Institutions, the Sponsors, the Mentor calls and the Semester reports alike; the builder hands over no mark, the mail layer marks it, the filter sees the mark, and the email restored goes out as shipped again', $edited_sends, $wanted_sends );
+
+// An edit set aside sends the shipped text, and its subject is cleaned as a shipped one is: a value
+// holding a "<" goes out as it always did. Only the edit an email is sent with is plain text.
+$builders['institution-application'] = function () use ( $site ) {
+	return WPCPM_Mail_Templates::mail( 'institution-application', array( 'site_name' => $site, 'institution_name' => 'Arts <3 Sciences' ) + WPCPM_Mail_Templates::example_values( 'institution-application' ) );
+};
+
+$shipped_lt = $sent_subject( 'institution-application' );
+
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['institution-application'] = array(
+	'subject' => 'Codes &lt; 5 from {institution_name}',
+	'body'    => 'It is on the queue here: {queue_link} {no_such}',
+	'by'      => 7,
+	'at'      => time(),
+	'shipped' => WPCPM_Mail_Templates::shipped_fingerprint( 'institution-application' ),
+);
+ck(
+	'an edit set aside goes out as shipped, its subject cleaned as a shipped one is, a value holding a "<" included',
+	array( WPCPM_Mail_Templates::state( 'institution-application' )['state'], $sent_subject( 'institution-application' ), $shipped_lt ),
+	array( 'set-aside', array( '[Credits & Co] New institution application from Arts &lt;3 Sciences', false ), array( '[Credits & Co] New institution application from Arts &lt;3 Sciences', false ) )
+);
+WPCPM_Mail_Templates::restore( 'institution-application' );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

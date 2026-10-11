@@ -2402,6 +2402,9 @@ class WPCPM_Institution_Application {
 	 * existed an Airtable automation embedded it on `formSubmitted`; no record exists at
 	 * submission any more, so the automation cannot fire and the site says it instead.
 	 *
+	 * The wording is the template registry's (`WPCPM_Mail_Templates`, the Institutions area): one
+	 * email for a country with a call to book and one for a country with none.
+	 *
 	 * @param int $post_id Application post ID.
 	 * @return bool Whether the message was handed off.
 	 */
@@ -2421,51 +2424,26 @@ class WPCPM_Institution_Application {
 		$calendly  = ( is_array( $routing ) && ! empty( $routing['calendly'] ) ) ? (string) $routing['calendly'] : '';
 		$verify    = self::verify_url( $post_id );
 		$site      = WPCPM_Mail::site_name();
+		$id        = '' !== $calendly ? 'institution-applied' : 'institution-applied-no-call';
 
-		$build = function () use ( $site, $name, $reference, $calendly, $verify, $email ) {
-			$lines = array(
-				sprintf(
-					/* translators: %s: the institution's name as it was given on the form. */
-					__( 'Thank you for asking about the WordPress Credits Program for %s. Your application is with us.', 'wpcredits-program-manager' ),
-					$name
-				),
-				sprintf(
-					/* translators: %s: the application reference, e.g. APP-2026-0007. */
-					__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
-					$reference
-				),
-				__( 'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account on the program site and send you the Collaboration Agreement to sign.', 'wpcredits-program-manager' ),
-				__( 'Please confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:', 'wpcredits-program-manager' ),
-				$verify,
-			);
-
-			if ( '' !== $calendly ) {
-				$lines[] = __( 'You can also book a call with the Administrator who looks after your country:', 'wpcredits-program-manager' );
-				$lines[] = $calendly;
-			}
-
-			$lines[] = sprintf(
-				/* translators: 1: the address the message went to, 2: site name. */
-				__( 'This message went to %1$s because that address was given on the application form at %2$s. If it was not you, you can ignore it: nothing happens until the address is confirmed.', 'wpcredits-program-manager' ),
-				$email,
-				$site
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: the application reference. */
-					__( '[%1$s] We have your application: %2$s', 'wpcredits-program-manager' ),
-					$site,
-					$reference
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $id, $site, $name, $reference, $calendly, $verify, $email ) {
+			return WPCPM_Mail_Templates::mail(
+				$id,
+				array(
+					'site_name'        => $site,
+					'institution_name' => $name,
+					'reference'        => $reference,
+					'verify_link'      => $verify,
+					'booking_link'     => $calendly,
+					'applicant_email'  => $email,
+				)
 			);
 		};
 
 		// No locale is named. The form has no language question, so the only thing known about
 		// the applicant's language is the locale the page they filled in was rendered in, which
 		// is the one this request is already running in.
-		return WPCPM_Mail::send_to( $email, 'institution-applied', $build );
+		return WPCPM_Mail::send_to( $email, $id, $build );
 	}
 
 	/**
@@ -2491,34 +2469,18 @@ class WPCPM_Institution_Application {
 		$link    = self::queue_url( $post_id );
 		$site    = WPCPM_Mail::site_name();
 
-		$build = function () use ( $site, $name, $country, $city, $person, $email, $link ) {
-			$lines = array(
-				__( 'An institution has applied to the program through the form on the site, and the application passed every check.', 'wpcredits-program-manager' ),
-				sprintf(
-					/* translators: 1: institution name, 2: city, 3: country. */
-					__( '%1$s, %2$s, %3$s', 'wpcredits-program-manager' ),
-					$name,
-					$city,
-					$country
-				),
-				sprintf(
-					/* translators: 1: contact person's name, 2: their email address. */
-					__( 'Contact: %1$s, %2$s', 'wpcredits-program-manager' ),
-					$person,
-					$email
-				),
-				__( 'It is on the queue here:', 'wpcredits-program-manager' ),
-				$link,
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: institution name. */
-					__( '[%1$s] New institution application from %2$s', 'wpcredits-program-manager' ),
-					$site,
-					$name
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $name, $country, $city, $person, $email, $link ) {
+			return WPCPM_Mail_Templates::mail(
+				'institution-application',
+				array(
+					'site_name'        => $site,
+					'institution_name' => $name,
+					'city'             => $city,
+					'country'          => $country,
+					'contact_name'     => $person,
+					'contact_email'    => $email,
+					'queue_link'       => $link,
+				)
 			);
 		};
 

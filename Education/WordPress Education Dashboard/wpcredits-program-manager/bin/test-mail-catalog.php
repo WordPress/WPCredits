@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 63 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, and the 19 Mentor calls emails of their own since 1.122.21', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 63 );
+ck( 'the catalog names the plugin\'s 69 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, and the 4 Institutions and 2 Sponsors emails of their own since 1.122.22', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 69 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -108,6 +108,65 @@ ck(
 	)
 );
 
+// Each email of the Institutions and the Sponsors areas that says words of its own has an id of its own
+// since 1.122.22: the ids each area was sent under keep their emails, their names reading true of
+// them, and six new ones name the emails that said other words under them (the acknowledgement with
+// no call to book or whose logo was not kept, the upload the courtesy scan noticed something in, the
+// revocation with no country contact) or another email altogether (the agreement put back in force,
+// sent as an acceptance until then, and the request to sponsor a mentor, sent as a sponsor's
+// interest). The institution's agreement emails are named for the Collaboration Agreement in full,
+// and the sponsor's say who receives each, as the institution's do.
+$named = array();
+foreach ( $emails as $id => $e ) {
+	if ( in_array( $e['module'], array( 'institutions', 'sponsors' ), true ) ) {
+		$named[ $e['module'] ][ $id ] = $e['label'] . ' / ' . ( '' === $e['audience'] ? 'the account decides' : $e['audience'] );
+	}
+}
+ck(
+	'the Institutions area names its thirteen ids of before 1.122.22 and the four emails of their own since, each with who receives it',
+	isset( $named['institutions'] ) ? $named['institutions'] : null,
+	array(
+		'institution-applied'          => 'Application received, to the applicant / applicant',
+		'institution-applied-no-call'  => 'Application received, to an applicant with no call to book / applicant',
+		'institution-application'      => 'New institution application, to Administrators / administrator',
+		'institution-information'      => 'Question about an application / applicant',
+		'institution-declined'         => 'Application declined / applicant',
+		'institution-invite'           => 'Invitation to join an institution / institution',
+		'agreement-received'           => 'Collaboration Agreement received, to the institution / institution',
+		'agreement-landed'             => 'Collaboration Agreement uploaded, to Administrators / administrator',
+		'agreement-landed-flagged'     => 'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / administrator',
+		'agreement-accepted'           => 'Collaboration Agreement accepted, to the institution / institution',
+		'agreement-reinstated'         => 'Collaboration Agreement back in force, to the institution / institution',
+		'agreement-returned'           => 'Collaboration Agreement returned with a note, to the institution / institution',
+		'agreement-revoked'            => 'Collaboration Agreement taken out of force, to the institution / institution',
+		'agreement-revoked-no-contact' => 'Collaboration Agreement taken out of force, to an institution with no country contact / institution',
+		'agreement-reminder'           => 'Collaboration Agreements waiting for review / administrator',
+		'agreement-template'           => 'Collaboration Agreement could not be generated / administrator',
+		'member-last'                  => 'Institution has no members left, to Administrators / administrator',
+	)
+);
+ck(
+	'and the Sponsors area its thirteen ids of before 1.122.22 and the two emails of their own since; the low codes go to the sponsor\'s accounts and its Administrator in the same words, so the account decides',
+	isset( $named['sponsors'] ) ? $named['sponsors'] : null,
+	array(
+		'sponsor-applied'              => 'Sponsor application received, to the applicant / applicant',
+		'sponsor-applied-no-logo'      => 'Sponsor application received, to an applicant whose logo was not kept / applicant',
+		'sponsor-application'          => 'New sponsor application, to Administrators / administrator',
+		'sponsor-information'          => 'Question about a sponsor application / applicant',
+		'sponsor-declined'             => 'Sponsor application declined / applicant',
+		'sponsor-agreement-received'   => 'Collaboration Agreement received, to Administrators / administrator',
+		'sponsor-agreement-accepted'   => 'Collaboration Agreement accepted, to the sponsor / sponsor',
+		'sponsor-agreement-returned'   => 'Collaboration Agreement returned with a note, to the sponsor / sponsor',
+		'sponsor-agreement-revoked'    => 'Collaboration Agreement taken out of force, to the sponsor / sponsor',
+		'sponsor-agreement-reinstated' => 'Collaboration Agreement back in force, to the sponsor / sponsor',
+		'sponsor-interest'             => 'Sponsor interest / administrator',
+		'sponsor-mentor-interest'      => 'Request to sponsor a mentor / administrator',
+		'offer-low-stock'              => 'Codes running low / the account decides',
+		'claim-problem'                => 'Problem with a claimed code / administrator',
+		'sponsor-post-returned'        => 'Sponsor post returned with a note / sponsor',
+	)
+);
+
 ck( 'the last member leaving an institution is named, as the Administrators\' email it is', WPCPM_Mail_Catalog::get( 'member-last' ), array( 'label' => 'Institution has no members left, to Administrators', 'module' => 'institutions', 'audience' => 'administrator', 'test' => false ) );
 
 ck( 'the areas are the ones the Log lists, in its order', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'WordPress', 'Two Factor', 'Other' ) );
@@ -143,12 +202,16 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 37 of them (it is not reading nothing)', count( $contexts ), 37 );
+ck( 'and the scan found all 35 of them (it is not reading nothing)', count( $contexts ), 35 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,
 // and one of them, the institution invitation for an agreement on file, is set from a choice
-// between two ids rather than passed as a literal the scan above can read.
+// between two ids rather than passed as a literal the scan above can read; so, since 1.122.22, is
+// each email of the Institutions and the Sponsors that says other words in one case than in another
+// (the acknowledgement with or without a call to book, or with its logo kept or not; the upload with
+// the scan's notes or none; the revocation with a country contact or none), so the registry's files
+// are where both of each two are read.
 $templates = array();
 foreach ( glob( __DIR__ . '/../includes/mail/templates/*.php' ) as $file ) {
 	preg_match_all( "/^\t'([a-z0-9-]+)'\s*=>\s*array\(/m", (string) file_get_contents( $file ), $t );

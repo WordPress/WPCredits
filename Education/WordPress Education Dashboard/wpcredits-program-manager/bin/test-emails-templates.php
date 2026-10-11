@@ -10,8 +10,8 @@
  *   the bar is WordPress's own, Templates, Signature and footer, Log, in that order.
  * - **The Templates tab** lists the templates by area, in the catalog's order, each area in a table
  *   of its own, each row with who receives it, what sends it, where it stands and who edited it last,
- *   and an Edit link to its editor: the Invitations, the Mentor calls and the Semester reports, and
- *   nothing about the areas whose emails are not editable yet.
+ *   and an Edit link to its editor: the Invitations, the Mentor calls, the Institutions, the Semester
+ *   reports and the Sponsors, every area of the plugin's emails, since 1.122.22.
  * - **The editor**: the boxes hold the shipped text, then the edit read back as it was typed; the
  *   placeholders say what they mean, the required one marked; the preview is filled with the
  *   examples and ends with the footer; Restore asks first, and is there only for an edit.
@@ -20,11 +20,16 @@
  *   to the presser's own address and to nobody a press names, and only for the text as saved:
  *   pressed with typing not saved yet, it sends nothing and gives the typing back as a refused save
  *   does.
- * - **The Mentor calls and the Semester reports** work in the same editor, with the same buttons:
- *   each email's preview and test are filled as a real email to the presser would be, a call
- *   tomorrow at 3 pm on the presser's own clock among them; a save without a call's time, or with a
- *   meeting link or a typed topic in the subject, is refused; and an edit is saved, tested and
- *   restored.
+ * - **The Mentor calls, the Institutions, the Semester reports and the Sponsors** work in the same
+ *   editor, with the same buttons: each email's preview and test are filled as a real email to the
+ *   presser would be, a call tomorrow at 3 pm on the presser's own clock and an agreement decided
+ *   today on the site's among them (the site and the presser a day apart, on the two sides of the
+ *   date line), and each ends with the footer of its audience's dashboard; a save without a
+ *   placeholder the email needs (a call's time, a link that carries a secret, what an Administrator
+ *   or a sponsor wrote), or with one that goes in the body alone (a meeting link, a code's last
+ *   characters) in the subject, is refused, whichever email of the Institutions or the Sponsors it
+ *   is; and an edit is saved, tested and restored, a subject that holds a title as plain text
+ *   included.
  *
  * Run from the plugin root:  php bin/test-emails-templates.php
  */
@@ -165,6 +170,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availability.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php';
+// And the Institutions' and the Sponsors': an application's confirmation link, an invitation's link
+// and how long it works, a sponsor's dated line, and the sponsor an Offers link names.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-interests.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-roster.php';
 
 /** The dashboards, each published at an address of its own. */
 class WPCPM_Students_Dashboard {
@@ -181,6 +192,10 @@ class WPCPM_Mentors_Dashboard {
 /** As above. */
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+}
+/** As above. */
+class WPCPM_Sponsors_Dashboard {
+	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 }
 
 $fails = 0;
@@ -286,7 +301,7 @@ echo "\n=== The Templates tab ===\n";
 
 preg_match_all( '#<h2>([^<]*)</h2>#', $home, $areas );
 preg_match_all( '#<tr><td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td><span class="wpcpm-emails__state wpcpm-emails__state--([a-z-]+)">([^<]*)</span></td><td>([^<]*)</td><td><a href="([^"]*)">Edit<span class="screen-reader-text"> ([^<]*)</span></a></td></tr>#', $home, $rows, PREG_SET_ORDER );
-ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls and the Semester reports, and nothing about any other', $areas[1], array( 'Invitations', 'Mentor calls', 'Semester reports' ) );
+ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports and the Sponsors', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors' ) );
 ck(
 	'each row names the email, who receives it, what sends it, its state and who edited it last, and links its editor by its name',
 	array_map( function ( $row ) { return array( html_entity_decode( $row[1], ENT_QUOTES ), $row[2], $row[5], $row[6], $row[7], $row[8] ); }, array_slice( $rows, 0, 5 ) ),
@@ -299,7 +314,7 @@ ck(
 	)
 );
 ck(
-	'and after the invitations, every email of the Mentor calls and the Semester reports, each with who receives it, as shipped text, its editor linked by its id',
+	'and after the invitations, every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors, each with who receives it, as shipped text, its editor linked by its id',
 	array_map( function ( $row ) { return html_entity_decode( $row[1], ENT_QUOTES ) . ' / ' . $row[2] . ' / ' . $row[5] . ' / ' . substr( $row[7], strlen( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' ) ); }, array_slice( $rows, 5 ) ),
 	array(
 		'Call booked, to the mentor / Mentor / Shipped text / call-booked-mentor',
@@ -321,15 +336,47 @@ ck(
 		'Call reminder, to the mentor / Mentor / Shipped text / call-reminder-mentor',
 		'Call reminder, to the student / Student / Shipped text / call-reminder-student',
 		'Group session reminder / The people it concerns / Shipped text / session-reminder',
+		'Application received, to the applicant / Applicant (no account) / Shipped text / institution-applied',
+		'Application received, to an applicant with no call to book / Applicant (no account) / Shipped text / institution-applied-no-call',
+		'New institution application, to Administrators / Administrator / Shipped text / institution-application',
+		'Question about an application / Applicant (no account) / Shipped text / institution-information',
+		'Application declined / Applicant (no account) / Shipped text / institution-declined',
+		'Invitation to join an institution / Institution member / Shipped text / institution-invite',
+		'Collaboration Agreement received, to the institution / Institution member / Shipped text / agreement-received',
+		'Collaboration Agreement uploaded, to Administrators / Administrator / Shipped text / agreement-landed',
+		'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / Administrator / Shipped text / agreement-landed-flagged',
+		'Collaboration Agreement accepted, to the institution / Institution member / Shipped text / agreement-accepted',
+		'Collaboration Agreement back in force, to the institution / Institution member / Shipped text / agreement-reinstated',
+		'Collaboration Agreement returned with a note, to the institution / Institution member / Shipped text / agreement-returned',
+		'Collaboration Agreement taken out of force, to the institution / Institution member / Shipped text / agreement-revoked',
+		'Collaboration Agreement taken out of force, to an institution with no country contact / Institution member / Shipped text / agreement-revoked-no-contact',
+		'Collaboration Agreements waiting for review / Administrator / Shipped text / agreement-reminder',
+		'Collaboration Agreement could not be generated / Administrator / Shipped text / agreement-template',
+		'Institution has no members left, to Administrators / Administrator / Shipped text / member-last',
 		'Semester report drafted / Administrator / Shipped text / report-drafted',
 		'Semester report approved / Institution member / Shipped text / report-approved',
 		'Consent for the semester report / Student / Shipped text / report-consent',
+		'Sponsor application received, to the applicant / Applicant (no account) / Shipped text / sponsor-applied',
+		'Sponsor application received, to an applicant whose logo was not kept / Applicant (no account) / Shipped text / sponsor-applied-no-logo',
+		'New sponsor application, to Administrators / Administrator / Shipped text / sponsor-application',
+		'Question about a sponsor application / Applicant (no account) / Shipped text / sponsor-information',
+		'Sponsor application declined / Applicant (no account) / Shipped text / sponsor-declined',
+		'Collaboration Agreement received, to Administrators / Administrator / Shipped text / sponsor-agreement-received',
+		'Collaboration Agreement accepted, to the sponsor / Sponsor member / Shipped text / sponsor-agreement-accepted',
+		'Collaboration Agreement returned with a note, to the sponsor / Sponsor member / Shipped text / sponsor-agreement-returned',
+		'Collaboration Agreement taken out of force, to the sponsor / Sponsor member / Shipped text / sponsor-agreement-revoked',
+		'Collaboration Agreement back in force, to the sponsor / Sponsor member / Shipped text / sponsor-agreement-reinstated',
+		'Sponsor interest / Administrator / Shipped text / sponsor-interest',
+		'Request to sponsor a mentor / Administrator / Shipped text / sponsor-mentor-interest',
+		'Codes running low / The people it concerns / Shipped text / offer-low-stock',
+		'Problem with a claimed code / Administrator / Shipped text / claim-problem',
+		'Sponsor post returned with a note / Sponsor member / Shipped text / sponsor-post-returned',
 	)
 );
-ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[26][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'] ) );
+ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[43][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[58][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
-ck( 'each of the three areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 3, 3, true, true ) );
+ck( 'each of the five areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 5, 5, true, true ) );
 ck( 'no word on the tab says module, and no em or en dash', array( preg_match_all( '/\bmodules?\b/i', words_of( $home ) ), preg_match( '/\x{2013}|\x{2014}/u', $home ) ), array( 0, 0 ) );
 ck( 'an Edit link naming an email the registry does not hold opens the list', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked' ) ), '<h2>Invitations</h2>' ), true );
 
@@ -508,7 +555,7 @@ new_administrator();
 $GLOBALS['mail'] = array();
 ck( 'a press naming an email the screen does not edit goes to the list, saying so, and sends nothing', array( press( 'handle_save', array( 'wpcpm_email' => 'call-booked', 'wpcpm_then' => 'test' ) ), $GLOBALS['mail'], false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails' ) ), 'Nothing was sent: the site has no such email.' ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates', array(), true ) );
 
-echo "\n=== The Mentor calls and the Semester reports ===\n";
+echo "\n=== The Mentor calls, the Institutions, the Semester reports and the Sponsors ===\n";
 
 // An Administrator who keeps Tokyo's clock opens the mentor's booking confirmation: an editor as an
 // invitation's, its placeholders the call's, the call's time and the meeting link required, and a
@@ -581,11 +628,18 @@ ck(
 	array( 'edited', true, null, 'shipped' )
 );
 
-// Every email of the two areas, through its editor and its Send me a test, as an Administrator who
-// keeps Tokyo's clock opens and presses them. A preview or a test is only filled if each example of a
-// placeholder its text uses is in it, where the text puts the placeholder: an empty fill leaves no
-// brace, so "no placeholder left" cannot tell it from a full one. Nor may a placeholder its text uses
-// have no example here: every one has, the dashboards being published in this suite.
+// Every email of the four areas after the Invitations, through its editor and its Send me a test, as
+// an Administrator who keeps Tokyo's clock opens and presses them. A preview or a test is only filled
+// if each example of a placeholder its text uses is in it, where the text puts the placeholder: an
+// empty fill leaves no brace, so "no placeholder left" cannot tell it from a full one. Nor may a
+// placeholder its text uses have no example here: every one has, the dashboards being published in
+// this suite. And each ends with the footer of its audience: the signature, the address of the
+// audience's dashboard unless the text above it names that address already, and the closing line.
+// The addresses are written out here, as the stand-ins above publish them, so a footer built for
+// another audience, or with no values, cannot pass; an applicant or an audience of no one kind has no
+// dashboard to name, and an email to several kinds of people names a sponsor's in the Sponsors area,
+// whose one such email is the codes running low, to a sponsor's accounts and an Administrator, and a
+// student's elsewhere.
 $works = array();
 $wants = array();
 $plain = function ( $text ) {
@@ -606,6 +660,36 @@ $gaps  = function ( array $template, array $examples, $subject, $body ) use ( $p
 	}
 
 	return $gone;
+};
+$dashboards = array(
+	WPCPM_Mail_Catalog::TYPE_STUDENT     => 'https://example.test/student-report-card/',
+	WPCPM_Mail_Catalog::TYPE_MENTOR      => 'https://example.test/mentor-report-card/',
+	WPCPM_Mail_Catalog::TYPE_INSTITUTION => 'https://example.test/institution-dashboard/',
+	WPCPM_Mail_Catalog::TYPE_SPONSOR     => 'https://example.test/sponsor-dashboard/',
+	WPCPM_Mail_Catalog::TYPE_ADMIN       => 'https://example.test/administrator-dashboard/',
+);
+// An email to several kinds of people, by its area: the Sponsors' names a sponsor's, every other a
+// student's.
+$several = array(
+	WPCPM_Mail_Catalog::MODULE_SPONSORS => 'https://example.test/sponsor-dashboard/',
+	''                                  => 'https://example.test/student-report-card/',
+);
+// What follows the "-- " line of an email in plain text, and what its template's audience wants there:
+// a text that ends with a line break ends with one after the footer as well. A text with no such line
+// has no footer, and no footer is ever what is wanted, so what it is given never equals what is asked.
+$footer_of = function ( array $template, $text ) use ( $dashboards, $several ) {
+	$at = strrpos( $text, "\n-- \n" );
+
+	if ( false === $at ) {
+		return array( null, 'a footer after a "-- " line' );
+	}
+
+	$page = '' === $template['audience'] ? ( $several[ $template['module'] ] ?? $several[''] ) : ( $dashboards[ $template['audience'] ] ?? '' );
+
+	return array(
+		substr( $text, $at + 5 ),
+		"WordPress Credits, WordPress Education\n" . ( '' !== $page && false === strpos( substr( $text, 0, $at ), $page ) ? $page . "\n" : '' ) . 'This email comes from the WordPress Credits program.' . ( "\n" === substr( $template['body'], -1 ) ? "\n" : '' ),
+	);
 };
 foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	if ( WPCPM_Mail_Catalog::MODULE_INVITATIONS === $template['module'] ) {
@@ -631,27 +715,33 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	preg_match( '#<div class="wpcpm-emails__preview">(.*?)</div>#s', $page, $shown );
 	preg_match( '#<p><strong>Subject:</strong> ([^<]*)</p>#', $page, $shown_subject );
 	preg_match( '#<pre class="wpcpm-emails__text">(.*?)</pre>#s', $page, $shown_body );
+
+	$shown_footer = $footer_of( $template, $plain( $shown_body[1] ?? '' ) );
+	$test_footer  = $footer_of( $template, str_replace( "\r\n", "\n", $test[0]['body'] ?? '' ) );
 	$works[ $id ] = array(
 		'bare'    => $bare,
 		'editor'  => false !== strpos( $page, '<h2>' . esc_html( $template['label'] ) . '</h2>' ) && false !== strpos( $page, '>Save</button>' ) && false !== strpos( $page, 'value="test">Send me a test</button>' ),
 		'preview' => array(
-			'left' => isset( $shown[1] ) ? WPCPM_Mail_Templates::placeholders_in( html_entity_decode( $shown[1], ENT_QUOTES ) ) : null,
-			'gone' => $gaps( $template, $examples, $shown_subject[1] ?? '', $shown_body[1] ?? '' ),
+			'left'   => isset( $shown[1] ) ? WPCPM_Mail_Templates::placeholders_in( html_entity_decode( $shown[1], ENT_QUOTES ) ) : null,
+			'gone'   => $gaps( $template, $examples, $shown_subject[1] ?? '', $shown_body[1] ?? '' ),
+			'footer' => $shown_footer[0],
 		),
 		'test'    => array(
-			'sent'   => array( $went, count( $test ), $test[0]['to'] ?? null, 0 === strpos( $test[0]['subject'] ?? '', '[Test] ' ), $test[0]['context'] ?? null, $test[0]['test'] ?? null ),
+			'sent'   => array( $went, count( $test ), $test[0]['to'] ?? null, $test[0]['headers'] ?? null, 0 === strpos( $test[0]['subject'] ?? '', '[Test] ' ), $test[0]['context'] ?? null, $test[0]['test'] ?? null ),
 			'braces' => false !== strpbrk( ( $test[0]['subject'] ?? '' ) . ( $test[0]['body'] ?? '' ), '{}' ),
 			'gone'   => $gaps( $template, $examples, $test[0]['subject'] ?? '', $test[0]['body'] ?? '' ),
+			'footer' => $test_footer[0],
 		),
 	);
 	$wants[ $id ] = array(
 		'bare'    => array(),
 		'editor'  => true,
-		'preview' => array( 'left' => array(), 'gone' => array() ),
+		'preview' => array( 'left' => array(), 'gone' => array(), 'footer' => $shown_footer[1] ),
 		'test'    => array(
-			'sent'   => array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' . $id, 1, $presser->user_email, true, $id, true ),
+			'sent'   => array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' . $id, 1, $presser->user_email, array(), true, $id, true ),
 			'braces' => false,
 			'gone'   => array(),
+			'footer' => $test_footer[1],
 		),
 	);
 
@@ -659,7 +749,7 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 		$series_test = $test[0]['body'] ?? '';
 	}
 }
-ck( 'every email of the Mentor calls and the Semester reports opens in the editor, with Save and Send me a test, every placeholder of its text given an example, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
+ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
 ck(
 	'a series\' test names its three weekly sessions on the presser\'s clock, one to a line',
 	false !== strpos(
@@ -675,6 +765,102 @@ ck(
 		) . "\n\nTimes are shown in Asia / Tokyo."
 	),
 	true
+);
+
+// A save of an Institutions or a Sponsors email that drops a placeholder the email needs (a link
+// carrying a secret, what an Administrator or a sponsor wrote, a post's title), or that puts one that
+// goes in the body alone (a secret, what somebody wrote, a code's last characters) in the subject the
+// Log keeps, is refused with its sentence, stores nothing, and gives the typing back. For every email
+// of the two areas and every placeholder of it that is needed or body-only, one at a time, so a
+// placeholder given either mark later is held to it with no line added here; only the cases that do
+// not come out so are listed, the numbers of cases beside them.
+$dropped        = 0;
+$moved          = 0;
+$refusals_wrong = array();
+foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
+	if ( ! in_array( $template['module'], array( WPCPM_Mail_Catalog::MODULE_INSTITUTIONS, WPCPM_Mail_Catalog::MODULE_SPONSORS ), true ) ) {
+		continue;
+	}
+
+	$cases = array();
+
+	foreach ( $template['placeholders'] as $name => $placeholder ) {
+		if ( ! empty( $placeholder['required'] ) ) {
+			++$dropped;
+			$cases[ $id . ' without {' . $name . '}' ] = array( $template['subject'], str_replace( '{' . $name . '}', '', $template['body'] ), 'Nothing was saved: this email needs {' . $name . '}.' );
+		}
+
+		if ( ! empty( $placeholder['body_only'] ) ) {
+			++$moved;
+			$cases[ $id . ' with {' . $name . '} in the subject' ] = array( $template['subject'] . ' {' . $name . '}', $template['body'], 'Nothing was saved: {' . $name . '} goes in the body, never in the subject.' );
+		}
+	}
+
+	foreach ( $cases as $what => $case ) {
+		new_administrator();
+		press( 'handle_save', array( 'wpcpm_email' => $id, 'subject' => $case[0], 'body' => $case[1] ) );
+		$back = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => $id ) );
+		$got  = array( preg_match( '#<div class="notice notice-error is-dismissible"><p>([^<]*)</p></div>#', $back, $said ) ? html_entity_decode( $said[1], ENT_QUOTES ) : null, box( $back, 'wpcpm-email-subject' ) === $case[0] && box( $back, 'wpcpm-email-body' ) === $case[1], WPCPM_Mail_Templates::edit( $id ) );
+
+		if ( array( $case[2], true, null ) !== $got ) {
+			$refusals_wrong[ $what ] = $got;
+		}
+	}
+}
+ck(
+	'a save of an Institutions or a Sponsors email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 32 emails of the two areas',
+	array( $dropped, $moved, $refusals_wrong ),
+	array( 17, 24, array() )
+);
+
+// An agreement returned, previewed as a member of the institution reads it: sent back today, on the
+// site's clock, by an invented Administrator, with an example note, and the Institution Dashboard in
+// the footer, since the body names none. Previewed twice, by an Administrator whose clock and the
+// site's are a day apart at every hour, on the two sides of the date line, each the site's once: the
+// day it names can then be only the site's, never the Administrator's or UTC's. Zones the server knows
+// by name, since one it does not know is read as the site's.
+$site_zone = $GLOBALS['opts']['timezone_string'];
+$previews  = array();
+$wanted    = array();
+foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pacific/Kiritimati', 'Pacific/Pago_Pago' ) ) as $zones ) {
+	$who                                                = 'the site in ' . $zones[0] . ', the Administrator in ' . $zones[1];
+	$GLOBALS['opts']['timezone_string']                 = $zones[0];
+	$sent_back_on                                       = ( new DateTimeImmutable( 'now', new DateTimeZone( $zones[0] ) ) )->format( 'Y-m-d' );
+	$looking                                            = new_administrator();
+	$GLOBALS['umeta'][ $looking->ID ]['wpcpm_timezone'] = $zones[1];
+	$returned                                           = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'agreement-returned' ) );
+	preg_match( '#<div class="wpcpm-emails__preview"><p><strong>Subject:</strong> ([^<]*)</p><pre class="wpcpm-emails__text">(.*?)</pre></div>#s', $returned, $shown_returned );
+	$previews[ $who ] = array( html_entity_decode( $shown_returned[1] ?? '', ENT_QUOTES ), str_replace( "\r\n", "\n", html_entity_decode( $shown_returned[2] ?? '', ENT_QUOTES ) ) );
+	$wanted[ $who ]   = array(
+		'[WordPress Credits] Your signed agreement needs a change',
+		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
+	);
+}
+$GLOBALS['opts']['timezone_string'] = $site_zone;
+ck(
+	'the agreement returned is previewed as a member reads it: sent back today on the site\'s clock, whatever the Administrator\'s, by an invented Administrator, with the note, and the Institution Dashboard in the footer',
+	array( array_values( array_diff( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), DateTimeZone::listIdentifiers() ) ), $previews ),
+	array( array(), $wanted )
+);
+
+// An edit of a subject that holds a title as plain text, "<3" and all, is saved as the cleaner keeps
+// it, "&lt;3", its test sends it as typed, "<3", and Restore the original drops it.
+$post_edit = array(
+	'subject' => 'Your post "{post_title}" <3 needs a change',
+	'body'    => WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['body'],
+);
+new_administrator();
+press( 'handle_save', array( 'wpcpm_email' => 'sponsor-post-returned' ) + $post_edit );
+$post_saved      = WPCPM_Mail_Templates::state( 'sponsor-post-returned' )['state'];
+$post_stored     = WPCPM_Mail_Templates::edit( 'sponsor-post-returned' )['subject'] ?? null;
+$GLOBALS['mail'] = array();
+press( 'handle_save', array( 'wpcpm_email' => 'sponsor-post-returned', 'wpcpm_then' => 'test' ) + $post_edit );
+$post_test = $GLOBALS['mail'][0]['subject'] ?? '';
+press( 'handle_restore', array( 'wpcpm_email' => 'sponsor-post-returned' ) );
+ck(
+	'an edit of a returned post\'s subject, a "<" in it, is saved as the cleaner keeps it, its test sends it as typed, and Restore the original drops it',
+	array( $post_saved, $post_stored, $post_test, WPCPM_Mail_Templates::edit( 'sponsor-post-returned' ) ),
+	array( 'edited', 'Your post "{post_title}" &lt;3 needs a change', '[Test] Your post "Our first study day" <3 needs a change', null )
 );
 
 echo "\n=== The Signature and footer tab ===\n";

@@ -27,6 +27,8 @@ final class WPCPM_Sponsor_Mentors {
 	const PER_DAY                = 5;
 	const CEILING                = 'sponsor-mentor-interest';
 	const LOG_KIND               = 'sponsor_interest_mentor';
+	/** The email this card sends, named for the mail log: sent as a sponsor's interest until 1.122.22. */
+	const MAIL_CONTEXT           = 'sponsor-mentor-interest';
 
 	/**
 	 * The handler.
@@ -168,25 +170,18 @@ final class WPCPM_Sponsor_Mentors {
 		}
 
 		$sponsor = '' === trim( $row['name'] ) ? $record : trim( $row['name'] );
-		$build   = static function ( $user ) use ( $sponsor, $mentor ) {
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: company name, 2: mentor name. */
-					__( '[WordPress Credits] %1$s would like to sponsor %2$s', 'wpcredits-program-manager' ),
-					$sponsor,
-					$mentor['name']
-				),
-				'body'    => sprintf(
-					/* translators: 1: company name, 2: mentor name, 3: the mentor's WordPress.org profile. */
-					__( '%1$s said on the Sponsor Dashboard that it would like to sponsor the mentor %2$s (%3$s). Please get in touch with both.', 'wpcredits-program-manager' ),
-					$sponsor,
-					$mentor['name'],
-					$mentor['profile']
-				),
+		$build   = static function () use ( $sponsor, $mentor ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_CONTEXT,
+				array(
+					'company_name'   => $sponsor,
+					'mentor_name'    => $mentor['name'],
+					'mentor_profile' => $mentor['profile'],
+				)
 			);
 		};
 
-		$mailed = WPCPM_Sponsor_Interests::mail_manager( $record, $build );
+		$mailed = WPCPM_Sponsor_Interests::mail_manager( $record, $build, self::MAIL_CONTEXT );
 
 		// Logged whether or not anybody could be told: the audit row is the record that the
 		// interest was ever raised, the same bargain the sponsor's own interests card

@@ -215,6 +215,9 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	}
 }
 
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 
 if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {

@@ -255,20 +255,20 @@ final class WPCPM_Sponsor_Claims {
 		// typed, and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in
 		// it as they are.
 		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
-		$build = static function ( $recipient ) use ( $user, $title, $last ) {
-			return array(
-				/* translators: 1: site name, 2: offer title. */
-				'subject'       => sprintf( __( '[%1$s] A code from %2$s did not work', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $title ),
-				'body'          => sprintf(
-					/* translators: 1: the claimant's name, 2: offer title, 3: the code's last four characters, 4: the Sponsors screen's address. */
-					__( "%1\$s reports that their code for \"%2\$s\" (ending %3\$s) did not work.\n\nThe sponsor's offers and the people who claimed from them are on the Sponsors screen: %4\$s\n\nReply to this person from your own mailbox. The site never sends a code by mail.", 'wpcredits-program-manager' ),
-					$user->display_name,
-					$title,
-					$last,
-					admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' )
+		$build = static function () use ( $user, $title, $last ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_PROBLEM,
+				array(
+					'site_name'          => WPCPM_Mail::site_name(),
+					'offer_title'        => $title,
+					'claimant_name'      => $user->display_name,
+					'code_ending'        => $last,
+					'offers_screen_link' => admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' ),
 				),
-				'headers'       => WPCPM_Mail::reply_to( $user ),
-				'plain_subject' => true,
+				array(
+					'headers'       => WPCPM_Mail::reply_to( $user ),
+					'plain_subject' => true,
+				)
 			);
 		};
 
@@ -556,20 +556,18 @@ final class WPCPM_Sponsor_Claims {
 		// a manager's needs it to land on this sponsor.
 		$link  = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $offer['sponsor'], WPCPM_Sponsors_Dashboard::page_url() ) . '#wpcpm-sponsor-offers';
 		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
-		$build = static function ( $recipient ) use ( $offer, $title, $available, $link ) {
-			return array(
-				/* translators: 1: site name, 2: offer title, 3: codes left. */
-				'subject'       => sprintf( __( '[%1$s] %2$s: %3$d codes left', 'wpcredits-program-manager' ), WPCPM_Mail::site_name(), $title, $available ),
-				'body'          => sprintf(
-					/* translators: 1: offer title, 2: codes left, 3: the threshold, 4: the Offers card's address. */
-					__( "The offer \"%1\$s\" has %2\$d codes left; it warns below %3\$d.\n\nAdd more codes, or pause the offer, from the Offers card: %4\$s\n\nThis is sent once. Adding codes arms it again.", 'wpcredits-program-manager' ),
-					$title,
-					$available,
-					(int) $offer['low'],
-					$link
+		$build = static function () use ( $offer, $title, $available, $link ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_LOW_STOCK,
+				array(
+					'site_name'   => WPCPM_Mail::site_name(),
+					'offer_title' => $title,
+					'codes_left'  => (string) (int) $available,
+					'low_mark'    => (string) (int) $offer['low'],
+					'offers_link' => $link,
 				),
 				// The title read back as in report_problem(), so the subject is plain text.
-				'plain_subject' => true,
+				array( 'plain_subject' => true )
 			);
 		};
 

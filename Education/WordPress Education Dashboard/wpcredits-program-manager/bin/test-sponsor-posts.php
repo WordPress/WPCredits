@@ -277,6 +277,9 @@ require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 // them. Everything below that asks "what does a reader the level refuses see" now says so by
 // taking the marker capability away.
 require_once __DIR__ . '/../includes/class-wpcpm-content-access.php';
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
+require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';

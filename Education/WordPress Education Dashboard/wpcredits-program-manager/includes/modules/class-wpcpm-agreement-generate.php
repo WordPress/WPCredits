@@ -1016,27 +1016,16 @@ class WPCPM_Agreement_Generate {
 		$site   = WPCPM_Mail::site_name();
 		$reason = $error->get_error_message();
 
-		$build = function () use ( $site, $record, $name, $language, $reason ) {
-			$lines = array(
-				__( 'An institution asked the site to generate the Collaboration Agreement and the template could not be used, so nothing was generated and they were told the template needs attention.', 'wpcredits-program-manager' ),
-				sprintf(
-					/* translators: 1: what the template refused with, 2: language code, 3: institution record ID, 4: the name that was asked for. */
-					__( 'The reason given was: %1$s (template language %2$s, institution %3$s, name asked for "%4$s").', 'wpcredits-program-manager' ),
-					$reason,
-					$language,
-					$record,
-					$name
-				),
-				__( 'The template lives in the plugin, in includes/templates/. A bracketed token other than the institution name is refused on purpose: it would otherwise print on a document somebody signs. Nothing can be generated in this language until it is fixed.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] The Collaboration Agreement template needs attention', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $record, $name, $language, $reason ) {
+			return WPCPM_Mail_Templates::mail(
+				self::NOTIFY_TEMPLATE,
+				array(
+					'site_name'          => $site,
+					'reason'             => $reason,
+					'language'           => $language,
+					'institution_record' => $record,
+					'name_asked_for'     => $name,
+				)
 			);
 		};
 

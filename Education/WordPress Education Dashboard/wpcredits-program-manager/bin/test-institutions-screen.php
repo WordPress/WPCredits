@@ -371,6 +371,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 // Before the module, which uses it: PHP declares a class only once the traits it uses are declared.

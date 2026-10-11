@@ -332,6 +332,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+// The template registry, which every email's builder fills its words from since 1.122.22.
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
@@ -1749,10 +1752,12 @@ $option = WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' );
 
 ck( 'the option knows both sides, and the gate stays shut', array( $option['site_state'], $option['airtable_status'], $option['settled'] ), array( 'submitted', 'Awaiting review', false ) );
 
+// The scan noticed something, so the managers are sent the upload's email in the words that say what,
+// under that email's own id since 1.122.22.
 ck( 'every member was told once, and the managers once', mail_log(), array(
 	'agreement-received to ola@example.edu',
 	'agreement-received to bo@example.edu',
-	'agreement-landed to pm@example.org',
+	'agreement-landed-flagged to pm@example.org',
 ) );
 ck( 'the managers\' subject is the one the design writes out', $GLOBALS['mail'][2]['subject'], '[WPCredits] Signed agreement from Universidad Example is waiting for review' );
 ck( 'and their message says the scan is a courtesy, in the same breath as what it found', array(
@@ -2585,7 +2590,7 @@ ck( 'the option is written again, and says why', array(
 	WPCPM_Institution_Agreement::option( $rec_a )['airtable_status'],
 ), array( 'accepted', 'Accepted' ) );
 ck( 'so the gate is open on this request, with no sync in between', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
-ck( 'every member was told, once each, under the acceptance context', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+ck( 'every member was told, once each, under the reinstatement\'s own id, the acceptance\'s until 1.122.22', mail_log(), array( 'agreement-reinstated to ola@example.edu', 'agreement-reinstated to bo@example.edu' ) );
 ck( 'in the reinstated wording, saying nothing was lost meanwhile', array(
 	false !== strpos( $GLOBALS['mail'][0]['body'], 'put back in force' ),
 	false !== strpos( $GLOBALS['mail'][0]['body'], 'open again' ),
@@ -2620,7 +2625,7 @@ $outcome                = run( 'handle_reinstate' );
 ck( 'a rebuild that finds the lock held is not reported as an open account', $outcome, 'agreement-later' );
 ck( 'the reinstatement itself stands', array( count( $GLOBALS['patched'] ), get_post_meta( $id, '_wpcpm_agr_state', true ) ), array( 1, 'accepted' ) );
 ck( 'the gate is shut until the next sync writes the option', WPCPM_Institution_Agreement::is_settled( $rec_a ), false );
-ck( 'and every member was told all the same', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+ck( 'and every member was told all the same', mail_log(), array( 'agreement-reinstated to ola@example.edu', 'agreement-reinstated to bo@example.edu' ) );
 
 /* ---- what the two handlers are, read from the source --------------------- */
 

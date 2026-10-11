@@ -210,9 +210,13 @@ class WPCPM_Sponsor_Application {
 	 */
 	const SIGNAL_HALF_DONE = 'half-done';
 
-	/** The two mails this form sends, named for the mail log. */
-	const MAIL_APPLIED  = 'sponsor-applied';
-	const MAIL_MANAGERS = 'sponsor-application';
+	/**
+	 * The mails this form sends, named for the mail log: the acknowledgement, in its other words
+	 * when the logo files were not kept, and the Administrators' notice.
+	 */
+	const MAIL_APPLIED         = 'sponsor-applied';
+	const MAIL_APPLIED_NO_LOGO = 'sponsor-applied-no-logo';
+	const MAIL_MANAGERS        = 'sponsor-application';
 
 	/**
 	 * The six decisions a manager takes, and the deletion behind them.
@@ -2491,49 +2495,21 @@ class WPCPM_Sponsor_Application {
 		// the company is the only one who can send them again: saying so here is the difference
 		// between a logo that arrives after approval and one nobody ever asks for.
 		$skipped = in_array( 'files-skipped', (array) get_post_meta( $post_id, self::META_SIGNALS, true ), true );
+		$id      = $skipped ? self::MAIL_APPLIED_NO_LOGO : self::MAIL_APPLIED;
 
-		$build = function () use ( $site, $name, $reference, $email, $skipped ) {
-			$lines = array(
-				sprintf(
-					/* translators: %s: the company's name as it was given on the form. */
-					__( 'Thank you for offering to sponsor the WordPress Credits Program on behalf of %s. Your application is with us.', 'wpcredits-program-manager' ),
-					$name
-				),
-				sprintf(
-					/* translators: %s: the application reference, e.g. SAPP-2026-0007. */
-					__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
-					$reference
-				),
-				__( 'What happens next: an Administrator reads every application by hand and checks the company and its products against the program\'s licensing and trademark rules, so a reply takes a few working days. If the program says yes, we will set up an account on the program site and send you a link to choose a password.', 'wpcredits-program-manager' ),
-				sprintf(
-					/* translators: 1: the address the message went to, 2: site name. */
-					__( 'This message went to %1$s because that address was given on the sponsor application form at %2$s. If it was not you, you can ignore it: nothing happens until an Administrator decides.', 'wpcredits-program-manager' ),
-					$email,
-					$site
-				),
-			);
-
-			if ( $skipped ) {
-				array_splice(
-					$lines,
-					2,
-					0,
-					array( __( 'One thing about the logo: the site was taking more applications than usual when yours arrived, so the logo files you attached were not kept. Your answers were, and nothing else about the application was affected. If the program says yes, you can send the logo after your account is set up.', 'wpcredits-program-manager' ) )
-				);
-			}
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: the application reference. */
-					__( '[%1$s] We have your application: %2$s', 'wpcredits-program-manager' ),
-					$site,
-					$reference
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $id, $site, $name, $reference, $email ) {
+			return WPCPM_Mail_Templates::mail(
+				$id,
+				array(
+					'site_name'       => $site,
+					'company_name'    => $name,
+					'reference'       => $reference,
+					'applicant_email' => $email,
+				)
 			);
 		};
 
-		return WPCPM_Mail::send_to( $email, self::MAIL_APPLIED, $build );
+		return WPCPM_Mail::send_to( $email, $id, $build );
 	}
 
 	/**
@@ -2558,33 +2534,17 @@ class WPCPM_Sponsor_Application {
 		$link    = self::queue_url( $post_id );
 		$site    = WPCPM_Mail::site_name();
 
-		$build = function () use ( $site, $name, $website, $person, $email, $link ) {
-			$lines = array(
-				__( 'A company has applied to sponsor the program through the form on the site, and the application passed every check.', 'wpcredits-program-manager' ),
-				sprintf(
-					/* translators: 1: company name, 2: website. */
-					__( '%1$s, %2$s', 'wpcredits-program-manager' ),
-					$name,
-					$website
-				),
-				sprintf(
-					/* translators: 1: contact person's name, 2: their email address. */
-					__( 'Contact: %1$s, %2$s', 'wpcredits-program-manager' ),
-					$person,
-					$email
-				),
-				__( 'It is on the queue here:', 'wpcredits-program-manager' ),
-				$link,
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: company name. */
-					__( '[%1$s] New sponsor application from %2$s', 'wpcredits-program-manager' ),
-					$site,
-					$name
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
+		$build = static function () use ( $site, $name, $website, $person, $email, $link ) {
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_MANAGERS,
+				array(
+					'site_name'     => $site,
+					'company_name'  => $name,
+					'website'       => $website,
+					'contact_name'  => $person,
+					'contact_email' => $email,
+					'queue_link'    => $link,
+				)
 			);
 		};
 
@@ -3001,21 +2961,14 @@ class WPCPM_Sponsor_Application {
 		$said = WPCPM_Typed_Text::mail_text( $question );
 
 		$build = static function () use ( $site, $reference, $said, $manager ) {
-			$lines = array(
-				__( 'Thank you for offering to sponsor the WordPress Credits Program. Before an Administrator can take your application further, they have one question:', 'wpcredits-program-manager' ),
-				$said,
-				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: 1: site name, 2: application reference, e.g. SAPP-2026-0007. */
-					__( '[%1$s] A question about your application (%2$s)', 'wpcredits-program-manager' ),
-					$site,
-					$reference
+			return WPCPM_Mail_Templates::mail(
+				self::MAIL_INFO,
+				array(
+					'site_name' => $site,
+					'reference' => $reference,
+					'question'  => $said,
 				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-				'headers' => WPCPM_Mail::reply_to( $manager ),
+				array( 'headers' => WPCPM_Mail::reply_to( $manager ) )
 			);
 		};
 
@@ -3082,20 +3035,7 @@ class WPCPM_Sponsor_Application {
 		// The reason is deliberately not captured by this closure. Keeping it out of the
 		// builder's scope is what stops a later edit reaching for it "just for the subject".
 		$build = static function () use ( $site ) {
-			$lines = array(
-				__( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us.', 'wpcredits-program-manager' ),
-				__( 'We have read your company\'s application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news.', 'wpcredits-program-manager' ),
-				__( 'You are welcome to apply again later, for example when your products or the program change. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
-			);
-
-			return array(
-				'subject' => sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] About your application to sponsor the WordPress Credits Program', 'wpcredits-program-manager' ),
-					$site
-				),
-				'body'    => implode( "\r\n\r\n", $lines ),
-			);
+			return WPCPM_Mail_Templates::mail( self::MAIL_DECLINED, array( 'site_name' => $site ) );
 		};
 
 		if ( is_email( $email ) ) {
