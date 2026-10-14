@@ -572,14 +572,187 @@ echo "\n=== Reply-To ===\n";
 
 ck( 'points at the other party',
     WPCPM_Mail::reply_to( $GLOBALS['users'][20] ),
-    array( 'Reply-To: "Ada Example" <ada@example.test>' ) );
+    array( 'Reply-To: Ada Example <ada@example.test>' ) );
 ck( 'nobody to reply to means no header', WPCPM_Mail::reply_to( null ), array() );
+
+/**
+ * A Reply-To header as it reaches a recipient. First as `wp_mail()` reads it: the line split at its
+ * first colon, the rest at every comma into addresses, and each address into its name and the
+ * address in angle brackets, by core's own pattern, the name handed on as it stands, quote marks and
+ * the space before "<" included. Then as PHPMailer writes that name (`addOrEnqueueAnAddress()`,
+ * `addrFormat()`, `encodeHeader()` for a phrase, 7.1.1): its line breaks taken out and its ends
+ * trimmed; a name of ASCII alone bare when every character of it is one an atom holds, else in
+ * quotes with each control character, backslash and double quote escaped; a name beyond ASCII as
+ * encoded words (here one word, where PHPMailer folds a long name into several, which read back
+ * alike). Last as a mail program reads what PHPMailer wrote: a quoted name unquoted, each escaped
+ * character read as itself, and encoded words read back wherever they stand, the space between two
+ * left out.
+ *
+ * @param string $header The header line.
+ * @return array{addresses:int,address:string,written:string|null,name:string|null,one_line:bool}
+ */
+function as_read( $header ) {
+	list( , $content ) = explode( ':', trim( $header ), 2 );
+	$addresses         = explode( ',', trim( $content ) );
+	$name              = null;
+	$written           = null;
+	$address           = '';
+
+	if ( preg_match( '/(.*)<(.+)>/', $addresses[0], $parts ) ) {
+		$name    = trim( (string) preg_replace( '/[\r\n]+/', '', $parts[1] ) );
+		$address = $parts[2];
+	}
+
+	if ( null !== $name && ! preg_match( '/[\200-\377]/', $name ) ) {
+		$escaped = addcslashes( $name, "\0..\37\177\\\"" );
+		$written = $name === $escaped && ! preg_match( '/[^A-Za-z0-9!#$%&\'*+\/=?^_`{|}~ -]/', $name ) ? $escaped : '"' . $escaped . '"';
+	} elseif ( null !== $name ) {
+		$written = '=?UTF-8?B?' . base64_encode( $name ) . '?=';
+	}
+
+	$read = $written;
+
+	if ( null !== $read && preg_match( '/^"(.*)"$/s', $read, $quoted ) ) {
+		$read = preg_replace( '/\\\\(.)/s', '$1', $quoted[1] );
+	} elseif ( null !== $read ) {
+		$read = preg_replace_callback(
+			'/=\?UTF-8\?B\?([A-Za-z0-9+\/=]*)\?=/',
+			static function ( $word ) {
+				return base64_decode( $word[1] );
+			},
+			preg_replace( '/(\?=)\s+(=\?)/', '$1$2', $read )
+		);
+	}
+
+	return array(
+		'addresses' => count( $addresses ),
+		'address'   => $address,
+		'written'   => '' === $read ? null : $written,
+		'name'      => '' === $read ? null : $read,
+		'one_line'  => false === strpbrk( $header, "\r\n" ),
+	);
+}
+
+// Until the fix wave of 1.122.23 a name with no comma, double quote, backslash or semicolon went in
+// quotes, and the quotes reached the recipient: `wp_mail()` hands PHPMailer the quote marks as part
+// of the name, and PHPMailer quotes the name again.
+ck(
+	'a name reaches the recipient with no quote marks of its own: the header carries it bare, for the mailer to quote',
+	array( WPCPM_Mail::reply_to( new WP_User( 41, 'Ida Admin', 'person@example.test' ) ), as_read( 'Reply-To: "Ida Admin" <person@example.test>' )['name'], as_read( WPCPM_Mail::reply_to( new WP_User( 41, 'Ida Admin', 'person@example.test' ) )[0] )['name'] ),
+	array( array( 'Reply-To: Ida Admin <person@example.test>' ), '"Ida Admin"', 'Ida Admin' )
+);
 
 $hostile = new WP_User( 40, "Ke\"l\r\nBcc: attacker@example.test", 'x@example.test' );
 $header  = WPCPM_Mail::reply_to( $hostile );
-ck( 'a name cannot break out of the header',
-    array( false !== strpos( $header[0], "\n" ), false !== strpos( $header[0], '"Ke l Bcc: attacker@example.test"' ) ),
-    array( false, true ) );
+ck( 'a name cannot break out of the header, and keeps its characters: its line break is one space, its quote quoted by the mailer',
+    array( $header, as_read( $header[0] ) ),
+    array( array( 'Reply-To: Ke"l Bcc: attacker@example.test <x@example.test>' ), array( 'addresses' => 1, 'address' => 'x@example.test', 'written' => '"Ke\\"l Bcc: attacker@example.test"', 'name' => 'Ke"l Bcc: attacker@example.test', 'one_line' => true ) ) );
+
+// Every name reaches the recipient as a person reads it, whole: a name as WordPress stores it, its
+// "&" and "<" read back; a name holding a double quote, a backslash or a semicolon, which the mailer
+// quotes and escapes; a name holding a comma, which `wp_mail()` would split the header at, kept in
+// encoded words; a name that reads as an encoded word, kept as typed; a name holding text in angle
+// brackets that looks like an address, still one address; a name in letters beyond ASCII, which the
+// mailer encodes; one longer than one encoded word holds, with a comma, cut on a whole letter; a
+// name holding control characters, which are dropped; and a name of spaces, which is none.
+$named = array(
+	'stored'    => 'Gus &amp; Gwen &lt;Ops',
+	'comma'     => "Omar O'Admin, Ops",
+	'quote'     => 'Dee "DJ" Okafor; Ops',
+	'backslash' => 'Back\\slash Example',
+	'semicolon' => 'Semi; Colon',
+	'angle'     => 'Bob <evil@attacker.test>',
+	'word'      => '=?UTF-8?B?RXZpbA==?=',
+	'letters'   => 'Zoë Ångström-Núñez',
+	'long'      => 'Zoë Ångström-Núñez, Head of Partnerships & Outreach "EU"',
+	'controls'  => "Qu\0ill\x7f Example",
+	'plain'     => 'Ida Admin',
+	'spaces'    => '   ',
+);
+$read  = array();
+$words = array();
+foreach ( $named as $key => $name ) {
+	$header       = WPCPM_Mail::reply_to( new WP_User( 41, $name, 'person@example.test' ) );
+	$read[ $key ] = as_read( $header[0] );
+	preg_match_all( '/=\?UTF-8\?B\?[A-Za-z0-9+\/=]*\?=/', $header[0], $found );
+	$words[ $key ] = array_map(
+		static function ( $word ) {
+			return array( strlen( $word ) <= 75, 1 === preg_match( '//u', (string) base64_decode( substr( $word, 10, -2 ) ) ) );
+		},
+		$found[0]
+	);
+}
+ck(
+	'each name arrives whole and as a person reads it, in one address on one line',
+	array_map(
+		static function ( $one ) {
+			return array( $one['addresses'], $one['address'], $one['name'], $one['one_line'] );
+		},
+		$read
+	),
+	array(
+		'stored'    => array( 1, 'person@example.test', 'Gus & Gwen <Ops', true ),
+		'comma'     => array( 1, 'person@example.test', "Omar O'Admin, Ops", true ),
+		'quote'     => array( 1, 'person@example.test', 'Dee "DJ" Okafor; Ops', true ),
+		'backslash' => array( 1, 'person@example.test', 'Back\\slash Example', true ),
+		'semicolon' => array( 1, 'person@example.test', 'Semi; Colon', true ),
+		'angle'     => array( 1, 'person@example.test', 'Bob <evil@attacker.test>', true ),
+		'word'      => array( 1, 'person@example.test', '=?UTF-8?B?RXZpbA==?=', true ),
+		'letters'   => array( 1, 'person@example.test', 'Zoë Ångström-Núñez', true ),
+		'long'      => array( 1, 'person@example.test', 'Zoë Ångström-Núñez, Head of Partnerships & Outreach "EU"', true ),
+		'controls'  => array( 1, 'person@example.test', 'Quill Example', true ),
+		'plain'     => array( 1, 'person@example.test', 'Ida Admin', true ),
+		'spaces'    => array( 1, '', null, true ),
+	)
+);
+ck(
+	'as the mailer writes them: bare, quoted and escaped where a phrase needs it, or encoded',
+	array_column( $read, 'written' ),
+	array( '"Gus & Gwen <Ops"', "=?UTF-8?B?T21hciBPJ0FkbWluLCBPcHM=?=", '"Dee \\"DJ\\" Okafor; Ops"', '"Back\\\\slash Example"', '"Semi; Colon"', '"Bob <evil@attacker.test>"', '=?UTF-8?B?PT9VVEYtOD9CP1JYWnBiQT09Pz0=?=', '=?UTF-8?B?' . base64_encode( 'Zoë Ångström-Núñez' ) . '?=', '=?UTF-8?B?Wm/DqyDDhW5nc3Ryw7ZtLU7DusOxZXosIEhlYWQgb2YgUGFydG5lcnNoaXBz?= =?UTF-8?B?ICYgT3V0cmVhY2ggIkVVIg==?=', 'Quill Example', 'Ida Admin', null )
+);
+ck(
+	'a name goes as it is, for the mailer to quote and encode, and only one holding a comma or a "=?" is encoded here, each word at most 75 characters and a whole UTF-8 text',
+	$words,
+	array(
+		'stored'    => array(),
+		'comma'     => array( array( true, true ) ),
+		'quote'     => array(),
+		'backslash' => array(),
+		'semicolon' => array(),
+		'angle'     => array(),
+		'word'      => array( array( true, true ) ),
+		'letters'   => array(),
+		'long'      => array( array( true, true ), array( true, true ) ),
+		'controls'  => array(),
+		'plain'     => array(),
+		'spaces'    => array(),
+	)
+);
+ck( 'and a name of spaces leaves the bare address', WPCPM_Mail::reply_to( new WP_User( 41, '   ', 'person@example.test' ) ), array( 'Reply-To: person@example.test' ) );
+ck(
+	'a control character in a name is dropped, a run of white space is one space, and the name stays one line',
+	array( WPCPM_Mail::reply_to( new WP_User( 41, "Qu\0ill\x01\x1F\x7F Example", 'person@example.test' ) ), WPCPM_Mail::reply_to( new WP_User( 41, "Ana\tB\x0BC\x0CD\r\n\r\nE", 'person@example.test' ) ) ),
+	array( array( 'Reply-To: Quill Example <person@example.test>' ), array( 'Reply-To: Ana B C D E <person@example.test>' ) )
+);
+// A name that is not UTF-8, as an account written by other code can hold, holding a comma, longer
+// than one word: cut by bytes, one line, each word at most 75 characters, its bytes read back whole.
+$bytes  = str_repeat( "Ren\xE9e, ", 8 ) . 'Example';
+$header = WPCPM_Mail::reply_to( new WP_User( 41, $bytes, 'person@example.test' ) );
+preg_match_all( '/=\?UTF-8\?B\?[A-Za-z0-9+\/=]*\?=/', $header[0], $found );
+ck( 'a name that is not UTF-8 is cut by its bytes, and read back to the same bytes on one line', array( as_read( $header[0] )['name'] === $bytes, as_read( $header[0] )['one_line'], count( $found[0] ) > 1, array() !== $found[0] && max( array_map( 'strlen', $found[0] ) ) <= 75 ), array( true, true, true, true ) );
+// A name with a comma is encoded words on one line, which the mailer passes as they are: the words
+// stop where the line would pass the 998 characters a header line holds, on a whole letter. A name
+// of 250 letters of two bytes, the most a display name holds, fits whole; one of 250 letters of four
+// bytes does not, and is cut.
+$fits   = str_repeat( 'Ł', 124 ) . ', ' . str_repeat( 'Ż', 124 );
+$cut    = str_repeat( '𝐀', 124 ) . ', ' . str_repeat( '𝐁', 124 );
+$header = array( WPCPM_Mail::reply_to( new WP_User( 41, $fits, 'person@example.test' ) )[0], WPCPM_Mail::reply_to( new WP_User( 41, $cut, 'a-much-longer-address-for-a-person@example.test' ) )[0] );
+$name   = (string) as_read( $header[1] )['name'];
+ck(
+	'a Reply-To line never passes 998 characters: a name with a comma that fits is whole, a longer one is cut on a whole letter',
+	array( strlen( $header[0] ) <= 998, as_read( $header[0] )['name'] === $fits, strlen( $header[1] ) <= 998, strlen( $header[1] ) > 998 - 75, '' !== $name && 0 === strpos( $cut, $name ) && strlen( $name ) < strlen( $cut ) && 1 === preg_match( '//u', $name ), as_read( $header[1] )['addresses'], as_read( $header[1] )['address'], as_read( $header[1] )['one_line'] ),
+	array( true, true, true, true, true, 1, 'a-much-longer-address-for-a-person@example.test', true )
+);
 
 /* ---- the context the mail log names a send by ---------------------------- */
 
@@ -1675,7 +1848,7 @@ WPCPM_Mentor_Calls::notify_left( 401, 30, 7 );
 
 ck( 'a leave says the student left the session, and a reply goes to the mentor',
     array( 0 === strpos( $GLOBALS['mail'][0]['body'], 'You have left the group session with Ada Example on ' ), false !== strpos( $GLOBALS['mail'][0]['body'], 'is booked for' ), $GLOBALS['mail'][0]['headers'] ),
-    array( true, false, array( 'Reply-To: "Ada Example" <ada@example.test>' ) ) );
+    array( true, false, array( 'Reply-To: Ada Example <ada@example.test>' ) ) );
 
 // Every send writes a file of its own. The path a builder memoized for the same recipient and the
 // same sessions is gone once the first send's cleanup ran, and handing it back a second time in

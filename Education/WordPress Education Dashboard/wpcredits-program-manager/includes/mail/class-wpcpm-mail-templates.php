@@ -26,6 +26,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * - every placeholder is replaced by its value as plain text, in one pass, so a value is never read
  *   as a placeholder itself, and a placeholder the email does not have is left as it was written;
+ * - every value is read as a person reads it: a name or a title WordPress stores with its "&", "<"
+ *   and ">" written as entities, an account's name and an application's title among them, arrives
+ *   as the person typed it, read back as `WPCPM_Typed_Text::mail_text()` reads a typed text, once
+ *   and no deeper, for every email of every area (since 1.122.23; a value with no entity in it is
+ *   unchanged by it). So a builder hands each value over as stored, a typed text and the site's
+ *   name (`WPCPM_Mail::site_name()`) among them: one it read back first would be read back twice,
+ *   and a typed `&amp;lt;` would arrive as "<";
  * - in a body, a sentence whose placeholders are all optional and all empty is left out, and so is a
  *   line left with nothing on it, as the code left out a line with nothing to say before the move;
  *   a line ending in a colon, holding no placeholder once its own left-out sentences are taken out,
@@ -245,7 +252,8 @@ final class WPCPM_Mail_Templates {
 
 		foreach ( self::placeholders_in( $text ) as $name ) {
 			if ( isset( $placeholders[ $name ] ) ) {
-				$value = isset( $values[ $name ] ) ? (string) $values[ $name ] : '';
+				// As a person reads it: an entity WordPress stored a name or a title with, read back.
+				$value = isset( $values[ $name ] ) ? wp_specialchars_decode( (string) $values[ $name ], ENT_QUOTES ) : '';
 
 				$pairs[ '{' . $name . '}' ] = $shorten ? $value : (string) preg_replace( '/\r\n|\r|\n/', ' ', $value );
 			}
@@ -359,11 +367,13 @@ final class WPCPM_Mail_Templates {
 	 * added once, where the email leaves, never by a builder.
 	 *
 	 * An edit whose subject fills to nothing, each of its words an optional placeholder that came out
-	 * empty, or to nothing the mail layer's cleaner would keep, is sent with the shipped subject,
-	 * filled. The mail layer sends no email without a subject, but `WPCPM_Mail::hand_off()` checks the
-	 * subject before cleaning it: a subject the cleaner would empty, such as a value that reads as a
-	 * tag, passes that check and would go out with no subject. That is why the subject tested here is
-	 * the cleaned one.
+	 * empty, is sent with the shipped subject, filled, since the mail layer sends no email without a
+	 * subject. The subject is tested as `sanitize_text_field()` cleans it, which also takes out a run
+	 * that reads as a tag: so an edit whose subject fills to such a run alone, as `<b></b>`, is sent
+	 * with the shipped subject too. The mail layer would have sent that one: every email the
+	 * registry fills goes out with a plain-text subject since 1.122.23 (`WPCPM_Mail::hand_off()`),
+	 * whose cleaner keeps a "<" and what follows it. The test stays the stricter one, written before
+	 * 1.122.23, when the mail layer would have emptied such a subject after `hand_off()` checked it.
 	 *
 	 * @param string $id     The email's id.
 	 * @param array  $values Each placeholder's value, by name, worked out by whatever sends it.
@@ -379,7 +389,7 @@ final class WPCPM_Mail_Templates {
 		$text    = self::text_of( $id );
 		$subject = self::fill( $text['subject'], $values, $entry['placeholders'], $entry['eol'], false );
 
-		// As the mail layer will clean it: a value the cleaner reads as a tag leaves nothing either.
+		// As `sanitize_text_field()` cleans it: a value it reads as a tag leaves nothing either.
 		if ( '' === trim( function_exists( 'sanitize_text_field' ) ? sanitize_text_field( $subject ) : $subject ) ) {
 			$subject = self::fill( $entry['subject'], $values, $entry['placeholders'], $entry['eol'], false );
 		}
@@ -479,7 +489,12 @@ final class WPCPM_Mail_Templates {
 	 * body-only, is set aside and the shipped text sent, and the Templates tab says why (`state()`).
 	 *
 	 * An edit is stored as WordPress's cleaner kept it, and read back here as the plain text it was
-	 * typed as (`WPCPM_Typed_Text::mail_text()`), as every typed text the plugin mails is.
+	 * typed as (`WPCPM_Typed_Text::mail_text()`), as every typed text the plugin mails is. The
+	 * cleaner lets go of the white space at either end, so an edit of a body that ends with a line
+	 * break, as a Semester reports email's does, is stored without it; read here, it ends as the
+	 * shipped body does, so the email sent ends, after its signature and footer, as the shipped one
+	 * does (since 1.122.23; an edit saved before is read so too). The editor's box draws the edit as
+	 * stored.
 	 *
 	 * @param string $id The email's id.
 	 * @return array{subject:string,body:string}|null Null when the registry has no such email.
@@ -500,17 +515,25 @@ final class WPCPM_Mail_Templates {
 			);
 		}
 
+		$body = WPCPM_Typed_Text::mail_text( $edit['body'] );
+
+		if ( "\n" === substr( str_replace( array( "\r\n", "\r" ), "\n", (string) $entry['body'] ), -1 ) && "\n" !== substr( $body, -1 ) ) {
+			$body .= "\n";
+		}
+
 		return array(
 			'subject' => WPCPM_Typed_Text::mail_text( $edit['subject'] ),
-			'body'    => WPCPM_Typed_Text::mail_text( $edit['body'] ),
+			'body'    => $body,
 		);
 	}
 
 	/**
 	 * Whether an email goes out as an Administrator edited it: the registry holds it, and it has
-	 * an edit that fits, the text `text_of()` gives. The mail layer asks it of every email it
-	 * sends (`WPCPM_Mail::hand_off()`), since an edited subject is what an Administrator typed,
-	 * and goes out as plain text, as its preview and its test show it.
+	 * an edit that fits, the text `text_of()` gives. In 1.122.22 the mail layer asked it of every
+	 * email it sent, to send an edited subject as plain text. Since 1.122.23 every email the
+	 * registry holds goes out with a plain-text subject, edited or not (`WPCPM_Mail::hand_off()`
+	 * asks `get()`), and nothing in the plugin asks this; it stays for code outside the plugin that
+	 * does, as the 1.122.22 changelog names it.
 	 *
 	 * @param string $id The email's id in the catalog.
 	 * @return bool False for an email sent as shipped, an edit set aside, and an id the registry
@@ -1153,7 +1176,7 @@ final class WPCPM_Mail_Templates {
 						'subject' => sprintf(
 							/* translators: %s: site name. */
 							__( '[%s] The signature and footer', 'wpcredits-program-manager' ),
-							WPCPM_Mail::site_name()
+							wp_specialchars_decode( WPCPM_Mail::site_name(), ENT_QUOTES )
 						),
 						'body'    => __( 'This is how every email the plugin sends ends, filled as an Administrator\'s own would be.', 'wpcredits-program-manager' ),
 					)

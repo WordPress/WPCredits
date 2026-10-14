@@ -248,6 +248,8 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
@@ -1879,8 +1881,13 @@ ck( 'the checklist is read, not ticked: three sentences and no boxes', array( su
 ck( 'a template-kind document names the version the footer should carry', false !== strpos( $template_review, 'The footer on the signed copy names template version 2025-11-04.' ), true );
 ck( 'and the two names, side by side', false !== strpos( $template_review, 'The name on the document is Universidad Example Sede Central. Airtable&#039;s Name for this institution is Universidad Example.' ), true );
 ck( 'and asks whether the signature block is filled', false !== strpos( $template_review, 'signature block is filled in' ), true );
-ck( 'the flags line names what the scan noticed', false !== strpos( $template_review, 'The scan noticed these in the file: /JavaScript, /OpenAction.' ), true );
+ck( 'the flags line says what the scan noticed in words, each with the PDF\'s own name for it', false !== strpos( $template_review, 'The scan noticed these in the file: JavaScript code (/JavaScript), an action that runs when the file is opened (/OpenAction).' ), true );
 ck( 'and says in the same breath that it is not evidence', false !== strpos( $template_review, 'The scan is a courtesy and not evidence' ), true );
+// A stored name the scanner does not record is drawn as stored, and as text: a name holding a tag, a
+// quote and an "&" beside one it words.
+$hostile_id     = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array_merge( $file_meta, array( WPCPM_Institution_Agreement::META_FLAGS => array( '<b>"x"&</b>', '/OpenAction' ) ) ) );
+$hostile_review = review( $hostile_id );
+ck( 'a stored name holding a tag is drawn as text in the review, escaped, beside one in words', array( false !== strpos( $hostile_review, 'The scan noticed these in the file: &lt;b&gt;&quot;x&quot;&amp;&lt;/b&gt;, an action that runs when the file is opened (/OpenAction).' ), false !== strpos( $hostile_review, '<b>"x"' ) ), array( true, false ) );
 ck( 'and what does protect the reviewer', false !== strpos( $template_review, 'never opens the file in your browser' ), true );
 ck( 'the copy itself is one nonced link away', false !== strpos( $template_review, 'action=wpcpm_agreement_download&post=' . $review_id . '&_wpnonce=nonce-wpcpm_agreement_download_' . $review_id ), true );
 ck( 'and the file is still nowhere in the page', array( false !== strpos( $template_review, '0123456789abcdef' ), false !== strpos( $template_review, 'Umowa podpisana' ) ), array( false, false ) );
@@ -1948,7 +1955,7 @@ ck( 'read, the block keeps everything a reviewer reads', array(
 	false !== strpos( $read_review, 'Uploaded by Wera Rektor on 2025-09-01, 234 KB.' ),
 	false !== strpos( $read_review, 'The institution says this is the program&#039;s template, signed.' ),
 	substr_count( $read_review, '<li>' ),
-	false !== strpos( $read_review, 'The scan noticed these in the file: /JavaScript, /OpenAction.' ),
+	false !== strpos( $read_review, 'The scan noticed these in the file: JavaScript code (/JavaScript), an action that runs when the file is opened (/OpenAction).' ),
 	false !== strpos( $read_review, 'The scan is a courtesy and not evidence' ),
 	false !== strpos( $read_review, 'action=wpcpm_agreement_download&post=' . $review_id . '&_wpnonce=nonce-wpcpm_agreement_download_' . $review_id ),
 ), array( true, true, true, true, 3, true, true, true ) );

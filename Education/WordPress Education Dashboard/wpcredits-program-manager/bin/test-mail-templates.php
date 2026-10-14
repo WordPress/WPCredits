@@ -16,9 +16,9 @@
  *   wrote. The examples read as a real email to the Administrator looking would: a call tomorrow at
  *   3 pm on their own clock, an agreement decided today, invented names, links of the site's or of
  *   example.test, and fake secrets; and no area's file works a date out by adding seconds.
- * - **Built once a request for each language**, and an edit whose subject fills to nothing, as the
- *   mail layer will clean it, is sent with the shipped subject, since the mail layer sends no email
- *   without one.
+ * - **Built once a request for each language**, and an edit whose subject fills to nothing, as
+ *   `sanitize_text_field()` cleans it, is sent with the shipped subject, since the mail layer sends
+ *   no email without one.
  * - **Filling.** A value is never read as a placeholder; an optional sentence with nothing to say
  *   goes, and so does a line left with nothing, the colon line above it and the blank line it leaves
  *   doubled; only a full stop followed by a space ends a sentence; a required placeholder's line
@@ -139,7 +139,9 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-availability.php
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-semester-report-screen.php';
 // And the Institutions' and the Sponsors' examples: an application's confirmation link, an
-// invitation's link and how long it works, a sponsor's dated line, and the sponsor an Offers link names.
+// invitation's link and how long it works, a sponsor's dated line, the sponsor an Offers link names,
+// and the scan's notes in words.
+require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-application.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-invite.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
@@ -163,9 +165,10 @@ class WPCPM_Mentors_Dashboard {
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
-/** As above. */
+/** As above, its page unpublished in a check that says so. */
 class WPCPM_Sponsors_Dashboard {
-	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
+	public static $url = 'https://example.test/sponsor-dashboard/';
+	public static function page_url() { return self::$url; }
 }
 /** As above. */
 class WPCPM_Administrators_Dashboard {
@@ -227,6 +230,7 @@ ck(
 		'institution-information',
 		'institution-declined',
 		'institution-invite',
+		'institution-invite-no-sender',
 		'agreement-received',
 		'agreement-landed',
 		'agreement-landed-flagged',
@@ -419,6 +423,7 @@ $shape = array(
 	'institution-information'       => array( "\r\n", array( 'question' ), array( 'question' ) ),
 	'institution-declined'          => array( "\r\n", array(), array() ),
 	'institution-invite'            => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
+	'institution-invite-no-sender'  => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
 	'agreement-received'            => array( "\r\n", array(), array() ),
 	'agreement-landed'              => array( "\r\n", array(), array() ),
 	'agreement-landed-flagged'      => array( "\r\n", array( 'scan_flags' ), array() ),
@@ -657,6 +662,19 @@ $ph = array(
 
 ck( 'each placeholder is replaced by its value, and a value is never read as a placeholder itself', WPCPM_Mail_Templates::fill( 'Hi {name}, about {topic}.', array( 'name' => '{topic}', 'topic' => 'Blocks' ), $ph ), 'Hi {topic}, about Blocks.' );
 ck( 'a placeholder the email does not have is left as it was written', WPCPM_Mail_Templates::fill( 'Hi {name}, {nmae} and {Name}.', array( 'name' => 'Ada' ), $ph ), 'Hi Ada, {nmae} and {Name}.' );
+// A name or a title as WordPress stores it, "&", "<", ">" and a quote written as entities, is read
+// as a person reads it, in a body and in a subject alike; a value with none is unchanged by it; and
+// each value is read back once and no deeper, so a typed-out `&amp;lt;`, stored as typed, arrives as
+// `&lt;`. A builder hands its values over as stored for that reason.
+ck(
+	'every value is read as a person reads it, once: a name stored with its "&", "<", ">" and quotes as entities arrives as typed, a value with none is unchanged, and a typed-out entity is read back once and no deeper',
+	array(
+		WPCPM_Mail_Templates::fill( 'Hi {name}, about {topic}.', array( 'name' => 'Gus &amp; Gwen &lt;Ops&gt; &quot;G&quot; O&#039;Brien', 'topic' => 'Q&A <3 "both"' ), $ph ),
+		WPCPM_Mail_Templates::fill( '[{name}] {topic}', array( 'name' => 'Arts &amp; Sciences', 'topic' => "Q&amp;A\nnext" ), $ph, "\n", false ),
+		WPCPM_Mail_Templates::fill( 'Write {topic} for bold.', array( 'topic' => '&amp;lt;b&amp;gt;' ), $ph ),
+	),
+	array( 'Hi Gus & Gwen <Ops> "G" O\'Brien, about Q&A <3 "both".', '[Arts & Sciences] Q&A next', 'Write &lt;b&gt; for bold.' )
+);
 ck( 'placeholders_in() reads a word in braces, each once, in order', WPCPM_Mail_Templates::placeholders_in( '{b} {a} {b} {not one} {set_password_link} {x-y}' ), array( 'b', 'a', 'set_password_link', 'x-y' ) );
 ck( 'an optional sentence with nothing to say goes, and the rest of its line stays as it was spaced', WPCPM_Mail_Templates::fill( "You take part.  Questions? Write to {mail}.  Thanks.\n", array(), $ph ), "You take part.  Thanks.\n" );
 ck( 'and with a value it stays', WPCPM_Mail_Templates::fill( 'You take part. Questions? Write to {mail}.', array( 'mail' => 'help@example.test' ), $ph ), 'You take part. Questions? Write to help@example.test.' );
@@ -746,8 +764,39 @@ $edit = WPCPM_Mail_Templates::edit( 'invite-mentor' );
 ck( 'as WordPress\'s cleaner keeps it, with who saved it, when, and the fingerprint of the shipped text it was made from', array( $edit['subject'], $edit['body'], $edit['by'], $edit['at'] >= $before, $edit['shipped'] === md5( $shipped['subject'] . "\n\n" . $shipped['body'] ) ), array( '[{site_name}] Hi &lt;3', "Welcome, mentor.\n\n{set_password_link}\n\nWe &lt;3 our mentors &amp; their students.", 7, true, true ) );
 ck( 'in one option, not loaded on every page', array( array_keys( $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates'] ), $GLOBALS['autoload'][ WPCPM_Mail_Templates::OPTION ] ), array( array( 'invite-mentor' ), false ) );
 ck( 'the fingerprint is built in the site\'s own language, whatever the Administrator reads', $GLOBALS['locales'], array( 'en_US', 'restored' ) );
-ck( 'the email is Edited, and goes out as edited, what was typed read back as typed', array( WPCPM_Mail_Templates::state_label( WPCPM_Mail_Templates::state( 'invite-mentor' ) ), WPCPM_Mail_Templates::render( 'invite-mentor', array( 'site_name' => 'WordPress Credits', 'set_password_link' => 'LINK' ) ) ), array( 'Edited', array( 'subject' => '[WordPress Credits] Hi <3', 'body' => "Welcome, mentor.\r\n\r\nLINK\r\n\r\nWe <3 our mentors & their students." ) ) );
+ck( 'the email is Edited, and goes out as edited, what was typed read back as typed, ending with a line break as its shipped body does', array( WPCPM_Mail_Templates::state_label( WPCPM_Mail_Templates::state( 'invite-mentor' ) ), WPCPM_Mail_Templates::render( 'invite-mentor', array( 'site_name' => 'WordPress Credits', 'set_password_link' => 'LINK' ) ) ), array( 'Edited', array( 'subject' => '[WordPress Credits] Hi <3', 'body' => "Welcome, mentor.\r\n\r\nLINK\r\n\r\nWe <3 our mentors & their students.\r\n" ) ) );
 ck( 'its edit is the mentor invitation\'s alone', WPCPM_Mail_Templates::text_of( 'invite-student' )['subject'], WPCPM_Mail_Templates::get( 'invite-student' )['subject'] );
+ck( 'and sent_as_edited(), which nothing in the plugin asks since 1.122.23, still says which email goes out as edited', array( WPCPM_Mail_Templates::sent_as_edited( 'invite-mentor' ), WPCPM_Mail_Templates::sent_as_edited( 'invite-student' ), WPCPM_Mail_Templates::sent_as_edited( 'call-booked' ) ), array( true, false, false ) );
+
+// An edit saved before 1.122.23 keeps working. One of the low codes, written while `{codes_left}` was
+// a number, still fits and is sent as edited, its count counted words now, as the guide and the
+// changelog say; one of the interest email, written before it had `{site_name}`, still fits, the new
+// placeholder optional. Each says the shipped text has changed since.
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['offer-low-stock']  = array( 'subject' => '[{site_name}] {offer_title}: {codes_left} codes left', 'body' => "Only {codes_left} codes left of {offer_title}.\n\n{offers_link}", 'by' => 7, 'at' => 1, 'shipped' => md5( 'the text 1.122.22 shipped' ) );
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['sponsor-interest'] = array( 'subject' => '[WordPress Credits] {company_name} would like to help', 'body' => "{company_name} said:\n\n{interest}", 'by' => 7, 'at' => 1, 'shipped' => md5( 'the text 1.122.22 shipped' ) );
+ck(
+	'an edit saved before 1.122.23 still fits and is sent as edited: the low codes\' count is counted words now, and the interest email\'s new {site_name} is optional',
+	array(
+		WPCPM_Mail_Templates::state( 'offer-low-stock' )['state'],
+		WPCPM_Mail_Templates::render( 'offer-low-stock', array( 'site_name' => 'WordPress Credits', 'offer_title' => 'Hosting', 'codes_left' => '3 codes', 'low_mark' => '5', 'offers_link' => '' ) ),
+		WPCPM_Mail_Templates::state( 'sponsor-interest' )['state'],
+		WPCPM_Mail_Templates::render( 'sponsor-interest', array( 'site_name' => 'WordPress Credits', 'company_name' => 'Acme', 'interest' => 'A line.' ) )['subject'],
+	),
+	array( 'changed', array( 'subject' => '[WordPress Credits] Hosting: 3 codes codes left', 'body' => 'Only 3 codes codes left of Hosting.' ), 'changed', '[WordPress Credits] Acme would like to help' )
+);
+unset( $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['offer-low-stock'], $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['sponsor-interest'] );
+
+// The low codes' preview leaves the Offers card's line out while the Sponsor Dashboard's page is not
+// published, as the email does, and names the card while it is.
+$with_page = WPCPM_Mail_Templates::render( 'offer-low-stock', WPCPM_Mail_Templates::example_values( 'offer-low-stock' ) )['body'];
+WPCPM_Sponsors_Dashboard::$url = '';
+$no_page = WPCPM_Mail_Templates::render( 'offer-low-stock', WPCPM_Mail_Templates::example_values( 'offer-low-stock' ) )['body'];
+WPCPM_Sponsors_Dashboard::$url = 'https://example.test/sponsor-dashboard/';
+ck(
+	'the low codes\' example names the Offers card while the Sponsor Dashboard is published, and leaves its line out while it is not',
+	array( false !== strpos( $with_page, 'from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_sponsor_view=recEXAMPLE0000001#wpcpm-sponsor-offers' ), false !== strpos( $no_page, 'Offers card' ), false !== strpos( $no_page, 'wpcpm_sponsor_view' ) ),
+	array( true, false, false )
+);
 
 // An update that changes the shipped text an edit was made from: the edit is still sent, and the
 // state says the shipped text has changed since. The stored fingerprint stands in for an older text.
@@ -764,13 +813,14 @@ $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-mentor']['
 $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-mentor']['body']    = "Welcome, mentor.\n\n{set_password_link}";
 ck( 'and so is one whose subject holds the set-password link, so no subject carries the key: the shipped subject is sent', array( WPCPM_Mail_Templates::state_label( WPCPM_Mail_Templates::state( 'invite-mentor' ) ), WPCPM_Mail_Templates::render( 'invite-mentor', array( 'site_name' => 'WordPress Credits', 'set_password_link' => 'LINK' ) )['subject'] ), array( 'Edit set aside: its subject uses {set_password_link}, which goes in the body.', '[WordPress Credits] Your mentor account is ready' ) );
 
-// An edit whose every word is an optional placeholder can fill to nothing, or to a value the mail
-// layer's cleaner removes whole, such as a tag: the mail layer sends no email without a subject, so
-// the shipped subject is sent, filled, and the edit's body.
+// An edit whose every word is an optional placeholder can fill to nothing, or to a value that
+// `sanitize_text_field()` removes whole, such as a tag: the mail layer sends no email without a
+// subject, so the shipped subject is sent, filled, and the edit's body. The plain-text subject a
+// registry email goes out with would keep the tag; the test is the stricter cleaner's (render()).
 $late = array( 'site_name' => 'WordPress Credits', 'call_date' => 'July 15, 2036', 'when' => 'July 15, 2036 9:00 am to 9:30 am' );
 ck( 'an edit whose subject is optional placeholders alone saves', WPCPM_Mail_Templates::save( 'call-cancelled-student', '{canceled_by}', 'The call on {when} is off.', 7 ), true );
 ck(
-	'and while they fill to nothing, the email goes out with the shipped subject and the edit\'s body, and so when they fill to a tag the mail layer would remove; with a value, with the edit\'s subject',
+	'and while they fill to nothing, the email goes out with the shipped subject and the edit\'s body, and so when they fill to a tag alone; with a value, with the edit\'s subject',
 	array( WPCPM_Mail_Templates::render( 'call-cancelled-student', $late ), WPCPM_Mail_Templates::render( 'call-cancelled-student', $late + array( 'canceled_by' => 'Ben Lindqvist' ) )['subject'], WPCPM_Mail_Templates::render( 'call-cancelled-student', $late + array( 'canceled_by' => '<b></b>' ) )['subject'] ),
 	array( array( 'subject' => '[WordPress Credits] Call on July 15, 2036 canceled', 'body' => 'The call on July 15, 2036 9:00 am to 9:30 am is off.' ), 'Ben Lindqvist', '[WordPress Credits] Call on July 15, 2036 canceled' )
 );
@@ -782,6 +832,52 @@ ck( 'and there is nothing to restore a second time', WPCPM_Mail_Templates::resto
 ck( 'a typing that reads as the shipped text stores nothing, so the email goes on translating', array( save_mentor( $shipped['subject'], str_replace( "\n", "\r\n", $shipped['body'] ) ), WPCPM_Mail_Templates::edit( 'invite-mentor' ) ), array( true, null ) );
 $unheld = WPCPM_Mail_Templates::save( 'call-booked', 'Hi', 'Body', 7 );
 ck( 'an email the registry does not hold is refused with its own sentence', is_wp_error( $unheld ) ? $unheld->get_error_message() : $unheld, 'Nothing was saved: the site has no such email.' );
+
+// An edit keeps the shipped body's ending. A Semester reports email whose shipped body ends with a
+// line break, and so ends, its signature and footer included, with one, ends so edited too: the
+// cleaner a save goes through lets go of the white space at either end, so the edit is stored
+// without it, as the editor's box draws it, and until 1.122.23 it was sent without it too. A body
+// whose shipped text has no line break at its end is sent as typed.
+$reader = new WP_User( 1, 'Ida Admin', 'ida@example.test', array( 'administrator' ) );
+$ending = function () use ( $reader ) {
+	$GLOBALS['mail'] = array();
+	WPCPM_Mail::send(
+		$reader,
+		'report-drafted',
+		function () {
+			return WPCPM_Mail_Templates::mail( 'report-drafted', WPCPM_Mail_Templates::example_values( 'report-drafted' ) );
+		}
+	);
+
+	return $GLOBALS['mail'][0]['body'] ?? null;
+};
+$report_shipped = $ending();
+$drafted        = WPCPM_Mail_Templates::get( 'report-drafted' );
+WPCPM_Mail_Templates::save( 'report-drafted', $drafted['subject'], str_replace( "\n", "\r\n", "A line the Administrators added.\n\n" . $drafted['body'] ), 7 );
+$as_edited = $ending();
+$stored    = WPCPM_Mail_Templates::edit( 'report-drafted' )['body'];
+WPCPM_Mail_Templates::restore( 'report-drafted' );
+WPCPM_Mail_Templates::save( 'call-cancelled-student', '{canceled_by}', "The call on {when} is off.\r\n", 7 );
+$no_ending = WPCPM_Mail_Templates::render( 'call-cancelled-student', array( 'when' => 'July 15, 2036 9:00 am to 9:30 am' ) )['body'];
+WPCPM_Mail_Templates::restore( 'call-cancelled-student' );
+ck(
+	'an edit keeps the shipped body\'s ending: an edited Semester reports email ends, as it does shipped, with its footer and a line break, its edit stored as the cleaner keeps it; and an email whose shipped body has no line break at its end is sent as typed',
+	array( substr( (string) $report_shipped, -1 ), $as_edited, substr( $stored, -1 ), $no_ending ),
+	array( "\n", "A line the Administrators added.\n\n" . $report_shipped, '}', 'The call on July 15, 2036 9:00 am to 9:30 am is off.' )
+);
+// An edit that already ends with a line break, as one written into the option by other code can, a
+// save's cleaner never keeping one, is not given a second: its email ends as the shipped one does.
+$raw_endings = array();
+foreach ( array( "\n", "\r\n" ) as $kept_ending ) {
+	$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['report-drafted'] = array( 'subject' => $drafted['subject'], 'body' => str_replace( "\n", $kept_ending, "A line the Administrators added.\n\n" . $drafted['body'] ), 'by' => 7, 'at' => 1, 'shipped' => md5( 'the text an earlier release shipped' ) );
+	$raw_endings[] = $ending();
+}
+unset( $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['report-drafted'] );
+ck(
+	'and an edit stored with its line break at the end, LF or CRLF, keeps the one: its email ends as the shipped one, never with two',
+	$raw_endings,
+	array( "A line the Administrators added.\n\n" . $report_shipped, "A line the Administrators added.\n\n" . $report_shipped )
+);
 
 echo "\n=== The signature and footer ===\n";
 
@@ -904,12 +1000,14 @@ function reach( $class, $method ) {
 // An Administrator's edit goes out as they typed it: a "<" or an "&" in its subject reaches every
 // recipient as a character, as the preview and Send me a test show it, never as an entity, and the
 // values around it arrive exactly as the email sent as shipped carries them, a name WordPress stores
-// with an entity in it included. The edit puts its typing before the shipped subject, so every value
-// follows a "<". One email of each kind of sender, each through its own builder and the real mail
-// layer: the Institutions' and the Sponsors' `mail()`, the Mentor calls' `mail_of()`, the Semester
-// reports' `rendered()`; each sent as shipped, then edited, then restored. The builder hands over no
-// mark of its own: the mail layer reads whether the email goes out as edited, once, for all of them,
-// and the `wpcpm_mail` filter is handed the subject marked plain text.
+// with an entity in it read as a person reads it, as every value is since 1.122.23. The edit puts
+// its typing before the shipped subject, so every value follows a "<". One email of each kind of
+// sender, each through its own builder and the real mail layer: the Institutions' and the Sponsors'
+// `mail()`, the Mentor calls' `mail_of()`, the Semester reports' `rendered()`; each sent as shipped,
+// then edited, then restored. The builder hands over no mark of its own: the mail layer marks the
+// subject of every email the registry fills plain text, shipped or edited (since 1.122.23; an
+// edited one since 1.122.22), once, for all of them, and the `wpcpm_mail` filter is handed the
+// mark.
 $typed    = 'Codes < 5 & we <3 you: ';
 $site     = 'Credits & Co';
 $builders = array(
@@ -927,10 +1025,10 @@ $builders = array(
 	},
 );
 $as_shipped = array(
-	'institution-application'    => '[Credits & Co] New institution application from Arts &amp; Sciences "North"',
-	'sponsor-agreement-received' => '[Credits & Co] Example Hosting &amp; "Partners" uploaded a signed Collaboration Agreement',
-	'call-booked-student'        => '[Credits & Co] Your call with Seán O\'Example &amp; Ana is booked',
-	'report-drafted'             => 'Semester report drafted: Example College &amp; "Arts"',
+	'institution-application'    => '[Credits & Co] New institution application from Arts & Sciences "North"',
+	'sponsor-agreement-received' => '[Credits & Co] Example Hosting & "Partners" uploaded a signed Collaboration Agreement',
+	'call-booked-student'        => '[Credits & Co] Your call with Seán O\'Example & Ana is booked',
+	'report-drafted'             => 'Semester report drafted: Example College & "Arts"',
 );
 /** The subject an email's real send hands `wp_mail()`, and whether the filter was handed it marked plain text. */
 $sent_subject = function ( $id ) use ( $admin, &$builders ) {
@@ -957,17 +1055,17 @@ foreach ( $builders as $id => $build ) {
 		'restored' => $sent_subject( $id ),
 	);
 	$wanted_sends[ $id ] = array(
-		'shipped'  => array( $as_shipped[ $id ], false ),
+		'shipped'  => array( $as_shipped[ $id ], true ),
 		'saved'    => true,
 		'edited'   => array( $typed . $as_shipped[ $id ], true ),
 		'builder'  => array( $typed . $as_shipped[ $id ], false ),
-		'restored' => array( $as_shipped[ $id ], false ),
+		'restored' => array( $as_shipped[ $id ], true ),
 	);
 }
 ck( 'an edited subject reaches every recipient as the Administrator typed it, "<" and "&" as characters, with each value as the email sent as shipped carries it, for an email of the Institutions, the Sponsors, the Mentor calls and the Semester reports alike; the builder hands over no mark, the mail layer marks it, the filter sees the mark, and the email restored goes out as shipped again', $edited_sends, $wanted_sends );
 
-// An edit set aside sends the shipped text, and its subject is cleaned as a shipped one is: a value
-// holding a "<" goes out as it always did. Only the edit an email is sent with is plain text.
+// An edit set aside sends the shipped text, its subject plain text as every email the registry fills
+// is since 1.122.23: a value holding a "<" keeps it, where 1.122.22 sent `&lt;`.
 $builders['institution-application'] = function () use ( $site ) {
 	return WPCPM_Mail_Templates::mail( 'institution-application', array( 'site_name' => $site, 'institution_name' => 'Arts <3 Sciences' ) + WPCPM_Mail_Templates::example_values( 'institution-application' ) );
 };
@@ -982,11 +1080,40 @@ $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['institution-appli
 	'shipped' => WPCPM_Mail_Templates::shipped_fingerprint( 'institution-application' ),
 );
 ck(
-	'an edit set aside goes out as shipped, its subject cleaned as a shipped one is, a value holding a "<" included',
+	'an edit set aside goes out as shipped, its subject plain text as a shipped one is, a value holding a "<" keeping it',
 	array( WPCPM_Mail_Templates::state( 'institution-application' )['state'], $sent_subject( 'institution-application' ), $shipped_lt ),
-	array( 'set-aside', array( '[Credits & Co] New institution application from Arts &lt;3 Sciences', false ), array( '[Credits & Co] New institution application from Arts &lt;3 Sciences', false ) )
+	array( 'set-aside', array( '[Credits & Co] New institution application from Arts <3 Sciences', true ), array( '[Credits & Co] New institution application from Arts <3 Sciences', true ) )
 );
 WPCPM_Mail_Templates::restore( 'institution-application' );
+
+// A plain subject is still one line, and no header can be added through it: a value or a builder's
+// subject holding a line break and a header of its own reaches `wp_mail()` as one line, its "<" kept,
+// and the headers the builder handed over are the only ones; an email the registry does not hold
+// is cleaned as it always was.
+$builders['institution-application'] = function () use ( $site ) {
+	return WPCPM_Mail_Templates::mail( 'institution-application', array( 'site_name' => $site, 'institution_name' => "Arts <3\r\nBcc: someone@example.test\nX-Extra: 1" ) + WPCPM_Mail_Templates::example_values( 'institution-application' ) );
+};
+$builders['claim-problem'] = function () {
+	return array( 'subject' => "Typed <3\r\nBcc: someone@example.test", 'body' => 'x', 'headers' => array( 'Reply-To: person@example.test' ) );
+};
+$builders['call-booked'] = function () {
+	return array( 'subject' => "Old <b>tag</b> & id\r\nBcc: someone@example.test", 'body' => 'x' );
+};
+$lines = array();
+foreach ( array( 'institution-application', 'claim-problem', 'call-booked' ) as $id ) {
+	$GLOBALS['mail'] = array();
+	WPCPM_Mail::send( $admin, $id, $builders[ $id ] );
+	$lines[ $id ] = array( $GLOBALS['mail'][0]['subject'] ?? null, $GLOBALS['mail'][0]['headers'] ?? null );
+}
+ck(
+	'a plain subject is one line, its "<" kept, and adds no header: a value and a builder\'s subject with a line break and a header in them arrive as one line, and the only headers are the builder\'s; a retired id is cleaned as before',
+	$lines,
+	array(
+		'institution-application' => array( '[Credits & Co] New institution application from Arts <3 Bcc: someone@example.test X-Extra: 1', array() ),
+		'claim-problem'           => array( 'Typed <3 Bcc: someone@example.test', array( 'Reply-To: person@example.test' ) ),
+		'call-booked'             => array( 'Old tag & id Bcc: someone@example.test', array() ),
+	)
+);
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

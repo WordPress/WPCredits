@@ -252,9 +252,9 @@ final class WPCPM_Sponsor_Claims {
 
 		$last = mb_substr( self::code_for( $user->ID, $offer ), -4 );
 		// A mail is plain text: the title as WordPress stored it is read back to what the sponsor
-		// typed, and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in
-		// it as they are.
-		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
+		// typed, once, as every value is (`WPCPM_Mail_Templates::fill()`), and the subject is marked
+		// plain text, so the mail layer keeps a "<" and an "&" in it as they are.
+		$title = (string) $offer['title'];
 		$build = static function () use ( $user, $title, $last ) {
 			return WPCPM_Mail_Templates::mail(
 				self::MAIL_PROBLEM,
@@ -534,6 +534,19 @@ final class WPCPM_Sponsor_Claims {
 	}
 
 	/**
+	 * A number as the recipient's language writes it, for a plain-text email. WordPress writes a
+	 * thousands separator that is a space, as Polish, French and Swedish have it, as `&nbsp;`, an
+	 * entity a plain-text email would print as six characters ("1&nbsp;000"): it is a no-break space
+	 * here, the character it stands for.
+	 *
+	 * @param int $count The number.
+	 * @return string
+	 */
+	private static function number( $count ) {
+		return str_replace( '&nbsp;', "\u{00A0}", number_format_i18n( (int) $count ) );
+	}
+
+	/**
 	 * After a claim from a pool: below the threshold, one mail to the sponsor's accounts and
 	 * one to the assigned manager, once per crossing (spec 6.6). Adding codes re-arms it.
 	 *
@@ -553,20 +566,29 @@ final class WPCPM_Sponsor_Claims {
 
 		$available = (int) $counts['available'];
 		// The same address for everyone: a member's page ignores the switcher argument, and
-		// a manager's needs it to land on this sponsor.
-		$link  = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $offer['sponsor'], WPCPM_Sponsors_Dashboard::page_url() ) . '#wpcpm-sponsor-offers';
-		$title = WPCPM_Typed_Text::mail_text( $offer['title'] );
+		// a manager's needs it to land on this sponsor. With the Sponsor Dashboard's page not
+		// published there is no card to open, so the line naming it is left out rather than
+		// sent as a bare query string (since 1.122.23).
+		$page  = (string) WPCPM_Sponsors_Dashboard::page_url();
+		$link  = '' === $page ? '' : add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $offer['sponsor'], $page ) . '#wpcpm-sponsor-offers';
+		$title = (string) $offer['title'];
 		$build = static function () use ( $offer, $title, $available, $link ) {
 			return WPCPM_Mail_Templates::mail(
 				self::MAIL_LOW_STOCK,
 				array(
 					'site_name'   => WPCPM_Mail::site_name(),
 					'offer_title' => $title,
-					'codes_left'  => (string) (int) $available,
-					'low_mark'    => (string) (int) $offer['low'],
+					// Counted in the recipient's language, so one code reads "1 code left".
+					'codes_left'  => sprintf(
+						/* translators: %s: how many codes an offer has left. */
+						_n( '%s code', '%s codes', $available, 'wpcredits-program-manager' ),
+						self::number( $available )
+					),
+					// Written as the count beside it is, so a mark past a thousand reads alike.
+					'low_mark'    => self::number( (int) $offer['low'] ),
 					'offers_link' => $link,
 				),
-				// The title read back as in report_problem(), so the subject is plain text.
+				// The title read back once, as in report_problem(), so the subject is plain text.
 				array( 'plain_subject' => true )
 			);
 		};

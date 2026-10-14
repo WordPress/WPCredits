@@ -142,6 +142,8 @@ function wp_register_script( $handle, $src, $deps = array(), $ver = false, $foot
 }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonces'][] = $a; return true; }
 require_once __DIR__ . '/stubs/caps.php';
+// The template registry reads every value back as a person reads it (`wp_specialchars_decode()`).
+require_once __DIR__ . '/stubs/specialchars.php';
 function is_user_logged_in() { return (bool) $GLOBALS['logged_in']; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }

@@ -209,6 +209,10 @@ function get_posts( array $args ) {
 	return $out;
 }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['hooks'][] = $h; }
+// The PDF check sets the allowed types for its one question and takes the filter off after
+// (`WPCPM_Pdf_Check::named_pdf()`); this suite's map asks no allowed types, so neither keeps one.
+function add_filter( $h, $c, $p = 10, $n = 1 ) { return true; }
+function remove_filter( $h, $c, $p = 10 ) { return true; }
 function wp_mail( $to, $subject, $body, $headers = array() ) { $GLOBALS['mailed_raw'][] = array( $to, $subject, $body ); return true; }
 function nocache_headers() {}
 function wp_safe_redirect( $u ) { throw new WPCPM_Test_Redirect( $u ); }

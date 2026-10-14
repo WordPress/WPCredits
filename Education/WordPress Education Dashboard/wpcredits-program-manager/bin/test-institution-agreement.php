@@ -139,6 +139,10 @@ function esc_url_raw( $u, $p = null ) { return (string) $u; }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( $u ) : parse_url( $u, $c ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function add_action( $h, $c, $p = 10, $a = 1 ) {}
+// The PDF check sets the allowed types for its one question and takes the filter off after
+// (`WPCPM_Pdf_Check::named_pdf()`); this suite's map asks no allowed types, so neither keeps one.
+function add_filter( $h, $c, $p = 10, $n = 1 ) { return true; }
+function remove_filter( $h, $c, $p = 10 ) { return true; }
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
 
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }

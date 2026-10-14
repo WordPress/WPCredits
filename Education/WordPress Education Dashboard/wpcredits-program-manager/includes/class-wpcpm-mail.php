@@ -264,11 +264,13 @@ class WPCPM_Mail {
 			)
 		);
 
-		// An email an Administrator edited goes out with its subject as they typed it, a "<" or an
-		// "&" in it a character, as its preview and its test show it: the subject is plain text.
-		// Decided here, once for every sender, from whether the email is sent as edited; its values
-		// are filled as for the email sent as shipped, which is cleaned as it always was.
-		if ( empty( $mail['plain_subject'] ) && class_exists( 'WPCPM_Mail_Templates' ) && WPCPM_Mail_Templates::sent_as_edited( $context ) ) {
+		// Every email the template registry fills goes out with a plain-text subject, a "<" or an "&"
+		// in it a character, as its preview and its test show it: its words are the shipped text's or
+		// an Administrator's, and its values are read back as a person reads them
+		// (`WPCPM_Mail_Templates::fill()`), so the cleaner would otherwise write a "<" in a name as
+		// `&lt;`, with every "&" and quote after it, and take out a run it reads as a tag. Decided
+		// here, once for every sender (since 1.122.23; an email sent as edited, since 1.122.22).
+		if ( empty( $mail['plain_subject'] ) && class_exists( 'WPCPM_Mail_Templates' ) && null !== WPCPM_Mail_Templates::get( $context ) ) {
 			$mail['plain_subject'] = true;
 		}
 
@@ -335,8 +337,8 @@ class WPCPM_Mail {
 	 * "<" or the end, it writes as `&lt;` and keeps, with the quote marks and the ampersands after
 	 * it as entities. A builder whose subject carries what a person typed, its entities read back
 	 * (`WPCPM_Typed_Text::mail_text()`), says the subject is plain text (`plain_subject`): "We <3
-	 * our team > all" would otherwise go out as "We all". So is the subject of an email sent as
-	 * an Administrator edited it, which `hand_off()` marks itself. Such a subject goes through the
+	 * our team > all" would otherwise go out as "We all". So is the subject of every email the
+	 * template registry fills, which `hand_off()` marks itself. Such a subject goes through the
 	 * cleaner with each "&" and "<" held as an entity, so it finds no tag, and the two are read
 	 * back after, once and no deeper: a typed-out `&lt;` goes out as typed. The cleaner reads no
 	 * markup without a "<", so the line is cleaned as every other subject is, and the "<" is kept
@@ -364,6 +366,20 @@ class WPCPM_Mail {
 	/**
 	 * A `Reply-To` header pointing at the other person in a conversation.
 	 *
+	 * The name is the account's as a person reads it: WordPress stores a display name with "&",
+	 * "<" and ">" written as entities, which the header would otherwise carry as `&amp;`. A name is
+	 * user data and this is a header, so each run of white space in it, a line break among them,
+	 * is one space, and a control character in it is dropped. The name goes as it is, in no quotes:
+	 * `wp_mail()` hands the mailer what stands before the address as the name, quote marks
+	 * included, and the mailer quotes, escapes and encodes a name itself, so a name the plugin put
+	 * in quotes arrived with them, as `"Ida Admin"` (until 1.122.23). Only a comma, which
+	 * `wp_mail()` reads as the end of one address in a Reply-To, and a "=?", which a mail program
+	 * would read as the start of an encoded word the name never held, make the name go as encoded
+	 * words (RFC 2047), which keep every character and which `wp_mail()` and the mailer pass as
+	 * they are (`encoded_words()`); those words end where the line would pass the 998 characters a
+	 * header line holds. Until 1.122.23 a comma, a double quote, a backslash and a semicolon were
+	 * each written as a space, and an "&" a name was stored with lost its ";".
+	 *
 	 * @param WP_User|null $person Who the recipient would be replying to.
 	 * @return array Headers array, empty when there is nobody to reply to.
 	 */
@@ -372,25 +388,86 @@ class WPCPM_Mail {
 			return array();
 		}
 
-		// The display name is quoted and stripped of the characters that would end the quoted
-		// string early - a name is user data and this is a header.
-		$name = str_replace( array( '"', '\\', "\r", "\n", ',', ';' ), ' ', (string) $person->display_name );
-		$name = trim( preg_replace( '/\s+/', ' ', $name ) );
+		$name = wp_specialchars_decode( (string) $person->display_name, ENT_QUOTES );
+		$name = trim( (string) preg_replace( '/\s+/', ' ', (string) preg_replace( '/[\x00-\x08\x0E-\x1F\x7F]+/', '', $name ) ) );
 
-		return array(
-			'' === $name
-				? sprintf( 'Reply-To: %s', $person->user_email )
-				: sprintf( 'Reply-To: "%1$s" <%2$s>', $name, $person->user_email ),
-		);
+		if ( '' === $name ) {
+			return array( sprintf( 'Reply-To: %s', $person->user_email ) );
+		}
+
+		if ( false === strpos( $name, ',' ) && false === strpos( $name, '=?' ) ) {
+			return array( sprintf( 'Reply-To: %1$s <%2$s>', $name, $person->user_email ) );
+		}
+
+		// What the line holds beside the words: "Reply-To: ", and " <", the address and ">".
+		$words = self::encoded_words( $name, 998 - strlen( 'Reply-To:  <>' ) - strlen( (string) $person->user_email ) );
+
+		if ( '' === $words ) {
+			return array( sprintf( 'Reply-To: %s', $person->user_email ) );
+		}
+
+		return array( sprintf( 'Reply-To: %1$s <%2$s>', $words, $person->user_email ) );
 	}
 
 	/**
-	 * The site's name, decoded for use in a subject line.
+	 * A name as encoded words (RFC 2047): its UTF-8 bytes in base64, as many words as it takes for
+	 * none to be longer than the 75 characters the standard allows, each word ending on a whole
+	 * character, a space between two words, which a mail program reading them leaves out. The words
+	 * stop before the first that would take them past `$room` characters, so a name too long for
+	 * one header line is cut there, on a whole character.
+	 *
+	 * @param string $name The name, one line.
+	 * @param int    $room How many characters the words may take, the spaces between them included.
+	 * @return string
+	 */
+	private static function encoded_words( $name, $room ) {
+		$characters = preg_split( '//u', (string) $name, -1, PREG_SPLIT_NO_EMPTY );
+
+		// A name that is not UTF-8 is cut by bytes: its words read back to the same bytes.
+		if ( false === $characters ) {
+			$characters = str_split( (string) $name );
+		}
+
+		$words = array( '' );
+
+		foreach ( $characters as $character ) {
+			// 45 bytes are 60 characters of base64, and with "=?UTF-8?B?" and "?=" a word of 72.
+			if ( strlen( end( $words ) . $character ) > 45 ) {
+				$words[] = '';
+			}
+
+			$words[ count( $words ) - 1 ] .= $character;
+		}
+
+		$line = '';
+
+		foreach ( $words as $word ) {
+			// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- RFC 2047's B encoding of a name in a header, which a mail program reads back; no code.
+			$encoded = '=?UTF-8?B?' . base64_encode( $word ) . '?=';
+			$longer  = '' === $line ? $encoded : $line . ' ' . $encoded;
+
+			if ( strlen( $longer ) > $room ) {
+				break;
+			}
+
+			$line = $longer;
+		}
+
+		return $line;
+	}
+
+	/**
+	 * The site's name as WordPress stores it, its "&", "<" and quote marks written as entities: the
+	 * value an email's `{site_name}` is handed, which `WPCPM_Mail_Templates::fill()` reads back to
+	 * the name as typed, as it reads every value, once. Text the plugin writes itself, outside a
+	 * template, reads it back with `wp_specialchars_decode()`. Until 1.122.23 it gave the name read
+	 * back; since `fill()` reads every value back, that would read it twice, and a name typed with
+	 * an entity in it would lose it.
 	 *
 	 * @return string
 	 */
 	public static function site_name() {
-		return wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		return (string) get_bloginfo( 'name' );
 	}
 
 	/*
@@ -1278,7 +1355,9 @@ class WPCPM_Mail {
 		$mail = WPCPM_Mail_Templates::render(
 			$id,
 			array(
-				'site_name'         => wp_specialchars_decode( (string) $blogname, ENT_QUOTES ),
+				// As core hands it over, read back from what WordPress stores, and read as every value
+				// is by `fill()`; until 1.122.23 the plugin read it back here, as `fill()` did not.
+				'site_name'         => (string) $blogname,
 				'set_password_link' => $body,
 				// The site's language is English, and so is the line core prints, "Username: ...".
 				'username'          => preg_match( '/^Username: /m', $body ) ? '' : $user->user_login,

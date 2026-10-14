@@ -2455,9 +2455,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			esc_html(
 				$flags
 					? sprintf(
-						/* translators: %s: a comma-separated list of PDF feature names. */
+						/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
 						__( 'The scan noticed these in the file: %s.', 'wpcredits-program-manager' ),
-						implode( ', ', $flags )
+						WPCPM_Pdf_Check::in_words( $flags )
 					)
 					: __( 'The scan noticed none of the features it looks for in the file.', 'wpcredits-program-manager' )
 			)

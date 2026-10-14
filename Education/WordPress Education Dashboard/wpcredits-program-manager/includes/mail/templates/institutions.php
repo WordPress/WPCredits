@@ -15,6 +15,14 @@
  * scan's notes and without them, and the revocation with a country contact named and without one.
  * The agreement put back in force, which was sent under the acceptance's id, has an id of its own.
  *
+ * Since 1.122.23 the invitation is two as well: an invitation with nobody to name as its sender,
+ * the inviter's account gone or holding no name, opened " has invited you"; it says who is invited
+ * to what in a sentence of its own. Either invitation promises a reply only while it carries an
+ * address to reply to (`{replies_reach}`), where both promised one always. And a returned or
+ * revoked agreement whose Administrator's account holds no name says "by an Administrator", worded
+ * where it is sent. The notice of an upload with the courtesy scan's notes says what the scan
+ * noticed in words, each with the PDF's own name for it in brackets.
+ *
  * Every body is joined with the line ending the code wrote, "\r\n", and every date is the site's.
  *
  * @package WPCreditsProgramManager
@@ -111,6 +119,12 @@ $wpcpm_placeholders = static function () {
 			'means'   => __( 'Who sent the invitation: a member of the institution or an Administrator.', 'wpcredits-program-manager' ),
 			'example' => 'Ada Okonjo',
 		),
+		'replies_reach'      => array(
+			'means'   => __( 'Who a reply reaches, "the person who sent it", while the invitation carries the inviter\'s address to reply to. Empty leaves its sentence out.', 'wpcredits-program-manager' ),
+			'example' => static function () {
+				return __( 'the person who sent it', 'wpcredits-program-manager' );
+			},
+		),
 		'accept_link'        => array(
 			'means'     => __( 'The link that accepts the invitation. It carries a secret, so the email needs it, in its body.', 'wpcredits-program-manager' ),
 			'example'   => static function () {
@@ -145,8 +159,11 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'scan_flags'         => array(
-			'means'   => __( 'What the courtesy scan noticed in the file, which this email is sent only with.', 'wpcredits-program-manager' ),
-			'example' => 'JavaScript, OpenAction',
+			'means'   => __( 'What the courtesy scan noticed in the file, in words, each with the PDF\'s own name for it in brackets, which this email is sent only with.', 'wpcredits-program-manager' ),
+			// In the words the email gives them, in the language of the Administrator looking.
+			'example' => static function () {
+				return WPCPM_Pdf_Check::in_words( array( '/JavaScript', '/OpenAction' ) );
+			},
 		),
 		'accepted_on'        => array(
 			'means'   => __( 'The day the Collaboration Agreement was accepted.', 'wpcredits-program-manager' ),
@@ -173,7 +190,7 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'administrator_name' => array(
-			'means'   => __( 'The Administrator who did it.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The Administrator who did it, or "an Administrator" when their account holds no name.', 'wpcredits-program-manager' ),
 			'example' => 'Cleo Marsh',
 		),
 		'note'               => array(
@@ -344,6 +361,49 @@ $wpcpm_applied_subject = sprintf(
 	'{reference}'
 );
 
+// A colleague's invitation, with its inviter named or with nobody to name (since 1.122.23): the
+// opening sentence is the inviter's, and in both the promise of a reply is a value, empty when the
+// invitation carries no address to reply to, which leaves its sentence out.
+$wpcpm_invite = static function ( $named ) use ( $wpcpm_body ) {
+	return $wpcpm_body(
+		array(
+			$named
+				? sprintf(
+					/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name. */
+					__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on %3$s.', 'wpcredits-program-manager' ),
+					'{inviter_name}',
+					'{institution_name}',
+					'{site_name}'
+				)
+				: sprintf(
+					/* translators: 1: the institution's name, 2: the site's name. The opening of an invitation that has nobody to name as its sender. */
+					__( 'You have been invited to see %1$s\'s students in the WordPress Credits Program on %2$s.', 'wpcredits-program-manager' ),
+					'{institution_name}',
+					'{site_name}'
+				),
+			__( 'Open this link, and press Accept on the page it opens:', 'wpcredits-program-manager' ),
+			'{accept_link}',
+			sprintf(
+				/* translators: %s: the date the invitation stops working. */
+				__( 'The link works until %s and can only be used once. If you do not have an account here yet, one is made for you and you get a second email with a link to set your password.', 'wpcredits-program-manager' ),
+				'{expiry_date}'
+			),
+			sprintf(
+				/* translators: %s: who a reply reaches, "the person who sent it"; the sentence is left out when nobody can be reached. */
+				__( 'If you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches %s.', 'wpcredits-program-manager' ),
+				'{replies_reach}'
+			),
+		)
+	);
+};
+
+$wpcpm_invite_subject = sprintf(
+	/* translators: 1: site name, 2: the institution's name. */
+	__( '[%1$s] An invitation to %2$s', 'wpcredits-program-manager' ),
+	'{site_name}',
+	'{institution_name}'
+);
+
 // The notice of an upload, with what the courtesy scan noticed or with nothing noticed.
 $wpcpm_landed = static function ( $flagged ) use ( $wpcpm_body ) {
 	return $wpcpm_body(
@@ -357,7 +417,7 @@ $wpcpm_landed = static function ( $flagged ) use ( $wpcpm_body ) {
 			),
 			$flagged
 				? sprintf(
-					/* translators: %s: comma-separated list of PDF feature names. */
+					/* translators: %s: what the courtesy scan noticed in the PDF, in words, comma-separated, each with the PDF's own name for it in brackets, such as "an action that runs when the file is opened (/OpenAction)". */
 					__( 'The courtesy scan noticed: %s. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.', 'wpcredits-program-manager' ),
 					'{scan_flags}'
 				)
@@ -486,34 +546,18 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name' ), array() ),
 	),
 	'institution-invite'           => array(
-		'trigger'      => __( 'When a member of an institution, or an Administrator acting for it, invites a colleague to its account: to the colleague\'s address, with the inviter\'s address to reply to.', 'wpcredits-program-manager' ),
-		'subject'      => sprintf(
-			/* translators: 1: site name, 2: the institution's name. */
-			__( '[%1$s] An invitation to %2$s', 'wpcredits-program-manager' ),
-			'{site_name}',
-			'{institution_name}'
-		),
-		'body'         => $wpcpm_body(
-			array(
-				sprintf(
-					/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name. */
-					__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on %3$s.', 'wpcredits-program-manager' ),
-					'{inviter_name}',
-					'{institution_name}',
-					'{site_name}'
-				),
-				__( 'Open this link, and press Accept on the page it opens:', 'wpcredits-program-manager' ),
-				'{accept_link}',
-				sprintf(
-					/* translators: %s: the date the invitation stops working. */
-					__( 'The link works until %s and can only be used once. If you do not have an account here yet, one is made for you and you get a second email with a link to set your password.', 'wpcredits-program-manager' ),
-					'{expiry_date}'
-				),
-				__( 'If you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches the person who sent it.', 'wpcredits-program-manager' ),
-			)
-		),
+		'trigger'      => __( 'When a member of an institution, or an Administrator acting for it, invites a colleague to its account: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
+		'subject'      => $wpcpm_invite_subject,
+		'body'         => $wpcpm_invite( true ),
 		'eol'          => "\r\n",
-		'placeholders' => $wpcpm_take( array( 'site_name', 'inviter_name', 'institution_name', 'accept_link', 'expiry_date' ), array( 'accept_link' ) ),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'inviter_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
+	),
+	'institution-invite-no-sender' => array(
+		'trigger'      => __( 'When a colleague is invited to an institution\'s account and the invitation has nobody to name as its sender, the inviter\'s account being gone or holding no name: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
+		'subject'      => $wpcpm_invite_subject,
+		'body'         => $wpcpm_invite( false ),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
 	),
 	'agreement-received'           => array(
 		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement: to every member of the institution.', 'wpcredits-program-manager' ),

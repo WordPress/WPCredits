@@ -148,6 +148,8 @@ function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) {}
 function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 require_once __DIR__ . '/stubs/caps.php';
+// The template registry reads every value back as a person reads it (`wp_specialchars_decode()`).
+require_once __DIR__ . '/stubs/specialchars.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }

@@ -3769,7 +3769,8 @@ class WPCPM_Institution_Agreement {
 					'institution_name' => $facts['institution_name'],
 					'uploaded_on'      => $facts['uploaded_at'],
 					'uploaded_by'      => '' === $facts['uploaded_by'] ? $facts['institution'] : $facts['uploaded_by'],
-					'scan_flags'       => implode( ', ', $facts['flags'] ),
+					// What the scan noticed, in words, in the Administrator's language (since 1.122.23).
+					'scan_flags'       => WPCPM_Pdf_Check::in_words( $facts['flags'] ),
 					'queue_link'       => $queue,
 				)
 			);
@@ -3821,8 +3822,9 @@ class WPCPM_Institution_Agreement {
 	 * its agreement came back learns nothing, and the person who can answer the question it
 	 * will ask is the one who sent it.
 	 *
-	 * A mail is plain text, so the note is read back to what was typed (`mail_text()`): a "<" the
-	 * cleaner wrote as `&lt;` arrives as "<", and a quote mark or an ampersand after it as itself.
+	 * A mail is plain text, so the note is read back to what was typed: a "<" the cleaner wrote as
+	 * `&lt;` arrives as "<", and a quote mark or an ampersand after it as itself. It is handed over
+	 * as the cleaner left it, and read back once, as every value is (`WPCPM_Mail_Templates::fill()`).
 	 * The subject carries no typed text.
 	 *
 	 * @param string $record  Institutions record ID.
@@ -3837,7 +3839,6 @@ class WPCPM_Institution_Agreement {
 			return 0;
 		}
 
-		$note    = WPCPM_Typed_Text::mail_text( $note );
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
@@ -3850,7 +3851,10 @@ class WPCPM_Institution_Agreement {
 				array(
 					'site_name'          => $site,
 					'returned_on'        => $when,
-					'administrator_name' => $named,
+					// The Administrator by name, or, for an account that holds none, in the
+					// member's language, as the sponsor's returned agreement says it.
+					/* translators: who sent a Collaboration Agreement back or revoked it, when the Administrator's account holds no name: "... by an Administrator, with this note:". */
+					'administrator_name' => '' === trim( $named ) ? __( 'an Administrator', 'wpcredits-program-manager' ) : $named,
 					'note'               => $note,
 				),
 				array( 'headers' => $headers )
@@ -3884,7 +3888,6 @@ class WPCPM_Institution_Agreement {
 			return 0;
 		}
 
-		$note    = WPCPM_Typed_Text::mail_text( $note );
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
@@ -3900,7 +3903,8 @@ class WPCPM_Institution_Agreement {
 				array(
 					'site_name'          => $site,
 					'revoked_on'         => $when,
-					'administrator_name' => $named,
+					/* translators: who sent a Collaboration Agreement back or revoked it, when the Administrator's account holds no name: "... by an Administrator, with this note:". */
+					'administrator_name' => '' === trim( $named ) ? __( 'an Administrator', 'wpcredits-program-manager' ) : $named,
 					'note'               => $note,
 					'country'            => null === $contact ? '' : WPCPM_Countries::name_of( $contact['country'] ),
 					'country_contact'    => null === $contact ? '' : $contact['email'],

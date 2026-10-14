@@ -2639,8 +2639,9 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Send the company the manager's note, word for word.
 	 *
-	 * A mail is plain text, so the note is read back to what was typed (`mail_text()`): a "<" the
-	 * cleaner wrote as `&lt;` arrives as "<", "Q&amp;A" as "Q&A".
+	 * A mail is plain text, so the note is read back to what was typed: a "<" the cleaner wrote as
+	 * `&lt;` arrives as "<", "Q&amp;A" as "Q&A". It is handed over as the cleaner left it, and read
+	 * back once, as every value is (`WPCPM_Mail_Templates::fill()`).
 	 *
 	 * @param string $record Sponsors record ID.
 	 * @param string $note   The note, as the cleaner left it.
@@ -2651,7 +2652,6 @@ final class WPCPM_Sponsor_Agreement {
 		$manager = wp_get_current_user();
 		$named   = $manager instanceof WP_User ? $manager->display_name : '';
 		$page    = WPCPM_Sponsors_Dashboard::page_url();
-		$note    = WPCPM_Typed_Text::mail_text( $note );
 
 		$build = static function () use ( $site, $note, $named, $page, $manager ) {
 			return WPCPM_Mail_Templates::mail(
@@ -2660,7 +2660,7 @@ final class WPCPM_Sponsor_Agreement {
 					'site_name'      => $site,
 					// The Administrator by name, or, for an account that holds none, in the member's
 					// language.
-					'returned_by'    => '' === $named ? __( 'An Administrator', 'wpcredits-program-manager' ) : $named,
+					'returned_by'    => '' === trim( $named ) ? __( 'An Administrator', 'wpcredits-program-manager' ) : $named,
 					'note'           => $note,
 					'dashboard_link' => $page,
 				),
@@ -2683,7 +2683,6 @@ final class WPCPM_Sponsor_Agreement {
 	private static function mail_revoked( $record, $note ) {
 		$site    = WPCPM_Mail::site_name();
 		$manager = wp_get_current_user();
-		$note    = WPCPM_Typed_Text::mail_text( $note );
 
 		$build = static function () use ( $site, $note, $manager ) {
 			return WPCPM_Mail_Templates::mail(

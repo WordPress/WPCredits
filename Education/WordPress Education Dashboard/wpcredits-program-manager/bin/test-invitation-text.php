@@ -303,6 +303,12 @@ foreach ( $cases as $name => $case ) {
 ck( 'and the one sentence worded differently since 1.122.18 is in the institution\'s three invitations that ask for the Collaboration Agreement, once each, and in no other',
     $reworded_in, array( 'institution-7-1 x1', 'institution-7-1-no-page x1', 'institution-6-5 x1' ) );
 
+// The site's name as core hands it over is read back once more, by the template alone, as every value
+// is: until the fix wave of 1.122.23 the plugin read it back first, so a name holding a typed-out
+// entity lost it ("R&amp;amp;D" arrived as "R&D").
+$named = invitation( array_merge( $cases['student-7-1'], array( 'blogname' => 'R&amp;amp;D Credits' ) ) );
+ck( 'and the site\'s name core hands over is read back once more, by the template alone', array( 0 === strpos( $named['subject'], '[R&amp;D Credits] ' ), false !== strpos( $named['message'], 'R&D Credits' ) ), array( true, false ) );
+
 ck( 'and the recording holds no real key: every link carries the fixed fake', is_file( $fixture ) && preg_match_all( '/key=([^&\s]+)/', (string) file_get_contents( $fixture ), $keys ) > 0 ? array_values( array_unique( $keys[1] ) ) : array(), array( 'TEST-KEY-NOT-A-REAL-LINK' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );

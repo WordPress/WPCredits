@@ -487,6 +487,9 @@ KEY user_id (user_id)
 	/**
 	 * WordPress's Export Personal Data tool: a person's entries, by address.
 	 *
+	 * The subject is escaped: core prints each value through kses, which keeps a link, and a subject
+	 * is plain text that can carry a name as typed, a "<" and a tag in it included, since 1.122.23.
+	 *
 	 * @param string $email The address.
 	 * @param int    $page  The page, from 1.
 	 * @return array{data:array,done:bool}
@@ -511,7 +514,7 @@ KEY user_id (user_id)
 					),
 					array(
 						'name'  => __( 'Subject', 'wpcredits-program-manager' ),
-						'value' => $row['subject'],
+						'value' => esc_html( $row['subject'] ),
 					),
 					array(
 						'name'  => __( 'Status', 'wpcredits-program-manager' ),

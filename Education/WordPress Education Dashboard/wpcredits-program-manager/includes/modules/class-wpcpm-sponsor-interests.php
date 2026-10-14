@@ -238,10 +238,11 @@ final class WPCPM_Sponsor_Interests {
 		// lists it line by line, so there the note's white space is folded as the one-line
 		// cleaner folds it (each run of line breaks, tabs and spaces one space), and the text is
 		// kept as the cleaner stored it, as every line before it was. The mail carries the note as
-		// it was typed: its lines, and the characters the cleaner wrote as entities.
+		// it was typed: its lines, and the characters the cleaner wrote as entities, which the mail
+		// reads back once, as it reads every value (`WPCPM_Mail_Templates::fill()`).
 		$date = wp_date( 'Y-m-d' );
 		$line = self::line( $choices, $events, (string) preg_replace( '/[\r\n\t ]+/', ' ', $note ), $viewer->display_name, $date );
-		$said = WPCPM_Typed_Text::mail_text( self::line( $choices, $events, $note, $viewer->display_name, $date ) );
+		$said = self::line( $choices, $events, $note, $viewer->display_name, $date );
 
 		$table    = (string) WPCPM_Settings::get_value( 'sponsors_table', '' );
 		$airtable = new WPCPM_Airtable();
@@ -293,6 +294,7 @@ final class WPCPM_Sponsor_Interests {
 			return WPCPM_Mail_Templates::mail(
 				self::MAIL_CONTEXT,
 				array(
+					'site_name'    => WPCPM_Mail::site_name(),
 					'company_name' => $sponsor,
 					'interest'     => $said,
 				)

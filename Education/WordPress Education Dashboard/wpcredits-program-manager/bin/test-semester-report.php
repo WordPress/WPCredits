@@ -270,6 +270,8 @@ function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function is_user_logged_in() { return (int) $GLOBALS['uid'] > 0; }
 require_once __DIR__ . '/stubs/caps.php';
+// The template registry reads every value back as a person reads it (`wp_specialchars_decode()`).
+require_once __DIR__ . '/stubs/specialchars.php';
 function wp_get_current_user() { return new WP_User( (int) $GLOBALS['uid'], 'Member One', 'member@example.test' ); }
 function get_user_by( $by, $value ) {
 	if ( 'id' === $by ) {

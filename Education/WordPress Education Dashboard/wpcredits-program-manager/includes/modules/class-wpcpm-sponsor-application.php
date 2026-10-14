@@ -2956,9 +2956,10 @@ class WPCPM_Sponsor_Application {
 		$site      = WPCPM_Mail::site_name();
 		$reference = self::reference_of( $post );
 		// A mail is plain text, so the question is read back to what was typed: the applicant
-		// reads "<" and "&", never `&lt;` and `&amp;`. The history keeps it as stored. The subject
-		// carries no typed text.
-		$said = WPCPM_Typed_Text::mail_text( $question );
+		// reads "<" and "&", never `&lt;` and `&amp;`. It is handed over as stored, and read back
+		// once, as every value is (`WPCPM_Mail_Templates::fill()`). The history keeps it as stored.
+		// The subject carries no typed text.
+		$said = (string) $question;
 
 		$build = static function () use ( $site, $reference, $said, $manager ) {
 			return WPCPM_Mail_Templates::mail(

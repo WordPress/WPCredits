@@ -56,8 +56,9 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   revoked, the daily list of agreements waiting too long, and the notice that the agreement's
   template could not be used; and the notice that an institution has no members left. An email that
   says other words in one case than in another is two: the acknowledgement for a country with a call
-  to book and for one without, the upload with the courtesy scan's notes and without, and the
-  revocation with a country contact named and without one.
+  to book and for one without, the upload with the courtesy scan's notes and without, the
+  revocation with a country contact named and without one, and the invitation with its inviter
+  named and with nobody to name as its sender, the inviter's account gone or holding no name.
 - **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
   approval to the institution's accounts, and the question to the students whether the report may
   mention them.
@@ -68,15 +69,28 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   and its request to sponsor a mentor; the warning that an offer's codes are running low and a
   claimant's report of a code that did not work; and a sponsor's post sent back to its author.
 
-Where an email is two, as the mentor's confirmations with and without a meeting link and the four
-above are, each of the two is edited on its own: an edit of one leaves the other as shipped.
+Where an email is two, as the mentor's confirmations with and without a meeting link and the five
+above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
+Administrator's edit of "Invitation to join an institution" does not carry over to "Invitation to
+join an institution, with no sender named": that invitation is sent as shipped until it is edited
+too.
 
 Each row names the email, who receives it and what sends it, its state, and who edited it last and
 when. The states:
 
 - **Shipped text**: the email is sent as the plugin ships it, which is word for word what it said
   before it could be edited: before 1.122.19 for the Invitations, before 1.122.21 for the Mentor
-  calls and the Semester reports, and before 1.122.22 for the Institutions and the Sponsors.
+  calls and the Semester reports, and before 1.122.22 for the Institutions and the Sponsors, but
+  for what 1.122.23 changed on purpose: the warning that an offer's codes are running low says
+  "1 code left" for one, writes a count past a thousand and the mark beside it alike, and leaves
+  out its Offers card line while the Sponsor Dashboard's page is not published; an institution's
+  Collaboration Agreement sent back or revoked by an Administrator whose account holds no name, or
+  only spaces, says "by an Administrator", and a sponsor's sent back by one says
+  "An Administrator"; the invitation with nobody to name as its sender is an email of its own; an
+  invitation to an institution says that a reply reaches the person who sent it only while it
+  carries their address to reply to; the two emails about what a sponsor would like to support
+  name the site; the notice of an upload the courtesy scan noticed something in says what in
+  words; and every email prints a name as it was typed, its subject included, as below.
 - **Edited**: it is sent as an Administrator wrote it, to everybody, in that wording.
 - **Edited, and the shipped text has changed since**: an update changed the shipped text after the
   edit was saved. The edit is still the one sent, and its editor opens the new shipped text under
@@ -88,8 +102,14 @@ when. The states:
 **Edit** opens the email's editor: a **Subject** and a **Body**, the email's placeholders, each with
 what it means and an example, and a **Preview** of the email filled with the examples and ending
 with the signature and footer. A placeholder, such as `{set_password_link}`, is a word in braces that
-is replaced by its value as the email is sent. A sentence whose placeholders are all empty is left
-out, and so is a line left with nothing on it, together with the line ending in a colon directly
+is replaced by its value as the email is sent, as a person reads it: a name or a title WordPress
+stores with an "&" or a "<" written as an entity, an account's name or an application's among them,
+arrives as it was typed, in the body and in the subject. The subject of every email in this list is
+plain text since 1.122.23, as an edited one's has been since 1.122.22, so a "<" or an "&" in it is a
+character, never an entity, and nothing in it that looks like a tag is taken out; a line break in it
+is one space.
+A sentence whose placeholders are all empty is left out, and so is a line left with nothing on it,
+together with the line ending in a colon directly
 above it when that line holds no placeholder: an invitation with no dashboard page published leaves
 out the line that would name it, as it always did. A sentence ends at a full stop followed by a
 space; a question or exclamation mark does not end one. So in "Thanks! Write to {program_contact}."
@@ -100,9 +120,23 @@ An email about a call shows every time on its recipient's own clock: `{when}` is
 and end as the recipient reads them, and `{time_zone}` names that clock, so a mentor in Tokyo and a
 student in Warsaw each read the call at their own hour. A date in an Institutions or a Sponsors
 email, such as `{accepted_on}`, is the site's, as it always was. A count arrives in words, such as
-`{session_count}`, "3 sessions", or `{review_window}`, "3 working days", so most templates need no
-rule for one and several. The number of codes left in the warning that an offer's codes are running
-low, `{codes_left}`, arrives as a number, so an edit can reword "codes" but not make it agree.
+`{session_count}`, "3 sessions", or `{review_window}`, "3 working days", so a template needs no rule
+for one and several. So does the number of codes left in the warning that an offer's codes are
+running low, `{codes_left}`, "3 codes", since 1.122.23, where it arrived as a number: an edit of that
+email saved before, which says "{codes_left} codes left", reads "3 codes codes left" until it is
+edited again. Past a thousand, the count and the mark it warns below, `{low_mark}`, are written
+alike, "4,999 codes" and "5,000". What the courtesy scan noticed, `{scan_flags}`, is in words since
+1.122.23, each with the PDF's own name for it in brackets, such as "an action that runs when the
+file is opened (/OpenAction)", in an edit saved before as well; the Institutions screen, the
+Sponsors screen and the Administrator Dashboard name what the scan noticed in the same words. Both
+invitations to an institution, the one with its sender named and the one with nobody to name, gain
+the optional `{replies_reach}` in 1.122.23, so an edit saved before, which lacks it, is still sent
+as edited. An invitation to an institution, with its sender named or not, says that a reply reaches
+the person who sent it, `{replies_reach}`, only while it carries their address to reply to; empty,
+its sentence is left out. The two emails about what a sponsor would like to support gain an
+optional `{site_name}`, which names the site in their subject, so an edit saved before, which lacks
+it, is still sent as edited. An edit of an email whose shipped body ends with a line break, as a
+Semester reports email's does, ends with one too, after its signature and footer.
 
 - **Save** stores the subject and the body, and is refused in the cases below.
 - **Send me a test**, beside **Save**, sends the email as it is saved, filled with the example values

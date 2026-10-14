@@ -154,6 +154,7 @@ final class WPCPM_Mail_Catalog {
 			'institution-information'            => array( __( 'Question about an application', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-declined'               => array( __( 'Application declined', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-invite'                 => array( __( 'Invitation to join an institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'institution-invite-no-sender'       => array( __( 'Invitation to join an institution, with no sender named', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-received'                 => array( __( 'Collaboration Agreement received, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-landed'                   => array( __( 'Collaboration Agreement uploaded, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'agreement-landed-flagged'           => array( __( 'Collaboration Agreement uploaded with the scan\'s notes, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),

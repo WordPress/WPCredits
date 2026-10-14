@@ -22,6 +22,13 @@
  * Real temporary files throughout, and the real `finfo` extension: a scanner asserted against
  * a stub of the thing it exists to double-check is a scanner asserted against nothing.
  *
+ * And a fifth, since 1.122.23: **the name check is not the media library's question.** WordPress's
+ * map also asks whether the person signed in may put such a file in the media library, and a
+ * sponsor's member writing posts may put images there alone (`WPCPM_Sponsor_Posts::limit_mimes()`),
+ * so the member's signed agreement, a valid PDF, was refused as "not a PDF". The fence is the real
+ * one here, hooked as the sponsor posts hook it, and WordPress's map asks the allowed types as core
+ * does.
+ *
  * Run from the plugin root:  php bin/test-pdf-check.php
  *
  * @package WPCreditsProgramManager
@@ -34,10 +41,77 @@ if ( 'cli' !== PHP_SAPI ) {
 define( 'ABSPATH', __DIR__ . '/' );
 
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/caps.php';
+
+// Who is signed in, and who manages the program: an Administrator (1), a sponsor's member writing
+// posts (60) and an institution's member (50).
+$GLOBALS['uid']    = 0;
+$GLOBALS['manage'] = array( 1 );
+function get_current_user_id() { return (int) $GLOBALS['uid']; }
+function __( $s, $d = null ) { return $s; }
+
+// The filters as WordPress runs them: by priority, then in the order they were added.
+$GLOBALS['filters'] = array();
+function add_filter( $hook, $callback, $priority = 10, $accepted = 1 ) {
+	$GLOBALS['filters'][ $hook ][ $priority ][] = $callback;
+	return true;
+}
+function remove_filter( $hook, $callback, $priority = 10 ) {
+	foreach ( $GLOBALS['filters'][ $hook ][ $priority ] ?? array() as $n => $held ) {
+		if ( $held === $callback ) {
+			unset( $GLOBALS['filters'][ $hook ][ $priority ][ $n ] );
+			return true;
+		}
+	}
+	return false;
+}
+function has_filter( $hook, $callback ) {
+	foreach ( $GLOBALS['filters'][ $hook ] ?? array() as $priority => $held ) {
+		if ( in_array( $callback, $held, true ) ) {
+			return $priority;
+		}
+	}
+	return false;
+}
+function apply_filters( $hook, $value, ...$args ) {
+	$by_priority = $GLOBALS['filters'][ $hook ] ?? array();
+	ksort( $by_priority );
+	foreach ( $by_priority as $held ) {
+		foreach ( $held as $callback ) {
+			$value = call_user_func( $callback, $value, ...$args );
+		}
+	}
+	return $value;
+}
 
 /**
- * WordPress's own name-and-type map, reimplemented over the real finfo, as
- * bin/test-institution-agreement.php reimplements it.
+ * The types the person signed in may upload, as core's `get_allowed_mime_types()` gives them: the
+ * site's list, which the `upload_mimes` filter decides.
+ *
+ * @param mixed $user The account, or null for the one signed in.
+ * @return array
+ */
+function get_allowed_mime_types( $user = null ) {
+	return apply_filters(
+		'upload_mimes',
+		array(
+			'jpg|jpeg|jpe' => 'image/jpeg',
+			'gif'          => 'image/gif',
+			'png'          => 'image/png',
+			'webp'         => 'image/webp',
+			'pdf'          => 'application/pdf',
+			'doc'          => 'application/msword',
+			'mp4|m4v'      => 'video/mp4',
+		),
+		$user
+	);
+}
+
+/**
+ * WordPress's own name-and-type map, as core's `wp_check_filetype_and_ext()` asks it, over the real
+ * finfo: the extension against the map given (or, with none, the types the person may upload, as the
+ * media library asks it), the bytes, which must say the same type, and last, as core asks of every
+ * file, a type the person signed in may upload.
  *
  * @param string     $file     Path on disk.
  * @param string     $filename The name the file came with.
@@ -45,22 +119,52 @@ require_once __DIR__ . '/stubs/temp-dir.php';
  * @return array
  */
 function wp_check_filetype_and_ext( $file, $filename, $mimes = null ) {
-	$ext  = strtolower( (string) pathinfo( $filename, PATHINFO_EXTENSION ) );
-	$real = '';
+	$ext  = false;
+	$type = false;
 
-	if ( function_exists( 'finfo_open' ) && is_readable( $file ) ) {
+	// A map that throws mid-question, as another plugin's filter on it can.
+	if ( ! empty( $GLOBALS['map_throws'] ) ) {
+		throw new RuntimeException( 'The map threw.' );
+	}
+
+	foreach ( null === $mimes ? get_allowed_mime_types() : $mimes as $extensions => $mime ) {
+		if ( preg_match( '!\.(' . $extensions . ')$!i', (string) $filename, $found ) ) {
+			$ext  = strtolower( $found[1] );
+			$type = $mime;
+			break;
+		}
+	}
+
+	if ( $type && function_exists( 'finfo_open' ) && is_readable( $file ) ) {
 		$finfo = finfo_open( FILEINFO_MIME_TYPE );
 		$real  = $finfo ? (string) finfo_file( $finfo, $file ) : '';
+
+		if ( '' !== $real && $real !== $type ) {
+			$ext  = false;
+			$type = false;
+		}
 	}
 
-	if ( 'pdf' !== $ext || ( '' !== $real && 'application/pdf' !== $real ) ) {
-		return array( 'ext' => false, 'type' => false, 'proper_filename' => false );
+	// The mime type must be allowed.
+	if ( $type && ! in_array( $type, get_allowed_mime_types(), true ) ) {
+		$ext  = false;
+		$type = false;
 	}
 
-	return array( 'ext' => 'pdf', 'type' => 'application/pdf', 'proper_filename' => false );
+	return array( 'ext' => $ext, 'type' => $type, 'proper_filename' => false );
 }
 
+/** Whose member each account is: the sponsor posts' fence asks it. */
+class WPCPM_Sponsor_Members {
+	public static function sponsor_of( $user_id ) { return 60 === (int) $user_id ? 'recSEED0000000101' : ''; }
+}
+
+require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php';
+
+// The fence, hooked for everyone as `WPCPM_Sponsor_Posts::init()` hooks it.
+add_filter( 'upload_mimes', array( 'WPCPM_Sponsor_Posts', 'limit_mimes' ) );
 
 $fail = 0; $checks = 0;
 
@@ -150,6 +254,37 @@ $flagged = WPCPM_Pdf_Check::inspect( pdf_bytes( "5 0 obj<</OpenAction 6 0 R/AA 7
 ck( 'the flags are recorded and never a refusal', array( $flagged['ok'], $flagged['reason'], $flagged['flags'] ), array( true, '', array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' ) ) );
 ck( 'the flag names are the ones a reviewer would search for', WPCPM_Pdf_Check::SCAN_FLAGS, array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' ) );
 
+// What the scan noticed, as the upload notice tells the Administrators: in words, each with the PDF's
+// own name for it in brackets, in the order noticed; a name the scanner does not record as stored.
+$in_words  = static function ( array $flags ) {
+	return is_callable( array( 'WPCPM_Pdf_Check', 'in_words' ) ) ? call_user_func( array( 'WPCPM_Pdf_Check', 'in_words' ), $flags ) : null;
+};
+$described = array();
+foreach ( WPCPM_Pdf_Check::SCAN_FLAGS as $flag ) {
+	$described[ $flag ] = $in_words( array( $flag ) );
+}
+ck(
+	'every name the scan records is told in words, with its own name in brackets',
+	$described,
+	array(
+		'/JavaScript'   => 'JavaScript code (/JavaScript)',
+		'/JS'           => 'JavaScript code (/JS)',
+		'/OpenAction'   => 'an action that runs when the file is opened (/OpenAction)',
+		'/AA'           => 'actions that run when a page or a form field is used (/AA)',
+		'/EmbeddedFile' => 'a file embedded inside it (/EmbeddedFile)',
+	)
+);
+ck(
+	'the notes keep the order the scan noticed them in, a comma between each two; a name the scanner does not record is given as stored; and none is nothing',
+	array( $in_words( $flagged['flags'] ), $in_words( array( 'OpenAction', '/Custom' ) ), $in_words( array() ) ),
+	array( 'JavaScript code (/JavaScript), JavaScript code (/JS), an action that runs when the file is opened (/OpenAction), actions that run when a page or a form field is used (/AA), a file embedded inside it (/EmbeddedFile)', 'OpenAction, /Custom', '' )
+);
+ck(
+	'a blank stored name is left out, so no note stands empty between two commas, and every other name is kept as stored',
+	array( $in_words( array( '', '/OpenAction', '  ', '/AA' ) ), $in_words( array( '' ) ), $in_words( array( '<b>x</b>', '0', '/JavaScript ' ) ) ),
+	array( 'an action that runs when the file is opened (/OpenAction), actions that run when a page or a form field is used (/AA)', '', '<b>x</b>, 0, /JavaScript ' )
+);
+
 $lookalikes = WPCPM_Pdf_Check::inspect( pdf_bytes( "5 0 obj<</S/JScript/X/AArgh/Y/Launcher>>endobj\n" ) );
 ck( 'a name ends at a delimiter: /JSomething, /AArgh and /Launcher are not matches', array( $lookalikes['ok'], $lookalikes['flags'] ), array( true, array() ) );
 
@@ -221,6 +356,66 @@ $scanned = WPCPM_Pdf_Check::inspect( $file );
 $peak = memory_get_peak_usage( true ) / 1048576;
 
 ck( 'six hundred one-MiB streams leave the process under a 64 MiB peak and find nothing past the budget', array( strlen( $file ) < 2097152, $scanned['ok'], $peak < 64 ), array( true, true, true ) );
+
+echo "\n=== A sponsor's member, the media library and the agreement ===\n";
+// The same signed agreement, a valid PDF, asked about by an Administrator, by an institution's member,
+// by a visitor, and by a sponsor's member writing posts, whom the fence lets put images alone in the
+// media library: the name check answers the same for all four, since an agreement never goes there.
+$asked = array();
+foreach ( array( 1, 50, 0, 60 ) as $who ) {
+	$GLOBALS['uid'] = $who;
+	$asked[ $who ]  = WPCPM_Pdf_Check::named_pdf( $good, 'signed.pdf' );
+}
+ck( 'a valid PDF passes the name check for a sponsor\'s member as for anybody else', $asked, array( 1 => true, 50 => true, 0 => true, 60 => true ) );
+
+// And the fence stands where it is for: the media library. Asked as the library asks, with no map
+// of its own, the member's PDF is still refused, the member may still upload the four image kinds
+// alone, and the name check left nothing behind on the filter.
+$GLOBALS['uid'] = 60;
+$library        = wp_check_filetype_and_ext( $good, 'signed.pdf' );
+ck(
+	'the fence still keeps the PDF out of the media library for the member, its four image kinds stand, and the name check leaves no filter behind',
+	array( $library['type'], array_keys( get_allowed_mime_types() ), has_filter( 'upload_mimes', array( 'WPCPM_Pdf_Check', 'only_pdf' ) ), has_filter( 'upload_mimes', array( 'WPCPM_Sponsor_Posts', 'limit_mimes' ) ) ),
+	array( false, array( 'jpg|jpeg|jpe', 'png', 'gif', 'webp' ), false, 10 )
+);
+ck(
+	'and for the member the name check still refuses what it refused: the bytes of a PDF named .exe, and a PNG named .pdf',
+	array( WPCPM_Pdf_Check::named_pdf( $good, 'signed.exe' ), WPCPM_Pdf_Check::named_pdf( $png, 'signed.pdf' ) ),
+	array( false, false )
+);
+// A map that throws while the name check asks, as another plugin's filter on it can, still leaves no
+// filter behind: the name check takes its own off in a `finally`, so the media library is as before.
+$GLOBALS['map_throws'] = true;
+$thrown                = '';
+try {
+	WPCPM_Pdf_Check::named_pdf( $good, 'signed.pdf' );
+} catch ( RuntimeException $e ) {
+	$thrown = $e->getMessage();
+}
+$GLOBALS['map_throws'] = false;
+ck(
+	'a map that throws while the name check asks still leaves no filter behind, and the library still refuses the member\'s PDF',
+	array( $thrown, has_filter( 'upload_mimes', array( 'WPCPM_Pdf_Check', 'only_pdf' ) ), wp_check_filetype_and_ext( $good, 'signed.pdf' )['type'] ),
+	array( 'The map threw.', false, false )
+);
+ck( 'while it asks, the one type an upload may have is the one it asks about', is_callable( array( 'WPCPM_Pdf_Check', 'only_pdf' ) ) ? call_user_func( array( 'WPCPM_Pdf_Check', 'only_pdf' ), array( 'png' => 'image/png' ) ) : null, array( 'pdf' => 'application/pdf' ) );
+
+// A site whose own code keeps PDFs out of the media library for everybody, on a late priority, asks
+// the agreement's question the same way: the name check is not about the media library at all. An
+// Administrator and the sponsor's member alike pass, and the site's rule stays for the library.
+$no_pdf = static function ( $mimes ) {
+	unset( $mimes['pdf'] );
+	return $mimes;
+};
+add_filter( 'upload_mimes', $no_pdf, 999 );
+$late = array();
+foreach ( array( 1, 60 ) as $who ) {
+	$GLOBALS['uid'] = $who;
+	$late[ $who ]   = array( WPCPM_Pdf_Check::named_pdf( $good, 'signed.pdf' ), wp_check_filetype_and_ext( $good, 'signed.pdf' )['type'] );
+}
+remove_filter( 'upload_mimes', $no_pdf, 999 );
+ck( 'and a site that keeps PDFs out of its media library for everybody still takes a signed agreement, the library still refusing the PDF', $late, array( 1 => array( true, false ), 60 => array( true, false ) ) );
+$GLOBALS['uid'] = 0;
 
 echo "\n=== House rules ===\n";
 $src = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-pdf-check.php' );

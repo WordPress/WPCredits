@@ -12,6 +12,11 @@
  * takes then; and the low codes' two, the subject and the body, whose counts the code wrote as
  * numbers (`%d`), hold them as placeholders now (`%s`), the same words.
  *
+ * Since 1.122.23 the low codes say how many are left in counted words, `{codes_left}` ("1 code",
+ * "3 codes"), so the warning agrees for one, and leave the Offers card's line out while the Sponsor
+ * Dashboard's page is not published; and the two emails about what a sponsor would like to support
+ * name the site as every other email does (`{site_name}`), where they wrote "WordPress Credits".
+ *
  * An email that said other words in one case than in another is two templates: the application's
  * acknowledgement with the logo kept and without it. The request to sponsor a mentor, which was sent
  * under the interests card's id, has an id of its own.
@@ -152,18 +157,28 @@ $wpcpm_placeholders = static function () {
 			'example' => 'Hosting for students',
 		),
 		'codes_left'         => array(
-			'means'   => __( 'How many codes the offer has left.', 'wpcredits-program-manager' ),
-			'example' => '3',
+			'means'   => __( 'How many codes the offer has left, counted: "3 codes".', 'wpcredits-program-manager' ),
+			// Counted as the sender counts it, in the language of the Administrator looking.
+			'example' => static function () {
+				return sprintf(
+					/* translators: %s: how many codes an offer has left. */
+					_n( '%s code', '%s codes', 3, 'wpcredits-program-manager' ),
+					number_format_i18n( 3 )
+				);
+			},
 		),
 		'low_mark'           => array(
 			'means'   => __( 'The number of codes the offer warns below.', 'wpcredits-program-manager' ),
 			'example' => '5',
 		),
 		'offers_link'        => array(
-			'means'   => __( 'The Offers card on the Sponsor Dashboard, for the sponsor the codes are of.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The Offers card on the Sponsor Dashboard, for the sponsor the codes are of, while its page is published. Empty leaves its line out.', 'wpcredits-program-manager' ),
 			'example' => static function () {
-				// As the sender builds it: the sponsor named, so an Administrator lands on its card.
-				return add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, 'recEXAMPLE0000001', WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_SPONSOR ) ) . '#wpcpm-sponsor-offers';
+				// As the sender builds it: the sponsor named, so an Administrator lands on its card; empty
+				// while the page is not published, so the preview leaves the line out as the email does.
+				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_SPONSOR );
+
+				return '' === $page ? '' : add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, 'recEXAMPLE0000001', $page ) . '#wpcpm-sponsor-offers';
 			},
 		),
 		'claimant_name'      => array(
@@ -466,8 +481,9 @@ return array(
 	'sponsor-interest'             => array(
 		'trigger'      => __( 'When a sponsor says on the Sponsor Dashboard what else it would like to support: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
-			/* translators: %s: company name. */
-			__( '[WordPress Credits] %s would like to support the program', 'wpcredits-program-manager' ),
+			/* translators: 1: site name, 2: company name. */
+			__( '[%1$s] %2$s would like to support the program', 'wpcredits-program-manager' ),
+			'{site_name}',
 			'{company_name}'
 		),
 		'body'         => sprintf(
@@ -476,13 +492,14 @@ return array(
 			'{company_name}',
 			'{interest}'
 		),
-		'placeholders' => $wpcpm_take( array( 'company_name', 'interest' ), array( 'interest' ) ),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'company_name', 'interest' ), array( 'interest' ) ),
 	),
 	'sponsor-mentor-interest'      => array(
 		'trigger'      => __( 'When a sponsor says on the Sponsor Dashboard that it would like to sponsor a mentor who is looking for one: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
-			/* translators: 1: company name, 2: mentor name. */
-			__( '[WordPress Credits] %1$s would like to sponsor %2$s', 'wpcredits-program-manager' ),
+			/* translators: 1: site name, 2: company name, 3: mentor name. */
+			__( '[%1$s] %2$s would like to sponsor %3$s', 'wpcredits-program-manager' ),
+			'{site_name}',
 			'{company_name}',
 			'{mentor_name}'
 		),
@@ -493,20 +510,20 @@ return array(
 			'{mentor_name}',
 			'{mentor_profile}'
 		),
-		'placeholders' => $wpcpm_take( array( 'company_name', 'mentor_name', 'mentor_profile' ), array() ),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'company_name', 'mentor_name', 'mentor_profile' ), array() ),
 	),
 	'offer-low-stock'              => array(
 		'trigger'      => __( 'When a claim leaves an offer with fewer codes than it warns below, once until codes are added: to every account of the sponsor, and to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
-			/* translators: 1: site name, 2: offer title, 3: codes left. */
-			__( '[%1$s] %2$s: %3$s codes left', 'wpcredits-program-manager' ),
+			/* translators: 1: site name, 2: offer title, 3: how many codes are left, counted, such as "3 codes". */
+			__( '[%1$s] %2$s: %3$s left', 'wpcredits-program-manager' ),
 			'{site_name}',
 			'{offer_title}',
 			'{codes_left}'
 		),
 		'body'         => sprintf(
-			/* translators: 1: offer title, 2: codes left, 3: the threshold, 4: the Offers card's address. */
-			__( "The offer \"%1\$s\" has %2\$s codes left; it warns below %3\$s.\n\nAdd more codes, or pause the offer, from the Offers card: %4\$s\n\nThis is sent once. Adding codes arms it again.", 'wpcredits-program-manager' ),
+			/* translators: 1: offer title, 2: how many codes are left, counted, such as "3 codes", 3: the threshold, 4: the Offers card's address. */
+			__( "The offer \"%1\$s\" has %2\$s left; it warns below %3\$s.\n\nAdd more codes, or pause the offer, from the Offers card: %4\$s\n\nThis is sent once. Adding codes arms it again.", 'wpcredits-program-manager' ),
 			'{offer_title}',
 			'{codes_left}',
 			'{low_mark}',

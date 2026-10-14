@@ -220,6 +220,7 @@ class WPCPM_Ceiling {
 class WPCPM_Mail {
 	public static function send( $user, $context, $build ) { $GLOBALS['sent'][] = array( 'user', $user->ID, $context, call_user_func( $build, $user ) ); return true; }
 	public static function send_to( $email, $context, $build, $locale = '' ) { $GLOBALS['sent'][] = array( 'to', $email, $context, call_user_func( $build, null ) ); return true; }
+	public static function site_name() { return 'WP Credits'; }
 }
 class WPCPM_Institutions { public static function notify_managers( $context, $build, $key = 'agreement_notify' ) { $GLOBALS['sent'][] = array( 'managers', $key, $context, call_user_func( $build, null ) ); return isset( $GLOBALS['managers_reachable'] ) ? (int) $GLOBALS['managers_reachable'] : 2; } }
 class WPCPM_Mentors_Sync {
@@ -426,6 +427,7 @@ ck( 'the multiple select is written with the known choices only', $cells['How wo
 ck( 'and one dated line is appended to the history', substr_count( $cells['Sponsorship interests'], "\n" ) === 1 && false !== strpos( $cells['Sponsorship interests'], 'by Rep One: Sponsor tools or services; events: WordCamp Europe 2027, WordCamp Asia 2027; note: Happy to help.' ), true );
 ck( 'the assigned manager is mailed, once, in the interest context', array( count( $GLOBALS['sent'] ), $GLOBALS['sent'][0][0], $GLOBALS['sent'][0][1], $GLOBALS['sent'][0][2] ), array( 1, 'user', 1, 'sponsor-interest' ) );
 ck( 'the mail names the sponsor and what it said', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Mango Example' ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'WordCamp Europe 2027' ), true );
+ck( 'and its subject names the site, as every other email does', $GLOBALS['sent'][0][3]['subject'], '[WP Credits] Mango Example would like to support the program' );
 ck( 'the audit row carries the line', end( $GLOBALS['audit'] )['kind'] === 'sponsor_interest' && false !== strpos( end( $GLOBALS['audit'] )['message'], 'Happy to help.' ), true );
 $r = post( array( 'wpcpm_sponsor' => $A ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
 ck( 'nothing ticked and nothing written is said', $r[0], 'interest-empty' );
@@ -510,6 +512,7 @@ WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
 ck( 'interest in a mentor is sent to the manager under its own id, a sponsor\'s interest\'s until 1.122.22, and logged, and lands on the looking card', array( $r[0], $r[1], $GLOBALS['sent'][0][2], end( $GLOBALS['audit'] )['kind'] ), array( 'mentor-interest-sent', 'looking', 'sponsor-mentor-interest', 'sponsor_interest_mentor' ) );
 ck( 'the mail names the mentor', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Ana Looking' ), true );
+ck( 'and its subject names the site, as every other email does', $GLOBALS['sent'][0][3]['subject'], '[WP Credits] Mango Example would like to sponsor Ana Looking' );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M1 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
 ck( 'a mentor who is not looking cannot be asked for', $r[0], 'mentor-interest-unknown' );
 WPCPM_Sponsors_Index::patch( $A, array( 'manager' => '' ) );

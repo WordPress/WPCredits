@@ -39,8 +39,21 @@
  * first held no email for - a mentor with no link and a topic, a date that differs across clocks, and
  * each report dashboard alone; the first recording's 61 emails are byte for byte inside the second.)
  *
+ * 1.122.23 prints every name as a person reads it, and keeps every character of a name in a
+ * Reply-To. The recording holds no name as WordPress stores it, so the cases that need one are those
+ * of `added_cases()`, recorded once from 1.122.22, before anything of 1.122.23 moved, into
+ * bin/fixtures/calls-reports-added-1-122-22.json by `--record-added`, which refuses when that file
+ * is there, and the suite pins its sha256 too: a mentor's and a student's account name with "&" and
+ * "<" written as entities, as WordPress stores a name, a mentor whose name holds a run the subject's
+ * cleaner reads as a tag, a mentor whose name holds a comma and a double quote, and an institution's
+ * name as the form's cleaner keeps a "<" (a case's `institution`). Every email of both recordings is
+ * sent as recorded, byte for byte, but those `changes()` lists, each change with the item of the
+ * 1.122.23 plan it comes from and the exact text it changes
+ * (docs/plans/2026-10-11-mail-fixes-1-122-23.md); the calendar files are as recorded in every case.
+ *
  * Run from the plugin root:  php bin/test-calls-reports-text.php
  * Record (once, against 1.122.20, before the move):  php bin/test-calls-reports-text.php --record
+ * Record the added cases (once, against 1.122.22):  php bin/test-calls-reports-text.php --record-added
  */
 
 if ( 'cli' !== PHP_SAPI ) {
@@ -399,6 +412,56 @@ function cases() {
 }
 
 /**
+ * The cases 1.122.23 adds: names as WordPress stores an account's, "&" written `&amp;` and a "<"
+ * `&lt;`, the mentor's, the student's and the student name a booking stored, a mentor whose name
+ * holds a run the subject's cleaner reads as a tag, an institution's name as the form's cleaner keeps
+ * a "<", and a mentor whose name holds a comma and a double quote, which a Reply-To has to keep
+ * (items 3 and 4 of the 1.122.23 plan), recorded from 1.122.22 (`--record-added`). A case's `names`
+ * are the accounts' display names, and its `institution` the institution's name, for that case
+ * alone.
+ *
+ * @return array<string,array>
+ */
+function added_cases() {
+	$one     = array( 2099745900, 2099747700 );
+	$stored  = array(
+		20 => 'Ben &amp; Bo &lt;Mentor',
+		30 => 'Ada &amp; Al Okonjo',
+	);
+	$base    = array(
+		'actor' => 0,
+		'link'  => true,
+		'pages' => true,
+		'site'  => 'WordPress Credits',
+		'args'  => array(),
+	);
+	$call    = static function ( $attendees, $name ) use ( $one ) {
+		return array(
+			'start'     => $one[0],
+			'end'       => $one[1],
+			'capacity'  => 1,
+			'attendees' => $attendees,
+			'name'      => $name,
+			'topic'     => 'Release cycle',
+		);
+	};
+
+	$cases = array(
+		'booked-call-names-as-stored'                 => array( 'send' => 'booked', 'names' => $stored, 'calls' => array( 601 => $call( array( 30 ), 'Ada &amp; Al Okonjo' ) ) ),
+		'cancelled-call-by-the-mentor-name-as-stored' => array( 'send' => 'cancelled', 'actor' => 20, 'names' => $stored, 'calls' => array( 641 => $call( array( 30 ), 'Ada &amp; Al Okonjo' ) ) ),
+		'reminder-call-mentor-name-with-a-comma'      => array( 'send' => 'reminder', 'names' => array( 20 => 'Ben "Benny" Lindqvist, PhD' ), 'calls' => array( 671 => $call( array( 30 ), 'Ada Okonjo' ) ) ),
+		'booked-call-mentor-name-tag-like'            => array( 'send' => 'booked', 'names' => array( 20 => 'Ben &lt;Ops&gt; Lindqvist' ), 'calls' => array( 601 => $call( array( 30 ), 'Ada Okonjo' ) ) ),
+		'report-drafted-institution-name-as-cleaned'  => array( 'send' => 'drafted', 'institution' => 'Example College &lt;3 &quot;Arts&quot; &amp; Co', 'args' => array( 'recSEED000000016', '2026-H1', 1 ), 'calls' => array() ),
+	);
+
+	foreach ( $cases as $name => $case ) {
+		$cases[ $name ] = array_merge( $base, $case );
+	}
+
+	return $cases;
+}
+
+/**
  * A private method of a class, as its own class calls it.
  *
  * @param string $class  The class.
@@ -428,6 +491,12 @@ function emails_of( array $case ) {
 	$GLOBALS['uid']       = (int) $case['actor'];
 	$GLOBALS['site_name'] = $case['site'];
 
+	// The accounts' names: as every case of the recording has them, or as a case added in 1.122.23
+	// gives them.
+	foreach ( array( 20 => 'Ben Lindqvist', 30 => 'Ada Okonjo', 31 => 'Cy Moreau', 32 => "Kai O'Example" ) as $id => $named ) {
+		$GLOBALS['users'][ $id ]->display_name = $case['names'][ $id ] ?? $named;
+	}
+
 	// All four dashboard pages, none, or the ones a case names.
 	$published = static function ( $page ) use ( $case ) {
 		return true === $case['pages'] || ( is_array( $case['pages'] ) && in_array( $page, $case['pages'], true ) );
@@ -437,7 +506,7 @@ function emails_of( array $case ) {
 	WPCPM_Mentors_Dashboard::$url        = $published( 'mentors' ) ? 'https://example.test/mentor-report-card/' : '';
 	WPCPM_Institutions_Dashboard::$url   = $published( 'institutions' ) ? 'https://example.test/institution-dashboard/' : '';
 	WPCPM_Administrators_Dashboard::$url = $published( 'administrators' ) ? 'https://example.test/administrator-dashboard/' : '';
-	WPCPM_Institutions_Index::$rows      = array( 'recSEED000000016' => array( 'name' => 'Example University & "Partners"' ) );
+	WPCPM_Institutions_Index::$rows      = array( 'recSEED000000016' => array( 'name' => $case['institution'] ?? 'Example University & "Partners"' ) );
 
 	$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = array( 'meeting_url' => $case['link'] ? 'https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE' : '' );
 
@@ -601,7 +670,227 @@ function body_as( $case, $recorded ) {
 	return $recorded;
 }
 
+/**
+ * What 1.122.23 changes on purpose in the emails of the two recordings, each change with the item of
+ * the 1.122.23 plan it comes from: a row names a case, its item, and the text that changes in each
+ * email it sends, or in those `only` names by their place in the recording (`replace`: a field,
+ * `subject`, `body` or `headers`, to pairs of the text the recording holds and the text that stands
+ * in its place now). Every other email of both recordings is sent as recorded, byte for byte, its
+ * calendar files included.
+ *
+ * @return array[]
+ */
+function changes() {
+	$rows = array(
+		// Item 3: a name as a person reads it, an account's or an institution's, in the body and in the
+		// subject, which is plain text now, so a "<" and a run the subject's cleaner read as a tag are kept.
+		array(
+			'case'    => 'booked-call-names-as-stored',
+			'item'    => 3,
+			'only'    => array( 0 ),
+			'replace' => array(
+				'subject' => array( 'Call booked with Ada &amp; Al Okonjo' => 'Call booked with Ada & Al Okonjo' ),
+				'body'    => array( 'Ada &amp; Al Okonjo booked' => 'Ada & Al Okonjo booked' ),
+			),
+		),
+		array(
+			'case'    => 'booked-call-names-as-stored',
+			'item'    => 3,
+			'only'    => array( 1 ),
+			'replace' => array(
+				'subject' => array( 'Ben &amp; Bo &lt;Mentor' => 'Ben & Bo <Mentor' ),
+				'body'    => array( 'Ben &amp; Bo &lt;Mentor' => 'Ben & Bo <Mentor' ),
+			),
+		),
+		array(
+			'case'    => 'cancelled-call-by-the-mentor-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Ben &amp; Bo &lt;Mentor' => 'Ben & Bo <Mentor' ) ),
+		),
+		array(
+			'case'    => 'booked-call-mentor-name-tag-like',
+			'item'    => 3,
+			'only'    => array( 1 ),
+			'replace' => array(
+				'subject' => array( 'Ben &lt;Ops&gt; Lindqvist' => 'Ben <Ops> Lindqvist' ),
+				'body'    => array( 'Ben &lt;Ops&gt; Lindqvist' => 'Ben <Ops> Lindqvist' ),
+			),
+		),
+		array(
+			'case'    => 'report-drafted-institution-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Example College &lt;3 &quot;Arts&quot; &amp; Co' => 'Example College <3 "Arts" & Co' ),
+				'body'    => array( 'Example College &lt;3 &quot;Arts&quot; &amp; Co' => 'Example College <3 "Arts" & Co' ),
+			),
+		),
+		// Item 4: a Reply-To keeps every character of a name: read back, as it is, in no quotes, for the
+		// mailer to quote, escape and encode (the fix wave), or in encoded words for a name holding a
+		// comma, which `wp_mail()` would split the header at.
+		array(
+			'case'    => 'booked-call-names-as-stored',
+			'item'    => 4,
+			'only'    => array( 0 ),
+			'replace' => array( 'headers' => array( '"Ada &amp Al Okonjo"' => 'Ada & Al Okonjo' ) ),
+		),
+		array(
+			'case'    => 'booked-call-names-as-stored',
+			'item'    => 4,
+			'only'    => array( 1 ),
+			'replace' => array( 'headers' => array( '"Ben &amp Bo &lt Mentor"' => 'Ben & Bo <Mentor' ) ),
+		),
+		array(
+			'case'    => 'cancelled-call-by-the-mentor-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Ben &amp Bo &lt Mentor"' => 'Ben & Bo <Mentor' ) ),
+		),
+		array(
+			'case'    => 'reminder-call-mentor-name-with-a-comma',
+			'item'    => 4,
+			'only'    => array( 1 ),
+			'replace' => array( 'headers' => array( '"Ben Benny Lindqvist PhD"' => '=?UTF-8?B?QmVuICJCZW5ueSIgTGluZHF2aXN0LCBQaEQ=?=' ) ),
+		),
+		array(
+			'case'    => 'booked-call-mentor-name-tag-like',
+			'item'    => 4,
+			'only'    => array( 1 ),
+			'replace' => array( 'headers' => array( '"Ben &lt Ops&gt Lindqvist"' => 'Ben <Ops> Lindqvist' ) ),
+		),
+		// End of the changes.
+	);
+
+	// Item 4, as the fix wave made it: `wp_mail()` hands the mailer what stands before the address as
+	// the name, quote marks included, and the mailer quotes a name itself, so a name the plugin wrote
+	// in quotes reached the recipient as `"Ben Lindqvist"`. A name goes as it is now, and each
+	// Reply-To the recordings hold as `Reply-To: "Name"` is `Reply-To: Name`: in every email of a case
+	// given one name, and in the emails a case names by their place in the recording.
+	$bare = array(
+		'booked-call'                                     => array( 0 => 'Ada Okonjo', 1 => 'Ben Lindqvist' ),
+		'booked-call-bare'                                => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'booked-call-site-name'                           => array( 0 => 'Cy Moreau', 1 => 'Ben Lindqvist' ),
+		'booked-call-topic-of-spaces'                     => array( 0 => 'Ada Okonjo', 1 => 'Ben Lindqvist' ),
+		'booked-call-no-link-with-topic'                  => array( 0 => 'Cy Moreau', 1 => 'Ben Lindqvist' ),
+		'joined-session'                                  => array( 0 => 'Cy Moreau', 1 => 'Ben Lindqvist' ),
+		'joined-session-bare'                             => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'joined-session-no-link-with-topic'               => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'series-two'                                      => array( 0 => 'Ada Okonjo', 1 => 'Ben Lindqvist' ),
+		'series-one-bare'                                 => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'series-three-topic-of-spaces'                    => array( 0 => 'Cy Moreau', 1 => 'Ben Lindqvist' ),
+		'series-two-no-link-with-topic'                   => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'series-two-with-link-no-topic'                   => array( 0 => 'Cy Moreau', 1 => 'Ben Lindqvist' ),
+		'moved-by-an-administrator'                       => array( 0 => 'Ben Lindqvist', 1 => 'Ben Lindqvist' ),
+		'moved-by-the-mentor-bare'                        => 'Ben Lindqvist',
+		'moved-topic-of-spaces'                           => array( 0 => 'Ben Lindqvist' ),
+		'cancelled-call-by-the-student'                   => 'Ada Okonjo',
+		'cancelled-call-by-the-mentor'                    => 'Ben Lindqvist',
+		'cancelled-call-by-an-administrator'              => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'cancelled-session-by-the-mentor'                 => 'Ben Lindqvist',
+		'cancelled-session-by-an-administrator'           => array( 1 => 'Ben Lindqvist', 2 => 'Ben Lindqvist' ),
+		'cancelled-call-on-another-day-for-the-mentor'    => array( 0 => 'Ada Okonjo', 1 => 'Ben Lindqvist' ),
+		'cancelled-session-on-another-day-for-the-mentor' => array( 1 => 'Ben Lindqvist', 2 => 'Ben Lindqvist', 3 => 'Ben Lindqvist' ),
+		'left-session'                                    => 'Ben Lindqvist',
+		'released-from-session-bare'                      => 'Ben Lindqvist',
+		'reminder-call'                                   => array( 0 => 'Ada Okonjo', 1 => 'Ben Lindqvist' ),
+		'reminder-call-bare'                              => array( 0 => 'Kai O\'Example', 1 => 'Ben Lindqvist' ),
+		'reminder-session-of-one'                         => array( 1 => 'Ben Lindqvist' ),
+		'reminder-session-of-three'                       => array( 1 => 'Ben Lindqvist', 2 => 'Ben Lindqvist', 3 => 'Ben Lindqvist' ),
+		'reminder-call-mentor-name-with-a-comma'          => array( 0 => 'Ada Okonjo' ),
+		'booked-call-mentor-name-tag-like'                => array( 0 => 'Ada Okonjo' ),
+	);
+
+	foreach ( $bare as $case => $names ) {
+		foreach ( (array) $names as $n => $name ) {
+			$row = array(
+				'case'    => $case,
+				'item'    => 4,
+				'replace' => array( 'headers' => array( 'Reply-To: "' . $name . '"' => 'Reply-To: ' . $name ) ),
+			);
+
+			if ( is_array( $names ) ) {
+				$row['only'] = array( $n );
+			}
+
+			$rows[] = $row;
+		}
+	}
+
+	return $rows;
+}
+
+/**
+ * A case's emails as 1.122.23 sends them: as recorded, with the changes `changes()` lists for it
+ * made in turn. A pair whose recorded text an email does not hold is noted in `$GLOBALS['stale']`,
+ * which a check below holds empty. So is a row whose `only` names a place the recording holds no
+ * email at, and a pair for a field the email has not, which would otherwise change nothing and pass.
+ *
+ * @param string     $case     The case.
+ * @param array      $recorded Its emails, as recorded.
+ * @param array|null $rows     The changes, `changes()` unless a check hands its own.
+ * @return array
+ */
+function as_changed( $case, array $recorded, $rows = null ) {
+	foreach ( null === $rows ? changes() : $rows as $row ) {
+		if ( $case !== $row['case'] ) {
+			continue;
+		}
+
+		foreach ( isset( $row['only'] ) ? array_diff( $row['only'], array_keys( $recorded ) ) : array() as $none ) {
+			$GLOBALS['stale'][] = $case . ' #' . $none . ': no such email';
+		}
+
+		foreach ( $recorded as $n => $mail ) {
+			// A row may name the emails of its case it changes, by their place in the recording.
+			if ( isset( $row['only'] ) && ! in_array( $n, $row['only'], true ) ) {
+				continue;
+			}
+
+			foreach ( $row['replace'] as $field => $pairs ) {
+				if ( ! array_key_exists( $field, $mail ) ) {
+					$GLOBALS['stale'][] = $case . ' #' . $n . ' ' . $field . ': no such field';
+					continue;
+				}
+
+				foreach ( $pairs as $old => $new ) {
+					$was            = $mail[ $field ];
+					$mail[ $field ] = str_replace( (string) $old, $new, $mail[ $field ] );
+
+					if ( $mail[ $field ] === $was ) {
+						$GLOBALS['stale'][] = $case . ' #' . $n . ' ' . $field . ': ' . $old;
+					}
+				}
+			}
+
+			$recorded[ $n ] = $mail;
+		}
+	}
+
+	return $recorded;
+}
+
 $fixture = __DIR__ . '/fixtures/calls-reports-1-122-20.json';
+$added   = __DIR__ . '/fixtures/calls-reports-added-1-122-22.json';
+
+if ( in_array( '--record-added', $argv, true ) ) {
+	// Made once, from 1.122.22, before anything of 1.122.23 moved.
+	if ( file_exists( $added ) ) {
+		fwrite( STDERR, "The recording exists and is never made twice.\n" );
+		exit( 1 );
+	}
+
+	$recorded = array(
+		'_comment' => 'What the cases 1.122.23 adds said in 1.122.22, recorded through the real senders and WPCPM_Mail by bin/test-calls-reports-text.php --record-added before anything of 1.122.23 moved. Invented names, every address written "at example.test", a fake meeting code, and each calendar file unfolded with its DTSTAMP written "recorded". Never edit by hand: 1.122.23 is held to these bytes but for the changes the suite lists.',
+		'cases'    => array(),
+	);
+
+	foreach ( added_cases() as $name => $case ) {
+		$recorded['cases'][ $name ] = emails_of( $case );
+	}
+
+	file_put_contents( $added, json_encode( $recorded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR ) . "\n" );
+	printf( "Recorded %d cases, %d emails, in %s\n", count( $recorded['cases'] ), array_sum( array_map( 'count', $recorded['cases'] ) ), basename( $added ) );
+
+	exit( 0 );
+}
 
 if ( in_array( '--record', $argv, true ) ) {
 	// Made once, from 1.122.20: a recording made again would be made from whatever the code says
@@ -632,30 +921,64 @@ $cases    = cases();
 ck( 'the recording is there, and holds every case', is_array( $recorded ) && isset( $recorded['cases'] ) ? array_keys( $recorded['cases'] ) : null, array_keys( $cases ) );
 ck( 'the recording is the one made from 1.122.20', is_file( $fixture ) ? hash_file( 'sha256', $fixture ) : null, '29341e03ddb31ae9bd24d7fce8e8a3add2d9131d348d1d7a3d3bae58c3bf1fcc' );
 
-foreach ( $cases as $name => $case ) {
-	$want = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : array();
-	$got  = emails_of( $case );
+$more = is_file( $added ) ? json_decode( (string) file_get_contents( $added ), true ) : null;
 
-	ck( $name . ': the same emails, to the same people, in the same order', array_column( $got, 'to' ), array_column( $want, 'to' ) );
+ck( 'the recording of the cases 1.122.23 adds is there, and holds every one of them', is_array( $more ) && isset( $more['cases'] ) ? array_keys( $more['cases'] ) : null, array_keys( added_cases() ) );
+ck( 'and it is the one made from 1.122.22', is_file( $added ) ? hash_file( 'sha256', $added ) : null, 'd9461cf1e6a3165a68309b6148a6a9c72b509251d3740280b7332f9fee680ce1' );
 
-	foreach ( $want as $n => $mail ) {
-		$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
+// Every case of both recordings, as 1.122.23 sends it: as recorded, but for the changes listed.
+$GLOBALS['stale'] = array();
+$listed           = array_unique( array_column( changes(), 'case' ) );
+$changed          = array();
 
-		ck( $name . ' #' . $n . ': logged under its own id', $now['context'], sent_as( $name, $n, $mail['context'] ) );
-		ck( $name . ' #' . $n . ': the subject, byte for byte', $now['subject'], $mail['subject'] );
-		ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ), $now['body'], body_as( $name, $mail['body'] ) );
-		ck( $name . ' #' . $n . ': the headers and the calendar files, byte for byte', array( $now['headers'], $now['attachments'] ), array( $mail['headers'], $mail['attachments'] ) );
+foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as $pair ) {
+	foreach ( $pair[0] as $name => $case ) {
+		$held = isset( $pair[1]['cases'][ $name ] ) ? $pair[1]['cases'][ $name ] : array();
+		$want = as_changed( $name, $held );
+		$got  = emails_of( $case );
+		$as   = in_array( $name, $listed, true ) ? ', as 1.122.23 changes it' : '';
+
+		if ( $want !== $held ) {
+			$changed[] = $name;
+		}
+
+		ck( $name . ': the same emails, to the same people, in the same order' . $as, array_column( $got, 'to' ), array_column( $want, 'to' ) );
+
+		foreach ( $want as $n => $mail ) {
+			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
+
+			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
+			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
+			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], body_as( $name, $mail['body'] ) );
+			ck( $name . ' #' . $n . ': the headers and the calendar files, byte for byte' . $as, array( $now['headers'], $now['attachments'] ), array( $mail['headers'], $mail['attachments'] ) );
+		}
 	}
 }
 
+ck( 'every change listed is made, to a case of one of the two recordings, and changes what its recording holds', array( $GLOBALS['stale'], array_values( array_diff( $listed, $changed ) ) ), array( array(), array() ) );
+
+// The check above holds for every row: a row whose `only` names no email of its case, or whose pair
+// names a field no email has, changes nothing, and is noted as a row that does.
+$GLOBALS['stale'] = array();
+as_changed(
+	'a-case',
+	array( array( 'subject' => 'Old', 'body' => 'Old', 'headers' => array() ) ),
+	array(
+		array( 'case' => 'a-case', 'item' => 0, 'only' => array( 0, 5 ), 'replace' => array( 'subject' => array( 'Old' => 'New' ) ) ),
+		array( 'case' => 'a-case', 'item' => 0, 'replace' => array( 'subjet' => array( 'Old' => 'New' ) ) ),
+	)
+);
+ck( 'and a row whose `only` names no email of its case, or whose field no email has, is noted as a change that changes nothing', $GLOBALS['stale'], array( 'a-case #5: no such email', 'a-case #0 subjet: no such field' ) );
+$GLOBALS['stale'] = array();
+
 // And the one line the move takes out, in those five cases alone: one line ending in each of their
 // ten emails, above the footer.
-$changed = array();
-$doubled = array();
+$shortened = array();
+$doubled   = array();
 foreach ( is_array( $recorded ) && isset( $recorded['cases'] ) ? $recorded['cases'] : array() as $name => $mails ) {
 	foreach ( $mails as $n => $mail ) {
 		if ( body_as( $name, $mail['body'] ) !== $mail['body'] ) {
-			$changed[] = $name . ' #' . $n . ': ' . ( strlen( $mail['body'] ) - strlen( body_as( $name, $mail['body'] ) ) );
+			$shortened[] = $name . ' #' . $n . ': ' . ( strlen( $mail['body'] ) - strlen( body_as( $name, $mail['body'] ) ) );
 		}
 
 		if ( false !== strpos( $mail['body'], "\n\n\n-- \n" ) ) {
@@ -665,7 +988,7 @@ foreach ( is_array( $recorded ) && isset( $recorded['cases'] ) ? $recorded['case
 }
 ck(
 	'the move takes one line ending out of ten recorded emails, the reports\' with no Institution Dashboard page published, and out of no other',
-	$changed,
+	$shortened,
 	array(
 		'report-drafted-bare #0: 1',
 		'report-drafted-bare #1: 1',
@@ -679,7 +1002,7 @@ ck(
 		'report-approved-administrator-page-only #1: 1',
 	)
 );
-ck( 'and those ten are every recorded email whose footer stands under a doubled blank line, in either area', $doubled, $changed );
+ck( 'and those ten are every recorded email whose footer stands under a doubled blank line, in either area', $doubled, $shortened );
 
 // The one thing the move changes on purpose, and so not in the recording: each email of the Mentor
 // calls written for the mentor alone has the mentor's audience now (the two a session sends everybody
@@ -719,6 +1042,8 @@ ck(
 );
 
 ck( 'and the recording holds no address, no real meeting code and no record ID but the seeds\'', is_file( $fixture ) ? array( preg_match( '/[A-Za-z0-9._%+-]*@[A-Za-z0-9-]+\.[A-Za-z]{2,}/', (string) file_get_contents( $fixture ) ), preg_match_all( '/pwd=([A-Za-z0-9-]+)/', (string) file_get_contents( $fixture ), $codes ) > 0 ? array_values( array_unique( $codes[1] ) ) : array(), preg_match( '/rec(?!SEED0\d{9})[A-Za-z0-9]{14}/', (string) file_get_contents( $fixture ) ) ) : null, array( 0, array( 'EXAMPLE-NOT-A-REAL-CODE' ), 0 ) );
+$text = is_file( $added ) ? (string) file_get_contents( $added ) : '';
+ck( 'and so does the recording of the cases 1.122.23 adds', is_file( $added ) ? array( preg_match( '/[A-Za-z0-9._%+-]*@[A-Za-z0-9-]+\.[A-Za-z]{2,}/', $text ), preg_match_all( '/pwd=([A-Za-z0-9-]+)/', $text, $codes ) > 0 ? array_values( array_unique( $codes[1] ) ) : array(), preg_match( '/rec(?!SEED0\d{9})[A-Za-z0-9]{14}/', $text ) ) : null, array( 0, array( 'EXAMPLE-NOT-A-REAL-CODE' ), 0 ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

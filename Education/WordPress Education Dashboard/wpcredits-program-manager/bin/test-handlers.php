@@ -877,7 +877,7 @@ check( 'a session\'s cancellation is worded as the session\'s, offers nobody ano
         $manager_mails['mentor@example.test']['headers'] ?? null,
         $manager_mails['pat@example.test']['headers'] ?? null,
     ),
-    array( true, 3, 0, 0, true, array(), array( 'Reply-To: "Mia Mentor" <mentor@example.test>' ) ) );
+    array( true, 3, 0, 0, true, array(), array( 'Reply-To: Mia Mentor <mentor@example.test>' ) ) );
 
 /**
  * Session 601's cancellation file, naming the mentor and one student.

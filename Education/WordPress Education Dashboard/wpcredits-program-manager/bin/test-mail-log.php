@@ -27,6 +27,7 @@ $GLOBALS['hooked']    = array();
 $GLOBALS['scheduled'] = array();
 
 function __( $s, $d = null ) { return $s; }
+function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8' ); }
 function get_option( $k, $d = false ) {
 	if ( array_key_exists( $k, $GLOBALS['stale'] ) ) {
 		return $GLOBALS['stale'][ $k ];
@@ -233,6 +234,11 @@ $export = WPCPM_Mail_Log::export( 'ada@example.test' );
 ck( 'export lists the address\'s entries with no other person\'s', array( count( $export['data'] ), $export['done'], $export['data'][0]['group_id'] ), array( 3, true, 'wpcpm-mail-log' ) );
 $names = array_column( $export['data'][0]['data'], 'name' );
 ck( 'each exported entry names when, the email, the subject and the status', $names, array( 'When', 'Email', 'Subject', 'Status' ) );
+// A subject is plain text, and can carry a name as typed, a link's tag in it included: core prints each
+// exported value through kses, which keeps a link, so the export hands it over escaped, as text.
+WPCPM_Mail_Log::add( row( array( 'subject' => 'Welcome, <a href="https://example.test/">Ada</a> & co' ) ) );
+$export = WPCPM_Mail_Log::export( 'ada@example.test' );
+ck( 'an exported subject is text, never markup: a link in it is escaped', $export['data'][0]['data'][2]['value'], 'Welcome, &lt;a href=&quot;https://example.test/&quot;&gt;Ada&lt;/a&gt; &amp; co' );
 $erase = WPCPM_Mail_Log::erase( 'ada@example.test' );
 ck( 'erase removes them and says so', array( $erase['items_removed'], $erase['done'], WPCPM_Mail_Log::find( array() )['total'] ), array( true, true, 0 ) );
 ck( 'and an address with nothing logged removes nothing', WPCPM_Mail_Log::erase( 'nobody@example.test' )['items_removed'], false );

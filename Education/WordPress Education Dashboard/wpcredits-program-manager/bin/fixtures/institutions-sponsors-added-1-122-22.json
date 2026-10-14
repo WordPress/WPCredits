@@ -1,0 +1,392 @@
+{
+    "_comment": "What the cases 1.122.23 adds said in 1.122.22, recorded through the real senders and WPCPM_Mail by bin/test-institutions-sponsors-text.php --record-added before anything of 1.122.23 moved. Invented names, every address written \"at example.test\", and fake secrets and codes. Never edit by hand: 1.122.23 is held to these bytes but for the changes the suite lists.",
+    "cases": {
+        "sponsor-agreement-uploaded-by-a-member": [],
+        "sponsor-agreement-uploaded-by-an-administrator": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-agreement-received",
+                "subject": "[WordPress Credits] Acme & \"Sons\" 50% Hosting uploaded a signed Collaboration Agreement",
+                "body": "Acme & \"Sons\" 50% Hosting uploaded a signed Collaboration Agreement on 2036-03-09 (Ida Admin).\r\n\r\nThe program aims to answer within 3 working days.\r\n\r\nAccept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "agreement-revoked-with-a-contact-administrator-with-no-name": [
+            {
+                "to": "ines at example.test",
+                "context": "agreement-revoked",
+                "subject": "[WordPress Credits] Your agreement has been revoked",
+                "body": "Your Collaboration Agreement was revoked on 2036-03-09 by , with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nYour account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.\r\n\r\nYour program contact for Poland is pl-contact at example.test.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/institution-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "noor at example.test",
+                "context": "agreement-revoked",
+                "subject": "[WordPress Credits] Your agreement has been revoked",
+                "body": "Your Collaboration Agreement was revoked on 2036-03-09 by , with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nYour account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.\r\n\r\nYour program contact for Poland is pl-contact at example.test.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/institution-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "invite-inviter-with-no-name": [
+            {
+                "to": "colleague at example.test",
+                "context": "institution-invite",
+                "subject": "[WordPress Credits] An invitation to Example University & \"Partners\" 100%",
+                "body": " has invited you to see Example University & \"Partners\" 100%'s students in the WordPress Credits Program on WordPress Credits.\r\n\r\nOpen this link, and press Accept on the page it opens:\r\n\r\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_accept_invite&t=EXAMPLE-NOT-A-REAL-TOKEN-0721\r\n\r\nThe link works until 2036-03-23 and can only be used once. If you do not have an account here yet, one is made for you and you get a second email with a link to set your password.\r\n\r\nIf you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches the person who sent it.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: nameless at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "invite-inviter-without-an-address": [
+            {
+                "to": "colleague at example.test",
+                "context": "institution-invite",
+                "subject": "[WordPress Credits] An invitation to Example University & \"Partners\" 100%",
+                "body": "Ivo Noaddress has invited you to see Example University & \"Partners\" 100%'s students in the WordPress Credits Program on WordPress Credits.\r\n\r\nOpen this link, and press Accept on the page it opens:\r\n\r\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_accept_invite&t=EXAMPLE-NOT-A-REAL-TOKEN-0721\r\n\r\nThe link works until 2036-03-23 and can only be used once. If you do not have an account here yet, one is made for you and you get a second email with a link to set your password.\r\n\r\nIf you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches the person who sent it.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "agreement-returned-administrator-name-of-spaces": [
+            {
+                "to": "ines at example.test",
+                "context": "agreement-returned",
+                "subject": "[WordPress Credits] Your signed agreement needs a change",
+                "body": "Your signed Collaboration Agreement was sent back on 2036-03-09 by    , with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/institution-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: blank at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "noor at example.test",
+                "context": "agreement-returned",
+                "subject": "[WordPress Credits] Your signed agreement needs a change",
+                "body": "Your signed Collaboration Agreement was sent back on 2036-03-09 by    , with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/institution-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: blank at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "sponsor-agreement-returned-administrator-name-of-spaces": [
+            {
+                "to": "sami at example.test",
+                "context": "sponsor-agreement-returned",
+                "subject": "[WordPress Credits] Your Collaboration Agreement came back with a note",
+                "body": "    read your Collaboration Agreement and sent it back, with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected document from the agreement card on your dashboard, or reply to this message.\r\n\r\nhttps://example.test/sponsor-dashboard/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: blank at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "tove at example.test",
+                "context": "sponsor-agreement-returned",
+                "subject": "[WordPress Credits] Your Collaboration Agreement came back with a note",
+                "body": "    read your Collaboration Agreement and sent it back, with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected document from the agreement card on your dashboard, or reply to this message.\r\n\r\nhttps://example.test/sponsor-dashboard/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: blank at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "low-stock-past-a-thousand": [
+            {
+                "to": "sami at example.test",
+                "context": "offer-low-stock",
+                "subject": "[WordPress Credits] Hosting for students: 4999 codes left",
+                "body": "The offer \"Hosting for students\" has 4999 codes left; it warns below 5000.\n\nAdd more codes, or pause the offer, from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers\n\nThis is sent once. Adding codes arms it again.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "tove at example.test",
+                "context": "offer-low-stock",
+                "subject": "[WordPress Credits] Hosting for students: 4999 codes left",
+                "body": "The offer \"Hosting for students\" has 4999 codes left; it warns below 5000.\n\nAdd more codes, or pause the offer, from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers\n\nThis is sent once. Adding codes arms it again.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/student-dashboard/\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "offer-low-stock",
+                "subject": "[WordPress Credits] Hosting for students: 4999 codes left",
+                "body": "The offer \"Hosting for students\" has 4999 codes left; it warns below 5000.\n\nAdd more codes, or pause the offer, from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers\n\nThis is sent once. Adding codes arms it again.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "sponsor-applied-name-as-cleaned": [
+            {
+                "to": "sol at example.test",
+                "context": "sponsor-applied",
+                "subject": "[WordPress Credits] We have your application: SAPP-2036-0801",
+                "body": "Thank you for offering to sponsor the WordPress Credits Program on behalf of Acme &lt;3 &quot;Co&quot; &amp; Sons. Your application is with us.\r\n\r\nYour reference is SAPP-2036-0801. Please quote it if you write to us about this application.\r\n\r\nWhat happens next: an Administrator reads every application by hand and checks the company and its products against the program's licensing and trademark rules, so a reply takes a few working days. If the program says yes, we will set up an account on the program site and send you a link to choose a password.\r\n\r\nThis message went to sol at example.test because that address was given on the sponsor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until an Administrator decides.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "sponsor-application-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-application",
+                "subject": "[WordPress Credits] New sponsor application from Acme &lt;3 &quot;Co&quot; &amp; Sons",
+                "body": "A company has applied to sponsor the program through the form on the site, and the application passed every check.\r\n\r\nAcme &lt;3 &quot;Co&quot; &amp; Sons, https://acme.example.test\r\n\r\nContact: Sol Applicant, sol at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&wpcpm_sapp_id=801\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "omar at example.test",
+                "context": "sponsor-application",
+                "subject": "[WordPress Credits] New sponsor application from Acme &lt;3 &quot;Co&quot; &amp; Sons",
+                "body": "A company has applied to sponsor the program through the form on the site, and the application passed every check.\r\n\r\nAcme &lt;3 &quot;Co&quot; &amp; Sons, https://acme.example.test\r\n\r\nContact: Sol Applicant, sol at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&wpcpm_sapp_id=801\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "nameless at example.test",
+                "context": "sponsor-application",
+                "subject": "[WordPress Credits] New sponsor application from Acme &lt;3 &quot;Co&quot; &amp; Sons",
+                "body": "A company has applied to sponsor the program through the form on the site, and the application passed every check.\r\n\r\nAcme &lt;3 &quot;Co&quot; &amp; Sons, https://acme.example.test\r\n\r\nContact: Sol Applicant, sol at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&wpcpm_sapp_id=801\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "una at example.test",
+                "context": "sponsor-application",
+                "subject": "[WordPress Credits] New sponsor application from Acme &lt;3 &quot;Co&quot; &amp; Sons",
+                "body": "A company has applied to sponsor the program through the form on the site, and the application passed every check.\r\n\r\nAcme &lt;3 &quot;Co&quot; &amp; Sons, https://acme.example.test\r\n\r\nContact: Sol Applicant, sol at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&wpcpm_sapp_id=801\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "application-fields-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "institution-application",
+                "subject": "[WordPress Credits] New institution application from Example Polytechnic",
+                "body": "An institution has applied to the program through the form on the site, and the application passed every check.\r\n\r\nExample Polytechnic, Łódź &lt;3, Poland\r\n\r\nContact: Ana & Bo &lt;3, ana at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=701\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "omar at example.test",
+                "context": "institution-application",
+                "subject": "[WordPress Credits] New institution application from Example Polytechnic",
+                "body": "An institution has applied to the program through the form on the site, and the application passed every check.\r\n\r\nExample Polytechnic, Łódź &lt;3, Poland\r\n\r\nContact: Ana & Bo &lt;3, ana at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=701\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "nameless at example.test",
+                "context": "institution-application",
+                "subject": "[WordPress Credits] New institution application from Example Polytechnic",
+                "body": "An institution has applied to the program through the form on the site, and the application passed every check.\r\n\r\nExample Polytechnic, Łódź &lt;3, Poland\r\n\r\nContact: Ana & Bo &lt;3, ana at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=701\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "una at example.test",
+                "context": "institution-application",
+                "subject": "[WordPress Credits] New institution application from Example Polytechnic",
+                "body": "An institution has applied to the program through the form on the site, and the application passed every check.\r\n\r\nExample Polytechnic, Łódź &lt;3, Poland\r\n\r\nContact: Ana & Bo &lt;3, ana at example.test\r\n\r\nIt is on the queue here:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=701\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "sponsor-agreement-received-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-agreement-received",
+                "subject": "[WordPress Credits] Acme &lt;3 &quot;Co&quot; &amp; Sons uploaded a signed Collaboration Agreement",
+                "body": "Acme &lt;3 &quot;Co&quot; &amp; Sons uploaded a signed Collaboration Agreement on 2036-03-03 (Sami Sponsor).\r\n\r\nThe program aims to answer within 3 working days.\r\n\r\nAccept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "sponsor-agreement-received-tag-like-name": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-agreement-received",
+                "subject": "[WordPress Credits] Acme &lt;b&gt;Co&lt;/b&gt; Hosting uploaded a signed Collaboration Agreement",
+                "body": "Acme &lt;b&gt;Co&lt;/b&gt; Hosting uploaded a signed Collaboration Agreement on 2036-03-03 (Sami Sponsor).\r\n\r\nThe program aims to answer within 3 working days.\r\n\r\nAccept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "interest-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-interest",
+                "subject": "[WordPress Credits] Acme &lt;3 &quot;Co&quot; &amp; Sons would like to support the program",
+                "body": "Acme &lt;3 &quot;Co&quot; &amp; Sons said on the Sponsor Dashboard:\n\n2036-03-09 by Sami Sponsor: note: One line.\n\nThe full history is in the Sponsorship interests column of the Sponsors table.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "mentor-interest-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "sponsor-mentor-interest",
+                "subject": "[WordPress Credits] Acme &lt;3 &quot;Co&quot; &amp; Sons would like to sponsor Ben Lindqvist",
+                "body": "Acme &lt;3 &quot;Co&quot; &amp; Sons said on the Sponsor Dashboard that it would like to sponsor the mentor Ben Lindqvist (https://profiles.wordpress.org/mentor-two/). Please get in touch with both.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "member-last-institution-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "member-last",
+                "subject": "[WordPress Credits] Faculty &lt;3 &quot;Arts&quot; &amp; Design has no members left",
+                "body": "Lena Last is no longer a member of Faculty &lt;3 &quot;Arts&quot; &amp; Design (recSEED0000000017) as of March 9, 2036 (removed). No account can act for this institution on the site now.\r\n\r\nThe Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "omar at example.test",
+                "context": "member-last",
+                "subject": "[WordPress Credits] Faculty &lt;3 &quot;Arts&quot; &amp; Design has no members left",
+                "body": "Lena Last is no longer a member of Faculty &lt;3 &quot;Arts&quot; &amp; Design (recSEED0000000017) as of March 9, 2036 (removed). No account can act for this institution on the site now.\r\n\r\nThe Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "nameless at example.test",
+                "context": "member-last",
+                "subject": "[WordPress Credits] Faculty &lt;3 &quot;Arts&quot; &amp; Design has no members left",
+                "body": "Lena Last is no longer a member of Faculty &lt;3 &quot;Arts&quot; &amp; Design (recSEED0000000017) as of March 9, 2036 (removed). No account can act for this institution on the site now.\r\n\r\nThe Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "una at example.test",
+                "context": "member-last",
+                "subject": "[WordPress Credits] Faculty &lt;3 &quot;Arts&quot; &amp; Design has no members left",
+                "body": "Lena Last is no longer a member of Faculty &lt;3 &quot;Arts&quot; &amp; Design (recSEED0000000017) as of March 9, 2036 (removed). No account can act for this institution on the site now.\r\n\r\nThe Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "information-administrator-with-a-double-quote": [
+            {
+                "to": "ana at example.test",
+                "context": "institution-information",
+                "subject": "[WordPress Credits] A question about your application (APP-2036-0701)",
+                "body": "Thank you for applying to the WordPress Credits Program. Before an Administrator can take your application further, they have one question:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nReply to this message and your answer reaches them directly.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Dee DJ Okafor Ops\" <dee at example.test>"
+                ],
+                "files": 0
+            }
+        ],
+        "sponsor-agreement-returned-administrator-with-a-long-name": [
+            {
+                "to": "sami at example.test",
+                "context": "sponsor-agreement-returned",
+                "subject": "[WordPress Credits] Your Collaboration Agreement came back with a note",
+                "body": "Zoë Ångström-Núñez, Head of Partnerships & Outreach \"EU\" read your Collaboration Agreement and sent it back, with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected document from the agreement card on your dashboard, or reply to this message.\r\n\r\nhttps://example.test/sponsor-dashboard/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Zoë Ångström-Núñez Head of Partnerships & Outreach EU\" <zoe-eu at example.test>"
+                ],
+                "files": 0
+            },
+            {
+                "to": "tove at example.test",
+                "context": "sponsor-agreement-returned",
+                "subject": "[WordPress Credits] Your Collaboration Agreement came back with a note",
+                "body": "Zoë Ångström-Núñez, Head of Partnerships & Outreach \"EU\" read your Collaboration Agreement and sent it back, with this note:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nUpload the corrected document from the agreement card on your dashboard, or reply to this message.\r\n\r\nhttps://example.test/sponsor-dashboard/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Zoë Ångström-Núñez Head of Partnerships & Outreach EU\" <zoe-eu at example.test>"
+                ],
+                "files": 0
+            }
+        ],
+        "information-administrator-name-with-a-line-break": [
+            {
+                "to": "ana at example.test",
+                "context": "institution-information",
+                "subject": "[WordPress Credits] A question about your application (APP-2036-0701)",
+                "body": "Thank you for applying to the WordPress Credits Program. Before an Administrator can take your application further, they have one question:\r\n\r\nCould you <3 a Q&A with \"both\" 'quotes' at 100% {note}?\nAnd a second line.\r\n\r\nReply to this message and your answer reaches them directly.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Lee Line Example\" <lee at example.test>"
+                ],
+                "files": 0
+            }
+        ],
+        "agreement-landed-one-flag-as-scanned": [
+            {
+                "to": "ida at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Ines Example).\r\n\r\nThe courtesy scan noticed: /OpenAction. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "omar at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Ines Example).\r\n\r\nThe courtesy scan noticed: /OpenAction. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "nameless at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Ines Example).\r\n\r\nThe courtesy scan noticed: /OpenAction. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "una at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Ines Example).\r\n\r\nThe courtesy scan noticed: /OpenAction. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "agreement-landed-every-flag-as-scanned": [
+            {
+                "to": "ida at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Noor Example).\r\n\r\nThe courtesy scan noticed: /JavaScript, /JS, /OpenAction, /AA, /EmbeddedFile. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "omar at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Noor Example).\r\n\r\nThe courtesy scan noticed: /JavaScript, /JS, /OpenAction, /AA, /EmbeddedFile. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "nameless at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Noor Example).\r\n\r\nThe courtesy scan noticed: /JavaScript, /JS, /OpenAction, /AA, /EmbeddedFile. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "una at example.test",
+                "context": "agreement-landed-flagged",
+                "subject": "[WordPress Credits] Signed agreement from Example University & \"Partners\" 100% is waiting for review",
+                "body": "Example University & \"Partners\" 100% uploaded a signed Collaboration Agreement on 2036-03-02 (Noor Example).\r\n\r\nThe courtesy scan noticed: /JavaScript, /JS, /OpenAction, /AA, /EmbeddedFile. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-institutions\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ]
+    }
+}

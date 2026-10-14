@@ -1357,11 +1357,12 @@ class WPCPM_Sponsor_Posts {
 		update_post_meta( $post->ID, self::META_RETURNED, time() );
 
 		// A mail is plain text: the title as WordPress stored it (kses writes each "&" of a
-		// member's title as `&amp;`) and the note as the cleaner left it are read back to what was
-		// typed, and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in
-		// it as they are: "Q&A" arrives as "Q&A".
-		$title = WPCPM_Typed_Text::mail_text( (string) $post->post_title );
-		$said  = WPCPM_Typed_Text::mail_text( $note );
+		// member's title as `&amp;`) and the note as the cleaner left it are handed over as stored
+		// and read back to what was typed once, as every value is (`WPCPM_Mail_Templates::fill()`),
+		// and the subject is marked plain text, so the mail layer keeps a "<" and an "&" in it as
+		// they are: "Q&A" arrives as "Q&A".
+		$title = (string) $post->post_title;
+		$said  = (string) $note;
 
 		WPCPM_Mail::send(
 			(int) $post->post_author,

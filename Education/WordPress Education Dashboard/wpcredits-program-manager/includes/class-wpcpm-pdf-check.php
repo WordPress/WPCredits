@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Three questions, deliberately kept apart because they have different answers:
  *
  * - `named_pdf()` asks WordPress's own name-and-type map about the extension and the declared
- *   type. It is about the name.
+ *   type. It is about the name, and not about the media library: an agreement never goes there.
  * - `has_magic()` and `mime_of()` ask the bytes. A renamed executable passes the first
  *   question and fails these, which is the whole reason all three are called.
  * - `inspect()` is a courtesy scan and is documented as one: two names refuse the file
@@ -56,6 +56,47 @@ final class WPCPM_Pdf_Check {
 	const SCAN_FLAGS = array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' );
 
 	/**
+	 * What the scan noticed, in words an Administrator reads, each with the PDF's own name for it in
+	 * brackets, the one a viewer's search finds: "an action that runs when the file is opened
+	 * (/OpenAction)". In the language of the moment, so a builder asks it inside the recipient's.
+	 * A name this scanner does not record, such as one stored without its slash, is given as it was
+	 * stored, and a blank one is left out, so no note stands empty between two commas. Since
+	 * 1.122.23; the upload notice to the Administrators printed the bare names before.
+	 *
+	 * @param string[] $flags The names, as `inspect()` recorded them.
+	 * @return string The notes, a comma between each two; '' for none.
+	 */
+	public static function in_words( array $flags ) {
+		$words = array(
+			'/JavaScript'   => __( 'JavaScript code', 'wpcredits-program-manager' ),
+			'/JS'           => __( 'JavaScript code', 'wpcredits-program-manager' ),
+			'/OpenAction'   => __( 'an action that runs when the file is opened', 'wpcredits-program-manager' ),
+			'/AA'           => __( 'actions that run when a page or a form field is used', 'wpcredits-program-manager' ),
+			'/EmbeddedFile' => __( 'a file embedded inside it', 'wpcredits-program-manager' ),
+		);
+		$notes = array();
+
+		foreach ( $flags as $flag ) {
+			$flag = (string) $flag;
+
+			if ( '' === trim( $flag ) ) {
+				continue;
+			}
+
+			$notes[] = isset( $words[ $flag ] )
+				? sprintf(
+					/* translators: 1: what the courtesy scan noticed in a PDF, in words, such as "JavaScript code", 2: the PDF's own name for it, such as /JavaScript. */
+					__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+					$words[ $flag ],
+					$flag
+				)
+				: $flag;
+		}
+
+		return implode( ', ', $notes );
+	}
+
+	/**
 	 * How much of a file the courtesy scan will inflate.
 	 *
 	 * A few hundred bytes of zlib can expand into gigabytes, and a scan that helps an
@@ -77,6 +118,15 @@ final class WPCPM_Pdf_Check {
 	 * the strength of its extension, and the guard also keeps `finfo` from being asked about a
 	 * file that is gone.
 	 *
+	 * WordPress's map ends with a question that is not this one: whether the person signed in
+	 * may put a file of that type in the media library (`get_allowed_mime_types()`, which the
+	 * `upload_mimes` filter decides). An agreement never goes to the media library, and a
+	 * sponsor's member writing posts may put images there alone
+	 * (`WPCPM_Sponsor_Posts::limit_mimes()`), so until 1.122.23 the member's signed agreement, a
+	 * valid PDF, was refused here as not a PDF. For this one call the types an upload may have are
+	 * the one asked about (`only_pdf()`), and the filter goes again before the answer is read,
+	 * whatever it is: the fence keeps the media library as it was.
+	 *
 	 * @param string $path A readable temporary file.
 	 * @param string $name The name the file came with.
 	 * @return bool
@@ -88,12 +138,32 @@ final class WPCPM_Pdf_Check {
 			return false;
 		}
 
-		$checked = wp_check_filetype_and_ext( $path, (string) $name, array( 'pdf' => self::MIME ) );
+		add_filter( 'upload_mimes', array( __CLASS__, 'only_pdf' ), PHP_INT_MAX );
+
+		try {
+			$checked = wp_check_filetype_and_ext( $path, (string) $name, array( 'pdf' => self::MIME ) );
+		} finally {
+			remove_filter( 'upload_mimes', array( __CLASS__, 'only_pdf' ), PHP_INT_MAX );
+		}
 
 		$ext  = isset( $checked['ext'] ) ? $checked['ext'] : '';
 		$type = isset( $checked['type'] ) ? $checked['type'] : '';
 
 		return 'pdf' === $ext && self::MIME === $type;
+	}
+
+	/**
+	 * The types an upload may have while `named_pdf()` asks its question: the one type it asks
+	 * about, whatever the site or the fence allows the person signed in for the media library.
+	 * Hooked last on `upload_mimes` for that one call, and taken off again.
+	 *
+	 * @param array $mimes The types allowed for the media library, which this question is not about.
+	 * @return array
+	 */
+	public static function only_pdf( $mimes ) {
+		unset( $mimes );
+
+		return array( 'pdf' => self::MIME );
 	}
 
 	/**

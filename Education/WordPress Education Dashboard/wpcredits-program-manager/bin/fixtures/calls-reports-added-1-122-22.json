@@ -1,0 +1,126 @@
+{
+    "_comment": "What the cases 1.122.23 adds said in 1.122.22, recorded through the real senders and WPCPM_Mail by bin/test-calls-reports-text.php --record-added before anything of 1.122.23 moved. Invented names, every address written \"at example.test\", a fake meeting code, and each calendar file unfolded with its DTSTAMP written \"recorded\". Never edit by hand: 1.122.23 is held to these bytes but for the changes the suite lists.",
+    "cases": {
+        "booked-call-names-as-stored": [
+            {
+                "to": "ben at example.test",
+                "context": "call-booked-mentor",
+                "subject": "[WordPress Credits] Call booked with Ada &amp; Al Okonjo",
+                "body": "Ada &amp; Al Okonjo booked a call with you on July 15, 2036 11:45 pm to July 16, 2036 12:15 am.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat the student would like to discuss:\nRelease cycle\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ada &amp Al Okonjo\" <ada at example.test>"
+                ],
+                "attachments": [
+                    {
+                        "name": "mentor-call.ics",
+                        "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WordPress Credits Program//WPCredits Program Manager//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:wpcpm-call-601 at example.test\r\nSEQUENCE:0\r\nDTSTAMP:recorded\r\nDTSTART:20360715T144500Z\r\nDTEND:20360715T151500Z\r\nSUMMARY:Mentor call: Ben & Bo <Mentor and Ada & Al Okonjo\r\nDESCRIPTION:A mentor call on the WordPress Credits Program with Ben & Bo <Mentor.\\n\\nWhere you will meet:\\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\\n\\nWhat you said you would like to discuss:\\nRelease cycle\r\nSTATUS:CONFIRMED\r\nTRANSP:OPAQUE\r\nLOCATION:https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\r\nORGANIZER;CN=\"Ben & Bo <Mentor\":mailto:ben at example.test\r\nATTENDEE;CN=\"Ben & Bo <Mentor\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ben at example.test\r\nATTENDEE;CN=\"Ada & Al Okonjo\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada at example.test\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                    }
+                ]
+            },
+            {
+                "to": "ada at example.test",
+                "context": "call-booked-student",
+                "subject": "[WordPress Credits] Your call with Ben &amp; Bo &lt;Mentor is booked",
+                "body": "Your call with Ben &amp; Bo &lt;Mentor is booked for July 15, 2036 10:45 am to 11:15 am.\n\nTimes are shown in America / New York.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat you said you would like to discuss:\nRelease cycle\n\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ben &amp Bo &lt Mentor\" <ben at example.test>"
+                ],
+                "attachments": [
+                    {
+                        "name": "mentor-call.ics",
+                        "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WordPress Credits Program//WPCredits Program Manager//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:wpcpm-call-601 at example.test\r\nSEQUENCE:0\r\nDTSTAMP:recorded\r\nDTSTART:20360715T144500Z\r\nDTEND:20360715T151500Z\r\nSUMMARY:Mentor call: Ben & Bo <Mentor and Ada & Al Okonjo\r\nDESCRIPTION:A mentor call on the WordPress Credits Program with Ben & Bo <Mentor.\\n\\nWhere you will meet:\\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\\n\\nWhat you said you would like to discuss:\\nRelease cycle\r\nSTATUS:CONFIRMED\r\nTRANSP:OPAQUE\r\nLOCATION:https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\r\nORGANIZER;CN=\"Ben & Bo <Mentor\":mailto:ben at example.test\r\nATTENDEE;CN=\"Ben & Bo <Mentor\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ben at example.test\r\nATTENDEE;CN=\"Ada & Al Okonjo\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada at example.test\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                    }
+                ]
+            }
+        ],
+        "cancelled-call-by-the-mentor-name-as-stored": [
+            {
+                "to": "ada at example.test",
+                "context": "call-cancelled-student",
+                "subject": "[WordPress Credits] Call on July 15, 2036 canceled",
+                "body": "The call on July 15, 2036 10:45 am to 11:15 am was canceled by Ben &amp; Bo &lt;Mentor.\n\nTimes are shown in America / New York.\n\nThe slot is free again, so you can book another time.\n\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ben &amp Bo &lt Mentor\" <ben at example.test>"
+                ],
+                "attachments": [
+                    {
+                        "name": "mentor-call.ics",
+                        "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WordPress Credits Program//WPCredits Program Manager//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:CANCEL\r\nBEGIN:VEVENT\r\nUID:wpcpm-call-641 at example.test\r\nSEQUENCE:1\r\nDTSTAMP:recorded\r\nDTSTART:20360715T144500Z\r\nDTEND:20360715T151500Z\r\nSUMMARY:Mentor call: Ben & Bo <Mentor and Ada & Al Okonjo\r\nDESCRIPTION:A mentor call on the WordPress Credits Program with Ben & Bo <Mentor.\\n\\nWhere you will meet:\\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\\n\\nWhat you said you would like to discuss:\\nRelease cycle\r\nSTATUS:CANCELLED\r\nTRANSP:OPAQUE\r\nLOCATION:https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\r\nORGANIZER;CN=\"Ben & Bo <Mentor\":mailto:ben at example.test\r\nATTENDEE;CN=\"Ben & Bo <Mentor\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ben at example.test\r\nATTENDEE;CN=\"Ada & Al Okonjo\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada at example.test\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                    }
+                ]
+            }
+        ],
+        "reminder-call-mentor-name-with-a-comma": [
+            {
+                "to": "ben at example.test",
+                "context": "call-reminder-mentor",
+                "subject": "[WordPress Credits] Reminder: your call with Ada Okonjo",
+                "body": "Your call with Ada Okonjo is in 1 day, on July 15, 2036 11:45 pm to July 16, 2036 12:15 am.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat the student would like to discuss:\nRelease cycle\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ada Okonjo\" <ada at example.test>"
+                ],
+                "attachments": []
+            },
+            {
+                "to": "ada at example.test",
+                "context": "call-reminder-student",
+                "subject": "[WordPress Credits] Reminder: your call with Ben \"Benny\" Lindqvist, PhD",
+                "body": "Your call with Ben \"Benny\" Lindqvist, PhD is in 1 day, on July 15, 2036 10:45 am to 11:15 am.\n\nTimes are shown in America / New York.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat you said you would like to discuss:\nRelease cycle\n\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ben Benny Lindqvist PhD\" <ben at example.test>"
+                ],
+                "attachments": []
+            }
+        ],
+        "booked-call-mentor-name-tag-like": [
+            {
+                "to": "ben at example.test",
+                "context": "call-booked-mentor",
+                "subject": "[WordPress Credits] Call booked with Ada Okonjo",
+                "body": "Ada Okonjo booked a call with you on July 15, 2036 11:45 pm to July 16, 2036 12:15 am.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat the student would like to discuss:\nRelease cycle\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ada Okonjo\" <ada at example.test>"
+                ],
+                "attachments": [
+                    {
+                        "name": "mentor-call.ics",
+                        "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WordPress Credits Program//WPCredits Program Manager//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:wpcpm-call-601 at example.test\r\nSEQUENCE:0\r\nDTSTAMP:recorded\r\nDTSTART:20360715T144500Z\r\nDTEND:20360715T151500Z\r\nSUMMARY:Mentor call: Ben <Ops> Lindqvist and Ada Okonjo\r\nDESCRIPTION:A mentor call on the WordPress Credits Program with Ben <Ops> Lindqvist.\\n\\nWhere you will meet:\\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\\n\\nWhat you said you would like to discuss:\\nRelease cycle\r\nSTATUS:CONFIRMED\r\nTRANSP:OPAQUE\r\nLOCATION:https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\r\nORGANIZER;CN=\"Ben <Ops> Lindqvist\":mailto:ben at example.test\r\nATTENDEE;CN=\"Ben <Ops> Lindqvist\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ben at example.test\r\nATTENDEE;CN=\"Ada Okonjo\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada at example.test\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                    }
+                ]
+            },
+            {
+                "to": "ada at example.test",
+                "context": "call-booked-student",
+                "subject": "[WordPress Credits] Your call with Ben &lt;Ops&gt; Lindqvist is booked",
+                "body": "Your call with Ben &lt;Ops&gt; Lindqvist is booked for July 15, 2036 10:45 am to 11:15 am.\n\nTimes are shown in America / New York.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\n\nWhat you said you would like to discuss:\nRelease cycle\n\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [
+                    "Reply-To: \"Ben &lt Ops&gt Lindqvist\" <ben at example.test>"
+                ],
+                "attachments": [
+                    {
+                        "name": "mentor-call.ics",
+                        "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WordPress Credits Program//WPCredits Program Manager//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:wpcpm-call-601 at example.test\r\nSEQUENCE:0\r\nDTSTAMP:recorded\r\nDTSTART:20360715T144500Z\r\nDTEND:20360715T151500Z\r\nSUMMARY:Mentor call: Ben <Ops> Lindqvist and Ada Okonjo\r\nDESCRIPTION:A mentor call on the WordPress Credits Program with Ben <Ops> Lindqvist.\\n\\nWhere you will meet:\\nhttps://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\\n\\nWhat you said you would like to discuss:\\nRelease cycle\r\nSTATUS:CONFIRMED\r\nTRANSP:OPAQUE\r\nLOCATION:https://meet.example.test/ben-lindqvist?pwd=EXAMPLE-NOT-A-REAL-CODE\r\nORGANIZER;CN=\"Ben <Ops> Lindqvist\":mailto:ben at example.test\r\nATTENDEE;CN=\"Ben <Ops> Lindqvist\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ben at example.test\r\nATTENDEE;CN=\"Ada Okonjo\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada at example.test\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+                    }
+                ]
+            }
+        ],
+        "report-drafted-institution-name-as-cleaned": [
+            {
+                "to": "ida at example.test",
+                "context": "report-drafted",
+                "subject": "Semester report drafted: Example College &lt;3 &quot;Arts&quot; &amp; Co",
+                "body": "A semester report has been drafted for Example College &lt;3 &quot;Arts&quot; &amp; Co, covering January to June 2026. It is waiting for an Administrator to review and approve it; the institution cannot see it until then.\n\n1 student in this semester was still in progress when the draft was written.\n\nReview it here:\nhttps://example.test/institution-dashboard/?wpcpm_report=2026-H1&wpcpm_institution_view=recSEED000000016#wpcpm-report\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.\n",
+                "headers": [],
+                "attachments": []
+            },
+            {
+                "to": "reports at example.test",
+                "context": "report-drafted",
+                "subject": "Semester report drafted: Example College &lt;3 &quot;Arts&quot; &amp; Co",
+                "body": "A semester report has been drafted for Example College &lt;3 &quot;Arts&quot; &amp; Co, covering January to June 2026. It is waiting for an Administrator to review and approve it; the institution cannot see it until then.\n\n1 student in this semester was still in progress when the draft was written.\n\nReview it here:\nhttps://example.test/institution-dashboard/?wpcpm_report=2026-H1&wpcpm_institution_view=recSEED000000016#wpcpm-report\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.\n",
+                "headers": [],
+                "attachments": []
+            }
+        ]
+    }
+}

@@ -562,6 +562,8 @@ class WPCPM_Mentors { public static function format_duration( $s ) { return $s .
 // The real class: it prints the way from this screen into the Administrator Dashboard, and maps
 // every press's way back, which names no dashboard here and so comes back to this screen.
 require_once __DIR__ . '/../includes/class-wpcpm-return.php';
+// What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
+require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
 // The Administrator Dashboard's page, which every item on the queue tab links into.
 require_once __DIR__ . '/stubs/administrators-dashboard.php';
 if ( ! class_exists( 'WPCPM_Administrators_Cards' ) ) {
@@ -1618,8 +1620,15 @@ ck( 'the queue tab draws one review block with the facts a reviewer reads first'
 	false !== strpos( $review, '2026-09-05' ),
 	false !== strpos( $review, 'Read the whole document.' ),
 ), array( 1, true, true, true, true ) );
-ck( 'the scan is named and said to be a courtesy', array( false !== strpos( $review, '/JavaScript' ), false !== strpos( $review, 'courtesy' ) ), array( true, true ) );
+ck( 'the scan is named in words, with the PDF\'s own name for it, and said to be a courtesy', array( false !== strpos( $review, 'The scan noticed these in the file: JavaScript code (/JavaScript).' ), false !== strpos( $review, 'courtesy' ) ), array( true, true ) );
 ck( 'the download is a link, keyed to the document', array( false !== strpos( $review, 'wpcpm_sponsor_agr_download' ), false !== strpos( $review, 'wpcpm_sponsor_agr_download_900' ) ), array( true, true ) );
+// A stored name the scanner does not record is drawn as stored, and as text: a name holding a tag, a
+// quote and an "&" beside one it words.
+$kept_flags                     = $GLOBALS['facts'][900]['flags'];
+$GLOBALS['facts'][900]['flags'] = array( '<b>"x"&</b>', '/AA' );
+$hostile                        = render_tab( 'queue' );
+$GLOBALS['facts'][900]['flags'] = $kept_flags;
+ck( 'a stored name holding a tag is drawn as text in the review, escaped, beside one in words', array( false !== strpos( $hostile, 'The scan noticed these in the file: &lt;b&gt;&quot;x&quot;&amp;&lt;/b&gt;, actions that run when a page or a form field is used (/AA).' ), false !== strpos( $hostile, '<b>"x"' ) ), array( true, false ) );
 ck( 'and neither Accept it nor Return it with this note is drawn: in their place, the way to the document\'s own item on the Administrator Dashboard, which decides it', array(
 	substr_count( $queue_tab, '<form' ),
 	strpos( $queue_tab, 'value="wpcpm_sponsor_agr_accept"' ),

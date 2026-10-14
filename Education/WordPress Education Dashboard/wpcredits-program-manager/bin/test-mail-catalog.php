@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 69 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, and the 4 Institutions and 2 Sponsors emails of their own since 1.122.22', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 69 );
+ck( 'the catalog names the plugin\'s 70 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, and the institution\'s invitation with no sender named, its own since 1.122.23', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 70 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -123,7 +123,7 @@ foreach ( $emails as $id => $e ) {
 	}
 }
 ck(
-	'the Institutions area names its thirteen ids of before 1.122.22 and the four emails of their own since, each with who receives it',
+	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, and the invitation with no sender named, its own since 1.122.23, each with who receives it',
 	isset( $named['institutions'] ) ? $named['institutions'] : null,
 	array(
 		'institution-applied'          => 'Application received, to the applicant / applicant',
@@ -132,6 +132,7 @@ ck(
 		'institution-information'      => 'Question about an application / applicant',
 		'institution-declined'         => 'Application declined / applicant',
 		'institution-invite'           => 'Invitation to join an institution / institution',
+		'institution-invite-no-sender' => 'Invitation to join an institution, with no sender named / institution',
 		'agreement-received'           => 'Collaboration Agreement received, to the institution / institution',
 		'agreement-landed'             => 'Collaboration Agreement uploaded, to Administrators / administrator',
 		'agreement-landed-flagged'     => 'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / administrator',
@@ -202,7 +203,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 35 of them (it is not reading nothing)', count( $contexts ), 35 );
+ck( 'and the scan found all 34 of them (it is not reading nothing); the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 34 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,
@@ -210,7 +211,8 @@ ck( 'and the scan found all 35 of them (it is not reading nothing)', count( $con
 // between two ids rather than passed as a literal the scan above can read; so, since 1.122.22, is
 // each email of the Institutions and the Sponsors that says other words in one case than in another
 // (the acknowledgement with or without a call to book, or with its logo kept or not; the upload with
-// the scan's notes or none; the revocation with a country contact or none), so the registry's files
+// the scan's notes or none; the revocation with a country contact or none), and, since 1.122.23, the
+// institution's invitation, with its inviter named or with nobody to name; so the registry's files
 // are where both of each two are read.
 $templates = array();
 foreach ( glob( __DIR__ . '/../includes/mail/templates/*.php' ) as $file ) {

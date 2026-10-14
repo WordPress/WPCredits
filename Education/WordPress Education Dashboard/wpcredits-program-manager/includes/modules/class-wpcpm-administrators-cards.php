@@ -409,8 +409,8 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		if ( ! empty( $row['flags'] ) ) {
-			/* translators: %s: a comma-separated list of what the PDF scan noticed. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'The scan noticed: %s', 'wpcredits-program-manager' ), implode( ', ', array_map( 'strval', (array) $row['flags'] ) ) ) ) );
+			/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'The scan noticed: %s', 'wpcredits-program-manager' ), WPCPM_Pdf_Check::in_words( array_map( 'strval', (array) $row['flags'] ) ) ) ) );
 		} elseif ( 'own' === (string) $row['kind'] ) {
 			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html__( 'The scan noticed none of the features it looks for', 'wpcredits-program-manager' ) );
 		}

@@ -471,9 +471,11 @@ class WPCPM_Institution_Members {
 			return 0;
 		}
 
+		// The site's name as stored, as `WPCPM_Mail::site_name()` gives it: `fill()` reads every value
+		// back, once.
 		$profile = get_user_meta( $user->ID, self::META_PROFILE, true );
 		$name    = is_array( $profile ) && ! empty( $profile['name'] ) ? (string) $profile['name'] : $record_id;
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$site    = (string) get_bloginfo( 'name' );
 		$who     = $user->display_name;
 
 		// The day written here, in the Administrator's language, as the sentence around it is.

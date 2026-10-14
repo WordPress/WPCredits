@@ -143,6 +143,9 @@ class WPCPM_Institution_Invite {
 	/** Mail context, so the send shows in the log by name. */
 	const MAIL_INVITE = 'institution-invite';
 
+	/** The invitation with nobody to name as its sender: the inviter's account gone or holding no name. */
+	const MAIL_INVITE_NO_SENDER = 'institution-invite-no-sender';
+
 	/** Flash channel. The value carries the institution, the way the People card's does. */
 	const FLASH = 'institution_invite';
 
@@ -963,7 +966,7 @@ class WPCPM_Institution_Invite {
 	private static function confirm_document( array $invite, $token ) {
 		$post_id = (int) $invite['id'];
 		$school  = self::institution_name( (string) $invite['record'] );
-		$site    = WPCPM_Mail::site_name();
+		$site    = wp_specialchars_decode( WPCPM_Mail::site_name(), ENT_QUOTES );
 		$who     = self::actor_name( (int) get_post_meta( $post_id, self::META_ACTOR, true ) );
 		$until   = wp_date( 'Y-m-d', self::expires_at( (int) get_post_meta( $post_id, self::META_SENT, true ) ) );
 		$title   = __( 'Accept this invitation?', 'wpcredits-program-manager' );
@@ -1823,6 +1826,11 @@ class WPCPM_Institution_Invite {
 	 * message nobody could trace. Reply-to is the member who invited them, because the person
 	 * who can answer "why am I getting this" is the colleague who pressed the button.
 	 *
+	 * An invitation with nobody to name as its sender, the inviter's account gone or holding no
+	 * name, is an email of its own (since 1.122.23): it opened " has invited you", and now says who
+	 * is invited to what. Either invitation promises a reply to the person who sent it while it
+	 * carries their address to reply to, and leaves that sentence out when nobody can be reached.
+	 *
 	 * @param int    $post_id The invitation.
 	 * @param string $token   The secret it was issued with.
 	 * @return bool Whether the message was handed off.
@@ -1844,22 +1852,25 @@ class WPCPM_Institution_Invite {
 		$until   = wp_date( 'Y-m-d', self::expires_at( time() ) );
 		$sender  = get_user_by( 'id', $actor );
 		$headers = WPCPM_Mail::reply_to( $sender instanceof WP_User ? $sender : null );
+		$id      = '' === trim( $who ) ? self::MAIL_INVITE_NO_SENDER : self::MAIL_INVITE;
 
-		$build = static function () use ( $site, $school, $who, $link, $until, $headers ) {
+		$build = static function () use ( $id, $site, $school, $who, $link, $until, $headers ) {
 			return WPCPM_Mail_Templates::mail(
-				self::MAIL_INVITE,
+				$id,
 				array(
 					'site_name'        => $site,
 					'inviter_name'     => $who,
 					'institution_name' => $school,
 					'accept_link'      => $link,
 					'expiry_date'      => $until,
+					// In the colleague's language, and only while a reply reaches somebody.
+					'replies_reach'    => array() === $headers ? '' : __( 'the person who sent it', 'wpcredits-program-manager' ),
 				),
 				array( 'headers' => $headers )
 			);
 		};
 
-		return (bool) WPCPM_Mail::send_to( $email, self::MAIL_INVITE, $build );
+		return (bool) WPCPM_Mail::send_to( $email, $id, $build );
 	}
 
 	/**

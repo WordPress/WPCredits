@@ -171,7 +171,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availabilit
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php';
 // And the Institutions' and the Sponsors': an application's confirmation link, an invitation's link
-// and how long it works, a sponsor's dated line, and the sponsor an Offers link names.
+// and how long it works, a sponsor's dated line, the sponsor an Offers link names, and the scan's
+// notes in words.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-interests.php';
@@ -342,6 +344,7 @@ ck(
 		'Question about an application / Applicant (no account) / Shipped text / institution-information',
 		'Application declined / Applicant (no account) / Shipped text / institution-declined',
 		'Invitation to join an institution / Institution member / Shipped text / institution-invite',
+		'Invitation to join an institution, with no sender named / Institution member / Shipped text / institution-invite-no-sender',
 		'Collaboration Agreement received, to the institution / Institution member / Shipped text / agreement-received',
 		'Collaboration Agreement uploaded, to Administrators / Administrator / Shipped text / agreement-landed',
 		'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / Administrator / Shipped text / agreement-landed-flagged',
@@ -373,7 +376,7 @@ ck(
 		'Sponsor post returned with a note / Sponsor member / Shipped text / sponsor-post-returned',
 	)
 );
-ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[43][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[58][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
+ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[44][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[59][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
 ck( 'each of the five areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 5, 5, true, true ) );
@@ -748,6 +751,10 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	if ( 'series-joined-student' === $id ) {
 		$series_test = $test[0]['body'] ?? '';
 	}
+
+	if ( 'report-drafted' === $id ) {
+		$drafted_shipped = array( $plain( $shown_body[1] ?? '' ), str_replace( "\r\n", "\n", $test[0]['body'] ?? '' ) );
+	}
 }
 ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
 ck(
@@ -765,6 +772,25 @@ ck(
 		) . "\n\nTimes are shown in Asia / Tokyo."
 	),
 	true
+);
+
+// An edit of an email whose shipped body ends with a line break is previewed and tested ending as the
+// shipped one does, its signature and footer included, as it is sent: the Semester reports email the
+// daily job drafts, with a line the Administrators added above its text (the fix wave).
+// Saved first, then tested as the editor draws the edit, since a test sends what is saved.
+$presser = new_administrator();
+$drafted = WPCPM_Mail_Templates::get( 'report-drafted' );
+press( 'handle_save', array( 'wpcpm_email' => 'report-drafted', 'subject' => $drafted['subject'], 'body' => str_replace( "\n", "\r\n", "A line the Administrators added.\n\n" . $drafted['body'] ) ) );
+$edited          = WPCPM_Mail_Templates::edit( 'report-drafted' );
+$GLOBALS['mail'] = array();
+press( 'handle_save', array( 'wpcpm_email' => 'report-drafted', 'wpcpm_then' => 'test', 'subject' => $edited['subject'] ?? '', 'body' => str_replace( "\n", "\r\n", $edited['body'] ?? '' ), 'to' => 'someone@example.test' ) );
+$drafted_test = str_replace( "\r\n", "\n", $GLOBALS['mail'][0]['body'] ?? '' );
+preg_match( '#<pre class="wpcpm-emails__text">(.*?)</pre>#s', screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'report-drafted' ) ), $drafted_shown );
+WPCPM_Mail_Templates::restore( 'report-drafted' );
+ck(
+	'an edit of an email whose shipped body ends with a line break, stored without it, is previewed and tested ending as the shipped one, after its signature and footer',
+	array( "\n" === substr( (string) ( $edited['body'] ?? '' ), -1 ), $plain( $drafted_shown[1] ?? '' ), $drafted_test, "\n" === substr( $drafted_test, -1 ), WPCPM_Mail_Templates::state( 'report-drafted' )['state'] ),
+	array( false, "A line the Administrators added.\n\n" . ( $drafted_shipped[0] ?? '' ), "A line the Administrators added.\n\n" . ( $drafted_shipped[1] ?? '' ), true, 'shipped' )
 );
 
 // A save of an Institutions or a Sponsors email that drops a placeholder the email needs (a link
@@ -808,9 +834,9 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	}
 }
 ck(
-	'a save of an Institutions or a Sponsors email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 32 emails of the two areas',
+	'a save of an Institutions or a Sponsors email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 33 emails of the two areas',
 	array( $dropped, $moved, $refusals_wrong ),
-	array( 17, 24, array() )
+	array( 18, 25, array() )
 );
 
 // An agreement returned, previewed as a member of the institution reads it: sent back today, on the

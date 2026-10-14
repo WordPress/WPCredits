@@ -62,8 +62,26 @@
  * The recording is made once: `--record` refuses when the file is there, and the suite pins the
  * file's sha256, so a recording made again from later code can never stand in for 1.122.21's.
  *
+ * 1.122.23 changes some of these emails on purpose, and needs inputs the recording holds no email
+ * for. Those inputs are the cases of `added_cases()`, recorded once from 1.122.22, before anything of
+ * 1.122.23 moved, into bin/fixtures/institutions-sponsors-added-1-122-22.json by `--record-added`,
+ * which refuses when that file is there, and the suite pins its sha256 too: a signed Collaboration
+ * Agreement uploaded through the Sponsor Dashboard's own handler by the sponsor's member (1.122.22
+ * refused it, so its recording holds no email) and by an Administrator; the courtesy scan's notes as
+ * the scan stores them, each name with its slash; a company's name, an institution's name and an
+ * institution's contact as the form's cleaner keeps a "<", and a name holding a run the subject's
+ * cleaner reads as a tag, in a body and in a subject; an Administrator whose name holds a double
+ * quote, one whose name is longer than one encoded word holds, one whose name holds a line break and
+ * one whose name is spaces; a revocation and an invitation by an Administrator whose account holds
+ * no name; an invitation by a member whose account holds a name and no address; and an offer's
+ * codes counted past a thousand. Every email of both recordings is sent as recorded, byte for byte,
+ * but those `changes()` lists, each change with the item of the 1.122.23 plan it comes from and the
+ * exact text it changes (docs/plans/2026-10-11-mail-fixes-1-122-23.md): an email that changes
+ * without a line there fails, and so does a line that changes nothing.
+ *
  * Run from the plugin root:  php bin/test-institutions-sponsors-text.php
  * Record (once, against 1.122.21, before the move):  php bin/test-institutions-sponsors-text.php --record
+ * Record the added cases (once, against 1.122.22):  php bin/test-institutions-sponsors-text.php --record-added
  */
 
 if ( 'cli' !== PHP_SAPI ) {
@@ -75,6 +93,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'MONTH_IN_SECONDS', 2592000 );
+define( 'MB_IN_BYTES', 1048576 );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
@@ -132,6 +151,7 @@ function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolo
 function wp_unslash( $v ) { return $v; }
 function wp_slash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
+function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $n ); }
 function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_bloginfo( $k = 'name' ) { return $GLOBALS['site_name']; }
@@ -201,7 +221,8 @@ function check_admin_referer( $action = -1, $name = '_wpnonce' ) { return 1; }
 function wp_get_referer() { return false; }
 function wp_safe_redirect( $to ) { throw new WPCPM_Test_Stop( 'redirect' ); }
 function wp_die( $m = '', $c = 0 ) { throw new WPCPM_Test_Stop( 'wp_die' ); }
-function number_format_i18n( $n ) { return number_format( (float) $n ); }
+// As core's, which writes the locale's thousands separator, `&nbsp;` where a locale's is a space.
+function number_format_i18n( $n ) { return number_format( (float) $n, 0, '.', $GLOBALS['thousands_sep'] ?? ',' ); }
 function wp_timezone_string() { return 'America/Los_Angeles'; }
 function wp_timezone() { return new DateTimeZone( wp_timezone_string() ); }
 /**
@@ -226,9 +247,117 @@ function wp_date( $format, $ts = null, $zone = null ) {
 	return $d->format( $format );
 }
 function add_action() {}
-function add_filter() {}
-function apply_filters( $h, $v ) { return $v; }
+// The filters as WordPress runs them: by priority, then in the order they were added. The one hooked
+// here is the media library's allowed types (`upload_mimes`), which the sponsor posts' fence narrows
+// for a sponsor's member and the PDF check reads; no sender adds a filter.
+$GLOBALS['filters'] = array();
+function add_filter( $hook, $callback = null, $priority = 10, $accepted = 1 ) {
+	$GLOBALS['filters'][ $hook ][ $priority ][] = $callback;
+	return true;
+}
+function remove_filter( $hook, $callback, $priority = 10 ) {
+	foreach ( $GLOBALS['filters'][ $hook ][ $priority ] ?? array() as $n => $held ) {
+		if ( $held === $callback ) {
+			unset( $GLOBALS['filters'][ $hook ][ $priority ][ $n ] );
+			return true;
+		}
+	}
+	return false;
+}
+function apply_filters( $hook, $value, ...$args ) {
+	$by_priority = $GLOBALS['filters'][ $hook ] ?? array();
+	ksort( $by_priority );
+	foreach ( $by_priority as $held ) {
+		foreach ( $held as $callback ) {
+			$value = call_user_func( $callback, $value, ...$args );
+		}
+	}
+	return $value;
+}
 function do_action( $h ) {}
+/**
+ * The types an upload may have, as core lists the ones this suite meets, for the account signed in:
+ * the `upload_mimes` filter decides.
+ *
+ * @param mixed $user The account, or null for the one signed in.
+ * @return array
+ */
+function get_allowed_mime_types( $user = null ) {
+	return apply_filters(
+		'upload_mimes',
+		array(
+			'jpg|jpeg|jpe' => 'image/jpeg',
+			'gif'          => 'image/gif',
+			'png'          => 'image/png',
+			'webp'         => 'image/webp',
+			'pdf'          => 'application/pdf',
+			'doc'          => 'application/msword',
+		),
+		$user
+	);
+}
+/**
+ * Core's `wp_check_filetype_and_ext()` for the files this suite posts: the name's extension against
+ * the map given (or the allowed types), the bytes read by fileinfo, which must say the same type, and
+ * then, as core asks of every file, a type the account signed in may upload.
+ *
+ * @param string     $file     The file on disk.
+ * @param string     $filename The name it came with.
+ * @param array|null $mimes    The map the caller allows.
+ * @return array
+ */
+function wp_check_filetype_and_ext( $file, $filename, $mimes = null ) {
+	$ext  = false;
+	$type = false;
+
+	foreach ( null === $mimes ? get_allowed_mime_types() : $mimes as $extensions => $mime ) {
+		if ( preg_match( '!\.(' . $extensions . ')$!i', (string) $filename, $found ) ) {
+			$ext  = strtolower( $found[1] );
+			$type = $mime;
+			break;
+		}
+	}
+
+	if ( $type && function_exists( 'finfo_open' ) && is_readable( $file ) ) {
+		$finfo = finfo_open( FILEINFO_MIME_TYPE );
+		$real  = $finfo ? (string) finfo_file( $finfo, $file ) : '';
+
+		if ( '' !== $real && $real !== $type ) {
+			$ext  = false;
+			$type = false;
+		}
+	}
+
+	// The mime type must be allowed.
+	if ( $type && ! in_array( $type, get_allowed_mime_types(), true ) ) {
+		$ext  = false;
+		$type = false;
+	}
+
+	return array( 'ext' => $ext, 'type' => $type, 'proper_filename' => false );
+}
+function add_option( $k, $v, $d = '', $a = null ) {
+	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) {
+		return false;
+	}
+	$GLOBALS['opts'][ $k ] = $v;
+	return true;
+}
+// A post written as core writes one, dated now on the site's clock: the one document an upload files.
+function wp_insert_post( $postarr, $wp_error = false ) {
+	post(
+		871,
+		$postarr['post_type'],
+		array(
+			'post_title'  => $postarr['post_title'] ?? '',
+			'post_status' => $postarr['post_status'] ?? 'draft',
+			'post_author' => (int) ( $postarr['post_author'] ?? 0 ),
+			'post_date'   => wp_date( 'Y-m-d H:i:s' ),
+		),
+		array()
+	);
+	return 871;
+}
 // A person's language is the one a check gives their account, English when it gives none; switching
 // into it and back is a stack, as WordPress's own switcher keeps one.
 $GLOBALS['user_locale']  = array();
@@ -319,6 +448,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-interests.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-mentors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-claims.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-posts.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
+
+// The fence on what a sponsor's member writing posts may upload, hooked for everyone as
+// `WPCPM_Sponsor_Posts::init()` hooks it, and deciding per call.
+add_filter( 'upload_mimes', array( 'WPCPM_Sponsor_Posts', 'limit_mimes' ) );
 
 /** The dashboards, each at the address a case gives it, '' while its page is not published. */
 class WPCPM_Students_Dashboard {
@@ -430,6 +564,7 @@ class WPCPM_Sponsor_Roster {
 class WPCPM_Sponsor_Policy {
 	const ACT_EXPRESS_INTEREST = 'express_interest';
 	const ACT_PUBLISH_POST     = 'publish_post';
+	const ACT_AGREEMENT        = 'agreement';
 	const META_POST_SPONSOR    = 'wpcpm_post_sponsor';
 	public static function subject_post( $post ) { return $post; }
 	public static function decide( $act, $subject ) { return array( 'allowed' => true ); }
@@ -450,6 +585,15 @@ class WPCPM_Sponsor_Codes {
 	public static function counts( $offer_id ) { return array( 'available' => self::$available ); }
 	public static function code_at( $offer_id, $index ) { return 'EXAMPLE-CODE-7Q2X'; }
 	public static function shared( $offer_id ) { return 'SHARED-EXAMPLE-AB12'; }
+}
+/** The private store an uploaded agreement goes to: kept nowhere here. */
+class WPCPM_Private_Files {
+	public static function store( $bytes, $extension = 'pdf' ) { return array( 'path' => '2036/example-upload.' . $extension, 'sha256' => hash( 'sha256', (string) $bytes ), 'size' => strlen( (string) $bytes ) ); }
+	public static function forget( $relative ) { return true; }
+}
+/** The Sponsors table's column an upload writes the agreement's status to. */
+class WPCPM_Sponsors_Sync {
+	public static function fields() { return array( 'agr_status' => 'Agreement Status' ); }
 }
 /** The Sponsors screen's flash channel. */
 class WPCPM_Sponsors {
@@ -491,6 +635,15 @@ $GLOBALS['users'][43] = new WP_User( 43, '', 'nameless@example.test', array( WPC
 // in a case that adds it (`manage`), so every other case's Administrators are the four above.
 $GLOBALS['users'][44] = new WP_User( 44, 'Gus &amp; Gwen &lt;Ops', 'gus@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
 $GLOBALS['users'][45] = new WP_User( 45, 'Zoë Ångström-Núñez', 'zoe@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
+// Three Administrators the cases 1.122.23 adds: one whose name holds a double quote and a semicolon,
+// one whose name, in letters beyond ASCII with a comma, a quote and an "&", is longer than one encoded
+// word holds, and one whose name holds a line break, as an account written by code can. Each holds
+// the program's capability only in a case that adds it.
+$GLOBALS['users'][46] = new WP_User( 46, 'Dee "DJ" Okafor; Ops', 'dee@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['users'][47] = new WP_User( 47, 'Zoë Ångström-Núñez, Head of Partnerships & Outreach "EU"', 'zoe-eu@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['users'][48] = new WP_User( 48, "Lee\nLine Example", 'lee@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
+// And an Administrator whose account's name is spaces, which a form that does not trim can store.
+$GLOBALS['users'][49] = new WP_User( 49, '   ', 'blank@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
 $GLOBALS['users'][50] = new WP_User( 50, 'Ines Example', 'ines@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
 // An institution's member who is also a mentor.
 $GLOBALS['users'][51] = new WP_User( 51, 'Noor Example', 'noor@example.test', array( WPCPM_Roles::ROLE_INSTITUTION, WPCPM_Roles::ROLE_MENTOR ) );
@@ -503,6 +656,8 @@ $GLOBALS['users'][55] = new WP_User( 55, 'Una Second', 'una@example.test', array
 $GLOBALS['users'][56] = new WP_User( 56, 'Vera Third', 'vera@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
 // An institution's member whose name is as WordPress stores it: a member only in a case that makes it one.
 $GLOBALS['users'][57] = new WP_User( 57, 'Mia &amp; Max &lt;Team', 'mia@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+// An institution's member whose account holds a name and no address, as an account made by hand can.
+$GLOBALS['users'][58] = new WP_User( 58, 'Ivo Noaddress', '', array( WPCPM_Roles::ROLE_INSTITUTION ) );
 $GLOBALS['users'][60] = new WP_User( 60, 'Sami Sponsor', 'sami@example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
 // A sponsor's member who is also a student.
 $GLOBALS['users'][61] = new WP_User( 61, 'Tove Sponsor', 'tove@example.test', array( WPCPM_Roles::ROLE_SPONSOR, WPCPM_Roles::ROLE_STUDENT ) );
@@ -571,6 +726,15 @@ const NAMED_NON_ASCII = 'Akademia Przykładowa w Łące & „Żółw” 100%';
 
 /** A sponsor's name in letters beyond ASCII. */
 const SPONSOR_NON_ASCII = 'Größe & Söhne Beispiel-Hosting';
+
+/** A company's name typed as 'Acme <3 "Co" & Sons', as the form's cleaner keeps it. */
+const CLEANED_SPONSOR = 'Acme &lt;3 &quot;Co&quot; &amp; Sons';
+
+/** An institution's name typed as 'Faculty <3 "Arts" & Design', as the form's cleaner keeps it and the index carries it on. */
+const CLEANED_INSTITUTION = 'Faculty &lt;3 &quot;Arts&quot; &amp; Design';
+
+/** A company's name holding a run the subject's cleaner reads as a tag, as WordPress stores it. */
+const TAG_LIKE_SPONSOR = 'Acme &lt;b&gt;Co&lt;/b&gt; Hosting';
 
 /**
  * Every case: what it sends, through which sender, and the world it sends in.
@@ -806,6 +970,66 @@ function cases() {
 		'post-returned-author-name-as-stored'            => array( 'send' => 'post-returned', 'args' => array( 'author' => 64 ) ),
 		'post-returned-non-ascii'                        => array( 'send' => 'post-returned', 'args' => array( 'author' => 60, 'title' => 'Nasz pierwszy wpis: część „1” &amp; więcej', 'note' => TYPED_NON_ASCII ) ),
 		'post-returned-author-with-no-address'           => array( 'send' => 'post-returned', 'args' => array( 'author' => 65 ) ),
+	);
+
+	foreach ( $cases as $name => $case ) {
+		$cases[ $name ] = array_merge( $base, $case );
+	}
+
+	return $cases;
+}
+
+/**
+ * The cases 1.122.23 adds: inputs its items need that the 1.122.21 recording holds no email for,
+ * recorded from 1.122.22 (`--record-added`), in the world `cases()` describes.
+ *
+ * @return array<string,array>
+ */
+function added_cases() {
+	$base = array(
+		'actor'    => 40,
+		'pages'    => array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ),
+		'site'     => 'WordPress Credits',
+		'settings' => array(),
+		'args'     => array(),
+	);
+
+	$cases = array(
+		// A signed PDF posted to the Sponsor Dashboard's form, by the sponsor's member, whom 1.122.22
+		// refused ("That file is not a PDF."), and by an Administrator for the sponsor (item 1).
+		'sponsor-agreement-uploaded-by-a-member'           => array( 'send' => 'sagr-upload', 'actor' => 60, 'args' => array( 'manager' => 'ida@example.test' ) ),
+		'sponsor-agreement-uploaded-by-an-administrator'   => array( 'send' => 'sagr-upload', 'actor' => 40, 'args' => array( 'manager' => 'ida@example.test' ) ),
+		// A revocation with a country contact, and an invitation, by an Administrator whose account
+		// holds no name; and an invitation by a member whose account holds a name and no address,
+		// which no reply can reach (item 2).
+		'agreement-revoked-with-a-contact-administrator-with-no-name' => array( 'send' => 'agr-revoked', 'actor' => 43 ),
+		'invite-inviter-with-no-name'                      => array( 'send' => 'inst-invite', 'args' => array( 'record' => 'recSEED0000000016', 'actor' => 43 ) ),
+		'invite-inviter-without-an-address'                => array( 'send' => 'inst-invite', 'args' => array( 'record' => 'recSEED0000000016', 'actor' => 58 ) ),
+		// An Administrator whose account's name is spaces returns an agreement, the institution's and
+		// the sponsor's; and an offer's codes counted past a thousand (item 2).
+		'agreement-returned-administrator-name-of-spaces'  => array( 'send' => 'agr-returned', 'actor' => 49 ),
+		'sponsor-agreement-returned-administrator-name-of-spaces' => array( 'send' => 'sagr-returned', 'actor' => 49 ),
+		'low-stock-past-a-thousand'                        => array( 'send' => 'low-stock', 'args' => array( 'manager' => 'ida@example.test', 'available' => 4999, 'low' => 5000 ) ),
+		// Names as the form's cleaner keeps a "<" typed in them, and the quote marks and the "&" after
+		// it (item 3).
+		'sponsor-applied-name-as-cleaned'                  => array( 'send' => 'spon-applied', 'args' => array( 'name' => CLEANED_SPONSOR ) ),
+		'sponsor-application-name-as-cleaned'              => array( 'send' => 'spon-application', 'args' => array( 'name' => CLEANED_SPONSOR ) ),
+		'application-fields-as-cleaned'                    => array( 'send' => 'inst-application', 'args' => array( 'city' => 'Łódź &lt;3', 'person' => 'Ana & Bo &lt;3' ) ),
+		// The same names as the index carries them on, into the subjects that name a company or an
+		// institution, and a name holding a run the subject's cleaner reads as a tag (item 3).
+		'sponsor-agreement-received-name-as-cleaned'       => array( 'send' => 'sagr-received', 'args' => array( 'manager' => 'ida@example.test', 'author' => 60, 'renamed' => array( 'recSEED0000000101' => CLEANED_SPONSOR ) ) ),
+		'sponsor-agreement-received-tag-like-name'         => array( 'send' => 'sagr-received', 'args' => array( 'manager' => 'ida@example.test', 'author' => 60, 'renamed' => array( 'recSEED0000000101' => TAG_LIKE_SPONSOR ) ) ),
+		'interest-name-as-cleaned'                         => array( 'send' => 'interest', 'actor' => 60, 'args' => array( 'manager' => 'ida@example.test', 'renamed' => array( 'recSEED0000000101' => CLEANED_SPONSOR ), 'choices' => array(), 'events' => '', 'note' => 'One line.' ) ),
+		'mentor-interest-name-as-cleaned'                  => array( 'send' => 'mentor-interest', 'actor' => 60, 'args' => array( 'manager' => 'ida@example.test', 'renamed' => array( 'recSEED0000000101' => CLEANED_SPONSOR ), 'mentor' => 'recSEED0000000201' ) ),
+		'member-last-institution-name-as-cleaned'          => array( 'send' => 'member-last', 'args' => array( 'user' => 53, 'reason' => 'removed', 'profile' => CLEANED_INSTITUTION ) ),
+		// A Reply-To for a name holding a double quote and a semicolon, for one longer than an encoded
+		// word holds, and for one holding a line break (item 4).
+		'information-administrator-with-a-double-quote'    => array( 'send' => 'inst-information', 'actor' => 46, 'args' => array( 'manage' => array( 46 ) ) ),
+		'sponsor-agreement-returned-administrator-with-a-long-name' => array( 'send' => 'sagr-returned', 'actor' => 47 ),
+		'information-administrator-name-with-a-line-break' => array( 'send' => 'inst-information', 'actor' => 48, 'args' => array( 'manage' => array( 48 ) ) ),
+		// The courtesy scan's notes as the scan stores them, each name with its slash (item 6).
+		'agreement-landed-one-flag-as-scanned'             => array( 'send' => 'agr-landed', 'args' => array( 'author' => 50, 'flags' => array( '/OpenAction' ) ) ),
+		'agreement-landed-every-flag-as-scanned'           => array( 'send' => 'agr-landed', 'args' => array( 'author' => 51, 'flags' => array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' ) ) ),
 	);
 
 	foreach ( $cases as $name => $case ) {
@@ -1107,6 +1331,28 @@ function emails_of( array $case ) {
 			}
 			break;
 
+		case 'sagr-upload':
+			// A signed PDF posted to the Sponsor Dashboard's form as a browser posts it, by the account
+			// signed in, the declaration ticked, and the handler run to the redirect it ends with.
+			$file = wpcpm_test_tempnam( 'wpcpm-upload-', 'pdf' );
+			file_put_contents( $file, "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n" );
+			$_POST  = array(
+				'wpcpm_sponsor'                       => $args['record'] ?? 'recSEED0000000101',
+				WPCPM_Sponsor_Agreement::FIELD_SIGNED => '1',
+			);
+			$_FILES = array(
+				WPCPM_Sponsor_Agreement::FIELD_FILE => array(
+					'name'     => 'signed-agreement.pdf',
+					'type'     => 'application/pdf',
+					'tmp_name' => $file,
+					'error'    => UPLOAD_ERR_OK,
+					'size'     => (int) filesize( $file ),
+				),
+			);
+			press( array( 'WPCPM_Sponsor_Agreement', 'handle_upload' ) );
+			$_FILES = array();
+			break;
+
 		case 'interest':
 			$_POST = array(
 				'wpcpm_sponsor' => $args['record'] ?? 'recSEED0000000101',
@@ -1228,7 +1474,520 @@ function sent_as( $case, $index, $recorded ) {
 	return isset( $ids[ $case ] ) ? $ids[ $case ] : $recorded;
 }
 
+/**
+ * What 1.122.23 changes on purpose in the emails of the two recordings, each change with the item of
+ * the 1.122.23 plan it comes from. A row names a case and its item, and either the emails the case
+ * sends now, in full (`emails`, for a case whose recording holds a different set of emails), or the
+ * text that changes in each email it sends, or in those `only` names by their place in the
+ * recording (`replace`: a field, `context`, `subject`, `body` or `headers`, to pairs of the text the
+ * recording holds and the text that stands in its place now). Every other email of both recordings
+ * is sent as recorded, byte for byte.
+ *
+ * @return array[]
+ */
+function changes() {
+	$rows = array(
+		// Item 1: the sponsor's member's signed PDF is taken, so its arrival is told to the sponsor's
+		// assigned Administrator, as an Administrator's upload for the sponsor always was.
+		array(
+			'case'   => 'sponsor-agreement-uploaded-by-a-member',
+			'item'   => 1,
+			'emails' => array(
+				array(
+					'to'      => 'ida at example.test',
+					'context' => 'sponsor-agreement-received',
+					'subject' => '[WordPress Credits] Acme & "Sons" 50% Hosting uploaded a signed Collaboration Agreement',
+					'body'    => "Acme & \"Sons\" 50% Hosting uploaded a signed Collaboration Agreement on 2036-03-09 (Sami Sponsor).\r\n\r\nThe program aims to answer within 3 working days.\r\n\r\nAccept or return it on the Administrator Dashboard. Read it first on the Sponsors screen:\r\n\r\nhttps://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/administrator-dashboard/\r\nThis email comes from the WordPress Credits program.",
+					'headers' => array(),
+					'files'   => 0,
+				),
+			),
+		),
+		// Item 3: a name or a title as WordPress stores it reaches every email as a person reads it:
+		// an application's title, which kses writes with `&amp;`; its fields and a company's name as the
+		// form's cleaner keeps a "<", `&lt;` and the quote marks and "&" after it as entities; and every
+		// account's name (`_wp_specialchars()` on save). Every subject is plain text now, so such a name
+		// reads as typed there too, a "<" and a run the subject's cleaner read as a tag kept.
+		array(
+			'case'    => 'applied-title-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Arts &amp; Sciences &lt;Faculty "Uni" 100%' => 'Arts & Sciences <Faculty "Uni" 100%' ) ),
+		),
+		array(
+			'case'    => 'application-title-as-stored',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Arts &amp; Sciences &lt;Faculty "Uni" 100%' => 'Arts & Sciences <Faculty "Uni" 100%' ),
+				'body'    => array( 'Arts &amp; Sciences &lt;Faculty "Uni" 100%' => 'Arts & Sciences <Faculty "Uni" 100%' ),
+			),
+		),
+		array(
+			'case'    => 'application-fields-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'body' => array( 'Łódź &lt;3' => 'Łódź <3', 'Ana & Bo &lt;3' => 'Ana & Bo <3' ),
+			),
+		),
+		array(
+			'case'    => 'sponsor-applied-name-from-the-title',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Acme Title &amp; Co' => 'Acme Title & Co' ) ),
+		),
+		array(
+			'case'    => 'sponsor-applied-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ) ),
+		),
+		array(
+			'case'    => 'sponsor-application-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+				'body'    => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+			),
+		),
+		array(
+			'case'    => 'invite-inviter-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Mia &amp; Max &lt;Team' => 'Mia & Max <Team' ) ),
+		),
+		array(
+			'case'    => 'agreement-received-uploader-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Mia &amp; Max &lt;Team' => 'Mia & Max <Team' ) ),
+		),
+		array(
+			'case'    => 'agreement-landed-uploader-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Mia &amp; Max &lt;Team' => 'Mia & Max <Team' ) ),
+		),
+		array(
+			'case'    => 'member-last-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Mia &amp; Max &lt;Team' => 'Mia & Max <Team' ) ),
+		),
+		array(
+			'case'    => 'agreement-returned-administrator-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Gus &amp; Gwen &lt;Ops' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'agreement-revoked-administrator-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Gus &amp; Gwen &lt;Ops' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-returned-administrator-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Gus &amp; Gwen &lt;Ops' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-received-uploader-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Sid &amp; Sal &lt;Sales' => 'Sid & Sal <Sales' ) ),
+		),
+		array(
+			'case'    => 'post-returned-author-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Sid &amp; Sal &lt;Sales' => 'Sid & Sal <Sales' ) ),
+		),
+		array(
+			'case'    => 'claim-problem-claimant-name-as-stored',
+			'item'    => 3,
+			'replace' => array( 'body' => array( 'Kit &amp; Kin &lt;3' => 'Kit & Kin <3' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-received-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+				'body'    => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+			),
+		),
+		array(
+			'case'    => 'sponsor-agreement-received-tag-like-name',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Acme &lt;b&gt;Co&lt;/b&gt; Hosting' => 'Acme <b>Co</b> Hosting' ),
+				'body'    => array( 'Acme &lt;b&gt;Co&lt;/b&gt; Hosting' => 'Acme <b>Co</b> Hosting' ),
+			),
+		),
+		array(
+			'case'    => 'interest-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+				'body'    => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+			),
+		),
+		array(
+			'case'    => 'mentor-interest-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+				'body'    => array( 'Acme &lt;3 &quot;Co&quot; &amp; Sons' => 'Acme <3 "Co" & Sons' ),
+			),
+		),
+		array(
+			'case'    => 'member-last-institution-name-as-cleaned',
+			'item'    => 3,
+			'replace' => array(
+				'subject' => array( 'Faculty &lt;3 &quot;Arts&quot; &amp; Design' => 'Faculty <3 "Arts" & Design' ),
+				'body'    => array( 'Faculty &lt;3 &quot;Arts&quot; &amp; Design' => 'Faculty <3 "Arts" & Design' ),
+			),
+		),
+		// Item 4: a Reply-To keeps every character of a name. A name as WordPress stores it arrives read
+		// back, its ";" no longer lost; a name goes as it is, in no quotes, for the mailer to quote,
+		// escape and encode (the fix wave); and a name holding a comma, which `wp_mail()` would split the
+		// header at, goes as encoded words, which keep it, in as many words as it takes.
+		array(
+			'case'    => 'information-administrator-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Gus &amp Gwen &lt Ops"' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'agreement-returned-administrator-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Gus &amp Gwen &lt Ops"' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-information-administrator-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Gus &amp Gwen &lt Ops"' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-returned-administrator-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Gus &amp Gwen &lt Ops"' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-revoked-administrator-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Gus &amp Gwen &lt Ops"' => 'Gus & Gwen <Ops' ) ),
+		),
+		array(
+			'case'    => 'invite-inviter-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Mia &amp Max &lt Team"' => 'Mia & Max <Team' ) ),
+		),
+		array(
+			'case'    => 'claim-problem-claimant-name-as-stored',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Kit &amp Kin &lt 3"' => 'Kit & Kin <3' ) ),
+		),
+		array(
+			'case'    => 'information-administrator-with-quotes',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Omar O\'Admin Ops"' => '=?UTF-8?B?T21hciBPJ0FkbWluLCBPcHM=?=' ) ),
+		),
+		array(
+			'case'    => 'agreement-returned-administrator-with-quotes',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Omar O\'Admin Ops"' => '=?UTF-8?B?T21hciBPJ0FkbWluLCBPcHM=?=' ) ),
+		),
+		array(
+			'case'    => 'sponsor-information-administrator-with-quotes',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Omar O\'Admin Ops"' => '=?UTF-8?B?T21hciBPJ0FkbWluLCBPcHM=?=' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-returned-with-quotes',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Omar O\'Admin Ops"' => '=?UTF-8?B?T21hciBPJ0FkbWluLCBPcHM=?=' ) ),
+		),
+		array(
+			'case'    => 'information-administrator-with-a-double-quote',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Dee DJ Okafor Ops"' => 'Dee "DJ" Okafor; Ops' ) ),
+		),
+		array(
+			'case'    => 'sponsor-agreement-returned-administrator-with-a-long-name',
+			'item'    => 4,
+			'replace' => array( 'headers' => array( '"Zoë Ångström-Núñez Head of Partnerships & Outreach EU"' => '=?UTF-8?B?Wm/DqyDDhW5nc3Ryw7ZtLU7DusOxZXosIEhlYWQgb2YgUGFydG5lcnNoaXBz?= =?UTF-8?B?ICYgT3V0cmVhY2ggIkVVIg==?=' ) ),
+		),
+		// Item 2: the five oddities 1.122.22 kept word for word. The low codes count one code as "1 code",
+		// and write a count past a thousand and the mark beside it alike; with the Sponsor Dashboard's
+		// page not published, the line naming its Offers card is left out rather than sent as a bare
+		// query string; an Administrator whose account holds no name, or spaces, signs "by an
+		// Administrator"; an invitation with nobody to name as its sender is an email of its own, which
+		// says who is invited to what; an invitation promises a reply only while it carries an address
+		// to reply to; and the two interest emails name the site.
+		array(
+			'case'    => 'low-stock-one-left',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( ': 1 codes left' => ': 1 code left' ),
+				'body'    => array( 'has 1 codes left;' => 'has 1 code left;' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-no-members',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( ': 1 codes left' => ': 1 code left' ),
+				'body'    => array( 'has 1 codes left;' => 'has 1 code left;' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-non-ascii',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( ': 1 codes left' => ': 1 code left' ),
+				'body'    => array( 'has 1 codes left;' => 'has 1 code left;' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-administrator-page-only',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( ': 1 codes left' => ': 1 code left' ),
+				'body'    => array( 'has 1 codes left;' => 'has 1 code left;', "\n\nAdd more codes, or pause the offer, from the Offers card: ?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers" => '' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-unassigned-no-page',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( "\n\nAdd more codes, or pause the offer, from the Offers card: ?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers" => '' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-student-page-only',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( "\n\nAdd more codes, or pause the offer, from the Offers card: ?wpcpm_sponsor_view=recSEED0000000101#wpcpm-sponsor-offers" => '' ),
+			),
+		),
+		array(
+			'case'    => 'agreement-returned-administrator-with-no-name',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( 'by , with this note:' => 'by an Administrator, with this note:' ),
+			),
+		),
+		array(
+			'case'    => 'agreement-revoked-no-country',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( 'by , with this note:' => 'by an Administrator, with this note:' ),
+			),
+		),
+		array(
+			'case'    => 'agreement-revoked-with-a-contact-administrator-with-no-name',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( 'by , with this note:' => 'by an Administrator, with this note:' ),
+			),
+		),
+		array(
+			'case'    => 'invite-no-inviter',
+			'item'    => 2,
+			'replace' => array(
+				'context' => array( 'institution-invite' => 'institution-invite-no-sender' ),
+				'body'    => array( ' has invited you to see' => 'You have been invited to see', ' Replying to this message reaches the person who sent it.' => '' ),
+			),
+		),
+		array(
+			'case'    => 'invite-inviter-with-no-name',
+			'item'    => 2,
+			'replace' => array(
+				'context' => array( 'institution-invite' => 'institution-invite-no-sender' ),
+				'body'    => array( ' has invited you to see' => 'You have been invited to see' ),
+			),
+		),
+		array(
+			'case'    => 'invite-inviter-without-an-address',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( ' Replying to this message reaches the person who sent it.' => '' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-at-the-highest-mark',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( 'warns below 1000.' => 'warns below 1,000.' ),
+			),
+		),
+		array(
+			'case'    => 'low-stock-past-a-thousand',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( ': 4999 codes left' => ': 4,999 codes left' ),
+				'body'    => array( 'has 4999 codes left; it warns below 5000.' => 'has 4,999 codes left; it warns below 5,000.' ),
+			),
+		),
+		array(
+			'case'    => 'agreement-returned-administrator-name-of-spaces',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( 'by    , with this note:' => 'by an Administrator, with this note:' ),
+			),
+		),
+		array(
+			'case'    => 'sponsor-agreement-returned-administrator-name-of-spaces',
+			'item'    => 2,
+			'replace' => array(
+				'body' => array( '    read your Collaboration Agreement' => 'An Administrator read your Collaboration Agreement' ),
+			),
+		),
+		array(
+			'case'    => 'interest-site-name',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( '[WordPress Credits] Acme' => '[Ada & Ben\'s 100% Credits] Acme' ),
+			),
+		),
+		array(
+			'case'    => 'mentor-interest-names-unassigned',
+			'item'    => 2,
+			'replace' => array(
+				'subject' => array( '[WordPress Credits] Acme' => '[Ada & Ben\'s 100% Credits] Acme' ),
+			),
+		),
+		// Item 6: the courtesy scan's notes in words an Administrator reads, each with the PDF's own name
+		// for it in brackets. A name this scanner does not record, as the recording's cases of 1.122.21
+		// give without the slash, is given as stored, so those cases are as recorded.
+		array(
+			'case'    => 'agreement-landed-one-flag-as-scanned',
+			'item'    => 6,
+			'replace' => array(
+				'body' => array( 'noticed: /OpenAction.' => 'noticed: an action that runs when the file is opened (/OpenAction).' ),
+			),
+		),
+		array(
+			'case'    => 'agreement-landed-every-flag-as-scanned',
+			'item'    => 6,
+			'replace' => array(
+				'body' => array( 'noticed: /JavaScript, /JS, /OpenAction, /AA, /EmbeddedFile.' => 'noticed: JavaScript code (/JavaScript), JavaScript code (/JS), an action that runs when the file is opened (/OpenAction), actions that run when a page or a form field is used (/AA), a file embedded inside it (/EmbeddedFile).' ),
+			),
+		),
+		// End of the changes.
+	);
+
+	// Item 4, as the fix wave made it: `wp_mail()` hands the mailer what stands before the address as
+	// the name, quote marks included, and the mailer quotes a name itself, so a name the plugin wrote
+	// in quotes reached the recipient as `"Ida Admin"`. A name goes as it is now, and each Reply-To
+	// the recordings hold as `Reply-To: "Name"` is `Reply-To: Name`, in every email of its case.
+	$bare = array(
+		'information'                                      => 'Ida Admin',
+		'information-non-ascii'                            => 'Zoë Ångström-Núñez',
+		'information-typed-in-a-browser'                   => 'Ida Admin',
+		'information-administrator-name-with-a-line-break' => 'Lee Line Example',
+		'invite'                                           => 'Ines Example',
+		'invite-unnamed-institution'                       => 'Noor Example',
+		'invite-non-ascii'                                 => 'Ines Example',
+		'agreement-returned'                               => 'Ida Admin',
+		'agreement-returned-sponsor-page-only'             => 'Ida Admin',
+		'agreement-returned-non-ascii'                     => 'Zoë Ångström-Núñez',
+		'agreement-returned-typed-in-a-browser'            => 'Ida Admin',
+		'sponsor-information'                              => 'Ida Admin',
+		'sponsor-information-non-ascii'                    => 'Zoë Ångström-Núñez',
+		'sponsor-information-typed-in-a-browser'           => 'Ida Admin',
+		'sponsor-agreement-returned'                       => 'Ida Admin',
+		'sponsor-agreement-returned-non-ascii'             => 'Zoë Ångström-Núñez',
+		'sponsor-agreement-returned-typed-in-a-browser'    => 'Ida Admin',
+		'sponsor-agreement-revoked'                        => 'Ida Admin',
+		'sponsor-agreement-revoked-mentor-page-only'       => 'Ida Admin',
+		'sponsor-agreement-revoked-typed-in-a-browser'     => 'Ida Admin',
+		'claim-problem'                                    => 'Kai O\'Claimant',
+		'claim-problem-shared-code-unassigned'             => 'Kai O\'Claimant',
+		'claim-problem-title-assigned-no-account'          => 'Kai O\'Claimant',
+		'claim-problem-non-ascii'                          => 'Kai O\'Claimant',
+	);
+
+	foreach ( $bare as $case => $name ) {
+		$rows[] = array(
+			'case'    => $case,
+			'item'    => 4,
+			'replace' => array( 'headers' => array( 'Reply-To: "' . $name . '"' => 'Reply-To: ' . $name ) ),
+		);
+	}
+
+	return $rows;
+}
+
+/**
+ * A case's emails as 1.122.23 sends them: as recorded, with the changes `changes()` lists for it
+ * made in turn. A pair whose recorded text an email does not hold is noted in `$GLOBALS['stale']`,
+ * which a check below holds empty: a change listed is a change made. So is a row whose `only` names
+ * a place the recording holds no email at, and a pair for a field the email has not, which would
+ * otherwise change nothing and pass.
+ *
+ * @param string     $case     The case.
+ * @param array      $recorded Its emails, as recorded.
+ * @param array|null $rows     The changes, `changes()` unless a check hands its own.
+ * @return array
+ */
+function as_changed( $case, array $recorded, $rows = null ) {
+	foreach ( null === $rows ? changes() : $rows as $row ) {
+		if ( $case !== $row['case'] ) {
+			continue;
+		}
+
+		foreach ( isset( $row['only'] ) ? array_diff( $row['only'], array_keys( $recorded ) ) : array() as $none ) {
+			$GLOBALS['stale'][] = $case . ' #' . $none . ': no such email';
+		}
+
+		if ( isset( $row['emails'] ) ) {
+			$recorded = $row['emails'];
+			continue;
+		}
+
+		foreach ( $recorded as $n => $mail ) {
+			// A row may name the emails of its case it changes, by their place in the recording.
+			if ( isset( $row['only'] ) && ! in_array( $n, $row['only'], true ) ) {
+				continue;
+			}
+
+			foreach ( $row['replace'] as $field => $pairs ) {
+				if ( ! array_key_exists( $field, $mail ) ) {
+					$GLOBALS['stale'][] = $case . ' #' . $n . ' ' . $field . ': no such field';
+					continue;
+				}
+
+				foreach ( $pairs as $old => $new ) {
+					$was            = $mail[ $field ];
+					$mail[ $field ] = str_replace( (string) $old, $new, $mail[ $field ] );
+
+					if ( $mail[ $field ] === $was ) {
+						$GLOBALS['stale'][] = $case . ' #' . $n . ' ' . $field . ': ' . $old;
+					}
+				}
+			}
+
+			$recorded[ $n ] = $mail;
+		}
+	}
+
+	return $recorded;
+}
+
 $fixture = __DIR__ . '/fixtures/institutions-sponsors-1-122-21.json';
+$added   = __DIR__ . '/fixtures/institutions-sponsors-added-1-122-22.json';
+
+if ( in_array( '--record-added', $argv, true ) ) {
+	// Made once, from 1.122.22, before anything of 1.122.23 moved: made again later, it would hold
+	// what the later code says, and prove nothing.
+	if ( file_exists( $added ) ) {
+		fwrite( STDERR, "The recording exists and is never made twice.\n" );
+		exit( 1 );
+	}
+
+	$recorded = array(
+		'_comment' => 'What the cases 1.122.23 adds said in 1.122.22, recorded through the real senders and WPCPM_Mail by bin/test-institutions-sponsors-text.php --record-added before anything of 1.122.23 moved. Invented names, every address written "at example.test", and fake secrets and codes. Never edit by hand: 1.122.23 is held to these bytes but for the changes the suite lists.',
+		'cases'    => array(),
+	);
+
+	foreach ( added_cases() as $name => $case ) {
+		$recorded['cases'][ $name ] = emails_of( $case );
+	}
+
+	file_put_contents( $added, json_encode( $recorded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR ) . "\n" );
+	printf( "Recorded %d cases, %d emails, in %s\n", count( $recorded['cases'] ), array_sum( array_map( 'count', $recorded['cases'] ) ), basename( $added ) );
+
+	exit( 0 );
+}
 
 if ( in_array( '--record', $argv, true ) ) {
 	// Made once, from 1.122.21: a recording made again would be made from whatever the code says
@@ -1255,26 +2014,58 @@ if ( in_array( '--record', $argv, true ) ) {
 }
 
 $recorded = is_file( $fixture ) ? json_decode( (string) file_get_contents( $fixture ), true ) : null;
+$more     = is_file( $added ) ? json_decode( (string) file_get_contents( $added ), true ) : null;
 $cases    = cases();
 
 ck( 'the recording is there, and holds every case', is_array( $recorded ) && isset( $recorded['cases'] ) ? array_keys( $recorded['cases'] ) : null, array_keys( $cases ) );
 ck( 'the recording is the one made from 1.122.21', is_file( $fixture ) ? hash_file( 'sha256', $fixture ) : null, '7f90af7ea73ceef3d4853b3afbcc7b078c2ec0d63b3fb19305ab2107c65138ff' );
+ck( 'the recording of the cases 1.122.23 adds is there, and holds every one of them', is_array( $more ) && isset( $more['cases'] ) ? array_keys( $more['cases'] ) : null, array_keys( added_cases() ) );
+ck( 'and it is the one made from 1.122.22', is_file( $added ) ? hash_file( 'sha256', $added ) : null, '388e371ca71942bc69ba164aefaa6592829a58bcd4486e42b2a721f14e2dc258' );
 
-foreach ( $cases as $name => $case ) {
-	$want = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : null;
-	$got  = emails_of( $case );
+// Every case of both recordings, as 1.122.23 sends it: as recorded, but for the changes listed.
+$GLOBALS['stale'] = array();
+$listed           = array_unique( array_column( changes(), 'case' ) );
+$changed          = array();
 
-	ck( $name . ': the same emails, to the same people, in the same order', array_column( $got, 'to' ), null === $want ? null : array_column( $want, 'to' ) );
+foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as $pair ) {
+	foreach ( $pair[0] as $name => $case ) {
+		$held = isset( $pair[1]['cases'][ $name ] ) ? $pair[1]['cases'][ $name ] : null;
+		$want = null === $held ? null : as_changed( $name, $held );
+		$got  = emails_of( $case );
+		$as   = in_array( $name, $listed, true ) ? ', as 1.122.23 changes it' : '';
 
-	foreach ( (array) $want as $n => $mail ) {
-		$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
+		if ( null !== $held && $want !== $held ) {
+			$changed[] = $name;
+		}
 
-		ck( $name . ' #' . $n . ': logged under its own id', $now['context'], sent_as( $name, $n, $mail['context'] ) );
-		ck( $name . ' #' . $n . ': the subject, byte for byte', $now['subject'], $mail['subject'] );
-		ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included', $now['body'], $mail['body'] );
-		ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached', array( $now['headers'], $now['files'] ), array( $mail['headers'], 0 ) );
+		ck( $name . ': the same emails, to the same people, in the same order' . $as, array_column( $got, 'to' ), null === $want ? null : array_column( $want, 'to' ) );
+
+		foreach ( (array) $want as $n => $mail ) {
+			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
+
+			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
+			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
+			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], $mail['body'] );
+			ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached' . $as, array( $now['headers'], $now['files'] ), array( $mail['headers'], 0 ) );
+		}
 	}
 }
+
+ck( 'every change listed is made, to a case of one of the two recordings, and changes what its recording holds', array( $GLOBALS['stale'], array_values( array_diff( $listed, $changed ) ) ), array( array(), array() ) );
+
+// The check above holds for every row: a row whose `only` names no email of its case, or whose pair
+// names a field no email has, changes nothing, and is noted as a row that does.
+$GLOBALS['stale'] = array();
+as_changed(
+	'a-case',
+	array( array( 'subject' => 'Old', 'body' => 'Old', 'headers' => array() ) ),
+	array(
+		array( 'case' => 'a-case', 'item' => 0, 'only' => array( 0, 5 ), 'replace' => array( 'subject' => array( 'Old' => 'New' ) ) ),
+		array( 'case' => 'a-case', 'item' => 0, 'replace' => array( 'subjet' => array( 'Old' => 'New' ) ) ),
+	)
+);
+ck( 'and a row whose `only` names no email of its case, or whose field no email has, is noted as a change that changes nothing', $GLOBALS['stale'], array( 'a-case #5: no such email', 'a-case #0 subjet: no such field' ) );
+$GLOBALS['stale'] = array();
 
 // Every send site of the two areas, each with an email in the recording, under the id it was sent
 // under in 1.122.21: 28 send sites, 26 ids.
@@ -1374,6 +2165,172 @@ ck(
 	)
 );
 
+// 1.122.23's worded values are worded in each recipient's language, as the sentence around them is:
+// the codes left, counted, to a sponsor's member who reads Polish, while the other member reads them in
+// English; and "an Administrator", for one whose account holds no name, to an institution's member who
+// reads Polish, while the other member reads it in English.
+$GLOBALS['user_locale'][60] = 'pl_PL';
+$GLOBALS['user_locale'][50] = 'pl_PL';
+$low                        = emails_of( $cases['low-stock-one-left'] );
+$back                       = emails_of( $cases['agreement-returned-administrator-with-no-name'] );
+unset( $GLOBALS['user_locale'][60], $GLOBALS['user_locale'][50] );
+// And the invitation with nobody to name, in a request made in Polish, as the colleague's has no
+// account: its promise of a reply, a value worded where it is sent, is Polish too.
+$GLOBALS['locale_stack'][] = 'pl_PL';
+$twin                      = emails_of( added_cases()['invite-inviter-with-no-name'] );
+array_pop( $GLOBALS['locale_stack'] );
+ck(
+	'the invitation with nobody to name promises a reply in the language it is built in',
+	explode( "\r\n\r\n", $twin[0]['body'] ?? '' )[4] ?? null,
+	'[pl_PL] If you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches [pl_PL] the person who sent it.'
+);
+ck(
+	'the codes left and "an Administrator" are worded in each recipient\'s language',
+	array( $low[0]['subject'] ?? null, $low[1]['subject'] ?? null, strtok( $back[0]['body'] ?? '', "\r" ), strtok( $back[1]['body'] ?? '', "\r" ) ),
+	array(
+		"[pl_PL] [Ada & Ben's 100% Credits] Hosting for students: [pl_PL] 1 code left",
+		"[Ada & Ben's 100% Credits] Hosting for students: 1 code left",
+		'[pl_PL] Your signed Collaboration Agreement was sent back on 2036-03-09 by [pl_PL] an Administrator, with this note:',
+		'Your signed Collaboration Agreement was sent back on 2036-03-09 by an Administrator, with this note:',
+	)
+);
+
+// And the scan's notes, in words, to an Administrator who reads Polish, while the others read English.
+$GLOBALS['user_locale'][40] = 'pl_PL';
+$scanned                    = emails_of( added_cases()['agreement-landed-one-flag-as-scanned'] );
+unset( $GLOBALS['user_locale'][40] );
+ck(
+	'the scan\'s notes are worded in each Administrator\'s language',
+	array_map(
+		function ( $mail ) {
+			return explode( "\r\n\r\n", $mail['body'] )[1];
+		},
+		array_slice( $scanned, 0, 2 )
+	),
+	array(
+		'[pl_PL] The courtesy scan noticed: [pl_PL] [pl_PL] an action that runs when the file is opened (/OpenAction). It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.',
+		'The courtesy scan noticed: an action that runs when the file is opened (/OpenAction). It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.',
+	)
+);
+
+// "An Administrator" in each recipient's language for the revocation too, as for the return: an
+// institution's member who reads Polish is told who revoked the agreement in Polish, the other member
+// in English (the fix wave).
+$GLOBALS['user_locale'][50] = 'pl_PL';
+$revoked                    = emails_of( added_cases()['agreement-revoked-with-a-contact-administrator-with-no-name'] );
+unset( $GLOBALS['user_locale'][50] );
+ck(
+	'and "an Administrator" in the revocation is worded in each recipient\'s language too',
+	array_map(
+		function ( $mail ) {
+			return strtok( $mail['body'], "\r" );
+		},
+		$revoked
+	),
+	array(
+		'[pl_PL] Your Collaboration Agreement was revoked on 2036-03-09 by [pl_PL] an Administrator, with this note:',
+		'Your Collaboration Agreement was revoked on 2036-03-09 by an Administrator, with this note:',
+	)
+);
+
+// An account whose name is spaces names nobody, as one that holds no name: a revocation by such an
+// Administrator says "by an Administrator", and an invitation by such an inviter is the one with no
+// sender named, its promise of a reply kept, since the account holds an address (outside the
+// recordings, which are never made again).
+$spaces = array(
+	'revoked' => emails_of( array_merge( $cases['agreement-revoked-no-country'], array( 'actor' => 49 ) ) ),
+	'invited' => emails_of( array_merge( $cases['invite'], array( 'args' => array( 'record' => 'recSEED0000000016', 'actor' => 49 ) ) ) ),
+);
+ck(
+	'a revocation by an Administrator whose name is spaces says "by an Administrator", and an invitation by an inviter whose name is spaces is the one with no sender named',
+	array(
+		strtok( $spaces['revoked'][0]['body'] ?? '', "\r" ),
+		$spaces['invited'][0]['context'] ?? null,
+		strtok( $spaces['invited'][0]['body'] ?? '', "\r" ),
+		false !== strpos( $spaces['invited'][0]['body'] ?? '', 'Replying to this message reaches the person who sent it.' ),
+		$spaces['invited'][0]['headers'] ?? null,
+	),
+	array(
+		'Your Collaboration Agreement was revoked on 2036-03-09 by an Administrator, with this note:',
+		'institution-invite-no-sender',
+		'You have been invited to see Example University & "Partners" 100%\'s students in the WordPress Credits Program on WordPress Credits.',
+		true,
+		array( 'Reply-To: blank at example.test' ),
+	)
+);
+
+// Every value is read back once, as it is stored, and no deeper (the fix wave): a note, a question or
+// an interest an Administrator, a sponsor or a member typed as "&amp;lt;3", which the cleaner keeps
+// as typed, a post's and an offer's title stored with it, and a site's name WordPress stores as
+// "R&amp;amp;D Credits", arrive as "&lt;3" and "R&amp;D Credits", as 1.122.22 sent a typed text and
+// a site's name. A builder that read a value back before handing it over had it read back twice, to
+// "<3" and "R&D Credits".
+$typed = 'Typed &amp;lt;3 once';
+$once  = array();
+foreach ( array(
+	'agreement-returned'               => array( 'typed' => $typed ),
+	'agreement-revoked-with-a-contact' => array( 'typed' => $typed ),
+	'information'                      => array( 'typed' => $typed ),
+	'sponsor-information'              => array( 'typed' => $typed ),
+	'sponsor-agreement-returned'       => array( 'typed' => $typed ),
+	'sponsor-agreement-revoked'        => array( 'typed' => $typed ),
+	'interest-everything'              => array( 'note' => $typed ),
+	'post-returned'                    => array( 'title' => $typed, 'note' => $typed ),
+	'claim-problem'                    => array( 'title' => $typed ),
+	'low-stock-one-left'               => array( 'title' => $typed ),
+	'member-last-removed'              => array(),
+) as $name => $args ) {
+	$mails = emails_of( array_merge( $cases[ $name ], array( 'site' => 'R&amp;amp;D Credits', 'args' => array_merge( $cases[ $name ]['args'], $args ) ) ) );
+	$text  = isset( $mails[0] ) ? $mails[0]['subject'] . "\n" . $mails[0]['body'] : '';
+
+	// How often each value was read back: once, twice, or not in the email at all.
+	$times = static function ( $read_once, $read_twice ) use ( $text ) {
+		return false !== strpos( $text, $read_twice ) ? 'twice' : ( false !== strpos( $text, $read_once ) ? 'once' : 'not in it' );
+	};
+
+	$once[ $name ] = array( $times( 'Typed &lt;3 once', 'Typed <3 once' ), $times( 'R&amp;D Credits', 'R&D Credits' ) );
+}
+ck(
+	'every value is read back once, as stored: a typed "&amp;lt;3" arrives as "&lt;3", and a site\'s name stored as "R&amp;amp;D" as "R&amp;D"',
+	$once,
+	array_merge(
+		array_fill_keys( array_keys( $once ), array( 'once', 'once' ) ),
+		array(
+			'post-returned'       => array( 'once', 'not in it' ),
+			'member-last-removed' => array( 'not in it', 'once' ),
+		)
+	)
+);
+
+// A count and a mark past a thousand in a language whose thousands separator is a space: core writes
+// that separator as `&nbsp;`, which a plain-text email would print as six characters, so it arrives as
+// the no-break space it stands for, in the subject and in the body (the fix wave).
+$GLOBALS['thousands_sep'] = '&nbsp;';
+$spaced                   = emails_of( added_cases()['low-stock-past-a-thousand'] );
+unset( $GLOBALS['thousands_sep'] );
+ck(
+	'a count and a mark past a thousand, in a language that separates thousands with a space, carry a no-break space, never "&nbsp;"',
+	array( $spaced[0]['subject'] ?? null, 1 === preg_match( "/has 4\u{00A0}999 codes left; it warns below 5\u{00A0}000\\./u", $spaced[0]['body'] ?? '' ), false !== strpos( ( $spaced[0]['subject'] ?? '' ) . ( $spaced[0]['body'] ?? '' ), '&nbsp;' ) ),
+	array( "[WordPress Credits] Hosting for students: 4\u{00A0}999 codes left", true, false )
+);
+
+// The examples a preview and Send me a test fill an email with are worked out in the language of the
+// Administrator looking, as the email's own values are: the codes left, counted, and what the scan
+// noticed, in words (the fix wave; they were English whatever the language).
+$GLOBALS['locale_stack'][] = 'pl_PL';
+$examples                  = array( WPCPM_Mail_Templates::example_values( 'offer-low-stock' )['codes_left'], WPCPM_Mail_Templates::example_values( 'agreement-landed-flagged' )['scan_flags'] );
+array_pop( $GLOBALS['locale_stack'] );
+ck(
+	'the codes left and the scan\'s notes are given as examples in the language of the Administrator looking',
+	$examples,
+	array( '[pl_PL] 3 codes', '[pl_PL] [pl_PL] JavaScript code (/JavaScript), [pl_PL] [pl_PL] an action that runs when the file is opened (/OpenAction)' )
+);
+ck(
+	'and in English, the examples are the words the email gives',
+	array( WPCPM_Mail_Templates::example_values( 'offer-low-stock' )['codes_left'], WPCPM_Mail_Templates::example_values( 'agreement-landed-flagged' )['scan_flags'] ),
+	array( '3 codes', WPCPM_Pdf_Check::in_words( array( '/JavaScript', '/OpenAction' ) ) )
+);
+
 // A rejection tells the applicant nothing but that it was decided: the reason the Administrator typed
 // reaches neither area's email, and neither template has a place for it.
 $reasons = array();
@@ -1395,6 +2352,13 @@ ck(
 	'and the recording holds no address, no secret but a fake one, no code but a fake one\'s end, and no record ID but the seeds\'',
 	is_file( $fixture ) ? array( preg_match( '/[A-Za-z0-9._%+-]*@[A-Za-z0-9-]+\.[A-Za-z]{2,}/', $text ), array_values( array_unique( array_map( function ( $t ) { return substr( $t, 0, 19 ); }, $tokens[1] ) ) ), array_values( array_unique( $endings[1] ) ), preg_match( '/rec(?!SEED0\d{9})[A-Za-z0-9]{14}/', $text ) ) : null,
 	array( 0, array( 'EXAMPLE-NOT-A-REAL-' ), array( '7Q2X', 'AB12' ), 0 )
+);
+$text = is_file( $added ) ? (string) file_get_contents( $added ) : '';
+preg_match_all( '/[?&]t=([A-Za-z0-9-]+)/', $text, $tokens );
+ck(
+	'and so does the recording of the cases 1.122.23 adds',
+	is_file( $added ) ? array( preg_match( '/[A-Za-z0-9._%+-]*@[A-Za-z0-9-]+\.[A-Za-z]{2,}/', $text ), array_values( array_unique( array_map( function ( $t ) { return substr( $t, 0, 19 ); }, $tokens[1] ) ) ), preg_match( '/rec(?!SEED0\d{9})[A-Za-z0-9]{14}/', $text ) ) : null,
+	array( 0, array( 'EXAMPLE-NOT-A-REAL-' ), 0 )
 );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );

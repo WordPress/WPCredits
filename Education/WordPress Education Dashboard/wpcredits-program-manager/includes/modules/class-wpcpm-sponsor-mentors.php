@@ -174,6 +174,7 @@ final class WPCPM_Sponsor_Mentors {
 			return WPCPM_Mail_Templates::mail(
 				self::MAIL_CONTEXT,
 				array(
+					'site_name'      => WPCPM_Mail::site_name(),
 					'company_name'   => $sponsor,
 					'mentor_name'    => $mentor['name'],
 					'mentor_profile' => $mentor['profile'],

@@ -237,6 +237,8 @@ define( 'WPCPM_VERSION', 'test' );
 
 require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
@@ -774,7 +776,7 @@ $GLOBALS['agr_review']  = array( 913 );
 $GLOBALS['agr_revoked'] = array( 880 );
 $GLOBALS['agr_facts']   = array(
 	913 => array( 'post_id' => 913, 'state' => 'submitted', 'kind' => 'own', 'sponsor' => 'recSPN00000000001', 'sponsor_name' => 'TEST Sponsor', 'uploaded_by' => 'Member One', 'uploaded_at' => '2026-09-06', 'original_name' => 'signed.pdf', 'flags' => array(), 'size' => 652, 'members' => 1 ),
-	880 => array( 'post_id' => 880, 'state' => 'revoked', 'kind' => 'legacy', 'sponsor' => 'recSPN00000000002', 'sponsor_name' => 'Old Sponsor', 'uploaded_by' => '', 'uploaded_at' => '2026-05-01', 'original_name' => '', 'flags' => array( 'javascript' ), 'size' => 0, 'members' => 2 ),
+	880 => array( 'post_id' => 880, 'state' => 'revoked', 'kind' => 'legacy', 'sponsor' => 'recSPN00000000002', 'sponsor_name' => 'Old Sponsor', 'uploaded_by' => '', 'uploaded_at' => '2026-05-01', 'original_name' => '', 'flags' => array( 'javascript', '/OpenAction' ), 'size' => 0, 'members' => 2 ),
 );
 $GLOBALS['sponsor_apps'] = array(
 	array( 'id' => 950, 'reference' => 'SAPP-2026-0950', 'company' => 'Gadgetry Inc', 'website' => 'https://gadgetry.example', 'person' => 'Sam Sponsor', 'email' => 'maciej@a8c.com', 'at' => time() - 7200, 'state' => 'new', 'state_label' => 'new', 'signals' => array( 'in-base' ), 'held' => false, 'duplicate' => false, 'in_base' => true ),
@@ -1315,7 +1317,13 @@ ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array( $GLOBALS['agr_facts'][913] ), 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) );
 $sagr = (string) ob_get_clean();
 ck( 'the card lists the document waiting for review with its facts and the decision block bound for the dashboard', array( has( $sagr, 'id="wpcpm-sponsor-agreements"' ), has( $sagr, '<span class="wpcpm-group__count">1</span>' ), has( $sagr, 'TEST Sponsor <span class="wpcpm-administrator__kind">Waiting for review</span>' ), has( $sagr, 'Uploaded by Member One on 2026-09-06' ), has( $sagr, '652 B' ), has( $sagr, 'The scan noticed none of the features it looks for' ), has( $sagr, '1 account' ), has( $sagr, 'data-post="913" data-return="dashboard"' ) ), array( true, true, true, true, true, true, true, true ) );
-ck( 'and the agreement out of force under its own heading, with what the scan noticed and the way back', array( has( $sagr, 'Out of force' ), has( $sagr, 'Old Sponsor <span class="wpcpm-administrator__kind">Revoked</span>' ), has( $sagr, 'Recorded on 2026-05-01' ), has( $sagr, 'The scan noticed: javascript' ), has( $sagr, '2 accounts' ), has( $sagr, 'data-post="880" data-return="dashboard"' ) ), array( true, true, true, true, true, true ) );
+// A stored name the scanner does not record is drawn as stored, and as text: a name holding a tag, a
+// quote and an "&" beside one it words.
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array(), 'revoked' => array( array_merge( $GLOBALS['agr_facts'][880], array( 'flags' => array( '<b>"x"&</b>', '/JS' ) ) ) ) ) );
+$hostile = (string) ob_get_clean();
+ck( 'a stored name holding a tag is drawn as text on the card, escaped, beside one in words', array( has( $hostile, 'The scan noticed: &lt;b&gt;&quot;x&quot;&amp;&lt;/b&gt;, JavaScript code (/JS)' ), has( $hostile, '<b>"x"' ) ), array( true, false ) );
+ck( 'and the agreement out of force under its own heading, with what the scan noticed and the way back', array( has( $sagr, 'Out of force' ), has( $sagr, 'Old Sponsor <span class="wpcpm-administrator__kind">Revoked</span>' ), has( $sagr, 'Recorded on 2026-05-01' ), has( $sagr, 'The scan noticed: javascript, an action that runs when the file is opened (/OpenAction)' ), has( $sagr, '2 accounts' ), has( $sagr, 'data-post="880" data-return="dashboard"' ) ), array( true, true, true, true, true, true ) );
 ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array(), 'revoked' => array() ) );
 $sagr_empty = (string) ob_get_clean();
