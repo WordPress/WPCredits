@@ -19,9 +19,10 @@ if [ ! -f "style.css" ]; then
 	exit 1
 fi
 
+# bin/ holds the checks and the suites, none of them shipped or translated: both runs leave it out.
 if command -v wp >/dev/null 2>&1; then
 	echo "WP-CLI found - using it, which is the canonical path."
-	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG"
+	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG" --exclude=bin
 	exit 0
 fi
 

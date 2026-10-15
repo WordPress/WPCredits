@@ -19,6 +19,11 @@
  * looks right after a rollback, is listed in `$kept` with the last plugin version that printed it,
  * and is reported as kept rather than missed.
  *
+ * The Education Hub's own classes (theme 1.24.15) are looked up the same way, in the theme alone:
+ * every `.wpc-hub-*` and `.wpc-figure*` selector has to be printed by one of its patterns, templates,
+ * blocks or `inc/` files, since nothing else prints them. Those files are read without their PHP and
+ * JavaScript comments, so a class that only a comment names does not count as printed.
+ *
  * Usage:  php bin/check-selectors.php [plugin-path]      (run from the theme root)
  *
  * The plugin defaults to `../wpcredits-program-manager`, beside the theme's own folder, which
@@ -100,16 +105,18 @@ function wpcredits_source_files( $root, array $extensions ) {
 }
 
 /**
- * Every `.wpcpm-*` class a stylesheet's selectors name, with the line each is on.
+ * Every `.wpcpm-*` class a stylesheet's selectors name, or every class of another family, with the
+ * line each is on.
  *
  * Comments are blanked first, line for line, so a class mentioned in prose is not counted
  * and the line numbers still point into the file. Only the selector of each rule is read -
  * the text between the previous brace and the next `{` - and at-rules are skipped.
  *
- * @param string $css The stylesheet.
+ * @param string $css     The stylesheet.
+ * @param string $pattern The family, as a pattern whose first group is the class name.
  * @return array[] Rows of `class`, `line`.
  */
-function wpcredits_classes_dressed( $css ) {
+function wpcredits_classes_dressed( $css, $pattern = '/\.(wpcpm-[A-Za-z0-9_-]+)/' ) {
 	$marked = preg_replace_callback(
 		'#/\*.*?\*/#s',
 		function ( $m ) {
@@ -129,7 +136,7 @@ function wpcredits_classes_dressed( $css ) {
 			continue;
 		}
 
-		preg_match_all( '/\.(wpcpm-[A-Za-z0-9_-]+)/', $prelude[0], $classes, PREG_OFFSET_CAPTURE );
+		preg_match_all( $pattern, $prelude[0], $classes, PREG_OFFSET_CAPTURE );
 
 		foreach ( $classes[1] as $class ) {
 			$rows[] = array(
@@ -153,6 +160,51 @@ function wpcredits_classes_dressed( $css ) {
  */
 function wpcredits_printed( $corpus, $name ) {
 	return (bool) preg_match( '/(?<![A-Za-z0-9_-])' . preg_quote( $name, '/' ) . '(?![A-Za-z0-9_-])/', $corpus );
+}
+
+/**
+ * A PHP or JavaScript file's source without its comments, so a class named only in a comment is not
+ * taken as printed. PHP is read with the tokenizer, which knows a comment from a string holding two
+ * slashes; JavaScript by a pattern that keeps every string and drops what is between its quotes only
+ * if it is a comment, which a regular expression literal holding a quote would confuse (none of the
+ * hub's scripts has one). Any other kind of file is returned as it is: an HTML comment in a template
+ * holds a block's attributes, which are printed.
+ *
+ * @param string $source    The file's contents.
+ * @param string $extension Its lower-case extension.
+ * @return string
+ */
+function wpcredits_without_comments( $source, $extension ) {
+	if ( 'php' === $extension ) {
+		$code = '';
+
+		foreach ( token_get_all( $source ) as $token ) {
+			if ( ! is_array( $token ) ) {
+				$code .= $token;
+			} elseif ( ! in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+				$code .= $token[1];
+			}
+		}
+
+		return $code;
+	}
+
+	if ( 'js' === $extension ) {
+		// A string is kept whole; a block comment or a line comment, met outside one, is dropped.
+		$pattern = <<<'REGEX'
+~("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|/\*.*?\*/|//[^\n]*~s
+REGEX;
+
+		return (string) preg_replace_callback(
+			$pattern,
+			function ( $m ) {
+				return isset( $m[1] ) && '' !== $m[1] ? $m[1] : ' ';
+			},
+			$source
+		);
+	}
+
+	return $source;
 }
 
 $corpus = '';
@@ -224,6 +276,39 @@ printf(
 	$stayed,
 	$misses
 );
+
+// The Education Hub's classes, printed by the theme alone: its patterns, its templates, its blocks
+// and its `inc/` files, which is where the hub's markup is written, read without their comments.
+$hub_corpus = '';
+
+foreach ( array( 'patterns', 'templates', 'blocks', 'inc' ) as $folder ) {
+	if ( is_dir( $theme . '/' . $folder ) ) {
+		foreach ( wpcredits_source_files( $theme . '/' . $folder, array( 'php', 'js', 'html', 'json' ) ) as $path ) {
+			$hub_corpus .= "\n" . wpcredits_without_comments( (string) file_get_contents( $path ), strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) );
+		}
+	}
+}
+
+$hub_dressed = array();
+
+foreach ( $sheets as $sheet ) {
+	foreach ( wpcredits_classes_dressed( (string) file_get_contents( $sheet ), '/\.(wpc-(?:hub|figure)(?:[A-Za-z0-9_-]*))/' ) as $row ) {
+		$hub_dressed[ $row['class'] ][] = substr( $sheet, strlen( $theme ) + 1 ) . ':' . $row['line'];
+	}
+}
+
+ksort( $hub_dressed );
+
+$hub_misses = 0;
+
+foreach ( $hub_dressed as $class => $where ) {
+	if ( ! wpcredits_printed( $hub_corpus, $class ) ) {
+		++$hub_misses;
+		printf( "  MISS   .%-44s nothing in the theme prints it  (%s)\n", $class, implode( ', ', $where ) );
+	}
+}
+
+printf( "%d hub and figure classes dressed, %d printed by nothing.\n", count( $hub_dressed ), $hub_misses );
 
 // Every custom property the theme reads must be one it declares. A `var( --wpc-x )` that is
 // never defined resolves to its fallback or to nothing, and the browser says nothing: 1.19.2
@@ -350,4 +435,4 @@ if ( $dashes ) {
 }
 echo "No em or en dashes in the theme.\n";
 
-exit( $misses ? 1 : 0 );
+exit( $misses || $hub_misses ? 1 : 0 );

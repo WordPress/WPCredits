@@ -42,6 +42,8 @@ require_once get_theme_file_path( 'inc/template-tags.php' );
 require_once get_theme_file_path( 'inc/dashboard.php' );
 require_once get_theme_file_path( 'inc/login.php' );
 require_once get_theme_file_path( 'inc/guide.php' );
+require_once get_theme_file_path( 'inc/hub.php' );
+require_once get_theme_file_path( 'inc/hub-content.php' );
 
 /**
  * Theme supports.
@@ -101,6 +103,9 @@ function wpcredits_register_blocks() {
 	register_block_type( get_theme_file_path( 'blocks/handbook-launcher' ) );
 	register_block_type( get_theme_file_path( 'blocks/guide-toc' ) );
 	register_block_type( get_theme_file_path( 'blocks/program-stat' ) );
+	register_block_type( get_theme_file_path( 'blocks/program-index' ) );
+	register_block_type( get_theme_file_path( 'blocks/pathway' ) );
+	register_block_type( get_theme_file_path( 'blocks/sign-in' ) );
 }
 add_action( 'init', 'wpcredits_register_blocks' );
 

@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/program-index",
+	"title": "Program index",
+	"category": "theme",
+	"icon": "index-card",
+	"description": "Every education program as a card, with chips that filter them by audience. Without JavaScript every card is shown and no chip is.",
+	"keywords": [ "programs", "education", "filter", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false,
+		"interactivity": {
+			"clientNavigation": false
+		}
+	},
+	"editorScript": "file:./index.js",
+	"viewScript": "file:./view.js",
+	"style": "wpcredits-hub",
+	"render": "file:./render.php"
+}

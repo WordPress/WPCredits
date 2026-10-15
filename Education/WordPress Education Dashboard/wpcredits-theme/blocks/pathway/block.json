@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/pathway",
+	"title": "Pathway",
+	"category": "theme",
+	"icon": "chart-line",
+	"description": "The pathway from a first workshop to a first job, and an institution's partner levels: a switch between the two, a staircase of steps and each step's detail. Without JavaScript both are shown whole.",
+	"keywords": [ "pathway", "steps", "levels", "ladder", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false,
+		"interactivity": {
+			"clientNavigation": false
+		}
+	},
+	"editorScript": "file:./index.js",
+	"viewScript": "file:./view.js",
+	"style": "wpcredits-hub",
+	"render": "file:./render.php"
+}

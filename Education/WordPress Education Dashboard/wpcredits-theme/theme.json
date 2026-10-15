@@ -448,6 +448,13 @@
 			"postTypes": [
 				"page"
 			]
+		},
+		{
+			"name": "page-education-hub",
+			"title": "Education Hub home",
+			"postTypes": [
+				"page"
+			]
 		}
 	]
 }

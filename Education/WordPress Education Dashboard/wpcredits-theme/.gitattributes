@@ -1,0 +1,3 @@
+# The development scripts and the suites stay in the repository and its mirror, and out of the
+# installable zip `git archive` builds.
+/bin export-ignore

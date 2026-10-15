@@ -5,8 +5,8 @@
 	"title": "Program figure",
 	"category": "theme",
 	"icon": "chart-bar",
-	"description": "A live count from the program: mentors, students, institutions or sponsors. Falls back to the number written into the block when the plugin is not available.",
-	"keywords": [ "count", "mentors", "students", "statistic", "number" ],
+	"description": "A live count from the program: mentors, students, institutions or sponsors, falling back to the number written into the block when the plugin is not available; or one of the program's outcome figures, or their source line, which show only when the plugin may show them.",
+	"keywords": [ "count", "mentors", "students", "statistic", "number", "outcomes", "graduation" ],
 	"textdomain": "wpcredits-theme",
 	"attributes": {
 		"stat": {
@@ -14,6 +14,10 @@
 			"default": "mentors"
 		},
 		"fallback": {
+			"type": "string",
+			"default": ""
+		},
+		"label": {
 			"type": "string",
 			"default": ""
 		}
@@ -41,5 +45,6 @@
 			"clientNavigation": true
 		}
 	},
+	"editorScript": "file:./index.js",
 	"render": "file:./render.php"
 }

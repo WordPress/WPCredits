@@ -190,6 +190,32 @@ function wpcredits_student_page_url() {
 }
 
 /**
+ * The institution page's URL, or an empty string.
+ *
+ * @return string
+ */
+function wpcredits_institution_page_url() {
+	if ( ! wpcredits_plugin_active() || ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+		return '';
+	}
+
+	return (string) WPCPM_Institutions_Dashboard::page_url();
+}
+
+/**
+ * The sponsor page's URL, or an empty string.
+ *
+ * @return string
+ */
+function wpcredits_sponsor_page_url() {
+	if ( ! wpcredits_plugin_active() || ! class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
+		return '';
+	}
+
+	return (string) WPCPM_Sponsors_Dashboard::page_url();
+}
+
+/**
  * Whether this request is the mentor page.
  *
  * Matched on the plugin's own stored page ID and then on the block or shortcode,
@@ -351,4 +377,139 @@ function wpcredits_program_count( $role ) {
 	set_transient( $key, $count, HOUR_IN_SECONDS );
 
 	return $count;
+}
+
+/**
+ * The program figure block's outcome figures, in the order the hero draws them. The one list: the loop
+ * over what the plugin publishes and the figure block's guard both read it, so a figure added here is
+ * an outcome figure to both. The block's one other outcome stat is the source line they share,
+ * `outcomes-source`; its words are in `wpcredits_outcome_stat_html()`.
+ */
+const WPCREDITS_OUTCOME_FIGURES = array( 'graduation', 'recommend', 'keep' );
+
+/**
+ * The program's three outcome figures, as the plugin may show them (plugin 1.122.24 and later).
+ *
+ * Read from `WPCPM_Outcome_Figures::published()`, guarded on the class and the method, so a theme on
+ * an older plugin, or with none, shows no figure. What the plugin hands over is checked as well: a
+ * figure that is not whole numbers that make sense together (a share from 0 to 100, a count above
+ * zero and no more than its n) is left out, so nothing but a figure the plugin stored is ever drawn.
+ *
+ * @return array Empty when no figure may be shown; else `read`, the Unix time the figures were read,
+ *               and `figures`, `graduation`, `recommend` and `keep` in that order, those that may be
+ *               shown, each `array( 'share' => int, 'count' => int, 'n' => int )`.
+ */
+function wpcredits_outcome_figures() {
+	if ( ! class_exists( 'WPCPM_Outcome_Figures' ) || ! method_exists( 'WPCPM_Outcome_Figures', 'published' ) ) {
+		return array();
+	}
+
+	$set = WPCPM_Outcome_Figures::published();
+
+	if ( ! is_array( $set ) || ! isset( $set['read'], $set['figures'] ) || ! is_int( $set['read'] ) || $set['read'] <= 0 || ! is_array( $set['figures'] ) ) {
+		return array();
+	}
+
+	$figures = array();
+
+	foreach ( WPCREDITS_OUTCOME_FIGURES as $key ) {
+		$figure = isset( $set['figures'][ $key ] ) && is_array( $set['figures'][ $key ] ) ? $set['figures'][ $key ] : array();
+
+		if ( ! isset( $figure['share'], $figure['count'], $figure['n'] ) || ! is_int( $figure['share'] ) || ! is_int( $figure['count'] ) || ! is_int( $figure['n'] ) ) {
+			continue;
+		}
+
+		if ( $figure['share'] < 0 || $figure['share'] > 100 || $figure['count'] < 1 || $figure['count'] > $figure['n'] ) {
+			continue;
+		}
+
+		$figures[ $key ] = array(
+			'share' => $figure['share'],
+			'count' => $figure['count'],
+			'n'     => $figure['n'],
+		);
+	}
+
+	if ( array() === $figures ) {
+		return array();
+	}
+
+	return array(
+		'read'    => $set['read'],
+		'figures' => $figures,
+	);
+}
+
+/**
+ * An outcome figure, or the figures' source line, as the program figure block prints it.
+ *
+ * A figure is its number, its label and its base, all inside the block, so a figure that may not be
+ * shown takes its words with it; the label is the block's own when one is typed into it. The source
+ * line gives the date the figures were read, in the site's date format and time zone, and names the
+ * public impact dashboard whose definitions they share.
+ *
+ * @param string $stat  The block's stat: `graduation`, `recommend`, `keep` or `outcomes-source`.
+ * @param string $label The block's label, '' for the figure's own.
+ * @return string|null Escaped markup, '' when there is nothing to show, or null for a stat that is not
+ *                     an outcome figure.
+ */
+function wpcredits_outcome_stat_html( $stat, $label = '' ) {
+	// Not an outcome figure, so a count stat: before anything is looked up, built or translated for it.
+	if ( 'outcomes-source' !== $stat && ! in_array( $stat, WPCREDITS_OUTCOME_FIGURES, true ) ) {
+		return null;
+	}
+
+	$set = wpcredits_outcome_figures();
+
+	if ( 'outcomes-source' === $stat ) {
+		if ( array() === $set ) {
+			return '';
+		}
+
+		return sprintf(
+			'<p %1$s>%2$s</p>',
+			get_block_wrapper_attributes( array( 'class' => 'wpc-figure-source' ) ),
+			wp_kses(
+				sprintf(
+					/* translators: 1: the date the figures were read, 2: the public impact dashboard's address. */
+					__( 'As of %1$s, counted by this site from the program\'s records with the same definitions as the <a href="%2$s">WordPress Credits impact dashboard</a>.', 'wpcredits-theme' ),
+					esc_html( wp_date( (string) get_option( 'date_format' ), $set['read'] ) ),
+					esc_url( 'https://wordpress.github.io/WPCredits/' )
+				),
+				array( 'a' => array( 'href' => true ) )
+			)
+		);
+	}
+
+	if ( ! isset( $set['figures'][ $stat ] ) ) {
+		return '';
+	}
+
+	$figure = $set['figures'][ $stat ];
+	$label  = trim( (string) $label );
+	$labels = array(
+		/* translators: Follows the share printed above it in another element, such as "87%", which is not part of this string. */
+		'graduation' => __( 'of WordPress Credits students graduate rather than drop out', 'wpcredits-theme' ),
+		/* translators: Follows the share printed above it in another element, such as "88%", which is not part of this string. */
+		'recommend'  => __( 'of graduates would recommend the program', 'wpcredits-theme' ),
+		/* translators: Follows the share printed above it in another element, such as "79%", which is not part of this string. */
+		'keep'       => __( 'of graduates plan to keep contributing to WordPress', 'wpcredits-theme' ),
+	);
+
+	if ( 'graduation' === $stat ) {
+		/* translators: 1: students who graduated, 2: students who graduated or dropped out. */
+		$base = sprintf( _n( '%1$s of %2$s student who graduated or dropped out', '%1$s of %2$s students who graduated or dropped out', $figure['n'], 'wpcredits-theme' ), number_format_i18n( $figure['count'] ), number_format_i18n( $figure['n'] ) );
+	} else {
+		/* translators: %s: how many answered the question on the final survey. */
+		$base = sprintf( _n( '%s answer to the final survey', '%s answers to the final survey', $figure['n'], 'wpcredits-theme' ), number_format_i18n( $figure['n'] ) );
+	}
+
+	return sprintf(
+		'<div %1$s><p class="wpc-figure__value">%2$s</p><p class="wpc-figure__label">%3$s</p><p class="wpc-figure__base">%4$s</p></div>',
+		get_block_wrapper_attributes( array( 'class' => 'wpc-figure' ) ),
+		/* translators: %s: a share, a whole number from 0 to 100. */
+		esc_html( sprintf( _x( '%s%%', 'a share, as a percentage', 'wpcredits-theme' ), number_format_i18n( $figure['share'] ) ) ),
+		esc_html( '' !== $label ? $label : $labels[ $stat ] ),
+		esc_html( $base )
+	);
 }

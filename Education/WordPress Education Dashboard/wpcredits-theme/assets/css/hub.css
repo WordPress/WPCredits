@@ -1,0 +1,830 @@
+/*
+ * The Education Hub homepage (theme 1.24.15).
+ *
+ * Loaded on a page the "Education Hub home" template draws, wherever one of the hub's three blocks is
+ * placed (`wpcredits-hub` is their block style), and in the editor. Every value is a theme.json token
+ * through its `--wpc-*` alias in style.css, or a measure the design note gives; no section carries a
+ * character-width cap, so a lede runs to the same right edge as the cards beside it.
+ */
+
+/* ==========================================================================
+   The page
+   ========================================================================== */
+
+/* The root padding is 40px at every width, which at 375px would leave a section 295px. Below 640px
+   the hub's sections take the header's phone gutter instead, 20px, so their edge lines up with the
+   brand above them. */
+@media ( max-width: 640px ) {
+	.wpc-main.wpc-hub {
+		padding-left: var( --wpc-chrome-gutter );
+		padding-right: var( --wpc-chrome-gutter );
+	}
+}
+
+/* The sections are 96px apart, their own 48px paddings and nothing more. The main is a constrained
+   layout, which puts its 20px block gap above every block after the first; this one rule removes the
+   block gap between the hub's sections so the rhythm is the sections' own padding. Two classes deep,
+   to outrank core's `:root :where( .is-layout-constrained ) > *` whatever order the sheets print in.
+   Delete it to give the sections the block gap back. */
+.wpc-main.wpc-hub > * {
+	margin-block-start: 0;
+}
+
+/* An anchored section or heading lands below the sticky header. */
+.wpc-hub-anchored {
+	scroll-margin-top: var( --wpc-landing-offset );
+}
+
+/* Two or three columns side by side from 900px, one below: the hero, the doors and the closing band.
+   Core stacks columns below 782px; these stack below 900px. */
+@media ( max-width: 899px ) {
+	.wp-block-columns.wpc-hub-stack {
+		flex-wrap: wrap !important;
+	}
+
+	.wp-block-columns.wpc-hub-stack > .wp-block-column {
+		flex-basis: 100% !important;
+	}
+}
+
+/* A section's head sits 22px above its content. Body text is 16px and runs to the section's edge.
+   Two classes deep, to outrank core's flow-layout margins whatever order the sheets print in. */
+.wp-block-group.wpc-hub-head {
+	margin-bottom: 22px;
+}
+
+.wp-block-group.wpc-hub-head > * {
+	margin-bottom: 0;
+	margin-top: 0;
+}
+
+.wp-block-group.wpc-hub-head > * + * {
+	margin-top: 8px;
+}
+
+.wpc-hub-lede {
+	color: var( --wpc-ink-70 );
+	font-size: 16px;
+}
+
+/* ==========================================================================
+   The hero
+   ========================================================================== */
+
+/* The editor prints `:root :where( .is-layout-flex ) { gap: 20px }` for every flex layout, one class
+   deep, so a gap written with one class ties with it and loses wherever its sheet prints first. The
+   hero's, the doors' and the band's gaps are written two classes deep, which wins in either order. */
+.wp-block-columns.wpc-hub-hero__cols {
+	gap: 44px;
+}
+
+/* The figures under a 1px ink rule, a row each. */
+.wpc-hub-hero__figures {
+	border-top: 1px solid var( --wpc-ink );
+}
+
+/* With no figure to show, the figures column is not displayed and the copy takes the whole width. */
+.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__figures {
+	display: none;
+}
+
+.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__copy {
+	flex-basis: 100% !important;
+}
+
+@media ( max-width: 899px ) {
+	.wp-block-columns.wpc-hub-hero__cols {
+		gap: 28px;
+	}
+
+	/* The title's display size is a preset class that sets its size with !important, which the theme's
+	   own 34px for narrow screens (one class, none) cannot beat; so this has !important too, and one
+	   more class. */
+	.wpc-hub-hero .wpc-hero__title {
+		font-size: 34px !important;
+	}
+}
+
+/* ==========================================================================
+   The sign-in section
+   ========================================================================== */
+
+/* The section is the block itself, a direct child of the hub's main, so `.wpc-main.wpc-hub > *` has
+   already taken the block gap from above it and the main's gutter rule applies to it. Padded 48px
+   above and below, as every section is. The head is the programs section's `.wpc-hub-head` (22px above
+   the grid, from its rule) and each card is a door's, so the card, its hover border, its stretched
+   link and its focus ring are the doors' own rules, written once. Every selector here is two classes
+   deep, so core's layout styles never outrank it in either print order. */
+.wp-block-wpcredits-sign-in.wpc-hub-sign-in {
+	padding-bottom: 48px;
+	padding-top: 48px;
+}
+
+/* One column below 640px, two from 640px, and from 900px a column for each card printed (`--wpc-cards`,
+   1 to 4, set by the block on the grid), so three cards fill the row as four do. The 4 here is what the
+   grid reads before the block sets it. */
+.wpc-hub-sign-in .wpc-hub-sign-in__grid {
+	--wpc-cards: 4;
+	display: grid;
+	gap: 16px;
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+@media ( min-width: 640px ) {
+	.wpc-hub-sign-in .wpc-hub-sign-in__grid {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+@media ( min-width: 900px ) {
+	.wpc-hub-sign-in .wpc-hub-sign-in__grid {
+		grid-template-columns: repeat( var( --wpc-cards ), minmax( 0, 1fr ) );
+	}
+}
+
+/* ==========================================================================
+   The doors
+   ========================================================================== */
+
+.wp-block-columns.wpc-hub-doors__grid {
+	gap: 16px;
+}
+
+/* The heading before the grid is screen-reader only and takes no room, so the grid is the section's
+   first content, and sits at its top padding as the other sections' content does, not 20px lower by
+   the flow layout's block gap. Two classes and a child combinator, to outrank the flow layout's
+   margin whatever order the sheets print in. */
+.wp-block-group.wpc-hub-doors > .wpc-hub-doors__grid {
+	margin-block-start: 0;
+}
+
+/* A card whose link covers it: the border turns brand blue under the pointer, and the focus ring is
+   drawn around the whole card. */
+.wp-block-group.wpc-hub-door {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	height: 100%;
+	padding: 24px;
+	position: relative;
+}
+
+.wp-block-group.wpc-hub-door > * {
+	margin: 0;
+}
+
+.wp-block-group.wpc-hub-door:hover {
+	border-color: var( --wpc-brand );
+}
+
+.wpc-hub-door__text {
+	color: var( --wpc-ink-60 );
+	font-size: 16px;
+}
+
+.wp-block-group.wpc-hub-door .wpc-hub-door__go {
+	margin-top: auto;
+}
+
+.wpc-hub-door__go a {
+	color: var( --wpc-brand );
+	font-size: 14px;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.wpc-hub-door__go a::after {
+	content: "";
+	inset: 0;
+	position: absolute;
+}
+
+/* Only where :has() draws the ring around the card does the link give up its own; a browser without
+   :has() keeps the theme's ring on the link. */
+@supports selector( :has( * ) ) {
+	.wpc-hub-door__go a:focus-visible {
+		outline: none;
+	}
+
+	.wp-block-group.wpc-hub-door:has( .wpc-hub-door__go a:focus-visible ) {
+		outline: 2px solid var( --wpc-brand );
+		outline-offset: 2px;
+	}
+}
+
+/* ==========================================================================
+   The toggles: the program index's chips and the pathway's switch
+   ========================================================================== */
+
+/* A control the view script has not shown yet stays out of the layout, whatever display a rule
+   below gives it; so does a card, a ladder or a detail the script hides. */
+.wpc-hub-index [hidden],
+.wpc-hub-pathway [hidden] {
+	display: none !important;
+}
+
+.wpc-hub-chips,
+.wpc-hub-switch {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0 0 22px;
+}
+
+/* Not pressed: white, the control border (3.32:1, the boundary of a control), ink-70 at 14px, 36px
+   tall. Pressed: the theme's active-filter treatment, brand tint with an inset brand ring, and weight
+   600, so the state is told by weight as well as by color. */
+.wpc-hub-chip,
+.wpc-hub-switch__option {
+	align-items: center;
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-pill );
+	color: var( --wpc-ink-70 );
+	cursor: pointer;
+	display: inline-flex;
+	font: 400 14px/20px var( --wpc-font );
+	min-height: 36px;
+	padding: 7px 14px;
+}
+
+.wpc-hub-chip:hover,
+.wpc-hub-switch__option:hover {
+	background: var( --wpc-surface-band );
+}
+
+.wpc-hub-chip[aria-pressed="true"],
+.wpc-hub-switch__option[aria-pressed="true"] {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand );
+	box-shadow: inset 0 0 0 1px var( --wpc-brand );
+	color: var( --wpc-ink );
+	font-weight: 600;
+}
+
+@media ( forced-colors: active ) {
+	.wpc-hub-chip[aria-pressed="true"],
+	.wpc-hub-switch__option[aria-pressed="true"] {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+}
+
+/* ==========================================================================
+   The program index
+   ========================================================================== */
+
+.wpc-hub-programs {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat( auto-fill, minmax( min( 100%, 300px ), 1fr ) );
+}
+
+.wpc-hub-program {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+	padding: 24px;
+	scroll-margin-top: var( --wpc-landing-offset );
+}
+
+.wpc-hub-program > * {
+	margin: 0;
+}
+
+.wpc-hub-program__meta {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+/* The status tag: "Live" in green on the green tint (4.86:1), "In development" in amber on the amber
+   tint with the amber border (4.90:1); the amber chip color would be 4.30:1, so it is not used. */
+.wpc-hub-tag {
+	border: 1px solid transparent;
+	border-radius: var( --wpc-radius-panel );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	padding: 1px 8px;
+	text-transform: uppercase;
+}
+
+.wpc-hub-tag--live {
+	background: var( --wpc-green-tint );
+	color: var( --wpc-green );
+}
+
+.wpc-hub-tag--development {
+	background: var( --wpc-amber-tint );
+	border-color: var( --wpc-amber-border );
+	color: var( --wpc-amber );
+}
+
+.wpc-hub-program__step {
+	color: var( --wpc-ink-60 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-hub-program__name {
+	font-size: 20px;
+	line-height: 1.3;
+}
+
+.wpc-hub-program__what {
+	color: var( --wpc-ink-70 );
+	font-size: 14px;
+	line-height: 1.55;
+}
+
+.wpc-hub-program__facts {
+	display: grid;
+	gap: 10px;
+}
+
+.wpc-hub-program__facts dt {
+	color: var( --wpc-ink-60 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-hub-program__facts dd {
+	color: var( --wpc-ink );
+	font-size: 14px;
+	line-height: 1.5;
+	margin: 2px 0 0;
+}
+
+/* A benefit to a line, no bullet, 4px apart: in a card's "You get" and in a step's or a level's
+   detail alike. */
+.wpc-hub-items {
+	display: grid;
+	gap: 4px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* "(planned)": ink-60 at 14px, 5.45:1 on white, on the item's line. */
+.wpc-hub-planned {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	white-space: nowrap;
+}
+
+.wpc-hub-program__links {
+	border-top: 1px solid var( --wpc-line );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin-top: auto;
+	padding-top: 12px;
+}
+
+.wpc-hub-program__links a {
+	color: var( --wpc-brand );
+	font-size: 14px;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.wpc-hub-program__links a:hover {
+	color: var( --wpc-brand-dark );
+	text-decoration: underline;
+}
+
+/* ==========================================================================
+   The pathway
+   ========================================================================== */
+
+/* The block sits 22px under the section's eyebrow, as a section's head sits 22px above its content.
+   The eyebrow has no margin below it, so without this the flow layout's 20px block gap is all there
+   is; two classes and a child combinator outrank it whatever order the sheets print in. */
+.wp-block-group.wpc-hub-anchored > .wpc-hub-pathway {
+	margin-block-start: 22px;
+}
+
+/* Without JavaScript both ladders show, one after the other, 48px apart. Once the script shows one
+   alone, the other is hidden and nothing sits above the one shown, so the heading stays where it is
+   whichever ladder the switch shows. */
+.wpc-hub-ladder:not( [hidden] ) + .wpc-hub-ladder {
+	margin-top: 48px;
+}
+
+.wpc-hub-ladder__title {
+	margin: 0 0 12px;
+}
+
+.wpc-hub-ladder__lede {
+	color: var( --wpc-ink-70 );
+	font-size: 16px;
+	margin: 0 0 22px;
+}
+
+/* The staircase: a picture of the climb, each step a link to its detail (a button once the script
+   has run). Its count and each step's rise, 0 at the first and 1 at the last, come from the markup;
+   the values here are what a step reads before they are set. */
+.wpc-hub-stairs {
+	--wpc-count: 7;
+	display: grid;
+	gap: 8px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-hub-stair {
+	--wpc-t: 0;
+	background: color-mix( in srgb, var( --wpc-brand-border ) calc( var( --wpc-t ) * 100% ), var( --wpc-brand-tint ) );
+	border-radius: var( --wpc-radius-panel );
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 14px;
+	position: relative;
+}
+
+.wpc-hub-stair__pick {
+	background: none;
+	border: 0;
+	color: var( --wpc-ink );
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	font: inherit;
+	gap: 2px;
+	padding: 0;
+	text-align: left;
+	text-decoration: none;
+}
+
+/* The whole step answers a press, and its focus ring is drawn around the whole step, outside it on
+   white. */
+.wpc-hub-stair__pick::after {
+	content: "";
+	inset: 0;
+	position: absolute;
+}
+
+/* Only where :has() draws the ring around the step does the button give up its own; a browser without
+   :has() keeps the theme's ring on the button. */
+@supports selector( :has( * ) ) {
+	.wpc-hub-stair__pick:focus-visible {
+		outline: none;
+	}
+
+	.wpc-hub-stair:has( > .wpc-hub-stair__pick:focus-visible ) {
+		outline: 2px solid var( --wpc-brand );
+		outline-offset: 2px;
+	}
+}
+
+.wpc-hub-stair__n {
+	color: var( --wpc-ink-70 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-hub-stair__name {
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+/* Ink-70 at 13px: 6.36:1 on the darkest step, 8.55:1 on the lightest. */
+.wpc-hub-stair__by {
+	color: var( --wpc-ink-70 );
+	font-size: 13px;
+	line-height: 1.35;
+}
+
+/* The step pressed: brand, its name white (5.61:1) and its line in the brand tint (5.03:1). Only the
+   color is set, so the bar a narrow screen draws along the row's bottom stays. */
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) {
+	background-color: var( --wpc-brand );
+}
+
+.wpc-hub-stair__pick[aria-pressed="true"],
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__n {
+	color: var( --wpc-surface );
+}
+
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__by {
+	color: var( --wpc-brand-tint );
+}
+
+/* Forced colors drop a step's fill (the background color is forced to the system's Canvas) and the
+   phone bar (a gradient is not kept), and a step has no border, so every step but the pressed one
+   would lose its edge. Each keeps a 1px one, written two classes deep over the step's own one-class
+   rules. The pressed step keeps the system's highlight. */
+@media ( forced-colors: active ) {
+	.wpc-hub-stairs .wpc-hub-stair {
+		border: 1px solid CanvasText;
+	}
+
+	.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) {
+		background: Highlight;
+		forced-color-adjust: none;
+	}
+
+	.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) * {
+		color: HighlightText;
+	}
+}
+
+/* At 900px and wider the steps rise side by side from a 2px ink baseline, each at least 160px tall
+   at the first and 360px at the last, so it rises and never cuts its text. */
+@media ( min-width: 900px ) {
+	.wpc-hub-stairs {
+		align-items: end;
+		border-bottom: 2px solid var( --wpc-ink );
+		grid-template-columns: repeat( var( --wpc-count ), minmax( 0, 1fr ) );
+	}
+
+	.wpc-hub-stair {
+		border-radius: var( --wpc-radius-card ) var( --wpc-radius-card ) 0 0;
+		min-height: calc( 160px + 200px * var( --wpc-t ) );
+	}
+}
+
+/* Below 900px, one full-width row a step on a plain background, so no text crosses a color edge, and
+   along the bottom of each row a 6px brand bar that widens with the climb: from one step's share of
+   the row at the first step (1/7 for the students' seven steps, 1/4 for the institutions' four
+   levels) to the whole row at the last, from the ladder's count and the step's rise. The row's
+   20px of padding below the text keeps the bar clear of it. The bar is a background layer, so the
+   row's rounded corners clip it and it does not draw over the focus ring, which is the row's outline.
+   The pressed step is the brand row with its bar in the brand tint. Nothing scrolls sideways at
+   375px. */
+@media ( max-width: 899px ) {
+	.wpc-hub-stair {
+		--wpc-bar: var( --wpc-brand );
+		background: linear-gradient( var( --wpc-bar ), var( --wpc-bar ) ) left bottom / calc( 100% / var( --wpc-count ) * ( 1 + ( var( --wpc-count ) - 1 ) * var( --wpc-t ) ) ) 6px no-repeat var( --wpc-surface-band );
+		padding-bottom: 20px;
+	}
+
+	.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) {
+		--wpc-bar: var( --wpc-brand-tint );
+	}
+}
+
+/* The one movement on the page, a step lifting under the pointer, and only for a reader who has not
+   asked for less motion; the theme's global reduce rule stands. */
+@media ( prefers-reduced-motion: no-preference ) {
+	.wpc-hub-pathway.is-interactive .wpc-hub-stair {
+		transition: transform .15s ease;
+	}
+
+	.wpc-hub-pathway.is-interactive .wpc-hub-stair:hover {
+		transform: translateY( -4px );
+	}
+}
+
+/* The details: a card each, every one shown without JavaScript, the one selected with it. */
+.wpc-hub-details {
+	display: grid;
+	gap: 16px;
+	margin-top: 22px;
+}
+
+.wpc-hub-detail {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	display: grid;
+	gap: 16px;
+	padding: 28px;
+	scroll-margin-top: var( --wpc-landing-offset );
+}
+
+.wpc-hub-detail > * {
+	margin: 0;
+}
+
+.wpc-hub-detail__count,
+.wpc-hub-detail__cols dt,
+.wpc-hub-detail__leads {
+	color: var( --wpc-ink-60 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-hub-detail__name {
+	font-size: 26px;
+	line-height: 1.23;
+}
+
+.wpc-hub-detail__cols {
+	display: grid;
+	gap: 20px 24px;
+}
+
+.wpc-hub-detail__cols dd {
+	color: var( --wpc-ink );
+	font-size: 14px;
+	line-height: 1.55;
+	margin: 4px 0 0;
+}
+
+/* Three columns side by side for a step, two for a level, at 900px and wider; stacked below. */
+@media ( min-width: 900px ) {
+	.wpc-hub-detail__cols {
+		grid-auto-columns: minmax( 0, 1fr );
+		grid-auto-flow: column;
+	}
+}
+
+.wpc-hub-detail__next {
+	align-items: center;
+	border-top: 1px solid var( --wpc-line );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 16px;
+	justify-content: space-between;
+	padding-top: 18px;
+}
+
+.wpc-hub-ladder__key {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	margin: 16px 0 0;
+}
+
+/* ==========================================================================
+   The outcome figures
+   ========================================================================== */
+
+/* A figure: its number in brand, tabular so a new week's figure does not shift the column, its
+   label and its base under it. The rows are divided by the card hairline. */
+.wpc-figure {
+	padding: 14px 0;
+}
+
+/* A column's block gap is a margin above every block after the first, which WordPress prints with
+   one class and, as often as not, after this sheet; unreset it would add 20px above each row's
+   hairline, off the rhythm above. Two classes beat it whichever sheet comes last. */
+.wp-block-wpcredits-program-stat.wpc-figure {
+	margin-block: 0;
+}
+
+.wpc-figure + .wpc-figure {
+	border-top: 1px solid var( --wpc-line-card );
+}
+
+/* In the Site Editor each figure is three elements deep, not one: the block's wrapper, the preview's
+   own div, then the server's figure. The column's block gap lands on the wrapper, and no figure has
+   a figure for a neighbor, so the two rules above miss. These two do for the wrappers what they do
+   for the figures. The editor gives its wrapper a class of its own, `block-editor-block-list__block`,
+   which the front end never prints, and the second rule ends in a `.wpc-figure` inside the wrapper,
+   which the server's element never holds; neither can reach the front end. */
+.wpc-hub-hero__figures > .block-editor-block-list__block.wp-block-wpcredits-program-stat {
+	margin-block: 0;
+}
+
+.wpc-hub-hero__figures > .block-editor-block-list__block.wp-block-wpcredits-program-stat ~ .block-editor-block-list__block.wp-block-wpcredits-program-stat .wpc-figure {
+	border-top: 1px solid var( --wpc-line-card );
+}
+
+.wpc-figure > * {
+	margin: 0;
+}
+
+.wpc-figure__value {
+	color: var( --wpc-brand );
+	font-size: 44px;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	letter-spacing: -.02em;
+	line-height: 1.14;
+}
+
+.wpc-figure__label {
+	color: var( --wpc-ink-70 );
+	font-size: 16px;
+	line-height: 1.4;
+	margin-top: 4px;
+}
+
+.wpc-figure__base {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	margin-top: 2px;
+}
+
+/* Two classes for the same reason: the 10px above the line must not be the block gap's 20px. */
+.wp-block-wpcredits-program-stat.wpc-figure-source {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	margin: 10px 0 0;
+}
+
+@media ( max-width: 899px ) {
+	.wpc-figure__value {
+		font-size: 34px;
+	}
+}
+
+/* ==========================================================================
+   The field-of-study table
+   ========================================================================== */
+
+.wp-block-group.wpc-hub-fit {
+	margin-top: 56px;
+}
+
+/* A white box, its header cells eyebrows, its body cells 14px ink, the first column bold, the rows
+   divided by the rule. Core's Table block makes the figure the scroll container. */
+.wp-block-table.wpc-hub-fields {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	margin: 0;
+}
+
+.wp-block-table.wpc-hub-fields thead {
+	border-bottom: 0;
+}
+
+.wp-block-table.wpc-hub-fields th,
+.wp-block-table.wpc-hub-fields td {
+	border: 0;
+	border-bottom: 1px solid var( --wpc-line );
+	padding: 14px 18px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wp-block-table.wpc-hub-fields tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.wp-block-table.wpc-hub-fields th {
+	color: var( --wpc-ink-60 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wp-block-table.wpc-hub-fields td {
+	color: var( --wpc-ink );
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.wp-block-table.wpc-hub-fields td:first-child {
+	font-weight: 600;
+}
+
+/* At 375px the table scrolls inside its box: each column keeps about 170px, the 335px box shows the
+   first column and most of the second, and the page itself never widens. */
+@media ( max-width: 640px ) {
+	.wp-block-table.wpc-hub-fields table {
+		min-width: 520px;
+	}
+
+	.wp-block-table.wpc-hub-fields th,
+	.wp-block-table.wpc-hub-fields td {
+		padding: 10px 12px;
+	}
+}
+
+/* ==========================================================================
+   The closing band
+   ========================================================================== */
+
+.wp-block-columns.wpc-hub-cta__grid {
+	gap: 16px;
+}
+
+.wp-block-group.wpc-hub-cta__card {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	height: 100%;
+	padding: 28px;
+}
+
+.wp-block-group.wpc-hub-cta__card > * {
+	margin: 0;
+}
+
+.wpc-hub-cta__text {
+	color: var( --wpc-ink-60 );
+	font-size: 16px;
+}
+
+/* A card's buttons are 12px apart, as the hero's pair is, side by side and stacked. The Buttons block
+   prints only `wp-block-buttons` here, so its gap is the editor's `:root :where( .is-layout-flex )`
+   20px, one class deep; this is two classes deep and wins whatever order the sheets print in. */
+.wpc-hub-cta__card .wp-block-buttons {
+	gap: 12px;
+}

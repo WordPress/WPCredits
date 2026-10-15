@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.14
+Stable tag: 1.24.15
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -99,6 +99,24 @@ copies the markup into the page**, and from then on that copy is what visitors s
 later changes to the pattern, and to anything set as a block attribute rather than in
 CSS, stop reaching it. Styling still applies, because that comes from the stylesheet.
 
+= The Education Hub homepage =
+
+A page template, "Education Hub home", draws an alternative homepage built from the
+program team's hub: a hero with the program's three outcome figures, a sign-in section
+with a card each for students, mentors, institutions and sponsors, three doors for
+students, institutions and companies, every education program as a card with filter
+chips, a field-of-study table, the pathway from a first workshop to a first job beside
+an institution's four partner levels, and a closing band. It prints no post content,
+so the page it is set on is only its address. Without JavaScript every part of it is
+shown and no control is; with it the chips, the switch and the steps show one part at
+a time. The figures come from WPCredits Program Manager 1.122.24 or later, and with an
+older plugin, or none, the hero shows its copy alone.
+
+The site's homepage is not changed by the template. Set the homepage under Settings >
+Reading to a page that uses it, and the theme lets the template draw the front page;
+choosing the old homepage again puts it back. Then set the hub's page back to Private, so
+it is not left public at its own address.
+
 = The login screen =
 
 `wp-login.php` is not a template, so the branding is applied through the login
@@ -157,6 +175,14 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.15 =
+* Education Hub homepage: a new page template, "Education Hub home", with five patterns: a hero with the program's three outcome figures and their source, three doors for students, institutions and companies, every education program in one list with a field-of-study table, the pathway with the students' seven steps and the institutions' four partner levels, and a closing band. A page set to it shows the hub, and a page that is merely called education-hub does not; the homepage stays as it is until it is set to such a page under Settings > Reading, when the theme lets the template draw the front page. The hub's sections, cards and buttons keep their gaps over the editor's layout styles: 96px between sections, 16px between cards and 12px between a pair of buttons.
+* Two of the three new blocks, Program index and Pathway: every program as a card with chips that filter them by audience, and a switch between the two ladders with a staircase of steps and each step's detail. Without JavaScript every card, both ladders and all eleven details are shown and no control is; with it each press says what it shows to a screen reader, and focus stays where it was. Each filter's announcement names its audience, "Showing 3 of 6 programs for students", "for faculty" or "in Career and credentials", so no two chips say the same sentence. At 900px and wider the steps rise as a staircase; below that, on a tablet or a phone, each step is a plain full-width row with a bar beneath it that widens with the climb, and pressing a step brings its detail into view when it is out of sight. An address changed to a card or a step that is hidden shows it and scrolls to it, and a link opened in a new tab or window (Ctrl, Cmd, Shift or Alt held) leaves the filter and the step as they are. Every benefit no public page confirms is marked "(planned)".
+* Education Hub sign-in section: right under the hero, a card each for students, mentors, institutions and sponsors (the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard), drawn by the third new block, Sign in, placed in the template. Signed out, each card signs in and lands on its page; signed in, each opens its page. Each link is named by one whole sentence, such as "Sign in to your Student Report Card", so a list of links tells the four apart. A page that is not published leaves its card out, and with none the section is not shown.
+* The program figure block shows the three outcome figures and their source line, read from WPCredits Program Manager 1.122.24 or later; with an older plugin, or none, it shows neither, and the hero's copy takes the whole width. An outcome figure is never typed in, so a fallback written into the block is ignored for it. A new label attribute replaces an outcome figure's own label; a text color or font size set on the block does not reach the figure's number, label or base. In the Site Editor each program figure block now shows what the server draws for its own stat, as the Program index and Pathway blocks do, instead of a placeholder. The four counts, mentors among them, are drawn as before.
+* On a phone the field-of-study table scrolls inside its box, which is reached by keyboard, also after the table's words are edited in the Site Editor; nothing on the page scrolls sideways.
+* For developers: `bin/check-selectors.php` also checks that every `.wpc-hub-*` and `.wpc-figure*` selector is printed by the theme. The installable zip built with `git archive` leaves out `bin/` (`.gitattributes`), which keeps the checks and the new suites, `bin/test-hub.php` and `bin/test-hub-js.php`; `bin/make-pot.sh` leaves `bin/` out of the translation template with WP-CLI too, as it already did with gettext alone.
 
 = 1.24.14 =
 * Dashboards: the "Viewing as" field that plugin 1.122.15 draws, one box you click to open the names, type into to narrow them and pick from, is dressed as the list was: white background, gray border, 2px corners, 14px type, 230px minimum width, and the WordPress chevron 8px in from its edge with room kept for it, one arrow and not two. It is 34px tall, as **Show** beside it is. **Show**, the labels, the note and the 8px gaps between them are as before. What is typed reads in the page's ink, and the prompt before anything is typed in the theme's muted gray.
