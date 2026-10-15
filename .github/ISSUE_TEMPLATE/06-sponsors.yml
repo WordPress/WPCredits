@@ -1,0 +1,140 @@
+name: Sponsors, coupons and discounts
+description: A sponsor's coupon code, discount or tool, applying to sponsor, the Collaboration Agreement, a sponsor's logo or page, sponsored mentors or the Sponsor Dashboard.
+title: "[Sponsors]: "
+labels: ["Sponsorship", "WP Credits"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything about the program's sponsors: the coupon codes and discounts they give students and mentors, the tools they offer, applying to sponsor, the Collaboration Agreement, a sponsor's logo or name on a page, sponsored mentors or the Sponsor Dashboard. One problem or request per issue, please.
+  - type: markdown
+    attributes:
+      value: |
+        **Never post a coupon code or a discount link.** Many codes work only once, and anyone reading this page could use yours. Give only its last four characters. If you got the code under **Tools from our sponsors** on wordpresseducation.org, the **Report a problem with this code** button under it tells your program contact privately, code included.
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** Anyone on the internet can read it. Please do not post passwords, full email addresses, phone numbers or anything about other students. Blur names and emails in screenshots. If we need something private, the program team will ask you in a Slack direct message.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the [open issues](https://github.com/WordPress/WPCredits/issues) and nobody has reported this yet.
+          required: true
+        - label: I removed passwords, full email addresses and other people's personal details from this report.
+          required: true
+        - label: I did not paste a whole coupon code, a discount link or a signed agreement.
+          required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who are you in the program?
+      options:
+        - Student
+        - Mentor
+        - Institution contact
+        - Sponsor
+        - Company interested in sponsoring
+        - Program team
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: topic
+    attributes:
+      label: What is it about?
+      options:
+        - A coupon code or discount does not work
+        - I cannot get a coupon code or discount
+        - A sponsor's tool or product (setup, license, instructions)
+        - Applying to become a sponsor
+        - The Collaboration Agreement
+        - A sponsor's logo, name or description on a page
+        - Sponsored mentors
+        - The Sponsor Dashboard (offers, codes, profile, posts, people)
+        - Emails to or from sponsors
+        - How sponsoring the program works
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - Tools from our sponsors, on a Student Report Card or Mentor Report Card
+        - The Sponsor Dashboard on wordpresseducation.org
+        - The sponsor's own website, checkout or product
+        - The sponsor application form
+        - The WordPress Credits handbook on make.wordpress.org
+        - Email
+        - Slack
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: sponsor
+    attributes:
+      label: Which sponsor?
+      description: The company's name as the program shows it. Leave it empty if this is about all sponsors.
+      placeholder: "e.g. Example Hosting"
+  - type: input
+    id: offer
+    attributes:
+      label: Which offer?
+      description: The offer's title, if this is about a coupon code or discount.
+      placeholder: "e.g. One year of hosting, 50% off"
+  - type: input
+    id: code-ending
+    attributes:
+      label: Last four characters of the code
+      description: Only the last four, never the whole code.
+      placeholder: "e.g. 7KQ2"
+  - type: input
+    id: url
+    attributes:
+      label: Page address (URL)
+      description: Where you saw it. For a sponsor's checkout, the address without your code in it.
+      placeholder: "https://..."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what do you need?
+      description: Copy any message word for word, from the site or from the sponsor, but never the code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      placeholder: |
+        - Pressed Report a problem with this code on ...
+        - Wrote to the sponsor's support on ...
+        - Tried another browser
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen?
+      description: For a problem, the date, time and your timezone. This lets us find it in the site's logs.
+      placeholder: "e.g. 23 September 2026, 12:48, Europe/Rome"
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      description: Only when something on a website did not work. Open https://www.whatsmybrowser.org/ on the same device and paste the short link it gives you, or write it out.
+      placeholder: "e.g. Phone, Android 14, Chrome 129"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files here. Blur names, email addresses and codes first.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages copied word for word, whether it also happens on another device or browser, a link to the Slack thread if you asked there first.
