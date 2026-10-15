@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.25
+Stable tag: 1.122.26
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -281,7 +281,7 @@ No. The page renders against the logged-in user. Only accounts with `wpcpm_manag
 
 = Does uninstalling delete the mentor accounts? =
 
-No. Uninstall removes settings, sync state, access-level meta and the custom roles, and moves affected accounts to Subscriber. Sponsor offers, their code pools and the pools' locks, and the claims meta on every account, are deleted with them. Accounts are never deleted.
+No. Uninstall removes settings, sync state, access-level meta, the last sign-in and last visit the site records for every account, and the custom roles, and moves affected accounts to Subscriber. Sponsor offers, their code pools and the pools' locks, and the claims meta on every account, are deleted with them. Accounts are never deleted.
 
 == Screenshots ==
 
@@ -291,6 +291,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.26 =
+
+* The site records when each account last signed in and when it last opened the site, the first signed-in page of the day. A sign-in that asks for a two-factor code counts once the code is accepted. Sign-ins from before this release are read once from what the site already held, the first time an Administrator opens wp-admin after the update.
+* The Mentors screen has a new Engagement tab: every mentor's last visit and sign-in, students, schedule, notes, one-to-one calls and group sessions, sorted, searched and filtered, with views for the mentors to follow up with. It reads only. The Engagement and Accounts tabs share one list of hidden columns, so hiding a column on one tab shows every column again on the other (WordPress keeps one list per screen).
+* The Administrator Dashboard has a Mentor engagement card after Programs running, with the same figures and a link to the tab.
+* `wp wpcredits mentor_engagement` prints the figures (`--summary`) or one row per mentor, as a table, JSON or CSV, and writes nothing.
 
 = 1.122.25 =
 

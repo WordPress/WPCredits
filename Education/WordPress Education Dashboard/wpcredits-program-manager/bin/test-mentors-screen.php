@@ -127,6 +127,20 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.ph
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
+
+// The Engagement table prints no checkbox, so `row_ids()` (which reads the Accounts list's) cannot read it.
+function engagement_ids( $html ) {
+	preg_match_all( '/<tr id="mentor-(\d+)">/', (string) $html, $found );
+
+	return array_map( 'intval', $found[1] );
+}
+if ( ! function_exists( 'wp_date' ) ) {
+	function wp_date( $format, $timestamp = null ) {
+		return gmdate( $format, (int) $timestamp );
+	}
+}
 
 /**
  * The plugin's lazy loader, as this suite has it: the stand-in for core's list table, which there is
@@ -160,6 +174,17 @@ function ck( $label, $actual, $expected ) {
 }
 function has( $haystack, $needle ) {
 	return false !== strpos( (string) $haystack, (string) $needle );
+}
+
+/**
+ * Whether a filter was added to a hook, by the stand-ins' own record of what `add_filter()` was
+ * given (`$GLOBALS['hooks']`, hook => each callback with its priority and argument count).
+ *
+ * @param string $hook The hook.
+ * @return bool
+ */
+function has_filter_for( $hook ) {
+	return ! empty( $GLOBALS['hooks'][ $hook ] );
 }
 
 /**
@@ -1733,27 +1758,32 @@ ck( 'a count a press on the ticked accounts left unprinted is not shown under th
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
 	array( array( 12, 13 ), '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
 
-echo "\n=== The screen in two tabs, Accounts and Sync, in the bar every audience screen prints ===\n";
+echo "\n=== The screen in three tabs, Accounts, Engagement and Sync, in the bar every audience screen prints ===\n";
 
 three_mentors();
 manager( 200 );
 
-$home     = 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors';
-$two_tabs = function ( $shown ) use ( $home ) {
+$home       = 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors';
+$three_tabs = function ( $shown ) use ( $home ) {
 	return array(
 		'Secondary menu',
 		array(
 			array( $home . '&tab=accounts', 'Accounts', 'accounts' === $shown, 'accounts' === $shown ),
+			array( $home . '&tab=engagement', 'Engagement', 'engagement' === $shown, 'engagement' === $shown ),
 			array( $home . '&tab=sync', 'Sync', 'sync' === $shown, 'sync' === $shown ),
 		),
 	);
 };
-$drawn    = array();
-$bars     = array();
+$drawn      = array();
+$bars       = array();
+
+// The Engagement tab reads the whole site; here it is asked for its bar alone, over no mentors.
+WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => array(), 'notes' => array(), 'calls' => array() ) );
 
 foreach ( array(
 	'from the menu'                    => array( 'page' => 'wpcpm-mentors' ),
 	'asked for Accounts'               => screen(),
+	'asked for Engagement'             => screen( array( 'tab' => 'engagement' ) ),
 	'asked for Sync'                   => screen( array( 'tab' => 'sync' ) ),
 	'asked for a tab it does not have' => screen( array( 'tab' => 'nope' ) ),
 ) as $case => $query ) {
@@ -1766,13 +1796,16 @@ foreach ( array(
 	);
 }
 
-ck( 'the bar holds two tabs, Accounts then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Sync when asked for, marked for the eye and for a screen reader',
+WPCPM_Mentor_Engagement::for_tests( null );
+
+ck( 'the bar holds three tabs, Accounts, Engagement then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Engagement and Sync when asked for, marked for the eye and for a screen reader',
 	$bars,
 	array(
-		'from the menu'                    => $two_tabs( 'accounts' ),
-		'asked for Accounts'               => $two_tabs( 'accounts' ),
-		'asked for Sync'                   => $two_tabs( 'sync' ),
-		'asked for a tab it does not have' => $two_tabs( 'accounts' ),
+		'from the menu'                    => $three_tabs( 'accounts' ),
+		'asked for Accounts'               => $three_tabs( 'accounts' ),
+		'asked for Engagement'             => $three_tabs( 'engagement' ),
+		'asked for Sync'                   => $three_tabs( 'sync' ),
+		'asked for a tab it does not have' => $three_tabs( 'accounts' ),
 	) );
 ck( 'a tab the screen does not have draws the Accounts tab itself, its list among it',
 	has( html_of( $drawn['asked for a tab it does not have'] ), '<h2>Mentor accounts <span class="wpcpm-count">' ),
@@ -1786,8 +1819,9 @@ $printed_bar = run(
 			WPCPM_Screen_Tabs::render(
 				'wpcpm-mentors',
 				array(
-					'accounts' => 'Accounts',
-					'sync'     => 'Sync',
+					'accounts'   => 'Accounts',
+					'engagement' => 'Engagement',
+					'sync'       => 'Sync',
 				),
 				'accounts'
 			);
@@ -1806,6 +1840,7 @@ ck( 'the bar is the one every audience screen prints, `WPCPM_Screen_Tabs`\'s, ta
 
 $GLOBALS['l10n'] = array(
 	'Accounts'       => 'Cuentas',
+	'Engagement'     => 'Participación',
 	'Sync'           => 'Sincronización',
 	'Secondary menu' => 'Menú secundario',
 );
@@ -1821,7 +1856,7 @@ ck( 'the labels are translated where the bar prints them, and so is the name the
 			return null === $bar ? null : array( $bar[0], array_column( $bar[1], 1 ) );
 		}
 	),
-	array( 'Menú secundario', array( 'Cuentas', 'Sincronización' ) ) );
+	array( 'Menú secundario', array( 'Cuentas', 'Participación', 'Sincronización' ) ) );
 
 $names = run(
 	function () {
@@ -1838,8 +1873,9 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 	),
 	array(
 		array(
-			'accounts' => 'Accounts',
-			'sync'     => 'Sync',
+			'accounts'   => 'Accounts',
+			'engagement' => 'Engagement',
+			'sync'       => 'Sync',
 		),
 		'accounts',
 		'sync',
@@ -1849,11 +1885,12 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 
 $read = array();
 foreach ( array(
-	'none'     => null,
-	'accounts' => 'accounts',
-	'sync'     => 'sync',
-	'unknown'  => 'nope',
-	'empty'    => '',
+	'none'       => null,
+	'accounts'   => 'accounts',
+	'engagement' => 'engagement',
+	'sync'       => 'sync',
+	'unknown'    => 'nope',
+	'empty'      => '',
 ) as $case => $value ) {
 	request( null === $value ? array( 'page' => 'wpcpm-mentors' ) : array( 'page' => 'wpcpm-mentors', 'tab' => $value ) );
 	$read[ $case ] = got(
@@ -1871,11 +1908,12 @@ foreach ( array(
 ck( 'the tab shown is the one the address names, and Accounts when it names none or one the screen does not have',
 	$read,
 	array(
-		'none'     => 'accounts',
-		'accounts' => 'accounts',
-		'sync'     => 'sync',
-		'unknown'  => 'accounts',
-		'empty'    => 'accounts',
+		'none'       => 'accounts',
+		'accounts'   => 'accounts',
+		'engagement' => 'engagement',
+		'sync'       => 'sync',
+		'unknown'    => 'accounts',
+		'empty'      => 'accounts',
 	) );
 
 echo "\n=== Each tab holds its own cards ===\n";
@@ -2181,6 +2219,241 @@ $left  = get_user_meta( 250, WPCPM_Flash::META, true );
 ck( 'an outcome that comes back to the other tab, as a form drawn before the screen had tabs sends it, is taken there unprinted, so no later page shows it as news',
 	array( $wrong, is_array( $left ) && array_key_exists( 'mentors_admin', $left ) ),
 	array( '', false ) );
+
+echo "\n=== The Engagement tab ===\n";
+
+$NOW = time();
+$GLOBALS['opts']['date_format'] = 'Y-m-d';
+$e_account = function ( $id, $name, array $more = array() ) {
+	return array_merge( array( 'id' => $id, 'name' => $name, 'login' => 'login' . $id, 'email' => 'e' . $id . '@example.test', 'roles' => array( 'wpcpm_mentor' ), 'active' => true, 'students_now' => 0, 'students_past' => 0, 'last_sign_in' => 0, 'last_visit' => 0, 'schedule_saved' => false, 'weekly_hours' => false, 'meeting_link' => false ), $more );
+};
+WPCPM_Mentor_Engagement::for_tests(
+	array(
+		'accounts' => array(
+			$e_account( 301, 'Ada Engaged', array( 'students_now' => 3, 'students_past' => 1, 'last_sign_in' => $NOW - 2 * 86400, 'last_visit' => $NOW - 86400, 'schedule_saved' => true, 'weekly_hours' => true, 'meeting_link' => true ) ),
+			$e_account( 302, 'Bo Quiet', array( 'students_now' => 1 ) ),
+			$e_account( 303, 'Cy <b>Tag</b>', array( 'roles' => array( 'administrator', 'wpcpm_mentor' ) ) ),
+		),
+		'notes'    => array(),
+		'calls'    => array(),
+	)
+);
+
+$e_page = html_of( page_for( screen( array( 'tab' => 'engagement' ) ) ) );
+ck( 'the figures come first, in the card\'s words', array( false !== strpos( $e_page, 'Active mentors' ), false !== strpos( $e_page, 'Administrators who also mentor are counted apart: 1.' ), strpos( $e_page, 'Active mentors' ) < strpos( $e_page, 'wpcpm-mentor-engagement-list' ) ), array( true, true, true ) );
+ck( 'the rows open on students now, most first', engagement_ids( $e_page ), array( 301, 302, 303 ) );
+ck( 'the views with their counts', view_counts( $e_page ), array( 'all' => '3', 'active' => '2', 'students' => '2', 'never' => '1', 'quiet' => '0', 'idle' => '1', 'no-hours' => '1', 'staff' => '1' ) );
+ck( 'a row says its schedule, its last visit and its status', array( false !== strpos( $e_page, 'Weekly hours, meeting link' ), false !== strpos( $e_page, 'Not recorded yet' ), false !== strpos( $e_page, 'Active<br />Administrator' ) ), array( true, true, true ) );
+ck( 'a name is printed escaped', array( false !== strpos( $e_page, 'Cy &lt;b&gt;Tag&lt;/b&gt;' ), false === strpos( $e_page, 'Cy <b>Tag</b>' ) ), array( true, true ) );
+ck( 'View page opens the mentor\'s Mentor Report Card', false !== strpos( $e_page, 'wpcpm_mentor=301' ), true );
+ck( 'the note under the list says how far back sign-ins go', false !== strpos( $e_page, 'Sign-ins ' ), true );
+
+// Review Focus 1: two tables, one screen.
+wpcpm_load_accounts_tables();
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement-table.php';
+$accounts_keys = array_keys( ( new WPCPM_Mentors_Table() )->get_columns() );
+$e_keys        = array_keys( ( new WPCPM_Mentor_Engagement_Table( WPCPM_Mentor_Engagement::report() ) )->get_columns() );
+ck( 'no column key is the Accounts list\'s, so hiding one never hides the other', array_values( array_intersect( $accounts_keys, $e_keys ) ), array() );
+ck( 'nor is the rows-per-page option', array( WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION !== WPCPM_Mentors::PER_PAGE_OPTION, WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION ), array( true, 'wpcpm_mentor_engagement_per_page' ) );
+
+$GLOBALS['hooks'] = array();
+run(
+	function () {
+		( new WPCPM_Mentors() )->boot();
+	}
+);
+$e_saved = array();
+foreach ( array( '50', '0', '1000' ) as $value ) {
+	$e_saved[ $value ] = apply_filters( 'set_screen_option_wpcpm_mentor_engagement_per_page', false, 'wpcpm_mentor_engagement_per_page', $value );
+}
+ck( 'and its save is hooked at boot, 1 to 999 kept, anything else not stored', array( has_filter_for( 'set_screen_option_wpcpm_mentor_engagement_per_page' ), $e_saved ), array( true, array( '50' => 50, '0' => false, '1000' => false ) ) );
+
+// Review Focus 5: nothing to show, and a hostile search.
+$e_none = html_of( page_for( screen( array( 'tab' => 'engagement', 's' => '"><script>x</script>' ) ) ) );
+ck( 'a search that matches nothing says so', false !== strpos( $e_none, 'No mentors match.' ), true );
+ck( 'and nothing of the search is printed as markup', false === strpos( $e_none, '<script>x</script>' ), true );
+
+$e_sorted = html_of( page_for( screen( array( 'tab' => 'engagement', 'orderby' => 'mentor', 'order' => 'desc' ) ) ) );
+ck( 'a sort by name, Z to A', engagement_ids( $e_sorted ), array( 303, 302, 301 ) );
+$e_view = html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'no-hours' ) ) ) );
+ck( 'a view keeps its rows', engagement_ids( $e_view ), array( 302 ) );
+
+// The rest of what the tab draws, cell by cell.
+$e_row = between( $e_page, '<tr id="mentor-301">', '</tr>' );
+ck( 'a row has one "Show more details" toggle, as core\'s own lists draw one, with Edit and View page under the name',
+	array( substr_count( $e_row, 'toggle-row' ), array_keys( actions_in( $e_row ) ) ), array( 1, array( 'edit', 'view' ) ) );
+ck( 'the cells of a row that is active, has students, hours and a link, and has not written or been called',
+	array(
+		'mentor'       => cell( $e_row, 'mentor' ),
+		'standing'     => cell( $e_row, 'standing' ),
+		'students_now' => cell( $e_row, 'students_now' ),
+		'last_visit'   => cell( $e_row, 'last_visit' ),
+		'last_sign_in' => cell( $e_row, 'last_sign_in' ),
+		'schedule'     => cell( $e_row, 'schedule' ),
+		'notes'        => cell( $e_row, 'notes' ),
+		'calls'        => cell( $e_row, 'calls' ),
+		'sessions'     => cell( $e_row, 'sessions' ),
+	),
+	array(
+		'mentor'       => '<strong>Ada Engaged</strong>',
+		'standing'     => 'Active',
+		'students_now' => '3<br /><span class="description">1 before</span>',
+		'last_visit'   => gmdate( 'Y-m-d', $NOW - 86400 ) . '<br /><span class="description">5 mins ago</span>',
+		'last_sign_in' => gmdate( 'Y-m-d', $NOW - 2 * 86400 ),
+		'schedule'     => 'Weekly hours, meeting link',
+		'notes'        => '0',
+		'calls'        => '0 held, 0 upcoming',
+		'sessions'     => '0 held, 0 upcoming',
+	) );
+ck( 'an email is searched but never printed, and a name, a username or an email finds its row, in any case',
+	array(
+		false === strpos( $e_page, 'e301@' ),
+		engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => 'BO QUIET' ) ) ) ) ),
+		engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => 'login303' ) ) ) ) ),
+		engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => 'E301@example' ) ) ) ) ),
+	),
+	array( true, array( 302 ), array( 303 ), array( 301 ) ) );
+ck( 'a view that holds nobody says so, with every other view still counted over every row',
+	array( engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ) ), has( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ), 'No mentors match.' ), view_counts( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ) )['all'] ),
+	array( array(), true, '3' ) );
+ck( 'the sortable columns sort by their own key, and Status, Schedule and Group sessions do not',
+	array( sort_of( $e_page, 'mentor' ), sort_of( $e_page, 'students_now' ), sort_of( $e_page, 'last_visit' ), sort_of( $e_page, 'last_sign_in' ), sort_of( $e_page, 'notes' ), sort_of( $e_page, 'calls' ), sort_of( $e_page, 'standing' ), sort_of( $e_page, 'schedule' ), sort_of( $e_page, 'sessions' ) ),
+	array( 'mentor', 'students_now', 'last_visit', 'last_sign_in', 'notes', 'calls', 'not sortable', 'not sortable', 'not sortable' ) );
+// Review finding F: the list opens most students first, and its header says so.
+$e_head = function ( $html, $column ) {
+	return preg_match( "/<th scope=\"col\" id='" . preg_quote( $column, '/' ) . "' class='([^']*)'([^>]*aria-sort=\"([a-z]+)\")?/", $html, $found ) ? array( $found[1], isset( $found[3] ) ? $found[3] : '' ) : array( 'no header', '' );
+};
+$e_by_visit = html_of( page_for( screen( array( 'tab' => 'engagement', 'orderby' => 'last_visit', 'order' => 'asc' ) ) ) );
+ck( 'with nobody having sorted, the Students header is marked sorted, most first, and the others wait to be sorted',
+	array( $e_head( $e_page, 'students_now' ), $e_head( $e_page, 'last_visit' ), $e_head( $e_page, 'mentor' ) ),
+	array( array( 'manage-column column-students_now sorted desc', 'descending' ), array( 'manage-column column-last_visit sortable asc', '' ), array( 'manage-column column-mentor column-primary sortable desc', '' ) ) );
+ck( 'its link turns the list around, and a list sorted by another column hands the mark to that column',
+	array(
+		arg( link_of( preg_match( "/<th scope=\"col\" id='students_now'[^>]*><a href=\"([^\"]*)\"/", $e_page, $found ) ? $found[1] : '' )[1], 'order' ),
+		$e_head( $e_by_visit, 'students_now' ),
+		$e_head( $e_by_visit, 'last_visit' ),
+	),
+	array( 'asc', array( 'manage-column column-students_now sortable asc', '' ), array( 'manage-column column-last_visit sorted asc', 'ascending' ) ) );
+ck( 'a view links to its tab and its own list, the one shown is marked, and the form carries the view, the tab and the screen',
+	array(
+		has( $e_page, "<li class='students'><a href=\"https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=engagement&#038;engagement_view=students#wpcpm-mentor-engagement-list\">" ),
+		has( $e_view, "<li class='no-hours'><a href=\"https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=engagement&#038;engagement_view=no-hours#wpcpm-mentor-engagement-list\" class=\"current\" aria-current=\"page\">" ),
+		array_intersect_key( hidden_fields_of( forms_by_action( $e_view )['list'] ), array_flip( array( 'page', 'tab', 'engagement_view' ) ) ),
+	),
+	array(
+		true,
+		true,
+		array( 'page' => 'wpcpm-mentors', 'tab' => 'engagement', 'engagement_view' => 'no-hours' ),
+	) );
+
+// Review finding E: a search leaves core's nonce and the address it came from in the address bar, as
+// the list table prints both inside the GET form; the load hook sends the request back without them.
+$e_state = array( 'engagement_view' => 'students', 's' => 'bo', 'orderby' => 'mentor', 'order' => 'asc', 'paged' => '2' );
+$e_clean = array( 'https://example.test/wp-admin/admin.php', array_merge( array( 'page' => 'wpcpm-mentors', 'tab' => 'engagement' ), $e_state ) );
+$e_sent  = array_merge( $e_state, array( '_wpnonce' => wp_create_nonce( 'bulk-mentors' ), '_wp_http_referer' => '/wp-admin/admin.php?page=wpcpm-mentors&tab=engagement' ) );
+$e_both  = press( screen( array_merge( array( 'tab' => 'engagement' ), $e_sent ) ) );
+ck( 'a search sent with core\'s nonce and referer comes back to the same list without them: the view, the search, the sort and the page stay',
+	array( link_of( $e_both['redirect'] ), $e_both['value'] ), array( $e_clean, null ) );
+ck( 'either argument alone is enough to send it back',
+	array(
+		link_of( press( screen( array_merge( array( 'tab' => 'engagement' ), $e_state, array( '_wpnonce' => wp_create_nonce( 'bulk-mentors' ) ) ) ) )['redirect'] ),
+		link_of( press( screen( array_merge( array( 'tab' => 'engagement' ), $e_state, array( '_wp_http_referer' => '/wp-admin/admin.php' ) ) ) )['redirect'] ),
+	),
+	array( $e_clean, $e_clean ) );
+$e_plain = press( screen( array_merge( array( 'tab' => 'engagement' ), $e_state ) ) );
+ck( 'a request carrying neither is not sent anywhere, and draws', array( $e_plain['redirect'], $e_plain['value'] ), array( '', 'drawn' ) );
+ck( 'a search for 0 is a search, and a page that is no page is left out',
+	link_of( press( screen( array( 'tab' => 'engagement', 's' => '0', 'paged' => '0', '_wpnonce' => wp_create_nonce( 'bulk-mentors' ) ) ) )['redirect'] ),
+	array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-mentors', 'tab' => 'engagement', 's' => '0' ) ) );
+$e_again = press( link_of( $e_both['redirect'] )[1] );
+ck( 'and the address it sends to is a request that draws, so it is no loop', array( $e_again['redirect'], $e_again['value'] ), array( '', 'drawn' ) );
+
+// The load hook: the rows-per-page option under its own name, and the three headings for screen readers.
+$GLOBALS['screen_options'] = array();
+$e_loaded                  = press( screen( array( 'tab' => 'engagement' ) ) );
+ck( 'the load hook puts the Engagement tab\'s own rows-per-page option on the screen, twenty until somebody chooses, and names the list\'s three headings for screen readers',
+	array(
+		got( $e_loaded, function ( $out ) { return $out['value']; } ),
+		isset( $GLOBALS['screen_options']['per_page'] ) ? $GLOBALS['screen_options']['per_page'] : 'no option added',
+		$GLOBALS['current_screen']->reader_content,
+	),
+	array(
+		'drawn',
+		array( 'default' => 20, 'option' => 'wpcpm_mentor_engagement_per_page' ),
+		array(
+			'heading_views'      => 'Filter mentor engagement list',
+			'heading_pagination' => 'Mentor engagement list navigation',
+			'heading_list'       => 'Mentor engagement list',
+		),
+	) );
+
+// Rows per page: the tab's own choice pages the rows, and the Accounts list's choice does not touch them.
+$GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_mentors_per_page']            = 1;
+$GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_mentor_engagement_per_page'] = 2;
+$e_first  = html_of( page_for( screen( array( 'tab' => 'engagement' ) ) ) );
+$e_second = html_of( page_for( screen( array( 'tab' => 'engagement', 'paged' => '2' ) ) ) );
+unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_mentors_per_page'], $GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_mentor_engagement_per_page'] );
+ck( 'the tab pages its rows by its own option: two a page, the second page holds the third, and the count is of every row',
+	array( engagement_ids( $e_first ), engagement_ids( $e_second ), displaying( $e_first ) ), array( array( 301, 302 ), array( 303 ), '3 items' ) );
+
+// Screen Options: every column but Mentor is offered, and a column somebody hid stays hidden, Mentor never.
+$GLOBALS['list_screen'] = (object) array( 'id' => 'wpcredits-program_page_wpcpm-mentors' );
+$GLOBALS['umeta'][ $GLOBALS['uid'] ]['managewpcredits-program_page_wpcpm-mentorscolumnshidden'] = array( 'schedule', 'mentor' );
+$e_hidden = html_of( page_for( screen( array( 'tab' => 'engagement' ) ) ) );
+$e_offer  = apply_filters( 'manage_wpcredits-program_page_wpcpm-mentors_columns', array() );
+unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ]['managewpcredits-program_page_wpcpm-mentorscolumnshidden'] );
+$GLOBALS['list_screen'] = null;
+ck( 'Screen Options offers every column but Mentor, a column hidden there stays hidden, and Mentor is drawn all the same',
+	array(
+		array_keys( $e_offer ),
+		has( $e_hidden, "<th scope=\"col\" id='schedule' class='manage-column column-schedule hidden'" ),
+		has( $e_hidden, "<td class='schedule column-schedule hidden'" ),
+		has( $e_hidden, "class='manage-column column-mentor column-primary" ) && ! has( $e_hidden, 'column-mentor column-primary hidden' ),
+	),
+	array( array( 'standing', 'students_now', 'last_visit', 'last_sign_in', 'schedule', 'notes', 'calls', 'sessions' ), true, true, true ) );
+
+// The note under the list, once the history has been read.
+$GLOBALS['opts']['date_format']                    = 'Y-m-d';
+$GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ]      = $NOW - 5 * 86400;
+$e_since = html_of( page_for( screen( array( 'tab' => 'engagement' ) ) ) );
+unset( $GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] );
+ck( 'once the history has been read, the note names the day, and says the sign-ins before it are approximate',
+	has( $e_since, '<p class="description">Sign-ins before ' . gmdate( 'Y-m-d', $NOW - 5 * 86400 ) . ' are approximate: they were read from the site&#039;s sessions, Two Factor and the activity log on the day of the release.</p>' ), true );
+
+// Notes, calls and group sessions, and a mentor Airtable no longer holds as active.
+WPCPM_Mentor_Engagement::for_tests(
+	array(
+		'accounts' => array(
+			$e_account( 304, 'Di Noted', array( 'students_now' => 2, 'schedule_saved' => true, 'weekly_hours' => true ) ),
+			$e_account( 305, 'Ed Gone', array( 'active' => false, 'schedule_saved' => true ) ),
+		),
+		'notes'    => array(
+			array( 'id' => 1, 'author' => 304, 'created' => $NOW - 3 * 86400, 'records' => array( 'recA' ), 'session' => 0 ),
+			array( 'id' => 2, 'author' => 304, 'created' => $NOW - 10 * 86400, 'records' => array( 'recB' ), 'session' => 0 ),
+		),
+		'calls'    => array(
+			array( 'id' => 11, 'author' => 900, 'mentor' => 304, 'start' => $NOW - 5 * 86400, 'cancelled_by' => 0, 'status' => 'private', 'group' => false, 'records' => array( 'recA' ) ),
+			array( 'id' => 12, 'author' => 900, 'mentor' => 304, 'start' => $NOW - 4 * 86400, 'cancelled_by' => 0, 'status' => 'private', 'group' => false, 'records' => array( 'recC' ) ),
+			array( 'id' => 13, 'author' => 900, 'mentor' => 304, 'start' => $NOW + 2 * 86400, 'cancelled_by' => 0, 'status' => 'private', 'group' => false, 'records' => array( 'recA' ) ),
+			array( 'id' => 14, 'author' => 304, 'mentor' => 304, 'start' => $NOW - 86400, 'cancelled_by' => 0, 'status' => 'private', 'group' => true, 'records' => array() ),
+		),
+	)
+);
+$e_more = html_of( page_for( screen( array( 'tab' => 'engagement', 'orderby' => 'mentor', 'order' => 'asc' ) ) ) );
+$e_di   = between( $e_more, '<tr id="mentor-304">', '</tr>' );
+$e_ed   = between( $e_more, '<tr id="mentor-305">', '</tr>' );
+ck( 'notes say how many and the day of the last, calls say held and upcoming and how many held have a note, group sessions say held and upcoming',
+	array( cell( $e_di, 'notes' ), cell( $e_di, 'calls' ), cell( $e_di, 'sessions' ) ),
+	array(
+		'2<br /><span class="description">last on ' . gmdate( 'Y-m-d', $NOW - 3 * 86400 ) . '</span>',
+		'2 held, 1 upcoming<br /><span class="description">1 of 2 noted</span>',
+		'1 held, 0 upcoming',
+	) );
+ck( 'a mentor Airtable no longer holds as active says so, and has no Administrator line',
+	array( cell( $e_ed, 'standing' ), cell( $e_ed, 'schedule' ), cell( $e_ed, 'last_sign_in' ), cell( $e_ed, 'last_visit' ) ),
+	array( 'Not active', 'Saved, no hours', 'Not recorded yet', 'Not recorded yet' ) );
+
+WPCPM_Mentor_Engagement::for_tests( null );
 
 echo "\n";
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );

@@ -15,13 +15,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Provisions Mentor accounts from Airtable, gives each mentor a private page
  * listing their assigned students, and reports on the last sync.
  *
- * Its screen is the accounts screen every audience's module shares (`WPCPM_Accounts_Screen`).
- * What is the mentors' own is here: the words, the table, the invitations card, and the Sync tab
- * with its warning while names are still unread.
+ * Its screen is the accounts screen every audience's module shares (`WPCPM_Accounts_Screen`), in
+ * three tabs: Accounts, Engagement (how each mentor uses the site, 1.122.26) and Sync. What is the
+ * mentors' own is here: the words, the table, the invitations card, the Engagement tab with its
+ * table, and the Sync tab with its warning while names are still unread.
  */
 class WPCPM_Mentors extends WPCPM_Sync_Module {
 
-	use WPCPM_Accounts_Screen;
+	// The Engagement tab builds its own table on the screen's load hook (`load_screen()` below); the
+	// shared one is kept under another name for the Accounts tab, as the Institutions module keeps it.
+	use WPCPM_Accounts_Screen {
+		load_screen as private load_accounts_list;
+	}
 
 	const ACTION_SYNC   = 'wpcpm_mentors_sync';
 	const ACTION_CANCEL = 'wpcpm_mentors_cancel';
@@ -37,13 +42,18 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	/** The screen's tab the Airtable sync is on, which the sync's forms return to. */
 	const TAB_SYNC = 'sync';
 
+	/** The screen's tab that shows how each mentor uses the site (1.122.26). */
+	const TAB_ENGAGEMENT = 'engagement';
+
 	/**
 	 * The screen's tabs, slug => label, in the bar's order: the accounts, the tab the screen opens
-	 * on, then the sync. English, as a constant has to hold them; `tab_labels()` translates them.
+	 * on, how each mentor uses the site, then the sync. English, as a constant has to hold them;
+	 * `tab_labels()` translates them.
 	 */
 	const TABS = array(
-		self::TAB_ACCOUNTS => 'Accounts',
-		self::TAB_SYNC     => 'Sync',
+		self::TAB_ACCOUNTS   => 'Accounts',
+		self::TAB_ENGAGEMENT => 'Engagement',
+		self::TAB_SYNC       => 'Sync',
 	);
 
 	/**
@@ -51,6 +61,16 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 * too, because the save is hooked at boot, long before that class is loaded.
 	 */
 	const PER_PAGE_OPTION = 'wpcpm_mentors_per_page';
+
+	/** The user option the Engagement tab's rows-per-page choice is kept in: its own, never the Accounts list's. */
+	const ENGAGEMENT_PER_PAGE_OPTION = 'wpcpm_mentor_engagement_per_page';
+
+	/**
+	 * The Engagement tab's table, built on the screen's load hook.
+	 *
+	 * @var WPCPM_Mentor_Engagement_Table|null
+	 */
+	private $engagement = null;
 
 	/** The flash channel that carries a press on the ticked accounts' count and kind, beside the outcome. */
 	const FLASH_DETAIL = 'mentors_admin_detail';
@@ -116,6 +136,10 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 
 		// The screen's own load hook, once the menu exists, and its rows-per-page save.
 		$this->boot_screen();
+
+		// The Engagement tab's rows-per-page save, hooked here for the reason the Accounts list's is:
+		// WordPress saves a screen option before it builds the menu.
+		add_filter( 'set_screen_option_' . self::ENGAGEMENT_PER_PAGE_OPTION, array( __CLASS__, 'save_engagement_per_page' ), 10, 3 );
 	}
 
 	/**
@@ -172,8 +196,10 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			// calendar needs a per-person clock, so it goes with the calendar.
 			WPCPM_Mentor_Availability::META_TIMEZONE,
 			'wpcpm_mentor_invited',
-			// A manager's rows-per-page choice for the Mentor accounts, which core keeps as user meta.
+			// A manager's rows-per-page choice for the Mentor accounts and for the Engagement tab,
+			// which core keeps as user meta.
 			self::PER_PAGE_OPTION,
+			self::ENGAGEMENT_PER_PAGE_OPTION,
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}
@@ -234,6 +260,197 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 */
 	protected function dashboard_url() {
 		return WPCPM_Mentors_Dashboard::page_url();
+	}
+
+	/**
+	 * Before the screen draws: the Engagement tab's rows-per-page option and its table, or the
+	 * Accounts tab's list as every accounts screen loads it.
+	 */
+	public function load_screen() {
+		if ( self::TAB_ENGAGEMENT !== self::tab() ) {
+			$this->load_accounts_list();
+
+			return;
+		}
+
+		// The list table prints core's nonce and the address the form came from inside the search form,
+		// so a search would leave both in the address and in every sort link built from it. Back to
+		// the same list without them, as the Accounts tab does, before any of the list is read.
+		if ( null !== WPCPM_Request::text( '_wpnonce', null ) || null !== WPCPM_Request::text( '_wp_http_referer', null ) ) {
+			wp_safe_redirect( $this->engagement_url() );
+			exit;
+		}
+
+		// The table first: its file is loaded the first time it is built, and the option names a
+		// constant of its class.
+		$this->engagement_table();
+
+		// The headings core prints for screen readers above the views, the pagination and the list:
+		// set here or not printed at all, as the Accounts tab sets its own. Escaped here, because core
+		// prints them as they are given.
+		$screen = get_current_screen();
+
+		if ( $screen ) {
+			$screen->set_screen_reader_content(
+				array(
+					'heading_views'      => esc_html__( 'Filter mentor engagement list', 'wpcredits-program-manager' ),
+					'heading_pagination' => esc_html__( 'Mentor engagement list navigation', 'wpcredits-program-manager' ),
+					'heading_list'       => esc_html__( 'Mentor engagement list', 'wpcredits-program-manager' ),
+				)
+			);
+		}
+
+		add_screen_option(
+			'per_page',
+			array(
+				'default' => WPCPM_Mentor_Engagement_Table::PER_PAGE_DEFAULT,
+				'option'  => self::ENGAGEMENT_PER_PAGE_OPTION,
+			)
+		);
+	}
+
+	/**
+	 * The value WordPress stores for the Engagement tab's rows-per-page choice: 1 to 999, or false
+	 * for none, the range `WPCPM_Accounts_Table::per_page_to_save()` allows.
+	 *
+	 * @param mixed  $keep   What core would store: false.
+	 * @param string $option The option's name.
+	 * @param mixed  $value  The number as submitted.
+	 * @return int|false
+	 */
+	public static function save_engagement_per_page( $keep, $option, $value ) {
+		$rows = (int) $value;
+
+		return ( $rows >= 1 && $rows <= 999 ) ? $rows : false;
+	}
+
+	/**
+	 * The tabs as the bar prints them: TABS, each label translated.
+	 *
+	 * @return array<string, string> Slug => label.
+	 */
+	private static function tab_labels() {
+		$translated = array(
+			self::TAB_ACCOUNTS   => __( 'Accounts', 'wpcredits-program-manager' ),
+			self::TAB_ENGAGEMENT => __( 'Engagement', 'wpcredits-program-manager' ),
+			self::TAB_SYNC       => __( 'Sync', 'wpcredits-program-manager' ),
+		);
+
+		return array_merge( self::TABS, array_intersect_key( $translated, self::TABS ) );
+	}
+
+	/**
+	 * Render the screen: the tab bar, then the tab shown.
+	 */
+	public function render_admin_page() {
+		$tab = self::tab();
+
+		echo '<div class="wrap wpcpm-wrap">';
+		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
+		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+
+		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+
+		if ( self::TAB_SYNC === $tab ) {
+			$this->render_tab_sync();
+		} elseif ( self::TAB_ENGAGEMENT === $tab ) {
+			$this->render_tab_engagement();
+		} else {
+			$this->render_tab_accounts();
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * The Engagement tab: the headline figures, then every mentor in the list. Read-only.
+	 */
+	private function render_tab_engagement() {
+		$table = $this->engagement_table();
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Mentor engagement', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<ul class="ul-disc">';
+
+		foreach ( WPCPM_Mentor_Engagement::tiles( $table->summary() ) as $tile ) {
+			printf(
+				'<li><strong>%1$s:</strong> %2$s%3$s</li>',
+				esc_html( $tile['name'] ),
+				esc_html( number_format_i18n( $tile['n'] ) ),
+				'' !== $tile['line'] ? esc_html( ', ' . $tile['line'] ) : ''
+			);
+		}
+
+		echo '</ul>';
+		echo '<p>' . esc_html( WPCPM_Mentor_Engagement::apart( $table->summary() ) ) . '</p>';
+		echo '</div>';
+
+		echo '<div class="wpcpm-card" id="' . esc_attr( WPCPM_Mentor_Engagement_Table::ANCHOR ) . '">';
+		$table->views();
+		printf( '<form method="get" action="#%s">', esc_attr( WPCPM_Mentor_Engagement_Table::ANCHOR ) );
+		printf( '<input type="hidden" name="page" value="%s" />', esc_attr( $this->page_slug() ) );
+		printf( '<input type="hidden" name="tab" value="%s" />', esc_attr( self::TAB_ENGAGEMENT ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( WPCPM_Mentor_Engagement_Table::VIEW_ARG ), esc_attr( $table->current_view() ) );
+		$table->search_box( esc_html__( 'Search mentors', 'wpcredits-program-manager' ), 'wpcpm-mentor-engagement' );
+		$table->display();
+		echo '</form>';
+
+		$since = WPCPM_Sign_Ins::since();
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				$since > 0
+					/* translators: %s: a date. */
+					? sprintf( __( 'Sign-ins before %s are approximate: they were read from the site\'s sessions, Two Factor and the activity log on the day of the release.', 'wpcredits-program-manager' ), wp_date( (string) get_option( 'date_format' ), $since ) )
+					: __( 'Sign-ins are recorded from this release on; earlier ones are read once, the first time an Administrator opens wp-admin after the update.', 'wpcredits-program-manager' )
+			)
+		);
+		echo '</div>';
+	}
+
+	/**
+	 * The Engagement tab as the list was showing it: its view, search, sort and page.
+	 *
+	 * @return string
+	 */
+	private function engagement_url() {
+		require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement-table.php';
+
+		$paged    = WPCPM_Request::id( 'paged' );
+		$view_arg = WPCPM_Mentor_Engagement_Table::VIEW_ARG;
+
+		// Whatever is empty is left out; a search for "0" is not empty.
+		$state = array_filter(
+			array(
+				$view_arg => WPCPM_Request::key( $view_arg ),
+				's'       => WPCPM_Request::text( 's' ),
+				'orderby' => WPCPM_Request::key( 'orderby' ),
+				'order'   => WPCPM_Request::key( 'order' ),
+				'paged'   => $paged > 0 ? (string) $paged : '',
+			),
+			static function ( $value ) {
+				return '' !== $value;
+			}
+		);
+
+		return add_query_arg( array_map( 'rawurlencode', $state ), $this->tab_url( self::TAB_ENGAGEMENT ) );
+	}
+
+	/**
+	 * The Engagement tab's table over one report, built once a request.
+	 *
+	 * @return WPCPM_Mentor_Engagement_Table
+	 */
+	private function engagement_table() {
+		if ( null === $this->engagement ) {
+			require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement-table.php';
+
+			$this->engagement = new WPCPM_Mentor_Engagement_Table( WPCPM_Mentor_Engagement::report() );
+			$this->engagement->prepare_items();
+		}
+
+		return $this->engagement;
 	}
 
 	/**

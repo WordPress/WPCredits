@@ -281,6 +281,7 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );
 		WPCPM_Administrators_Cards::render_sponsors_strip( isset( $data['sponsors'] ) ? (array) $data['sponsors'] : array() );
 		WPCPM_Administrators_Cards::render_programs( $data['programs'] );
+		WPCPM_Administrators_Cards::render_mentor_engagement( isset( $data['mentor_engagement'] ) ? (array) $data['mentor_engagement'] : array() );
 		WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
 
 		// Every live offer with its audience, for the program (spec 6.5). No switch for managers.

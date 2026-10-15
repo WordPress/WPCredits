@@ -1,7 +1,8 @@
 <?php
 /**
  * The WP-CLI command that needs no Airtable: `wp wpcredits seed_tracks` (Track Builder, phase T3c);
- * `wp wpcredits check_mentors`; and `wp wpcredits outcome_figures` (1.122.24), its read stood in.
+ * `wp wpcredits check_mentors`; `wp wpcredits outcome_figures` (1.122.24), its read stood in; and
+ * `wp wpcredits mentor_engagement` (1.122.26), its report read from the engagement reader's test input.
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -33,10 +34,20 @@ class ExitSignal extends Exception {}
 class WP_CLI {
 	public static $lines = array();
 	public static function log( $message ) { self::$lines[] = 'log: ' . $message; }
+	public static function line( $message ) { self::$lines[] = 'line: ' . $message; }
 	public static function warning( $message ) { self::$lines[] = 'warning: ' . $message; }
 	public static function success( $message ) { self::$lines[] = 'success: ' . $message; }
 	public static function error( $message ) { self::$lines[] = 'error: ' . $message; throw new ExitSignal( $message ); }
 }
+
+// `WP_CLI\Utils\format_items()`, kept in `WP_CLI::$lines` as 'items: <format> <json>'.
+require __DIR__ . '/stubs/wp-cli-utils.php';
+
+define( 'DAY_IN_SECONDS', 86400 );
+define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
+
+function wp_json_encode( $d ) { return json_encode( $d ); }
+function number_format_i18n( $n ) { return number_format( (float) $n ); }
 
 /**
  * The store, answering whatever a check seeds: a post id, false for a track already held, or a
@@ -88,6 +99,8 @@ class WPCPM_Outcome_Figures {
 	public static function status() { return self::$status; }
 }
 
+require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-engagement.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
 
 $fails = 0;
@@ -505,6 +518,85 @@ foreach ( $texts as $file => $text ) {
 }
 
 ck( 'the readme and the guides name only commands that are registered', $unknown, array() );
+
+echo "\n=== wp wpcredits mentor_engagement ===\n";
+
+// Every warning, notice and deprecation of this section is kept; the last check names any.
+$me_warnings = array();
+
+set_error_handler( static function ( $number, $message ) use ( &$me_warnings ) { $me_warnings[] = $message; return true; } );
+
+$me_rows = array(
+	array( 'id' => 1, 'name' => 'Ada', 'login' => 'ada', 'email' => 'ada@example.test', 'roles' => array( 'wpcpm_mentor' ), 'active' => true, 'students_now' => 2, 'students_past' => 0, 'last_sign_in' => 1792000000, 'last_visit' => 1792000000, 'schedule_saved' => true, 'weekly_hours' => true, 'meeting_link' => false ),
+	array( 'id' => 2, 'name' => 'Bo', 'login' => 'bo', 'email' => 'bo@example.test', 'roles' => array( 'wpcpm_mentor' ), 'active' => true, 'students_now' => 0, 'students_past' => 0, 'last_sign_in' => 0, 'last_visit' => 0, 'schedule_saved' => false, 'weekly_hours' => false, 'meeting_link' => false ),
+);
+WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => $me_rows, 'notes' => array(), 'calls' => array() ) );
+$cli = new WPCPM_CLI();
+
+WP_CLI::$lines = array();
+$cli->mentor_engagement( array(), array( 'summary' => true, 'format' => 'json', 'now' => 1792100000 ) );
+$json = json_decode( substr( WP_CLI::$lines[0], strlen( 'line: ' ) ), true );
+ck( '--summary --format=json prints the summary as one object', array( count( WP_CLI::$lines ), $json['active'], $json['never'], $json['with_students_hours'] ), array( 1, 2, 1, 1 ) );
+
+WP_CLI::$lines = array();
+$cli->mentor_engagement( array(), array( 'view' => 'never', 'format' => 'csv', 'now' => 1792100000 ) );
+ck( 'a view prints its rows with the export fields, and no email anywhere', array( false !== strpos( WP_CLI::$lines[0], '"Bo"' ), false === strpos( WP_CLI::$lines[0], '"Ada"' ), false === strpos( WP_CLI::$lines[0], '@example.test' ), 0 === strpos( WP_CLI::$lines[0], 'items: csv ' ) ), array( true, true, true, true ) );
+
+foreach ( array( array( 'format' => 'xml' ), array( 'view' => 'nope' ) ) as $bad ) {
+	WP_CLI::$lines = array();
+	$threw = '';
+	try {
+		$cli->mentor_engagement( array(), $bad );
+	} catch ( ExitSignal $e ) {
+		$threw = $e->getMessage();
+	}
+	ck( 'refused: ' . json_encode( $bad ), '' !== $threw, true );
+}
+
+// Review finding H1: --now is a Unix time, a positive whole number, or the command refuses.
+foreach ( array( 'abc', '-5', '0', '1.5', '1e9', '', ' 1792100000', true, 1.5, 0, -5 ) as $bad_now ) {
+	WP_CLI::$lines = array();
+	$threw         = '';
+	try {
+		$cli->mentor_engagement( array(), array( 'summary' => true, 'format' => 'json', 'now' => $bad_now ) );
+	} catch ( ExitSignal $e ) {
+		$threw = $e->getMessage();
+	}
+	ck( 'refused with the way to say it, and nothing printed: --now=' . var_export( $bad_now, true ), array( $threw, WP_CLI::$lines ), array( 'Use --now=<Unix time>.', array( 'error: Use --now=<Unix time>.' ) ) );
+}
+
+foreach ( array( '1792100000', 1792100000 ) as $good_now ) {
+	WP_CLI::$lines = array();
+	$cli->mentor_engagement( array(), array( 'summary' => true, 'format' => 'json', 'now' => $good_now ) );
+	ck( 'a whole number is taken, as a string or an int: --now=' . var_export( $good_now, true ), array( count( WP_CLI::$lines ), 0 === strpos( WP_CLI::$lines[0], 'line: {' ) ), array( 1, true ) );
+}
+
+// Review finding H2: --view means nothing to --summary, and the command says so on STDERR.
+WP_CLI::$lines = array();
+$cli->mentor_engagement( array(), array( 'summary' => true, 'view' => 'never', 'format' => 'json', 'now' => 1792100000 ) );
+ck(
+	'--summary with --view warns that --view is ignored, and the JSON stays one line',
+	array(
+		array_values( array_filter( WP_CLI::$lines, static function ( $l ) { return 0 === strpos( $l, 'warning: ' ); } ) ),
+		count( array_filter( WP_CLI::$lines, static function ( $l ) { return 0 === strpos( $l, 'line: ' ); } ) ),
+		count( WP_CLI::$lines ),
+	),
+	array( array( 'warning: --view is ignored with --summary.' ), 1, 2 )
+);
+
+WP_CLI::$lines = array();
+$cli->mentor_engagement( array(), array( 'summary' => true, 'format' => 'json', 'now' => 1792100000 ) );
+ck( '--summary alone warns of nothing', count( WP_CLI::$lines ), 1 );
+
+WP_CLI::$lines = array();
+$cli->mentor_engagement( array(), array( 'view' => 'never', 'format' => 'csv', 'now' => 1792100000 ) );
+ck( '--view alone warns of nothing', array_filter( WP_CLI::$lines, static function ( $l ) { return 0 === strpos( $l, 'warning: ' ); } ), array() );
+
+WPCPM_Mentor_Engagement::for_tests( null );
+
+restore_error_handler();
+
+ck( 'and the section raised no PHP warning, notice or deprecation', $me_warnings, array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

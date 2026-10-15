@@ -168,6 +168,9 @@ final class WPCPM_Administrators_Cards {
 			'interests'            => self::interests(),
 			'sponsors'             => self::sponsors(),
 			'programs'             => self::programs(),
+			// How the mentors use the site (1.122.26): the figures only, never the rows, read through
+			// the class the Engagement tab and the command read too.
+			'mentor_engagement'    => class_exists( 'WPCPM_Mentor_Engagement' ) ? WPCPM_Mentor_Engagement::report()['summary'] : array(),
 			'health'               => self::health(),
 		);
 	}
@@ -1861,6 +1864,44 @@ final class WPCPM_Administrators_Cards {
 					? __( 'These students have not been read from the program records yet.', 'wpcredits-program-manager' )
 					: sprintf( /* translators: 1: date and time, 2: how long ago. */ __( 'Read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ), self::when( (int) $programs['read'] ), human_time_diff( (int) $programs['read'], time() ) )
 			)
+		);
+
+		self::card_close();
+	}
+
+	/**
+	 * How the mentors use the site: six tiles in the Programs running card's markup, so the two look
+	 * alike with no rule of their own, the Administrators who mentor counted apart, and the way to
+	 * the Mentors screen's Engagement tab, where every mentor is listed. Read-only; nothing when the
+	 * summary is empty.
+	 *
+	 * @param array $summary What `WPCPM_Mentor_Engagement::report()` returned as `summary`.
+	 */
+	public static function render_mentor_engagement( array $summary ) {
+		if ( empty( $summary ) ) {
+			return;
+		}
+
+		self::card_open( 'mentor-engagement', __( 'Mentor engagement', 'wpcredits-program-manager' ), (int) $summary['active'] );
+
+		echo '<ul class="wpcpm-programs__tiles">';
+
+		foreach ( WPCPM_Mentor_Engagement::tiles( $summary ) as $tile ) {
+			printf(
+				'<li class="wpcpm-programs__tile"><span class="wpcpm-programs__name">%1$s</span><span class="wpcpm-programs__n">%2$s</span>%3$s</li>',
+				esc_html( $tile['name'] ),
+				esc_html( number_format_i18n( (int) $tile['n'] ) ),
+				'' !== $tile['line'] ? '<span class="wpcpm-programs__l">' . esc_html( $tile['line'] ) . '</span>' : ''
+			);
+		}
+
+		echo '</ul>';
+
+		printf( '<p class="wpcpm-administrator__quiet">%s</p>', esc_html( WPCPM_Mentor_Engagement::apart( $summary ) ) );
+		printf(
+			'<p class="wpcpm-administrator__read"><a href="%1$s">%2$s</a></p>',
+			esc_url( admin_url( 'admin.php?page=wpcpm-mentors&tab=engagement' ) ),
+			esc_html__( 'Open the Mentors screen\'s Engagement tab', 'wpcredits-program-manager' )
 		);
 
 		self::card_close();

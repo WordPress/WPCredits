@@ -38,6 +38,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-outcome-figures
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-learn.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-privacy-guard.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-sign-ins.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
@@ -99,6 +100,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-calls.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-call-calendar.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-group-sessions.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-engagement.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countries.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
@@ -194,6 +196,13 @@ delete_option( WPCPM_Settings::OPT_VERSION );
 // The one-time flip of the plugin's private records to `private` status has run; the rows it
 // flipped go with their modules above.
 delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
+
+// When each account last signed in and visited (1.122.26), and the seed's two options.
+delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_SIGN_IN, '', true );
+delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_VISIT, '', true );
+delete_option( WPCPM_Sign_Ins::OPT_VERSION );
+delete_option( WPCPM_Sign_Ins::OPT_SINCE );
+
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );
 // The outcome figures (1.122.24): the stored set, the last attempt and a lock a run killed halfway

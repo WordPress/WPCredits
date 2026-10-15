@@ -2362,7 +2362,7 @@ ck( 'and a Resend invite that left anybody out for the fifteen minutes says how 
 // a module draws its list without the screen's load hook when nothing built the table (`table()`).
 $mentors_code = code_of( $mentors_src );
 $words_of     = function ( $code ) use ( $screen_code ) {
-	$printer = ( false === strpos( $code, 'function notice_sentence(' ) && 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $code ) ) ? $screen_code : $code;
+	$printer = ( false === strpos( $code, 'function notice_sentence(' ) && 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code ) ) ? $screen_code : $code;
 	$worded  = $printer === $code ? $code : $code . $printer;
 	$start   = strpos( $printer, 'function notice_sentence(' );
 	$end     = false === $start ? false : strpos( $printer, "\n\t}\n", $start );
@@ -2393,9 +2393,12 @@ echo "\n=== The screen plumbing the audiences share: one trait, which neither mo
 // does a method moved back out of the trait. Two of them are defaults a module replaces where its
 // audience differs, by design: where its list stands (`list_state()`), which the Students module
 // keeps for its institution filter, and how one account is sent its invitation (`invite_one()`).
+// Three more are replaced by the Mentors module alone, for its third tab, the Engagement tab: the
+// screen's load hook (`load_screen()`, whose trait copy it keeps for the Accounts tab under another
+// name), the tab bar's labels (`tab_labels()`) and the page (`render_admin_page()`).
 preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
 
-$replaceable    = array( 'list_state', 'invite_one' );
+$replaceable    = array( 'list_state', 'invite_one', 'load_screen', 'tab_labels', 'render_admin_page' );
 $declared_again = function ( $code ) use ( $screen_methods, $replaceable ) {
 	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
 
@@ -2407,10 +2410,10 @@ $replaced       = function ( $code ) use ( $replaceable ) {
 	return array_values( array_intersect( $replaceable, $own[1] ) );
 };
 $uses_screen    = function ( $code ) {
-	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $code );
+	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code );
 };
 
-ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter',
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and the Mentors module\'s load hook, tab labels and page, which add its Engagement tab',
 	array(
 		'trait'    => array_values( array_diff( array( 'list_state', 'hook_screen', 'load_screen', 'handle_list_form', 'apply_pressed', 'save_per_page', 'handle_invite', 'invite_one', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited' ), $screen_methods[1] ) ),
 		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ), $replaced( $students_code ) ),
@@ -2419,7 +2422,7 @@ ck( 'the screen plumbing the Students and Mentors modules held twice is one trai
 	array(
 		'trait'    => array(),
 		'students' => array( true, array(), array( 'list_state' ) ),
-		'mentors'  => array( true, array(), array() ),
+		'mentors'  => array( true, array(), array( 'load_screen', 'tab_labels', 'render_admin_page' ) ),
 	) );
 
 echo "\n=== The seams answer none on the base, so a list that keeps no records draws as it did ===\n";

@@ -459,6 +459,100 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Show how each mentor uses the site: sign-ins, visits, students, schedule, notes and calls.
+	 *
+	 * Reads only. The figures are the Mentors screen's Engagement tab's and the Administrator
+	 * Dashboard's Mentor engagement card's, counted the same way. The per-row dates are UTC.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--summary]
+	 * : Print the headline figures instead of one row per mentor.
+	 *
+	 * [--view=<view>]
+	 * : One of the Engagement tab's views: all, active, students, never, quiet, idle, no-hours, staff. Default: all.
+	 *
+	 * [--format=<format>]
+	 * : table, json or csv. Default: table.
+	 *
+	 * [--now=<time>]
+	 * : Count as of this Unix time (a positive whole number) instead of now.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits mentor_engagement --summary
+	 *     wp wpcredits mentor_engagement --summary --format=json
+	 *     wp wpcredits mentor_engagement --view=never --format=csv
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function mentor_engagement( $args, $assoc_args ) {
+		unset( $args );
+
+		$format = isset( $assoc_args['format'] ) ? (string) $assoc_args['format'] : 'table';
+		$view   = isset( $assoc_args['view'] ) ? (string) $assoc_args['view'] : WPCPM_Mentor_Engagement::VIEW_ALL;
+		$views  = WPCPM_Mentor_Engagement::views();
+
+		if ( ! in_array( $format, array( 'table', 'json', 'csv' ), true ) ) {
+			WP_CLI::error( 'Use --format=table, json or csv.' );
+		}
+
+		if ( ! isset( $views[ $view ] ) ) {
+			WP_CLI::error( sprintf( 'There is no view "%1$s". Use one of: %2$s.', $view, implode( ', ', array_keys( $views ) ) ) );
+		}
+
+		$now = 0;
+
+		if ( isset( $assoc_args['now'] ) ) {
+			$given = $assoc_args['now'];
+
+			if ( ! ( is_int( $given ) || is_string( $given ) ) || ! ctype_digit( (string) $given ) || (int) $given <= 0 ) {
+				WP_CLI::error( 'Use --now=<Unix time>.' );
+			}
+
+			$now = (int) $given;
+		}
+
+		if ( ! empty( $assoc_args['summary'] ) && isset( $assoc_args['view'] ) ) {
+			WP_CLI::warning( '--view is ignored with --summary.' );
+		}
+
+		$report = WPCPM_Mentor_Engagement::report( $now );
+
+		if ( ! empty( $assoc_args['summary'] ) ) {
+			if ( 'json' === $format ) {
+				WP_CLI::line( (string) wp_json_encode( $report['summary'] ) );
+
+				return;
+			}
+
+			$items = array();
+
+			foreach ( $report['summary'] as $figure => $value ) {
+				$items[] = array(
+					'figure' => $figure,
+					'value'  => $value,
+				);
+			}
+
+			WP_CLI\Utils\format_items( $format, $items, array( 'figure', 'value' ) );
+
+			return;
+		}
+
+		$rows = array();
+
+		foreach ( WPCPM_Mentor_Engagement::sorted( $report['rows'] ) as $row ) {
+			if ( WPCPM_Mentor_Engagement::in_view( $row, $view ) ) {
+				$rows[] = WPCPM_Mentor_Engagement::export_row( $row );
+			}
+		}
+
+		WP_CLI\Utils\format_items( $format, $rows, WPCPM_Mentor_Engagement::EXPORT_FIELDS );
+	}
+
+	/**
 	 * Read Airtable and report the totals without writing anything.
 	 */
 	private function dry_run() {

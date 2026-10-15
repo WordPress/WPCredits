@@ -621,6 +621,8 @@ $named_options = array(
 	'wpcpm_settings',                      // WPCPM_Settings::OPT_NAME.
 	'wpcpm_settings_version',              // WPCPM_Settings::OPT_VERSION.
 	'wpcpm_privacy_version',               // WPCPM_Privacy_Guard::OPT_VERSION.
+	'wpcpm_sign_ins_version',              // WPCPM_Sign_Ins::OPT_VERSION.
+	'wpcpm_sign_ins_since',                // WPCPM_Sign_Ins::OPT_SINCE.
 	'wpcpm_airtable_backoff',              // WPCPM_Airtable::BACKOFF_OPTION.
 	'wpcpm_outcome_figures',               // WPCPM_Outcome_Figures::OPTION.
 	'wpcpm_outcome_figures_run',           // WPCPM_Outcome_Figures::RUN_OPTION.
@@ -729,16 +731,18 @@ foreach ( array( 'wpcpm_student', 'wpcpm_mentor', 'wpcpm_institution', 'wpcpm_sp
 }
 
 // A program manager who chose how many Student, Mentor, Institution, Sponsor and Administrator
-// accounts a page shows: core keeps each choice as user meta.
+// accounts a page shows, and how many mentors the Engagement tab shows: core keeps each choice as
+// user meta.
 $admin   = a_user(
 	array( 'administrator' ),
 	array(),
 	array(
-		'wpcpm_students_per_page'       => 50,  // WPCPM_Students::PER_PAGE_OPTION.
-		'wpcpm_mentors_per_page'        => 100, // WPCPM_Mentors::PER_PAGE_OPTION.
-		'wpcpm_institutions_per_page'   => 30,  // WPCPM_Institutions::PER_PAGE_OPTION.
-		'wpcpm_sponsors_per_page'       => 40,  // WPCPM_Sponsors::PER_PAGE_OPTION.
-		'wpcpm_administrators_per_page' => 20,  // WPCPM_Administrators::PER_PAGE_OPTION.
+		'wpcpm_students_per_page'          => 50,  // WPCPM_Students::PER_PAGE_OPTION.
+		'wpcpm_mentors_per_page'           => 100, // WPCPM_Mentors::PER_PAGE_OPTION.
+		'wpcpm_mentor_engagement_per_page' => 60,  // WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION.
+		'wpcpm_institutions_per_page'      => 30,  // WPCPM_Institutions::PER_PAGE_OPTION.
+		'wpcpm_sponsors_per_page'          => 40,  // WPCPM_Sponsors::PER_PAGE_OPTION.
+		'wpcpm_administrators_per_page'    => 20,  // WPCPM_Administrators::PER_PAGE_OPTION.
 	)
 );
 $student = a_user(
@@ -750,6 +754,8 @@ $student = a_user(
 		'wpcpm_flash'               => array( 'Saved.' ),   // WPCPM_Flash::META.
 		'wpcpm_student_modules'     => array( 'hours' ),
 		'_wpcpm_report_images'      => array( 12 ),         // WPCPM_Student_Report_Form::META_IMAGES.
+		'wpcpm_last_sign_in'        => 1792000000,          // WPCPM_Sign_Ins::META_SIGN_IN.
+		'wpcpm_last_visit'          => 1792000000,          // WPCPM_Sign_Ins::META_VISIT.
 		'nickname'                  => 'student-one',
 	)
 );
@@ -854,7 +860,7 @@ ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) 
 echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
-ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts go too', $GLOBALS['umeta'][ $admin ], array() );
+ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too', $GLOBALS['umeta'][ $admin ], array() );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
 
@@ -887,6 +893,8 @@ $names = array(
 	'WPCPM_Settings::OPT_NAME'                      => 'wpcpm_settings',
 	'WPCPM_Settings::OPT_VERSION'                   => 'wpcpm_settings_version',
 	'WPCPM_Privacy_Guard::OPT_VERSION'              => 'wpcpm_privacy_version',
+	'WPCPM_Sign_Ins::OPT_VERSION'                   => 'wpcpm_sign_ins_version',
+	'WPCPM_Sign_Ins::OPT_SINCE'                     => 'wpcpm_sign_ins_since',
 	'WPCPM_Airtable::BACKOFF_OPTION'                => 'wpcpm_airtable_backoff',
 	'WPCPM_Outcome_Figures::OPTION'                 => 'wpcpm_outcome_figures',
 	'WPCPM_Outcome_Figures::RUN_OPTION'             => 'wpcpm_outcome_figures_run',
@@ -941,11 +949,14 @@ $names = array(
 	'WPCPM_Students_Sync::META_COURSE'              => 'wpcpm_student_course',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
 	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',
+	'WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION'     => 'wpcpm_mentor_engagement_per_page',
 	'WPCPM_Institutions::PER_PAGE_OPTION'           => 'wpcpm_institutions_per_page',
 	'WPCPM_Sponsors::PER_PAGE_OPTION'               => 'wpcpm_sponsors_per_page',
 	'WPCPM_Administrators::PER_PAGE_OPTION'         => 'wpcpm_administrators_per_page',
 	'WPCPM_Flash::META'                             => 'wpcpm_flash',
 	'WPCPM_Student_Report_Form::META_IMAGES'        => '_wpcpm_report_images',
+	'WPCPM_Sign_Ins::META_SIGN_IN'                  => 'wpcpm_last_sign_in',
+	'WPCPM_Sign_Ins::META_VISIT'                    => 'wpcpm_last_visit',
 	'WPCPM_Sponsor_Members::META_ACTIVE'            => 'wpcpm_sponsor_active',
 	'WPCPM_Roles::ROLE_STUDENT'                     => 'wpcpm_student',
 	'WPCPM_Roles::ROLE_MENTOR'                      => 'wpcpm_mentor',

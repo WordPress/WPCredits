@@ -6,7 +6,7 @@
 	"title": "Administrator Dashboard",
 	"category": "widgets",
 	"icon": "dashboard",
-	"description": "Shows Administrators every queue on one page: institution applications, Collaboration Agreements, semester reports, mentor requests, the programs running and the syncs.",
+	"description": "Shows Administrators every queue on one page: institution applications, Collaboration Agreements, semester reports, mentor requests, the programs running, mentor engagement and the syncs.",
 	"keywords": [ "administrator", "manager", "wpcredits", "program" ],
 	"textdomain": "wpcredits-program-manager",
 	"attributes": {

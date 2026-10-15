@@ -660,6 +660,11 @@ if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+// The Mentor engagement card reads its summary through this class (1.122.26). The seam is set to an
+// empty site before the suite's first collect() and cleared at the end of the run, so no later code
+// in a longer process reads a stale input.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
+WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => array(), 'notes' => array(), 'calls' => array() ) );
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), through the five filters
 // `WPCPM_Tracks::init()` hooks. This suite's add_filter() records a hook without running it, so the
@@ -1080,6 +1085,23 @@ ck( 'the programs card draws a tile per track and a finished tile', substr_count
 ck( 'the institution row links through the switcher and carries its numbers', has( $prog, 'wpcpm_institution_view=' . $A ) && has( $prog, '2026-12-15' ) && has( $prog, 'Uniwersytet Alpha' ), true );
 ck( 'the quiet institutions are one closing line', has( $prog, '1 more institution' ), true );
 ck( 'and the read time is printed', has( $prog, 'Read from the program records' ), true );
+
+/* ---- the Mentor engagement card (1.122.26) ------------------------------- */
+
+echo "=== The Mentor engagement card ===\n";
+
+$me_summary = array_merge( array_fill_keys( array( 'active', 'signed_in', 'seen_30', 'seen_7', 'never', 'acted', 'idle', 'with_students', 'with_students_hours', 'with_students_link', 'with_students_notes', 'with_students_seen_30', 'calls_held', 'calls_upcoming', 'calls_noted', 'sessions_held', 'sessions_upcoming', 'sessions_noted', 'staff' ), 0 ), array( 'active' => 9, 'seen_30' => 5, 'seen_7' => 2, 'acted' => 4, 'idle' => 3, 'never' => 2, 'with_students' => 6, 'with_students_hours' => 3, 'with_students_notes' => 2, 'calls_held' => 7, 'calls_noted' => 4, 'calls_upcoming' => 1, 'sessions_held' => 2, 'staff' => 1 ) );
+$me = capture( static function () use ( $me_summary ) { WPCPM_Administrators_Cards::render_mentor_engagement( $me_summary ); } );
+ck( 'the card is a section at its anchor, the canonical disclosure inside', array( has( $me, '<section class="wpcpm-administrator__card" id="wpcpm-mentor-engagement">' ), has( $me, 'wpcpm-group__disclosure' ) ), array( true, true ) );
+// Six tiles, plus the wrapping <ul class="wpcpm-programs__tiles">, which matches the needle too.
+ck( 'it draws six tiles in the programs card\'s markup', substr_count( $me, 'wpcpm-programs__tile' ), 6 + 1 );
+ck( 'each tile its words and number', array( has( $me, 'Active mentors' ), has( $me, '>9<' ), has( $me, '2 in the last 7 days' ), has( $me, '4 with a note, 1 upcoming; 2 group sessions held' ) ), array( true, true, true, true ) );
+ck( 'a tile with no line prints no empty line', substr_count( $me, 'wpcpm-programs__l' ), 5 );
+ck( 'the Administrators who mentor, and the way to the tab', array( has( $me, 'counted apart: 1.' ), has( $me, 'admin.php?page=wpcpm-mentors&amp;tab=engagement' ) || has( $me, 'admin.php?page=wpcpm-mentors&tab=engagement' ) ), array( true, true ) );
+ck( 'an empty summary draws nothing', capture( static function () { WPCPM_Administrators_Cards::render_mentor_engagement( array() ); } ), '' );
+ck( 'collect() reads the summary, never the rows', array_key_exists( 'mentor_engagement', WPCPM_Administrators_Cards::collect() ) && ! array_key_exists( 'rows', WPCPM_Administrators_Cards::collect()['mentor_engagement'] ), true );
+$order_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-dashboard.php' );
+ck( 'the card comes after Programs running and before Syncs and health', strpos( $order_src, 'render_programs(' ) < strpos( $order_src, 'render_mentor_engagement(' ) && strpos( $order_src, 'render_mentor_engagement(' ) < strpos( $order_src, 'render_health(' ), true );
 
 $health = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] ); } );
 ck( 'four syncs with their state', substr_count( $health, 'wpcpm-health__sync' ), 4 );
@@ -1891,6 +1913,9 @@ ck( 'and no line is printed under them',
 unset( $GLOBALS['count_short'] );
 
 list( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['agr_facts'], $GLOBALS['sponsor_apps'] ) = $saved_queues;
+
+// Back to reading the site: the seam was set for this run only.
+WPCPM_Mentor_Engagement::for_tests( null );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );
