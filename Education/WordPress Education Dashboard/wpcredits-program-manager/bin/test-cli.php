@@ -1,6 +1,7 @@
 <?php
 /**
- * The WP-CLI command that needs no Airtable: `wp wpcredits seed_tracks` (Track Builder, phase T3c).
+ * The WP-CLI command that needs no Airtable: `wp wpcredits seed_tracks` (Track Builder, phase T3c);
+ * `wp wpcredits check_mentors`; and `wp wpcredits outcome_figures` (1.122.24), its read stood in.
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -66,6 +67,25 @@ class WPCPM_Mentor_Checker_Slack {
 	public static $sentence = '';
 	public static $since    = null;
 	public static function status_sentence( $since = 0 ) { self::$since = $since; return self::$sentence; }
+}
+
+/**
+ * The outcome figures, for `wp wpcredits outcome_figures`: each answers what a check sets, and the
+ * command's every call of refresh() is kept with what it asked.
+ */
+class WPCPM_Outcome_Figures {
+	const FIGURES = array( 'graduation', 'recommend', 'keep' );
+	public static $run       = array();
+	public static $asked     = array();
+	public static $names     = array();
+	public static $stored    = array();
+	public static $published = array();
+	public static $status    = array();
+	public static function refresh( array $args = array() ) { self::$asked[] = $args; return self::$run; }
+	public static function field_names() { return self::$names; }
+	public static function stored() { return self::$stored; }
+	public static function published() { return self::$published; }
+	public static function status() { return self::$status; }
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
@@ -162,6 +182,266 @@ WPCPM_Mentor_Checker_Slack::$sentence = '';
 ( new WPCPM_CLI() )->check_mentors( array(), array() );
 
 ck( 'and says nothing of Slack when there is nothing to say', array_slice( WP_CLI::$lines, -2 ), array( 'log: promoted     1', 'success: Mentor status check complete.' ) );
+
+echo "\n=== wp wpcredits outcome_figures ===\n";
+
+/**
+ * Run the command with some options; its exit code.
+ *
+ * @param array $options The options, as WP-CLI hands them over.
+ * @return int
+ */
+function run_figures( array $options ) {
+	WP_CLI::$lines                = array();
+	WPCPM_Outcome_Figures::$asked = array();
+
+	try {
+		( new WPCPM_CLI() )->outcome_figures( array(), $options );
+	} catch ( ExitSignal $e ) {
+		return 1;
+	}
+
+	return 0;
+}
+
+$today_run = array(
+	'result'  => 'dry_run',
+	'reason'  => '',
+	'message' => '',
+	'figures' => array(
+		'graduation' => array( 'share' => 87, 'count' => 361, 'n' => 413 ),
+		'recommend'  => array( 'share' => 88, 'count' => 277, 'n' => 315 ),
+		'keep'       => array( 'share' => 79, 'count' => 245, 'n' => 310 ),
+	),
+	'rows'    => array( 'reports' => 413, 'feedback' => 834 ),
+);
+$counts    = array(
+	'log: Students Reports: 413 rows read',
+	'log:   Graduates (G):           361',
+	'log:   Dropped out (D):         52',
+	'log:   Graduation share:        87% of 413',
+	'log: Feedback: 834 rows read (P: the answers of Likely, N: every answer to the question)',
+	'log:   Would recommend:         P 277 of N 315, 88%',
+	'log:   Keep contributing:       P 245 of N 310, 79%',
+);
+
+WPCPM_Outcome_Figures::$run   = $today_run;
+WPCPM_Outcome_Figures::$names = array(
+	'fldyXVlkChJaO9Q47' => 'Name',
+	'fldCMdqqJGAUQ9nbV' => 'Status',
+	'fldZXbvOTIGad6r90' => 'F4 How likely are you to recommend the program?',
+	'fld8RZMdCLYKtwcLN' => '',
+);
+$exit = run_figures( array( 'refresh' => true, 'dry-run' => true ) );
+
+ck( '--refresh --dry-run reads once, asking to store nothing, prints G, D, N and P for both questions, with P and N defined, and under a heading the name the base gives each field ID, and exits 0',
+	array( $exit, WPCPM_Outcome_Figures::$asked, WP_CLI::$lines ),
+	array(
+		0,
+		array( array( 'dry_run' => true, 'accept' => false ) ),
+		array_merge(
+			$counts,
+			array(
+				'log: The base\'s names for the four field IDs:',
+				'log:   fldyXVlkChJaO9Q47    Name',
+				'log:   fldCMdqqJGAUQ9nbV    Status',
+				'log:   fldZXbvOTIGad6r90    F4 How likely are you to recommend the program?',
+				'log:   fld8RZMdCLYKtwcLN    (not in its table)',
+				'success: Dry run complete - nothing was stored.',
+			)
+		),
+	) );
+
+WPCPM_Outcome_Figures::$names = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 403): no further detail' );
+run_figures( array( 'refresh' => true, 'dry-run' => true ) );
+
+ck( 'a token that may not read the base\'s metadata is a warning, and the counts still stand',
+	array_slice( WP_CLI::$lines, -2 ),
+	array( 'warning: The base\'s names for the four fields could not be read: Airtable request failed (HTTP 403): no further detail', 'success: Dry run complete - nothing was stored.' ) );
+
+// A base with no answers to a question has no share to print: the dry run says so rather than 0%.
+WPCPM_Outcome_Figures::$run = array_merge(
+	$today_run,
+	array(
+		'figures' => array(
+			'graduation' => array( 'share' => null, 'count' => 0, 'n' => 0 ),
+			'recommend'  => array( 'share' => null, 'count' => 0, 'n' => 0 ),
+			'keep'       => array( 'share' => null, 'count' => 0, 'n' => 0 ),
+		),
+		'rows'    => array( 'reports' => 0, 'feedback' => 0 ),
+	)
+);
+run_figures( array( 'refresh' => true, 'dry-run' => true ) );
+
+ck( 'a dry run over a base with nothing to count says there is no share, and counts zero for each',
+	array_slice( WP_CLI::$lines, 0, 7 ),
+	array(
+		'log: Students Reports: 0 rows read',
+		'log:   Graduates (G):           0',
+		'log:   Dropped out (D):         0',
+		'log:   Graduation share:        no share of 0',
+		'log: Feedback: 0 rows read (P: the answers of Likely, N: every answer to the question)',
+		'log:   Would recommend:         P 0 of N 0, no share',
+		'log:   Keep contributing:       P 0 of N 0, no share',
+	) );
+
+WPCPM_Outcome_Figures::$run = array_merge( $today_run, array( 'result' => 'stored' ) );
+$exit                       = run_figures( array( 'refresh' => true ) );
+
+ck( '--refresh stores what passes the guards, after the counts',
+	array( $exit, WPCPM_Outcome_Figures::$asked, WP_CLI::$lines ),
+	array( 0, array( array( 'dry_run' => false, 'accept' => false ) ), array_merge( $counts, array( 'success: The outcome figures are stored.' ) ) ) );
+
+WPCPM_Outcome_Figures::$run = array_merge( $today_run, array( 'result' => 'held', 'reason' => 'moved', 'message' => 'Held: the graduation share moved from 87% to 76%, by more than 10 points.' ) );
+$exit                       = run_figures( array( 'refresh' => true ) );
+
+ck( 'a held read prints its counts, says why and how to store it once checked, and exits non-zero',
+	array( $exit, array_slice( WP_CLI::$lines, -1 ) ),
+	array( 1, array( 'error: Held: the graduation share moved from 87% to 76%, by more than 10 points. Nothing was stored. Once the counts above are checked, --refresh --accept stores them.' ) ) );
+
+// A numerator of zero is never stored, with --accept or without: a hold for it must not send a person
+// to --accept (the first parity run is where a renamed status or answer shows up as a zero).
+WPCPM_Outcome_Figures::$run = array_merge(
+	$today_run,
+	array(
+		'result'  => 'held',
+		'reason'  => 'zero',
+		'message' => 'Held: no answers of likely to keep contributing were counted.',
+		'figures' => array_merge( $today_run['figures'], array( 'keep' => array( 'share' => 0, 'count' => 0, 'n' => 310 ) ) ),
+	)
+);
+$zero_sentence = 'error: Held: no answers of likely to keep contributing were counted. Nothing was stored. --accept never stores a count of zero; a zero usually means a renamed status or answer, so check the base with --refresh --dry-run.';
+$zero_runs     = array();
+
+foreach ( array( array( 'refresh' => true ), array( 'refresh' => true, 'accept' => true ) ) as $options ) {
+	$zero_runs[] = array( run_figures( $options ), array_slice( WP_CLI::$lines, -1 ), false !== strpos( implode( "\n", WP_CLI::$lines ), '--refresh --accept stores' ) );
+}
+
+ck( 'a hold for a count of zero ends in its own sentence, with --refresh alone and with --refresh --accept: nothing stored, --accept never stores a zero, check the base with a dry run, and never "--refresh --accept stores them"; non-zero exit',
+	$zero_runs, array( array( 1, array( $zero_sentence ), false ), array( 1, array( $zero_sentence ), false ) ) );
+
+WPCPM_Outcome_Figures::$run = array_merge( $today_run, array( 'result' => 'stored' ) );
+run_figures( array( 'refresh' => true, 'accept' => true ) );
+
+ck( '--refresh --accept asks to store a read the guards would hold',
+	WPCPM_Outcome_Figures::$asked, array( array( 'dry_run' => false, 'accept' => true ) ) );
+
+$refusals = array();
+
+foreach ( array(
+	array( 'result' => 'failed', 'reason' => 'refused', 'message' => 'Failed: Airtable refused the token.', 'figures' => array(), 'rows' => array() ),
+	array( 'result' => 'busy', 'reason' => 'busy', 'message' => 'Another read of the outcome figures is running. Try again in a few minutes.', 'figures' => array(), 'rows' => array() ),
+	array( 'result' => 'not_connected', 'reason' => 'not_connected', 'message' => 'Not connected.', 'figures' => array(), 'rows' => array() ),
+) as $refused ) {
+	WPCPM_Outcome_Figures::$run = $refused;
+	$refusals[]                 = array( run_figures( array( 'refresh' => true ) ), WP_CLI::$lines );
+}
+
+ck( 'a failed read, a read already running and a site with no token each end at once with their sentence and a non-zero exit',
+	$refusals,
+	array(
+		array( 1, array( 'error: Failed: Airtable refused the token.' ) ),
+		array( 1, array( 'error: Another read of the outcome figures is running. Try again in a few minutes.' ) ),
+		array( 1, array( 'error: Airtable is not configured.' ) ),
+	) );
+
+$misused = array();
+
+foreach ( array( array( 'dry-run' => true ), array( 'accept' => true ), array( 'refresh' => true, 'dry-run' => true, 'accept' => true ) ) as $options ) {
+	$misused[] = array( run_figures( $options ), WP_CLI::$lines, WPCPM_Outcome_Figures::$asked );
+}
+
+ck( '--dry-run or --accept without --refresh, or the two together, are refused before anything is read',
+	$misused,
+	array(
+		array( 1, array( 'error: --dry-run and --accept go with --refresh.' ), array() ),
+		array( 1, array( 'error: --dry-run and --accept go with --refresh.' ), array() ),
+		array( 1, array( 'error: Use --dry-run or --accept, not both.' ), array() ),
+	) );
+
+WPCPM_Outcome_Figures::$stored    = array(
+	'read'       => 1791788405,
+	'graduation' => array( 'share' => 87, 'count' => 361, 'n' => 413 ),
+	'recommend'  => array( 'share' => 88, 'count' => 277, 'n' => 315 ),
+	'keep'       => array( 'share' => 41, 'count' => 9, 'n' => 22 ),
+);
+WPCPM_Outcome_Figures::$published = array(
+	'read'    => 1791788405,
+	'figures' => array(
+		'graduation' => array( 'share' => 87, 'count' => 361, 'n' => 413 ),
+		'recommend'  => array( 'share' => 88, 'count' => 277, 'n' => 315 ),
+	),
+);
+WPCPM_Outcome_Figures::$status    = array( 'time' => 1792393209, 'result' => 'failed', 'reason' => 'unreachable', 'message' => 'Failed: Airtable request failed (HTTP 503): no further detail' );
+$exit                             = run_figures( array() );
+
+ck( 'with no option it reads nothing: the stored set and when it was read, what the homepage may show of it, and the last attempt',
+	array( $exit, WPCPM_Outcome_Figures::$asked, WP_CLI::$lines ),
+	array(
+		0,
+		array(),
+		array(
+			'log: Stored, read 2026-10-12 07:00 UTC:',
+			'log:   graduation   87%, 361 of 413',
+			'log:   recommend    88%, 277 of 315',
+			'log:   keep         41%, 9 of 22',
+			'log: Shown on the homepage: graduation, recommend',
+			'log: Last attempt, 2026-10-19 07:00 UTC: failed - Failed: Airtable request failed (HTTP 503): no further detail',
+			'success: Nothing was read or stored.',
+		),
+	) );
+
+WPCPM_Outcome_Figures::$status = array( 'time' => 1792393209, 'result' => 'stored', 'reason' => '', 'message' => '' );
+run_figures( array() );
+
+ck( 'a stored attempt has no sentence, so the last attempt ends at its result',
+	array_slice( WP_CLI::$lines, -2, 1 ), array( 'log: Last attempt, 2026-10-19 07:00 UTC: stored' ) );
+
+WPCPM_Outcome_Figures::$stored    = array();
+WPCPM_Outcome_Figures::$published = array();
+WPCPM_Outcome_Figures::$status    = array();
+run_figures( array() );
+
+ck( 'and on a site that never stored any, says so',
+	WP_CLI::$lines, array( 'log: No figures are stored yet.', 'log: Shown on the homepage: none', 'success: Nothing was read or stored.' ) );
+
+// The weekly run holds the first set: the last attempt says how to check it and store it.
+WPCPM_Outcome_Figures::$status = array( 'time' => 1791788405, 'result' => 'held', 'reason' => 'first', 'message' => 'Held: the first figures are stored by a person, not by the weekly read. Run wp wpcredits outcome_figures --refresh --dry-run and compare its counts with the WordPress Credits impact dashboard\'s, then store them with wp wpcredits outcome_figures --refresh.' );
+run_figures( array() );
+
+ck( 'a first set the weekly run held: nothing stored, and the last attempt says to compare the counts with the dashboard\'s with --refresh --dry-run and store them with --refresh',
+	WP_CLI::$lines,
+	array(
+		'log: No figures are stored yet.',
+		'log: Shown on the homepage: none',
+		'log: Last attempt, 2026-10-12 07:00 UTC: held - Held: the first figures are stored by a person, not by the weekly read. Run wp wpcredits outcome_figures --refresh --dry-run and compare its counts with the WordPress Credits impact dashboard\'s, then store them with wp wpcredits outcome_figures --refresh.',
+		'success: Nothing was read or stored.',
+	) );
+
+// The run option edited by hand: a part missing, or not the type a run writes. The line leaves it
+// out, and no warning comes of it.
+$cli_warnings = array();
+
+set_error_handler( static function ( $number, $message ) use ( &$cli_warnings ) { $cli_warnings[] = $message; return true; } );
+
+$odd_attempts = array();
+
+foreach ( array(
+	array( 'result' => 'failed' ),
+	array( 'time' => '1792393209', 'result' => 'held', 'message' => array( 'Held' ) ),
+	array( 'time' => 1792393209, 'result' => array( 'stored' ), 'message' => 7 ),
+) as $odd ) {
+	WPCPM_Outcome_Figures::$status = $odd;
+	run_figures( array() );
+	$odd_attempts[] = WP_CLI::$lines[2];
+}
+
+restore_error_handler();
+WPCPM_Outcome_Figures::$status = array();
+
+ck( 'a last attempt with no time, no sentence, or one of either that is not what a run writes, prints what it has, with no warning',
+	array( $odd_attempts, $cli_warnings ),
+	array( array( 'log: Last attempt: failed', 'log: Last attempt: held', 'log: Last attempt, 2026-10-19 07:00 UTC: unknown' ), array() ) );
 
 echo "\n=== The help names each command as WP-CLI registers it ===\n";
 

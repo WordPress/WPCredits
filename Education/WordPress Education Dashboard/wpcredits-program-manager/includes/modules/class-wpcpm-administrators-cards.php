@@ -1174,8 +1174,9 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * The syncs, the private storage probe, the latest email and the last day's failures from the
-	 * email log (and whether the log's table is there yet), and the invitation run.
+	 * The syncs, the outcome figures' weekly read among them, the private storage probe, the latest
+	 * email and the last day's failures from the email log (and whether the log's table is there yet),
+	 * and the invitation run.
 	 *
 	 * @return array
 	 */
@@ -1218,6 +1219,13 @@ final class WPCPM_Administrators_Cards {
 				// The Sponsors screen's Sponsors tab, where the sync is drawn beside the sponsors it reads.
 				'screen'   => admin_url( 'admin.php?page=wpcpm-sponsors&tab=sponsors' ),
 			);
+		}
+
+		// The outcome figures' weekly read (1.122.24), last, behind the same guard, in the shape every
+		// row has: its name opens the Connection tab of Settings, where a failure is fixed, and its note
+		// says what the last attempt did when that was not to store (`WPCPM_Outcome_Figures::sync_row()`).
+		if ( class_exists( 'WPCPM_Outcome_Figures' ) ) {
+			$syncs['outcome_figures'] = WPCPM_Outcome_Figures::sync_row();
 		}
 
 		$probe  = WPCPM_Private_Files::probe_result();

@@ -58,8 +58,22 @@ place and asks you to re-activate the plugin to recreate it.
 and Mentors screens, the **Sync and storage** tab of the Institutions screen, and the **Sponsors**
 tab of the Sponsors screen. **Last run** gives the date and time of the last run, in the site's own
 formats, or *Never*. **Next run** gives the date and time of the next run; it says *Not scheduled*
-when none is, and *Running now* while a run is under way. The table shows no errors: a sync's last
-error is on the Administrator Dashboard's **Syncs and health** card.
+when none is, and *Running now* while a run is under way. The audiences' rows show no errors: a sync's
+last error is on the Administrator Dashboard's **Syncs and health** card. The fifth row, **Outcome
+figures** (1.122.24), is the weekly read of the three figures the site counts for its homepage with
+the WordPress Credits impact dashboard's definitions, every Monday at 07:00 UTC after the dashboard's
+build: its name opens the **Connection** tab of Settings, **Last run** is when the stored figures
+were read, a line under it says why the last attempt was held or failed, that it waits for the
+dashboard's build, that the site is not connected, which figure the homepage leaves out for having
+fewer than 30 answers or outcomes, or that the homepage shows none because the figures stored are more
+than 29 days old, and `wp wpcredits outcome_figures` shows them, reads them again with `--refresh`
+and checks them with `--refresh --dry-run`. The weekly read never stores the first figures: it holds
+them, and the line says to compare the counts with the dashboard's with
+`wp wpcredits outcome_figures --refresh --dry-run` and then store them with
+`wp wpcredits outcome_figures --refresh`. On the Administrator Dashboard's **Syncs and health** card
+the same line stands under the column headed **Last error**, and it is not always an error there:
+*Waiting for the dashboard's Monday build.*, *Not connected.* and the note about fewer than 30
+answers are notes, not errors.
 
 **Tools** has a row for each tool, its name a link to the tool's screen, and under **Status** the
 line the tool's card shows on the **Tools** screen; for a tool that cannot run, that line is the

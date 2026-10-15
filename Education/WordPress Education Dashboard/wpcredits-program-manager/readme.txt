@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.23
+Stable tag: 1.122.24
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.24 =
+
+* Outcome figures: the site counts the three figures the WordPress Credits impact dashboard publishes, the share of students who graduated rather than dropped out, the share of graduates who would recommend the program and the share who plan to keep contributing to WordPress, with the dashboard's own definitions, field IDs and rounding, and stores each with its counts and the time it was read. No page shows them yet; the theme reads them from `WPCPM_Outcome_Figures::published()`.
+* They are read every Monday at 07:00 UTC, after the dashboard's weekly build. A run that finds the dashboard not built yet that Monday reads nothing and tries again each hour, and reads Airtable anyway at 12:00 UTC; a run that fails, or finds another read running, tries again each hour until 12:00 UTC, then the next Monday, and books that try before it reads, so a run stopped halfway still has its next one. A table setting left empty in Settings is told as such and not tried again each hour. The graduation share is rounded as the dashboard's page rounds it, and the two survey shares as its build does.
+* A run stores nothing when a read fails, when a count is zero, or when a count fell by more than 10% or a share moved by more than 10 points from the figures stored; those stay as they were. The weekly read never stores the first figures: it holds them until a person has compared the counts with the dashboard's with `wp wpcredits outcome_figures --refresh --dry-run` and stored them with `wp wpcredits outcome_figures --refresh`, since the first set is what every later read is compared with. A run whose figures the site could not save is told as failed, never as stored, and an error's own sentence is kept to 300 characters. A figure over fewer than 30 answers or outcomes is not shown, and none is once the figures stored are more than 29 days old (`wpcpm_outcome_figures_min_sample`, `wpcpm_outcome_figures_max_age`, in days). Only counts are kept: no record ID, no name and no answer.
+* The Overview's Syncs card and the Administrator Dashboard's Syncs and health card have a fifth row, Outcome figures: on the Overview its name opens the Connection tab of Settings, and on the dashboard its Open link does; its last run is when the figures stored were read, and the line under it on the Overview, or its last error on the dashboard, says why the last attempt was held or failed, that the site is not connected, which figure the homepage leaves out for having fewer than 30 answers or outcomes, that the homepage shows none because the figures stored are more than 29 days old, or that it waits for the dashboard's build, which it says only while the next try is booked. On the dashboard that line is a note and not always an error.
+* WP-CLI: `wp wpcredits outcome_figures` shows the figures stored and the last attempt; `--refresh` reads them at once and stores what every guard passes, the first figures included; `--refresh --dry-run` reads at once too, prints the counts, with P the answers of Likely and N every answer to each survey question, and the name the base gives each field ID, and stores nothing, neither the figures nor the attempt, and books no later try; and `--refresh --accept` stores a read the guards held for a fall or a move once a person has checked it. A count of zero is never stored, with `--accept` or without: the command says so, and sends the person to `--refresh --dry-run` to check the base's names, since a zero usually means a renamed status or answer.
+* For developers: `WPCPM_Airtable::fetch_page()` takes `by_id` to key a record's fields by field ID (`returnFieldsByFieldId`), and `fetch_schema()` gives each table's field names by ID as `ids`. Uninstalling removes the figures, the last attempt, the lock and both events.
 
 = 1.122.23 =
 

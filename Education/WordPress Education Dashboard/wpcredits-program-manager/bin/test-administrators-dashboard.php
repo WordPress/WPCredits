@@ -1161,6 +1161,47 @@ $health_data['invites']['run']['finished'] = 1756990500;
 $health_finished = capture( static function () use ( $health_data, $data ) { WPCPM_Administrators_Cards::render_health( $health_data, $data['locked'] ); } );
 ck( 'a finished run no longer prints Invitations:', has( $health_finished, 'Invitations:' ), false );
 
+// The outcome figures' weekly read (1.122.24), a fifth row in the same data: the real class, read
+// from the options here, loaded only now so every check above still sees the four audiences. The
+// card's renderer is not changed for it: it draws the row as it draws every sync, the note where it
+// prints a sync's last error.
+if ( ! class_exists( 'WPCPM_Settings_Screen' ) ) {
+	/** The Settings screen's address at a tab, as the real class builds it. */
+	class WPCPM_Settings_Screen {
+		public static function settings_url( $tab = '' ) { return add_query_arg( 'tab', $tab, admin_url( 'admin.php?page=wpcpm-settings' ) ); }
+	}
+}
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-outcome-figures.php';
+
+$GLOBALS['opts'][ WPCPM_Outcome_Figures::OPTION ]     = array(
+	'read'       => 1756710000,
+	'graduation' => array( 'share' => 87, 'count' => 361, 'n' => 413 ),
+	'recommend'  => array( 'share' => 88, 'count' => 277, 'n' => 315 ),
+	'keep'       => array( 'share' => 79, 'count' => 245, 'n' => 310 ),
+);
+$GLOBALS['opts'][ WPCPM_Outcome_Figures::RUN_OPTION ] = array( 'time' => 1757314800, 'result' => 'failed', 'reason' => 'refused', 'message' => 'Failed: Airtable refused the token.', 'counts' => array(), 'monday' => '2026-09-08', 'tries' => 6 );
+$GLOBALS['next'][ WPCPM_Outcome_Figures::HOOK ]       = 1757919600;
+
+// The figures' clock an hour after the attempt recorded, Monday 8 September 2025 08:00 UTC, a week
+// after the set was read: on the real clock the set is past the 29 days, and the row would say that too.
+WPCPM_Outcome_Figures::for_tests( static function () { return 1757318400; } );
+
+$with_figures   = WPCPM_Administrators_Cards::health();
+$figures_health = capture( static function () use ( $with_figures, $data ) { WPCPM_Administrators_Cards::render_health( $with_figures, $data['locked'] ); } );
+$figures_when   = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), 1756710000 );
+$figures_next   = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), 1757919600 );
+
+ck( 'the outcome figures are a fifth row of the syncs data, after the four audiences',
+	array_keys( $with_figures['syncs'] ), array( 'students', 'mentors', 'institutions', 'sponsors', 'outcome_figures' ) );
+
+ck( 'and the card draws it unchanged, as every sync: its name, Idle, when the stored set was read, the next Monday, the failed run\'s sentence as its last error, and Open to the Connection tab of Settings',
+	array( substr_count( $figures_health, 'wpcpm-health__sync' ), has( $figures_health, '<tr class="wpcpm-health__sync"><td>Outcome figures</td><td>Idle</td><td>' . $figures_when . '</td><td>' . $figures_next . '</td><td>Failed: Airtable refused the token.</td><td><a href="https://example.test/wp-admin/admin.php?page=wpcpm-settings&tab=connection">Open</a></td></tr>' ) ),
+	array( 5, true ) );
+
+unset( $GLOBALS['opts'][ WPCPM_Outcome_Figures::OPTION ], $GLOBALS['opts'][ WPCPM_Outcome_Figures::RUN_OPTION ], $GLOBALS['next'][ WPCPM_Outcome_Figures::HOOK ] );
+WPCPM_Outcome_Figures::for_tests();
+
 /* ---- the page and the render ---------------------------------------------- */
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';

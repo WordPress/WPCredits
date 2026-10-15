@@ -34,6 +34,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-choices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-rows.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-outcome-figures.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-learn.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-privacy-guard.php';
@@ -195,6 +196,13 @@ delete_option( WPCPM_Settings::OPT_VERSION );
 delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );
+// The outcome figures (1.122.24): the stored set, the last attempt and a lock a run killed halfway
+// left behind, with the weekly event and any retry.
+delete_option( WPCPM_Outcome_Figures::OPTION );
+delete_option( WPCPM_Outcome_Figures::RUN_OPTION );
+delete_option( WPCPM_Outcome_Figures::LOCK_OPTION );
+wp_clear_scheduled_hook( WPCPM_Outcome_Figures::HOOK );
+wp_clear_scheduled_hook( WPCPM_Outcome_Figures::RETRY_HOOK );
 // The Countries routing map, rebuilt from the base by the next sync or by the button.
 delete_option( WPCPM_Countries::OPT_NAME );
 // The one-time repair of the sponsor accounts an older detach left holding posting

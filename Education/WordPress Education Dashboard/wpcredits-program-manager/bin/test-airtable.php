@@ -527,6 +527,65 @@ ck( 'and tests a value against it', array( WPCPM_Airtable::is_record_id( 'recABC
 $mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );
 ck( 'the Mentors sync aliases it rather than keeping its own copy', false !== strpos( $mentors_src, 'return WPCPM_Airtable::is_record_id( $value );' ), true );
 
+echo "\n=== Fields by ID, for a read pinned to field IDs (1.122.24) ===\n";
+
+/**
+ * The address one page read is sent to.
+ *
+ * @param array $args What fetch_page() is asked.
+ * @return string
+ */
+function page_url( array $args ) {
+	$GLOBALS['sent']  = array();
+	$GLOBALS['queue'] = array( response( 200 ) );
+
+	$client = new WPCPM_Airtable( array( 'api_token' => 'pat-test', 'base_id' => 'appTest' ) );
+	$client->fetch_page( 'tblX', $args );
+
+	return (string) ( $GLOBALS['sent'][0]['url'] ?? '' );
+}
+
+fresh( 'web' );
+
+$by_name = array(
+	'formula' => "{Status} = 'Graduate'",
+	'fields'  => array( 'Name', 'Status' ),
+	'offset'  => 'itrNEXT/recPAGE0000000001',
+);
+
+ck( 'without the argument a page is asked for exactly as before, nothing added',
+	page_url( $by_name ),
+	'https://api.airtable.com/v0/appTest/tblX?pageSize=100&filterByFormula=%7BStatus%7D%20%3D%20%27Graduate%27&offset=itrNEXT%2FrecPAGE0000000001&fields%5B%5D=Name&fields%5B%5D=Status' );
+
+ck( 'and by_id false is the same address, byte for byte',
+	page_url( array_merge( $by_name, array( 'by_id' => false ) ) ), page_url( $by_name ) );
+
+$by_id = page_url(
+	array(
+		'formula' => "{Status} = 'Graduate'",
+		'fields'  => array( 'fldyXVlkChJaO9Q47', 'fldCMdqqJGAUQ9nbV' ),
+		'by_id'   => true,
+	)
+);
+
+parse_str( (string) parse_url( $by_id, PHP_URL_QUERY ), $by_id_query );
+
+ck( 'by_id sends returnFieldsByFieldId=true beside the formula, and the field IDs go as fields[] as names do',
+	array( $by_id_query['returnFieldsByFieldId'] ?? null, $by_id_query['filterByFormula'] ?? null, $by_id_query['fields'] ?? null, $by_id_query['pageSize'] ?? null ),
+	array( 'true', "{Status} = 'Graduate'", array( 'fldyXVlkChJaO9Q47', 'fldCMdqqJGAUQ9nbV' ), '100' ) );
+
+ck( 'and the records come back as Airtable keys them, untouched',
+	( function () {
+		fresh( 'web' );
+		queue( response( 200, array( 'records' => array( array( 'id' => 'recPAGE0000000002', 'fields' => array( 'fldCMdqqJGAUQ9nbV' => 'Graduate' ) ) ), 'offset' => 'itrMORE' ) ) );
+
+		return ( new WPCPM_Airtable( array( 'api_token' => 'pat-test', 'base_id' => 'appTest' ) ) )->fetch_page( 'tblX', array( 'by_id' => true ) );
+	} )(),
+	array(
+		'records' => array( array( 'id' => 'recPAGE0000000002', 'fields' => array( 'fldCMdqqJGAUQ9nbV' => 'Graduate' ) ) ),
+		'offset'  => 'itrMORE',
+	) );
+
 echo "\n=== delete_records(): ten at a time, only what Airtable confirms, and a stop says how far it got ===\n";
 
 // Twelve record IDs that say what they are: two batches, the second short.
@@ -742,6 +801,12 @@ ck( 'and the types arrive beside them, with a select carrying its choices',
 		'Tool used' => array( 'type' => 'singleSelect', 'options' => array( 'choices' => array( array( 'name' => 'MAAMP' ) ) ) ),
 	) );
 
+ck( 'and each field\'s name by its ID, so a read pinned to field IDs can say what the base calls each one (1.122.24)',
+	$schema['tblX']['ids'], array( 'fld1' => 'Name', 'fld2' => 'Tool used' ) );
+
+ck( 'the four keys every table entry held before are as they were, the new one last',
+	array_keys( $schema['tblX'] ), array( 'name', 'primary', 'fields', 'columns', 'ids' ) );
+
 echo "\n=== The last schema read is kept for the track editor ===\n";
 
 // The read above filled the transient: the copy is the schema, held for fifteen minutes.
@@ -784,6 +849,38 @@ $airtable->fetch_schema();
 
 ck( 'a failed read leaves the held copy alone',
 	$GLOBALS['transients'][ WPCPM_Airtable::SCHEMA_TRANSIENT ]['schema'], array( 'tblZ' => array() ) );
+
+// A field the metadata gives no ID, or an empty one, is named by its name as ever and by ID not at
+// all (1.122.24): `ids` holds only the IDs the base gave.
+fresh( 'web' );
+queue(
+	response(
+		200,
+		array(
+			'tables' => array(
+				array(
+					'id'     => 'tblY',
+					'name'   => 'Feedback',
+					'fields' => array(
+						array( 'id' => 'fld3', 'name' => 'Answer', 'type' => 'singleSelect' ),
+						array( 'name' => 'Notes', 'type' => 'multilineText' ),
+						array( 'id' => '', 'name' => 'Draft', 'type' => 'singleLineText' ),
+					),
+				),
+			),
+		)
+	)
+);
+
+$schema_warnings = array();
+
+set_error_handler( static function ( $number, $message ) use ( &$schema_warnings ) { $schema_warnings[] = $message; return true; } );
+$without_ids = $airtable->fetch_schema();
+restore_error_handler();
+
+ck( 'a field with no ID, or an empty one, has no name by ID and still its name and type, and no warning comes of it',
+	array( $without_ids['tblY']['ids'], array_keys( $without_ids['tblY']['fields'] ), array_keys( $without_ids['tblY']['columns'] ), $schema_warnings ),
+	array( array( 'fld3' => 'Answer' ), array( 'Answer', 'Notes', 'Draft' ), array( 'Answer', 'Notes', 'Draft' ), array() ) );
 
 echo "\n=== A column created drops the held copy, so the editor reads the base afresh (PUBLISH-LEARN-5) ===\n";
 

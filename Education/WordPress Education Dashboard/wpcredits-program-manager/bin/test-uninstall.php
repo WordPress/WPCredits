@@ -622,6 +622,9 @@ $named_options = array(
 	'wpcpm_settings_version',              // WPCPM_Settings::OPT_VERSION.
 	'wpcpm_privacy_version',               // WPCPM_Privacy_Guard::OPT_VERSION.
 	'wpcpm_airtable_backoff',              // WPCPM_Airtable::BACKOFF_OPTION.
+	'wpcpm_outcome_figures',               // WPCPM_Outcome_Figures::OPTION.
+	'wpcpm_outcome_figures_run',           // WPCPM_Outcome_Figures::RUN_OPTION.
+	'wpcpm_outcome_figures_lock',          // WPCPM_Outcome_Figures::LOCK_OPTION.
 	'wpcpm_countries',                     // WPCPM_Countries::OPT_NAME.
 	'wpcpm_sponsor_members_caps_repaired', // WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED.
 	'wpcpm_roles_version',                 // WPCPM_Roles::OPT_VERSION, through unregister().
@@ -753,9 +756,9 @@ $student = a_user(
 $mentor  = a_user( array( 'editor', 'wpcpm_mentor' ) );
 $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts', 'upload_files' ), array( 'wpcpm_sponsor_active' => 1 ) );
 
-// The cron schedule: the ten hooks the file clears itself, every hook the modules and the tools
+// The cron schedule: the twelve hooks the file clears itself, every hook the modules and the tools
 // clear, and one of core's.
-$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick' );
+$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry' );
 $other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge' );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
@@ -844,7 +847,7 @@ ck( 'a sponsor account gives back the posting capabilities its membership grante
 
 echo "\n=== The cron hooks ===\n";
 
-ck( 'the ten hooks the file clears itself are cleared', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
+ck( 'the twelve hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
 ck( 'and so is every hook the modules and the tools clear', array_values( array_intersect( $other_hooks, scheduled() ) ), array() );
 ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) );
 
@@ -885,6 +888,11 @@ $names = array(
 	'WPCPM_Settings::OPT_VERSION'                   => 'wpcpm_settings_version',
 	'WPCPM_Privacy_Guard::OPT_VERSION'              => 'wpcpm_privacy_version',
 	'WPCPM_Airtable::BACKOFF_OPTION'                => 'wpcpm_airtable_backoff',
+	'WPCPM_Outcome_Figures::OPTION'                 => 'wpcpm_outcome_figures',
+	'WPCPM_Outcome_Figures::RUN_OPTION'             => 'wpcpm_outcome_figures_run',
+	'WPCPM_Outcome_Figures::LOCK_OPTION'            => 'wpcpm_outcome_figures_lock',
+	'WPCPM_Outcome_Figures::HOOK'                   => 'wpcpm_outcome_figures_weekly',
+	'WPCPM_Outcome_Figures::RETRY_HOOK'             => 'wpcpm_outcome_figures_retry',
 	'WPCPM_Countries::OPT_NAME'                     => 'wpcpm_countries',
 	'WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED'      => 'wpcpm_sponsor_members_caps_repaired',
 	'WPCPM_Roles::OPT_VERSION'                      => 'wpcpm_roles_version',

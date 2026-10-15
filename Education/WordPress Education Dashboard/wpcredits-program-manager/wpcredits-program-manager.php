@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.122.23
+ * Version:           1.122.24
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.122.23' );
+define( 'WPCPM_VERSION', '1.122.24' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -29,6 +29,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-choices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-outcome-figures.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-learn.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-privacy-guard.php';
@@ -217,6 +218,9 @@ function wpcpm_bootstrap() {
 	// The email log, booted here rather than by the Emails tool, so a site that filters the tool out
 	// of `wpcpm_tools` still keeps it (1.122.18).
 	WPCPM_Mail_Log::init();
+	// The outcome figures' weekly read (1.122.24), booted here rather than by a module: the figures
+	// belong to the program, and the homepage reads them whichever modules a site runs.
+	WPCPM_Outcome_Figures::init();
 	// The Track Builder's tracks reach the program map through its filters (1.100.0), hooked
 	// before any module asks the map anything.
 	WPCPM_Track_Store::init();
@@ -251,6 +255,7 @@ function wpcpm_activate() {
 	WPCPM_Roles::register();
 	WPCPM_Modules::activate();
 	WPCPM_Tools::activate();
+	WPCPM_Outcome_Figures::schedule();
 	flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'wpcpm_activate' );
@@ -263,6 +268,7 @@ function wpcpm_deactivate() {
 	WPCPM_Modules::deactivate();
 	WPCPM_Tools::deactivate();
 	WPCPM_Mail_Log::deactivate();
+	WPCPM_Outcome_Figures::deactivate();
 	flush_rewrite_rules();
 }
 register_deactivation_hook( __FILE__, 'wpcpm_deactivate' );

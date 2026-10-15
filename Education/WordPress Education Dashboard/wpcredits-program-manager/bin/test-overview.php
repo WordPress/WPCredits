@@ -20,7 +20,8 @@
  *   prints too, and nothing on the screen posts anything.
  * - **Each sync's last and next run** in the site's date and time, as the Syncs and health card
  *   reads them, **each tool's readiness** as the Tools screen says it, and the connection in both
- *   of its states.
+ *   of its states. The outcome figures' weekly read (1.122.24) is the Syncs card's fifth row, the
+ *   real class reading the suite's options, its note on a line of its own under its last run.
  * - **Every printed value is escaped**: a translation, a number, a date and an address carrying a
  *   tag each arrive as text.
  *
@@ -92,6 +93,9 @@ function esc_url( $url ) {
 function admin_url( $path = '' ) {
 	return 'https://site.example/wp-admin/' . $path . ( $GLOBALS['hostile'] ? '&x=<x>' : '' );
 }
+function add_query_arg( $key, $value, $url ) {
+	return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . $value;
+}
 function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
 }
@@ -162,6 +166,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-outcome-figures.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-dashboard.php';
@@ -829,9 +834,9 @@ $syncs_world = array(
 
 $syncs = card( draw( $syncs_world ), 'Syncs' );
 
-ck( 'a table with a row for each audience\'s sync, in the dashboard\'s order, headed Sync, Last run and Next run',
+ck( 'a table with a row for each audience\'s sync, in the dashboard\'s order, and the outcome figures last, headed Sync, Last run and Next run',
 	array( columns_of( $syncs ), array_column( rows_of( $syncs ), 0 ) ),
-	array( array( 'Sync', 'Last run', 'Next run' ), array( 'Students', 'Mentors', 'Institutions', 'Sponsors' ) ) );
+	array( array( 'Sync', 'Last run', 'Next run' ), array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Outcome figures' ) ) );
 
 ck( 'each audience\'s name opens the screen its sync is run from, at the tab that runs it; each run is the site\'s date and time, or Never, or Not scheduled; and a sync running now says so in place of its next run',
 	rows_of( $syncs ),
@@ -840,7 +845,37 @@ ck( 'each audience\'s name opens the screen its sync is run from, at the tab tha
 		array( 'Mentors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=sync' ), gmdate( 'j F Y H:i', 1756990000 ), 'Not scheduled' ),
 		array( 'Institutions', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=sync' ), gmdate( 'j F Y H:i', 1756980000 ), 'Running now' ),
 		array( 'Sponsors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=sponsors' ), gmdate( 'j F Y H:i', 1756880000 ), gmdate( 'j F Y H:i', 1756993600 ) ),
+		array( 'Outcome figures', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-settings&tab=connection' ), 'Never Not connected.', 'Not scheduled' ),
 	) );
+
+ck( 'the outcome figures\' note sits on a line of its own under the last run, and no other row carries one, so the audiences\' rows are drawn as before',
+	array( has( $syncs, '<td>Never<br /><span class="description">Not connected.</span></td>' ), substr_count( $syncs, '<br />' ), substr_count( $syncs, 'class="description"' ) ),
+	array( true, 1, 1 ) );
+
+// Connected, a set stored a week ago, the Monday run held, the next Monday booked.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]           = array( 'api_token' => 'patTEST00000000001', 'base_id' => 'appTEST00000000001' );
+$GLOBALS['opts'][ WPCPM_Outcome_Figures::OPTION ]     = array(
+	'read'       => 1756710000,
+	'graduation' => array( 'share' => 87, 'count' => 361, 'n' => 413 ),
+	'recommend'  => array( 'share' => 88, 'count' => 277, 'n' => 315 ),
+	'keep'       => array( 'share' => 79, 'count' => 245, 'n' => 310 ),
+);
+$GLOBALS['opts'][ WPCPM_Outcome_Figures::RUN_OPTION ] = array( 'time' => 1757314800, 'result' => 'held', 'reason' => 'fell', 'message' => 'Held: graduates fell from 361 to 324, by more than 10% <b>.', 'counts' => array(), 'monday' => '2026-09-08', 'tries' => 1 );
+$GLOBALS['next'][ WPCPM_Outcome_Figures::HOOK ]       = 1757919600;
+
+// The figures' clock an hour after the attempt recorded, Monday 8 September 2025 08:00 UTC, a week
+// after the set was read: on the real clock the set is past the 29 days, and the row would say that too.
+WPCPM_Outcome_Figures::for_tests( static function () { return 1757318400; } );
+
+$held_syncs = card( draw( $syncs_world ), 'Syncs' );
+$held_rows  = rows_of( $held_syncs );
+
+ck( 'a held run: the last run is still when the stored set was read, the held run\'s sentence, escaped, under it, and the next Monday',
+	array( end( $held_rows ), has( $held_syncs, '<span class="description">Held: graduates fell from 361 to 324, by more than 10% &lt;b&gt;.</span>' ) ),
+	array( array( 'Outcome figures', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-settings&tab=connection' ), gmdate( 'j F Y H:i', 1756710000 ) . ' Held: graduates fell from 361 to 324, by more than 10% <b>.', gmdate( 'j F Y H:i', 1757919600 ) ), true ) );
+
+unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ], $GLOBALS['opts'][ WPCPM_Outcome_Figures::OPTION ], $GLOBALS['opts'][ WPCPM_Outcome_Figures::RUN_OPTION ], $GLOBALS['next'][ WPCPM_Outcome_Figures::HOOK ] );
+WPCPM_Outcome_Figures::for_tests();
 
 echo "\n=== Tools ===\n";
 
@@ -919,7 +954,7 @@ $everything = draw( array_merge( $busy, $syncs_world ) );
 
 ck( 'nothing on the screen says module, with every queue waiting, every sync and every tool on it',
 	array( count( waiting_of( card( $everything, 'Waiting for a decision' ) ) ), count( rows_of( card( $everything, 'Syncs' ) ) ), modules_in( words_of( $everything ) ) ),
-	array( 13, 4, array() ) );
+	array( 13, 5, array() ) );
 
 // Decisions have one home, the Administrator Dashboard: this screen links to it and to the queues,
 // and posts nothing itself.

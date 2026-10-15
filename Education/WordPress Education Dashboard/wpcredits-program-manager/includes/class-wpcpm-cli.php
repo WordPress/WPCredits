@@ -294,6 +294,171 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Show the outcome figures the site counts for its homepage, or read them again from Airtable.
+	 *
+	 * With no option, prints the stored set, when it was read, what the homepage may show of it, and
+	 * the last attempt. The weekly event reads the figures every Monday after the public dashboard's
+	 * build; --refresh reads them at once, without waiting for it.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--refresh]
+	 * : Read Airtable now, and store the figures when every guard holds.
+	 *
+	 * [--dry-run]
+	 * : With --refresh: print the counts, graduates (G) and dropouts (D), and for each survey question the answers of Likely (P) of every answer to it (N), and the name the base gives each of the four field IDs, and store nothing.
+	 *
+	 * [--accept]
+	 * : With --refresh: store the figures although they fell or moved more than the guards allow, once a person has checked them. A count of zero is never stored.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits outcome_figures
+	 *     wp wpcredits outcome_figures --refresh --dry-run
+	 *     wp wpcredits outcome_figures --refresh
+	 *     wp wpcredits outcome_figures --refresh --accept
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function outcome_figures( $args, $assoc_args ) {
+		unset( $args );
+
+		$refresh = ! empty( $assoc_args['refresh'] );
+		$dry_run = ! empty( $assoc_args['dry-run'] );
+		$accept  = ! empty( $assoc_args['accept'] );
+
+		if ( ( $dry_run || $accept ) && ! $refresh ) {
+			WP_CLI::error( '--dry-run and --accept go with --refresh.' );
+		}
+
+		if ( $dry_run && $accept ) {
+			WP_CLI::error( 'Use --dry-run or --accept, not both.' );
+		}
+
+		if ( ! $refresh ) {
+			$this->outcome_figures_stored();
+
+			return;
+		}
+
+		$run = WPCPM_Outcome_Figures::refresh(
+			array(
+				'dry_run' => $dry_run,
+				'accept'  => $accept,
+			)
+		);
+
+		if ( 'not_connected' === $run['result'] ) {
+			WP_CLI::error( 'Airtable is not configured.' );
+		}
+
+		if ( in_array( $run['result'], array( 'busy', 'failed' ), true ) ) {
+			WP_CLI::error( $run['message'] );
+		}
+
+		$this->outcome_figures_counts( $run );
+
+		if ( $dry_run ) {
+			$names = WPCPM_Outcome_Figures::field_names();
+
+			if ( is_wp_error( $names ) ) {
+				WP_CLI::warning( sprintf( 'The base\'s names for the four fields could not be read: %s', $names->get_error_message() ) );
+			} else {
+				WP_CLI::log( 'The base\'s names for the four field IDs:' );
+
+				foreach ( $names as $id => $name ) {
+					WP_CLI::log( sprintf( '  %-20s %s', $id, '' === $name ? '(not in its table)' : $name ) );
+				}
+			}
+
+			WP_CLI::success( 'Dry run complete - nothing was stored.' );
+
+			return;
+		}
+
+		if ( 'held' === $run['result'] ) {
+			// A count of zero is held whatever the flag, so --accept is no way out of it.
+			$next = 'zero' === $run['reason']
+				? ' Nothing was stored. --accept never stores a count of zero; a zero usually means a renamed status or answer, so check the base with --refresh --dry-run.'
+				: ' Nothing was stored. Once the counts above are checked, --refresh --accept stores them.';
+
+			WP_CLI::error( $run['message'] . $next );
+		}
+
+		WP_CLI::success( __( 'The outcome figures are stored.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
+	 * The stored set, what the homepage may show of it, and the last attempt.
+	 */
+	private function outcome_figures_stored() {
+		$set   = WPCPM_Outcome_Figures::stored();
+		$shown = WPCPM_Outcome_Figures::published();
+		$last  = WPCPM_Outcome_Figures::status();
+
+		if ( array() === $set ) {
+			WP_CLI::log( 'No figures are stored yet.' );
+		} else {
+			WP_CLI::log( sprintf( 'Stored, read %s UTC:', gmdate( 'Y-m-d H:i', (int) $set['read'] ) ) );
+
+			foreach ( WPCPM_Outcome_Figures::FIGURES as $key ) {
+				WP_CLI::log( sprintf( '  %-11s %3d%%, %d of %d', $key, $set[ $key ]['share'], $set[ $key ]['count'], $set[ $key ]['n'] ) );
+			}
+		}
+
+		WP_CLI::log( sprintf( 'Shown on the homepage: %s', array() === $shown ? 'none' : implode( ', ', array_keys( $shown['figures'] ) ) ) );
+
+		if ( array() !== $last ) {
+			// The run option is read as the syncs row reads it: a part missing, or not the type a run
+			// writes (the option edited by hand, say), is left out rather than printed as a warning.
+			$time    = isset( $last['time'] ) && is_int( $last['time'] ) ? $last['time'] : 0;
+			$result  = is_string( $last['result'] ) ? $last['result'] : 'unknown';
+			$message = isset( $last['message'] ) && is_string( $last['message'] ) ? $last['message'] : '';
+
+			WP_CLI::log( sprintf( 'Last attempt%s: %s%s', $time > 0 ? ', ' . gmdate( 'Y-m-d H:i', $time ) . ' UTC' : '', $result, '' === $message ? '' : ' - ' . $message ) );
+		}
+
+		WP_CLI::success( 'Nothing was read or stored.' );
+	}
+
+	/**
+	 * What a read counted: the four counts of the parity check, and each share.
+	 *
+	 * @param array $run What `WPCPM_Outcome_Figures::refresh()` returned.
+	 */
+	private function outcome_figures_counts( array $run ) {
+		$graduation = $run['figures']['graduation'];
+
+		WP_CLI::log( sprintf( 'Students Reports: %d rows read', $run['rows']['reports'] ) );
+		WP_CLI::log( sprintf( '  Graduates (G):           %d', $graduation['count'] ) );
+		WP_CLI::log( sprintf( '  Dropped out (D):         %d', $graduation['n'] - $graduation['count'] ) );
+		WP_CLI::log( sprintf( '  Graduation share:        %s of %d', $this->outcome_share( $graduation['share'] ), $graduation['n'] ) );
+		WP_CLI::log( sprintf( 'Feedback: %d rows read (P: the answers of Likely, N: every answer to the question)', $run['rows']['feedback'] ) );
+
+		$questions = array(
+			'recommend' => 'Would recommend',
+			'keep'      => 'Keep contributing',
+		);
+
+		foreach ( $questions as $key => $label ) {
+			$figure = $run['figures'][ $key ];
+
+			WP_CLI::log( sprintf( '  %-24s P %d of N %d, %s', $label . ':', $figure['count'], $figure['n'], $this->outcome_share( $figure['share'] ) ) );
+		}
+	}
+
+	/**
+	 * A share as the command prints it.
+	 *
+	 * @param int|null $share The share, or null when nothing was counted.
+	 * @return string
+	 */
+	private function outcome_share( $share ) {
+		return null === $share ? 'no share' : $share . '%';
+	}
+
+	/**
 	 * Read Airtable and report the totals without writing anything.
 	 */
 	private function dry_run() {

@@ -193,8 +193,12 @@ class WPCPM_Airtable {
 	 *     Optional query arguments.
 	 *
 	 *     @type string   $formula filterByFormula expression.
-	 *     @type string[] $fields  Field names to return. All fields when empty.
+	 *     @type string[] $fields  Field names to return, or field IDs. All fields when empty.
 	 *     @type string   $offset  Pagination offset from a previous response.
+	 *     @type bool     $by_id   Key each record's fields by field ID rather than by name
+	 *                             (`returnFieldsByFieldId`), so a read pinned to field IDs, as the
+	 *                             outcome figures are, does not depend on what the columns are
+	 *                             called. Off by default.
 	 * }
 	 * @return array|WP_Error `array( 'records' => array, 'offset' => string|null )`.
 	 */
@@ -215,6 +219,9 @@ class WPCPM_Airtable {
 		}
 		if ( ! empty( $args['offset'] ) ) {
 			$query['offset'] = $args['offset'];
+		}
+		if ( ! empty( $args['by_id'] ) ) {
+			$query['returnFieldsByFieldId'] = 'true';
 		}
 
 		$url = $this->query_url( $table, $query );
@@ -463,7 +470,7 @@ class WPCPM_Airtable {
 	 * token - a scope a records-only token will not have, which is why callers
 	 * are expected to treat a failure here as cosmetic and carry on.
 	 *
-	 * @return array|WP_Error Map of table ID => array( 'name' => string, 'primary' => string, 'fields' => array( field name => description ), 'columns' => array( field name => array( 'type' => string, 'options' => array ) ) ).
+	 * @return array|WP_Error Map of table ID => array( 'name' => string, 'primary' => string, 'fields' => array( field name => description ), 'columns' => array( field name => array( 'type' => string, 'options' => array ) ), 'ids' => array( field ID => field name ) ).
 	 */
 	public function fetch_schema() {
 		$guard = $this->guard();
@@ -491,6 +498,7 @@ class WPCPM_Airtable {
 
 			$fields     = array();
 			$columns    = array();
+			$ids        = array();
 			$primary_id = isset( $table['primaryFieldId'] ) ? (string) $table['primaryFieldId'] : '';
 			$primary    = '';
 
@@ -522,6 +530,12 @@ class WPCPM_Airtable {
 					if ( '' !== $primary_id && isset( $field['id'] ) && (string) $field['id'] === $primary_id ) {
 						$primary = (string) $field['name'];
 					}
+
+					// Each field's name by its ID, for a read pinned to field IDs (1.122.24): the outcome
+					// figures' dry run prints the name the base gives each ID it counts.
+					if ( isset( $field['id'] ) && '' !== (string) $field['id'] ) {
+						$ids[ (string) $field['id'] ] = (string) $field['name'];
+					}
 				}
 			}
 
@@ -530,6 +544,7 @@ class WPCPM_Airtable {
 				'primary' => $primary,
 				'fields'  => $fields,
 				'columns' => $columns,
+				'ids'     => $ids,
 			);
 		}
 

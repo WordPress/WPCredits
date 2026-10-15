@@ -182,13 +182,17 @@ final class WPCPM_Overview {
 
 	/**
 	 * Syncs: a row for each audience's sync, its name opening the screen the sync is run from, then
-	 * when it last ran and when it runs next, each in the site's date and time.
+	 * when it last ran and when it runs next, each in the site's date and time; and the outcome
+	 * figures' weekly read (1.122.24), its name opening the Connection tab of Settings.
 	 *
 	 * A sync running now says so in place of its next run, since that run is the one under way, and
-	 * the screen its name opens follows it.
+	 * the screen its name opens follows it. A row that carries a note, which only the outcome figures'
+	 * row does, prints it on a line of its own under the last run: why the last attempt was held or
+	 * failed, or that it waits for the public dashboard's build. The other rows are drawn as before.
 	 *
 	 * @param array $syncs What `WPCPM_Administrators_Cards::health()` returns as `syncs`: each one's
-	 *                     `label`, `progress`, `last`, `next` and `screen`.
+	 *                     `label`, `progress`, `last`, `next` and `screen`, and the outcome figures'
+	 *                     `note`.
 	 */
 	public static function render_syncs( array $syncs ) {
 		echo '<div class="wpcpm-card">';
@@ -211,11 +215,12 @@ final class WPCPM_Overview {
 			}
 
 			printf(
-				'<tr><th scope="row"><a href="%1$s">%2$s</a></th><td>%3$s</td><td>%4$s</td></tr>',
+				'<tr><th scope="row"><a href="%1$s">%2$s</a></th><td>%3$s%5$s</td><td>%4$s</td></tr>',
 				esc_url( $sync['screen'] ),
 				esc_html( $sync['label'] ),
 				esc_html( empty( $sync['last'] ) ? __( 'Never', 'wpcredits-program-manager' ) : self::when( (int) $sync['last'] ) ),
-				esc_html( $next )
+				esc_html( $next ),
+				empty( $sync['note'] ) ? '' : '<br /><span class="description">' . esc_html( (string) $sync['note'] ) . '</span>'
 			);
 		}
 
