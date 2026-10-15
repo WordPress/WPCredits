@@ -274,7 +274,8 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 				)
 			);
 
-			$ids = array_map( 'intval', (array) $every->get_results() );
+			// Each ID through `id_of()`, because the program's own site answers a request for IDs with rows.
+			$ids = array_values( array_filter( array_map( array( 'WPCPM_Roles', 'id_of' ), (array) $every->get_results() ) ) );
 
 			// A query of IDs does not load the accounts' meta, and the count of each is a read of it:
 			// loaded in one go, the whole list costs one query and not one a mentor.

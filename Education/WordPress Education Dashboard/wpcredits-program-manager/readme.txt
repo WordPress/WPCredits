@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.26
+Stable tag: 1.122.27
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,10 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.27 =
+
+* The No students view on the Mentors screen's Accounts tab now counts only the mentors with no student. This site hands back a list of account IDs as rows, and since the view arrived in 1.122.14 its count had read every row as account 1, so it showed every Mentor account, and each load of the tab logged one warning for each mentor ("Object of class stdClass could not be converted to int"). The list the view shows was right; only its count was wrong.
 
 = 1.122.26 =
 

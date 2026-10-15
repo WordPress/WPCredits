@@ -523,9 +523,10 @@ function mentor( $id, $name, $login, array $roles, $students = null, $past = nul
 }
 
 function reset_site() {
-	$GLOBALS['users']     = array();
-	$GLOBALS['umeta']     = array();
-	$GLOBALS['no_editor'] = false;
+	$GLOBALS['users']       = array();
+	$GLOBALS['umeta']       = array();
+	$GLOBALS['ids_as_rows'] = false;
+	$GLOBALS['no_editor']   = false;
 	manager( 1 );
 }
 
@@ -1101,6 +1102,21 @@ $first_count_read = array_keys( preg_grep( '/^meta \d+ ' . preg_quote( WPCPM_Men
 ck( 'the Mentor accounts\' meta is loaded once for the view\'s count, all five accounts and no other, before any count is read',
 	array( count( $primed_at ), isset( $GLOBALS['reads'][ $primed_at[0] ] ) ? $GLOBALS['reads'][ $primed_at[0] ] : '', isset( $primed_at[0], $first_count_read[0] ) && $primed_at[0] < $first_count_read[0] ),
 	array( 1, 'prime user 11,12,13,14,15', true ) );
+
+// The count asks WordPress for IDs, and the program's own site answers with rows (see
+// `WPCPM_Roles::id_of()`). Cast to an int, every row is account 1, with a warning for each: the
+// meta loaded would be account 1's alone and the count every mentor's, since account 1 has none.
+$warnings               = array();
+$GLOBALS['ids_as_rows'] = true;
+$GLOBALS['reads']       = array();
+set_error_handler( static function ( $number, $message ) use ( &$warnings ) { $warnings[] = $message; return true; } );
+$by_rows = view_counts( html_of( draw( screen() ) ) );
+restore_error_handler();
+$GLOBALS['ids_as_rows'] = false;
+
+ck( 'the same where WordPress answers a request for IDs with rows, as the program\'s own site does: No students counts Aria and Cleo, the five accounts\' meta is loaded, and nothing warns',
+	array( isset( $by_rows['no-students'] ) ? $by_rows['no-students'] : 'absent', array_values( preg_grep( '/^prime /', $GLOBALS['reads'] ) ), $warnings ),
+	array( '2', array( 'prime user 11,12,13,14,15' ), array() ) );
 
 $without = html_of( draw( screen( array( 'wpcpm_view' => 'no-students' ) ) ) );
 
