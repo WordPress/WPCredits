@@ -129,14 +129,15 @@ function contrast( $one, $two ) {
 }
 
 /**
- * The declarations of every rule in hub.css whose selector list is exactly the one given, in a media
- * query, in a supports rule or in neither, comments left out, in order.
+ * The declarations of every rule in hub.css (or another sheet) whose selector list is exactly the one
+ * given, in a media query, in a supports rule or in neither, comments left out, in order.
  *
  * @param string $selector The selector list, as the sheet writes it.
+ * @param string $sheet    The sheet, below the theme root.
  * @return string[] Each rule's declarations, whitespace run together.
  */
-function rules_for( $selector ) {
-	$css = preg_replace( array( '#/\*.*?\*/#s', '/@(?:media|supports)[^{]*\{/' ), '', theme_file( 'assets/css/hub.css' ) );
+function rules_for( $selector, $sheet = 'assets/css/hub.css' ) {
+	$css = preg_replace( array( '#/\*.*?\*/#s', '/@(?:media|supports)[^{]*\{/' ), '', theme_file( $sheet ) );
 
 	preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $css, $found, PREG_SET_ORDER );
 
@@ -281,6 +282,36 @@ function rules_in_media( $query ) {
 
 		foreach ( $found as $rule ) {
 			$rules[] = preg_replace( '/\s+/', ' ', trim( $rule[1] ) . ' { ' . trim( $rule[2] ) . ' }' );
+		}
+	}
+
+	return $rules;
+}
+
+/**
+ * Every rule of hub.css whose selector list is exactly the one given, in the order the sheet has them,
+ * each with the at-rule it sits in: `rules_for()` runs a rule and its narrower-screen twin together;
+ * this tells them apart and keeps their order, which decides which wins at equal weight.
+ *
+ * @param string $selector The selector list, as the sheet writes it.
+ * @return array[] Each rule as `array( at-rule or '', declarations )`, comments left out, whitespace
+ *                 run together, such as `array( '@media ( max-width: 899px )', 'gap: 28px;' )`.
+ */
+function rules_placed( $selector ) {
+	$css = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) );
+
+	preg_match_all( '/(@[^{}]+)\{|([^{}]+)\{([^{}]*)\}|\}/', $css, $found, PREG_SET_ORDER );
+
+	$rules = array();
+	$at    = '';
+
+	foreach ( $found as $token ) {
+		if ( '}' === $token[0] ) {
+			$at = '';
+		} elseif ( '' !== $token[1] ) {
+			$at = trim( preg_replace( '/\s+/', ' ', $token[1] ) );
+		} elseif ( preg_replace( '/\s+/', ' ', trim( $token[2] ) ) === $selector ) {
+			$rules[] = array( $at, trim( preg_replace( '/\s+/', ' ', $token[3] ) ) );
 		}
 	}
 
@@ -1887,7 +1918,7 @@ function grammar_of( $html ) {
 ck( 'every pattern is core blocks and the hub\'s three, its comments JSON, every block closed in order',
 	array_map( static function ( $file ) { return grammar_of( wpcredits_test_pattern( $file ) ); }, $pattern_files ), array_fill( 0, 5, array() ) );
 
-ck( 'every section is wide, padded 48px above and below, the hero 56px and 48px',
+ck( 'every section is wide, padded 48px above and below, the hero\'s panel 56px above and below and 48px at each side',
 	array_map(
 		static function ( $file ) {
 			$xpath = dom_of( wpcredits_test_pattern( $file ) );
@@ -1897,7 +1928,7 @@ ck( 'every section is wide, padded 48px above and below, the hero 56px and 48px'
 		$pattern_files
 	),
 	array(
-		'wp-block-group alignwide wpc-hub-hero | padding-top:56px;padding-bottom:48px',
+		'wp-block-group alignwide wpc-hub-hero | padding-top:56px;padding-right:48px;padding-bottom:56px;padding-left:48px',
 		'wp-block-group alignwide wpc-hub-doors | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
@@ -2100,8 +2131,8 @@ ck( 'nothing says what sponsorship costs or what a sponsor receives: the sign-in
 echo "\n=== The page's look ===\n";
 
 ck( 'with no figure to show, the figures column is not displayed and the copy takes the whole width',
-	array( rules_for( '.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__figures' ), rules_for( '.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__copy' ), rules_for( '.wpc-hub-hero__figures' ) ),
-	array( array( 'display: none;' ), array( 'flex-basis: 100% !important;' ), array( 'border-top: 1px solid var( --wpc-ink );' ) ) );
+	array( rules_for( '.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__figures' ), rules_for( '.wpc-hub-hero__cols:not( :has( .wpc-figure ) ) .wpc-hub-hero__copy' ) ),
+	array( array( 'display: none;' ), array( 'flex-basis: 100% !important;' ) ) );
 
 // In the Site Editor each figure is not one element but three: the block's wrapper (which the editor
 // gives its own class, block-editor-block-list__block, beside the generated wp-block-wpcredits-program-stat),
@@ -2139,8 +2170,8 @@ preg_match_all( '/@media \( (?:max|min)-width: \d+px \)/', theme_file( 'assets/c
 $breakpoints = array_values( array_unique( $breakpoints[0] ) );
 sort( $breakpoints );
 
-ck( 'the hub\'s widths: the phone gutter up to 640px, the sign-in cards\' second column from 640px, and one breakpoint at 900px, below it stacked and from it side by side, so at a 900px window nothing is both',
-	$breakpoints, array( '@media ( max-width: 640px )', '@media ( max-width: 899px )', '@media ( min-width: 640px )', '@media ( min-width: 900px )' ) );
+ck( 'the hub\'s widths: the phone gutter up to 640px, the sign-in cards\' second column from 640px, the hero panel\'s narrower sides up to 1099px, and one breakpoint at 900px, below it stacked and from it side by side, so at a 900px window nothing is both',
+	$breakpoints, array( '@media ( max-width: 1099px )', '@media ( max-width: 640px )', '@media ( max-width: 899px )', '@media ( min-width: 640px )', '@media ( min-width: 900px )' ) );
 
 ck( 'anchored sections land below the sticky header',
 	array( rules_for( '.wpc-hub-anchored' ), count( $page->query( '//*[contains(@class,"wpc-hub-anchored")][@id]' ) ) ),
@@ -2154,7 +2185,7 @@ $has_classes = static function ( $one, $other ) use ( $page ) {
 // deep, so a one-class rule here ties with it, and loses where the sheet prints first.
 ck( 'the hero\'s columns, the doors\' grid and the band\'s grid keep their gaps over the editor\'s 20px flex gap: written two classes deep, on elements that print both classes, and no one-class rule for them is left',
 	array(
-		rules_for( '.wp-block-columns.wpc-hub-hero__cols' ),
+		array_values( array_filter( array_map( static function ( $rule ) { return preg_match( '/(?:^| )(gap: [^;]+;)/', $rule[1], $gap ) ? $gap[1] : ''; }, rules_placed( '.wp-block-columns.wpc-hub-hero__cols' ) ) ) ),
 		rules_for( '.wp-block-columns.wpc-hub-doors__grid' ),
 		rules_for( '.wp-block-columns.wpc-hub-cta__grid' ),
 		array( rules_for( '.wpc-hub-hero__cols' ), rules_for( '.wpc-hub-doors__grid' ), rules_for( '.wpc-hub-cta__grid' ) ),
@@ -2167,6 +2198,257 @@ ck( 'the hero\'s columns, the doors\' grid and the band\'s grid keep their gaps 
 ck( 'below 900px the hero\'s title is 34px: !important, because the display size preset\'s is, and two classes deep',
 	array_values( preg_grep( '/wpc-hero__title/', rules_in_media( '( max-width: 899px )' ) ) ),
 	array( '.wpc-hub-hero .wpc-hero__title { font-size: 34px !important; }' ) );
+
+// The hero is a soft brand-tint panel with its figures on a white card (1.24.16). The pattern stores the
+// panel's real padding on the columns themselves, 56px above and below and 48px at each side, so the
+// Site Editor's padding control shows what is drawn. An inline style outranks every selector, so the rule
+// at full width needs no !important (it says the same, a fallback for a copy of the block that stores
+// none), and each narrower padding, which has to beat the stored value on all four sides, is !important
+// and written after the one it narrows, at the same weight. Read as they are written, in order.
+$hero_panel  = '.wp-block-columns.wpc-hub-hero__cols';
+$hero_card   = '.wp-block-column.wpc-hub-hero__figures';
+$hero_sheet  = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) );
+$panel_rules = rules_placed( $hero_panel );
+$hero_px     = static function ( array $placed, $property ) {
+	return isset( $placed[0] ) && preg_match( '/(?:^|; )' . $property . ': (\d+)px;/', $placed[0][1], $got ) ? (int) $got[1] : 0;
+};
+$panel_style = found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__cols ")]', 'style' );
+
+ck( 'the hero\'s columns are a soft panel: the brand tint, 12px corners, the 44px gap, 56px above and below and 48px at each side; one rule, on the two classes the columns print and on no one-class rule, the padding with no !important because the pattern stores the same 56px and 48px on the element itself, which outranks it; the panel\'s selector names no figure, so with none to show the panel still draws and the copy runs across it',
+	array(
+		array_slice( $panel_rules, 0, 1 ),
+		rules_for( '.wpc-hub-hero__cols' ),
+		$has_classes( 'wp-block-columns', 'wpc-hub-hero__cols' ),
+		$panel_style,
+	),
+	array(
+		array( array( '', 'background: var( --wpc-brand-tint ); border-radius: 12px; gap: 44px; padding-bottom: 56px; padding-left: 48px; padding-right: 48px; padding-top: 56px;' ) ),
+		array(),
+		1,
+		array( 'padding-top:56px;padding-right:48px;padding-bottom:56px;padding-left:48px' ),
+	) );
+
+ck( 'the panel\'s padding narrows with the screen, one rule for each width: 32px at each side up to 1099px so the copy column keeps more room on a tablet in landscape, then 32px above and below and 24px at each side up to 899px, then 28px and 20px up to 640px; !important on all four sides, because the pattern stores all four, each written after the one it narrows',
+	array_slice( $panel_rules, 1 ),
+	array(
+		array( '@media ( max-width: 1099px )', 'padding-left: 32px !important; padding-right: 32px !important;' ),
+		array( '@media ( max-width: 899px )', 'gap: 28px; padding-bottom: 32px !important; padding-left: 24px !important; padding-right: 24px !important; padding-top: 32px !important;' ),
+		array( '@media ( max-width: 640px )', 'padding-bottom: 28px !important; padding-left: 20px !important; padding-right: 20px !important; padding-top: 28px !important;' ),
+	) );
+
+// The cascade for the one element, evaluated: the sheet's rules that apply at a window width, in order,
+// and the style attribute the pattern prints, which beats a normal declaration of any rule and loses to
+// an !important one. Only the properties the panel's rules and its attribute name.
+$declared = static function ( $text ) {
+	$found = array();
+
+	foreach ( explode( ';', $text ) as $declaration ) {
+		if ( false === strpos( $declaration, ':' ) ) {
+			continue;
+		}
+
+		list( $property, $value ) = array_map( 'trim', explode( ':', $declaration, 2 ) );
+
+		$found[ $property ] = array( trim( preg_replace( '/\s*!important$/', '', $value ) ), (bool) preg_match( '/!important$/', $value ) );
+	}
+
+	return $found;
+};
+
+$applies_at = static function ( $at, $width ) {
+	if ( '' === $at ) {
+		return true;
+	}
+
+	preg_match_all( '/\( (min|max)-width: (\d+)px \)/', $at, $conditions, PREG_SET_ORDER );
+
+	if ( 0 !== strpos( $at, '@media ' ) || ! $conditions ) {
+		return false;
+	}
+
+	foreach ( $conditions as $condition ) {
+		if ( 'min' === $condition[1] ? $width < (int) $condition[2] : $width > (int) $condition[2] ) {
+			return false;
+		}
+	}
+
+	return true;
+};
+
+$panel_padding_at = static function ( $width ) use ( $panel_rules, $panel_style, $declared, $applies_at ) {
+	$drawn = array();
+
+	foreach ( $panel_rules as $rule ) {
+		if ( ! $applies_at( $rule[0], $width ) ) {
+			continue;
+		}
+
+		foreach ( $declared( $rule[1] ) as $property => $held ) {
+			$rank = $held[1] ? 2 : 0;
+
+			if ( ! isset( $drawn[ $property ] ) || $rank >= $drawn[ $property ][1] ) {
+				$drawn[ $property ] = array( $held[0], $rank );
+			}
+		}
+	}
+
+	foreach ( $declared( $panel_style[0] ?? '' ) as $property => $held ) {
+		if ( ! isset( $drawn[ $property ] ) || $drawn[ $property ][1] < 1 ) {
+			$drawn[ $property ] = array( $held[0], 1 );
+		}
+	}
+
+	return implode( ' ', array_map( static function ( $side ) use ( $drawn ) { return isset( $drawn[ 'padding-' . $side ] ) ? $drawn[ 'padding-' . $side ][0] : 'none'; }, array( 'top', 'right', 'bottom', 'left' ) ) );
+};
+
+ck( 'the panel is drawn with the padding the design gives it at each window width, the pattern\'s style attribute and the sheet\'s rules together (above, right, below, left): 56px and 48px from 1100px, 56px and 32px from 900px to 1099px, 32px and 24px from 641px to 899px, 28px and 20px at 640px and under',
+	array_map( $panel_padding_at, array_combine( array( 1440, 1100, 1099, 1050, 950, 900, 899, 641, 640, 375 ), array( 1440, 1100, 1099, 1050, 950, 900, 899, 641, 640, 375 ) ) ),
+	array(
+		1440 => '56px 48px 56px 48px',
+		1100 => '56px 48px 56px 48px',
+		1099 => '56px 32px 56px 32px',
+		1050 => '56px 32px 56px 32px',
+		950  => '56px 32px 56px 32px',
+		900  => '56px 32px 56px 32px',
+		899  => '32px 24px 32px 24px',
+		641  => '32px 24px 32px 24px',
+		640  => '28px 20px 28px 20px',
+		375  => '28px 20px 28px 20px',
+	) );
+
+// The Columns block prints, for the padding it stores, the same four declarations in core's order (the
+// editor's save writes top, right, bottom, left), so the block validates and the padding control of the
+// Site Editor holds what the pattern draws.
+preg_match( '/<!-- wp:columns (\{.*?\}) -->\s*<div class="([^"]*)" style="([^"]*)">/s', $hero, $columns_block );
+
+$stored_padding = isset( $columns_block[1] ) ? ( json_decode( $columns_block[1], true )['style']['spacing']['padding'] ?? array() ) : array();
+
+ck( 'the Site Editor\'s padding control shows what is drawn: the columns block stores the panel\'s four paddings, 56px above and below and 48px at each side, and prints the same four in its style attribute in core\'s order, top, right, bottom, left, so the block comment and the markup agree',
+	array(
+		$stored_padding,
+		implode( ';', array_map( static function ( $side ) use ( $stored_padding ) { return 'padding-' . $side . ':' . $stored_padding[ $side ]; }, array_values( array_intersect( array( 'top', 'right', 'bottom', 'left' ), array_keys( $stored_padding ) ) ) ) ),
+		$columns_block[3] ?? '',
+		$columns_block[2] ?? '',
+	),
+	array(
+		array( 'top' => '56px', 'bottom' => '56px', 'left' => '48px', 'right' => '48px' ),
+		'padding-top:56px;padding-right:48px;padding-bottom:56px;padding-left:48px',
+		'padding-top:56px;padding-right:48px;padding-bottom:56px;padding-left:48px',
+		'wp-block-columns wpc-hub-hero__cols wpc-hub-stack',
+	) );
+
+ck( 'the figures column is a white card on the panel: the surface color, the theme\'s card radius, 6px above, 24px at each side and 18px below, 20px at each side up to 640px, the theme\'s card shadow (0 1px 3px at 6% black) with a soft glow of 10% brand blue 10px down and 28px wide; on two classes, the one the column prints beside its own, and none of the 1.24.15 one-class rule',
+	array(
+		rules_placed( $hero_card ),
+		$theme_json['settings']['custom']['shadow']['card'],
+		rules_placed( '.wpc-hub-hero__figures' ),
+		$has_classes( 'wp-block-column', 'wpc-hub-hero__figures' ),
+	),
+	array(
+		array(
+			array( '', 'background: var( --wpc-surface ); border-radius: var( --wpc-radius-card ); box-shadow: var( --wpc-shadow-card ), 0 10px 28px color-mix( in srgb, var( --wpc-brand ) 10%, transparent ); padding: 6px 24px 18px;' ),
+			array( '@media ( max-width: 640px )', 'padding-left: 20px; padding-right: 20px;' ),
+		),
+		'0 1px 3px rgba(0, 0, 0, 0.06)',
+		array(),
+		1,
+	) );
+
+preg_match_all( '/([^{}]*wpc-hub-hero__figures[^{}]*)\{([^{}]*(?<![\w-])border(?!-radius)[\w-]*\s*:[^{}]*)\}/', $hero_sheet, $hero_borders, PREG_SET_ORDER );
+preg_match_all( '/([^{}]*wpc-hub-hero[^{}]*)\{([^{}]*)\}/', $hero_sheet, $hero_rules, PREG_SET_ORDER );
+
+ck( 'no 1px ink rule is drawn above the figures any more, in any of the hero\'s rules: the card replaces it, so the card has no top border, only its own 6px of padding above the first figure; the only border rules that name the figures column are the forced-colors edge and the editor\'s hairline between figures',
+	array(
+		count( array_filter( $hero_rules, static function ( $rule ) { return (bool) preg_match( '/border-top:\s*1px solid var\( --wpc-ink \)/', $rule[2] ); } ) ),
+		array_map( static function ( $rule ) { return preg_replace( '/\s+/', ' ', trim( $rule[1] ) . ' { ' . trim( $rule[2] ) . ' }' ); }, $hero_borders ),
+	),
+	array(
+		0,
+		array(
+			'.wp-block-columns.wpc-hub-hero__cols, .wp-block-column.wpc-hub-hero__figures { border: 1px solid CanvasText; }',
+			'.wpc-hub-hero__figures > .block-editor-block-list__block.wp-block-wpcredits-program-stat ~ .block-editor-block-list__block.wp-block-wpcredits-program-stat .wpc-figure { border-top: 1px solid var( --wpc-line-card ); }',
+		),
+	) );
+
+// The panel's bottom edge is 96px above the sign-in section's content, as every object edge on the page is
+// 96px from the next section's content: the hero group's 48px under the panel, the sign-in section's 48px
+// above its eyebrow, and the main's block gap taken away between the two. The group carries no padding of
+// its own in the pattern, which would outrank these. Above the panel it has 24px, so the panel does not sit
+// against the header.
+$hero_group = rules_placed( '.wp-block-group.wpc-hub-hero' );
+$sign_group = rules_placed( '.wp-block-wpcredits-sign-in.wpc-hub-sign-in' );
+
+ck( 'the hero group is padded 24px above, so the panel does not sit against the header, and 48px below, so the panel\'s bottom edge is 96px above the sign-in section\'s eyebrow with the sign-in section\'s 48px and no block gap between; on the two classes the group prints, and no padding of its own in the pattern',
+	array(
+		$hero_group,
+		$hero_px( $hero_group, 'padding-bottom' ) + $hero_px( $sign_group, 'padding-top' ),
+		rules_for( '.wpc-main.wpc-hub > *' ),
+		found( $page, '/html/body/div[contains(concat(" ", @class, " "), " wpc-hub-hero ")][contains(concat(" ", @class, " "), " wp-block-group ")]', 'style' ),
+	),
+	array( array( array( '', 'padding-bottom: 48px; padding-top: 24px;' ) ), 96, array( 'margin-block-start: 0;' ), array( '' ) ) );
+
+ck( 'in forced colors, which drop backgrounds and shadows, the panel and the figures card each keep a 1px edge in the text color',
+	rules_placed( $hero_panel . ', ' . $hero_card ),
+	array( array( '@media ( forced-colors: active )', 'border: 1px solid CanvasText;' ) ) );
+
+// A selector of classes joined (`.a.b`) read as XPath: the elements that print every class.
+$hero_match = static function ( DOMXPath $xpath, $selector ) use ( $class_of ) {
+	return $xpath->query( '//*[' . implode( '][', array_map( $class_of, explode( '.', ltrim( $selector, '.' ) ) ) ) . ']' );
+};
+
+ck( 'the card and the panel are drawn where the markup puts them: the card\'s two classes match the figures column once on the front end, holding the three figures and their source, and once in the Site Editor, where the four figure wrappers sit directly in it, so the editor\'s figure rules above work inside the white card; the panel\'s two match the columns once',
+	array(
+		(bool) rules_placed( $hero_card ),
+		$hero_match( $page, $hero_card )->length,
+		count( $page->query( '//*[' . $class_of( 'wp-block-column' ) . '][' . $class_of( 'wpc-hub-hero__figures' ) . ']/*[' . $class_of( 'wp-block-wpcredits-program-stat' ) . ']' ) ),
+		$hero_match( $in_the_editor, $hero_card )->length,
+		count( $in_the_editor->query( '//*[' . $class_of( 'wp-block-column' ) . '][' . $class_of( 'wpc-hub-hero__figures' ) . ']/' . $editor_wrapper ) ),
+		$hero_match( $page, $hero_panel )->length,
+	),
+	array( true, 1, 4, 1, 4, 1 ) );
+
+$panel_tint = '';
+
+foreach ( $panel_rules as $panel_rule ) {
+	if ( '' === $panel_rule[0] && preg_match( '/(?:^|; )background: var\( --wpc-([a-z-]+) \);/', $panel_rule[1], $tint_found ) ) {
+		$panel_tint = $tint_found[1];
+	}
+}
+
+// A color of a stylesheet's rule, followed to its hex: the rule's own `color` (or the property given), a
+// `var( --wpc-token )`, that token's line in style.css's :root, and the palette or the custom colors of
+// theme.json that line names. The last rule of the selector wins, as the sheet's order has it.
+$rule_color = static function ( $selector, $sheet, $property = 'color' ) {
+	$rules = rules_for( $selector, $sheet );
+
+	if ( ! $rules || ! preg_match( '/(?:^|; )' . $property . ': var\( --wpc-([a-z0-9-]+) \);/', end( $rules ), $token ) ) {
+		return '';
+	}
+
+	if ( preg_match( '/^\s*--wpc-' . preg_quote( $token[1], '/' ) . ': var\( --wp--preset--color--([a-z0-9-]+) \);/m', theme_file( 'style.css' ), $named ) ) {
+		return color_of( $named[1] );
+	}
+
+	return preg_match( '/^\s*--wpc-' . preg_quote( $token[1], '/' ) . ': var\( --wp--custom--([a-z0-9-]+(?:--[a-z0-9-]+)*) \);/m', theme_file( 'style.css' ), $named ) ? color_of( str_replace( '--', '.', $named[1] ) ) : '';
+};
+
+$legible = static function ( $text, $ground ) {
+	return '' !== $text && '' !== $ground && (float) contrast( $text, $ground ) >= 4.5;
+};
+
+$tint         = '' !== $panel_tint ? color_of( $panel_tint ) : '';
+$outline_link = '.wp-block-button.is-style-outline .wp-block-button__link';
+$pill         = '.wpc-pill, p.is-style-pill';
+
+ck( 'the hero\'s text is legible on the panel, whatever color the panel is drawn in, each color read from the rule that gives it: the title\'s from the theme\'s text color, its second line\'s, the lede\'s and the outline button\'s from their rules, against the panel\'s own background, and the eyebrow pill\'s text on the pill\'s own, each at 4.5:1 or more',
+	array(
+		'the title'       => $legible( color_of( str_replace( 'var:preset|color|', '', $theme_json['styles']['color']['text'] ) ), $tint ),
+		'its second line' => $legible( $rule_color( '.wpc-hero__title em', 'style.css' ), $tint ),
+		'the lede'        => $legible( $rule_color( '.wpc-hub-lede', 'assets/css/hub.css' ), $tint ),
+		'the button'      => $legible( $rule_color( $outline_link, 'style.css' ), $tint ),
+		'the pill'        => $legible( $rule_color( $pill, 'style.css' ), $rule_color( $pill, 'style.css', 'background' ) ),
+	),
+	array( 'the title' => true, 'its second line' => true, 'the lede' => true, 'the button' => true, 'the pill' => true ) );
 
 // The heading before the grid is screen-reader only and takes no room, so the grid is the first
 // thing in the section; the flow layout's block gap would put it 20px below the top padding.

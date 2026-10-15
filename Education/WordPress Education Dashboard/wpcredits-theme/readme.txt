@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.15
+Stable tag: 1.24.16
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -175,6 +175,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.16 =
+* Education Hub homepage: the hero sits on a soft brand-tint panel, and its three figures on a white card.
+* Site header: signed in with the Student Report Card and Mentor Report Card links, or with the help button beside a short menu, the bar no longer scrolls the page sideways between 641px and 806px; it wraps onto two or three rows as it was designed to.
 
 = 1.24.15 =
 * Education Hub homepage: a new page template, "Education Hub home", with five patterns: a hero with the program's three outcome figures and their source, three doors for students, institutions and companies, every education program in one list with a field-of-study table, the pathway with the students' seven steps and the institutions' four partner levels, and a closing band. A page set to it shows the hub, and a page that is merely called education-hub does not; the homepage stays as it is until it is set to such a page under Settings > Reading, when the theme lets the template draw the front page. The hub's sections, cards and buttons keep their gaps over the editor's layout styles: 96px between sections, 16px between cards and 12px between a pair of buttons.

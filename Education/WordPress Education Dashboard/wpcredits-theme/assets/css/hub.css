@@ -71,16 +71,58 @@
    The hero
    ========================================================================== */
 
-/* The editor prints `:root :where( .is-layout-flex ) { gap: 20px }` for every flex layout, one class
-   deep, so a gap written with one class ties with it and loses wherever its sheet prints first. The
-   hero's, the doors' and the band's gaps are written two classes deep, which wins in either order. */
-.wp-block-columns.wpc-hub-hero__cols {
-	gap: 44px;
+/* The hero group sits 24px under the header, so the panel does not touch it, and 48px above the next
+   section. With the sign-in section's own 48px, and no block gap between (the rule at the top of this
+   sheet), the panel's bottom edge is 96px above the sign-in section's eyebrow, as every object on the page
+   is 96px from the next section's content. Two classes deep, the hub's habit, so no layout style
+   outranks it in either print order. */
+.wp-block-group.wpc-hub-hero {
+	padding-bottom: 48px;
+	padding-top: 24px;
 }
 
-/* The figures under a 1px ink rule, a row each. */
-.wpc-hub-hero__figures {
-	border-top: 1px solid var( --wpc-ink );
+/* The hero's columns are a soft panel: the brand tint behind both columns, 12px corners (the radius of
+   the homepage's brand band), 56px above and below, 48px at each side, and 44px between the copy and
+   the card. The pattern stores the same four paddings on the columns themselves, so the Site Editor's
+   padding control shows what is drawn; an inline style outranks every selector, which is why these four
+   need no !important, and they stand as the fallback for a copy of the block that stores none. Two
+   classes deep, because the editor prints `:root :where( .is-layout-flex ) { gap: 20px }` for every flex
+   layout, one class deep, so a gap written with one class ties with it and loses wherever its sheet
+   prints first; the doors' and the band's gaps are written this way too. The panel is not conditioned on
+   there being figures: with none to show, the figures column goes (below) and the copy runs across it. */
+.wp-block-columns.wpc-hub-hero__cols {
+	background: var( --wpc-brand-tint );
+	border-radius: 12px;
+	gap: 44px;
+	padding-bottom: 56px;
+	padding-left: 48px;
+	padding-right: 48px;
+	padding-top: 56px;
+}
+
+/* Below 1100px the panel's sides narrow to 32px, so in a narrow desktop window the copy column keeps more
+   room: the eyebrow holds one line from about 927px, where at 48px it did from about 958px, and the
+   title runs to three lines from about 990px, where it did from about 1030px. This and the two narrower
+   paddings below are !important, which only they need: they have to beat the padding the pattern stores
+   on the columns, an inline style, on all four sides, and each is written after the one it narrows, at
+   the same weight. */
+@media ( max-width: 1099px ) {
+	.wp-block-columns.wpc-hub-hero__cols {
+		padding-left: 32px !important;
+		padding-right: 32px !important;
+	}
+}
+
+/* The figures sit on a white card on the panel: the surface color, the theme's card radius and the
+   theme's card shadow with a soft glow of brand blue under it (10% of it, 10px down, 28px wide). The card
+   replaces the 1px ink rule this column drew above its figures in 1.24.15, so it has no top border.
+   Two classes deep, the column's own and the hero's, so no column style of core or the editor outranks
+   it in either print order. */
+.wp-block-column.wpc-hub-hero__figures {
+	background: var( --wpc-surface );
+	border-radius: var( --wpc-radius-card );
+	box-shadow: var( --wpc-shadow-card ), 0 10px 28px color-mix( in srgb, var( --wpc-brand ) 10%, transparent );
+	padding: 6px 24px 18px;
 }
 
 /* With no figure to show, the figures column is not displayed and the copy takes the whole width. */
@@ -93,8 +135,16 @@
 }
 
 @media ( max-width: 899px ) {
+	/* Stacked, the columns are 28px apart. The panel's padding narrows with the screen, so its content
+	   never touches its edge and nothing scrolls sideways: 32px above and below, 24px at each side.
+	   !important on all four sides, to beat the padding stored on the columns (an inline style), and
+	   written after the rules it narrows, so at equal weight this one wins. */
 	.wp-block-columns.wpc-hub-hero__cols {
 		gap: 28px;
+		padding-bottom: 32px !important;
+		padding-left: 24px !important;
+		padding-right: 24px !important;
+		padding-top: 32px !important;
 	}
 
 	/* The title's display size is a preset class that sets its size with !important, which the theme's
@@ -102,6 +152,32 @@
 	   more class. */
 	.wpc-hub-hero .wpc-hero__title {
 		font-size: 34px !important;
+	}
+}
+
+/* On a phone: 28px above and below the panel's content and 20px at each side, and the card's 20px at
+   each side. This comes after the 899px block above, whose rule it narrows at equal weight; !important
+   on all four sides for the reason it is there. */
+@media ( max-width: 640px ) {
+	.wp-block-columns.wpc-hub-hero__cols {
+		padding-bottom: 28px !important;
+		padding-left: 20px !important;
+		padding-right: 20px !important;
+		padding-top: 28px !important;
+	}
+
+	.wp-block-column.wpc-hub-hero__figures {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+}
+
+/* Forced colors drop a background and a shadow, so the panel and the card would lose their edges: each
+   keeps a 1px one in the system's text color, as the staircase's steps do further down. */
+@media ( forced-colors: active ) {
+	.wp-block-columns.wpc-hub-hero__cols,
+	.wp-block-column.wpc-hub-hero__figures {
+		border: 1px solid CanvasText;
 	}
 }
 

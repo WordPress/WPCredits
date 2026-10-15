@@ -15,8 +15,8 @@
 
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-hero","layout":{"type":"default"}} -->
-<div class="wp-block-group alignwide wpc-hub-hero"><!-- wp:columns {"className":"wpc-hub-hero__cols wpc-hub-stack","style":{"spacing":{"padding":{"top":"56px","bottom":"48px"}}}} -->
-<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:56px;padding-bottom:48px"><!-- wp:column {"width":"58%","className":"wpc-hub-hero__copy"} -->
+<div class="wp-block-group alignwide wpc-hub-hero"><!-- wp:columns {"className":"wpc-hub-hero__cols wpc-hub-stack","style":{"spacing":{"padding":{"top":"56px","bottom":"56px","left":"48px","right":"48px"}}}} -->
+<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:56px;padding-right:48px;padding-bottom:56px;padding-left:48px"><!-- wp:column {"width":"58%","className":"wpc-hub-hero__copy"} -->
 <div class="wp-block-column wpc-hub-hero__copy" style="flex-basis:58%"><!-- wp:paragraph {"className":"wpc-pill","style":{"spacing":{"margin":{"top":"0","bottom":"20px"}}}} -->
 <p class="wpc-pill" style="margin-top:0;margin-bottom:20px"><?php esc_html_e( 'Education programs from the WordPress project', 'wpcredits-theme' ); ?></p>
 <!-- /wp:paragraph -->
