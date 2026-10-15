@@ -99,7 +99,7 @@ A theme rollback removes the template, and the private page falls back to the pl
 
 ### 6.1 Width, spacing and type
 
-Every section is `alignwide` (1240px inside the theme's 40px root padding) and no text carries a character-width cap: a lede runs to the same right edge as the cards beside it. The root padding stays 40px on a phone, which at 375px would leave 295px; below 640px the hub's own sections take the header's phone gutter instead (`--wpc-chrome-gutter`, 20px), so their edge lines up with the brand above them and a card gets 335px. Sections are padded 48px top and bottom (the hero 56px and 48px, as `wpcredits/hero`), section heads sit 22px above their content, cards are 16px apart. Body text is 16px, card text and controls 14px, eyebrows 12px; nothing is smaller than 12px. Anchored sections carry `scroll-margin-top: var( --wpc-landing-offset )`, so a jump lands below the sticky header. Before shipping, every gap between consecutive blocks is measured at desktop width and at 375px.
+Every section is `alignwide` (1240px inside the theme's 40px root padding) and no text carries a character-width cap: a lede runs to the same right edge as the cards beside it. The root padding stays 40px on a phone, which at 375px would leave 295px; below 640px the hub's own sections take the header's phone gutter instead (`--wpc-chrome-gutter`, 20px), so their edge lines up with the brand above them and a card gets 335px. Sections are padded 48px top and bottom (the hero 56px and 48px, as `wpcredits/hero`) and meet with no block gap between them, so they sit 96px apart (the owner chose this over the live homepage's 116px, 15 Oct 2026), section heads sit 22px above their content, cards are 16px apart. Body text is 16px, card text and controls 14px, eyebrows 12px; nothing is smaller than 12px. Anchored sections carry `scroll-margin-top: var( --wpc-landing-offset )`, so a jump lands below the sticky header. Before shipping, every gap between consecutive blocks is measured at desktop width and at 375px.
 
 ### 6.2 Hero (`wpcredits/hub-hero`)
 
@@ -130,7 +130,7 @@ A screen-reader-only Heading 2, "Who this is for", then three `is-style-card` gr
 
 WordPress draws the front page with the `front-page` template before it looks at the page's own template, so assigning "Education Hub home" to the front page would change nothing. `inc/hub.php` therefore filters `frontpage_template_hierarchy`: when `show_on_front` is `page` and the page set as the homepage uses `page-education-hub`, `page-education-hub.php` goes first. Today the homepage (page 11) uses no template, so the filter returns the hierarchy untouched and post 544 keeps drawing the homepage.
 
-The switch, when the owner decides: publish the preview page (with the title the browser tab and search results should show), choose it under Settings > Reading as the homepage, and purge the edge cache. Switching back is choosing "Homepage" again. Post 544 and page 11 are never edited in either direction.
+The switch, when the owner decides: publish the preview page (with the title the browser tab and search results should show), choose it under Settings > Reading as the homepage, and purge the edge cache. Switching back is choosing "Homepage" again and setting the hub's page back to Private, so it is not left public at its own address (while it is the homepage, core sends its own address to the home address; after the switch back it would not). Post 544 and page 11 are never edited in either direction.
 
 ### 6.5 Programs (`wpcredits/hub-programs`)
 
@@ -314,8 +314,8 @@ Markup without JavaScript:
     <button type="button" class="wpc-hub-chip" data-filter="all" aria-pressed="true"
             data-announce="Showing all 6 programs">All</button>
     <button type="button" class="wpc-hub-chip" data-filter="student" aria-pressed="false"
-            data-announce="Showing 3 of 6 programs">For students</button>
-    ... For faculty (2 of 6), Career and credentials (3 of 6)
+            data-announce="Showing 3 of 6 programs for students">For students</button>
+    ... For faculty ("Showing 2 of 6 programs for faculty"), Career and credentials ("Showing 3 of 6 programs in Career and credentials")
   </div>
   <p class="screen-reader-text" role="status"></p>
   <div class="wpc-hub-programs">
@@ -389,7 +389,7 @@ Markup without JavaScript, for each ladder in turn (students, then institutions)
 
 Without JavaScript both ladders show one after the other: each its heading, lede, the staircase as a picture of the climb whose steps are in-page links to their details, then every detail as a card. The "next" buttons are the core Button markup, so the theme's outline button rules dress them unchanged.
 
-The staircase. At 900px and wider: a grid of `--wpc-count` equal columns, 8px apart, aligned to a 2px ink baseline, each step's `min-height` running from 160px (first) to 360px (last) through `--wpc-t`, so it rises and never cuts its text; step backgrounds run from brand tint (#eff2ff) to brand border (#c7d1ff) through `color-mix()`, with ink names (16px, 600) and ink-70 "by" lines (13px; 6.36:1 at the darkest step, 8.55:1 at the lightest). Below 900px: one column of full-width rows whose filled bar widens from 52% to 100% through `--wpc-t`, so the climb still reads, with nothing to scroll sideways at 375px. Detail cards: white, 1px `--wpc-line-card`, 8px radius, 28px padding; the count an eyebrow, the name 26px; the columns three (or two) side by side at 900px and wider, stacked below; the next line under a 1px rule.
+The staircase. At 900px and wider: a grid of `--wpc-count` equal columns, 8px apart, aligned to a 2px ink baseline, each step's `min-height` running from 160px (first) to 360px (last) through `--wpc-t`, so it rises and never cuts its text; step backgrounds run from brand tint (#eff2ff) to brand border (#c7d1ff) through `color-mix()`, with ink names (16px, 600) and ink-70 "by" lines (13px; 6.36:1 at the darkest step, 8.55:1 at the lightest). Below 900px: one column of full-width rows, each its text on `--wpc-surface-band` with a 6px brand bar along its bottom whose width runs from 1/`--wpc-count` of the row (first) to the whole row (last) through `--wpc-t`, so the climb still reads, no text crosses a color edge, and nothing scrolls sideways at 375px (the owner's choice, 15 Oct 2026; the pressed row stays brand with its bar in the brand tint). Detail cards: white, 1px `--wpc-line-card`, 8px radius, 28px padding; the count an eyebrow, the name 26px; the columns three (or two) side by side at 900px and wider, stacked below; the next line under a 1px rule.
 
 The script's job: unhide the switch and the hint; mark the block `is-interactive`; replace each step's link with a button of the same content and `aria-describedby`, adding `aria-pressed` and `aria-controls` (its detail's ID); press each ladder's `data-start` step and hide every other detail; on a step press, show that detail, hide the rest, and announce `data-announce`; on a switch press, show that ladder, hide the other (its own pressed step kept), and announce the ladder's heading. Pressed step: brand background, white name (5.61:1) and brand-tint "by" line (5.03:1), the focus ring outside it on white. A page opened at `#wpc-hub-step-institutions-2`, or a link followed to such an address, selects that ladder and step. Without the script the same address simply scrolls to the detail.
 
@@ -531,3 +531,10 @@ The first draft's eight questions are settled. Four are the owner's answers (sec
 4. **The preview (decision 13):** a Private page; Alana and the program team see it through screenshots the coordinating session takes at desktop width and at 375px.
 
 The benefit list of section 6.11 is the other thing to read at review: each "planned" mark comes off in a theme release once a public page confirms the item, or once the owner confirms it is offered and a page says so.
+
+## 12. The owner's choices during the build, 15 Oct 2026
+
+- **The chips' announcements name the audience.** Two chips said the same sentence ("Showing 3 of 6 programs"), which some screen readers do not repeat; each filtered chip now names its audience: "Showing %1$s of %2$s programs for students", "... for faculty", "... in Career and credentials" (All keeps "Showing all %s programs").
+- **The steps on a phone** are plain rows with a rising bar beneath each (section 7.3), chosen over the filled bars of rising width whose text ran past the fill.
+- **96px between sections** (section 6.1), the spec's padding without the editor's 20px block gap, chosen over the live homepage's 116px.
+- **A sign-in section right under the hero** (the owner: "There still needs to be a clear section to login for students, mentors, sponsors and institution in the new homepage"). A server-rendered block, `wpcredits/sign-in`, placed in the template between the hero and the doors: eyebrow "Already in a program?", Heading 2 "Sign in to your page" ("Open your page" for someone signed in), then a card each, in this order, for students (Student Report Card), mentors (Mentor Report Card), institutions (Institution Dashboard) and sponsors (Sponsor Dashboard). Signed out, a card's link is the login with that page as where to land ("Sign in"); signed in, it is the page itself ("Open"), the same four for everyone, a page the person cannot use saying so itself. A page that is not published leaves its card out; with none, the section is not shown. The cards are the doors' cards, the head the programs section's head; four across from 900px, two from 640px, one below. A block, not a pattern, because the links depend on who is looking and a pattern is frozen into the template when the template is saved in the Site Editor.

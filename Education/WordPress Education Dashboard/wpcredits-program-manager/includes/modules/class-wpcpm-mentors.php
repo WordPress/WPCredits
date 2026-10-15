@@ -133,7 +133,6 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	public function deactivate() {
 		WPCPM_Mentors_Sync::unschedule();
 		WPCPM_Mentor_Calls::unschedule();
-		WPCPM_Mail::clear_queue();
 	}
 
 	/**

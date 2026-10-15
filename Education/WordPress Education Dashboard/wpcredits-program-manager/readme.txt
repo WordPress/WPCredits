@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.24
+Stable tag: 1.122.25
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.25 =
+
+* Deactivating the plugin no longer drops the invitations still waiting to be sent: the queue is kept, and activating the plugin again, or the next visit to wp-admin by someone who manages the program, puts its sending back on the clock.
+* The calendar file attached to a Mentor calls email keeps a person's name as written: a comma, a semicolon or a colon stays, and a double quote shows as an apostrophe; a control character or a Unicode line separator in a name becomes a space.
+* The sponsors sync starts again on its own after a run that stopped halfway, for example on an Airtable error, instead of waiting for an Administrator to press Cancel or Read now.
 
 = 1.122.24 =
 

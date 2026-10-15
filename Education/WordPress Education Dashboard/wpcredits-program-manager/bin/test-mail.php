@@ -118,7 +118,11 @@ function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function wp_generate_password( $l = 12, $s = true, $e = false ) { return substr( md5( (string) mt_rand() ), 0, (int) $l ); }
 function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+// Every read counted by its option, so a check can say which code asked for the queue.
+function get_option( $k, $d = false ) {
+	$GLOBALS['option_reads'][ $k ] = ( $GLOBALS['option_reads'][ $k ] ?? 0 ) + 1;
+	return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d;
+}
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
@@ -167,10 +171,34 @@ function do_action( $h ) {
 	foreach ( $GLOBALS['filters'][ $h ] ?? array() as $cb ) { call_user_func_array( $cb, $args ); }
 }
 function wp_next_scheduled( $h ) { return $GLOBALS['cron'][ $h ] ?? false; }
-function wp_schedule_single_event( $w, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
+/**
+ * `wp_schedule_single_event()`, with core's rule for a duplicate: an event of the hook already booked
+ * within ten minutes of the time asked for makes the new one a no-op, and it answers false.
+ */
+function wp_schedule_single_event( $w, $h ) {
+	$next = wp_next_scheduled( $h );
+
+	if ( $next && abs( $next - $w ) <= 10 * MINUTE_IN_SECONDS ) {
+		return false;
+	}
+
+	$GLOBALS['cron'][ $h ] = $w;
+
+	return true;
+}
 function wp_schedule_event( $w, $r, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
 function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
-function wp_new_user_notification( $id, $dep = null, $notify = '' ) { $GLOBALS['invited'][] = (int) $id; }
+// A check can hand it something to run while a send is under way (`$GLOBALS['during_send']`, once).
+function wp_new_user_notification( $id, $dep = null, $notify = '' ) {
+	$GLOBALS['invited'][] = (int) $id;
+
+	if ( ! empty( $GLOBALS['during_send'] ) ) {
+		$run                   = $GLOBALS['during_send'];
+		$GLOBALS['during_send'] = null;
+		$run();
+	}
+}
+function wp_doing_ajax() { return ! empty( $GLOBALS['doing_ajax'] ); }
 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 /**
@@ -814,6 +842,291 @@ ck( 'and it drains to empty', array( count( $GLOBALS['invited'] ), WPCPM_Mail::q
 ck( 'everybody drained is stamped as invited',
     array( (int) get_user_meta( 105, 'wpcpm_student_invited', true ) > 0 ), array( true ) );
 
+/* ---- the queue across a deactivation (1.122.25) ------------------------- */
+
+echo "\n=== The queue across a deactivation ===\n";
+
+// A deactivation pauses the queue: the sending comes off the clock, the people waiting stay. Before
+// 1.122.25 the Mentors module's deactivation deleted the queue as well, and nothing put it back.
+WPCPM_Mail::clear_queue();
+$GLOBALS['invited'] = array();
+
+foreach ( array( 301, 302, 303 ) as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Waiting ' . $id, "w$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+	WPCPM_Mail::queue_invite( $id );
+}
+
+ck( 'three are waiting and their sending is on the clock',
+    array( WPCPM_Mail::queued(), false !== wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ), array( 3, true ) );
+
+WPCPM_Mail::deactivate();
+
+ck( 'a deactivation takes the sending off the clock and keeps all three waiting',
+    array( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), WPCPM_Mail::queue() ), array( false, array( 301, 302, 303 ) ) );
+
+WPCPM_Mail::schedule_drain();
+$booked = wp_next_scheduled( WPCPM_Mail::CRON_QUEUE );
+
+ck( 'booking the drain again leaves a time on the clock for the hook, about a minute out, and the three still waiting',
+    array( false !== $booked, false !== $booked && abs( $booked - ( time() + 60 ) ) <= 2, WPCPM_Mail::queued() ),
+    array( true, true, 3 ) );
+
+// A time nobody would book, so a second call that rewrote it could not pass for the first.
+$GLOBALS['cron'][ WPCPM_Mail::CRON_QUEUE ] = 12345;
+WPCPM_Mail::schedule_drain();
+
+ck( 'a second call leaves a booked event at its time', wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), 12345 );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::schedule_drain();
+
+ck( 'an empty queue books nothing', wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), false );
+
+// The queue option is read only when no event is booked: with the drain on the clock a wp-admin request
+// pays nothing, and with it off one read. A counter on the option shows the order of the two tests.
+WPCPM_Mail::queue_invite( 301 );
+$GLOBALS['option_reads'] = array();
+WPCPM_Mail::schedule_drain();
+$reads_booked = $GLOBALS['option_reads'][ WPCPM_Mail::QUEUE_OPTION ] ?? 0;
+WPCPM_Mail::deactivate();
+$GLOBALS['option_reads'] = array();
+WPCPM_Mail::schedule_drain();
+$reads_unbooked = $GLOBALS['option_reads'][ WPCPM_Mail::QUEUE_OPTION ] ?? 0;
+
+ck( 'the drain is looked for before the queue is read: no read of the queue option with the event booked, one without it',
+    array( $reads_booked, $reads_unbooked ), array( 0, 1 ) );
+
+$hooked    = array( 'WPCPM_Mail', 'maybe_schedule_drain' );
+$unguarded = array( 'WPCPM_Mail', 'schedule_drain' );
+
+ck( 'init() hooks the self-healing call on admin_init, through the check of who is asking, and not on init: the queue option is not autoloaded, so an init hook would read it on every front-end request',
+    array(
+        in_array( $hooked, $GLOBALS['filters']['admin_init'] ?? array(), true ),
+        in_array( $hooked, $GLOBALS['filters']['init'] ?? array(), true ),
+        in_array( $unguarded, $GLOBALS['filters']['admin_init'] ?? array(), true ),
+        in_array( $unguarded, $GLOBALS['filters']['init'] ?? array(), true ),
+    ),
+    array( true, false, false, false ) );
+
+// admin_init fires for every signed-in user, and for anonymous admin-ajax.php and admin-post.php
+// requests: only a request of somebody who manages the program, and not an AJAX one, books the drain.
+$was_uid    = $GLOBALS['uid'];
+$was_manage = $GLOBALS['manage'];
+
+$GLOBALS['manage'] = array( 7 );
+
+$visit = function ( $uid, $ajax ) {
+	WPCPM_Mail::deactivate();
+
+	$GLOBALS['uid']          = $uid;
+	$GLOBALS['doing_ajax']   = $ajax;
+	$GLOBALS['option_reads'] = array();
+
+	do_action( 'admin_init' );
+
+	$GLOBALS['uid']        = 0;
+	$GLOBALS['doing_ajax'] = false;
+
+	return array( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), $GLOBALS['option_reads'][ WPCPM_Mail::QUEUE_OPTION ] ?? 0 );
+};
+
+// One waiting (301), the event off: the state to heal.
+ck( 'an AJAX request of an Administrator books nothing, and does not read the queue',
+    $visit( 7, true ), array( false, 0 ) );
+ck( 'nor does a signed-in user who does not manage the program',
+    $visit( 8, false ), array( false, 0 ) );
+ck( 'nor does an anonymous request',
+    $visit( 0, false ), array( false, 0 ) );
+
+$visited = $visit( 7, false );
+
+ck( 'an Administrator\'s wp-admin request books the drain for the waiting queue, about a minute out',
+    array( false !== $visited[0] && abs( $visited[0] - ( time() + 60 ) ) <= 2, WPCPM_Mail::queued() ), array( true, 1 ) );
+
+$GLOBALS['uid']    = $was_uid;
+$GLOBALS['manage'] = $was_manage;
+WPCPM_Mail::clear_queue();
+
+// The calls are looked for at the start of a line, so a call commented out is not one.
+$activates   = '/function wpcpm_activate\(\) \{[^}]*\n\s*WPCPM_Mail::schedule_drain\(\);/';
+$deactivates = '/function wpcpm_deactivate\(\) \{[^}]*\n\s*WPCPM_Mail::deactivate\(\);/';
+$main        = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'wpcredits-program-manager.php' );
+
+ck( 'activation books the sending again and deactivation takes it off, in the plugin file',
+    array( (bool) preg_match( $activates, $main ), (bool) preg_match( $deactivates, $main ) ),
+    array( true, true ) );
+
+ck( 'and a call commented out in either function is not one',
+    array(
+        (bool) preg_match( $activates, "function wpcpm_activate() {\n\t// WPCPM_Mail::schedule_drain();\n}\n" ),
+        (bool) preg_match( $deactivates, "function wpcpm_deactivate() {\n\t// WPCPM_Mail::deactivate();\n}\n" ),
+        (bool) preg_match( $activates, "function wpcpm_activate() {\n\tWPCPM_Mail::schedule_drain();\n}\n" ),
+        (bool) preg_match( $deactivates, "function wpcpm_deactivate() {\n\tWPCPM_Mail::deactivate();\n}\n" ),
+    ),
+    array( false, false, true, true ) );
+
+$mentors_src  = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php' );
+$mentors_from = (int) strpos( $mentors_src, 'public function deactivate()' );
+$mentors_body = substr( $mentors_src, $mentors_from, (int) strpos( $mentors_src, "\n\t}\n", $mentors_from ) - $mentors_from );
+
+ck( 'the Mentors module\'s deactivation still stops its own work and no longer drops the queue',
+    array( false !== strpos( $mentors_body, 'WPCPM_Mentors_Sync::unschedule()' ), false !== strpos( $mentors_body, 'WPCPM_Mentor_Calls::unschedule()' ), false === strpos( $mentors_body, 'clear_queue' ) ),
+    array( true, true, true ) );
+
+// The pace: ten every two minutes, the next batch booked before the batch is sent. WP-Cron takes the
+// running event off the clock before it runs, so a drain that booked its next run only after the send
+// would leave the queue waiting with no event through the whole of it: a wp-admin request would book one
+// a minute out, and a second drain would start beside a slow send. Booked first, `schedule_drain()` finds
+// an event during every send and books nothing, and a batch that dies halfway has left the next on the
+// clock. Core drops a second single event booked within ten minutes of one already there, so the drain
+// clears the hook before it books, and the next batch is two minutes on whoever booked before it.
+$pace = function ( $with_visit ) {
+	WPCPM_Mail::clear_queue();
+	$GLOBALS['invited'] = array();
+	$GLOBALS['mid']     = null;
+
+	foreach ( range( 351, 362 ) as $id ) {
+		$GLOBALS['users'][ $id ] = new WP_User( $id, 'Waiting ' . $id, "w$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+		delete_user_meta( $id, 'wpcpm_student_invited' );
+		WPCPM_Mail::queue_invite( $id );
+	}
+
+	// The cron runner has taken the running event off the clock.
+	wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+
+	// As the first message goes out: what is on the clock, and what is on the clock after a manager's
+	// request has landed there, when this run has one.
+	$GLOBALS['during_send'] = function () use ( $with_visit ) {
+		$before = wp_next_scheduled( WPCPM_Mail::CRON_QUEUE );
+
+		if ( $with_visit ) {
+			$GLOBALS['uid']        = 7;
+			$GLOBALS['doing_ajax'] = false;
+			do_action( 'admin_init' );
+			$GLOBALS['uid']        = 0;
+		}
+
+		$GLOBALS['mid'] = array( $before, wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) );
+	};
+
+	WPCPM_Mail::drain_queue();
+
+	return array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued(), (int) wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) - time(), $GLOBALS['mid'] );
+};
+
+$GLOBALS['manage'] = array( 7 );
+$quiet             = $pace( false );
+$busy              = $pace( true );
+$GLOBALS['manage'] = array();
+WPCPM_Mail::clear_queue();
+
+// The seconds to the next batch, as 120 when within two of it, so a miss shows what it found.
+$about = function ( $seconds, $want ) {
+	return abs( $seconds - $want ) <= 2 ? $want : $seconds;
+};
+
+// A time on the clock as the seconds from now, as 120 when within two of it; null when none is booked.
+$ahead = function ( $at ) use ( $about ) {
+	return false === $at ? null : $about( $at - time(), 120 );
+};
+
+ck( 'a batch of ten goes out and the next is booked two minutes on',
+    array( $quiet[0], $quiet[1], $about( $quiet[2], 120 ) ), array( 10, 2, 120 ) );
+ck( 'the next batch is booked before the first message goes out: two minutes out while the batch is sending',
+    array( $ahead( $quiet[3][0] ), $ahead( $quiet[3][1] ) ), array( 120, 120 ) );
+ck( 'so an Administrator\'s wp-admin request in the middle of the send finds the drain booked and books nothing: the same time before and after it',
+    array( $busy[3][0] === $busy[3][1], $ahead( $busy[3][1] ) ), array( true, 120 ) );
+ck( 'and the next batch is still two minutes on, not a minute',
+    array( $busy[0], $busy[1], $about( $busy[2], 120 ) ), array( 10, 2, 120 ) );
+
+// A request, or a sync that queues somebody, may have booked the hook in the gap between the runner
+// taking the event off the clock and the drain's own booking: core would drop the drain's two-minutes-on
+// event as a duplicate of it, so the drain clears the hook first.
+WPCPM_Mail::clear_queue();
+$GLOBALS['invited'] = array();
+
+foreach ( range( 421, 432 ) as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Waiting ' . $id, "w$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+	delete_user_meta( $id, 'wpcpm_student_invited' );
+	WPCPM_Mail::queue_invite( $id );
+}
+
+$GLOBALS['cron'][ WPCPM_Mail::CRON_QUEUE ] = time() + 60;
+WPCPM_Mail::drain_queue();
+
+ck( 'an event a minute out, booked in the gap, does not leave the next batch a minute out: it is two minutes on',
+    array( count( $GLOBALS['invited'] ), $ahead( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ) ), array( 10, 120 ) );
+
+// A drain that dies inside its send - a fatal, a timeout, a mail host refusing the connection - leaves
+// its next run booked, with the people not in its batch still waiting.
+WPCPM_Mail::clear_queue();
+$GLOBALS['invited'] = array();
+
+foreach ( range( 371, 382 ) as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Waiting ' . $id, "w$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+	delete_user_meta( $id, 'wpcpm_student_invited' );
+	WPCPM_Mail::queue_invite( $id );
+}
+
+// The cron runner has taken the running event off the clock; the first message throws.
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+$GLOBALS['during_send'] = function () {
+	throw new RuntimeException( 'The mail host refused the connection.' );
+};
+
+$died = false;
+
+try {
+	WPCPM_Mail::drain_queue();
+} catch ( RuntimeException $e ) {
+	$died = true;
+}
+
+ck( 'a drain that dies on its first message has started one send and left the next run booked two minutes out, with the two not in its batch still waiting',
+    array( $died, count( $GLOBALS['invited'] ), $ahead( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ), WPCPM_Mail::queue() ),
+    array( true, 1, 120, array( 381, 382 ) ) );
+
+// That run goes on from there: the two left are sent, and as it is the last batch it books nothing.
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+WPCPM_Mail::drain_queue();
+
+ck( 'and the run that follows sends the two left and books nothing',
+    array( array_slice( $GLOBALS['invited'], 1 ), WPCPM_Mail::queued(), wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ), array( array( 381, 382 ), 0, false ) );
+
+// The last batch books nothing, before its send or after it, and finishes the run; the batch before it
+// books the next.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+$last               = range( 441, 455 );
+
+foreach ( $last as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Waiting ' . $id, "w$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+	delete_user_meta( $id, 'wpcpm_student_invited' );
+}
+
+WPCPM_Mail::queue_invites( $last );
+
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+WPCPM_Mail::drain_queue();
+$first_batch = array( count( $GLOBALS['invited'] ), $ahead( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ), WPCPM_Mail::run()['finished'] );
+
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+$GLOBALS['mid']         = array( 'unset', 'unset' );
+$GLOBALS['during_send'] = function () {
+	$GLOBALS['mid'] = array( wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), WPCPM_Mail::run()['finished'] );
+};
+WPCPM_Mail::drain_queue();
+
+ck( 'a batch with people left behind it books the next: ten out of fifteen, the next two minutes on, the run still open',
+    $first_batch, array( 10, 120, 0 ) );
+ck( 'the last batch, five people, books nothing before its send or after it, and the run is open while it sends and finished once it has',
+    array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued(), $GLOBALS['mid'], wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), WPCPM_Mail::run()['finished'] > 0 ),
+    array( 15, 0, array( false, 0 ), false, true ) );
+
+WPCPM_Mail::dismiss_run();
+WPCPM_Mail::clear_queue();
+
 /* ---- bulk invitations --------------------------------------------------- */
 
 echo "\n=== Bulk invitations ===\n";
@@ -831,6 +1144,7 @@ foreach ( $bulk as $id ) {
 $added = WPCPM_Mail::queue_invites( $bulk );
 
 ck( 'everybody named is queued', array( $added, WPCPM_Mail::queued() ), array( 41, 41 ) );
+ck( 'and their sending is put on the clock, about a minute out', array( abs( (int) wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) - ( time() + 60 ) ) <= 2 ), array( true ) );
 
 // The run is what makes progress reportable: the queue alone only knows who is left, so a screen
 // reading it could say "31 waiting" but never "10 of 41 sent".
@@ -1696,6 +2010,224 @@ ck( 'every event ends at its own end, carries its title, the mentor as organizer
 ck( 'each event of a series file carries its own session\'s version',
     array( event_of( $versioned, 77 )['SEQUENCE'] ?? array(), event_of( $versioned, 78 )['SEQUENCE'] ?? array() ),
     array( array( 'SEQUENCE:4' ), array( 'SEQUENCE:1' ) ) );
+
+echo "\n=== A name in the calendar file ===\n";
+
+// A person's name in the file (1.122.25). `param()` replaced a comma, a semicolon and a colon
+// with a space although every value is written inside quotes, where all three are legal (RFC 5545,
+// 3.2), and a double quote with a space too: a display name of `Ana "Annie" Ruiz, PhD; Lab: A`
+// showed in the invitee list as `Ana Annie Ruiz PhD Lab A`. The format has no way to write a double
+// quote in a value, so it shows as an apostrophe; RFC 6868's caret form is not used, because
+// Outlook shows the carets as they are.
+
+/**
+ * Splits one unfolded content line the way a calendar reader does: at the first colon that is not
+ * inside double quotes.
+ *
+ * @param string $line One unfolded content line.
+ * @return string[] The property name with its parameters, then the value; the whole line and an
+ *                  empty value when no colon stands outside the quotes.
+ */
+function ics_split( $line ) {
+	$quoted = false;
+
+	for ( $i = 0, $length = strlen( $line ); $i < $length; $i++ ) {
+		if ( '"' === $line[ $i ] ) {
+			$quoted = ! $quoted;
+		} elseif ( ':' === $line[ $i ] && ! $quoted ) {
+			return array( substr( $line, 0, $i ), substr( $line, $i + 1 ) );
+		}
+	}
+
+	return array( $line, '' );
+}
+
+/**
+ * The lines of a property in the event a file holds for call 77, whose value is the given address.
+ *
+ * @param string $ics      The file's contents.
+ * @param string $property `ATTENDEE` or `ORGANIZER`.
+ * @param string $address  The address the line points at.
+ * @return string[]
+ */
+function ics_lines_for( $ics, $property, $address ) {
+	$found = array();
+
+	foreach ( event_of( $ics, 77 )[ $property ] ?? array() as $line ) {
+		if ( 'mailto:' . $address === ics_split( $line )[1] ) {
+			$found[] = $line;
+		}
+	}
+
+	return $found;
+}
+
+$ana        = new WP_User( 61, 'Ana &quot;Annie&quot; Ruiz, PhD; Lab: A', 'ana@example.test' );
+$ana_as_lu  = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $ana, 'Mentor call', 'x', '' );
+$ana_as_ada = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $ana, $GLOBALS['users'][30], 'Mentor call', 'x', '' );
+
+ck( 'a student\'s name is written as it is: the comma, the semicolon and the colon stay, a double quote shows as an apostrophe',
+    ics_lines_for( $ana_as_lu, 'ATTENDEE', 'ana@example.test' ),
+    array( 'ATTENDEE;CN="Ana \'Annie\' Ruiz, PhD; Lab: A";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ana@example.test' ) );
+ck( 'and a mentor\'s, as the organizer and as an attendee',
+    array(
+        ics_lines_for( $ana_as_ada, 'ORGANIZER', 'ana@example.test' ),
+        ics_lines_for( $ana_as_ada, 'ATTENDEE', 'ana@example.test' ),
+    ),
+    array(
+        array( 'ORGANIZER;CN="Ana \'Annie\' Ruiz, PhD; Lab: A":mailto:ana@example.test' ),
+        array( 'ATTENDEE;CN="Ana \'Annie\' Ruiz, PhD; Lab: A";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ana@example.test' ),
+    ) );
+
+// The quotes are the value's delimiters and nothing else: a third one would end the value early, and
+// the colon that follows it would be read as the end of the parameters.
+$ana_lines = array(
+	ics_lines_for( $ana_as_lu, 'ATTENDEE', 'ana@example.test' )[0] ?? '',
+	ics_lines_for( $ana_as_ada, 'ORGANIZER', 'ana@example.test' )[0] ?? '',
+);
+ck( 'the part of each line that holds the name carries exactly two double quotes, and the value after it none',
+    array(
+        array( substr_count( ics_split( $ana_lines[0] )[0], '"' ), substr_count( ics_split( $ana_lines[0] )[1], '"' ) ),
+        array( substr_count( ics_split( $ana_lines[1] )[0], '"' ), substr_count( ics_split( $ana_lines[1] )[1], '"' ) ),
+    ),
+    array( array( 2, 0 ), array( 2, 0 ) ) );
+ck( 'a reader that splits a line at the first colon outside the quotes finds the address after the name\'s own colon',
+    array( ics_split( $ana_lines[0] )[1], ics_split( $ana_lines[1] )[1], ics_split( $ana_lines[0] )[0] ),
+    array(
+        'mailto:ana@example.test',
+        'mailto:ana@example.test',
+        'ATTENDEE;CN="Ana \'Annie\' Ruiz, PhD; Lab: A";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE',
+    ) );
+
+// The longer name makes a line of 116 octets: it still folds at 75, and the unfolded line is the one above.
+$ana_raw  = explode( "\r\n", trim( $ana_as_lu ) );
+$ana_long = array_filter( $ana_raw, function ( $line ) { return strlen( $line ) > 75; } );
+ck( 'the longer line folds to 75 octets like any other',
+    array( count( $ana_long ), count( array_filter( $ana_raw, function ( $line ) { return 0 === strpos( $line, ' ' ); } ) ) > 0 ),
+    array( 0, true ) );
+
+// A line break would end the property, and a tab or any other control character has no place in a
+// quoted string. Every file line has to stay a property of its own.
+$only_properties = function ( $ics ) {
+	foreach ( explode( "\r\n", trim( str_replace( "\r\n ", '', $ics ) ) ) as $line ) {
+		if ( ! preg_match( '/^[A-Z-]+[;:]/', $line ) ) {
+			return false;
+		}
+	}
+
+	return true;
+};
+$broken      = new WP_User( 62, "Line\r\nBreak\tTab", 'line@example.test' );
+$broken_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $broken, 'Mentor call', 'x', '' );
+ck( 'a name with a line break and a tab is one line with single spaces',
+    array( ics_lines_for( $broken_file, 'ATTENDEE', 'line@example.test' ), $only_properties( $broken_file ) ),
+    array( array( 'ATTENDEE;CN="Line Break Tab";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:line@example.test' ), true ) );
+
+$hostile      = new WP_User( 63, "Eve\r\nATTENDEE:mailto:evil@example.test", 'eve@example.test' );
+$hostile_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $hostile, 'Mentor call', 'x', '' );
+ck( 'a name cannot start a property of its own, whatever it holds',
+    array(
+        count( event_of( $hostile_file, 77 )['ATTENDEE'] ),
+        ics_lines_for( $hostile_file, 'ATTENDEE', 'evil@example.test' ),
+        ics_lines_for( $hostile_file, 'ATTENDEE', 'eve@example.test' ),
+        $only_properties( $hostile_file ),
+    ),
+    array(
+        2,
+        array(),
+        array( 'ATTENDEE;CN="Eve ATTENDEE:mailto:evil@example.test";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:eve@example.test' ),
+        true,
+    ) );
+
+// The NUL is inside the name, not at its end, where `trim()` would take it whatever the class held; the
+// others stand at the class's edges (backspace, the last control character, delete) and between them.
+$controls      = new WP_User( 64, "Ana\x00\x01Ruiz\x08\x1B\x1F\x7F Lab", 'ctl@example.test' );
+$controls_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $controls, 'Mentor call', 'x', '' );
+ck( 'any other control character is a space as well',
+    array( ics_lines_for( $controls_file, 'ATTENDEE', 'ctl@example.test' ), 1 === preg_match( '/[\x00-\x08\x0B-\x1F\x7F]/', str_replace( "\r\n", '', $controls_file ) ) ),
+    array( array( 'ATTENDEE;CN="Ana Ruiz Lab";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ctl@example.test' ), false ) );
+
+// And every one of them alone, so no character of the class goes unread between the ones above.
+$unspaced = array();
+
+foreach ( array_merge( range( 0, 31 ), array( 127 ) ) as $control ) {
+	$alone      = new WP_User( 69, 'Ana' . chr( $control ) . 'Ruiz', 'one@example.test' );
+	$alone_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $alone, 'Mentor call', 'x', '' );
+
+	if ( array( 'ATTENDEE;CN="Ana Ruiz";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:one@example.test' ) !== ics_lines_for( $alone_file, 'ATTENDEE', 'one@example.test' ) ) {
+		$unspaced[] = $control;
+	}
+}
+
+ck( 'each ASCII control character, alone in a name, is a space', $unspaced, array() );
+
+// U+2028, U+2029 and U+0085 are not control characters of the ASCII range the class covers, but a
+// reader that splits on Unicode line separators takes each for a line break. Each is a space.
+foreach ( array( 'U+2028' => "\xE2\x80\xA8", 'U+2029' => "\xE2\x80\xA9", 'U+0085' => "\xC2\x85" ) as $code => $separator ) {
+	$separated      = new WP_User( 67, 'Ana' . $separator . 'Ruiz', 'sep@example.test' );
+	$separated_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $separated, 'Mentor call', 'x', '' );
+
+	ck( 'a name holding ' . $code . ' stays one line, the separator a space',
+	    array( ics_lines_for( $separated_file, 'ATTENDEE', 'sep@example.test' ), false !== strpos( $separated_file, $separator ) ),
+	    array( array( 'ATTENDEE;CN="Ana Ruiz";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:sep@example.test' ), false ) );
+}
+
+// They are matched by bytes, not by a pattern that reads UTF-8: a name that is not valid UTF-8 would
+// make such a pattern fail and the whole name vanish, and here it is kept as it came.
+$invalid      = new WP_User( 67, "Ana\xC3(Ruiz", 'bad@example.test' );
+$invalid_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $invalid, 'Mentor call', 'x', '' );
+ck( 'a name that is not valid UTF-8 is kept as it came',
+    ics_lines_for( $invalid_file, 'ATTENDEE', 'bad@example.test' ),
+    array( "ATTENDEE;CN=\"Ana\xC3(Ruiz\";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:bad@example.test" ) );
+
+// WordPress stores a double quote as `&quot;`, and a name can reach it as `&#34;` or `&#x22;` as well;
+// each ends as an apostrophe. An ampersand is stored as `&amp;`, so `&amp;quot;` is the text `&quot;`
+// the person typed: decoded once, it holds no double quote and stays as text.
+$entities = array(
+	'A &quot;B&quot; C'         => "A 'B' C",
+	'A &#34;B&#34; C'           => "A 'B' C",
+	'A &#x22;B&#x22; C'         => "A 'B' C",
+	'A &amp;quot;B&amp;quot; C' => 'A &quot;B&quot; C',
+);
+$entity_lines = array();
+$entity_wants = array();
+
+foreach ( $entities as $stored => $shown ) {
+	$entity_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], new WP_User( 68, $stored, 'ent@example.test' ), 'Mentor call', 'x', '' );
+	$entity_line = ics_lines_for( $entity_file, 'ATTENDEE', 'ent@example.test' );
+
+	$entity_lines[ $stored ] = array( $entity_line, substr_count( ics_split( $entity_line[0] ?? '' )[0], '"' ) );
+	$entity_wants[ $stored ] = array( array( 'ATTENDEE;CN="' . $shown . '";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ent@example.test' ), 2 );
+}
+
+ck( 'every form a stored double quote can take ends as an apostrophe, and a quote entity typed as text stays text, two double quotes in the name part either way',
+    $entity_lines, $entity_wants );
+
+// A double quote alone has nothing else to show: the apostrophe it becomes, in the quotes every value gets.
+$lone = new WP_User( 65, '&quot;', 'lone@example.test' );
+ck( 'a name of one double quote is one apostrophe in quotes',
+    ics_lines_for( WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $lone, 'Mentor call', 'x', '' ), 'ATTENDEE', 'lone@example.test' ),
+    array( 'ATTENDEE;CN="\'";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:lone@example.test' ) );
+
+// What was written correctly before is written the same: an apostrophe, an ampersand and an angle
+// bracket, an accent, and a name of nothing but spaces.
+$plain = array(
+	'Kai O&#039;Example'     => "Kai O'Example",
+	'Ben &amp; Bo &lt;Mentor' => 'Ben & Bo <Mentor',
+	'Zoë Ćwiąkalski'         => 'Zoë Ćwiąkalski',
+	'   '                    => '',
+);
+$kept  = array();
+$was   = array();
+
+foreach ( $plain as $stored => $shown ) {
+	$plain_user = new WP_User( 66, $stored, 'plain@example.test' );
+	$plain_file = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $plain_user, 'Mentor call', 'x', '' );
+	$kept[]     = ics_lines_for( $plain_file, 'ATTENDEE', 'plain@example.test' );
+	$was[]      = array( 'ATTENDEE;CN="' . $shown . '";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:plain@example.test' );
+}
+
+ck( 'a name that needed no cleaning is written as it was', $kept, $was );
 
 
 echo "\n=== The series message ===\n";

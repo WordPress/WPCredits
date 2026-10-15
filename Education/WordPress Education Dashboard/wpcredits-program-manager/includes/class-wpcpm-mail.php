@@ -109,6 +109,7 @@ class WPCPM_Mail {
 	public static function init() {
 		add_filter( 'wp_new_user_notification_email', array( __CLASS__, 'welcome_email' ), 10, 3 );
 		add_action( self::CRON_QUEUE, array( __CLASS__, 'drain_queue' ) );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_schedule_drain' ) );
 		add_action( 'admin_post_' . self::ACTION_STOP, array( __CLASS__, 'handle_stop' ) );
 		add_action( 'admin_post_' . self::ACTION_DISMISS, array( __CLASS__, 'handle_dismiss' ) );
 
@@ -540,9 +541,7 @@ class WPCPM_Mail {
 
 		// Cron only runs on a request, and the next one may be a while off on a quiet site.
 		// Asking for a run now means the first batch goes out promptly.
-		if ( ! wp_next_scheduled( self::CRON_QUEUE ) ) {
-			wp_schedule_single_event( time() + 60, self::CRON_QUEUE );
-		}
+		self::schedule_drain();
 	}
 
 	/**
@@ -603,9 +602,7 @@ class WPCPM_Mail {
 			false
 		);
 
-		if ( ! wp_next_scheduled( self::CRON_QUEUE ) ) {
-			wp_schedule_single_event( time() + 60, self::CRON_QUEUE );
-		}
+		self::schedule_drain();
 
 		return count( $fresh );
 	}
@@ -660,7 +657,7 @@ class WPCPM_Mail {
 	 * Send the next batch of invitations.
 	 *
 	 * After each message the account is stamped by the rule every route that sends an invitation
-	 * follows (`stamp_invited()`).
+	 * follows (`stamp_invited()`). With anybody left, the next run is booked before the first message.
 	 */
 	public static function drain_queue() {
 		$queue = self::queue();
@@ -674,13 +671,21 @@ class WPCPM_Mail {
 
 		$batch = array_splice( $queue, 0, self::QUEUE_BATCH );
 
-		// Written back *before* sending. If the batch dies halfway - a fatal, a timeout, a
-		// mail host refusing the connection - the names in it are already out of the queue,
-		// so the next run moves on instead of retrying the same ten for ever.
+		// Written back, and the next run booked, *before* sending. A batch that dies halfway - a fatal,
+		// a timeout, a mail host refusing the connection - has its names out of the queue and the next
+		// run on the clock, so that run moves on instead of retrying the same ten for ever.
 		if ( empty( $queue ) ) {
 			delete_option( self::QUEUE_OPTION );
 		} else {
 			update_option( self::QUEUE_OPTION, $queue, false );
+
+			// With an event on the clock for the whole send, `schedule_drain()` books nothing, so no
+			// second drain starts beside a slow one. The runner took the running event off the clock,
+			// but a request, or a sync queueing somebody, may have booked one a minute out since;
+			// core drops a second single event of the hook within ten minutes of it, so the hook is
+			// cleared first and the pace stays ten every two minutes.
+			wp_clear_scheduled_hook( self::CRON_QUEUE );
+			wp_schedule_single_event( time() + 120, self::CRON_QUEUE );
 		}
 
 		foreach ( $batch as $user_id ) {
@@ -700,12 +705,10 @@ class WPCPM_Mail {
 			self::stamp_invited( $user );
 		}
 
-		if ( ! empty( $queue ) ) {
-			wp_schedule_single_event( time() + 120, self::CRON_QUEUE );
-		} else {
-			// Stamped only once the last batch has actually been sent, not when the queue option
-			// was emptied above - that happens *before* sending, so the two are not the same
-			// moment and a screen reading the earlier one would say "finished" mid-send.
+		// The last batch books nothing. The run is stamped finished only once that batch has been sent,
+		// not when the queue option was emptied above, which is *before* sending: a screen reading
+		// that moment would say "finished" mid-send.
+		if ( empty( $queue ) ) {
 			self::finish_run();
 		}
 	}
@@ -1239,6 +1242,52 @@ class WPCPM_Mail {
 	 */
 	public static function clear_queue() {
 		delete_option( self::QUEUE_OPTION );
+		wp_clear_scheduled_hook( self::CRON_QUEUE );
+	}
+
+	/**
+	 * Put the drain on the clock when invitations are waiting and nothing will send them.
+	 *
+	 * The drain is a single event booked only when somebody is queued, so an event lost any other
+	 * way (a deactivation, a cron array rewritten under it) leaves a queue that no request sends.
+	 * Called by activation, by the functions that queue somebody, and on `admin_init` through
+	 * `maybe_schedule_drain()`. The event is looked for before the queue is read: the queue option
+	 * is not autoloaded, so with an event booked, which is the common state of a busy queue, the
+	 * option is not read at all.
+	 */
+	public static function schedule_drain() {
+		if ( wp_next_scheduled( self::CRON_QUEUE ) || array() === self::queue() ) {
+			return;
+		}
+
+		wp_schedule_single_event( time() + 60, self::CRON_QUEUE );
+	}
+
+	/**
+	 * `admin_init`: book the drain again when a wp-admin visit finds a queue with nothing to send it.
+	 *
+	 * `admin_init` fires on every wp-admin screen for every signed-in user, and on `admin-ajax.php`
+	 * and `admin-post.php` for anonymous requests too, which include the public AJAX calls many
+	 * themes and plugins make. Only a request that is not AJAX, made by somebody who manages the
+	 * program, gets past the first line: an AJAX request (Heartbeat among them) and everybody else
+	 * return before the queue option is read. Not on `init`, which every front-end request fires.
+	 */
+	public static function maybe_schedule_drain() {
+		if ( wp_doing_ajax() || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
+		self::schedule_drain();
+	}
+
+	/**
+	 * Deactivation: the drain off the clock, the queue kept.
+	 *
+	 * The queue is program data and the event is scheduled work, the line the plugin's main file
+	 * draws for roles and users. Activation, or the next wp-admin visit of somebody who manages the
+	 * program, books the drain again (`maybe_schedule_drain()`).
+	 */
+	public static function deactivate() {
 		wp_clear_scheduled_hook( self::CRON_QUEUE );
 	}
 

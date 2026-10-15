@@ -248,16 +248,29 @@ class WPCPM_ICS {
 	/**
 	 * Clean a value used as a property parameter, such as a `CN`.
 	 *
-	 * Parameters have no escape sequence for a double quote, so the only safe thing to do
-	 * with the characters that would break out of one is to drop them.
+	 * The value is always written inside double quotes, and inside them a comma, a semicolon and a
+	 * colon are legal (RFC 5545, 3.2), so a person's name keeps all three. What a quoted value cannot
+	 * hold is a double quote, which the format has no escape for, and a control character or a Unicode
+	 * line separator; those are replaced, a double quote by an apostrophe and the others by a space.
 	 *
 	 * @param string $value Raw value.
 	 * @return string
 	 */
 	private static function param( $value ) {
 		$value = wp_specialchars_decode( (string) $value, ENT_QUOTES );
-		$value = str_replace( array( '"', ';', ':', ',', "\r", "\n" ), ' ', $value );
 
+		// A double quote cannot appear in a parameter value, quoted or not, and the format has no
+		// backslash escape for one (RFC 5545, 3.2). An apostrophe keeps the name readable on every
+		// client; RFC 6868's ^' shows as two stray carets on the ones that do not read it.
+		$value = str_replace( '"', "'", $value );
+
+		// A reader that splits on Unicode separators ends a line at U+2028, U+2029 and U+0085; matched by bytes.
+		$value = str_replace( array( "\xE2\x80\xA8", "\xE2\x80\xA9", "\xC2\x85" ), ' ', $value );
+
+		// A line break would end the property, and no control character is allowed in a quoted string.
+		$value = preg_replace( '/[\x00-\x1F\x7F]+/', ' ', $value );
+
+		// `;` `:` and `,` are safe inside the quotes every value is given.
 		return '"' . trim( preg_replace( '/\s+/', ' ', $value ) ) . '"';
 	}
 

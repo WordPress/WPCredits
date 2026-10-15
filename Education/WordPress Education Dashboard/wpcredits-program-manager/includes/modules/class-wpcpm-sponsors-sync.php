@@ -220,10 +220,21 @@ final class WPCPM_Sponsors_Sync {
 	}
 
 	/**
-	 * The recurring run.
+	 * The recurring run: a new run, unless one is in progress and still ticking.
 	 */
 	public static function cron_daily() {
-		if ( self::is_running() ) {
+		// **A run in progress is left alone.** `start()` wipes the state and begins again, so a run
+		// that is still ticking would be restarted from the top by the next scheduled one, and
+		// a run slower than the gap between them would never finish.
+		//
+		// Unless it has stalled: a run whose ticks stopped is not going to finish on its own, and
+		// refusing to start on account of it would be worse than the restart it is avoiding. An
+		// Airtable error is the usual way to get there - `run_tick()` stores the error, keeps the
+		// state and books no further tick - and the error stays shown until the run that replaces
+		// this one clears it, which `start()` does.
+		$progress = self::progress();
+
+		if ( ! empty( $progress['running'] ) && empty( $progress['stalled'] ) ) {
 			return;
 		}
 
@@ -662,11 +673,12 @@ final class WPCPM_Sponsors_Sync {
 			);
 
 			// And the run ends here rather than staying in this phase, which is the half that
-			// makes the question answerable at all. `cron_daily()` returns early for as long as
-			// a run is in progress, so a run left here would keep the next scheduled one from
-			// ever being the second run; and the Sponsors screen polls the tick every three
-			// seconds, which re-enters this phase on the run the refusal left, so a manager
-			// watching the panel would have the shrink confirmed for them within one poll.
+			// makes the question answerable at all. A run left here books no further tick, goes
+			// quiet and is taken over by the next recurring run once it has been quiet for over
+			// two minutes; only the Sponsors screen's poll keeps such a run touched: it polls the
+			// tick every three seconds, which re-enters this phase on the run the refusal left, so
+			// a manager watching the panel would have the shrink confirmed for them within one
+			// poll.
 			$state['phase'] = 'done';
 
 			return new WP_Error(

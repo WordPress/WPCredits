@@ -695,12 +695,12 @@ run_to_end();
 
 echo "\n=== A shrink is confirmed by the next run, never by the run that saw it ===\n";
 // The refusal is a question put to the next run, so two things have to hold. The refused run
-// ends rather than sitting in the records phase: cron_daily() returns early for as long as a
-// run is in progress, so a run left there would keep the next scheduled one from ever being
-// the second run this waits for. And the mark is keyed to the run that saw the shrink: the
-// Sponsors screen polls the tick every three seconds and WPCPM_Sync_Module::handle_tick()
-// re-enters the phase on whatever run the state holds, so a mark answering to the count alone
-// would be confirmed by the next poll, with nobody deciding anything.
+// ends rather than sitting in the records phase, where it would book no further tick, go quiet
+// and be taken over by the next recurring run, and only the Sponsors screen's poll would keep it
+// touched. And the mark is keyed to the run that saw the shrink: the Sponsors screen polls the
+// tick every three seconds and WPCPM_Sync_Module::handle_tick() re-enters the phase on whatever
+// run the state holds, so a mark answering to the count alone would be confirmed by the next
+// poll, with nobody deciding anything.
 $one = array( array( 'records' => array( $five[0]['records'][1] ), 'offset' => null ) );
 $GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array( $five[0]['records'][1], $five[0]['records'][2] ), 'offset' => null ) );
 WPCPM_Sponsors_Sync::start();
@@ -773,6 +773,119 @@ ck( 'a run whose ticks stopped reads as stalled', WPCPM_Sponsors_Sync::progress(
 $GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_LOCK ] = time() - WPCPM_Sponsors_Sync::LOCK_TIMEOUT - 5;
 WPCPM_Sponsors_Sync::run_tick( 1 );
 ck( 'a stale lock is taken over and the placed state runs to the end', WPCPM_Sponsors_Sync::is_running(), false );
+
+echo "\n=== The recurring run leaves a live run alone and starts again after one that stopped ===\n";
+// **The students sync's rule (1.122.25).** `cron_daily()` returned at once for as long as any run
+// was in progress, and a run that stopped halfway stays in progress for ever: an Airtable error
+// ends a tick with the error stored and no further tick booked, and a request that died mid-tick
+// books nothing either. The recurring sync then never began again until an Administrator pressed
+// Cancel or Read now. A run still ticking is left alone, because `start()` wipes the state; a run
+// untouched for longer than the lock timeout is `progress()['stalled']`, and is begun again.
+$pages_before = $GLOBALS['pages']['tblSPONSORS'];
+$mode_before  = $GLOBALS['settings']['sponsor_on_inactive'];
+$GLOBALS['settings']['sponsor_on_inactive'] = 'keep';
+$GLOBALS['cron']                            = array();
+WPCPM_Sponsors_Sync::cancel();
+delete_option( WPCPM_Sponsors_Sync::OPT_ERROR );
+
+WPCPM_Sponsors_Sync::cron_daily();
+ck(
+	'with no run at all, the recurring run starts one on the team phase and books its tick',
+	array( get_option( WPCPM_Sponsors_Sync::OPT_STATE )['phase'], (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ) ),
+	array( 'team', true )
+);
+
+$live = array( 'phase' => 'records', 'offset' => null, 'started' => 1500000000, 'touched' => time(), 'steps' => array( 'team' => 1 ), 'rows' => array(), 'logos' => array(), 'stats' => WPCPM_Sponsors_Sync::empty_stats(), 'notices' => array() );
+$GLOBALS['cron'] = array();
+update_option( WPCPM_Sponsors_Sync::OPT_STATE, $live, false );
+update_option( WPCPM_Sponsors_Sync::OPT_ERROR, 'Airtable said 503 on page 1', false );
+WPCPM_Sponsors_Sync::cron_daily();
+ck( 'a run touched just now is left exactly as it is', get_option( WPCPM_Sponsors_Sync::OPT_STATE ), $live );
+ck(
+	'with no tick booked for it and the error it holds still shown',
+	array( (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ), get_option( WPCPM_Sponsors_Sync::OPT_ERROR ) ),
+	array( false, 'Airtable said 503 on page 1' )
+);
+
+$live['touched'] = time() - WPCPM_Sponsors_Sync::LOCK_TIMEOUT + 5;
+update_option( WPCPM_Sponsors_Sync::OPT_STATE, $live, false );
+WPCPM_Sponsors_Sync::cron_daily();
+ck( 'and so is one that has been quiet for just under the lock timeout', array( get_option( WPCPM_Sponsors_Sync::OPT_STATE ), WPCPM_Sponsors_Sync::progress()['stalled'] ), array( $live, false ) );
+
+$live['touched'] = time() - WPCPM_Sponsors_Sync::LOCK_TIMEOUT - 5;
+update_option( WPCPM_Sponsors_Sync::OPT_STATE, $live, false );
+ck( 'one quiet for just over it reads as stalled', WPCPM_Sponsors_Sync::progress()['stalled'], true );
+WPCPM_Sponsors_Sync::cron_daily();
+$state = get_option( WPCPM_Sponsors_Sync::OPT_STATE );
+ck(
+	'and the recurring run begins it again from the top: a new start on the team phase, nothing carried over',
+	array( $state['phase'], $state['started'] > 1500000000, abs( $state['touched'] - time() ) < 5, $state['steps'], $state['rows'] ),
+	array( 'team', true, true, array(), array() )
+);
+ck(
+	'with its tick booked and the stored error cleared, as every start clears it',
+	array( (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ), get_option( WPCPM_Sponsors_Sync::OPT_ERROR, 'gone' ) ),
+	array( true, 'gone' )
+);
+
+// A request that died mid-tick stops a run without an error: the state goes quiet and the tick's
+// lock stays behind it. Quiet is the whole test, so this is begun again too, and the lock goes.
+update_option( WPCPM_Sponsors_Sync::OPT_STATE, $live, false );
+update_option( WPCPM_Sponsors_Sync::OPT_LOCK, time(), false );
+delete_option( WPCPM_Sponsors_Sync::OPT_ERROR );
+wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_TICK );
+WPCPM_Sponsors_Sync::cron_daily();
+$state = get_option( WPCPM_Sponsors_Sync::OPT_STATE );
+ck(
+	'a run that went quiet with no error stored is begun again as well, its lock cleared and its tick booked',
+	array( $state['phase'], $state['started'] > 1500000000, $state['steps'], array_key_exists( WPCPM_Sponsors_Sync::OPT_LOCK, $GLOBALS['opts'] ), (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ) ),
+	array( 'team', true, array(), false, true )
+);
+
+// The case the change is for: a run that an Airtable error stopped. The tick that was booked at
+// the start has fired by then (core takes an event off the clock before it runs the hook), and
+// the failing tick stores the error, keeps the state and books nothing.
+WPCPM_Sponsors_Sync::cancel();
+$GLOBALS['cron']      = array();
+$GLOBALS['fail_page'] = 1;
+WPCPM_Sponsors_Sync::start();
+wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_TICK );
+WPCPM_Sponsors_Sync::run_tick( WPCPM_Sponsors_Sync::BUDGET_AJAX );
+unset( $GLOBALS['fail_page'] );
+ck(
+	'an Airtable error in a tick leaves the run in progress, the error stored and no tick booked',
+	array( WPCPM_Sponsors_Sync::is_running(), get_option( WPCPM_Sponsors_Sync::OPT_STATE )['phase'], get_option( WPCPM_Sponsors_Sync::OPT_ERROR ), (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ) ),
+	array( true, 'team', 'Airtable said 503 on page 1', false )
+);
+
+// Dated back so that a restart shows as a new `started`, whatever the second the suite is in.
+$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_STATE ]['started'] = 1500000000;
+$stopped                                                       = get_option( WPCPM_Sponsors_Sync::OPT_STATE );
+WPCPM_Sponsors_Sync::cron_daily();
+ck( 'the next recurring run, straight after the error, leaves it as it is: it was touched just now', get_option( WPCPM_Sponsors_Sync::OPT_STATE ), $stopped );
+
+$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_STATE ]['touched'] = time() - WPCPM_Sponsors_Sync::LOCK_TIMEOUT - 5;
+delete_option( WPCPM_Sponsors_Sync::OPT_LAST );
+WPCPM_Sponsors_Sync::cron_daily();
+$state = get_option( WPCPM_Sponsors_Sync::OPT_STATE );
+ck(
+	'and once the run has sat past the lock timeout the recurring run takes it over: a new start from the top, the error cleared, the tick booked',
+	array( $state['phase'], $state['started'] > 1500000000, $state['steps'], get_option( WPCPM_Sponsors_Sync::OPT_ERROR, 'gone' ), (bool) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_TICK ) ),
+	array( 'team', true, array(), 'gone', true )
+);
+
+$GLOBALS['pages']['tblSPONSORS'] = $five;
+run_to_end();
+ck(
+	'and that run goes on to finish on its own, which is the point of starting it again',
+	array( WPCPM_Sponsors_Sync::is_running(), get_option( WPCPM_Sponsors_Sync::OPT_ERROR, 'gone' ), WPCPM_Sponsors_Sync::last_read() > 0 ),
+	array( false, 'gone', true )
+);
+
+$GLOBALS['pages']['tblSPONSORS']            = $pages_before;
+$GLOBALS['settings']['sponsor_on_inactive'] = $mode_before;
+$GLOBALS['cron']                            = array();
+
 echo "\n=== The schedule ===\n";
 
 // Since 1.98.2 every Airtable sync runs on the one three-hour recurrence the students sync

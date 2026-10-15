@@ -2309,6 +2309,22 @@ ck( 'the page option and the log go, and the purge is off the clock', array( get
 $sponsors_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
 ck( 'uninstall() reaches the approval\'s lock sweep behind a guard, and clears the purge hook', array( false !== strpos( method_body( $sponsors_src, 'uninstall' ), 'WPCPM_Sponsor_Approval::delete_all()' ), substr_count( $sponsors_src, 'wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE )' ) ), array( true, 2 ) );
 
+// A deactivation clears the sync's working state with its events, on purpose (1.122.25 pins it). The
+// state exists only while a run is in flight, and its tick event goes with the plugin, so a state kept
+// would be a run with nothing to run it: it would sit "running" until the recurring run, hours away,
+// took it over as stalled. Cleared, the next run starts clean.
+echo "\n=== A deactivation clears the sponsors sync's working state ===\n";
+$GLOBALS['cron'] = array();
+update_option( WPCPM_Sponsors_Sync::OPT_STATE, array( 'phase' => 'records', 'offset' => null, 'rows' => array() ), false );
+update_option( WPCPM_Sponsors_Sync::OPT_LOCK, time(), false );
+wp_schedule_event( time() + 60, 'hourly', WPCPM_Sponsors_Sync::CRON_DAILY );
+wp_schedule_single_event( time() + 30, WPCPM_Sponsors_Sync::CRON_TICK );
+ck( 'a run in flight is running, with both events booked', array( WPCPM_Sponsors_Sync::is_running(), isset( $GLOBALS['cron'][ WPCPM_Sponsors_Sync::CRON_DAILY ] ), isset( $GLOBALS['cron'][ WPCPM_Sponsors_Sync::CRON_TICK ] ) ), array( true, true, true ) );
+$module->deactivate();
+ck( 'deactivation takes the state, the lock and both events with it: the sync is not left running with nothing to run it',
+	array( array_key_exists( WPCPM_Sponsors_Sync::OPT_STATE, $GLOBALS['opts'] ), array_key_exists( WPCPM_Sponsors_Sync::OPT_LOCK, $GLOBALS['opts'] ), isset( $GLOBALS['cron'][ WPCPM_Sponsors_Sync::CRON_DAILY ] ), isset( $GLOBALS['cron'][ WPCPM_Sponsors_Sync::CRON_TICK ] ), WPCPM_Sponsors_Sync::is_running() ),
+	array( false, false, false, false, false ) );
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
