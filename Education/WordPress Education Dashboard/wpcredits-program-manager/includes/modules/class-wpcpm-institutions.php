@@ -5993,8 +5993,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		$unstamped = 0;
 
-		foreach ( (array) $query->get_results() as $user_id ) {
-			$program = get_user_meta( (int) $user_id, WPCPM_Students_Sync::META_PROGRAM, true );
+		foreach ( (array) $query->get_results() as $entry ) {
+			// Through `WPCPM_Roles::id_of()`: an `'ID'` query can answer `stdClass` rows, and cast to an
+			// int every row reads account 1's meta, which describes no student.
+			$program = get_user_meta( WPCPM_Roles::id_of( $entry ), WPCPM_Students_Sync::META_PROGRAM, true );
 
 			if ( is_array( $program ) && array_key_exists( 'institution_source', $program ) ) {
 				continue;

@@ -320,9 +320,16 @@ class WPCPM_Two_Factor {
 				)
 			);
 
-			foreach ( $users as $user_id ) {
-				$user_id = (int) $user_id;
-				$using   = Two_Factor_Core::is_user_using_two_factor( $user_id );
+			foreach ( $users as $entry ) {
+				// Through `WPCPM_Roles::id_of()`: an `'ID'` query can answer `stdClass` rows, and cast
+				// to an int every row is account 1.
+				$user_id = WPCPM_Roles::id_of( $entry );
+
+				if ( $user_id <= 0 ) {
+					continue;
+				}
+
+				$using = Two_Factor_Core::is_user_using_two_factor( $user_id );
 
 				++$row['total'];
 

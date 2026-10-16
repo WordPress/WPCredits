@@ -206,10 +206,15 @@ class WPCPM_Roles {
 	 * A user ID out of whatever `get_users()` handed back.
 	 *
 	 * **The `fields` argument cannot be trusted on every stack.** Asked for `'ID'`, WordPress is
-	 * documented to return a flat list of IDs - and on this program's site it returns `stdClass`
-	 * rows anyway, because something in the stack filters the query. Casting the entry straight to
-	 * `int` then raises "Object of class stdClass could not be converted to int" on every render,
-	 * which is exactly the warning this was introduced to stop.
+	 * documented to return a flat list of IDs - and on this program's site it has returned `stdClass`
+	 * rows. Casting the entry straight to `int` then raises "Object of class stdClass could not be
+	 * converted to int" on every render, which is exactly the warning this was introduced to stop.
+	 *
+	 * One way core does it, shown in a web request on a copy of the site (1.122.28): `WP_User_Query`
+	 * caches its results under the md5 of its SQL alone, and `'fields' => 'ID'` and
+	 * `'fields' => array( 'ID' )` build the same SQL, read once as a column of strings and once as
+	 * rows. Whichever runs first fills the entry the other reads, for the rest of the request, or
+	 * with a persistent object cache until the users' `last_changed` moves.
 	 *
 	 * So the shape is not assumed. An int, a numeric string, a `stdClass` row and a `WP_User` all
 	 * resolve; anything else is 0.

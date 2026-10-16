@@ -172,7 +172,9 @@ class WP_User_Query {
 		$ids     = isset( $args['fields'] ) && 'ID' === $args['fields'];
 		foreach ( $GLOBALS['users'] as $id => $user ) {
 			if ( '' !== $role && ! in_array( $role, $user->roles, true ) ) { continue; }
-			if ( wpcpm_stub_meta_matches( (int) $id, $clauses ) ) { $this->results[] = $ids ? $id : $user; }
+			// `$GLOBALS['ids_as_rows']` answers a request for IDs with rows, as WordPress can (see
+			// `WPCPM_Roles::id_of()`).
+			if ( wpcpm_stub_meta_matches( (int) $id, $clauses ) ) { $this->results[] = $ids ? ( empty( $GLOBALS['ids_as_rows'] ) ? $id : (object) array( 'ID' => (string) $id ) ) : $user; }
 		}
 	}
 	public function get_results() { return $this->results; }
@@ -2193,6 +2195,20 @@ $GLOBALS['users'][34] = new WP_User( 34, 'Una Undescribed', 'una@example.test', 
 $GLOBALS['umeta'][34][ WPCPM_Students_Sync::META_ACTIVE ] = 1;
 
 ck( 'an account with the live flag the sync has never described is a broken sync', false !== strpos( render_tab( 'sync' ), '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), true );
+
+// The count asks WordPress for the accounts' IDs, which WordPress can answer with rows (see
+// `WPCPM_Roles::id_of()`). Cast to an int, every row is account 1, with a warning for each, and
+// account 1 has no program meta to say it was described: Dan, skipped above, would be counted with Una.
+$GLOBALS['ids_as_rows'] = true;
+$row_warnings           = array();
+set_error_handler( static function ( $number, $message ) use ( &$row_warnings ) { $row_warnings[] = $message; return true; } );
+$by_rows = render_tab( 'sync' );
+restore_error_handler();
+$GLOBALS['ids_as_rows'] = false;
+
+ck( 'the same where WordPress answers the request for IDs with rows: Una alone is counted, and nothing warns',
+	array( false !== strpos( $by_rows, '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), $row_warnings ),
+	array( true, array() ) );
 
 unset( $GLOBALS['users'][32], $GLOBALS['users'][33], $GLOBALS['users'][34], $GLOBALS['umeta'][32], $GLOBALS['umeta'][33], $GLOBALS['umeta'][34] );
 

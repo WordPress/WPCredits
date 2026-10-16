@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.27
+Stable tag: 1.122.28
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,15 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.28 =
+
+* Five more places read a list of account IDs from WordPress the way the No students count did before 1.122.27, and now read it as that count does. WordPress can answer a request for account IDs with rows: its cache of user queries keeps one answer for a request for a list of IDs and a request for rows holding only the ID, whichever came first. Read as a number, a row is account 1, with one warning for each ("Object of class stdClass could not be converted to int"). A check of this site on 15 October 2026 found plain IDs in all five, so none of this is known to have happened here; it is what would have happened had rows arrived.
+* The invitations card's button on the Students, Mentors, Institutions and Sponsors screens would have queued an invitation for account 1 alone.
+* The mentors sync would never have marked a mentor who left the Mentors table inactive, cleared their student list or removed the Mentor role.
+* The institutions sync would never have revoked the membership of an account whose institution left the active stages.
+* On the Institutions screen's Sync tab, the count of tracked student accounts with no institution stamp would have counted the accounts the sync left without one on purpose.
+* On the Security tab of Settings, the two-factor coverage would have read every account as account 1: each role's total would have been right, but the accounts covered, using an app, enforced and uncovered would have described that one account.
 
 = 1.122.27 =
 

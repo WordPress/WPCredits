@@ -1233,8 +1233,10 @@ class WPCPM_Institutions_Sync {
 			)
 		);
 
-		foreach ( $members as $user_id ) {
-			$user      = new WP_User( (int) $user_id );
+		foreach ( $members as $entry ) {
+			// Through `WPCPM_Roles::id_of()`: an `'ID'` query can answer `stdClass` rows, and cast to an
+			// int every row is account 1, which holds no membership.
+			$user      = new WP_User( WPCPM_Roles::id_of( $entry ) );
 			$record_id = (string) WPCPM_Institution_Members::institution_of( $user );
 
 			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {

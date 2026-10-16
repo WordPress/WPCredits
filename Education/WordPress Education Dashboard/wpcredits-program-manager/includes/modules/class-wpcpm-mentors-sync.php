@@ -1457,7 +1457,16 @@ class WPCPM_Mentors_Sync {
 			)
 		);
 
-		foreach ( $linked as $user_id ) {
+		foreach ( $linked as $entry ) {
+			// Through `WPCPM_Roles::id_of()`, as the students sync's twin is: an `'ID'` query can answer
+			// `stdClass` rows, and core reads a row object's meta as nothing, so every linked account
+			// would be skipped and no mentor who left would lose the role.
+			$user_id = WPCPM_Roles::id_of( $entry );
+
+			if ( $user_id <= 0 ) {
+				continue;
+			}
+
 			$record_id = (string) get_user_meta( $user_id, self::META_RECORD_ID, true );
 
 			if ( '' === $record_id || in_array( $record_id, $active_ids, true ) ) {

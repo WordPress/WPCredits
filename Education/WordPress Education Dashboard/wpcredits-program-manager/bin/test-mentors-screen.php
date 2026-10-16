@@ -582,12 +582,19 @@ if ( isset( $argv[1] ) && 'child-save' === $argv[1] ) {
 
 // The invitations card's button as WordPress runs it: admin-post.php, where nothing has loaded the
 // list tables the card's reading of the role and the stamp comes from. In a process of its own, for
-// the reason the save's run above has one.
+// the reason the save's run above has one. With `rows`, WordPress answers the request for IDs with
+// rows, and every warning is kept for the check rather than printed.
 if ( isset( $argv[1] ) && 'child-card' === $argv[1] ) {
 	three_mentors();
 
+	$warnings               = array();
+	$GLOBALS['ids_as_rows'] = isset( $argv[2] ) && 'rows' === $argv[2];
+	set_error_handler( static function ( $number, $message ) use ( &$warnings ) { $warnings[] = $message; return true; } );
+
 	$declared = class_exists( 'WPCPM_Mentors_Table', false );
 	$pressed  = post_to( 'handle_bulk_invite', WPCPM_Mentors::ACTION_BULK, array( 'wpcpm_tab' => 'accounts' ) );
+
+	restore_error_handler();
 
 	echo json_encode(
 		array(
@@ -595,6 +602,7 @@ if ( isset( $argv[1] ) && 'child-card' === $argv[1] ) {
 			'error'    => $pressed['error'],
 			'redirect' => $pressed['redirect'],
 			'queue'    => WPCPM_Mail::queue(),
+			'warnings' => $warnings,
 		)
 	);
 	exit( 0 );
@@ -660,9 +668,19 @@ ck( 'a rows-per-page choice is saved as WordPress saves it, before any table is 
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-card 2>&1', $card_out, $card_status );
 $card_run = (array) json_decode( implode( "\n", $card_out ), true );
 
-ck( 'the invitations card\'s button, pressed where no list table is loaded, as admin-post.php runs it, loads the table it reads the role and the stamp from, queues the two never invited and comes back to the Accounts tab',
-	array( $card_status, isset( $card_run['before'] ) ? $card_run['before'] : implode( "\n", $card_out ), isset( $card_run['error'] ) ? $card_run['error'] : null, isset( $card_run['redirect'] ) ? $card_run['redirect'] : null, isset( $card_run['queue'] ) ? $card_run['queue'] : null ),
-	array( 0, false, '', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=accounts', array( 12, 13 ) ) );
+ck( 'the invitations card\'s button, pressed where no list table is loaded, as admin-post.php runs it, loads the table it reads the role and the stamp from, queues the two never invited and comes back to the Accounts tab, and nothing warns',
+	array( $card_status, isset( $card_run['before'] ) ? $card_run['before'] : implode( "\n", $card_out ), isset( $card_run['error'] ) ? $card_run['error'] : null, isset( $card_run['redirect'] ) ? $card_run['redirect'] : null, isset( $card_run['queue'] ) ? $card_run['queue'] : null, isset( $card_run['warnings'] ) ? $card_run['warnings'] : null ),
+	array( 0, false, '', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=accounts', array( 12, 13 ), array() ) );
+
+// The mail layer's reading of who was never invited asks WordPress for IDs, which WordPress can
+// answer with rows (see `WPCPM_Roles::id_of()`). Cast to an int, every row is account 1, with a
+// warning for each, and the queue, which keeps an account once, would hold account 1 alone.
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-card rows 2>&1', $rows_out, $rows_status );
+$rows_run = (array) json_decode( implode( "\n", $rows_out ), true );
+
+ck( 'the same where WordPress answers the request for IDs with rows: the two never invited are queued, and nothing warns',
+	array( $rows_status, isset( $rows_run['queue'] ) ? $rows_run['queue'] : implode( "\n", $rows_out ), isset( $rows_run['warnings'] ) ? $rows_run['warnings'] : null ),
+	array( 0, array( 12, 13 ), array() ) );
 
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-notice 2>&1', $notice_out, $notice_status );
 $notice_run = (array) json_decode( implode( "\n", $notice_out ), true );

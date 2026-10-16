@@ -149,7 +149,8 @@ function wp_schedule_event() { return true; }
 function wp_schedule_single_event( $when, $hook ) { $GLOBALS['cron'][ $hook ] = (int) $when; return true; }
 function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); return 1; }
 
-function get_user_meta( $id, $key, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $key ] ?? ''; }
+// As core's: an ID that is not a number, a row object among them, reads nothing (get_metadata_raw()).
+function get_user_meta( $id, $key, $single = false ) { return is_numeric( $id ) ? ( $GLOBALS['umeta'][ (int) $id ][ $key ] ?? '' ) : false; }
 // As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
 function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
@@ -2117,6 +2118,75 @@ restore_error_handler();
 ck( 'a student with no address is read as having no row, and nothing warns',
 	array( $addressless, $seed_warnings ),
 	array( array( 'none' => '', 'gil' => 'In Sensei 50h' ), array() ) );
+
+echo "\n=== The mentors sync's revoke, where an ID query is answered with rows ===\n";
+
+// The mentors sync asks for every account linked to a Mentors record by ID, the shape this suite's
+// SURFACES-3 check answers with rows, and read each row as an ID: core reads a row object's meta as
+// nothing, so every linked account would be skipped and no mentor who left would be marked inactive
+// or lose the role. Two accounts on their own: Gil left the Mentors table, Hana is still on it.
+$kept_users               = $GLOBALS['users'];
+$kept_umeta               = $GLOBALS['umeta'];
+$GLOBALS['users']         = array(
+	960 => array( 'login' => 'gil', 'email' => 'gil@example.test', 'name' => 'Gil Gone', 'roles' => array( WPCPM_Roles::ROLE_MENTOR ) ),
+	961 => array( 'login' => 'hana', 'email' => 'hana@example.test', 'name' => 'Hana Here', 'roles' => array( WPCPM_Roles::ROLE_MENTOR ) ),
+);
+$GLOBALS['umeta']         = array(
+	960 => array(
+		WPCPM_Mentors_Sync::META_RECORD_ID => 'recMENTORGONEXXXX',
+		WPCPM_Mentors_Sync::META_ACTIVE    => 1,
+		WPCPM_Mentors_Sync::META_MENTEES   => array( array( 'name' => 'A Student' ) ),
+	),
+	961 => array(
+		WPCPM_Mentors_Sync::META_RECORD_ID => 'recMENTORHEREXXXX',
+		WPCPM_Mentors_Sync::META_ACTIVE    => 1,
+	),
+);
+$GLOBALS['users_as_rows'] = true;
+$mentor_warnings          = array();
+
+set_error_handler(
+	function ( $number, $message ) use ( &$mentor_warnings ) {
+		$mentor_warnings[] = $message;
+
+		return true;
+	}
+);
+
+$mentors_revoke = Closure::bind(
+	static function ( array $state, array $settings ) {
+		self::phase_revoke( $state, $settings );
+
+		return $state;
+	},
+	null,
+	'WPCPM_Mentors_Sync'
+);
+$after_revoke   = $mentors_revoke(
+	array(
+		'mentors' => array( 'recMENTORHEREXXXX' => array() ),
+		'stats'   => array( 'revoked' => 0 ),
+	),
+	array( 'on_inactive' => 'revoke' )
+);
+
+restore_error_handler();
+$GLOBALS['users_as_rows'] = false;
+
+ck( 'rows handed back for an ID query are read as the accounts they are: Gil, gone from the table, is marked inactive and loses the student list and the role, Hana keeps the role, and nothing warns',
+	array(
+		$after_revoke['stats']['revoked'],
+		(int) get_user_meta( 960, WPCPM_Mentors_Sync::META_ACTIVE, true ),
+		metadata_exists( 'user', 960, WPCPM_Mentors_Sync::META_MENTEES ),
+		$GLOBALS['users'][960]['roles'],
+		(int) get_user_meta( 961, WPCPM_Mentors_Sync::META_ACTIVE, true ),
+		$GLOBALS['users'][961]['roles'],
+		$mentor_warnings,
+	),
+	array( 1, 0, false, array( 'subscriber' ), 1, array( WPCPM_Roles::ROLE_MENTOR ), array() ) );
+
+$GLOBALS['users'] = $kept_users;
+$GLOBALS['umeta'] = $kept_umeta;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

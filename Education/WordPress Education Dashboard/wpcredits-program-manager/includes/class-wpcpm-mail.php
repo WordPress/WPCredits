@@ -1204,16 +1204,23 @@ class WPCPM_Mail {
 			);
 		}
 
-		return array_map(
-			'intval',
-			get_users(
-				array(
-					'role'        => $role,
-					'fields'      => 'ID',
-					'number'      => -1,
-					'orderby'     => 'ID',
-					'count_total' => false,
-					'meta_query'  => $query,
+		// Each ID through `WPCPM_Roles::id_of()`, because WordPress can answer a request for IDs with
+		// rows: cast to an int, every row is account 1, and the queue, which keeps an account once,
+		// would hold account 1 alone.
+		return array_values(
+			array_filter(
+				array_map(
+					array( 'WPCPM_Roles', 'id_of' ),
+					get_users(
+						array(
+							'role'        => $role,
+							'fields'      => 'ID',
+							'number'      => -1,
+							'orderby'     => 'ID',
+							'count_total' => false,
+							'meta_query'  => $query,
+						)
+					)
 				)
 			)
 		);

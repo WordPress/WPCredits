@@ -73,13 +73,15 @@ function wp_roles() {
 		}
 	};
 }
+// `$GLOBALS['ids_as_rows']` answers a request for IDs with rows, as WordPress can (see
+// `WPCPM_Roles::id_of()`).
 function get_users( $args = array() ) {
 	$out = array();
 	foreach ( $GLOBALS['users'] as $u ) {
 		if ( isset( $args['role'] ) && ! in_array( $args['role'], $u->roles, true ) ) {
 			continue;
 		}
-		$out[] = $u->ID;
+		$out[] = ( ! empty( $GLOBALS['ids_as_rows'] ) && isset( $args['fields'] ) && 'ID' === $args['fields'] ) ? (object) array( 'ID' => (string) $u->ID ) : $u->ID;
 	}
 	return $out;
 }
@@ -284,6 +286,18 @@ ck( 'none of them has an app yet', $status['roles']['administrator']['app'], 0 )
 ck( 'the institution has one, and it is an app', array( $status['roles']['wpcpm_institution']['total'], $status['roles']['wpcpm_institution']['app'] ), array( 1, 1 ) );
 ck( 'nobody enforced is uncovered, which is the point of the floor', $status['uncovered'], 0 );
 ck( 'and the enforced total counts accounts, not role memberships', $status['enforced'], 4 );
+
+// The count asks WordPress for each role's IDs, which WordPress can answer with rows (see
+// `WPCPM_Roles::id_of()`). Cast to an int, every row is account 1, with a warning for each: the
+// enforced total would come out 1, and the institution's app would go uncounted.
+$GLOBALS['ids_as_rows'] = true;
+$row_warnings           = array();
+set_error_handler( static function ( $number, $message ) use ( &$row_warnings ) { $row_warnings[] = $message; return true; } );
+$by_rows = WPCPM_Two_Factor::status();
+restore_error_handler();
+$GLOBALS['ids_as_rows'] = false;
+
+ck( 'the same where WordPress answers the request for IDs with rows, and nothing warns', array( $by_rows, $row_warnings ), array( $status, array() ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

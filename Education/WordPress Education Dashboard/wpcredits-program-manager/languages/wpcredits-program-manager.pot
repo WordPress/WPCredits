@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.27\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.28\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-15T17:43:21+00:00\n"
+"POT-Creation-Date: 2026-10-15T21:15:25+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -4850,7 +4850,7 @@ msgid "Out of force"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:379
-#: includes/modules/class-wpcpm-institutions.php:6025
+#: includes/modules/class-wpcpm-institutions.php:6027
 msgid "Revoked"
 msgstr ""
 
@@ -5104,7 +5104,7 @@ msgid "Routed to %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1506
-#: includes/modules/class-wpcpm-institutions.php:6023
+#: includes/modules/class-wpcpm-institutions.php:6025
 msgid "Awaiting review"
 msgstr ""
 
@@ -8965,7 +8965,7 @@ msgid "The Contact Email already belongs to an account on this site, which is a 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-sync.php:1159
-#: includes/modules/class-wpcpm-mentors-sync.php:1936
+#: includes/modules/class-wpcpm-mentors-sync.php:1945
 #: includes/modules/class-wpcpm-sponsor-members.php:562
 #: includes/modules/class-wpcpm-students-sync.php:3013
 msgid "That user does not exist."
@@ -8976,13 +8976,13 @@ msgid "That account does not hold the Institution role."
 msgstr ""
 
 #. translators: 1: user ID, 2: error message.
-#: includes/modules/class-wpcpm-institutions-sync.php:1260
+#: includes/modules/class-wpcpm-institutions-sync.php:1262
 #, php-format
 msgid "Could not revoke the membership of account %1$d: %2$s"
 msgstr ""
 
 #. translators: %s: how many Collaboration Agreements were written to the base.
-#: includes/modules/class-wpcpm-institutions-sync.php:1307
+#: includes/modules/class-wpcpm-institutions-sync.php:1309
 #, php-format
 msgid "%s Collaboration Agreement the base had not been told about was written in this sync run."
 msgid_plural "%s Collaboration Agreements the base had not been told about were written in this sync run."
@@ -10537,51 +10537,51 @@ msgstr ""
 msgid "(from the pipeline index read %s; memberships counted now)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6021
+#: includes/modules/class-wpcpm-institutions.php:6023
 #: includes/modules/class-wpcpm-sponsors.php:2515
 msgid "Not started"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6022
+#: includes/modules/class-wpcpm-institutions.php:6024
 msgid "Template generated"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6024
+#: includes/modules/class-wpcpm-institutions.php:6026
 msgid "Returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6026
+#: includes/modules/class-wpcpm-institutions.php:6028
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:165
 msgid "Accepted"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6027
+#: includes/modules/class-wpcpm-institutions.php:6029
 msgid "On file"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6031
+#: includes/modules/class-wpcpm-institutions.php:6033
 msgid "program template"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6032
+#: includes/modules/class-wpcpm-institutions.php:6034
 msgid "institution-specific"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6033
+#: includes/modules/class-wpcpm-institutions.php:6035
 msgid "legacy"
 msgstr ""
 
 #. translators: %s: date.
-#: includes/modules/class-wpcpm-institutions.php:6045
+#: includes/modules/class-wpcpm-institutions.php:6047
 #, php-format
 msgid "accepted %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6051
+#: includes/modules/class-wpcpm-institutions.php:6053
 msgid "recorded in the Airtable grid"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:6053
+#: includes/modules/class-wpcpm-institutions.php:6055
 msgid "recorded on the site"
 msgstr ""
 
@@ -11643,7 +11643,7 @@ msgstr ""
 msgid "Could not create the account \"%1$s\": %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1940
+#: includes/modules/class-wpcpm-mentors-sync.php:1949
 msgid "That account does not hold the Mentor role."
 msgstr ""
 

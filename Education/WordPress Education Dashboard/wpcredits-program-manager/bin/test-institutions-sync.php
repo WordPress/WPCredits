@@ -164,13 +164,15 @@ function wp_get_scheduled_event( $hook ) {
 		'schedule'  => isset( $GLOBALS['cron_recurrence'][ $hook ] ) ? $GLOBALS['cron_recurrence'][ $hook ] : 'daily',
 	);
 }
+// `$GLOBALS['ids_as_rows']` answers a request for IDs with rows, as WordPress can (see
+// `WPCPM_Roles::id_of()`).
 function get_users( $args ) {
 	$ids = array();
 	foreach ( $GLOBALS['users'] as $id => $user ) {
 		if ( ! empty( $args['role'] ) && ! in_array( $args['role'], $user['roles'], true ) ) {
 			continue;
 		}
-		$ids[] = $id;
+		$ids[] = ( ! empty( $GLOBALS['ids_as_rows'] ) && isset( $args['fields'] ) && 'ID' === $args['fields'] ) ? (object) array( 'ID' => (string) $id ) : $id;
 	}
 	return $ids;
 }
@@ -602,6 +604,7 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['cron_recurrence'] = array();
 	$GLOBALS['calls']           = array();
 	$GLOBALS['users']           = array();
+	$GLOBALS['ids_as_rows']     = false;
 	$GLOBALS['umeta']           = array();
 	$GLOBALS['members']         = array();
 	$GLOBALS['former']          = array();
@@ -1180,6 +1183,30 @@ ck( 'the agreements the base had not been told about are counted and named',
 		false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), '2 Collaboration Agreements the base had not been told about were written in this sync run.' ),
 	),
 	array( 2, true ) );
+
+/* ---- an ID query answered with rows -------------------------------------- */
+
+echo "\n=== The revoke, where WordPress answers a request for IDs with rows ===\n";
+
+// The revoke asks for the Institution accounts by ID, which WordPress can answer with rows (see
+// `WPCPM_Roles::id_of()`). Cast to an int, every row is account 1, with a warning for each: account
+// 1 holds no membership, so nobody whose institution left the active stages would lose it.
+reset_site( $seed );
+member( 40, $not_moving );
+member( 41, $confirmed );
+$GLOBALS['ids_as_rows'] = true;
+$row_warnings           = array();
+set_error_handler( static function ( $number, $message ) use ( &$row_warnings ) { $row_warnings[] = $message; return true; } );
+
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+restore_error_handler();
+$GLOBALS['ids_as_rows'] = false;
+
+ck( 'the member of the Not Moving Forward institution is detached, the Confirmed one\'s is left alone, and nothing warns',
+	array( isset( $GLOBALS['calls']['detach'] ) ? array_column( $GLOBALS['calls']['detach'], 0 ) : array(), isset( $GLOBALS['members'][41] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['revoked'], $row_warnings ),
+	array( array( 40 ), true, 1, array() ) );
 
 /* ---- the gate has the last word ------------------------------------------- */
 
