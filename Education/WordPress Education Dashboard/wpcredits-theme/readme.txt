@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.16
+Stable tag: 1.24.17
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -175,6 +175,11 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.17 =
+* Education Hub homepage, the pathway: a step plainly opens what it unlocks. The line that says so moves out of the ladder's introduction into a tinted prompt right above the steps, "Select a step to see what it unlocks." (and "Select a level to see what it brings." for institutions); every step and level ends with "See what it unlocks" (or "See what it brings") and a down arrow, "Shown below" on the one whose detail is open; a step lifts under the keyboard's focus as under the pointer; and at 900px and wider the open detail points up at its step. Screen readers hear each step as before.
+* Education Hub homepage, the Builder step: it unlocks showcase eligibility and a profile badge, both still marked planned; the free .blog or .art domain with a year of hosting and the full theme and plugin library come off: the domain and hosting are a WordPress.com perk and the page names no host, and the step now lists only what a Builder earns.
+* Education Hub homepage, the program index: under the six cards, "Which WordPress Credits course?", a band of the program's four courses, Intro to Contribution, Foundations, the Developer track and the Designer track: a card each with its hours (or who it is for), its name linked to its Learn WordPress page, and one line on what it asks, four across from 900px, two from 640px, one on a phone, 56px under the cards as the field-of-study table is under it. Its lede says access to a course comes through the student's institution. Step 4's link, "See the courses", leads to it, and in forced colors the pressed step's number, line and cue take the system's highlight text. The WordPress Credits card links to the band, "Compare the four courses", and to the program page and the impact dashboard.
 
 = 1.24.16 =
 * Education Hub homepage: the hero sits on a soft brand-tint panel, and its three figures on a white card.

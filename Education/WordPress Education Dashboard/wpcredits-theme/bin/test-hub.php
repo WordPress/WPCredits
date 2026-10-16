@@ -633,18 +633,19 @@ $on_cards  = benefits_of( $programs, 'gets', 'name' );
 $all       = array_merge( $on_steps, $on_levels, $on_cards );
 $planned   = preg_grep( '/ \(planned\)$/', $all );
 
-ck( 'fifty-one benefits, 28 on the steps, 12 on the levels, 11 on the cards: 29 planned and 22 not, the one on the card in development among those, its tag saying it',
+ck( 'forty-nine benefits, 26 on the steps, 12 on the levels, 11 on the cards: 28 planned and 21 not, the one on the card in development among those, its tag saying it',
 	array( count( $all ), count( $on_steps ), count( $on_levels ), count( $on_cards ), count( $planned ), count( $all ) - count( $planned ) ),
-	array( 51, 28, 12, 11, 29, 22 ) );
+	array( 49, 26, 12, 11, 28, 21 ) );
 
-ck( 'every benefit, as the design note\'s 6.11 checked it on 14 October 2026',
+// The Builder step lists only what a Builder earns: Alana Warner (16 October 2026), "should just be:
+// showcase eligibility, badge on .org profile"; Isotta Peira: the domain and hosting are a WordPress.com
+// perk, and the page names no host. The theme and plugin library goes with them.
+ck( 'every benefit, as the design note\'s 6.11 checked it on 14 October 2026, the Builder step\'s since 16 October',
 	$all,
 	array(
 		'Attendee: Certificate of participation',
 		'Attendee: A seeded WordPress.org profile (planned)',
 		'Attendee: A profile badge',
-		'Builder: Free .blog or .art domain and a year of hosting (planned)',
-		'Builder: The full theme and plugin library',
 		'Builder: Showcase eligibility (planned)',
 		'Builder: A profile badge (planned)',
 		'Contributor: Contribution badge',
@@ -717,12 +718,12 @@ function links_said( array $links ) {
 	return array_map( static function ( $link ) { return $link['label'] . ' > ' . wpcredits_hub_url( $link['target'] ); }, $links );
 }
 
-ck( 'the nine links of the program cards, each where the design note\'s 6.5 says',
+ck( 'the nine links of the program cards, each where the design note\'s 6.5 says, WordPress Credits\' two track links giving way, since 16 October 2026, to the band of its four courses and the program page',
 	links_said( array_merge( ...array_column( $programs, 'links' ) ) ),
 	array(
 		'Find or host an event > https://events.wordpress.org/campusconnect/',
-		'Developer track > https://learn.wordpress.org/course/wordpress-credits-developer-track/',
-		'Designer track > https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+		'Compare the four courses > #wordpress-credits-courses',
+		'About the program > https://wordpress.org/education/credits/',
 		'Impact dashboard > https://wordpress.github.io/WPCredits/',
 		'Facilitation guides > https://make.wordpress.org/community/handbook/education/wordpress-facilitator-training-program/',
 		'Courses > https://learn.wordpress.org/',
@@ -731,13 +732,33 @@ ck( 'the nine links of the program cards, each where the design note\'s 6.5 says
 		'Learn more > https://wordpresscertifications.com/wordpress-builder-certification/',
 	) );
 
+// Isotta Peira (15 Oct 2026, #wpcredits-admins on WordPress Slack), Alana Warner agreeing: the site should
+// list the WordPress Credits courses, so schools and students can pick one; the owner (16 Oct 2026): as a
+// band of four cards under the index. Each says what its public Learn page says; the hours are Intro to
+// Contribution's page's and, for Foundations, the owner's (16 Oct 2026), and the two tracks, whose pages
+// give none, say who they are for.
+ck( 'WordPress Credits alone has courses: four, each its Learn page, its line above the name and its line on what it asks',
+	array(
+		array_map( static function ( $program ) { return count( isset( $program['courses'] ) ? $program['courses'] : array() ); }, $programs ),
+		array_map( static function ( $course ) { return $course['name'] . ' > ' . $course['url'] . ' : ' . $course['eyebrow'] . ' / ' . $course['line']; }, $programs[1]['courses'] ),
+	),
+	array(
+		array( 0, 4, 0, 0, 0, 0 ),
+		array(
+			'Intro to Contribution > https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/ : 50 hours / One guided contribution project: a first look at open source, for a shorter course or an elective.',
+			'Foundations > https://learn.wordpress.org/course/wordpress-credits-foundations/ : 150 hours or more / Your own site and a contribution that ships, for an internship, a capstone, or a full semester.',
+			'Developer track > https://learn.wordpress.org/course/wordpress-credits-developer-track/ : For developers / WordPress developer training and patch testing practice, toward a contribution that ships.',
+			'Designer track > https://learn.wordpress.org/course/wordpress-credits-designer-track/ : For designers / A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.',
+		),
+	) );
+
 ck( 'the seven steps\' next links',
 	links_said( array_column( $steps, 'next' ) ),
 	array(
 		'Find a Campus Connect event > https://events.wordpress.org/campusconnect/',
 		'Learn to build a site > https://learn.wordpress.org/',
 		'Start WordPress Credits > #program-wordpress-credits',
-		'See the tracks > #program-wordpress-credits',
+		'See the courses > #wordpress-credits-courses',
 		'Explore programs > #programs',
 		'Try Facilitator Training > #program-facilitator-training',
 		'Where this leads: WordPress Jobs > https://jobs.wordpress.net/',
@@ -795,7 +816,7 @@ foreach ( array( wpcredits_hub_programs(), wpcredits_hub_steps(), wpcredits_hub_
 	array_walk_recursive(
 		$places,
 		static function ( $value, $key ) use ( &$texts ) {
-			if ( in_array( $key, array( 'name', 'step', 'what', 'time', 'text', 'label', 'by', 'earned', 'reached', 'recognition' ), true ) ) {
+			if ( in_array( $key, array( 'name', 'step', 'what', 'time', 'text', 'label', 'eyebrow', 'line', 'by', 'earned', 'reached', 'recognition' ), true ) ) {
 				$texts[] = $value;
 			}
 		}
@@ -807,14 +828,24 @@ $mark         = wpcredits_hub_items_html( array( wpcredits_hub_item( 'X', true )
 
 $GLOBALS['marked'] = false;
 
-ck( 'every text is one translated string, seen whole by a translator: 135 of them, 44 on the cards, 63 on the steps and 28 on the levels, and "(planned)" among them',
+ck( 'every text is one translated string, seen whole by a translator: 145 of them, 56 on the cards and the band of courses (the band\'s twelve among them), 61 on the steps and 28 on the levels, and "(planned)" among them',
 	array( count( $texts ), array_values( $untranslated ), false !== strpos( $mark, '<span class="wpc-hub-planned">[(planned)]</span>' ) ),
-	array( 135, array(), true ) );
+	array( 145, array(), true ) );
 
 // The one-word strings, which a translator meets with nothing around them. Credit, Graduate and Partner
 // are words that mean something else as a verb or in another place, so each has a context of its own;
 // Badge and Exam, and the one sum, a translators note above them, which the .pot carries.
 $hub_source = theme_file( 'inc/hub-content.php' );
+
+// Foundations, the name of a course in the band, reads as organizations out of context, so it has a
+// note saying it is a course's name, as each name and each line above a name in the band has.
+ck( 'the course band\'s names and the lines above them each carry a translators note, Foundations\' saying it is not organizations',
+	array(
+		preg_match_all( "#/\* translators: The name of a WordPress Credits course on Learn WordPress[^*]*\*/\n\s*__\( '([^']+)', 'wpcredits-theme' \)#", $hub_source, $named ) ? $named[1] : null,
+		preg_match_all( "#/\* translators: The line above a course's name: [^*]+\*/\n\s*__\( '([^']+)', 'wpcredits-theme' \)#", $hub_source, $above ) ? $above[1] : null,
+		(bool) preg_match( "#/\* translators: [^*]*not foundations as organizations[^*]*\*/\n\s*__\( 'Foundations', 'wpcredits-theme' \)#", $hub_source ),
+	),
+	array( array( 'Intro to Contribution', 'Foundations', 'Developer track', 'Designer track' ), array( '50 hours', '150 hours or more', 'For developers', 'For designers' ), true ) );
 
 ck( 'the one-word strings tell a translator what they are: Credit, Graduate and Partner each a context saying which sense, Badge and Exam a translators note above them, and "$1,000 for completers" a note that the sum is in US dollars',
 	array(
@@ -898,6 +929,32 @@ ck( 'each card: its status tag, its step line, its name, what it is, its time an
 		array_merge( ...array_fill( 0, 6, array( 'Time', 'You get' ) ) ),
 	) );
 
+ck( 'under the cards, the band of the four courses: a section named by its heading, the programs section\'s head (eyebrow, heading, lede), and a card each, its name a link to its Learn page with a decorative arrow, then its line (drawn above the name), and what it asks',
+	array(
+		found( $xp, '//div[contains(@class,"wpc-hub-programs")]/following-sibling::section', 'id' ),
+		found( $xp, '//section[@id="wordpress-credits-courses"]', 'aria-labelledby' ),
+		found( $xp, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/*' ),
+		found( $xp, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/h3', 'id' ),
+		found( $xp, '//section[@id="wordpress-credits-courses"]/ul[@class="wpc-hub-courses__grid"]/li[@class="wpc-hub-course"]/h4/following-sibling::*[1][self::p][@class="wpc-hub-course__meta"]' ),
+		found( $xp, '//li[@class="wpc-hub-course"]/h4[@class="wpc-hub-course__name"]/a' ),
+		found( $xp, '//li[@class="wpc-hub-course"]/h4/a', 'href' ),
+		found( $xp, '//li[@class="wpc-hub-course"]/p[@class="wpc-hub-course__line"]' ),
+		count( $xp->query( '//li[@class="wpc-hub-course"]/h4/a/span[@aria-hidden="true"]' ) ),
+		count( $xp->query( '//article[@class="wpc-hub-program"]//*[contains(@class,"wpc-hub-course")]' ) ),
+	),
+	array(
+		array( 'wordpress-credits-courses' ),
+		array( 'wordpress-credits-courses-title' ),
+		array( 'Choosing a course', 'Which WordPress Credits course?', 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student\'s institution.' ),
+		array( 'wordpress-credits-courses-title' ),
+		array( '50 hours', '150 hours or more', 'For developers', 'For designers' ),
+		array( 'Intro to Contribution →', 'Foundations →', 'Developer track →', 'Designer track →' ),
+		array( 'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/', 'https://learn.wordpress.org/course/wordpress-credits-foundations/', 'https://learn.wordpress.org/course/wordpress-credits-developer-track/', 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' ),
+		array( 'One guided contribution project: a first look at open source, for a shorter course or an elective.', 'Your own site and a contribution that ships, for an internship, a capstone, or a full semester.', 'WordPress developer training and patch testing practice, toward a contribution that ships.', 'A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.' ),
+		4,
+		0,
+	) );
+
 ck( 'what you get is a list, one item to a line, the three planned ones marked on their own line',
 	array( found( $xp, '//article[@id="program-wordpress-credits"]//ul[@class="wpc-hub-items"]/li' ), found( $xp, '//article//span[@class="wpc-hub-planned"]/..' ) ),
 	array( array( 'Certificate', 'Badge', 'Hours transcript (planned)', 'Credit' ), array( 'Hours transcript (planned)', 'Facilitator listing (planned)', '$1,000 for completers (planned)' ) ) );
@@ -905,13 +962,37 @@ ck( 'what you get is a list, one item to a line, the three planned ones marked o
 ck( 'the mark is kept on its item\'s line by a no-break space',
 	false !== strpos( $index, '<li>Hours transcript&nbsp;<span class="wpc-hub-planned">(planned)</span></li>' ), true );
 
+ck( 'the band sits 56px under the cards, as the field-of-study table sits under it, and lands below the sticky header; its cards the program cards\' white boxes, one column, two from 640px and four from 900px; its line an eyebrow drawn above the name it follows, the name 18px in the brand, what it asks ink-70 at 14px; two classes deep',
+	array(
+		rules_for( '.wpc-hub-index .wpc-hub-courses' ),
+		rules_placed( '.wpc-hub-courses .wpc-hub-courses__grid' ),
+		rules_for( '.wpc-hub-courses .wpc-hub-course' ),
+		rules_for( '.wpc-hub-course .wpc-hub-course__meta' ),
+		rules_for( '.wpc-hub-course .wpc-hub-course__name' ),
+		rules_for( '.wpc-hub-course .wpc-hub-course__name a' ),
+		rules_for( '.wpc-hub-course .wpc-hub-course__line' ),
+	),
+	array(
+		array( 'margin-top: 56px; scroll-margin-top: var( --wpc-landing-offset );' ),
+		array(
+			array( '', 'display: grid; gap: 16px; grid-template-columns: minmax( 0, 1fr ); list-style: none; margin: 0; padding: 0;' ),
+			array( '@media ( min-width: 640px )', 'grid-template-columns: repeat( 2, minmax( 0, 1fr ) );' ),
+			array( '@media ( min-width: 900px )', 'grid-template-columns: repeat( 4, minmax( 0, 1fr ) );' ),
+		),
+		array( 'background: var( --wpc-surface ); border: 1px solid var( --wpc-line-card ); border-radius: var( --wpc-radius-card ); display: flex; flex-direction: column; gap: 8px; margin: 0; min-width: 0; padding: 24px;' ),
+		array( 'color: var( --wpc-ink-60 ); font: 500 12px/18px var( --wpc-font ); letter-spacing: .06em; margin: 0; order: -1; text-transform: uppercase;' ),
+		array( 'font-size: 18px; line-height: 1.3; margin: 0;' ),
+		array( 'color: var( --wpc-brand ); text-decoration: none;' ),
+		array( 'color: var( --wpc-ink-70 ); font-size: 14px; line-height: 1.55; margin: 0;' ),
+	) );
+
 ck( 'the nine links, each its label and a decorative arrow a screen reader skips, opening in the same tab',
 	array( found( $xp, '//article//p[@class="wpc-hub-program__links"]/a', 'href' ), found( $xp, '//article//a/span', 'aria-hidden' ), count( $xp->query( '//a[@target]' ) ) ),
 	array(
 		array(
 			'https://events.wordpress.org/campusconnect/',
-			'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
-			'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+			'#wordpress-credits-courses',
+			'https://wordpress.org/education/credits/',
 			'https://wordpress.github.io/WPCredits/',
 			'https://make.wordpress.org/community/handbook/education/wordpress-facilitator-training-program/',
 			'https://learn.wordpress.org/',
@@ -981,15 +1062,21 @@ ck( 'both ladders, each a section named by its heading, opening on step 3 and on
 		array( '3', '2' ),
 	) );
 
-ck( 'each lede, the students\' with its hint printed hidden for the script to show',
-	array( found( $px, '//p[@class="wpc-hub-ladder__lede"]' ), found( $px, '//span[@class="wpc-hub-ladder__hint"]' ), count( $px->query( '//span[@class="wpc-hub-ladder__hint"][@hidden]' ) ) ),
+ck( 'each lede, and right under it, before the staircase, the line that says a step or a level opens its detail, printed hidden for the script to show',
+	array(
+		found( $px, '//p[@class="wpc-hub-ladder__lede"]' ),
+		found( $px, '//p[@class="wpc-hub-ladder__hint"]' ),
+		count( $px->query( '//p[@class="wpc-hub-ladder__hint"][@hidden]' ) ),
+		count( $px->query( '//p[@class="wpc-hub-ladder__lede"]/following-sibling::*[1][self::p][@class="wpc-hub-ladder__hint"]/following-sibling::*[1][self::ol]' ) ),
+	),
 	array(
 		array(
-			'Each step earns a badge on your WordPress.org profile, the same profile employers look at. Enter at whichever step fits. Select a step to see what it leads to.',
+			'Each step earns a badge on your WordPress.org profile, the same profile employers look at. Enter at whichever step fits.',
 			'Levels grow with the number of students you put through the programs and get certified, not the number of groups you run. Partners appear in an activity directory sorted by recent activity. We don\'t rank schools.',
 		),
-		array( 'Select a step to see what it leads to.' ),
-		1,
+		array( 'Select a step to see what it unlocks.', 'Select a level to see what it brings.' ),
+		2,
+		2,
 	) );
 
 ck( 'the staircases: seven steps and four levels, named, each a link to its detail, described by its line, its rise from 0 to 1',
@@ -999,7 +1086,7 @@ ck( 'the staircases: seven steps and four levels, named, each a link to its deta
 		found( $px, '//ol/li', 'style' ),
 		found( $px, '//ol/li/a' ),
 		found( $px, '//ol/li/a', 'href' ),
-		found( $px, '//ol/li/span', 'id' ) === found( $px, '//ol/li/a', 'aria-describedby' ),
+		found( $px, '//ol/li/span[@class="wpc-hub-stair__by"]', 'id' ) === found( $px, '//ol/li/a', 'aria-describedby' ),
 	),
 	array(
 		array( 'Steps for students', 'Levels for institutions' ),
@@ -1009,6 +1096,18 @@ ck( 'the staircases: seven steps and four levels, named, each a link to its deta
 		array( '#wpc-hub-step-students-1', '#wpc-hub-step-students-2', '#wpc-hub-step-students-3', '#wpc-hub-step-students-4', '#wpc-hub-step-students-5', '#wpc-hub-step-students-6', '#wpc-hub-step-students-7', '#wpc-hub-step-institutions-1', '#wpc-hub-step-institutions-2', '#wpc-hub-step-institutions-3', '#wpc-hub-step-institutions-4' ),
 		true,
 	) );
+
+// The owner (15 Oct 2026, with Alana Warner): make it plain that a step opens more. Every step ends with a
+// cue, outside its link so the link (a button once the script has run) keeps its name, and hidden from
+// screen readers, which hear the link and the line it is described by.
+ck( 'every step and level ends with a cue that it opens its detail, outside its link and kept from screen readers: what it unlocks or brings, and "Shown below" for the one pressed',
+	array(
+		count( $px->query( '//ol/li/*[last()][self::span][@class="wpc-hub-stair__cue"][@aria-hidden="true"]' ) ),
+		found( $px, '//span[@class="wpc-hub-stair__cue"]/span[@class="wpc-hub-stair__see"]' ),
+		array_values( array_unique( found( $px, '//span[@class="wpc-hub-stair__cue"]/span[@class="wpc-hub-stair__shown"]' ) ) ),
+		count( $px->query( '//ol/li/a//span[@class="wpc-hub-stair__cue"]' ) ),
+	),
+	array( 11, array_merge( array_fill( 0, 7, 'See what it unlocks' ), array_fill( 0, 4, 'See what it brings' ) ), array( 'Shown below' ), 0 ) );
 
 ck( 'each step carries what its press announces',
 	found( $px, '//ol/li/a', 'data-announce' ),
@@ -1029,16 +1128,16 @@ ck( 'eleven details, every one shown, each with the address its step links to, i
 		array( 'Attendee', 'Builder', 'Contributor', 'Graduate', 'Specialist', 'Community Leader', 'Credentialed', 'Participating', 'Partner', 'Established', 'Flagship' ),
 		array( 'Earned by', 'Unlocks', 'Academic recognition' ),
 		array( 'Reached by', 'Gets' ),
-		2,
+		3,
 	) );
 
 ck( 'a detail: what earns the step, what it unlocks as a list with its planned items marked, and the academic recognition',
 	array( found( $px, '//article[@id="wpc-hub-step-students-1"]//dd[not(ul)]' ), found( $px, '//article[@id="wpc-hub-step-students-1"]//dd/ul/li' ) ),
 	array( array( 'Attend a Campus Connect event.', 'Recognized co-curricular activity or event credit, where the school offers it.' ), array( 'Certificate of participation', 'A seeded WordPress.org profile (planned)', 'A profile badge' ) ) );
 
-ck( 'every planned item of the steps and the levels is marked, 26 of them, and under each ladder one line says what the mark means',
+ck( 'every planned item of the steps and the levels is marked, 25 of them, and under each ladder one line says what the mark means',
 	array( count( $px->query( '//article//span[@class="wpc-hub-planned"]' ) ), found( $px, '//p[@class="wpc-hub-ladder__key"]' ) ),
-	array( 26, array( 'Items marked planned are not offered yet.', 'Items marked planned are not offered yet.' ) ) );
+	array( 25, array( 'Items marked planned are not offered yet.', 'Items marked planned are not offered yet.' ) ) );
 
 ck( 'what each leads to, the last of each ladder saying where it ends',
 	found( $px, '//article//span[@class="wpc-hub-detail__leads"]' ),
@@ -1052,7 +1151,7 @@ ck( 'and each next link is the core outline button\'s markup, where the design n
 			'https://events.wordpress.org/campusconnect/',
 			'https://learn.wordpress.org/',
 			'#program-wordpress-credits',
-			'#program-wordpress-credits',
+			'#wordpress-credits-courses',
 			'#programs',
 			'#program-facilitator-training',
 			'https://jobs.wordpress.net/',
@@ -1113,12 +1212,54 @@ ck( 'at 900px and wider the steps rise from 160px to 360px; below, a plain row e
 		'8.67',
 	) );
 
-ck( 'the step\'s one movement, the transition and the lift under the pointer with it, is declared only for a reader who has not asked for less',
+ck( 'the step\'s one movement, the transition and the lift under the pointer or with the keyboard\'s focus on it (not a click\'s), each lift a rule of its own, is declared only for a reader who has not asked for less',
 	array(
-		(bool) preg_match( '/@media \( prefers-reduced-motion: no-preference \) \{\s*\.wpc-hub-pathway\.is-interactive \.wpc-hub-stair \{\s*transition: transform \.15s ease;\s*\}\s*\.wpc-hub-pathway\.is-interactive \.wpc-hub-stair:hover \{\s*transform: translateY\( -4px \);\s*\}\s*\}/', theme_file( 'assets/css/hub.css' ) ),
+		(bool) preg_match( '/@media \( prefers-reduced-motion: no-preference \) \{\s*\.wpc-hub-pathway\.is-interactive \.wpc-hub-stair \{\s*transition: transform \.15s ease;\s*\}\s*\.wpc-hub-pathway\.is-interactive \.wpc-hub-stair:hover \{\s*transform: translateY\( -4px \);\s*\}\s*\.wpc-hub-pathway\.is-interactive \.wpc-hub-stair:has\( > \.wpc-hub-stair__pick:focus-visible \) \{\s*transform: translateY\( -4px \);\s*\}\s*\}/', theme_file( 'assets/css/hub.css' ) ),
 		substr_count( theme_file( 'assets/css/hub.css' ), 'translateY(' ),
+		substr_count( theme_file( 'assets/css/hub.css' ), ':focus-within' ),
 	),
-	array( true, 1 ) );
+	array( true, 2, 0 ) );
+
+ck( 'the hint is a tinted prompt in the dark brand on the brand tint (6.9:1), 14px, a down chevron before it, 16px under the lede while the script shows it (22px, the lede\'s own, without it) and 22px above the steps; two classes deep, over the theme\'s paragraph rules',
+	array(
+		rules_for( '.wpc-hub-pathway .wpc-hub-ladder__hint' ),
+		rules_for( '.wpc-hub-pathway .wpc-hub-ladder__hint::before' ),
+		rules_for( '.wpc-hub-pathway.is-interactive .wpc-hub-ladder__lede' ),
+		contrast( color_of( 'brand-dark' ), color_of( 'brand-tint' ) ),
+	),
+	array(
+		array( 'align-items: center; background: var( --wpc-brand-tint ); border-radius: 999px; color: var( --wpc-brand-dark ); display: flex; font-size: 14px; font-weight: 500; gap: 8px; line-height: 20px; margin: 0 0 22px; padding: 6px 14px 6px 12px; width: fit-content;' ),
+		array( 'border-bottom: 2px solid currentColor; border-right: 2px solid currentColor; content: ""; height: 7px; margin-top: -4px; transform: rotate( 45deg ); width: 7px;' ),
+		array( 'margin-bottom: 16px;' ),
+		'6.90',
+	) );
+
+ck( 'the cue sits at the foot of its step in the dark brand at 13px (6.9:1 on the lightest step, 5.13 on the darkest), white on the step pressed (5.61), its second line shown only there and the first then not, with a down chevron after it',
+	array(
+		rules_for( '.wpc-hub-stair .wpc-hub-stair__cue' ),
+		rules_for( '.wpc-hub-stair .wpc-hub-stair__cue::after' ),
+		rules_for( '.wpc-hub-stair .wpc-hub-stair__shown' ),
+		rules_for( '.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__see' ),
+		rules_for( '.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__shown' ),
+		rules_for( '.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__cue' ),
+		array( contrast( color_of( 'brand-dark' ), color_of( 'brand-tint' ) ), contrast( color_of( 'brand-dark' ), color_of( 'brand-border' ) ) ),
+	),
+	array(
+		array( 'align-items: center; color: var( --wpc-brand-dark ); display: inline-flex; font-size: 13px; font-weight: 600; gap: 6px; line-height: 18px; margin-top: auto; padding-top: 6px;' ),
+		array( 'border-bottom: 2px solid currentColor; border-right: 2px solid currentColor; content: ""; height: 6px; margin-top: -3px; transform: rotate( 45deg ); width: 6px;' ),
+		array( 'display: none;' ),
+		array( 'display: none;' ),
+		array( 'display: inline;' ),
+		array( 'color: var( --wpc-surface );' ),
+		array( '6.90', '5.13' ),
+	) );
+
+ck( 'with the script and the steps side by side, the shown detail points up at its step: a 14px square turned on its corner, its two upper edges the card\'s, at the middle the script sets (the card\'s middle until then), from 900px only',
+	array( array_values( preg_grep( '/\.wpc-hub-detail(?: |::)/', rules_in_media( '( min-width: 900px )' ) ) ), false !== strpos( implode( ' ', rules_for( '.wpc-hub-details' ) ), '--wpc-notch: 50%;' ) ),
+	array( array(
+		'.wpc-hub-pathway.is-interactive .wpc-hub-detail { position: relative; }',
+		'.wpc-hub-pathway.is-interactive .wpc-hub-detail::before { background: var( --wpc-surface ); border-left: 1px solid var( --wpc-line-card ); border-top: 1px solid var( --wpc-line-card ); content: ""; height: 14px; left: calc( var( --wpc-notch ) - 8px ); position: absolute; top: -8px; transform: rotate( 45deg ); width: 14px; }',
+	), true ) );
 
 ck( 'a step\'s detail and a program\'s card, each an address a link names, land below the sticky header',
 	array_map( static function ( $selector ) { return false !== strpos( implode( ' ', rules_for( $selector ) ), 'scroll-margin-top: var( --wpc-landing-offset );' ); }, array( '.wpc-hub-detail', '.wpc-hub-program' ) ),
@@ -1136,12 +1277,13 @@ ck( 'and the contrast: ink-70 on the darkest step 6.36 and on the lightest 8.55,
 // is not kept), and a step has no border, so every step but the pressed one loses its edge. Each step
 // gets a 1px CanvasText border there, written two classes deep over the step's own one-class rules; the
 // pressed step keeps its Highlight and its HighlightText.
-ck( 'in forced colors every step keeps its edge, a 1px CanvasText border written with two classes, and the pressed step keeps the system\'s highlight',
+ck( 'in forced colors every step keeps its edge, a 1px CanvasText border written with two classes, and the pressed step keeps the system\'s highlight, its number, line and cue in its text too, written as deep as their own colors and later',
 	array_values( preg_grep( '/wpc-hub-stair/', rules_in_media( '( forced-colors: active )' ) ) ),
 	array(
 		'.wpc-hub-stairs .wpc-hub-stair { border: 1px solid CanvasText; }',
 		'.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) { background: Highlight; forced-color-adjust: none; }',
 		'.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) * { color: HighlightText; }',
+		'.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) :is( .wpc-hub-stair__n, .wpc-hub-stair__by, .wpc-hub-stair__cue ) { color: HighlightText; }',
 	) );
 
 echo "\n=== The program figure: the counts, as before ===\n";
@@ -1955,8 +2097,8 @@ ck( 'the sections in the page\'s order: the hero, the sign-in section right unde
 	array_map( static function ( $class ) { return implode( ' ', array_intersect( array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-cta' ), explode( ' ', $class ) ) ); }, found( $page, '/html/body/*', 'class' ) ),
 	array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-anchored', 'wpc-hub-cta' ) );
 
-ck( 'and nothing on it is hidden but the three controls the scripts show: the chips, the switch and the hint',
-	found( $page, '//*[@hidden]', 'class' ), array( 'wpc-hub-chips', 'wpc-hub-switch', 'wpc-hub-ladder__hint' ) );
+ck( 'and nothing on it is hidden but the controls the scripts show: the chips, the switch and each ladder\'s hint',
+	found( $page, '//*[@hidden]', 'class' ), array( 'wpc-hub-chips', 'wpc-hub-switch', 'wpc-hub-ladder__hint', 'wpc-hub-ladder__hint' ) );
 
 ck( 'the headings in order: the one h1, a heading for every section, the sign-in section\'s second, the doors\' for screen readers',
 	found( $page, '//h1 | //h2' ),
@@ -1996,14 +2138,18 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Become a partner → > ' . $apply,
 			'Hire from WordPress → > https://jobs.wordpress.net/',
 			'Find or host an event → > https://events.wordpress.org/campusconnect/',
-			'Developer track → > https://learn.wordpress.org/course/wordpress-credits-developer-track/',
-			'Designer track → > https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+			'Compare the four courses → > #wordpress-credits-courses',
+			'About the program → > https://wordpress.org/education/credits/',
 			'Impact dashboard → > https://wordpress.github.io/WPCredits/',
 			'Facilitation guides → > https://make.wordpress.org/community/handbook/education/wordpress-facilitator-training-program/',
 			'Courses → > https://learn.wordpress.org/',
 			'Browse courses → > https://learn.wordpress.org/',
 			'Learn more → > https://ai-leaders.org/',
 			'Learn more → > https://wordpresscertifications.com/wordpress-builder-certification/',
+			'Intro to Contribution → > https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
+			'Foundations → > https://learn.wordpress.org/course/wordpress-credits-foundations/',
+			'Developer track → > https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+			'Designer track → > https://learn.wordpress.org/course/wordpress-credits-designer-track/',
 			'Step 1 Attendee > #wpc-hub-step-students-1',
 			'Step 2 Builder > #wpc-hub-step-students-2',
 			'Step 3 Contributor > #wpc-hub-step-students-3',
@@ -2014,7 +2160,7 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Find a Campus Connect event > https://events.wordpress.org/campusconnect/',
 			'Learn to build a site > https://learn.wordpress.org/',
 			'Start WordPress Credits > #program-wordpress-credits',
-			'See the tracks > #program-wordpress-credits',
+			'See the courses > #wordpress-credits-courses',
 			'Explore programs > #programs',
 			'Try Facilitator Training > #program-facilitator-training',
 			'Where this leads: WordPress Jobs > https://jobs.wordpress.net/',
@@ -2039,7 +2185,7 @@ ck( 'every in-page link lands on something on the page',
 
 ck( 'and every arrow is decorative, read by no screen reader',
 	array( count( $page->query( '//a/span[@aria-hidden="true"]' ) ), substr_count( $page_html, '→' ) ),
-	array( 16, 16 ) );
+	array( 20, 20 ) );
 
 WPCPM_Institution_Application::$url = '';
 WPCPM_Sponsor_Application::$url     = '';

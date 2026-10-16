@@ -8,8 +8,9 @@
  * holding a value, and the descendant and child combinators), focus, the address's hash and its
  * hashchange, and what pressing Enter or Space on a button does: it clicks it. Nothing is laid out:
  * `hidden` is an attribute, as the scripts read it. Where an element lies on the screen is what a
- * scenario says: `element.box = { top, bottom }`, read by `getBoundingClientRect()`, against the
- * window's `innerHeight` (800); an element with no box lies in view.
+ * scenario says: `element.box = { top, bottom, left, width }`, read by `getBoundingClientRect()`,
+ * against the window's `innerHeight` (800); an element with no box lies in view, with no width. A
+ * custom property a script sets on an element's `style` is kept, to be read back.
  */
 
 const VOID = new Set( [ 'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr' ] );
@@ -115,6 +116,15 @@ class Element extends Node {
 		this.listeners = {};
 		this.textWrites = 0;
 		this.box = null;
+		this.style = {
+			props: {},
+			setProperty( name, value ) {
+				this.props[ name ] = String( value );
+			},
+			getPropertyValue( name ) {
+				return undefined === this.props[ name ] ? '' : this.props[ name ];
+			},
+		};
 	}
 
 	getAttribute( name ) {
@@ -259,12 +269,15 @@ class Element extends Node {
 	 * Where the element lies, as a scenario set it with `box`; in view (the window is 800 tall) when
 	 * it has not.
 	 *
-	 * @return {Object} `top`, `bottom` and `height`, in pixels from the window's top.
+	 * @return {Object} `top`, `bottom` and `height`, in pixels from the window's top, and `left`,
+	 *                  `width` and `right`, from its left edge (0 wide when the scenario says nothing).
 	 */
 	getBoundingClientRect() {
 		const box = this.box || { top: 120, bottom: 420 };
+		const left = box.left || 0;
+		const width = box.width || 0;
 
-		return { top: box.top, bottom: box.bottom, height: box.bottom - box.top };
+		return { top: box.top, bottom: box.bottom, height: box.bottom - box.top, left, width, right: left + width };
 	}
 
 	/**

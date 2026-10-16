@@ -9,6 +9,14 @@
  * press announces. A filtered chip's sentence names its audience, so two chips never say the same
  * sentence, as two of them show the same number of programs.
  *
+ * A program with courses, WordPress Credits alone, has a band of them under the cards, its ID the
+ * program's slug and `-courses`, the address its card's "Compare the four courses" links to: the
+ * programs section's head (an eyebrow, a heading, a lede that says access to a course comes through
+ * the institution) and a card each: its name linked to its public page, then the line the stylesheet
+ * draws above the name (its hours, or who it is for), so a screen reader that jumps to the heading hears
+ * the line after it, and what it asks. The filter chips leave it alone: under "For faculty" it stays,
+ * since an institution picks the course.
+ *
  * Each card's ID is `program-` and its slug, the address a pathway step links to. The block is
  * `supports.multiple` false, so an ID is never printed twice on a page.
  *
@@ -90,4 +98,29 @@ $wpcredits_announcements = array(
 			</article>
 		<?php endforeach; ?>
 	</div>
+	<?php
+	foreach ( $wpcredits_programs as $wpcredits_program ) :
+		if ( empty( $wpcredits_program['courses'] ) ) {
+			continue;
+		}
+
+		$wpcredits_band = $wpcredits_program['slug'] . '-courses';
+		?>
+		<section class="wpc-hub-courses" id="<?php echo esc_attr( $wpcredits_band ); ?>" aria-labelledby="<?php echo esc_attr( $wpcredits_band ); ?>-title">
+			<div class="wp-block-group wpc-hub-head">
+				<p class="is-style-eyebrow"><?php esc_html_e( 'Choosing a course', 'wpcredits-theme' ); ?></p>
+				<h3 id="<?php echo esc_attr( $wpcredits_band ); ?>-title"><?php esc_html_e( 'Which WordPress Credits course?', 'wpcredits-theme' ); ?></h3>
+				<p class="wpc-hub-lede"><?php esc_html_e( 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student\'s institution.', 'wpcredits-theme' ); ?></p>
+			</div>
+			<ul class="wpc-hub-courses__grid">
+				<?php foreach ( $wpcredits_program['courses'] as $wpcredits_course ) : ?>
+					<li class="wpc-hub-course">
+						<h4 class="wpc-hub-course__name"><a href="<?php echo esc_url( $wpcredits_course['url'] ); ?>"><?php echo esc_html( $wpcredits_course['name'] ); ?><span aria-hidden="true"> →</span></a></h4>
+						<p class="wpc-hub-course__meta"><?php echo esc_html( $wpcredits_course['eyebrow'] ); ?></p>
+						<p class="wpc-hub-course__line"><?php echo esc_html( $wpcredits_course['line'] ); ?></p>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</section>
+	<?php endforeach; ?>
 </div>

@@ -41,6 +41,26 @@ function wpcredits_hub_item( $text, $planned = false ) {
 }
 
 /**
+ * One course of a program, for the band of its courses under the index: its name, its public page,
+ * the short line above its name (its hours where its page gives them, who it is for where it does
+ * not), and one line on what it asks.
+ *
+ * @param string $name    Its name, translated.
+ * @param string $eyebrow The line above its name, translated.
+ * @param string $line    What it asks, a sentence, translated.
+ * @param string $url     Its public page.
+ * @return array{name: string, eyebrow: string, line: string, url: string}
+ */
+function wpcredits_hub_course( $name, $eyebrow, $line, $url ) {
+	return array(
+		'name'    => (string) $name,
+		'eyebrow' => (string) $eyebrow,
+		'line'    => (string) $line,
+		'url'     => (string) $url,
+	);
+}
+
+/**
  * One link: its label and its target.
  *
  * @param string $label  The label, translated.
@@ -82,7 +102,8 @@ function wpcredits_hub_url( $target ) {
  * The six programs, in the order the index lists them.
  *
  * @return array[] Each: `slug`, `name`, `audiences` (`student`, `faculty`, `career`), `status`
- *                 (`live` or `development`), `step`, `what`, `time`, `gets` (items) and `links`.
+ *                 (`live` or `development`), `step`, `what`, `time`, `gets` (items), `courses` (the
+ *                 band of its courses under the index, WordPress Credits' alone) and `links`.
  */
 function wpcredits_hub_programs() {
 	return array(
@@ -118,9 +139,48 @@ function wpcredits_hub_programs() {
 				wpcredits_hub_item( __( 'Hours transcript', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( _x( 'Credit', 'academic credit a program gives, a noun, as in credit toward a degree', 'wpcredits-theme' ) ),
 			),
+			// The band of its courses under the index (Isotta Peira and Alana Warner, 15 Oct 2026; the owner,
+			// 16 Oct 2026): each says what the course's public Learn page says. The hours are Intro to
+			// Contribution's page's, and Foundations' are the owner's (16 Oct 2026: the base course, 150 hours or
+			// more), what that format suits being the program page's; the two tracks' pages give no hours, so
+			// they say who they are for.
+			'courses'   => array(
+				wpcredits_hub_course(
+					/* translators: The name of a WordPress Credits course on Learn WordPress. */
+					__( 'Intro to Contribution', 'wpcredits-theme' ),
+					/* translators: The line above a course's name: how long it takes. */
+					__( '50 hours', 'wpcredits-theme' ),
+					__( 'One guided contribution project: a first look at open source, for a shorter course or an elective.', 'wpcredits-theme' ),
+					'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/'
+				),
+				wpcredits_hub_course(
+					/* translators: The name of a WordPress Credits course on Learn WordPress, its base course; not foundations as organizations. */
+					__( 'Foundations', 'wpcredits-theme' ),
+					/* translators: The line above a course's name: how long it takes. */
+					__( '150 hours or more', 'wpcredits-theme' ),
+					__( 'Your own site and a contribution that ships, for an internship, a capstone, or a full semester.', 'wpcredits-theme' ),
+					'https://learn.wordpress.org/course/wordpress-credits-foundations/'
+				),
+				wpcredits_hub_course(
+					/* translators: The name of a WordPress Credits course on Learn WordPress. */
+					__( 'Developer track', 'wpcredits-theme' ),
+					/* translators: The line above a course's name: who it is for. */
+					__( 'For developers', 'wpcredits-theme' ),
+					__( 'WordPress developer training and patch testing practice, toward a contribution that ships.', 'wpcredits-theme' ),
+					'https://learn.wordpress.org/course/wordpress-credits-developer-track/'
+				),
+				wpcredits_hub_course(
+					/* translators: The name of a WordPress Credits course on Learn WordPress. */
+					__( 'Designer track', 'wpcredits-theme' ),
+					/* translators: The line above a course's name: who it is for. */
+					__( 'For designers', 'wpcredits-theme' ),
+					__( 'A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.', 'wpcredits-theme' ),
+					'https://learn.wordpress.org/course/wordpress-credits-designer-track/'
+				),
+			),
 			'links'     => array(
-				wpcredits_hub_link( __( 'Developer track', 'wpcredits-theme' ), 'https://learn.wordpress.org/course/wordpress-credits-developer-track/' ),
-				wpcredits_hub_link( __( 'Designer track', 'wpcredits-theme' ), 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' ),
+				wpcredits_hub_link( __( 'Compare the four courses', 'wpcredits-theme' ), '#wordpress-credits-courses' ),
+				wpcredits_hub_link( __( 'About the program', 'wpcredits-theme' ), 'https://wordpress.org/education/credits/' ),
 				wpcredits_hub_link( __( 'Impact dashboard', 'wpcredits-theme' ), 'https://wordpress.github.io/WPCredits/' ),
 			),
 		),
@@ -224,8 +284,6 @@ function wpcredits_hub_steps() {
 			'by'          => __( 'Launch a live site with real content', 'wpcredits-theme' ),
 			'earned'      => __( 'Launch a live site with real content.', 'wpcredits-theme' ),
 			'items'       => array(
-				wpcredits_hub_item( __( 'Free .blog or .art domain and a year of hosting', 'wpcredits-theme' ), true ),
-				wpcredits_hub_item( __( 'The full theme and plugin library', 'wpcredits-theme' ) ),
 				wpcredits_hub_item( __( 'Showcase eligibility', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'A profile badge', 'wpcredits-theme' ), true ),
 			),
@@ -259,7 +317,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'WordCamp ticket support', 'wpcredits-theme' ), true ),
 			),
 			'recognition' => __( 'Credit-bearing.', 'wpcredits-theme' ),
-			'next'        => wpcredits_hub_link( __( 'See the tracks', 'wpcredits-theme' ), '#program-wordpress-credits' ),
+			'next'        => wpcredits_hub_link( __( 'See the courses', 'wpcredits-theme' ), '#wordpress-credits-courses' ),
 		),
 		array(
 			'name'        => __( 'Specialist', 'wpcredits-theme' ),

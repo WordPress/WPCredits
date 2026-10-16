@@ -1,5 +1,5 @@
 /**
- * The pathway's switch and steps (theme 1.24.15).
+ * The pathway's switch and steps (theme 1.24.15; the detail's point at its step, 1.24.17).
  *
  * The server prints both ladders, every detail shown, each step an in-page link to its detail, and
  * the switch and the hint with `hidden`. This shows the switch and the hint, marks the block
@@ -10,8 +10,10 @@
  * switch shows its ladder, the other keeping its own pressed step, and says the ladder's heading. An
  * address naming a detail, the page's own or a link followed, selects its ladder and its step, said
  * once and only if that changes what is shown, and one changed to a detail that was hidden is
- * scrolled to once the detail is shown. Every word said comes from the server; focus stays where the
- * person put it; nothing is stored or written to the address.
+ * scrolled to once the detail is shown. The detail shown points at its step: the middle of the step,
+ * from the details' left edge, is set as --wpc-notch at each press, each ladder shown and each resize.
+ * Every word said comes from the server; focus stays where the person put it; nothing is stored or
+ * written to the address.
  */
 ( function () {
 	'use strict';
@@ -43,6 +45,31 @@
 			return ladder.querySelectorAll( '.wpc-hub-stair__pick' );
 		}
 
+		// The detail shown points up at its step where the steps stand side by side (hub.css draws the
+		// point from 900px): the middle of the pressed step, from the details' left edge, set on the
+		// details as --wpc-notch. Nothing is set while the details have no width, as a hidden ladder's
+		// have none; showing the ladder sets it then.
+		function point( ladder ) {
+			var details = ladder.querySelector( '.wpc-hub-details' );
+			var pressed = ladder.querySelector( '.wpc-hub-stair__pick[aria-pressed="true"]' );
+			var stair = pressed && pressed.closest ? pressed.closest( '.wpc-hub-stair' ) : null;
+			var from;
+			var to;
+
+			if ( ! details || ! stair || ! details.style || ! details.getBoundingClientRect ) {
+				return;
+			}
+
+			from = details.getBoundingClientRect();
+			to = stair.getBoundingClientRect();
+
+			if ( ! from.width ) {
+				return;
+			}
+
+			details.style.setProperty( '--wpc-notch', Math.round( to.left + ( to.width / 2 ) - from.left ) + 'px' );
+		}
+
 		function select( ladder, pick, announce ) {
 			var controls = pick.getAttribute( 'aria-controls' );
 
@@ -53,6 +80,8 @@
 			each( ladder.querySelectorAll( '.wpc-hub-detail' ), function ( detail ) {
 				detail.hidden = detail.id !== controls;
 			} );
+
+			point( ladder );
 
 			if ( announce ) {
 				say( pick.getAttribute( 'data-announce' ) || '' );
@@ -88,6 +117,8 @@
 			each( options, function ( option ) {
 				option.setAttribute( 'aria-pressed', option.getAttribute( 'aria-controls' ) === ladder.id ? 'true' : 'false' );
 			} );
+
+			point( ladder );
 
 			if ( announce ) {
 				say( heading ? heading.textContent.trim() : '' );
@@ -186,6 +217,15 @@
 			if ( link ) {
 				follow( link.getAttribute( 'href' ), true );
 			}
+		} );
+
+		// The steps move as the window is resized, so the shown ladder's detail points at its step again.
+		window.addEventListener( 'resize', function () {
+			each( ladders, function ( ladder ) {
+				if ( ! ladder.hidden ) {
+					point( ladder );
+				}
+			} );
 		} );
 
 		// An address changed to a detail that is hidden, itself or with its ladder: the browser's own jump

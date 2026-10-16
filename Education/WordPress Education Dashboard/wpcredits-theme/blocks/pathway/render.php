@@ -5,10 +5,13 @@
  *
  * **Everything is in the markup, and shown.** Without JavaScript both ladders show one after the
  * other: each its heading, its lede, the staircase as a picture of the climb whose steps are in-page
- * links to their details, then every detail as a card. The switch between the two ladders and the
- * line that says a step can be selected are printed with `hidden`, for the view script to show; it
- * turns each step into a button, shows one detail at a time and one ladder at a time. Every word the
- * script says comes from here, already translated.
+ * links to their details, then every detail as a card. The switch between the two ladders and each
+ * ladder's line that says a step or a level can be selected, between its lede and its staircase, are
+ * printed with `hidden`, for the view script to show; it turns each step into a button, shows one
+ * detail at a time and one ladder at a time. Every step ends with a cue that it opens its detail,
+ * outside its link and hidden from screen readers, which hear the link and its line: "See what it
+ * unlocks" (or brings), and "Shown below" while it is the one pressed, the stylesheet showing one of
+ * the two. Every word the script says comes from here, already translated.
  *
  * The detail's "next" link is the core Button block's markup, so the theme's outline button rules
  * dress it unchanged. The block is `supports.multiple` false, so its IDs are never printed twice.
@@ -30,7 +33,9 @@ $wpcredits_ladders = array(
 		'option'   => __( 'For students', 'wpcredits-theme' ),
 		'title'    => __( 'Seven steps from first workshop to first job', 'wpcredits-theme' ),
 		'lede'     => __( 'Each step earns a badge on your WordPress.org profile, the same profile employers look at. Enter at whichever step fits.', 'wpcredits-theme' ),
-		'hint'     => __( 'Select a step to see what it leads to.', 'wpcredits-theme' ),
+		'hint'     => __( 'Select a step to see what it unlocks.', 'wpcredits-theme' ),
+		/* translators: The cue at the foot of each step, for the detail it opens below the steps. */
+		'cue'      => __( 'See what it unlocks', 'wpcredits-theme' ),
 		'label'    => __( 'Steps for students', 'wpcredits-theme' ),
 		'start'    => 3,
 		'rungs'    => wpcredits_hub_steps(),
@@ -54,7 +59,9 @@ $wpcredits_ladders = array(
 		'option'   => __( 'For institutions', 'wpcredits-theme' ),
 		'title'    => __( 'Four partner levels, measured on student outcomes', 'wpcredits-theme' ),
 		'lede'     => __( 'Levels grow with the number of students you put through the programs and get certified, not the number of groups you run. Partners appear in an activity directory sorted by recent activity. We don\'t rank schools.', 'wpcredits-theme' ),
-		'hint'     => '',
+		'hint'     => __( 'Select a level to see what it brings.', 'wpcredits-theme' ),
+		/* translators: The cue at the foot of each partner level, for the detail it opens below the levels. */
+		'cue'      => __( 'See what it brings', 'wpcredits-theme' ),
 		'label'    => __( 'Levels for institutions', 'wpcredits-theme' ),
 		'start'    => 2,
 		'rungs'    => wpcredits_hub_levels(),
@@ -90,11 +97,8 @@ $wpcredits_ladders = array(
 		?>
 		<section class="wpc-hub-ladder" id="wpc-hub-ladder-<?php echo esc_attr( $wpcredits_key ); ?>" aria-labelledby="wpc-hub-ladder-<?php echo esc_attr( $wpcredits_key ); ?>-title" data-start="<?php echo (int) $wpcredits_ladder['start']; ?>">
 			<h2 class="wpc-hub-ladder__title" id="wpc-hub-ladder-<?php echo esc_attr( $wpcredits_key ); ?>-title"><?php echo esc_html( $wpcredits_ladder['title'] ); ?></h2>
-			<p class="wpc-hub-ladder__lede"><?php echo esc_html( $wpcredits_ladder['lede'] ); ?>
-				<?php if ( '' !== $wpcredits_ladder['hint'] ) : ?>
-					<span class="wpc-hub-ladder__hint" hidden><?php echo esc_html( $wpcredits_ladder['hint'] ); ?></span>
-				<?php endif; ?>
-			</p>
+			<p class="wpc-hub-ladder__lede"><?php echo esc_html( $wpcredits_ladder['lede'] ); ?></p>
+			<p class="wpc-hub-ladder__hint" hidden><?php echo esc_html( $wpcredits_ladder['hint'] ); ?></p>
 			<ol class="wpc-hub-stairs" aria-label="<?php echo esc_attr( $wpcredits_ladder['label'] ); ?>" style="--wpc-count:<?php echo (int) $wpcredits_total; ?>">
 				<?php
 				foreach ( $wpcredits_rungs as $wpcredits_i => $wpcredits_rung ) :
@@ -104,6 +108,7 @@ $wpcredits_ladders = array(
 					<li class="wpc-hub-stair" style="--wpc-t:<?php echo esc_attr( $wpcredits_rise ); ?>">
 						<a class="wpc-hub-stair__pick" href="#wpc-hub-step-<?php echo esc_attr( $wpcredits_key . '-' . $wpcredits_n ); ?>" aria-describedby="wpc-hub-by-<?php echo esc_attr( $wpcredits_key . '-' . $wpcredits_n ); ?>" data-announce="<?php echo esc_attr( sprintf( $wpcredits_ladder['announce'], number_format_i18n( $wpcredits_n ), number_format_i18n( $wpcredits_total ), $wpcredits_rung['name'] ) ); ?>"><span class="wpc-hub-stair__n"><?php echo esc_html( sprintf( $wpcredits_ladder['n'], number_format_i18n( $wpcredits_n ) ) ); ?></span> <span class="wpc-hub-stair__name"><?php echo esc_html( $wpcredits_rung['name'] ); ?></span></a>
 						<span class="wpc-hub-stair__by" id="wpc-hub-by-<?php echo esc_attr( $wpcredits_key . '-' . $wpcredits_n ); ?>"><?php echo esc_html( $wpcredits_rung['by'] ); ?></span>
+						<span class="wpc-hub-stair__cue" aria-hidden="true"><span class="wpc-hub-stair__see"><?php echo esc_html( $wpcredits_ladder['cue'] ); ?></span><span class="wpc-hub-stair__shown"><?php echo esc_html_x( 'Shown below', 'the cue of the step whose detail is shown under the steps', 'wpcredits-theme' ); ?></span></span>
 					</li>
 				<?php endforeach; ?>
 			</ol>

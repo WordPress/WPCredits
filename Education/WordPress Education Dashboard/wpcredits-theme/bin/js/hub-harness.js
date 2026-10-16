@@ -52,11 +52,17 @@ function scenario( name, want, build ) {
  * @param {string}   name    A page of PAGES.
  * @param {string[]} scripts Keys of SCRIPTS, run in order.
  * @param {string}   hash    The address's hash.
+ * @param {Function} before  Optional: called with the page before the scripts run, as where a scenario
+ *                           lays out the boxes a script reads as it starts.
  * @return {Object} The page.
  */
-function open( name, scripts, hash ) {
+function open( name, scripts, hash, before ) {
 	const where = page( PAGES[ name ], hash || '' );
 	const context = vm.createContext( { document: where.document, window: where.window } );
+
+	if ( before ) {
+		before( where );
+	}
 
 	scripts.forEach( ( key ) => vm.runInContext( SCRIPTS[ key ], context ) );
 
@@ -106,6 +112,22 @@ scenario( 'each chip pressed shows its programs, is the one pressed, says what i
 
 		return [ filter, pressed( where ), shown( where ), said( where, '.wpc-hub-index' ), where.document.activeElement === chip( where, filter ) ];
 	} );
+} );
+
+// The band of WordPress Credits' courses is no card: under "For faculty" it stays, as an institution
+// picks the course, while the Credits card hides with the students' and careers' programs.
+scenario( 'the band of courses stays under every chip, "For faculty" too, while the chips hide and show only the cards', [ [ false, false, false, false ], [ 'facilitator-training', 'learn-wordpress' ] ], () => {
+	const where = open( 'index', [ 'index' ] );
+	const states = [];
+
+	[ 'student', 'faculty', 'career', 'all' ].forEach( ( filter ) => {
+		tap( where, chip( where, filter ) );
+		states.push( where.document.getElementById( 'wordpress-credits-courses' ).hidden );
+	} );
+
+	tap( where, chip( where, 'faculty' ) );
+
+	return [ states, shown( where ) ];
 } );
 
 scenario( 'by keyboard: Enter and Space on the chip that has the focus press it', [ [ 'false', 'false', 'true', 'false' ], [ 'false', 'true', 'false', 'false' ] ], () => {
@@ -207,18 +229,18 @@ const step = ( where, ladder, n ) => where.document.querySelector( '.wpc-hub-sta
 const option = ( where, ladder ) => where.document.querySelector( '.wpc-hub-switch__option[aria-controls="wpc-hub-ladder-' + ladder + '"]' );
 const switchPressed = ( where ) => where.document.querySelectorAll( '.wpc-hub-switch__option' ).map( ( one ) => one.getAttribute( 'aria-pressed' ) );
 
-scenario( 'without the script both ladders show whole: the switch and the hint hidden, every detail shown, each step a link to its detail', [ true, true, [ 'students', 'institutions' ], 11, 11 ], () => {
+scenario( 'without the script both ladders show whole: the switch and both hints hidden, every detail shown, each step a link to its detail', [ true, [ true, true ], [ 'students', 'institutions' ], 11, 11 ], () => {
 	const where = open( 'pathway', [] );
 
-	return [ where.document.querySelector( '.wpc-hub-switch' ).hidden, where.document.querySelector( '.wpc-hub-ladder__hint' ).hidden, ladderShown( where ), detailsShown( where ).length, where.document.querySelectorAll( 'a.wpc-hub-stair__pick' ).length ];
+	return [ where.document.querySelector( '.wpc-hub-switch' ).hidden, where.document.querySelectorAll( '.wpc-hub-ladder__hint' ).map( ( hint ) => hint.hidden ), ladderShown( where ), detailsShown( where ).length, where.document.querySelectorAll( 'a.wpc-hub-stair__pick' ).length ];
 } );
 
-scenario( 'the script shows the switch and the hint, marks the block interactive, and opens on the students\' ladder at step 3, the institutions\' keeping level 2', [ false, false, true, [ 'students' ], [ 'students-3', 'institutions-2' ], [ 'students-3', 'institutions-2' ], [ 'true', 'false' ], '' ], () => {
+scenario( 'the script shows the switch and both ladders\' hints, marks the block interactive, and opens on the students\' ladder at step 3, the institutions\' keeping level 2', [ false, [ false, false ], true, [ 'students' ], [ 'students-3', 'institutions-2' ], [ 'students-3', 'institutions-2' ], [ 'true', 'false' ], '' ], () => {
 	const where = open( 'pathway', [ 'pathway' ] );
 
 	return [
 		where.document.querySelector( '.wpc-hub-switch' ).hidden,
-		where.document.querySelector( '.wpc-hub-ladder__hint' ).hidden,
+		where.document.querySelectorAll( '.wpc-hub-ladder__hint' ).map( ( hint ) => hint.hidden ),
 		where.document.querySelector( '.wpc-hub-pathway' ).classList.contains( 'is-interactive' ),
 		ladderShown( where ),
 		stepsPressed( where ),
@@ -245,6 +267,47 @@ scenario( 'a step pressed shows its detail alone, is the one pressed, says so, a
 	tap( where, step( where, 'students', 5 ) );
 
 	return [ stepsPressed( where ), detailsShown( where ), said( where, '.wpc-hub-pathway' ), where.document.activeElement === step( where, 'students', 5 ) ];
+} );
+
+// The detail shown points at its step (hub.css draws the point from 900px): the script sets the middle
+// of the pressed step, from the details' left edge, as --wpc-notch, at each press, each ladder shown and
+// each resize, and sets nothing while the details have no width, as a hidden ladder's have none.
+scenario( 'the detail points at its step: the middle of the step pressed, from the details\' left edge, set at a press, at a resize and when the switch shows a ladder, and nothing while the details have no width', [ '', '470px', '270px', '600px', '' ], () => {
+	const where = open( 'pathway', [ 'pathway' ] );
+	const details = ( ladder ) => where.document.querySelector( '#wpc-hub-ladder-' + ladder + ' .wpc-hub-details' );
+	const stair = ( ladder, n ) => step( where, ladder, n ).closest( '.wpc-hub-stair' );
+	const notch = ( ladder ) => details( ladder ).style.getPropertyValue( '--wpc-notch' );
+	const seen = [ notch( 'students' ) ];
+
+	details( 'students' ).box = { top: 500, bottom: 700, left: 100, width: 1000 };
+	stair( 'students', 5 ).box = { top: 200, bottom: 480, left: 500, width: 140 };
+	tap( where, step( where, 'students', 5 ) );
+	seen.push( notch( 'students' ) );
+
+	stair( 'students', 5 ).box = { top: 200, bottom: 480, left: 300, width: 140 };
+	( where.window.listeners.resize || [] ).forEach( ( listener ) => listener( {} ) );
+	seen.push( notch( 'students' ) );
+
+	details( 'institutions' ).box = { top: 500, bottom: 700, left: 100, width: 1000 };
+	stair( 'institutions', 2 ).box = { top: 200, bottom: 480, left: 550, width: 300 };
+	option( where, 'institutions' ).click();
+	seen.push( notch( 'institutions' ) );
+
+	details( 'institutions' ).box = { top: 0, bottom: 0, left: 0, width: 0 };
+	details( 'institutions' ).style.props = {};
+	tap( where, step( where, 'institutions', 3 ) );
+	seen.push( notch( 'institutions' ) );
+
+	return seen;
+} );
+
+scenario( 'a page opened at a detail\'s address shows its ladder, and the detail points at its step at once', [ [ 'institutions' ], [ 'institutions-3' ], '440px' ], () => {
+	const where = open( 'pathway', [ 'pathway' ], '#wpc-hub-step-institutions-3', ( page ) => {
+		page.document.querySelector( '#wpc-hub-ladder-institutions .wpc-hub-details' ).box = { top: 500, bottom: 700, left: 100, width: 1000 };
+		page.document.querySelector( 'a.wpc-hub-stair__pick[href="#wpc-hub-step-institutions-3"]' ).closest( '.wpc-hub-stair' ).box = { top: 200, bottom: 480, left: 470, width: 140 };
+	} );
+
+	return [ ladderShown( where ), detailsShown( where ).filter( ( id ) => 0 === id.indexOf( 'institutions' ) ), where.document.querySelector( '#wpc-hub-ladder-institutions .wpc-hub-details' ).style.getPropertyValue( '--wpc-notch' ) ];
 } );
 
 scenario( 'by keyboard: Enter and Space on the step that has the focus press it', [ [ 'students-1', 'institutions-2' ], [ 'students-7', 'institutions-2' ] ], () => {

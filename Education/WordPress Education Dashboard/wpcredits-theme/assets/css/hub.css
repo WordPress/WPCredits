@@ -505,6 +505,41 @@
 	margin: 0 0 22px;
 }
 
+/* The line that says a step opens its detail, shown by the script: a prompt in the dark brand on the
+   brand tint (6.9:1) between the lede and the steps, a down chevron before it, so it reads as what to
+   do rather than as the lede's last sentence (the owner, 15 Oct 2026). A block-level box as wide as its
+   words, so it is spaced as a block and not on a line of text; the lede keeps 16px above it while the
+   script shows it, and its own 22px above the steps without it, in the Site Editor too. Two classes
+   deep, over the theme's paragraph rules; `.wpc-hub-pathway [hidden]` keeps it hidden until then. */
+.wpc-hub-pathway.is-interactive .wpc-hub-ladder__lede {
+	margin-bottom: 16px;
+}
+
+.wpc-hub-pathway .wpc-hub-ladder__hint {
+	align-items: center;
+	background: var( --wpc-brand-tint );
+	border-radius: 999px;
+	color: var( --wpc-brand-dark );
+	display: flex;
+	font-size: 14px;
+	font-weight: 500;
+	gap: 8px;
+	line-height: 20px;
+	margin: 0 0 22px;
+	padding: 6px 14px 6px 12px;
+	width: fit-content;
+}
+
+.wpc-hub-pathway .wpc-hub-ladder__hint::before {
+	border-bottom: 2px solid currentColor;
+	border-right: 2px solid currentColor;
+	content: "";
+	height: 7px;
+	margin-top: -4px;
+	transform: rotate( 45deg );
+	width: 7px;
+}
+
 /* The staircase: a picture of the climb, each step a link to its detail (a button once the script
    has run). Its count and each step's rise, 0 at the first and 1 at the last, come from the markup;
    the values here are what a step reads before they are set. */
@@ -583,6 +618,48 @@
 	line-height: 1.35;
 }
 
+/* The cue at the foot of every step that it opens its detail: the dark brand at 13px, 6.9:1 on the
+   lightest step and 5.13:1 on the darkest, a down chevron after it, pushed to the step's foot on a
+   wide screen. "Shown below" takes the place of "See what it unlocks" on the step pressed, in white
+   there (5.61:1); a browser without :has() keeps the first. */
+.wpc-hub-stair .wpc-hub-stair__cue {
+	align-items: center;
+	color: var( --wpc-brand-dark );
+	display: inline-flex;
+	font-size: 13px;
+	font-weight: 600;
+	gap: 6px;
+	line-height: 18px;
+	margin-top: auto;
+	padding-top: 6px;
+}
+
+.wpc-hub-stair .wpc-hub-stair__cue::after {
+	border-bottom: 2px solid currentColor;
+	border-right: 2px solid currentColor;
+	content: "";
+	height: 6px;
+	margin-top: -3px;
+	transform: rotate( 45deg );
+	width: 6px;
+}
+
+.wpc-hub-stair .wpc-hub-stair__shown {
+	display: none;
+}
+
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__see {
+	display: none;
+}
+
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__shown {
+	display: inline;
+}
+
+.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) .wpc-hub-stair__cue {
+	color: var( --wpc-surface );
+}
+
 /* The step pressed: brand, its name white (5.61:1) and its line in the brand tint (5.03:1). Only the
    color is set, so the bar a narrow screen draws along the row's bottom stays. */
 .wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) {
@@ -613,6 +690,14 @@
 	}
 
 	.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) * {
+		color: HighlightText;
+	}
+
+	/* The pressed step's number, line and cue set their own colors two classes deep, over the line
+	   above: in the system's highlight they would keep white and the brand tint, 1.3 to 1.9:1 in the
+	   dark and aquatic themes. Written as deep, and later, so the highlight's text wins; the cue's
+	   chevron is its currentColor. */
+	.wpc-hub-stair:has( > .wpc-hub-stair__pick[aria-pressed="true"] ) :is( .wpc-hub-stair__n, .wpc-hub-stair__by, .wpc-hub-stair__cue ) {
 		color: HighlightText;
 	}
 }
@@ -652,8 +737,10 @@
 	}
 }
 
-/* The one movement on the page, a step lifting under the pointer, and only for a reader who has not
-   asked for less motion; the theme's global reduce rule stands. */
+/* The one movement on the page, a step lifting under the pointer or with the keyboard's focus on it
+   (`:focus-visible`, so a click that focuses the button, as Chrome's does, leaves it down), and only
+   for a reader who has not asked for less motion; the theme's global reduce rule stands. The focus
+   lift is a rule of its own: a browser without :has() drops it alone, not the hover lift with it. */
 @media ( prefers-reduced-motion: no-preference ) {
 	.wpc-hub-pathway.is-interactive .wpc-hub-stair {
 		transition: transform .15s ease;
@@ -662,10 +749,16 @@
 	.wpc-hub-pathway.is-interactive .wpc-hub-stair:hover {
 		transform: translateY( -4px );
 	}
+
+	.wpc-hub-pathway.is-interactive .wpc-hub-stair:has( > .wpc-hub-stair__pick:focus-visible ) {
+		transform: translateY( -4px );
+	}
 }
 
-/* The details: a card each, every one shown without JavaScript, the one selected with it. */
+/* The details: a card each, every one shown without JavaScript, the one selected with it. Where the
+   detail shown points, from 900px: the card's middle until the script sets its step's. */
 .wpc-hub-details {
+	--wpc-notch: 50%;
 	display: grid;
 	gap: 16px;
 	margin-top: 22px;
@@ -711,11 +804,32 @@
 	margin: 4px 0 0;
 }
 
-/* Three columns side by side for a step, two for a level, at 900px and wider; stacked below. */
+/* Three columns side by side for a step, two for a level, at 900px and wider; stacked below. With the
+   script and the steps side by side, the detail shown points up at its step: a 14px square turned on
+   its corner, its two upper edges in the card's border, at the middle of the step the script sets as
+   `--wpc-notch`, measured from the details' edge and so 1px more than the card's padding edge the
+   square is placed from, its apex about 10px above the card in the 22px under the steps. */
 @media ( min-width: 900px ) {
 	.wpc-hub-detail__cols {
 		grid-auto-columns: minmax( 0, 1fr );
 		grid-auto-flow: column;
+	}
+
+	.wpc-hub-pathway.is-interactive .wpc-hub-detail {
+		position: relative;
+	}
+
+	.wpc-hub-pathway.is-interactive .wpc-hub-detail::before {
+		background: var( --wpc-surface );
+		border-left: 1px solid var( --wpc-line-card );
+		border-top: 1px solid var( --wpc-line-card );
+		content: "";
+		height: 14px;
+		left: calc( var( --wpc-notch ) - 8px );
+		position: absolute;
+		top: -8px;
+		transform: rotate( 45deg );
+		width: 14px;
 	}
 }
 
@@ -807,6 +921,86 @@
 	.wpc-figure__value {
 		font-size: 34px;
 	}
+}
+
+/* ==========================================================================
+   The band of WordPress Credits' courses
+   ========================================================================== */
+
+/* Under the cards, 56px down, as the field-of-study table sits under it; an address its card links to,
+   so it lands below the sticky header. Its head is the programs section's own. Its cards are the
+   program cards' white boxes, one column, two from 640px and four from 900px, as the sign-in cards
+   are. Two classes deep, over core's layout styles and the theme's list and paragraph rules. */
+.wpc-hub-index .wpc-hub-courses {
+	margin-top: 56px;
+	scroll-margin-top: var( --wpc-landing-offset );
+}
+
+.wpc-hub-courses .wpc-hub-courses__grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: minmax( 0, 1fr );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+@media ( min-width: 640px ) {
+	.wpc-hub-courses .wpc-hub-courses__grid {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+@media ( min-width: 900px ) {
+	.wpc-hub-courses .wpc-hub-courses__grid {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+}
+
+.wpc-hub-courses .wpc-hub-course {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	min-width: 0;
+	padding: 24px;
+}
+
+/* The line above the name: printed after the heading, so a screen reader that jumps to the heading
+   hears it next, and drawn above it. */
+.wpc-hub-course .wpc-hub-course__meta {
+	color: var( --wpc-ink-60 );
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: .06em;
+	margin: 0;
+	order: -1;
+	text-transform: uppercase;
+}
+
+.wpc-hub-course .wpc-hub-course__name {
+	font-size: 18px;
+	line-height: 1.3;
+	margin: 0;
+}
+
+.wpc-hub-course .wpc-hub-course__name a {
+	color: var( --wpc-brand );
+	text-decoration: none;
+}
+
+.wpc-hub-course .wpc-hub-course__name a:hover {
+	color: var( --wpc-brand-dark );
+	text-decoration: underline;
+}
+
+.wpc-hub-course .wpc-hub-course__line {
+	color: var( --wpc-ink-70 );
+	font-size: 14px;
+	line-height: 1.55;
+	margin: 0;
 }
 
 /* ==========================================================================
