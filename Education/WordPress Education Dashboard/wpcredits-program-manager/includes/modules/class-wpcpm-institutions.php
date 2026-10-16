@@ -419,6 +419,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		WPCPM_Institution_Invite::init();
 		WPCPM_Institution_Request::init();
 		WPCPM_Institution_Students::init();
+		WPCPM_Institution_Resend::init();
 		WPCPM_Institution_Export::init();
 		WPCPM_Institution_Import::init();
 		WPCPM_Institution_Import_Form::init();

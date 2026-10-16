@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.29
+Stable tag: 1.122.30
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.30 =
+
+* An institution can send a student's welcome invitation again from the Institution Dashboard. On a student's card, a student with no sign-in on record since the site began recording sign-ins (October 15, 2026) shows a line saying so, with when their last invitation was sent, or that none has been, and a Resend invitation button (Send invitation when none has). Every member of the student's own institution can press it, and so can an Administrator through the switcher. It sends the same invitation as Resend invite in wp-admin, with a new link that replaces the one before; one every fifteen minutes for each student and twenty a day for each institution. A press that sends nothing takes none of the day's twenty, an email the host refuses included, though a refused email still starts the fifteen minutes, since the new link made for it has replaced the old one. The institution's history records each send, with who pressed it.
+* An institution now sees whether a sign-in is on record for each of its students since October 15, 2026, and nothing more: never when. A student with a sign-in on record shows no line and no button.
 
 = 1.122.29 =
 

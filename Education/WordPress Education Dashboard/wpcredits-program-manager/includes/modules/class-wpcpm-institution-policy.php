@@ -51,6 +51,9 @@ final class WPCPM_Institution_Policy {
 	/** Graduate, withdraw. */
 	const ACT_CHANGE_STATUS = 'change_status';
 
+	/** Send a student's welcome invitation again, from their card. */
+	const ACT_RESEND_INVITE = 'resend_invite';
+
 	/** Import: check, confirm, continue, cancel. */
 	const ACT_ADD_STUDENT = 'add_student';
 
@@ -90,6 +93,7 @@ final class WPCPM_Institution_Policy {
 			self::ACT_VIEW_REPORT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_EDIT_STUDENT         => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_CHANGE_STATUS        => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_RESEND_INVITE        => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_ADD_STUDENT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_EXPORT               => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_VIEW_SEMESTER_REPORT => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),

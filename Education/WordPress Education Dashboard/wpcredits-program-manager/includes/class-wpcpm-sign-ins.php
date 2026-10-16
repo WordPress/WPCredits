@@ -125,6 +125,20 @@ final class WPCPM_Sign_Ins {
 	}
 
 	/**
+	 * Whether the account has a recorded sign-in: a time above zero, as the seed reads one. An
+	 * account the seed could not place, or whose key holds anything but a time, reads as never
+	 * signed in. A visit alone is not a sign-in.
+	 *
+	 * @param int $user_id The account.
+	 * @return bool
+	 */
+	public static function has_signed_in( $user_id ) {
+		$stored = get_user_meta( (int) $user_id, self::META_SIGN_IN, true );
+
+		return is_numeric( $stored ) && (int) $stored > 0;
+	}
+
+	/**
 	 * A signed-in page view, front end (`template_redirect`) or wp-admin (`admin_init`).
 	 */
 	public static function on_visit() {

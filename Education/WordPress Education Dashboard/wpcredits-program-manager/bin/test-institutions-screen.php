@@ -592,6 +592,13 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		}
 	}
 
+	/** A student's invitation, sent again from their card: started by `boot()` and nothing more here. */
+	class WPCPM_Institution_Resend {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'resend_init' );
+		}
+	}
+
 	/**
 	 * Mentor requests, as the queue reads them: the open ones oldest first, each one's facts in the
 	 * shape `facts()` answers, the numbers and the kind the queue reads off the class, and the
@@ -4335,6 +4342,9 @@ ck( 'boots the post types, then every module this screen owns, then hands the cr
 	array( 'notes_init' ),
 	array( 'invite_init' ),
 ) );
+$started = array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] );
+ck( 'and starts the resend of a student\'s invitation right after graduate and withdraw, the card\'s other student control',
+	array_slice( $started, (int) array_search( 'students_init', $started, true ), 2 ), array( 'students_init', 'resend_init' ) );
 
 // The six daily jobs are scheduled from boot as well as from activation, because the
 // activation hook never fires on this site's deploy path (`wp plugin install --force` goes

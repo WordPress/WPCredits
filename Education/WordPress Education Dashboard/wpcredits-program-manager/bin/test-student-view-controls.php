@@ -21,6 +21,8 @@
  *   file that reached for the wrong one fails here.
  * - **The status card is last, and outside the card.** It is the only control on this page
  *   whose write cannot be taken back, and it draws a card box of its own.
+ * - **The sign-in line sits under the name, inside the card, and is handed the student on
+ *   screen.** What it says and who may press its button are `bin/test-institution-resend.php`'s.
  *
  * Nothing real is loaded but the card under test, `WPCPM_Roles`, `WPCPM_Request` and the two
  * small value classes it formats with. The fence, the export and the status card are stand-ins
@@ -53,6 +55,7 @@ $GLOBALS['decisions'] = array();
 // arguments are the contract this file is on the hook for, and the markup is theirs.
 $GLOBALS['export_calls'] = array();
 $GLOBALS['status_calls'] = array();
+$GLOBALS['invite_calls'] = array();
 
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $roles = array();
@@ -322,6 +325,19 @@ class WPCPM_Institution_Students {
 	}
 }
 
+/**
+ * The sign-in line, to the one contract point the card has to satisfy: it is handed the account on
+ * screen. Who may press, which students get a button and what the line says belong to
+ * `bin/test-institution-resend.php`.
+ */
+class WPCPM_Institution_Resend {
+	public static function render( WP_User $student ) {
+		$GLOBALS['invite_calls'][] = (int) $student->ID;
+
+		echo '<div class="wpcpm-institution__invite" id="wpcpm-student-invite"></div>';
+	}
+}
+
 /** The three display helpers and the script handle the card uses. */
 class WPCPM_Mentors_Dashboard {
 	const SCRIPT = 'wpcpm-mentor-dashboard';
@@ -414,6 +430,7 @@ function card( $institution, $user_id, $reader, array $allow = array() ) {
 	$GLOBALS['decisions']    = array();
 	$GLOBALS['export_calls'] = array();
 	$GLOBALS['status_calls'] = array();
+	$GLOBALS['invite_calls'] = array();
 
 	ob_start();
 	WPCPM_Institution_Student_View::render( $institution, $user_id, array() );
@@ -711,6 +728,27 @@ ck( 'the export is an anchor', substr_count( $ana, '<p class="wpcpm-institution_
 ck( 'and not a form', false !== strpos( $ana, 'wpcpm-institution__student-export"><form' ), false );
 ck( 'its label says what the file holds, grades included',
 	false !== strpos( $ana, 'details and course grades as a CSV file' ), true );
+
+/* ---- 5. the sign-in line sits under the name ------------------------------ */
+
+echo "\n=== The sign-in line sits under the name ===\n";
+
+$ana = card( $inst_a, 10, 20 );
+
+ck( 'the line is asked for once, about the student on screen and never the reader', $GLOBALS['invite_calls'], array( 10 ) );
+ck( 'it comes right after the identity block, before the table',
+	order( $ana, array( '<table', 'wpcpm-institution__invite', 'wpcpm-institution__student-identity', 'wpcpm-report__disclosure' ) ),
+	array( 'wpcpm-institution__student-identity', 'wpcpm-institution__invite', '<table', 'wpcpm-report__disclosure' ) );
+ck( 'as the next thing the card prints once the identity block closes', false !== strpos( $ana, '</div></div><div class="wpcpm-institution__invite"' ), true );
+
+$opens  = substr( $ana, 0, (int) strpos( $ana, 'wpcpm-institution__invite' ) );
+ck( 'inside the student card, not beside it', substr_count( $opens, '<section' ) - substr_count( $opens, '</section>' ), 1 );
+
+card( $inst_b, 11, 30 );
+ck( 'an Administrator reading another student asks about that student', $GLOBALS['invite_calls'], array( 11 ) );
+
+card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_VIEW_STUDENT => false ) );
+ck( 'a reader refused the card never reaches the line', $GLOBALS['invite_calls'], array() );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

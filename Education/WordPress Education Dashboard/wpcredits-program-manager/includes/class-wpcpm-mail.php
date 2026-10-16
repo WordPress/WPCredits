@@ -806,14 +806,23 @@ class WPCPM_Mail {
 			return true;
 		}
 
-		return new WP_Error(
-			'wpcpm_invite_too_soon',
-			sprintf(
-				/* translators: %d: a number of minutes. */
-				__( 'This person was sent an invitation less than %d minutes ago. Another one now would cancel the link in it, so nothing was sent.', 'wpcredits-program-manager' ),
-				(int) ( self::INVITE_GAP / MINUTE_IN_SECONDS )
-			),
-			array( 'wait' => $wait )
+		return new WP_Error( 'wpcpm_invite_too_soon', self::too_soon_message(), array( 'wait' => $wait ) );
+	}
+
+	/**
+	 * The sentence `may_invite()` refuses with: the last invitation went less than `INVITE_GAP`
+	 * ago, so nothing was sent.
+	 *
+	 * Worded once, for that refusal and for the notice the Institution Dashboard prints after a
+	 * press it refused, so the two cannot drift apart.
+	 *
+	 * @return string
+	 */
+	public static function too_soon_message() {
+		return sprintf(
+			/* translators: %d: a number of minutes. */
+			__( 'This person was sent an invitation less than %d minutes ago. Another one now would cancel the link in it, so nothing was sent.', 'wpcredits-program-manager' ),
+			(int) ( self::INVITE_GAP / MINUTE_IN_SECONDS )
 		);
 	}
 

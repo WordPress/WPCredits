@@ -346,9 +346,10 @@ echo "\n=== Read off the source ===\n";
 
 $source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php' );
 
+// Two writes: a claim's and a release's.
 ck( 'every update_option() call passes autoload false',
     array( preg_match_all( '/update_option\( \$/', $source ), preg_match_all( '/update_option\( \$[^;]*?,\s*false\s*\);/s', $source ) ),
-    array( 1, 1 ) );
+    array( 2, 2 ) );
 ck( 'every add_option() call passes autoload false',
     array( preg_match_all( '/add_option\( \$/', $source ), preg_match_all( "/add_option\( \\\$[^;]*?,\s*'',\s*false\s*\)/s", $source ) ),
     array( 1, 1 ) );
@@ -407,6 +408,45 @@ $GLOBALS['opts'] = array();
 $GLOBALS['add_fails'] = true;
 ck( 'a first claim whose INSERT lost the race is refused, amount or no amount', array( WPCPM_Ceiling::claim( 'race', 5, HOUR_IN_SECONDS, 3 ), WPCPM_Ceiling::claim( 'race', 5, HOUR_IN_SECONDS ) ), array( false, false ) );
 $GLOBALS['add_fails'] = false;
+
+echo "\n=== A place given back ===\n";
+
+// For a claim whose action did not happen: the Institution Dashboard claims a place of the day's
+// invitations before it sends one, and gives the place back when the send answers an error, so a
+// press that sends nothing takes none of the school's places.
+reset_store();
+WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS );
+WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS );
+$before   = count( $GLOBALS['writes'] );
+$released = WPCPM_Ceiling::release( 'resend', DAY_IN_SECONDS );
+$appended = array_slice( $GLOBALS['writes'], $before );
+ck( 'a release gives one place back', array( $released, WPCPM_Ceiling::count( 'resend', DAY_IN_SECONDS ) ), array( true, 1 ) );
+// The write the release itself makes, read off the stand-in's record of writes before anything else
+// is written: one update of the key's own row, never autoloaded, in the row's shape with one place less.
+ck( 'and makes one write of its own, an update of the key\'s row that is not autoloaded',
+    $appended, array( array( 'update', name_for( 'resend', DAY_IN_SECONDS ), false ) ) );
+ck( 'which keeps the row\'s shape, with the count one lower',
+    $GLOBALS['opts'][ name_for( 'resend', DAY_IN_SECONDS ) ],
+    array( 'v' => 1, 'window' => DAY_IN_SECONDS, 'bucket' => bucket_now( DAY_IN_SECONDS ), 'count' => 1 ) );
+ck( 'which a later claim takes again, up to the limit and no further',
+    array( WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS ), WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS ), WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS ) ),
+    array( true, true, false ) );
+ck( 'an amount gives back that many, and never below zero, in the count or in the row',
+    array( WPCPM_Ceiling::release( 'resend', DAY_IN_SECONDS, 2 ), WPCPM_Ceiling::count( 'resend', DAY_IN_SECONDS ), WPCPM_Ceiling::release( 'resend', DAY_IN_SECONDS, 5 ), WPCPM_Ceiling::count( 'resend', DAY_IN_SECONDS ), $GLOBALS['opts'][ name_for( 'resend', DAY_IN_SECONDS ) ]['count'] ),
+    array( true, 1, true, 0, 0 ) );
+
+$written = count( $GLOBALS['writes'] );
+ck( 'a window at zero gives nothing back and writes nothing', array( WPCPM_Ceiling::release( 'resend', DAY_IN_SECONDS ), count( $GLOBALS['writes'] ) ), array( false, $written ) );
+ck( 'nor does a window with no row, which is left with none', array( WPCPM_Ceiling::release( 'never', DAY_IN_SECONDS ), in_array( name_for( 'never', DAY_IN_SECONDS ), ceiling_names(), true ) ), array( false, false ) );
+
+reset_store();
+WPCPM_Ceiling::claim( 'mine', 5, DAY_IN_SECONDS );
+WPCPM_Ceiling::claim( 'theirs', 5, DAY_IN_SECONDS );
+WPCPM_Ceiling::release( 'mine', DAY_IN_SECONDS );
+ck( 'a release touches its own key and no other', array( WPCPM_Ceiling::count( 'mine', DAY_IN_SECONDS ), WPCPM_Ceiling::count( 'theirs', DAY_IN_SECONDS ) ), array( 0, 1 ) );
+
+seed( 'old', DAY_IN_SECONDS, -1, 4 );
+ck( 'and the current window\'s only: yesterday\'s row keeps its count', array( WPCPM_Ceiling::release( 'old', DAY_IN_SECONDS ), $GLOBALS['opts'][ name_for( 'old', DAY_IN_SECONDS, -1 ) ]['count'] ), array( false, 4 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

@@ -362,6 +362,9 @@ class WPCPM_Institution_Invite {
 class WPCPM_Institution_Students {
 	public static function init() {}
 }
+class WPCPM_Institution_Resend {
+	public static function init() {}
+}
 class WPCPM_Institution_Export {
 	public static function init() {}
 }

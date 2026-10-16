@@ -289,6 +289,24 @@ WPCPM_Sign_Ins::maybe_seed();
 ck( 'and never again', $GLOBALS['batches'], array() );
 ck( 'init() hooks it on admin_init', in_array( array( 'admin_init', 'maybe_seed', 10, 1 ), $GLOBALS['hooks'], true ) );
 
+echo "\n=== Whether an account has signed in at all ===\n";
+
+// The Institution Dashboard asks this one question of the record, for a student's card, and never
+// reads the time itself.
+fresh();
+$GLOBALS['umeta'][40] = array( $S => $T );
+$GLOBALS['umeta'][41] = array( $S => (string) $T );
+$GLOBALS['umeta'][42] = array();
+$GLOBALS['umeta'][43] = array( $S => 0 );
+$GLOBALS['umeta'][44] = array( $S => 'yesterday' );
+$GLOBALS['umeta'][45] = array( $V => $T );
+ck( 'a recorded sign-in, as an int or as the string user meta comes back as, is a sign-in',
+	array( WPCPM_Sign_Ins::has_signed_in( 40 ), WPCPM_Sign_Ins::has_signed_in( 41 ) ), array( true, true ) );
+ck( 'no key, a zero or a word is never signed in',
+	array( WPCPM_Sign_Ins::has_signed_in( 42 ), WPCPM_Sign_Ins::has_signed_in( 43 ), WPCPM_Sign_Ins::has_signed_in( 44 ) ), array( false, false, false ) );
+ck( 'a visit alone is not a sign-in', WPCPM_Sign_Ins::has_signed_in( 45 ), false );
+ck( 'and asking writes nothing', $GLOBALS['writes'], 0 );
+
 // Last, because a constant cannot be taken back.
 fresh();
 define( 'REST_REQUEST', true );

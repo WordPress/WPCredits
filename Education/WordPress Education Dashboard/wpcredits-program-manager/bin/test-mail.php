@@ -33,10 +33,11 @@ $GLOBALS['filters'] = array();
 class WP_Error {
 	private $data;
 	private $code;
-	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->data = $d; }
+	private $message;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->message = $m; $this->data = $d; }
 	public function get_error_code() { return $this->code; }
 	public function get_error_data() { return $this->data; }
-	public function get_error_message() { return ''; }
+	public function get_error_message() { return (string) $this->message; }
 }
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
@@ -1496,6 +1497,10 @@ ck( 'may_invite() refuses with the time still to wait',
     array( is_wp_error( $refusal ) ? $refusal->get_error_code() : $refusal, is_wp_error( $refusal ) && $refusal->get_error_data()['wait'] > WPCPM_Mail::INVITE_GAP - 10 ),
     array( 'wpcpm_invite_too_soon', true ) );
 ck( 'and answers true for somebody never invited', array( WPCPM_Mail::may_invite( 806 ) ), array( true ) );
+// Worded once: the Institution Dashboard prints the same sentence after a press it refused.
+ck( 'its refusal is the sentence too_soon_message() words, with the fifteen minutes in it',
+    array( $refusal->get_error_message(), WPCPM_Mail::too_soon_message() ),
+    array_fill( 0, 2, 'This person was sent an invitation less than 15 minutes ago. Another one now would cancel the link in it, so nothing was sent.' ) );
 
 ck( 'a sent Resend flashes invited', array( WPCPM_Mail::invite_outcome( true ) ), array( 'invited' ) );
 ck( 'a refused one flashes invite-too-soon', array( WPCPM_Mail::invite_outcome( $refusal ) ), array( 'invite-too-soon' ) );

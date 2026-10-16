@@ -1524,6 +1524,24 @@ the last fifteen minutes and says how many it left out; and a bulk send passes o
 in the last fifteen minutes. Ask them to use their newest email, or send another once the fifteen
 minutes are up.
 
+Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
+on the Institution Dashboard, a student with no sign-in on record since the site began recording
+sign-ins, on October 15, 2026, shows a line saying so, with when their last invitation was sent or
+that none has been, and a **Resend invitation** button (**Send invitation** when none has). Every
+member of the student's own institution can press it, and so can an Administrator who opens that
+institution's dashboard through the switcher. It sends the same invitation as **Resend invite**
+here, with a new link that replaces the one before, and no Administrator is emailed. A student with
+a sign-in on record shows no line and no button: a lost password has WordPress's own reset. The
+institution learns only whether a sign-in is on record, never when.
+
+The fifteen minutes hold here too, and each institution can send twenty a day, the presses of an
+Administrator through the switcher included. A press that sends nothing takes none of the day's
+twenty, an email the host refuses included, though a refused email still starts the fifteen minutes,
+since the new link made for it has replaced the old one. Each send is in the Emails tool's **Log**,
+which keeps its rows for 30 days, and the institution's history records each one in its audit log,
+with who pressed it and whether as a member or as an Administrator. No screen lists those audit log
+rows yet.
+
 ### Pages the plugin owns
 
 Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes

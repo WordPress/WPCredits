@@ -273,6 +273,7 @@
 /* A flash from a handler that has just run: the same shape as the banner, so
    the page has one way of saying something out of band. */
 .wpcpm-agreement-panel__message,
+.wpcpm-institution__invite-message,
 .wpcpm-people__message {
 	border: 1px solid var( --wpcpm-border );
 	border-inline-start-width: 4px;
@@ -651,6 +652,34 @@
 .wpcpm-institution__student-name {
 	font-size: 1.2em;
 	font-weight: 700;
+	margin: 0;
+}
+
+/* Whether the student has signed in yet, and the button that sends the invitation again. It is
+   about the name above it, so it sits close under the name (8px) and leaves the card's own room
+   (1.25em) before the table. `:has()` is a progressive touch: without it the line sits 1.25em
+   below the name, which is the gap the table had. */
+.wpcpm-institution__student-identity:has( + .wpcpm-institution__invite ) {
+	margin-bottom: 0.5em;
+}
+
+.wpcpm-institution__invite {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 1em;
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-institution__invite-note,
+.wpcpm-institution__invite-form {
+	margin: 0;
+}
+
+/* The outcome of a press, on a line of its own above the sentence. The flex gap is the room
+   under it, so the shared message rule's own margin is taken off here. */
+.wpcpm-institution__invite-message {
+	flex: 1 1 100%;
 	margin: 0;
 }
 

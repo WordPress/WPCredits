@@ -44,12 +44,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * It arrives with the calendar stylesheet, which is where the rules for that markup live: one
  * copy of the report's markup wants one copy of its dress, not a second in institution.css.
  *
- * **Two controls hang off the card, and neither of them belongs to this file.** The single
+ * **Three controls hang off the card, and none of them belongs to this file.** The single
  * student export is `WPCPM_Institution_Export`'s, drawn as a link when `decide( ACT_EXPORT )`
  * allows it; graduate and withdraw are `WPCPM_Institution_Students`', drawn by calling its own
- * renderer. Every rule about either - which states are offered, that a `Paused` student is
- * refused by name, what the confirm dialog says, how the nonces are keyed - lives in those two
- * classes, and this file decides nothing about them beyond where they go.
+ * renderer; the line saying whether the student has signed in yet, with the button that sends
+ * their invitation again, is `WPCPM_Institution_Resend`'s, drawn the same way. Every rule about
+ * any of them - which states are offered, that a `Paused` student is refused by name, what the
+ * confirm dialog says, who may send an invitation and how often, how the nonces are keyed -
+ * lives in those three classes, and this file decides nothing about them beyond where they go.
  *
  * **Where they go is a rule of its own.** The export is a quiet link inside the card. The status
  * card is the only thing on this page that cannot be taken back - it moves `Status` on the
@@ -134,6 +136,7 @@ class WPCPM_Institution_Student_View {
 
 		self::render_back( $context );
 		self::render_identity( $student, $program, $row );
+		self::render_invite( $student );
 
 		// `fields` is null for every ground this module ships, so this narrows nothing today.
 		// It is here because a field-scoped ground added later has to narrow every renderer
@@ -357,6 +360,24 @@ class WPCPM_Institution_Student_View {
 
 		echo '</div>';
 		echo '</div>';
+	}
+
+	/**
+	 * Whether the student has signed in yet, under their name, drawn by the class that owns it.
+	 *
+	 * Every rule about the line and its button is `WPCPM_Institution_Resend`'s: who may press, for
+	 * which students, the two limits, what the line and the notices say. Not one of them is
+	 * repeated here, and that includes whether to draw anything at all. Guarded, as the other two
+	 * controls are, so a site that has not loaded the class draws the card without the line.
+	 *
+	 * @param WP_User $student The student.
+	 */
+	private static function render_invite( WP_User $student ) {
+		if ( ! class_exists( 'WPCPM_Institution_Resend' ) ) {
+			return;
+		}
+
+		WPCPM_Institution_Resend::render( $student );
 	}
 
 	/**

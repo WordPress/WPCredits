@@ -158,6 +158,37 @@ class WPCPM_Ceiling {
 	}
 
 	/**
+	 * Give back places a claim took in the current window, when what it was claimed for did not
+	 * happen.
+	 *
+	 * Read and written back, as a later claim is, with the same race: two releases that read the
+	 * same count give back one place between them, and a release and a claim that read the same
+	 * count keep only one of their two writes. Every ceiling here is a nuisance control, so that
+	 * is the price of taking no lock, as it is for claims. The count never goes below zero, and a
+	 * window with no row, or none above zero, is left as it is. A release that lands after the
+	 * window of its claim has closed gives back a place of the window it lands in.
+	 *
+	 * @param string $key    What is being limited, as it was claimed.
+	 * @param int    $window Window length in seconds, the same one `claim()` was given.
+	 * @param int    $amount How many places to give back. One by default.
+	 * @return bool Whether a place was given back.
+	 */
+	public static function release( $key, $window, $amount = 1 ) {
+		$window = self::window( $window );
+		$bucket = self::bucket( $window );
+		$name   = self::option_name( $key, $bucket );
+		$count  = self::count_of( get_option( $name ) );
+
+		if ( $count < 1 ) {
+			return false;
+		}
+
+		update_option( $name, self::row( $window, $bucket, max( 0, $count - max( 1, (int) $amount ) ) ), false );
+
+		return true;
+	}
+
+	/**
 	 * How many claims the current window holds for a key.
 	 *
 	 * @param string $key    What is being limited.

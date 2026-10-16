@@ -258,6 +258,9 @@ $expected_map = array(
 	'view_report'          => array( 'manager', 'member' ),
 	'edit_student'         => array( 'manager', 'member' ),
 	'change_status'        => array( 'manager', 'member' ),
+	// A student's welcome invitation, sent again from their card: the member ground for the
+	// student's own institution, as editing a student is, and the manager ground.
+	'resend_invite'        => array( 'manager', 'member' ),
 	'add_student'          => array( 'manager', 'member' ),
 	'export'               => array( 'manager', 'member' ),
 	'view_semester_report' => array( 'manager', 'member' ),
@@ -416,6 +419,18 @@ ck( 'a member of B posting A\'s agreement post is decided against A', $P::decide
 ck( 'while a member of A passes on the same post', $P::decide( $P::ACT_AGREEMENT, $P::subject_post( new WP_Post( 501, 'wpcpm_agreement' ), '_wpcpm_agr_institution' ), 2 ), allowed_as( 'member', $A ) );
 ck( 'a post placed under two institutions is either\'s', $P::decide( $P::ACT_VIEW_SEMESTER_REPORT, $P::subject_post( new WP_Post( 503, 'wpcpm_inst_report' ), '_wpcpm_sr_institution' ), 3 ), allowed_as( 'member', $B ) );
 ck( 'a live subject is decided on the link claim() read', $P::decide( $P::ACT_VIEW_REPORT, $P::subject_live( 'report', $S1, array( $B ) ), 2 ), refused_for( 'no-ground' ) );
+
+// Sending a student's invitation again, on the account's own stamp.
+ck( "a member of A may send A's student their invitation again", $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 2 ), allowed_as( 'member', $A ) );
+ck( "a member of B may not", $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 3 ), refused_for( 'no-ground' ) );
+ck( "an Administrator may, the decision naming the student's own institution", $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 1 ), allowed_as( 'manager', $A ) );
+ck( 'the student may not send their own', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 8 ), refused_for( 'no-ground' ) );
+ck( 'nor may an account that is nobody\'s member', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 4 ), refused_for( 'no-ground' ) );
+$GLOBALS['uid'] = 0;
+ck( 'nor a signed-out visitor', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ) ), refused_for( 'no-user' ) );
+ck( 'a student with no stamp is an Administrator\'s alone, naming no institution',
+    array( $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 9 ), 2 ), $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 9 ), 1 ) ),
+    array( refused_for( 'no-ground' ), allowed_as( 'manager', '' ) ) );
 
 /* ---- the Phase 1 demonstration, against the TEST record ------------------- */
 
