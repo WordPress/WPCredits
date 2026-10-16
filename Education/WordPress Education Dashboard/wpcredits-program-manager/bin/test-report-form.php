@@ -575,6 +575,27 @@ $GLOBALS['rec'] = $record;
 $read = body( true, true );   // A manager reading a mentor's page: the worst case.
 $edit = body( false, true );  // The same manager on the student's own card.
 
+// A single-line answer asks for the plain keyboard. Every text box carried `inputmode="url"`,
+// which belongs to the URL boxes alone (they are `type="text"` so that a scheme-less address is
+// not refused), so a phone offered the web-address keyboard, with no space bar on iPhone, for a
+// question like a Slack name (1.122.29). The boxes are found through their labels, since the
+// field names are hashed keys.
+$box_for = function ( $label ) use ( $edit ) {
+	if ( ! preg_match( '/<label[^>]*for="([^"]+)"[^>]*>' . preg_quote( $label, '/' ) . '/', $edit, $m ) ) {
+		return '';
+	}
+	preg_match( '/<input type="text"[^>]*id="' . preg_quote( $m[1], '/' ) . '"[^>]*>/', $edit, $box );
+	return isset( $box[0] ) ? $box[0] : '';
+};
+$slack_box   = $box_for( 'Your Slack name' );
+$profile_box = $box_for( 'Your WordPress.org profile' );
+ck( 'a single-line text box carries no inputmode',
+    array( '' !== $slack_box, '' !== $slack_box && false === strpos( $slack_box, 'inputmode=' ) ),
+    array( true, true ) );
+ck( 'a URL box keeps inputmode="url", the keyboard its answer needs',
+    array( '' !== $profile_box, false !== strpos( $profile_box, 'inputmode="url"' ) ),
+    array( true, true ) );
+
 ck( 'a read-only report is not a form at all', false !== strpos( $read, '<form' ), false );
 ck( 'no save button',                          false !== strpos( $read, 'Save my report' ), false );
 ck( 'no nonce to post with',                   false !== strpos( $read, 'name="_wpnonce"' ), false );
@@ -1472,10 +1493,11 @@ echo "\n=== The preview: the same loop, empty values, no form (1.106.0) ===\n";
 // The three renders above, byte for byte. In 1.106.0 the group loop and the hours field moved
 // out of render_body() and render_hours() into render_groups() and render_hours_field(), and
 // this pins that nothing a student sees moved with them. A markup change that is meant updates
-// these three hashes knowingly.
+// these three hashes knowingly (1.122.29: the text boxes lost `inputmode="url"`, so the
+// editable hash moved and the two read-only renders did not).
 ck( 'render_body() draws what it drew before the loop moved out',
 	array( md5( $read ), md5( $edit ), md5( body_50h() ) ),
-	array( '9ac719628c91cf7302c39d246d191e31', 'c814575c7d237a3ef9b25588cfa4e86e', '8e7234816827737bb6e374d6737fa154' ) );
+	array( '9ac719628c91cf7302c39d246d191e31', '57ea1db38a98bc090acfef5b1d5db9c6', '8e7234816827737bb6e374d6737fa154' ) );
 
 // A body drawn from a record with nothing in it, so its fieldsets can be held against the
 // preview's, which has no record at all.

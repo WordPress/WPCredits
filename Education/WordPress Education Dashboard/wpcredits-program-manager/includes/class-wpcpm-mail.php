@@ -356,7 +356,15 @@ class WPCPM_Mail {
 		}
 
 		return strtr(
-			sanitize_text_field( strtr( $subject, array( '&' => '&amp;', '<' => '&lt;' ) ) ),
+			sanitize_text_field(
+				strtr(
+					$subject,
+					array(
+						'&' => '&amp;',
+						'<' => '&lt;',
+					)
+				)
+			),
 			array(
 				'&lt;'  => '<',
 				'&amp;' => '&',

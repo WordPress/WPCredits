@@ -1178,14 +1178,19 @@ class WPCPM_Student_Report_Form {
 			// `type="text"` even for the URLs, for the reason the profile editor gives: `type="url"`
 			// refuses a scheme-less address, and Airtable's url columns are full of them - the
 			// browser would block the save with a message a student cannot act on.
-			// `WPCPM_Field_Value::clean_url()` adds the scheme instead.
+			// `WPCPM_Field_Value::clean_url()` adds the scheme instead. The web-address keyboard
+			// is asked for on a URL box alone: on a single-line answer such as a Slack name it
+			// took the space bar away on iPhone (1.122.29).
+			$mode = 'url' === $type ? ' inputmode="url"' : '';
+
 			printf(
-				'<input type="text" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="url"%4$s%5$s />',
+				'<input type="text" id="%1$s" name="report[%2$s]" value="%3$s"%6$s%4$s%5$s />',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				$described, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				$mode // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
 			);
 		}
 

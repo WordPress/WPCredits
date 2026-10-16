@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.28
+Stable tag: 1.122.29
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.29 =
+
+* A single-line answer box on the Student Report Card, such as Your Slack name, asks a phone for the plain keyboard. It asked for the web-address keyboard, which on iPhone has no space bar, because every single-line box shared its markup with the web-address boxes; those keep the web-address keyboard, since that is what their answer needs.
+* Two formatting slips in the code, a keyed array on one line and a block comment with no empty line before it, are tidied so the standards check passes with no errors again. Nothing changes for a person.
 
 = 1.122.28 =
 
