@@ -9,6 +9,8 @@
  *
  * Each card's link is stretched over the whole card, and the focus ring is drawn around the card
  * (hub.css). The institutions' link is the site's own application, read when the pattern renders.
+ * Each card opens with a small picture of a WordPress editor piece in the card's own words: decoration,
+ * hidden from screen readers, with nothing in it to focus.
  *
  * @package WPCredits_Theme
  */
@@ -20,6 +22,7 @@ $wpcredits_doors = array(
 		'text'    => __( 'Programs matched to your field of study, from translation and design to engineering.', 'wpcredits-theme' ),
 		'link'    => __( 'Browse programs', 'wpcredits-theme' ),
 		'href'    => '#programs',
+		'picture' => '<div class="wpc-hub-pic__piece wpc-hub-pic__badge"><span class="wpc-hub-art__mark"></span><span><span class="wpc-hub-art__strong">' . esc_html__( 'Your first contribution', 'wpcredits-theme' ) . '</span><span class="wpc-hub-art__small">' . esc_html__( 'Earn credit for it', 'wpcredits-theme' ) . '</span></span></div>',
 	),
 	array(
 		'eyebrow' => __( 'Institutions', 'wpcredits-theme' ),
@@ -27,6 +30,7 @@ $wpcredits_doors = array(
 		'text'    => __( 'Start with a one-day workshop or a WordPress Credits pilot. Each new group of students builds a stronger partnership.', 'wpcredits-theme' ),
 		'link'    => __( 'Become a partner', 'wpcredits-theme' ),
 		'href'    => wpcredits_hub_url( 'institution_application' ),
+		'picture' => '<div class="wpc-hub-pic__piece wpc-hub-pic__list"><span class="wpc-hub-art__strong">' . esc_html__( 'Ready-to-run program', 'wpcredits-theme' ) . '</span><span class="wpc-hub-pic__row">' . esc_html__( 'One-day workshop', 'wpcredits-theme' ) . '</span><span class="wpc-hub-pic__row">' . esc_html__( 'WordPress Credits pilot', 'wpcredits-theme' ) . '</span></div>',
 	),
 	array(
 		'eyebrow' => __( 'Companies', 'wpcredits-theme' ),
@@ -34,6 +38,7 @@ $wpcredits_doors = array(
 		'text'    => __( 'Browse graduates open to work, or post internships and entry-level roles.', 'wpcredits-theme' ),
 		'link'    => __( 'Hire from WordPress', 'wpcredits-theme' ),
 		'href'    => 'https://jobs.wordpress.net/',
+		'picture' => '<div class="wpc-hub-pic__piece wpc-hub-pic__profile"><span class="wpc-hub-pic__person"></span><span><span class="wpc-hub-art__strong">' . esc_html__( 'Verified WordPress experience', 'wpcredits-theme' ) . '</span><span class="wpc-hub-art__small">' . esc_html__( 'Graduates open to work', 'wpcredits-theme' ) . '</span></span></div>',
 	),
 );
 
@@ -48,7 +53,11 @@ $wpcredits_doors = array(
 <?php foreach ( $wpcredits_doors as $wpcredits_door ) : ?>
 <!-- wp:column -->
 <div class="wp-block-column"><!-- wp:group {"className":"is-style-card wpc-hub-door","layout":{"type":"default"}} -->
-<div class="wp-block-group is-style-card wpc-hub-door"><!-- wp:paragraph {"className":"is-style-eyebrow"} -->
+<div class="wp-block-group is-style-card wpc-hub-door"><!-- wp:html -->
+<div class="wpc-hub-pic" aria-hidden="true"><?php echo $wpcredits_door['picture']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup, its words escaped as it is built above. ?></div>
+<!-- /wp:html -->
+
+<!-- wp:paragraph {"className":"is-style-eyebrow"} -->
 <p class="is-style-eyebrow"><?php echo esc_html( $wpcredits_door['eyebrow'] ); ?></p>
 <!-- /wp:paragraph -->
 

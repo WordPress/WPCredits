@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.17
+Stable tag: 1.24.18
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -174,7 +174,21 @@ they ship with the reference's labels and `#` placeholders.
   from the theme; the plugin exposes `current_mentor()` from 1.13.0 precisely so the
   theme can stop guessing.
 
+== Copyright ==
+
+WPCredits bundles two typefaces for the Education Hub's pages, each under the SIL Open Font License, Version 1.1 (https://openfontlicense.org), with its license beside its files:
+
+* EB Garamond, Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12), in `assets/fonts/eb-garamond/`.
+* Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
+
 == Changelog ==
+
+= 1.24.18 =
+* Education Hub homepage: the WordPress.org look. Headings and the outcome figures' numbers are set in EB Garamond, WordPress.org's serif, and everything else in Inter. Both ship with the theme (`assets/fonts`, each with its SIL Open Font License), so the page asks no one else for its fonts, and only the hub's pages load them. Cards are white on a 1px hairline with 2px corners; the filters, the pathway's switch, the status tags, the steps and the details are square-cornered too.
+* Education Hub homepage, the hero: no tinted panel. The title reads "Start learning with WordPress." then "Every step counts." then "Keep climbing.", the last in white on a hand-drawn stroke of the brand blue. Beside the copy from 900px sits a picture made of WordPress editor pieces in the page's own words: a block toolbar, the Contributor step as a selected block, a rising chart, the Contribution badge, a type card and the inserter's plus. It is hidden from screen readers, holds nothing to focus, and is zoomed down with its column so it never cuts or covers its words; below 900px it is not shown. The title's second sentence becomes two strings to translate, "Every step counts." and "Keep climbing."
+* Education Hub homepage, the outcome figures: they move out of the hero into a row of their own under it, between two hairlines, each number in the serif at 56px with its label and base under it and the source line across the row; on a phone, one figure to a row. With no stored figure the row is not shown.
+* Education Hub homepage, the doors: the cards for students, institutions and companies each open with a light gray band holding a small editor piece in the card's own words ("Your first contribution", "Ready-to-run program", "Verified WordPress experience"), decoration only. The doors' and the program cards' links are underlined.
+* Education Hub homepage, the programs, the courses and the pathway: program, course and step names in the serif; "Step 1" to "Step 7" in the serif in brand on white steps, the chosen step filled in brand; on a phone each step keeps the bar along its foot that widens with the climb; the chosen program filter is filled in ink. The line "Items marked planned are not offered yet." is removed; each planned item still says "(planned)" beside it.
 
 = 1.24.17 =
 * Education Hub homepage, the pathway: a step plainly opens what it unlocks. The line that says so moves out of the ladder's introduction into a tinted prompt right above the steps, "Select a step to see what it unlocks." (and "Select a level to see what it brings." for institutions); every step and level ends with "See what it unlocks" (or "See what it brings") and a down arrow, "Shown below" on the one whose detail is open; a step lifts under the keyboard's focus as under the pointer; and at 900px and wider the open detail points up at its step. Screen readers hear each step as before.

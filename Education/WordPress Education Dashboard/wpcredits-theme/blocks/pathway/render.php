@@ -131,7 +131,6 @@ $wpcredits_ladders = array(
 					</article>
 				<?php endforeach; ?>
 			</div>
-			<p class="wpc-hub-ladder__key"><?php esc_html_e( 'Items marked planned are not offered yet.', 'wpcredits-theme' ); ?></p>
 		</section>
 	<?php endforeach; ?>
 </div>
