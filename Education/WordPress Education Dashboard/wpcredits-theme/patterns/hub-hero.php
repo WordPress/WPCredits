@@ -21,8 +21,8 @@ $wpcredits_step  = $wpcredits_steps[2];
 
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-hero","layout":{"type":"default"}} -->
-<div class="wp-block-group alignwide wpc-hub-hero"><!-- wp:columns {"className":"wpc-hub-hero__cols wpc-hub-stack","style":{"spacing":{"padding":{"top":"64px","bottom":"52px","left":"0","right":"0"}}}} -->
-<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:64px;padding-right:0;padding-bottom:52px;padding-left:0"><!-- wp:column {"width":"52%","className":"wpc-hub-hero__copy"} -->
+<div class="wp-block-group alignwide wpc-hub-hero"><!-- wp:columns {"className":"wpc-hub-hero__cols wpc-hub-stack","style":{"spacing":{"padding":{"top":"0","bottom":"52px","left":"0","right":"0"}}}} -->
+<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0"><!-- wp:column {"width":"52%","className":"wpc-hub-hero__copy"} -->
 <div class="wp-block-column wpc-hub-hero__copy" style="flex-basis:52%"><!-- wp:paragraph {"className":"wpc-pill","style":{"spacing":{"margin":{"top":"0","bottom":"20px"}}}} -->
 <p class="wpc-pill" style="margin-top:0;margin-bottom:20px"><?php esc_html_e( 'Education programs from the WordPress project', 'wpcredits-theme' ); ?></p>
 <!-- /wp:paragraph -->

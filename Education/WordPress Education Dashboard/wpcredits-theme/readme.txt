@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.18
+Stable tag: 1.24.19
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -182,6 +182,9 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.19 =
+* Education Hub homepage, the hero: the eyebrow sits 44px under the header, where it sat 114px under it: the hero's columns keep no space above them, and the eyebrow is a block of its own rather than the old pill's inline box. The blue stroke behind "Keep climbing." is wider and taller, so every letter, the K's top and the g's tail among them, sits on the blue, and it sits a little lower, clear of the line above.
 
 = 1.24.18 =
 * Education Hub homepage: the WordPress.org look. Headings and the outcome figures' numbers are set in EB Garamond, WordPress.org's serif, and everything else in Inter. Both ship with the theme (`assets/fonts`, each with its SIL Open Font License), so the page asks no one else for its fonts, and only the hub's pages load them. Cards are white on a 1px hairline with 2px corners; the filters, the pathway's switch, the status tags, the steps and the details are square-cornered too.

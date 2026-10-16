@@ -184,8 +184,9 @@
 }
 
 /* The hero sits on the page's white, no panel: the copy and the picture side by side from 900px, 40px
-   apart, the picture centered on the copy (the pattern sets its column's vertical alignment), 64px
-   above them and 52px below, as the pattern stores on the columns (an inline style, so the Site
+   apart, the picture centered on the copy (the pattern sets its column's vertical alignment), nothing
+   above them (the eyebrow sits 44px under the header: the main's 20px block gap and the hero's 24px,
+   the owner's "remove this gap, its too big" of 17 October 2026) and 52px below, as the pattern stores on the columns (an inline style, so the Site
    Editor's padding control shows what is drawn; these stand as the fallback for a copy of the block
    that stores none). Two classes deep, because the editor prints `:root :where( .is-layout-flex ) {
    gap: 20px }` for every flex layout, one class deep. */
@@ -194,14 +195,16 @@
 	padding-bottom: 52px;
 	padding-left: 0;
 	padding-right: 0;
-	padding-top: 64px;
+	padding-top: 0;
 }
 
-/* The eyebrow above the title: the pill's words without the pill, spaced out as the section eyebrows. */
+/* The eyebrow above the title: the pill's words without the pill, spaced out as the section eyebrows.
+   A block of its own, not the pill's inline box, which rode a line box 6px below the column's top. */
 .wpc-hub-hero .wpc-pill {
 	background: none;
 	border-radius: 0;
 	color: var( --wpc-ink-60 );
+	display: block;
 	letter-spacing: .12em;
 	padding: 0;
 }
@@ -222,14 +225,17 @@
 }
 
 /* "Keep climbing." in white on a hand-drawn stroke of the brand blue (5.61:1), a lighter streak
-   through it. A background, so the heading reads as one line of text; in forced colors the stroke is
+   through it, wide and tall enough that every letter, the K's top and the g's tail among them, sits on
+   the blue (the owner, 17 October 2026); it starts a little left of the copy's edge, as a stroke does,
+   and sits .12em lower, clear of the tails of the line above. A background, so the heading reads as one line of text; in forced colors the stroke is
    dropped and the words take the system's colors. */
 .wpc-hub-hero .wpc-hub-brush {
 	background: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 80' preserveAspectRatio='none'%3E%3Cpath d='M3 42 C14 8, 90 1, 150 4 C222 0, 284 6, 297 28 C301 52, 292 74, 262 79 C198 83, 108 81, 48 79 C18 77, 0 66, 3 42 Z' fill='%233858e9'/%3E%3Cpath d='M18 30 C80 22, 170 20, 284 30' stroke='%235a77f0' stroke-width='5' fill='none' opacity='.55'/%3E%3C/svg%3E" ) center / 100% 100% no-repeat;
 	color: var( --wpc-surface );
 	display: inline-block;
-	margin-left: -.1em;
-	padding: .04em .16em .14em;
+	margin-left: -.26em;
+	margin-top: .12em;
+	padding: .1em .34em .2em .3em;
 	white-space: nowrap;
 }
 

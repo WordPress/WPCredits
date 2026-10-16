@@ -2198,7 +2198,7 @@ function grammar_of( $html ) {
 ck( 'every pattern is core blocks and the hub\'s three, its comments JSON, every block closed in order',
 	array_map( static function ( $file ) { return grammar_of( wpcredits_test_pattern( $file ) ); }, $pattern_files ), array_fill( 0, 5, array() ) );
 
-ck( 'every section is wide, padded 48px above and below; the hero\'s columns 64px above and 52px below and none at the sides, since no panel is drawn around them',
+ck( 'every section is wide, padded 48px above and below; the hero\'s columns none above (the eyebrow 44px under the header), 52px below and none at the sides, since no panel is drawn around them',
 	array_map(
 		static function ( $file ) {
 			$xpath = dom_of( wpcredits_test_pattern( $file ) );
@@ -2208,7 +2208,7 @@ ck( 'every section is wide, padded 48px above and below; the hero\'s columns 64p
 		$pattern_files
 	),
 	array(
-		'wp-block-group alignwide wpc-hub-hero | padding-top:64px;padding-right:0;padding-bottom:52px;padding-left:0',
+		'wp-block-group alignwide wpc-hub-hero | padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0',
 		'wp-block-group alignwide wpc-hub-doors | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
@@ -2693,7 +2693,7 @@ ck( 'the hero\'s title is in the serif at regular weight, the display size from 
 // text. Forced colors keep a background picture, not its colors, so there the rule drops it.
 $brush = rules_placed( '.wpc-hub-hero .wpc-hub-brush' );
 
-ck( 'the brush is the background of "Keep climbing.": a hand-drawn stroke of the brand blue with a lighter streak through it, in a picture the sheet holds, stretched to the words, which are white and kept on one line, the stroke reaching a little before them; in forced colors the stroke is dropped and the words take the system\'s colors',
+ck( 'the brush is the background of "Keep climbing.": a hand-drawn stroke of the brand blue with a lighter streak through it, in a picture the sheet holds, stretched to the words, which are white and kept on one line, the stroke reaching .26em before them and padded wide and tall enough that every letter sits on the blue, .12em lower so it clears the line above; in forced colors the stroke is dropped and the words take the system\'s colors',
 	array(
 		isset( $brush[0] ) ? array( $brush[0][0], preg_replace( '/^background: url\( "data:image\/svg\+xml,[^"]*" \) /', 'background: url( the brush ) ', $brush[0][1] ) ) : null,
 		isset( $brush[0] ) && preg_match( "/fill='%23([0-9a-f]{6})'/", $brush[0][1], $brush_fill ) ? '#' . $brush_fill[1] === color_of( 'brand' ) : false,
@@ -2701,14 +2701,14 @@ ck( 'the brush is the background of "Keep climbing.": a hand-drawn stroke of the
 		array_slice( $brush, 1 ),
 	),
 	array(
-		array( '', 'background: url( the brush ) center / 100% 100% no-repeat; color: var( --wpc-surface ); display: inline-block; margin-left: -.1em; padding: .04em .16em .14em; white-space: nowrap;' ),
+		array( '', 'background: url( the brush ) center / 100% 100% no-repeat; color: var( --wpc-surface ); display: inline-block; margin-left: -.26em; margin-top: .12em; padding: .1em .34em .2em .3em; white-space: nowrap;' ),
 		true,
 		true,
 		array( array( '@media ( forced-colors: active )', 'background: none; color: inherit;' ) ),
 	) );
 
 // The hero sits on the page's white (1.24.18): no panel, so its columns draw no background and keep no
-// padding at the sides. The pattern stores their padding on the columns themselves, 64px above and 52px
+// padding at the sides. The pattern stores their padding on the columns themselves, none above and 52px
 // below, so the Site Editor's padding control shows what is drawn. An inline style outranks every
 // selector, so the rule needs no !important (it says the same, a fallback for a copy of the block that
 // stores none), and no narrower width changes it. Read as they are written, in order.
@@ -2733,7 +2733,7 @@ foreach ( $hero_rules as $hero_rule ) {
 	}
 }
 
-ck( 'the hero sits on the page\'s white, no panel: its columns draw no background and no corners, 40px apart, 64px above them and 52px below and none at the sides; one rule, on the two classes the columns print and on no one-class rule, the padding with no !important because the pattern stores the same on the element itself, which outranks it; and the only backgrounds the hero\'s rules name are the eyebrow\'s none, where the pill was, and the brush\'s stroke, dropped in forced colors',
+ck( 'the hero sits on the page\'s white, no panel: its columns draw no background and no corners, 40px apart, nothing above them and 52px below and none at the sides; one rule, on the two classes the columns print and on no one-class rule, the padding with no !important because the pattern stores the same on the element itself, which outranks it; and the only backgrounds the hero\'s rules name are the eyebrow\'s none, where the pill was, and the brush\'s stroke, dropped in forced colors',
 	array(
 		array_slice( $cols_rules, 0, 1 ),
 		rules_for( '.wpc-hub-hero__cols' ),
@@ -2742,10 +2742,10 @@ ck( 'the hero sits on the page\'s white, no panel: its columns draw no backgroun
 		$hero_grounds,
 	),
 	array(
-		array( array( '', 'gap: 40px; padding-bottom: 52px; padding-left: 0; padding-right: 0; padding-top: 64px;' ) ),
+		array( array( '', 'gap: 40px; padding-bottom: 52px; padding-left: 0; padding-right: 0; padding-top: 0;' ) ),
 		array(),
 		1,
-		array( 'padding-top:64px;padding-right:0;padding-bottom:52px;padding-left:0' ),
+		array( 'padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0' ),
 		array( '.wpc-hub-hero .wpc-pill: none', '.wpc-hub-hero .wpc-hub-brush: the brush', '.wpc-hub-hero .wpc-hub-brush: none' ),
 	) );
 
@@ -2820,9 +2820,16 @@ $cols_padding_at = static function ( $width ) use ( $cols_rules, $cols_style, $d
 
 $hero_widths = array( 1440, 1100, 1099, 900, 899, 641, 640, 375, 320 );
 
-ck( 'the hero\'s columns are drawn with the padding the design gives them at every window width, the pattern\'s style attribute and the sheet\'s rules together (above, right, below, left): 64px above, 52px below and none at the sides, from 1440px to 320px',
+ck( 'the hero\'s columns are drawn with the padding the design gives them at every window width, the pattern\'s style attribute and the sheet\'s rules together (above, right, below, left): none above, 52px below and none at the sides, from 1440px to 320px',
 	array_map( $cols_padding_at, array_combine( $hero_widths, $hero_widths ) ),
-	array_fill_keys( $hero_widths, '64px 0 52px 0' ) );
+	array_fill_keys( $hero_widths, '0 0 52px 0' ) );
+
+ck( 'the hero\'s eyebrow is a block of its own, not the pill\'s inline box riding a line box below the column\'s top, so it sits 44px under the header: the main\'s 20px block gap and the hero group\'s 24px (the owner, 17 October 2026: "remove this gap, its too big")',
+	array( rules_for( '.wpc-hub-hero .wpc-pill' ), rules_for( '.wp-block-group.wpc-hub-hero' ) ),
+	array(
+		array( 'background: none; border-radius: 0; color: var( --wpc-ink-60 ); display: block; letter-spacing: .12em; padding: 0;' ),
+		array( 'padding-bottom: 48px; padding-top: 24px;' ),
+	) );
 
 // The Columns block prints, for the padding it stores, the same four declarations in core's order (the
 // editor's save writes top, right, bottom, left), so the block validates and the padding control of the
@@ -2831,7 +2838,7 @@ preg_match( '/<!-- wp:columns (\{.*?\}) -->\s*<div class="([^"]*)" style="([^"]*
 
 $stored_padding = isset( $columns_block[1] ) ? ( json_decode( $columns_block[1], true )['style']['spacing']['padding'] ?? array() ) : array();
 
-ck( 'the Site Editor\'s padding control shows what is drawn: the columns block stores the hero\'s four paddings, 64px above, 52px below and none at the sides, and prints the same four in its style attribute in core\'s order, top, right, bottom, left, so the block comment and the markup agree',
+ck( 'the Site Editor\'s padding control shows what is drawn: the columns block stores the hero\'s four paddings, none above, 52px below and none at the sides, and prints the same four in its style attribute in core\'s order, top, right, bottom, left, so the block comment and the markup agree',
 	array(
 		$stored_padding,
 		implode( ';', array_map( static function ( $side ) use ( $stored_padding ) { return 'padding-' . $side . ':' . $stored_padding[ $side ]; }, array_values( array_intersect( array( 'top', 'right', 'bottom', 'left' ), array_keys( $stored_padding ) ) ) ) ),
@@ -2839,9 +2846,9 @@ ck( 'the Site Editor\'s padding control shows what is drawn: the columns block s
 		$columns_block[2] ?? '',
 	),
 	array(
-		array( 'top' => '64px', 'bottom' => '52px', 'left' => '0', 'right' => '0' ),
-		'padding-top:64px;padding-right:0;padding-bottom:52px;padding-left:0',
-		'padding-top:64px;padding-right:0;padding-bottom:52px;padding-left:0',
+		array( 'top' => '0', 'bottom' => '52px', 'left' => '0', 'right' => '0' ),
+		'padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0',
+		'padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0',
 		'wp-block-columns wpc-hub-hero__cols wpc-hub-stack',
 	) );
 
