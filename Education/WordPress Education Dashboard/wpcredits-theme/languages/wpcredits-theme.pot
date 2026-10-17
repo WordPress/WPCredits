@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.21\n"
+"Project-Id-Version: WPCredits 1.24.22\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-17T10:02:30+00:00\n"
+"POT-Creation-Date: 2026-10-17T21:23:04+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -100,7 +100,7 @@ msgstr ""
 
 #. translators: 1: a step's number, 2: how many steps there are.
 #: blocks/pathway/render.php:52
-#: patterns/hub-hero.php:54
+#: patterns/hub-hero.php:84
 #, php-format
 msgid "Step %1$s of %2$s"
 msgstr ""
@@ -1298,42 +1298,42 @@ msgctxt "Pattern description"
 msgid "The Education Hub's opening: what the programs offer, two ways in, a picture made of WordPress editor pieces, and the program's three outcome figures with their source in a row under it."
 msgstr ""
 
-#: patterns/hub-hero.php:27
+#: patterns/hub-hero.php:56
 msgid "Education programs from the WordPress project"
 msgstr ""
 
-#: patterns/hub-hero.php:31
+#: patterns/hub-hero.php:60
 msgid "Start learning with WordPress."
 msgstr ""
 
 #. translators: 1: a step's number, 2: how many steps there are.
-#: patterns/hub-hero.php:31
-#: patterns/hub-hero.php:55
+#: patterns/hub-hero.php:60
+#: patterns/hub-hero.php:85
 msgid "Every step counts."
 msgstr ""
 
-#: patterns/hub-hero.php:31
+#: patterns/hub-hero.php:60
 msgid "Keep climbing."
 msgstr ""
 
-#: patterns/hub-hero.php:35
+#: patterns/hub-hero.php:64
 msgid "Students earn academic credit, credentials, and a portfolio employers can check, and each program leads to the next. Institutions can start with one workshop or a small pilot, and every group of students they run moves them up a partner level with more support."
 msgstr ""
 
-#: patterns/hub-hero.php:40
+#: patterns/hub-hero.php:69
 msgid "Find where to start"
 msgstr ""
 
-#: patterns/hub-hero.php:44
+#: patterns/hub-hero.php:73
 msgid "Explore the pathway"
 msgstr ""
 
 #. translators: 1: a step's number, 2: how many steps there are.
-#: patterns/hub-hero.php:55
+#: patterns/hub-hero.php:85
 msgid "From first workshop to first job"
 msgstr ""
 
-#: patterns/hub-hero.php:56
+#: patterns/hub-hero.php:86
 msgid "On your WordPress.org profile"
 msgstr ""
 

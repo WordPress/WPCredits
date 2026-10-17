@@ -320,6 +320,45 @@
 	position: absolute;
 }
 
+/* The mountain behind the pieces: rows of the step names in the monospace, cut to two peaks, drawn in
+   the picture's own space so it zooms with it. It is the picture's first element, so every piece
+   covers it, and it rises 104px above the picture for the peaks and the flag, inside the room the
+   hero keeps above the picture at every width the picture shows. The higher peak's snow cap is in the
+   brand blue; the trail is a gap in the words with a dashed route in the blue down its middle. */
+.wpc-hub-art__mountain {
+	font-family: var( --wp--preset--font-family--mono );
+	font-size: 9px;
+	height: 494px;
+	left: -10px;
+	pointer-events: none;
+	position: absolute;
+	top: -104px;
+	width: 540px;
+}
+
+.wpc-hub-art__mountain-body {
+	fill: var( --wpc-ink-60 );
+}
+
+.wpc-hub-art__mountain-cap,
+.wpc-hub-art__pennant {
+	fill: var( --wpc-brand );
+}
+
+.wpc-hub-art__route {
+	fill: none;
+	stroke: var( --wpc-brand );
+	stroke-dasharray: 4 5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.5;
+}
+
+.wpc-hub-art__pole {
+	stroke: var( --wpc-ink );
+	stroke-width: 1.5;
+}
+
 .wpc-hub-art__frame {
 	border: 1px dashed var( --wpc-brand-border );
 	height: 270px;

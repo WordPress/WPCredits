@@ -9,15 +9,44 @@
  *
  * The picture beside the copy is decoration (hidden from screen readers, nothing in it focusable) and
  * every word in it is one the page already says: the pathway's third step, its line and what it
- * unlocks, read from the hub's own step list. The figures are program figure blocks, each the
- * plugin's stored figure or nothing: with no figure to show, the figures row is not displayed
- * (hub.css).
+ * unlocks, read from the hub's own step list. Behind the pieces stands a mountain drawn in words: rows
+ * of the pathway's step names cut to two peaks by a mask, a switchback trail up to a flag on the higher
+ * one, and its snow cap in the brand blue. The figures are program figure blocks, each the plugin's
+ * stored figure or nothing: with no figure to show, the figures row is not displayed (hub.css).
  *
  * @package WPCredits_Theme
  */
 
 $wpcredits_steps = wpcredits_hub_steps();
 $wpcredits_step  = $wpcredits_steps[2];
+
+// The mountain's words, in the picture's own 520 by 380px space: 42 rows 12px apart, from 96px above
+// the picture to 4px under it. Each row is the step names in the hub's order, begun three names
+// further on than the row above and set further left, so no two rows line up, and repeated until it
+// is 130 characters long, wider than the mountain from any of its starting points.
+$wpcredits_names = array_column( $wpcredits_steps, 'name' );
+$wpcredits_rows  = '';
+
+for ( $wpcredits_row = 0; $wpcredits_row < 42; $wpcredits_row++ ) {
+	$wpcredits_from  = ( $wpcredits_row * 3 ) % count( $wpcredits_names );
+	$wpcredits_cycle = implode( ' // ', array_merge( array_slice( $wpcredits_names, $wpcredits_from ), array_slice( $wpcredits_names, 0, $wpcredits_from ) ) );
+	$wpcredits_line  = $wpcredits_cycle;
+
+	while ( mb_strlen( $wpcredits_line ) < 130 ) {
+		$wpcredits_line .= ' // ' . $wpcredits_cycle;
+	}
+
+	$wpcredits_rows .= '<text x="' . ( -14 - $wpcredits_row * 23 % 64 ) . '" y="' . ( -96 + 12 * $wpcredits_row ) . '">' . esc_html( $wpcredits_line ) . '</text>';
+}
+
+// The mountain's shape in the same space: the higher peak above the chart, the lower one above the
+// toolbar, and the notch between them in the gap over the selected block; the trail from the foot to
+// the flag, through the gaps between the pieces; the snow cap's jagged edge under the summit.
+$wpcredits_mountain = 'M0 384 L0 58 L110 -30 L227 64 L390 -70 L520 45 L520 384 Z';
+$wpcredits_trail    = 'M150 384 L330 316 L296 230 L60 186 L250 66 L330 12 L430 -14 L378 -44 L390 -70';
+$wpcredits_cap      = 'M330 -30 L390 -110 L450 -30 L432 -26 L418 -38 L404 -24 L390 -36 L376 -24 L362 -36 L348 -26 Z';
+$wpcredits_area     = 'maskUnits="userSpaceOnUse" x="-10" y="-104" width="540" height="494"';
+$wpcredits_gap      = '<path d="' . $wpcredits_trail . '" fill="none" stroke="#000" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>';
 
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-hero","layout":{"type":"default"}} -->
@@ -49,6 +78,7 @@ $wpcredits_step  = $wpcredits_steps[2];
 <!-- wp:column {"verticalAlignment":"center","width":"44%","className":"wpc-hub-hero__art"} -->
 <div class="wp-block-column is-vertically-aligned-center wpc-hub-hero__art" style="flex-basis:44%"><!-- wp:html -->
 <div class="wpc-hub-art" aria-hidden="true">
+	<svg class="wpc-hub-art__mountain" viewBox="-10 -104 540 494" focusable="false"><defs><g id="wpc-hub-mountain-words"><?php echo $wpcredits_rows; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- each row's words are escaped where the row is built. ?></g><mask id="wpc-hub-mountain-body" <?php echo $wpcredits_area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?>><path d="<?php echo esc_attr( $wpcredits_mountain ); ?>" fill="#fff"/><path d="<?php echo esc_attr( $wpcredits_cap ); ?>" fill="#000"/><?php echo $wpcredits_gap; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?></mask><mask id="wpc-hub-mountain-cap" <?php echo $wpcredits_area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?>><path d="<?php echo esc_attr( $wpcredits_mountain ); ?>" fill="#fff"/><path d="M-10 -104 H530 V390 H-10 Z <?php echo esc_attr( $wpcredits_cap ); ?>" fill="#000" fill-rule="evenodd"/><?php echo $wpcredits_gap; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?></mask></defs><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-mountain-body)"/><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-mountain-cap)"/><path class="wpc-hub-art__route" d="<?php echo esc_attr( $wpcredits_trail ); ?>"/><path class="wpc-hub-art__pole" d="M390 -70 V-98"/><path class="wpc-hub-art__pennant" d="M390 -98 L414 -90 L390 -82 Z"/></svg>
 	<div class="wpc-hub-art__frame"></div>
 	<div class="wpc-hub-art__piece wpc-hub-art__toolbar"><span class="wpc-hub-art__tool wpc-hub-art__tool--block"></span><span class="wpc-hub-art__tool wpc-hub-art__tool--more"></span><span class="wpc-hub-art__tool wpc-hub-art__tool--up"></span><span class="wpc-hub-art__tool wpc-hub-art__tool--bold"></span><span class="wpc-hub-art__tool wpc-hub-art__tool--italic"></span><span class="wpc-hub-art__tool wpc-hub-art__tool--link"></span></div>
 	<div class="wpc-hub-art__piece wpc-hub-art__step"><span class="wpc-hub-art__small"><?php echo esc_html( sprintf( /* translators: 1: a step's number, 2: how many steps there are. */ __( 'Step %1$s of %2$s', 'wpcredits-theme' ), number_format_i18n( 3 ), number_format_i18n( count( $wpcredits_steps ) ) ) ); ?></span><span class="wpc-hub-art__serif"><?php echo esc_html( $wpcredits_step['name'] ); ?></span><span class="wpc-hub-art__line"><?php echo esc_html( $wpcredits_step['earned'] ); ?></span><span class="wpc-hub-art__handle wpc-hub-art__handle--start"></span><span class="wpc-hub-art__handle wpc-hub-art__handle--end"></span></div>

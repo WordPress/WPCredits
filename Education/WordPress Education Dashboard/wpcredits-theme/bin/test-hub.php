@@ -217,7 +217,8 @@ function found( DOMXPath $xpath, $query, $attribute = '' ) {
  * translations marked, the text of every paragraph, heading, list item, term, cell and button, and
  * every `aria-label`, `data-announce` and `alt`, is bracketed strings, one inside another where a name
  * sits in a sentence, and numbers alone. A text is read whole where it is written, so a sentence with
- * a link in it is one text; the decorative arrows are left out.
+ * a link in it is one text; the decorative arrows, and the `//` between the names of the hero
+ * mountain's rows, are left out.
  *
  * @param string $html The markup, rendered with `$GLOBALS['marked']` on.
  * @return string[]
@@ -255,7 +256,7 @@ function unmarked( $html ) {
 			$left   = preg_replace( '/\[[^\[\]]*\]/u', '', $left );
 		} while ( $left !== $before );
 
-		if ( '' !== trim( preg_replace( '/[0-9,.%→\s]+/u', '', $left ) ) ) {
+		if ( '' !== trim( preg_replace( '#(?://|[0-9,.%→\s])+#u', '', $left ) ) ) {
 			$bare[] = $text;
 		}
 	}
@@ -2252,7 +2253,8 @@ ck( 'the hero: its title in three strings, read as one heading in order, the sec
 	) );
 
 // What a keyboard or a pointer could land on, inside a picture that must offer neither.
-$focusable = 'self::a or self::button or self::input or self::select or self::textarea or self::iframe or self::summary or self::object or self::embed or self::audio or self::video or @href or @tabindex or @contenteditable or @onclick';
+// An SVG use element's href names what it draws, not a place to go, and takes no focus.
+$focusable = 'self::a or self::button or self::input or self::select or self::textarea or self::iframe or self::summary or self::object or self::embed or self::audio or self::video or ( @href and not( self::use ) ) or @tabindex or @contenteditable or @onclick';
 
 /**
  * The markup of every element an XPath query finds in some markup, one after another.
@@ -2294,7 +2296,7 @@ foreach ( $art_steps as $art_at => $art_widest ) {
 	$art_fits[ $art_widest ] = round( $art_drawn * $art_zoom[ $art_widest ] ) <= ( isset( $art_steps[ $art_at + 1 ] ) ? $art_steps[ $art_at + 1 ] + 1 : 320 );
 }
 
-ck( 'beside the copy, the picture is decoration: a column of its own, 44% to the copy\'s 52% and centered on it, one Custom HTML block whose one element is hidden from screen readers and holds no link, button, field or tab stop, its drawing taking no focus; not shown below 900px, and from 900px drawn at 520 by 380px against the column\'s right edge and zoomed down in steps with its column, each step small enough for the narrowest column it is drawn in, down to 320px, so no piece is cut',
+ck( 'beside the copy, the picture is decoration: a column of its own, 44% to the copy\'s 52% and centered on it, one Custom HTML block whose one element is hidden from screen readers and holds no link, button, field or tab stop, its two drawings, the mountain and the chart, taking no focus; not shown below 900px, and from 900px drawn at 520 by 380px against the column\'s right edge and zoomed down in steps with its column, each step small enough for the narrowest column it is drawn in, down to 320px, so no piece is cut',
 	array(
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__cols ")]/div', 'class' ),
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__cols ")]/div', 'style' ),
@@ -2315,7 +2317,7 @@ ck( 'beside the copy, the picture is decoration: a column of its own, 44% to the
 		array( 'wpc-hub-art' ),
 		array( 'true' ),
 		0,
-		array( 'false' ),
+		array( 'false', 'false' ),
 		array(
 			array( '', 'container-name: wpc-hub-art; container-type: inline-size; min-width: 0;' ),
 			array( '@media ( max-width: 899px )', 'display: none;' ),
@@ -2339,11 +2341,11 @@ foreach ( $drawn_rules as $drawn_rule ) {
 
 $art_marked = markup_of( $marked_hero, '//div[@class="wpc-hub-art"]' );
 
-ck( 'every word in the picture is a translated string, one the page says or the design gives it, the third step\'s read from the hub\'s own list of steps: "Step 3 of 7", the step\'s name, what earns it and its first item, the headline\'s "Every step counts.", the chart\'s line and where the badge shows; the sheet draws only the editor\'s glyphs in it (the toolbar\'s, the W mark, the type card\'s "Aa", the plus and the ticks), no word',
+ck( 'every word in the picture is a translated string, one the page says or the design gives it, the pieces\' seven with the third step\'s read from the hub\'s own list of steps: "Step 3 of 7", the step\'s name, what earns it and its first item, the headline\'s "Every step counts.", the chart\'s line and where the badge shows; the sheet draws only the editor\'s glyphs in it (the toolbar\'s, the W mark, the type card\'s "Aa", the plus and the ticks), no word',
 	array(
 		unmarked( $art_marked ),
 		found( dom_of( markup_of( $hero, '//div[@class="wpc-hub-art"]' ) ), '//span[normalize-space(text())]' ),
-		preg_match_all( '/\[[^\[\]]+\]/', strip_tags( $art_marked ) ),
+		preg_match_all( '/\[[^\[\]]+\]/', strip_tags( markup_of( $marked_hero, '//div[@class="wpc-hub-art"]/div' ) ) ),
 		$drawn_glyphs,
 	),
 	array(
@@ -2351,6 +2353,97 @@ ck( 'every word in the picture is a translated string, one the page says or the 
 		array( 'Step 3 of 7', $steps[2]['name'], $steps[2]['earned'], 'Every step counts.', 'From first workshop to first job', $steps[2]['items'][0]['text'], 'On your WordPress.org profile' ),
 		7,
 		array( '\25A6', '\22EE', '\25B2', 'B', 'I', '\2197', 'W', 'Aa', '', '+', '\2713' ),
+	) );
+
+// The mountain behind the pieces (1.24.22). Its rows are read for what they promise rather than
+// rebuilt: where each begins in the hub's list, that each name is followed by the next, and that each
+// reaches across the drawing from where it starts, at the monospace's 0.6em a character.
+$mountain      = '//div[@class="wpc-hub-art"]/svg[@class="wpc-hub-art__mountain"]';
+$mountain_rows = found( $hx, $mountain . '/defs/g[@id="wpc-hub-mountain-words"]/text' );
+$mountain_xs   = array_map( 'intval', found( $hx, $mountain . '/defs/g/text', 'x' ) );
+$names         = array_column( $steps, 'name' );
+$row_firsts    = array();
+$row_order     = array();
+$row_across    = array();
+
+foreach ( $mountain_rows as $row_at => $row_text ) {
+	$row_names    = explode( ' // ', $row_text );
+	$row_firsts[] = array_search( $row_names[0], $names, true );
+
+	foreach ( array_slice( $row_names, 1 ) as $name_at => $row_name ) {
+		$row_order[] = ( array_search( $row_names[ $name_at ], $names, true ) + 1 ) % count( $names ) === array_search( $row_name, $names, true );
+	}
+
+	$row_across[] = $mountain_xs[ $row_at ] <= -10 && $mountain_xs[ $row_at ] + mb_strlen( $row_text ) * 9 * 0.6 >= 530 && ( 0 === $row_at || $mountain_xs[ $row_at ] !== $mountain_xs[ $row_at - 1 ] );
+}
+
+$mountain_path = static function ( $query ) use ( $hx, $mountain ) {
+	return found( $hx, $mountain . $query, 'd' );
+};
+
+$shape       = $mountain_path( '/defs/mask[@id="wpc-hub-mountain-body"]/path[1]' )[0] ?? '';
+$trail       = $mountain_path( '/path[@class="wpc-hub-art__route"]' )[0] ?? '';
+$cap         = $mountain_path( '/defs/mask[@id="wpc-hub-mountain-body"]/path[2]' )[0] ?? '';
+$shape_at    = preg_match_all( '/(-?\d+) (-?\d+)/', $shape, $shape_points ) ? array_map( 'intval', $shape_points[2] ) : array( 0 );
+$summit      = $shape_points[0][ array_search( min( $shape_at ), $shape_at, true ) ] ?? '';
+$trail_ends  = preg_match_all( '/(-?\d+) (-?\d+)/', $trail, $trail_points ) ? array( $trail_points[0][0], end( $trail_points[0] ) ) : array();
+$view_box    = preg_match( '/<svg class="wpc-hub-art__mountain" viewBox="([^"]*)"/', $hero, $view_said ) ? explode( ' ', $view_said[1] ) : array();
+$mountain_on = preg_match_all( '/id="(wpc-hub-mountain-[a-z]+)"/', $hero, $mountain_ids ) ? array_count_values( $mountain_ids[1] ) : array();
+
+ck( 'behind the pieces, the picture\'s first element, a mountain drawn in words: 42 rows 12px apart, from 96px above the picture to 4px under it, each the step names in the hub\'s order, joined by " //", the first row begun at the first step and each row three names further on than the row above, every row starting left of the drawing, set apart from the row above and long enough to cross it; the rows written once and drawn twice, through the mountain\'s mask in grey and the snow cap\'s in the brand blue, both cut by the trail, which runs from the mountain\'s foot to its summit with the dashed route along it and the flag\'s pole on the summit; ids on the page once each',
+	array(
+		found( $hx, '//div[@class="wpc-hub-art"]/*', 'class' )[0] ?? null,
+		count( $mountain_rows ),
+		array_map( 'intval', found( $hx, $mountain . '/defs/g/text', 'y' ) ),
+		$row_firsts,
+		array_unique( $row_order ),
+		array_unique( $row_across ),
+		found( $hx, $mountain . '/use', 'href' ),
+		found( $hx, $mountain . '/use', 'class' ),
+		found( $hx, $mountain . '/use', 'mask' ),
+		$mountain_path( '/defs/mask[@id="wpc-hub-mountain-body"]/path' ),
+		$mountain_path( '/defs/mask[@id="wpc-hub-mountain-cap"]/path' ),
+		found( $hx, $mountain . '/defs/mask/path[3]', 'stroke-width' ),
+		$trail_ends,
+		array( $summit, max( $shape_at ) ),
+		$mountain_path( '/path[@class="wpc-hub-art__pole"]' ),
+		found( $hx, $mountain, 'focusable' ),
+		$mountain_on,
+	),
+	array(
+		'wpc-hub-art__mountain',
+		42,
+		range( -96, 396, 12 ),
+		array_map( static function ( $row ) { return ( $row * 3 ) % 7; }, range( 0, 41 ) ),
+		array( true ),
+		array( true ),
+		array( '#wpc-hub-mountain-words', '#wpc-hub-mountain-words' ),
+		array( 'wpc-hub-art__mountain-body', 'wpc-hub-art__mountain-cap' ),
+		array( 'url(#wpc-hub-mountain-body)', 'url(#wpc-hub-mountain-cap)' ),
+		array( $shape, $cap, $trail ),
+		array( $shape, 'M-10 -104 H530 V390 H-10 Z ' . $cap, $trail ),
+		array( '14', '14' ),
+		array( '150 384', '390 -70' ),
+		array( '390 -70', 384 ),
+		array( 'M390 -70 V-98' ),
+		array( 'false' ),
+		array( 'wpc-hub-mountain-words' => 1, 'wpc-hub-mountain-body' => 1, 'wpc-hub-mountain-cap' => 1 ),
+	) );
+
+ck( 'the sheet sets the mountain in the picture\'s own space, the box its view box names (10px left of the picture and 104px above it, 540 by 494px), so it zooms with the picture, takes no pointer, and writes its words in the monospace at 9px, the mountain in grey, the cap and the pennant in the brand blue, the route dashed in the blue and the pole in ink',
+	array(
+		array( $view_box, rules_placed( '.wpc-hub-art__mountain' )[0][1] ?? '' ),
+		rules_for( '.wpc-hub-art__mountain-body' ),
+		rules_for( '.wpc-hub-art__mountain-cap, .wpc-hub-art__pennant' ),
+		rules_for( '.wpc-hub-art__route' ),
+		rules_for( '.wpc-hub-art__pole' ),
+	),
+	array(
+		array( array( '-10', '-104', '540', '494' ), 'font-family: var( --wp--preset--font-family--mono ); font-size: 9px; height: 494px; left: -10px; pointer-events: none; position: absolute; top: -104px; width: 540px;' ),
+		array( 'fill: var( --wpc-ink-60 );' ),
+		array( 'fill: var( --wpc-brand );' ),
+		array( 'fill: none; stroke: var( --wpc-brand ); stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5;' ),
+		array( 'stroke: var( --wpc-ink ); stroke-width: 1.5;' ),
 	) );
 
 $doors_html        = wpcredits_test_pattern( 'hub-doors.php' );

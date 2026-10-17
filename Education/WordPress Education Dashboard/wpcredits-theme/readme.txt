@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.21
+Stable tag: 1.24.22
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -186,6 +186,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.22 =
+* Education Hub: behind the hero's picture stands a mountain drawn in words, rows of the pathway's step names cut to two peaks that rise above the editor pieces. The higher peak stands over the chart, with a flag on its summit and its snow cap in the brand blue, and a trail with a dashed route zigzags between the pieces from the mountain's foot to the flag. Like the rest of the picture it is decoration, hidden from screen readers and not shown below 900px wide.
+* For developers: `bin/test-hub.php` checks the mountain's rows (where each begins in the hub's list of steps, the order of the names, that each crosses the drawing), its two masks, the trail's ends at the foot and the summit, the flag's pole, its ids and its rules; the picture's focus check no longer counts the `href` of an SVG `use` element, and the words check leaves out the `//` between the mountain's names.
 
 = 1.24.21 =
 * Site header: below 1200px wide, the closed menu stays closed for a submenu that opens on hover and has no toggle, as it already did for one with a toggle. Nothing else a reader sees changes.
