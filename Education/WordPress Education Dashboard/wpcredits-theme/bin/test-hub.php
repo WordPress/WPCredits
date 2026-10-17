@@ -557,11 +557,13 @@ ck( 'the two typefaces ship with the theme: four @font-face rules in hub.css, EB
 	) );
 
 // Every stylesheet, PHP file, template and theme.json of the theme, as the zip ships them: bin/ is left
-// out of the zip (checked above), and this suite names the two hosts it looks for.
+// out of the zip (checked above), and this suite names the two hosts it looks for. The folders git
+// ignores and the zip never holds (.superpowers and .worktrees: working notes and other branches'
+// copies) are left out too, as bin/check-selectors.php leaves them out.
 $font_scanned = array();
 $font_asking  = array();
 
-foreach ( new RecursiveIteratorIterator( new RecursiveCallbackFilterIterator( new RecursiveDirectoryIterator( WPCREDITS_THEME_DIR, FilesystemIterator::SKIP_DOTS ), static function ( $file ) { return ! ( $file->isDir() && in_array( $file->getFilename(), array( '.git', 'bin', 'node_modules' ), true ) ); } ) ) as $font_file ) {
+foreach ( new RecursiveIteratorIterator( new RecursiveCallbackFilterIterator( new RecursiveDirectoryIterator( WPCREDITS_THEME_DIR, FilesystemIterator::SKIP_DOTS ), static function ( $file ) { return ! ( $file->isDir() && in_array( $file->getFilename(), array( '.git', '.superpowers', '.worktrees', 'bin', 'node_modules' ), true ) ); } ) ) as $font_file ) {
 	if ( ! in_array( strtolower( $font_file->getExtension() ), array( 'css', 'php', 'html', 'json' ), true ) ) {
 		continue;
 	}

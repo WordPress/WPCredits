@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.19
+Stable tag: 1.24.20
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -31,7 +31,7 @@ with the content beneath it. Inside the dashboard the patterns are wp-admin nati
 instead - 13px body text, sentence case, 2px radii on controls, flat notices, no
 shadows.
 
-Three details are the theme's rather than the reference's, and are deliberate:
+Four details are the theme's rather than the reference's, and are deliberate:
 
 * The navigation marks the current menu item in brand blue. The reference's nav is
   hard-coded anchors with no such state; a real menu on a multi-page site needs one.
@@ -41,6 +41,10 @@ Three details are the theme's rather than the reference's, and are deliberate:
   once someone is signed in. It keeps the button's shape and position.
 * The sign-in button stays in the bar below 960px rather than folding into the menu
   panel, because it is the way in to everything else on the site.
+* Below 1200px a signed-in reader's header is one row: the brand, the account
+  picture and a Menu button whose panel lists the navigation, Need help?, the Student
+  Report Card and the Mentor Report Card the reader can open, and Log out, in the
+  order of the wide row. Without JavaScript the header keeps its wrapped row of links.
 
 = What the theme does and does not do =
 
@@ -182,6 +186,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.20 =
+* Site header: below 1200px wide, phones and most iPads among them, held either way, a signed-in reader's header is one row: the brand, the account picture and a Menu button. The button opens a panel under the bar that lists, in the order of the wide row, the navigation, Need help? where the handbook assistant is available, the Student Report Card and the Mentor Report Card the reader can open, and Log out, which a phone did not show before; the page being viewed is marked, and each entry is a row at least 44px tall. The button, Escape, a tap or click outside, a link or Need help? closes the panel; Escape, and the assistant closing, put the focus back on the button. Opening it does not move the page. Without JavaScript the header keeps its wrapped row of links, and from 1200px the row is as before.
+* Site header, signed out: on a phone, where the navigation's one link leads to the home page, the brand and Log in share one row and that link is left out, since the logo and the site title lead home; any other single link stays shown and the bar keeps its two rows. The Log in button on a phone is the smaller one its rule always meant, 14px with 9px and 14px of padding; with the one row the bar is about 62px tall from 334px wide, and 82px on the narrowest phones, where the site title takes a third line.
+* Site header: where no logo is uploaded, the WordPress mark's link is named with the site's name for screen readers ("Home" on a site without a name), as an uploaded logo's link already is.
+* For developers: `bin/test-header-js.php` runs the header's scripts on the stand-in page, and `bin/check-selectors.php` also checks that every plugin class the theme's scripts read is one the plugin sets.
 
 = 1.24.19 =
 * Education Hub homepage, the hero: the eyebrow sits 44px under the header, where it sat 114px under it: the hero's columns keep no space above them, and the eyebrow is a block of its own rather than the old pill's inline box. The blue stroke behind "Keep climbing." is wider and taller, so every letter, the K's top and the g's tail among them, sits on the blue, and it sits a little lower, clear of the line above.

@@ -24,10 +24,9 @@ require_once __DIR__ . '/stubs/hub-wp.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub-content.php';
 require_once WPCREDITS_THEME_DIR . 'inc/template-tags.php';
+require_once __DIR__ . '/stubs/node-suite.php';
 
-$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
-
-if ( '' === $node ) {
+if ( '' === wpcredits_node() ) {
 	echo "skip the hub's view scripts were not run: node is not on the path\n";
 	exit( 0 );
 }
@@ -40,47 +39,4 @@ $pages = array(
 	'page'    => '<main>' . wpcredits_test_page() . '</main>',
 );
 
-$pipes   = array();
-$process = proc_open(
-	escapeshellarg( $node ) . ' ' . escapeshellarg( __DIR__ . '/js/hub-harness.js' ) . ' ' . escapeshellarg( WPCREDITS_THEME_DIR ),
-	array(
-		0 => array( 'pipe', 'r' ),
-		1 => array( 'pipe', 'w' ),
-		2 => array( 'pipe', 'w' ),
-	),
-	$pipes
-);
-
-fwrite( $pipes[0], (string) json_encode( $pages ) );
-fclose( $pipes[0] );
-
-$out = explode( "\n", trim( stream_get_contents( $pipes[1] ) . "\n" . stream_get_contents( $pipes[2] ) ) );
-
-fclose( $pipes[1] );
-fclose( $pipes[2] );
-
-$status  = proc_close( $process );
-$ran     = 0;
-$differ  = 0;
-$summary = null;
-
-foreach ( $out as $line ) {
-	if ( 0 === strpos( $line, 'ok   ' ) ) {
-		++$ran;
-		echo $line . "\n";
-	} elseif ( 0 === strpos( $line, 'FAIL ' ) ) {
-		++$ran;
-		++$differ;
-		echo $line . "\n";
-	} elseif ( preg_match( '/^(\d+) scenarios, (\d+) differ$/', $line, $found ) ) {
-		$summary = array( (int) $found[1], (int) $found[2] );
-	} elseif ( '' !== trim( $line ) ) {
-		echo $line . "\n";
-	}
-}
-
-$whole = null !== $summary && $summary[0] === $ran && $summary[1] === $differ && 0 === $differ && 0 === $status && $ran > 0;
-
-printf( "\n%s (%d scenarios)\n", $whole ? 'ALL PASS' : sprintf( '%d FAILURE(S)', max( 1, $differ ) ), $ran );
-
-exit( $whole ? 0 : 1 );
+exit( wpcredits_run_node_suite( __DIR__ . '/js/hub-harness.js', $pages ) );

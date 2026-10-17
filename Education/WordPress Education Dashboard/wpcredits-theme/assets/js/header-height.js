@@ -20,7 +20,8 @@
  * the stylesheet spaces the two rows. The mark changes the bar's height but never its widths, so
  * it cannot change whether the row wraps. It is set in the next frame rather than inside the
  * observer's callback: a change to the observed element's own size from inside that callback is
- * what the browser reports as a resize loop.
+ * what the browser reports as a resize loop. A group placed absolutely, as the menu's panel is below
+ * 1200px (under a one-row bar), never marks the bar, wherever it lies.
  *
  * Without a header part on the page, or in a browser without `ResizeObserver`, it does nothing
  * and the stylesheet's fallbacks apply.
@@ -53,7 +54,7 @@
 
 		header.classList.toggle(
 			'wpc-header--stacked',
-			group.getBoundingClientRect().top >= brand.getBoundingClientRect().bottom
+			'absolute' !== window.getComputedStyle( group ).position && group.getBoundingClientRect().top >= brand.getBoundingClientRect().bottom
 		);
 	}
 

@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.18\n"
+"Project-Id-Version: WPCredits 1.24.20\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-16T23:18:16+00:00\n"
+"POT-Creation-Date: 2026-10-17T01:11:21+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -43,7 +43,7 @@ msgstr ""
 msgid "On this page"
 msgstr ""
 
-#: blocks/handbook-launcher/render.php:28
+#: blocks/handbook-launcher/render.php:30
 #: blocks/handbook-launcher/index.js:21
 msgid "Need help?"
 msgstr ""
@@ -385,28 +385,36 @@ msgstr ""
 msgid "Profile photo of %s"
 msgstr ""
 
-#: functions.php:124
+#: functions.php:125
 msgid "WPCredits program"
 msgstr ""
 
-#: functions.php:125
+#: functions.php:126
 msgid "Sections for the program’s landing page."
 msgstr ""
 
-#: functions.php:140
+#: functions.php:141
 msgid "Card"
 msgstr ""
 
-#: functions.php:148
+#: functions.php:149
 msgid "Pale band"
 msgstr ""
 
-#: functions.php:156
+#: functions.php:157
 msgid "Eyebrow"
 msgstr ""
 
-#: functions.php:164
+#: functions.php:165
 msgid "Pill"
+msgstr ""
+
+#: inc/header.php:56
+msgid "Home"
+msgstr ""
+
+#: inc/header.php:161
+msgid "Menu"
 msgstr ""
 
 #: inc/hub-content.php:112

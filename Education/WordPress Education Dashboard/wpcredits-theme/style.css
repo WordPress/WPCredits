@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.19
+Version: 1.24.20
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -280,7 +280,8 @@ body .skip-link.screen-reader-text:focus {
    about 720px to a student's or a mentor's alone. Wider than that the bar is the one row it
    always was, and the row gap, which only shows between wrapped rows, changes nothing. A chip
    with no link to a report card is the exception, and is dealt with just before the spacing of
-   a wrapped bar, further down, beside the phone's two rows. */
+   a wrapped bar, further down, beside the phone's two rows. On screens below 1200px a signed-in
+   reader whose page runs JavaScript has the one row of the menu layout instead, further down. */
 .wpc-header__inner {
 	column-gap: 40px;
 	flex-wrap: wrap;
@@ -466,7 +467,11 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* --- mobile toggle ----------------------------------------------------- */
-.wpc-header .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ) {
+/* The navigation block's own toggle and the header's Menu button are one shape: 44px square, a 1px
+   rule, 4px corners. Neither is displayed until a rule below shows it: the navigation's below 960px,
+   the Menu button in the menu layout. */
+.wpc-header .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ),
+.wpc-header .wpc-menu-toggle {
 	align-items: center;
 	background: none;
 	border: 1px solid var( --wpc-chrome-rule );
@@ -477,6 +482,17 @@ body .skip-link.screen-reader-text:focus {
 	justify-content: center;
 	padding: 0;
 	width: 44px;
+}
+
+/* The Menu button holds both its icons and shows the one that fits its state: the menu icon until it
+   is expanded, the close icon after. */
+.wpc-menu-toggle .wpc-menu-toggle__close,
+.wpc-menu-toggle[aria-expanded="true"] .wpc-menu-toggle__open {
+	display: none;
+}
+
+.wpc-menu-toggle[aria-expanded="true"] .wpc-menu-toggle__close {
+	display: block;
 }
 
 /* --- viewer chip / call to action -------------------------------------- */
@@ -1378,8 +1394,10 @@ p.is-style-pill {
 		display: none;
 	}
 
-	.wpc-viewer__signin,
-	.wpc-viewer--guest a {
+	/* Two classes, as the base rule it narrows: written as one class it lost to that rule and never took
+	   effect. */
+	.wpc-header .wpc-viewer__signin,
+	.wpc-header .wpc-viewer--guest a {
 		font-size: 14px;
 		padding: 9px 14px;
 	}
@@ -1425,6 +1443,263 @@ p.is-style-pill {
 	.wpc-header--stacked .wpc-nav__center {
 		justify-content: flex-start;
 		row-gap: 4px;
+	}
+}
+
+/* The menu layout: a signed-in reader's bar on screens below 1200px once the page runs JavaScript.
+   `wpc-js` is put on the root element first thing in the head, and `wpc-header--menu` on the header
+   when the menu would list two entries or more, so without JavaScript, signed out, in print and from
+   1200px none of these rules apply.
+
+   The bar is one row: the brand, the account picture and the Menu button. The links are the group
+   `wpc-nav__center`, which becomes the panel under the bar. The header is the containing block of the
+   panel, being positioned, and, through the transform, of the picture, which is fixed: an element with
+   a transform is the containing block of its fixed descendants, and the panel's own overflow does not
+   clip what is placed against the header.
+
+   The closed panel is hidden by `visibility`, which also takes its links out of the tab order and the
+   accessibility tree, so the picture inside it can say `visible` and stay shown. Every other rule
+   inside the panel that sets visibility says `inherit`. */
+@media screen and ( max-width: 1199px ) {
+	.wpc-js .wpc-header--menu {
+		position: relative;
+		transform: translateX( 0 );
+	}
+
+	/* One row that does not wrap, 12px between its items. Three classes outrank the wrapped bar's
+	   two-class rule above 640px, the phone's one-class rule and the block gap WordPress prints for
+	   the group. */
+	.wpc-js .wpc-header--menu .wpc-header__inner {
+		column-gap: 12px;
+		flex-wrap: nowrap;
+	}
+
+	/* The brand keeps 46px clear on its right for the picture, 34px wide and 12px from the brand and
+	   from the button, and may shrink. Its 12px gap is restated at three classes so the block gap
+	   cannot win in either print order. */
+	.wpc-js .wpc-header--menu .wpc-brand {
+		flex: 0 1 auto;
+		gap: 12px;
+		margin-right: calc( 34px + 12px );
+		min-width: 0;
+	}
+
+	/* The title may wrap at any width here, between words first and inside one only if a word alone is
+	   too wide: the wide bar's `nowrap` would keep it on one line past the window's edge. */
+	.wpc-js .wpc-header--menu .wpc-brand__name {
+		min-width: 0;
+		overflow-wrap: anywhere;
+		white-space: normal;
+	}
+
+	/* The button ends the row, its auto margin taking the room the brand leaves, and is tinted while the
+	   menu is open. */
+	.wpc-js .wpc-header--menu .wpc-menu-toggle {
+		cursor: pointer;
+		display: flex;
+		flex: none;
+		margin-left: auto;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-menu-toggle[aria-expanded="true"] {
+		background: var( --wpc-chrome-hover );
+	}
+
+	/* The panel hangs from the bar's rule (`top: calc( 100% + 1px )`), the bar's width, with the bar's
+	   gutter at each side so the rows' text lines up with the brand, 4px above the first row and 8px
+	   under the last. It scrolls inside itself, for a phone held sideways or a longer navigation, and is
+	   capped at the window's height less all that lies above it at the top of a page: the bar, the admin
+	   bar, the WordPress.org bar (`--wp-global-header-height`, which that bar's stylesheet declares on
+	   the root element) and the gap under it, WordPress's top-level block gap (the `margin-block-start`
+	   of every child of `.wp-site-blocks` but the first, the value of `--wp--style--block-gap`). So at the
+	   top of a page the panel's foot is inside the window, and once the page has scrolled those away the
+	   panel scrolls inside itself a little sooner than it must. The second `max-height` is for the
+	   phones whose `vh` counts the browser's own bars.
+
+	   `overscroll-behavior` is `auto`, so a scroll the panel cannot take, its rows fitting or its end
+	   reached, scrolls the page, and the sticky bar carries the panel up with it: whatever lies above
+	   the bar that the cap does not count (an alert the WordPress.org bar may print under itself) cannot
+	   leave the last rows out of reach. `contain` would hold the page still under a panel with nothing
+	   to scroll, and a press outside the panel closes the menu. */
+	.wpc-js .wpc-header--menu .wpc-nav__center {
+		background: var( --wpc-surface );
+		border-bottom: 1px solid var( --wpc-chrome-rule );
+		box-shadow: 0 12px 24px rgba( 0, 0, 0, .08 );
+		display: block;
+		left: 0;
+		max-height: calc( 100vh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) - var( --wp--style--block-gap, 0px ) );
+		max-height: calc( 100svh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) - var( --wp--style--block-gap, 0px ) );
+		overflow-y: auto;
+		overscroll-behavior: auto;
+		padding: 4px var( --wpc-chrome-gutter ) 8px;
+		position: absolute;
+		right: 0;
+		top: calc( 100% + 1px );
+		visibility: hidden;
+		z-index: 55;
+	}
+
+	.wpc-js .wpc-header--menu.wpc-header--open .wpc-nav__center {
+		visibility: visible;
+	}
+
+	/* The account picture stays the chip's last element and is drawn in the bar: fixed against the
+	   header, at its middle (`top: 50%` with half its 34px above), 12px left of the button. */
+	.wpc-js .wpc-header--menu .wpc-viewer__avatar {
+		margin-top: -17px;
+		position: fixed;
+		right: calc( var( --wpc-chrome-gutter ) + 44px + 12px );
+		top: 50%;
+		visibility: visible;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-viewer {
+		display: block;
+	}
+
+	/* The navigation block is a list of rows here and its own toggle never shows, whatever the
+	   navigation holds: the button above is the only one on the bar. */
+	.wpc-js .wpc-header--menu .wpc-nav.wp-block-navigation {
+		display: block;
+		position: static;
+	}
+
+	/* The navigation's open button is hidden here even when the navigation is set to always show its
+	   overlay: the plain selector, four classes, outranks core's one-class rule that shows such a
+	   button, and the one with `:not( .always-shown )`, five, outranks the 960px rule above that shows
+	   the others, in either print order. */
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container-open,
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ),
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container-close {
+		display: none;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) {
+		background: none;
+		display: block;
+		height: auto;
+		padding: 0;
+		position: static;
+		width: auto;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-dialog,
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-container-content {
+		display: block;
+		padding: 0;
+		position: static;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__container,
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item {
+		display: block;
+		width: auto;
+	}
+
+	/* A submenu is listed expanded under its parent, indented 12px, and never toggled. These selectors
+	   are as deep as they are to outrank the rules that reveal and restyle a submenu, in whichever order
+	   they are printed: the first is seven classes deep, with `[aria-expanded]`, against the six of the
+	   `[aria-expanded="true"] ~` reveal above (`display: flex`, `width: 240px`) and of core's focus
+	   reveal; the second is five, against the closed state's four. Their visibility says `inherit`, so a
+	   submenu is as hidden as the closed panel around it, whatever a pressed toggle says. */
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded] ~ .wp-block-navigation__submenu-container,
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container {
+		border: 0;
+		box-shadow: none;
+		display: block;
+		height: auto;
+		min-width: 0;
+		opacity: 1;
+		overflow: visible;
+		padding: 0 0 0 12px;
+		position: static;
+		visibility: inherit;
+		width: auto;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__submenu-icon {
+		display: none;
+	}
+
+	/* Every entry is a row, whichever block prints it: 15px type on a 20px line with 12px above and
+	   below, 44px tall, a hairline under it, the full width. The submenu's rows are seven classes deep
+	   to outrank the six-deep submenu link rule above (14px, 9px 12px) and core's five-deep one. */
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item__content,
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content,
+	.wpc-js .wpc-header--menu .wpc-nav__center .wpc-ask,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__link,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__logout {
+		background: none;
+		border-bottom: 1px solid var( --wpc-chrome-rule );
+		border-radius: 0;
+		color: var( --wpc-ink );
+		display: block;
+		font-size: 15px;
+		line-height: 20px;
+		padding: 12px 0;
+		text-align: left;
+		white-space: normal;
+		width: 100%;
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item__content:hover,
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content:hover,
+	.wpc-js .wpc-header--menu .wpc-nav__center .wpc-ask:hover,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__link:hover,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__logout:hover,
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item__content:focus-visible,
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content:focus-visible,
+	.wpc-js .wpc-header--menu .wpc-nav__center .wpc-ask:focus-visible,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__link:focus-visible,
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__logout:focus-visible {
+		color: var( --wpc-brand );
+	}
+
+	/* Log out is the last row, so it has no hairline, and it stays muted. */
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__logout {
+		border-bottom: 0;
+		color: var( --wpc-chrome-muted );
+	}
+
+	/* The page being viewed, in the brand blue at weight 500, as on the wide row. */
+	.wpc-js .wpc-header--menu .wpc-nav [aria-current="page"],
+	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__link.is-current {
+		color: var( --wpc-brand );
+		font-weight: 500;
+	}
+}
+
+/* Forced colors take the page being viewed's color away, so the menu underlines it. */
+@media screen and ( max-width: 1199px ) and ( forced-colors: active ) {
+	.wpc-js .wpc-header--menu .wpc-nav__center [aria-current="page"] {
+		text-decoration: underline;
+	}
+}
+
+/* Signed out, a phone shows the brand and the Log in button on one row where the navigation's one
+   link leads to the home page: that link is left out, since the logo and the title lead there already
+   (`wpc-nav--home` marks it). The rules of the row are scoped to a bar that holds the mark with
+   `:has()`, so any other lone link, which stays shown, and a browser without `:has()` keep the two
+   rows: a link with a long label beside the brand on one row would squeeze the title to a letter a
+   line. The bar's and the brand's 12px gaps are restated with `body:not( .wpc-signed-in )` in front, so
+   the block gap WordPress prints for the groups cannot win in either print order. */
+@media ( max-width: 640px ) {
+	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) {
+		column-gap: 12px;
+		flex-wrap: nowrap;
+	}
+
+	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) .wpc-brand {
+		flex: 1 1 auto;
+		gap: 12px;
+	}
+
+	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) .wpc-nav__center {
+		flex: none;
+	}
+
+	body:not( .wpc-signed-in ) .wpc-header .wpc-nav--home {
+		display: none;
 	}
 }
 

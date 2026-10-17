@@ -1,14 +1,19 @@
 'use strict';
 /*
- * A stand-in for the page, for running the hub's view scripts in node (bin/test-hub-js.php).
+ * A stand-in for the page, for running the hub's view scripts (bin/test-hub-js.php) and the site
+ * header's scripts (bin/test-header-js.php) in node.
  *
- * The server's own markup is read into a small tree of elements that keep their attributes, classes,
- * children and listeners, and fire events that bubble, as a browser's do. It knows the selectors the
- * hub's scripts ask for (a tag, an ID, a class, an attribute present, equal to, starting with or
- * holding a value, and the descendant and child combinators), focus, the address's hash and its
- * hashchange, and what pressing Enter or Space on a button does: it clicks it. Nothing is laid out:
- * `hidden` is an attribute, as the scripts read it. Where an element lies on the screen is what a
- * scenario says: `element.box = { top, bottom, left, width }`, read by `getBoundingClientRect()`,
+ * The server's own markup is read into a small tree of elements under `html` and `body`, which keep
+ * their attributes, classes, children and listeners, and fire events as a browser's do: the capture
+ * listeners from the document down to the target's parent, then the target's own, then the bubble
+ * back up, `stopPropagation()` in any phase stopping the rest. It knows the selectors the scripts ask
+ * for (a tag, an ID, a class, an attribute present, equal to, starting with or holding a value, and
+ * the descendant and child combinators), focus and its `focusout` and `focusin`, `blur()`, the
+ * address's hash and its hashchange, and what pressing Enter or Space on a button does: it clicks
+ * it. A `MutationObserver` on the window is told of each attribute an element is given or loses, in
+ * a microtask after the script that changed it, as a browser delivers the records. Nothing is laid
+ * out: `hidden` is an attribute, as the scripts read it. Where an element lies on the screen is what
+ * a scenario says: `element.box = { top, bottom, left, width }`, read by `getBoundingClientRect()`,
  * against the window's `innerHeight` (800); an element with no box lies in view, with no width. A
  * custom property a script sets on an element's `style` is kept, to be read back.
  */
@@ -114,6 +119,7 @@ class Element extends Node {
 		this.tagName = tag.toUpperCase();
 		this.attributes = new Map();
 		this.listeners = {};
+		this.captures = {};
 		this.textWrites = 0;
 		this.box = null;
 		this.style = {
@@ -133,10 +139,13 @@ class Element extends Node {
 
 	setAttribute( name, value ) {
 		this.attributes.set( name, String( value ) );
+		notify( this, name );
 	}
 
 	removeAttribute( name ) {
-		this.attributes.delete( name );
+		if ( this.attributes.delete( name ) ) {
+			notify( this, name );
+		}
 	}
 
 	hasAttribute( name ) {
@@ -168,6 +177,17 @@ class Element extends Node {
 			},
 			remove: ( name ) => {
 				element.className = list().filter( ( one ) => one !== name ).join( ' ' );
+			},
+			toggle: ( name, force ) => {
+				const on = undefined === force ? ! list().includes( name ) : !! force;
+
+				if ( on ) {
+					element.classList.add( name );
+				} else {
+					element.classList.remove( name );
+				}
+
+				return on;
 			},
 		};
 	}
@@ -249,16 +269,51 @@ class Element extends Node {
 		return this.querySelectorAll( selector )[ 0 ] || null;
 	}
 
-	addEventListener( type, listener ) {
-		( this.listeners[ type ] = this.listeners[ type ] || [] ).push( listener );
+	addEventListener( type, listener, options ) {
+		const store = capturing( options ) ? this.captures : this.listeners;
+
+		( store[ type ] = store[ type ] || [] ).push( listener );
 	}
 
 	dispatchEvent( event ) {
 		return dispatch( this, event );
 	}
 
+	/**
+	 * Give the element the focus, as a browser moves it: `focusout` on the element losing it, its
+	 * `relatedTarget` this one, then the focus moved, then `focusin` here, its `relatedTarget` the one
+	 * that lost it (or null). Nothing happens when the element has the focus already.
+	 */
 	focus() {
-		this.ownerDocument.activeElement = this;
+		const document = this.ownerDocument;
+		const before = document.activeElement;
+
+		if ( before === this ) {
+			return;
+		}
+
+		if ( before ) {
+			before.dispatchEvent( makeEvent( 'focusout', { relatedTarget: this } ) );
+		}
+
+		document.activeElement = this;
+		this.dispatchEvent( makeEvent( 'focusin', { relatedTarget: before } ) );
+	}
+
+	/**
+	 * Take the focus away, as a browser does where a press lands on something it does not focus:
+	 * `focusout` with no `relatedTarget`, and nothing has the focus after. Nothing happens when the
+	 * element does not have the focus.
+	 */
+	blur() {
+		const document = this.ownerDocument;
+
+		if ( document.activeElement !== this ) {
+			return;
+		}
+
+		this.dispatchEvent( makeEvent( 'focusout', { relatedTarget: null } ) );
+		document.activeElement = null;
 	}
 
 	click( more ) {
@@ -290,6 +345,61 @@ class Element extends Node {
 	scrollIntoView( ...args ) {
 		this.ownerDocument.scrolledTo.push( this.id );
 		this.ownerDocument.scrollArgs.push( JSON.stringify( args ) );
+	}
+}
+
+/**
+ * Whether a listener is added for the capture phase, as a browser reads addEventListener's third
+ * argument: `true`, or an object whose `capture` is true.
+ *
+ * @param {boolean|Object} options The third argument.
+ * @return {boolean} Whether it captures.
+ */
+function capturing( options ) {
+	return true === options || !! ( options && 'object' === typeof options && options.capture );
+}
+
+/**
+ * Hand an attribute an element was given, or lost, to the observers watching that element's
+ * attributes: each gets a record, and a browser delivers an observer's records together, in a
+ * microtask after the script that made the change.
+ *
+ * @param {Element} element The element.
+ * @param {string}  name    The attribute.
+ */
+function notify( element, name ) {
+	( element.ownerDocument.observers || [] ).forEach( ( watch ) => {
+		if ( watch.target === element && ( ! watch.filter || watch.filter.includes( name ) ) ) {
+			watch.observer.take( { type: 'attributes', target: element, attributeName: name } );
+		}
+	} );
+}
+
+/**
+ * The window's MutationObserver, as far as an element's attributes go: `observe( target, {
+ * attributes: true, attributeFilter } )` watches the target's own attributes, those the filter names
+ * if it names any.
+ */
+class MutationObserver {
+	constructor( callback ) {
+		this.callback = callback;
+		this.records = [];
+	}
+
+	observe( target, options ) {
+		const document = target.ownerDocument;
+
+		if ( options && ( options.attributes || options.attributeFilter ) ) {
+			( document.observers = document.observers || [] ).push( { observer: this, target, filter: options.attributeFilter || null } );
+		}
+	}
+
+	take( record ) {
+		this.records.push( record );
+
+		if ( 1 === this.records.length ) {
+			queueMicrotask( () => this.callback.call( this, this.records.splice( 0 ), this ) );
+		}
 	}
 }
 
@@ -425,9 +535,12 @@ function makeEvent( type, more ) {
 }
 
 /**
- * Fire an event at an element, then up through its ancestors to the document, as a browser bubbles
- * it, and do what the browser does by default for a link followed: change the address's hash, unless
- * a modifier key is held, which sends the link to a new tab or window and leaves this page as it is.
+ * Fire an event at an element as a browser does: the capture listeners from the document down to the
+ * element's parent, then the element's own (its capture listeners first), then up through its
+ * ancestors to the document for an event that bubbles. `stopPropagation()` lets the other listeners
+ * of the node it was called on run and stops the rest. Then do what the browser does by default for
+ * a link followed: change the address's hash, unless a modifier key is held, which sends the link to
+ * a new tab or window and leaves this page as it is.
  *
  * @param {Element} target The element.
  * @param {Object}  event  The event.
@@ -442,14 +555,26 @@ function dispatch( target, event ) {
 		path.push( node );
 	}
 
-	for ( const node of path ) {
+	const run = ( node, store ) => {
 		event.currentTarget = node;
 
-		( node.listeners[ event.type ] || [] ).slice().forEach( ( listener ) => listener.call( node, event ) );
+		( ( store || {} )[ event.type ] || [] ).slice().forEach( ( listener ) => listener.call( node, event ) );
+	};
 
-		if ( event.stopped || ! event.bubbles ) {
-			break;
-		}
+	for ( let at = path.length - 1; at > 0 && ! event.stopped; at-- ) {
+		run( path[ at ], path[ at ].captures );
+	}
+
+	if ( ! event.stopped ) {
+		run( target, target.captures );
+	}
+
+	if ( ! event.stopped ) {
+		run( target, target.listeners );
+	}
+
+	for ( let at = 1; at < path.length && event.bubbles && ! event.stopped; at++ ) {
+		run( path[ at ], path[ at ].listeners );
 	}
 
 	const elsewhere = event.ctrlKey || event.metaKey || event.shiftKey || event.altKey;
@@ -529,7 +654,8 @@ function parse( document, html ) {
 }
 
 /**
- * A page holding some markup, with its window, at an address's hash.
+ * A page holding some markup in its body, under the root `html` element, with its window, at an
+ * address's hash.
  *
  * @param {string} html The body's markup.
  * @param {string} hash The address's hash when the page opens, such as `#programs`, or ''.
@@ -542,6 +668,7 @@ function page( html, hash ) {
 		scrolledTo: [],
 		scrollArgs: [],
 		listeners: {},
+		captures: {},
 		nodeType: 9,
 		parentNode: null,
 		childNodes: [],
@@ -573,8 +700,10 @@ function page( html, hash ) {
 		querySelector( selector ) {
 			return document.body.querySelector( selector );
 		},
-		addEventListener( type, listener ) {
-			( document.listeners[ type ] = document.listeners[ type ] || [] ).push( listener );
+		addEventListener( type, listener, options ) {
+			const store = capturing( options ) ? document.captures : document.listeners;
+
+			( store[ type ] = store[ type ] || [] ).push( listener );
 		},
 	};
 
@@ -583,6 +712,7 @@ function page( html, hash ) {
 		innerHeight: 800,
 		listeners: {},
 		location: { hash: hash || '' },
+		MutationObserver,
 		addEventListener( type, listener ) {
 			( window.listeners[ type ] = window.listeners[ type ] || [] ).push( listener );
 		},
@@ -602,8 +732,11 @@ function page( html, hash ) {
 	};
 
 	document.defaultView = window;
+	document.documentElement = new Element( document, 'html' );
+	document.documentElement.parentNode = document;
+	document.childNodes.push( document.documentElement );
 	document.body = parse( document, html );
-	document.body.parentNode = document;
+	document.documentElement.appendChild( document.body );
 
 	return { document, window };
 }

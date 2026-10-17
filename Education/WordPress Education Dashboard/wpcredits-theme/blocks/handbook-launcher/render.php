@@ -4,9 +4,11 @@
  *
  * The button and the panel it opens live on opposite sides of the plugin/theme line: the
  * plugin owns the assistant and prints the panel, the theme decides where the way in
- * belongs. They meet at one data attribute, `data-wpcpm-handbook-open`, and nothing else -
- * so this theme can move the button, and another theme can leave it out, without either
- * side changing.
+ * belongs. They meet at one data attribute, `data-wpcpm-handbook-open` - so this theme can
+ * move the button, and another theme can leave it out, without either side changing. The
+ * header's menu script also reads the class `wpcpm-hb-open` the plugin puts on the root
+ * element while its panel is open, to give the focus back to the Menu button when the panel
+ * closes; bin/check-selectors.php checks that the plugin still sets it.
  *
  * Renders nothing at all unless the plugin says this reader can use the assistant. That
  * single call covers the plugin being inactive, the assistant being switched off, the

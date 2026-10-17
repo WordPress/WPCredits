@@ -24,6 +24,15 @@
  * blocks or `inc/` files, since nothing else prints them. Those files are read without their PHP and
  * JavaScript comments, so a class that only a comment names does not count as printed.
  *
+ * The plugin's classes the theme's scripts read (theme 1.24.20) are looked up the other way round:
+ * every `wpcpm-` name inside a quoted string of the theme's `assets/js/*.js` and of each block's
+ * `view.js`, read without comments, has to be in the plugin's own PHP, JS, HTML and JSON source,
+ * read without comments too. The plugin's alone, since in the theme the script that reads a name
+ * would vouch for it: the header's menu script reads `wpcpm-hb-open`, the class the plugin puts on
+ * the root element while its handbook assistant is open. A name that follows a hyphen is part of
+ * another, so the data attribute in `[data-wpcpm-handbook-open]` is not read as a class. A miss is
+ * listed with the file and line that read it.
+ *
  * Usage:  php bin/check-selectors.php [plugin-path]      (run from the theme root)
  *
  * The plugin defaults to `../wpcredits-program-manager`, beside the theme's own folder, which
@@ -167,8 +176,9 @@ function wpcredits_printed( $corpus, $name ) {
  * taken as printed. PHP is read with the tokenizer, which knows a comment from a string holding two
  * slashes; JavaScript by a pattern that keeps every string and drops what is between its quotes only
  * if it is a comment, which a regular expression literal holding a quote would confuse (none of the
- * hub's scripts has one). Any other kind of file is returned as it is: an HTML comment in a template
- * holds a block's attributes, which are printed.
+ * theme's scripts has one). A JavaScript comment leaves its line breaks behind, or a space, so a line
+ * counted in what is returned is the file's line. Any other kind of file is returned as it is: an
+ * HTML comment in a template holds a block's attributes, which are printed.
  *
  * @param string $source    The file's contents.
  * @param string $extension Its lower-case extension.
@@ -198,7 +208,13 @@ REGEX;
 		return (string) preg_replace_callback(
 			$pattern,
 			function ( $m ) {
-				return isset( $m[1] ) && '' !== $m[1] ? $m[1] : ' ';
+				if ( isset( $m[1] ) && '' !== $m[1] ) {
+					return $m[1];
+				}
+
+				$breaks = substr_count( $m[0], "\n" );
+
+				return $breaks ? str_repeat( "\n", $breaks ) : ' ';
 			},
 			$source
 		);
@@ -415,6 +431,56 @@ if ( $unscoped ) {
 	exit( 1 );
 }
 
+// The plugin's classes the theme's scripts read.
+//
+// The header's menu script gives the focus back to the Menu button when the handbook assistant
+// closes, and it knows the assistant is open by the class the plugin puts on the root element,
+// `wpcpm-hb-open`. A class the plugin stops setting leaves the script waiting for a change that
+// never comes, and nothing on the page says so. So every `wpcpm-` name inside a quoted string of the
+// theme's scripts, read without their comments, has to be in the plugin's own source, read without
+// its comments: the plugin's alone, not the corpus above, in which the theme's script would vouch
+// for itself. A name right after a hyphen is part of another, as `data-wpcpm-handbook-open` is.
+$plugin_corpus = '';
+
+foreach ( wpcredits_source_files( $plugin, array( 'php', 'js', 'html', 'json' ) ) as $path ) {
+	$plugin_corpus .= "\n" . wpcredits_without_comments( (string) file_get_contents( $path ), strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) );
+}
+
+$script_files = array_merge( glob( $theme . '/assets/js/*.js' ) ?: array(), glob( $theme . '/blocks/*/view.js' ) ?: array() );
+$script_reads = array();
+$quoted       = <<<'REGEX'
+~"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`~s
+REGEX;
+
+sort( $script_files );
+
+foreach ( $script_files as $path ) {
+	$code = wpcredits_without_comments( (string) file_get_contents( $path ), 'js' );
+
+	preg_match_all( $quoted, $code, $strings, PREG_OFFSET_CAPTURE );
+
+	foreach ( $strings[0] as $string ) {
+		preg_match_all( '/(?<![A-Za-z0-9_-])wpcpm-[A-Za-z0-9_-]+/', $string[0], $names, PREG_OFFSET_CAPTURE );
+
+		foreach ( $names[0] as $name ) {
+			$script_reads[ $name[0] ][] = substr( $path, strlen( $theme ) + 1 ) . ':' . ( substr_count( $code, "\n", 0, $string[1] + $name[1] ) + 1 );
+		}
+	}
+}
+
+ksort( $script_reads );
+
+$script_misses = 0;
+
+foreach ( $script_reads as $name => $where ) {
+	if ( ! wpcredits_printed( $plugin_corpus, $name ) ) {
+		++$script_misses;
+		printf( "  MISS   %-45s the plugin sets it nowhere  (%s)\n", $name, implode( ', ', $where ) );
+	}
+}
+
+printf( "%d plugin %s read by the theme's scripts, %d set by nothing.\n", count( $script_reads ), 1 === count( $script_reads ) ? 'class' : 'classes', $script_misses );
+
 // The house rule, enforced here too: plain hyphens only, in every text file of the theme. The
 // hidden folders are left out as above: another line's working copy is not this theme.
 $dashes = array();
@@ -435,4 +501,4 @@ if ( $dashes ) {
 }
 echo "No em or en dashes in the theme.\n";
 
-exit( $misses || $hub_misses ? 1 : 0 );
+exit( $misses || $hub_misses || $script_misses ? 1 : 0 );
