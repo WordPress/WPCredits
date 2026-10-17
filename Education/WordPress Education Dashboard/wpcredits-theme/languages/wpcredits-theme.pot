@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.23\n"
+"Project-Id-Version: WPCredits 1.24.24\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-17T21:42:33+00:00\n"
+"POT-Creation-Date: 2026-10-17T21:56:08+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -310,7 +310,7 @@ msgstr ""
 
 #. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
 #: blocks/sign-in/render.php:83
-#: inc/login.php:121
+#: inc/login.php:120
 #: patterns/cta.php:43
 msgid "Open your Mentor Report Card"
 msgstr ""
@@ -370,7 +370,7 @@ msgid "Sign in"
 msgstr ""
 
 #: blocks/viewer-chip/render.php:29
-#: inc/login.php:106
+#: inc/login.php:105
 msgid "Log in"
 msgstr ""
 
@@ -409,12 +409,8 @@ msgstr ""
 msgid "Pill"
 msgstr ""
 
-#: inc/header.php:56
-msgid "Home"
-msgstr ""
-
 #. translators: The label of the button that opens the site menu on narrow screens.
-#: inc/header.php:162
+#: inc/header.php:130
 msgid "Menu"
 msgstr ""
 
@@ -1010,21 +1006,21 @@ msgctxt "a benefit not offered yet"
 msgid "(planned)"
 msgstr ""
 
-#: inc/login.php:119
+#: inc/login.php:118
 msgid "You are already logged in."
 msgstr ""
 
 #. translators: %s: the "Lost your password?" link text, wrapped for emphasis.
-#: inc/login.php:143
+#: inc/login.php:142
 #, php-format
 msgid "Your account was created by the program. If you have never set a password, use %s with the email address in your Airtable record."
 msgstr ""
 
-#: inc/login.php:144
+#: inc/login.php:143
 msgid "Lost your password?"
 msgstr ""
 
-#: inc/login.php:151
+#: inc/login.php:150
 msgid "Code is poetry."
 msgstr ""
 

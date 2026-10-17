@@ -82,7 +82,6 @@ function wpcredits_login_message( $message ) {
 
 	$out  = '<div class="wpc-login__brand">';
 	$out .= '<div class="wpc-login__mark">';
-	$out .= wp_kses( wpcredits_get_logo( 38 ), wpcredits_svg_allowed_html() );
 	$out .= sprintf(
 		'<p class="wpc-login__name">%s</p>',
 		wp_kses(

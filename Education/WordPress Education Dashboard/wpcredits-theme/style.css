@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.23
+Version: 1.24.24
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -276,9 +276,11 @@ body .skip-link.screen-reader-text:focus {
    side inside the bar's gutters, and two where they do not. The group is never narrower than its
    widest item, the chip, so where the chip will not sit whole beside the brand within the gutters
    the group wraps to a row of its own under it, and every link keeps its whole label. With the
-   site's mark and name together about 340px wide that happens up to about 900px to a chip
+   WordPress mark beside "WordPress Education Dashboard", about 340px together, that happened up
+   to about 900px to a chip
    carrying links to both pages, as an administrator's or a student-and-mentor's does, and up to
-   about 720px to a student's or a mentor's alone. Wider than that the bar is the one row it
+   about 720px to a student's or a mentor's alone; the brand is now the name "Education Hub"
+   alone, much narrower, so each happens at a smaller width. Wider than that the bar is the one row it
    always was, and the row gap, which only shows between wrapped rows, changes nothing. A chip
    with no link to a report card is the exception, and is dealt with just before the spacing of
    a wrapped bar, further down, beside the phone's two rows. On screens below 1200px a signed-in
@@ -310,21 +312,8 @@ body .skip-link.screen-reader-text:focus {
 	gap: 12px;
 }
 
-.wpc-brand .wp-block-site-logo,
-.wpc-brand .wp-block-site-logo a {
-	display: block;
-	line-height: 0;
-}
-
-/* The mark is brand blue in the chrome, not ink: the bundled SVG paints with
-   currentColor, so the color is set on the wrapper. */
-.wpc-brand .wp-block-site-logo img,
-.wpc-brand .wpc-logo {
-	color: var( --wpc-brand );
-	display: block;
-	height: 38px;
-	width: 38px;
-}
+/* The brand is the site's name alone since 1.24.24: the WordPress mark beside it is gone, as the
+   WordPress.org bar above already carries it. */
 
 .wpc-brand__name {
 	color: var( --wpc-ink );
@@ -1425,8 +1414,9 @@ p.is-style-pill {
    one line, and they wrap only if even that row cannot hold them. `fit-content` is that one-line
    width held to the width of the row, so the group is never wider than the bar.
 
-   With the site's mark and name about 340px wide and a one-item menu, a sponsor member's three
-   items are about 320px wide: the bar is one row from about 758px, and under that the group takes
+   Measured with the WordPress mark beside "WordPress Education Dashboard", about 340px, and a
+   one-item menu, a sponsor member's three items are about 320px wide: the bar was one row from
+   about 758px (the brand is narrower since 1.24.24, so it is one row from a smaller width), and under that the group takes
    the second row of a wrapped bar. A visitor's menu and button are about 190px, which fit beside
    the brand from 641px, so the rule changes nothing there; it matters to a visitor only when a
    longer menu stops fitting beside the brand.
@@ -1691,7 +1681,7 @@ p.is-style-pill {
 }
 
 /* Signed out, a phone shows the brand and the Log in button on one row where the navigation's one
-   link leads to the home page: that link is left out, since the logo and the title lead there already
+   link leads to the home page: that link is left out, since the site title leads there already
    (`wpc-nav--home` marks it). The rules of the row are scoped to a bar that holds the mark with
    `:has()`, so any other lone link, which stays shown, keeps the two rows: a link with a long label
    beside the brand on one row would squeeze the title to a letter a line. A browser without `:has()`

@@ -517,75 +517,34 @@ $definitions_of = static function ( $needle ) {
 	return $found;
 };
 
-ck( 'functions.php requires inc/header.php right after inc/hub-content.php, and the logo fallback and the navigation filter are each written once, in inc/header.php',
+ck( 'functions.php requires inc/header.php right after inc/hub-content.php, and the navigation filter is written once, in inc/header.php',
 	array(
 		false !== strpos( theme_file( 'functions.php' ), "require_once get_theme_file_path( 'inc/hub-content.php' );\nrequire_once get_theme_file_path( 'inc/header.php' );" ),
-		$definitions_of( 'function wpcredits_site_logo_fallback(' ),
 		$definitions_of( 'function wpcredits_lone_nav_item(' ),
 	),
-	array( true, array( 'inc/header.php' ), array( 'inc/header.php' ) ) );
+	array( true, array( 'inc/header.php' ) ) );
 
-ck( 'the filters are hooked as WordPress needs them, each as priority and accepted arguments: the menu on `render_block_core/group` at 10 taking two (the content and the block; one would be a fatal error on every page), the logo fallback on `render_block_core/site-logo` and the lone item on `render_block_core/navigation` at 10 taking one',
+ck( 'the filters are hooked as WordPress needs them, each as priority and accepted arguments: the menu on `render_block_core/group` at 10 taking two (the content and the block; one would be a fatal error on every page) and the lone item on `render_block_core/navigation` at 10 taking one',
 	array(
 		$hooked_as( 'render_block_core/group', 'wpcredits_header_menu' ),
-		$hooked_as( 'render_block_core/site-logo', 'wpcredits_site_logo_fallback' ),
 		$hooked_as( 'render_block_core/navigation', 'wpcredits_lone_nav_item' ),
 	),
-	array( array( 10, 2 ), array( 10, 1 ), array( 10, 1 ) ) );
+	array( array( 10, 2 ), array( 10, 1 ) ) );
 
-$logo_link_attributes = static function ( $html ) use ( $page_of, $has, $attributes_of ) {
-	$page = $page_of( $html );
-	$link = $page->query( '//a[' . $has( 'custom-logo-link' ) . ']' )->item( 0 );
+$brand_part = preg_match( '#<div class="wp-block-group wpc-brand">(.*?)</div>#s', theme_file( 'parts/header.html' ), $brand_said ) ? $brand_said[1] : '';
+$brand_page = $page_of( wpcredits_test_header() );
 
-	if ( ! $link ) {
-		return array();
-	}
-
-	$svg = $page->query( './/svg', $link )->item( 0 );
-
-	return $attributes_of( $link ) + array( 'svg aria-hidden' => $svg ? $svg->getAttribute( 'aria-hidden' ) : null );
-};
-
-$with_blogname = static function ( $name, $filter ) {
-	$was                         = $GLOBALS['opts']['blogname'];
-	$GLOBALS['opts']['blogname'] = $name;
-	$html                        = $filter( '' );
-	$GLOBALS['opts']['blogname'] = $was;
-
-	return $html;
-};
-
-$core_logo = '<div class="wp-block-site-logo"><a href="https://site.example/" class="custom-logo-link" rel="home"><img width="38" height="38" src="https://site.example/logo.png" class="custom-logo" alt="WordPress Education Dashboard" decoding="async" /></a></div>';
-
-$named = $logo_link_attributes( wpcredits_site_logo_fallback( '' ) );
-
-$GLOBALS['marked'] = true;
-$unnamed           = $logo_link_attributes( $with_blogname( '', 'wpcredits_site_logo_fallback' ) );
-$GLOBALS['marked'] = false;
-
-$GLOBALS['custom_logo'] = true;
-$uploaded_kept          = wpcredits_site_logo_fallback( $core_logo ) === $core_logo;
-$GLOBALS['custom_logo'] = false;
-
-ck( 'the logo link is named with the site\'s name, or "Home" on a site with none, its mark still hidden from screen readers; an uploaded logo is left as core prints it',
-	array( $named, isset( $unnamed['aria-label'] ) ? $unnamed['aria-label'] : null, $uploaded_kept ),
+ck( 'no WordPress mark beside the site\'s name (1.24.24): the header part\'s brand group holds the site title alone, no Site Logo block; nothing in the theme draws the mark in its place, filters the Site Logo block or defines the mark; the stand-in header\'s brand holds no picture; and the login screen\'s brand, the same lockup, prints no mark either',
 	array(
-		array(
-			'class'           => 'custom-logo-link',
-			'href'            => 'https://site.example/',
-			'rel'             => 'home',
-			'aria-label'      => 'WordPress Education Dashboard',
-			'svg aria-hidden' => 'true',
-		),
-		'[Home]',
-		true,
-	) );
-
-$marked_up = $logo_link_attributes( $with_blogname( '<b>WP</b> Education', 'wpcredits_site_logo_fallback' ) );
-
-ck( 'the logo link\'s name is the site name as text: a name holding markup (`<b>WP</b> Education`) gives its words alone, `WP Education`',
-	isset( $marked_up['aria-label'] ) ? $marked_up['aria-label'] : null,
-	'WP Education' );
+		$brand_part,
+		$definitions_of( 'render_block_core/site-logo' ),
+		$definitions_of( 'function wpcredits_site_logo_fallback(' ),
+		$definitions_of( 'function wpcredits_get_logo(' ),
+		$brand_page->query( '//div[' . $has( 'wpc-brand' ) . ']//*[self::svg or self::img]' )->length,
+		$brand_page->query( '//div[' . $has( 'wpc-brand' ) . ']/*' )->length,
+		false !== strpos( theme_file( 'inc/login.php' ), '<svg' ) || false !== strpos( theme_file( 'inc/login.php' ), 'logo(' ),
+	),
+	array( '<!-- wp:site-title {"level":0,"className":"wpc-brand__name"} /-->', array(), array(), array(), 0, 1, false ) );
 
 /**
  * The classes among those given that a PHP file of the theme does not print in its code, read with the

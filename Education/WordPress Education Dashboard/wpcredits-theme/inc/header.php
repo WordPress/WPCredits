@@ -3,8 +3,7 @@
  * The site header's request-time markup.
  *
  * The header part is a template file, so what depends on the request is added to its rendered blocks
- * here: the mark that says the page runs JavaScript, the name of the logo link, the class a lone
- * navigation item gets, and, for a signed-in reader, the Menu button below desktop width, the ID of
+ * here: the mark that says the page runs JavaScript, the class a lone navigation item gets, and, for a signed-in reader, the Menu button below desktop width, the ID of
  * the group it opens and the script that opens it. The stylesheet and the script that act on this
  * markup name its classes and its ID; this file is the one place that prints them.
  *
@@ -29,37 +28,6 @@ function wpcredits_js_mark() {
 add_action( 'wp_head', 'wpcredits_js_mark', 1 );
 
 /**
- * Draw the WordPress mark when no site logo has been set.
- *
- * `core/site-logo` renders nothing at all without one, which on this design
- * leaves the site name floating with a gap where the mark belongs. Filtered
- * rather than hard-coded into the header part, so the moment somebody uploads a
- * logo the real block takes over.
- *
- * The link is named with the site's name, or "Home" on a site that has none: the mark
- * inside it is hidden from screen readers, and an uploaded logo's link takes the same
- * name from the image, so the header reads alike either way.
- *
- * @param string $content Rendered block HTML.
- * @return string
- */
-function wpcredits_site_logo_fallback( $content ) {
-	if ( '' !== trim( $content ) || has_custom_logo() ) {
-		return $content;
-	}
-
-	$name = trim( wp_strip_all_tags( (string) get_bloginfo( 'name', 'display' ) ) );
-
-	return sprintf(
-		'<div class="wp-block-site-logo is-default-size"><a class="custom-logo-link" href="%1$s" rel="home" aria-label="%2$s">%3$s</a></div>',
-		esc_url( home_url( '/' ) ),
-		esc_attr( '' !== $name ? $name : __( 'Home', 'wpcredits-theme' ) ),
-		wp_kses( wpcredits_get_logo( 24 ), wpcredits_svg_allowed_html() )
-	);
-}
-add_filter( 'render_block_core/site-logo', 'wpcredits_site_logo_fallback' );
-
-/**
  * Mark a navigation that holds a single item, so it is not hidden behind a toggle.
  *
  * Below 960px the header collapses its menu into a hamburger, which is the right thing for a
@@ -74,7 +42,7 @@ add_filter( 'render_block_core/site-logo', 'wpcredits_site_logo_fallback' );
  * the hamburger comes back on its own, with nothing to remember.
  *
  * A lone item that leads to the home page is marked `wpc-nav--home` as well: on a signed-out phone
- * the logo and the title already lead there, so the stylesheet leaves that one link out, and only
+ * the site title already leads there, so the stylesheet leaves that one link out, and only
  * that one.
  *
  * @param string $content Rendered block HTML.

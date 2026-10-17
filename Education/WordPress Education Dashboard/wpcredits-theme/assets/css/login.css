@@ -89,19 +89,8 @@ body.login {
 	justify-content: center;
 }
 
-/* Smaller than the site header's 38px, and the name smaller than its 20px, because
-   this card is 360px wide where the header has the whole page: at the header's sizes
-   "WordPress Education Dashboard" plus the mark measured about 347px against the
-   294px between the card's 32px insets, and `white-space: nowrap` made it overhang
-   the card rather than wrap - so the brand read as wider than everything under it. */
-.wpc-login__brand .wpc-logo {
-	color: var( --wpc-brand );
-	display: block;
-	flex: none;
-	height: 32px;
-	width: 32px;
-}
-
+/* The name alone since 1.24.24, as in the site header: the WordPress mark that sat beside it is
+   gone. 16px, smaller than the header's 20px, because this card is 360px wide. */
 .wpc-login__name {
 	color: var( --wpc-ink );
 	font: 600 16px/1.25 var( --wpc-font );

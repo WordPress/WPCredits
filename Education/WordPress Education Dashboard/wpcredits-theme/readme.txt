@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.23
+Stable tag: 1.24.24
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -20,9 +20,9 @@ compact, triaged, printable list.
 = The chrome =
 
 The header and footer reproduce the WordPress Education Initiatives theme: a 76px
-sticky white bar on a 1240px measure with 40px gutters, the WordPress mark in brand
-blue at 38px, the site title with the word "Education" picked out in blue and
-whatever follows it muted, a centered navigation whose dropdowns are 240px panels
+sticky white bar on a 1240px measure with 40px gutters, the site title alone, with
+the word "Education" picked out in blue and whatever follows it muted, a navigation
+at the right edge whose dropdowns are 240px panels
 with 8px corners and a soft shadow, and a four-column footer over a credit bar that
 signs off "Code is poetry."
 
@@ -124,7 +124,7 @@ it is not left public at its own address.
 = The login screen =
 
 `wp-login.php` is not a template, so the branding is applied through the login
-hooks: the header's own brand - mark beside name - over the form, and a note about
+hooks: the header's own brand, the site's name, over the form, and a note about
 where a first password comes from underneath it. Nothing about authentication
 changes.
 
@@ -186,6 +186,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.24 =
+* Site header: the brand is the site's name alone. The WordPress mark beside it is gone, since the WordPress.org bar above the header already carries it; the name still leads to the home page. The login screen's brand, the same lockup, loses the mark too.
+* The readme's description says what the header now holds: the site title alone, and the navigation at the right edge.
+* For developers: the theme no longer draws a mark when no site logo is set (`wpcredits_site_logo_fallback()` and its filter are gone) nor defines the mark (`wpcredits_get_logo()`); `bin/test-header.php` checks that the header part's brand holds the site title alone, that nothing draws or filters the mark, and that the login screen prints none.
 
 = 1.24.23 =
 * Site header: on the wide bar the navigation, the help button and the account picture, or a visitor's Log in, end at the right edge of the content below them, as the header was designed. The header template asked for them centered, and that won over the stylesheet, so they sat in the middle of the space beside the brand. On a phone the second row still starts under the brand.

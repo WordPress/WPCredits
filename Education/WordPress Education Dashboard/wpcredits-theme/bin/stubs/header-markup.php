@@ -10,7 +10,7 @@
  * turns the stand-in's translated strings into brackets sees only what the theme's own filters print.
  *
  * Loaded with `require_once __DIR__ . '/stubs/header-markup.php';` after bin/stubs/hub-wp.php and the
- * theme's inc/header.php, which draws the logo and marks a lone navigation item.
+ * theme's inc/header.php, which marks a lone navigation item.
  *
  * @package WPCredits_Theme
  */
@@ -129,8 +129,8 @@ function wpcredits_test_viewer_link( $label, $address, $current ) {
 
 /**
  * The site header as `render_block_core/group` receives it for the header part's outer group: the
- * `header` element around the inner group, which holds the brand (the logo the theme draws, and the
- * site title) and the group of links (the navigation, the Need help? button and the viewer chip).
+ * `header` element around the inner group, which holds the brand (the site title alone, since
+ * 1.24.24) and the group of links (the navigation, the Need help? button and the viewer chip).
  *
  * @param array $reader Who is reading and what the header holds, each key optional:
  *                      - `signed_in` (true): a signed-in reader's chip, or a guest's Log in;
@@ -157,7 +157,6 @@ function wpcredits_test_header( array $reader = array() ) {
 	);
 
 	$nav  = wpcredits_lone_nav_item( wpcredits_test_navigation( $reader['nav'] ) );
-	$logo = wpcredits_site_logo_fallback( '' );
 	$ask  = $reader['signed_in'] && $reader['help'] ? '<button type="button" class="wpc-ask wp-block-wpcredits-handbook-launcher" data-wpcpm-handbook-open>Need help?</button>' : '';
 
 	if ( $reader['signed_in'] ) {
@@ -172,8 +171,7 @@ function wpcredits_test_header( array $reader = array() ) {
 
 	return '<header class="wp-block-group alignfull wpc-header is-layout-flow wp-block-group-is-layout-flow">
 <div class="wp-block-group wpc-header__inner is-nowrap is-layout-flex wp-container-core-group-is-layout-38348eec wp-block-group-is-layout-flex">
-<div class="wp-block-group wpc-brand is-nowrap is-layout-flex wp-container-core-group-is-layout-38348eec wp-block-group-is-layout-flex">' . $logo . '
-
+<div class="wp-block-group wpc-brand is-nowrap is-layout-flex wp-container-core-group-is-layout-38348eec wp-block-group-is-layout-flex">
 <p class="wpc-brand__name wp-block-site-title"><a href="https://site.example" target="_self" rel="home">WordPress <em>Education</em> <i>Dashboard</i></a></p></div>
 
 
