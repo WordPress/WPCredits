@@ -237,6 +237,19 @@ ck( 'parts/header.html still gives its inner group the class `wpc-header__inner`
 	array( $inner->length, $inside, (bool) preg_match( '/<!-- wp:group \{"className":"wpc-header__inner",/', theme_file( 'parts/header.html' ) ) ),
 	array( 1, 1, true ) );
 
+$site_title = json_decode( theme_file( 'theme.json' ), true )['styles']['blocks']['core/site-title']['typography'] ?? array();
+$name_sized = array();
+
+foreach ( sheet_rules() as $rule ) {
+	if ( '.wpc-brand__name' === $rule['selector'] && preg_grep( '/^(font-size|line-height):/', $rule['declarations'] ) ) {
+		$name_sized[] = $rule['at'];
+	}
+}
+
+ck( 'the site\'s name is 30px on a 1.2 line, twice the 15px it showed until 1.24.25: theme.json\'s Site Title style says so, which WordPress prints after the sheet at one class; so no one-class rule of the sheet sizes the name, where it could never show, and the phone\'s size, 30px from 375px wide and 8% of the window down to 24px under that, is said at two classes',
+	array( $site_title, $name_sized, rules_of( '.wpc-header .wpc-brand__name', '@media ( max-width: 640px )' ) ),
+	array( array( 'fontSize' => '30px', 'fontWeight' => '600', 'lineHeight' => '1.2' ), array(), array( array( 'font-size: clamp( 24px, 8vw, 30px );' ) ) ) );
+
 $justified = static function ( $lines ) {
 	return array_values( array_filter( $lines, static function ( $line ) { return 0 === strpos( $line, 'justify-content:' ); } ) );
 };

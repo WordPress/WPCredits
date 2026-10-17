@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.24
+Stable tag: 1.24.25
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -186,6 +186,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.25 =
+* Site header: the site's name is twice the size it showed, 30px where it was 15px, on a 1.2 line. On a phone it is 30px from 375px wide and a little smaller under that, down to 24px, so the bar keeps its one row. The 15px came from the Site Title style in theme.json, which outranked the 20px and the phone's 17px the stylesheet asked for; the size is now said in theme.json, and the phone's at a rule that outranks it.
+* For developers: `bin/test-header.php` checks theme.json's Site Title size, that no one-class rule of the stylesheet sizes the name, and the phone's two-class size.
 
 = 1.24.24 =
 * Site header: the brand is the site's name alone. The WordPress mark beside it is gone, since the WordPress.org bar above the header already carries it; the name still leads to the home page. The login screen's brand, the same lockup, loses the mark too.

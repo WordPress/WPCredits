@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.24
+Version: 1.24.25
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -315,12 +315,13 @@ body .skip-link.screen-reader-text:focus {
 /* The brand is the site's name alone since 1.24.24: the WordPress mark beside it is gone, as the
    WordPress.org bar above already carries it. */
 
+/* The name's size, weight and line height are theme.json's Site Title style, 30px on a 1.2 line since
+   1.24.25: WordPress prints that style after this sheet at one class, so a size said here at one class
+   never showed (the 20px and the phone's 17px this sheet said until then left the name at theme.json's
+   15px). */
 .wpc-brand__name {
 	color: var( --wpc-ink );
-	font-size: 20px;
-	font-weight: 600;
 	letter-spacing: -.01em;
-	line-height: 1.2;
 	white-space: nowrap;
 }
 
@@ -1303,8 +1304,13 @@ p.is-style-pill {
 		--wpc-landing-offset: calc( var( --wpc-header-live, 180px ) + 28px );
 	}
 
-	.wpc-brand__name {
-		font-size: 17px;
+	/* On a phone the name is 30px from 375px wide and smaller under that, 8% of the window down to 24px,
+	   so the signed-in bar's one row holds it on one line beside the 34px picture and the 44px Menu
+	   button, 102px with their gaps, inside the 20px gutters: "Education Hub" measured 101.8px at 15px,
+	   so about 204px at 30px, and about 174px at 320px wide. Two classes, to outrank theme.json's Site
+	   Title style. */
+	.wpc-header .wpc-brand__name {
+		font-size: clamp( 24px, 8vw, 30px );
 	}
 
 	/* The header becomes two rows on a phone. A signed-in reader whose page runs JavaScript has the

@@ -328,9 +328,9 @@
 		"blocks": {
 			"core/site-title": {
 				"typography": {
-					"fontSize": "15px",
+					"fontSize": "30px",
 					"fontWeight": "600",
-					"lineHeight": "1.33"
+					"lineHeight": "1.2"
 				},
 				"elements": {
 					"link": {
