@@ -1690,7 +1690,8 @@ $sentences = array(
 	'Type one status per line. The list could not be read from Airtable just now.'                            => 2,
 	'Type the stage. The list could not be read from Airtable just now.'                                      => 1,
 	'Type one stage per line. The list could not be read from Airtable just now.'                             => 1,
-	'Type the addresses, separated by commas. No Administrator account with an email address was found.'  => 3,
+	// The agreements', the reports', the sponsors' and, since 1.122.31, the mentor applications' reviewers.
+	'Type the addresses, separated by commas. No Administrator account with an email address was found.'  => 4,
 );
 $said = array();
 

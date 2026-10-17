@@ -111,6 +111,15 @@ class WPCPM_Settings {
 			// Students module, mirroring the mentors settings above.
 			'student_home'                  => true,
 			'student_on_inactive'           => 'revoke',
+			// Mentor applications (1.122.31): the public form, off until an Administrator switches it
+			// on, for the reason the other two forms' switches give; who is told of a new application,
+			// every Administrator while it is empty; the link the selection email gives a selected
+			// applicant to join the mentors' course, which an Administrator fills in and no code
+			// holds; and how many days a selected applicant has before the application lapses.
+			'mentor_applications_enabled'   => false,
+			'mentor_notify'                 => '',
+			'mentor_course_link'            => '',
+			'mentor_lapse_days'             => 90,
 
 			// Institutions module. The countries table is read for the same reason as
 			// the three lookup tables above: an institution's country arrives as a bare
@@ -273,6 +282,10 @@ class WPCPM_Settings {
 				'auto_sync',
 				'mentor_home',
 				'student_home',
+				'mentor_applications_enabled',
+				'mentor_notify',
+				'mentor_course_link',
+				'mentor_lapse_days',
 			),
 			'institutions'               => array(
 				'applications_enabled',
@@ -655,7 +668,7 @@ class WPCPM_Settings {
 		// as the boxes ticked beside its Other addresses line (`agreement_notify[]` and so on), every
 		// entry split the way the text is, so both write the same list for the same addresses, and the
 		// boxes keep the order the list is stored in, as the status lists do.
-		foreach ( array( 'agreement_notify', 'report_notify', 'sponsor_notify' ) as $notify_key ) {
+		foreach ( array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' ) as $notify_key ) {
 			if ( ! isset( $input[ $notify_key ] ) ) {
 				continue;
 			}
@@ -668,6 +681,15 @@ class WPCPM_Settings {
 			}
 
 			$clean[ $notify_key ] = implode( ',', $addresses );
+		}
+
+		// The mentors' course invitation link, which the selection email gives a selected applicant: an
+		// https link or none. It goes to a stranger in an email the site sends, so a link that is not
+		// https, or not a link, is saved as none rather than mailed.
+		if ( isset( $input['mentor_course_link'] ) ) {
+			$link = is_string( $input['mentor_course_link'] ) ? esc_url_raw( trim( wp_unslash( $input['mentor_course_link'] ) ), array( 'https' ) ) : '';
+
+			$clean['mentor_course_link'] = is_string( $link ) && 0 === strpos( $link, 'https://' ) ? $link : '';
 		}
 
 		// The one connecting address whose forwarded header the application form believes.
@@ -690,7 +712,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled', 'mentor_applications_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -761,6 +783,8 @@ class WPCPM_Settings {
 			'invite_retention_days'         => array( 7, 365 ),
 			// A week's floor keeps a typo from drafting every unfinished semester tonight.
 			'report_autodraft_grace_days'   => array( 7, 365 ),
+			// Two weeks' floor keeps a typo from lapsing tonight everybody selected this month.
+			'mentor_lapse_days'             => array( 14, 365 ),
 		);
 
 		foreach ( $limits as $key => $range ) {

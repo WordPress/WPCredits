@@ -7,8 +7,10 @@
  *
  * - **Every card reads through the owning class.** The collaborators are stubbed to their
  *   contracts and record what was asked; the cards never query posts themselves.
- * - **The counts are the cards' counts.** The strip's eight numbers come from the same
- *   arrays the cards draw, so a tile and its card cannot disagree.
+ * - **The counts are the cards' counts.** The strip's numbers come from the same
+ *   arrays the cards draw, so a tile and its card cannot disagree. The one tile with no card
+ *   here, the mentor applications waiting (1.122.31), counts through the record class and
+ *   opens the Mentors screen at Waiting for review, where they are decided.
  * - **A decision posted here comes back here.** Every application and request form
  *   carries `wpcpm_return=dashboard`; the agreement forms return to the referer already.
  * - **Every link to an institution carries the switcher argument**, or a manager lands on
@@ -599,6 +601,10 @@ class WPCPM_Sponsor_Application {
 	public static function render_details( $post ) { echo '<div class="wpcpm-sapp-details-stub" data-post="' . (int) $post->ID . '"></div>'; }
 	public static function manager_messages() { return array( 'sapp-approved' => array( 'success', 'The sponsor application is approved.' ) ); }
 }
+/** The mentor applications waiting for a decision (1.122.31): their number, all the cards read of them. */
+class WPCPM_Mentor_Application {
+	public static function waiting_count() { return isset( $GLOBALS['mentor_waiting'] ) ? (int) $GLOBALS['mentor_waiting'] : 0; }
+}
 class WPCPM_Sponsor_Offers {
 	const KIND_CODES  = 'codes';
 	const KIND_SHARED = 'shared';
@@ -646,7 +652,7 @@ class WPCPM_Sponsors_Sync {
 	public static function progress() { return isset( $GLOBALS['sync']['sponsors'] ) ? $GLOBALS['sync']['sponsors'] : array( 'running' => false, 'phase' => '', 'label' => '', 'error' => '', 'elapsed' => 0 ); }
 	public static function last_read() { return 1756880000; }
 }
-// The Student Duplicate Finder's scan, as the thirteenth tile and its card read it (1.102.0): the
+// The Student Duplicate Finder's scan, as the last tile and its card read it (1.102.0): the
 // stored report, of which the dashboard reads the counts and the read time and nothing else.
 class WPCPM_Duplicates_Scan {
 	public static function report() { return isset( $GLOBALS['dup_report'] ) ? $GLOBALS['dup_report'] : array(); }
@@ -845,6 +851,9 @@ $GLOBALS['audit'] = array(
 // groups the finder's screen lists left out, because the dashboard never reads them.
 $GLOBALS['dup_report'] = array( 'v' => 1, 'read' => 1757000000, 'counts' => array( 'addresses' => 3, 'ready' => 1, 'decide' => 2 ) );
 
+// Four mentor applications waiting in the Mentors screen's queue.
+$GLOBALS['mentor_waiting'] = 4;
+
 /* ---- collect() and counts() ---------------------------------------------- */
 
 echo "=== The data is read once, through the owners ===\n";
@@ -864,14 +873,16 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'thirteen tiles in the spec\'s order, the sponsor tiles and then the duplicated students last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications', 'offers_low', 'duplicates' ) );
+ck( 'fourteen tiles in the spec\'s order, the sponsor tiles, the mentor applications beside the sponsor applications, and then the duplicated students last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications', 'mentor_applications', 'offers_low', 'duplicates' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications', 'offers_low' => '1:offers-low', 'duplicates' => '3:duplicates' ) );
+// The mentor applications' tile has no card on this page, so it names where it opens instead.
+ck( 'each tile is a number and a card, but the mentor applications\', which is a number and the address of their queue', array_map( static function ( $t ) { return $t['n'] . ':' . ( isset( $t['card'] ) ? $t['card'] : $t['url'] ); }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications', 'mentor_applications' => '4:https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue', 'offers_low' => '1:offers-low', 'duplicates' => '3:duplicates' ) );
+ck( 'the mentor applications tile reads what waits through the record class, in the words of the design, and carries no card', array( $data['mentor_applications'], $counts['mentor_applications'] ), array( 4, array( 'label' => 'Mentor applications waiting', 'n' => 4, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue' ) ) );
 
 echo "\n=== The sponsors' figures, the pools running low and the new interests (S6) ===\n";
-ck( 'thirteen tiles now, offers running low just before the duplicated students', array( count( $counts ), array_slice( array_keys( $counts ), -3 ), $counts['offers_low'] ), array( 13, array( 'sponsor_applications', 'offers_low', 'duplicates' ), array( 'label' => 'Offers running low', 'n' => 1, 'card' => 'offers-low' ) ) );
+ck( 'fourteen tiles now, offers running low just before the duplicated students', array( count( $counts ), array_slice( array_keys( $counts ), -3 ), $counts['offers_low'] ), array( 14, array( 'mentor_applications', 'offers_low', 'duplicates' ), array( 'label' => 'Offers running low', 'n' => 1, 'card' => 'offers-low' ) ) );
 ck( 'one pool runs low: live, of kind codes, under its own threshold; the expired, ended, shared and well-stocked ones are not it', array_map( static function ( $r ) { return $r['id'] . ':' . $r['available'] . '/' . $r['low'] . ':' . $r['sponsor_name']; }, $data['offers_low'] ), array( '941:3/10:TEST Sponsor' ) );
 ck( 'and it links to the sponsor\'s Offers and codes card through the switcher', $data['offers_low'][0]['url'], 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-offers' );
 ck( 'one interest in the last thirty days, of the audit kind sponsor_interest only, with the sponsor\'s name and the line as written', array( count( $data['interests'] ), $data['interests'][0]['sponsor_name'], $data['interests'][0]['message'], $data['interests'][0]['url'] ), array( 1, 'TEST Sponsor', '2026-09-01 by Member One: Sponsor a mentor or multiple mentors; events: WordCamp Europe; note: "Two mentors from Q1."', 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-interests' ) );
@@ -900,7 +911,7 @@ $strip2 = capture( static function () use ( $data ) { WPCPM_Administrators_Cards
 // hardcoded digit here would silently pin the wrong one (brief review).
 ck( 'the Sponsors card is four tiles on the programs card\'s markup: a name, the number and a qualifier each, never the name twice', array( has( $strip2, 'id="wpcpm-sponsors"' ), substr_count( $strip2, '<li class="wpcpm-programs__tile">' ), preg_match( '#<span class="wpcpm-programs__name">Approved sponsors</span><span class="wpcpm-programs__n">2</span><span class="wpcpm-programs__l">in the program records</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">With an account</span><span class="wpcpm-programs__n">1</span><span class="wpcpm-programs__l">of the Approved sponsors</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Live offers</span><span class="wpcpm-programs__n">3</span><span class="wpcpm-programs__l">shown on the site today</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Claims this semester</span><span class="wpcpm-programs__n">' . (int) $data['sponsors']['claims_semester'] . '</span><span class="wpcpm-programs__l">since ' . preg_quote( $data['sponsors']['since_display'], '#' ) . ', on every offer</span>#', $strip2 ) ), array( true, 4, 1, 1, 1, 1 ) );
 
-echo "\n=== Duplicated students: the thirteenth tile and its card (1.102.0) ===\n";
+echo "\n=== Duplicated students: the last tile and its card (1.102.0) ===\n";
 
 ck( 'the tile reads the Student Duplicate Finder\'s last scan through the scan\'s own report', array( $data['duplicates'], $counts['duplicates'] ), array( array( 'addresses' => 3, 'ready' => 1, 'read' => 1757000000, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder' ), array( 'label' => 'Duplicated students', 'n' => 3, 'card' => 'duplicates' ) ) );
 $dup = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_duplicates( $data['duplicates'] ); } );
@@ -966,14 +977,19 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with thirteen tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ), has( $strip, 'href="#wpcpm-duplicates"' ) ), array( 13, true, true, true, true, true, true ) );
+ck( 'the strip is one section with fourteen tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ), has( $strip, 'href="#wpcpm-duplicates"' ) ), array( 14, true, true, true, true, true, true ) );
+// A card this page does not draw is no place to anchor to: the tile opens the Mentors screen.
+ck( 'and the mentor applications tile opens the Mentors screen at Waiting for review, never an anchor to a card this page does not draw', array( preg_match( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="https://example\.test/wp-admin/admin\.php\?page=wpcpm-mentors&tab=queue"><span class="wpcpm-attention__n">4</span><span class="wpcpm-attention__l">Mentor applications waiting</span></a></li>#', $strip ), has( $strip, 'href="#wpcpm-mentor' ), has( $strip, 'href="#wpcpm-"' ) ), array( 1, false, false ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 13 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 14 ) );
+$zero_counts['mentor_applications']['n'] = 0;
+$zero_mentors = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
+ck( 'and so is an empty mentor queue, still a link to it', array( substr_count( $zero_mentors, 'wpcpm-attention__tile--zero' ), has( $zero_mentors, '<li class="wpcpm-attention__tile wpcpm-attention__tile--zero"><a class="wpcpm-attention__link" href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue"><span class="wpcpm-attention__n">0</span>' ) ), array( 2, true ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );

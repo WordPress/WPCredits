@@ -1080,6 +1080,73 @@ class WPCPM_Settings_Screen {
 		);
 
 		$this->close_section();
+
+		$this->render_mentor_application_settings( $settings );
+	}
+
+	/**
+	 * The Students and mentors tab's last section, the mentor application form (1.122.31): whether
+	 * it takes applications, who is told of each, the link the selection email gives, and when a
+	 * selected application lapses.
+	 *
+	 * Drawn as the Sponsors tab draws its form's switch: off by default, the privacy policy named on
+	 * the same row because the form shows nothing without one, and the page's address under it.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_mentor_application_settings( array $settings ) {
+		$this->open_section(
+			__( 'Mentor applications', 'wpcredits-program-manager' ),
+			__( 'Whether people can apply to mentor through the form on this site, who is told when they do, and what a selected applicant is sent.', 'wpcredits-program-manager' ),
+			'mentor-applications'
+		);
+
+		$policy_url   = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
+		$apply_url    = class_exists( 'WPCPM_Mentor_Application_Form' ) ? (string) WPCPM_Mentor_Application_Form::page_url() : '';
+		$applications = __( 'Applications from mentors', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s',
+			esc_html( $applications ),
+			checked( ! empty( $settings['mentor_applications_enabled'] ), true, false ),
+			esc_html__( 'Take mentor applications through the form on this site', 'wpcredits-program-manager' ),
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' ),
+			'' === $policy_url
+				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings > Privacy.', 'wpcredits-program-manager' ) . '</p>'
+				: ''
+		);
+		WPCPM_Settings_Rows::page_line( $apply_url );
+		WPCPM_Settings_Rows::close_row( $applications, __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and nothing is written to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ) );
+
+		WPCPM_Settings_Rows::reviewers_row(
+			'mentor_notify',
+			__( 'Who is mailed', 'wpcredits-program-manager' ),
+			isset( $settings['mentor_notify'] ) ? (string) $settings['mentor_notify'] : '',
+			__( 'Addresses told of each new mentor application; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
+			__( 'The email names the applicant and their WordPress.org profile and links the Waiting for review tab. It carries none of their other answers, which are read on the tab.', 'wpcredits-program-manager' )
+		);
+
+		WPCPM_Settings_Rows::text_row(
+			'mentor_course_link',
+			__( 'Mentors\' course invitation link', 'wpcredits-program-manager' ),
+			isset( $settings['mentor_course_link'] ) ? (string) $settings['mentor_course_link'] : '',
+			__( 'The link the selection email gives a selected applicant to join the mentors\' course.', 'wpcredits-program-manager' ),
+			'url',
+			'',
+			'',
+			__( 'Select is refused while this is empty, since the selection email would have no link to give. Only an https link is kept.', 'wpcredits-program-manager' )
+		);
+
+		WPCPM_Settings_Rows::number_row(
+			'mentor_lapse_days',
+			__( 'Selected applications lapse after (days)', 'wpcredits-program-manager' ),
+			isset( $settings['mentor_lapse_days'] ) ? (int) $settings['mentor_lapse_days'] : 90,
+			14,
+			365,
+			__( 'A selected applicant whose course has not shown after this many days is moved to Lapsed with a dated note, and Select is offered on the row again.', 'wpcredits-program-manager' )
+		);
+
+		$this->close_section();
 	}
 
 	/**
@@ -1716,13 +1783,13 @@ class WPCPM_Settings_Screen {
 
 		$this->open_section(
 			__( 'Applications', 'wpcredits-program-manager' ),
-			__( 'How long a decided institution or sponsor application is kept, and the one proxy the two application forms believe about a sender\'s address.', 'wpcredits-program-manager' ),
+			__( 'How long a decided application from any of the three forms is kept, and the one proxy the forms believe about a sender\'s address.', 'wpcredits-program-manager' ),
 			'keeping-applications'
 		);
 
 		WPCPM_Settings_Rows::number_row( 'application_spam_days', __( 'Spam kept for (days)', 'wpcredits-program-manager' ), $settings['application_spam_days'], 1, 365, __( 'An application marked as spam is deleted this many days after it was marked.', 'wpcredits-program-manager' ) );
-		WPCPM_Settings_Rows::number_row( 'application_rejected_days', __( 'Rejected kept for (days)', 'wpcredits-program-manager' ), $settings['application_rejected_days'], 30, 3650, __( 'A rejected application, or one the checks held, is deleted this many days after the decision: long enough to recognize the same applicant applying again.', 'wpcredits-program-manager' ) );
-		WPCPM_Settings_Rows::number_row( 'application_approved_days', __( 'Approved kept for (days)', 'wpcredits-program-manager' ), $settings['application_approved_days'], 0, 3650, __( '0 keeps approved applications forever: they are the record of who was let in.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'application_rejected_days', __( 'Rejected kept for (days)', 'wpcredits-program-manager' ), $settings['application_rejected_days'], 30, 3650, __( 'A rejected, declined or lapsed application is deleted this many days after the decision, and one the checks held, after the last thing that happened to it.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'application_approved_days', __( 'Approved kept for (days)', 'wpcredits-program-manager' ), $settings['application_approved_days'], 0, 3650, __( '0 keeps approved applications, and the mentor applications of those who became mentors, forever: they are the record of who was let in.', 'wpcredits-program-manager' ) );
 		// One address, not a range: the save keeps one valid address or none, and the forms compare it
 		// with the connecting address as one string (`WPCPM_Form_Guard::client_ip()`).
 		WPCPM_Settings_Rows::text_row(

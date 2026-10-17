@@ -364,19 +364,25 @@ class WPCPM_Dashboards {
 	 *     @type string     $none    What the field's list says when nothing matches what was typed.
 	 *     @type string     $count   The status line's sentence for how many entries the list shows,
 	 *                              with %s for the number; the Viewing as sentence when empty.
+	 *     @type string     $mark    Words after the label, in the forms' "Required" mark, or '' for
+	 *                              none (the mentor application form's country, 1.122.31).
+	 *     @type string     $describedby The ids of a hint and a problem the select and the field are
+	 *                              described by, space-separated, or '' for none.
 	 * }
 	 */
 	public static function render_combo( array $args ) {
 		$args = array_merge(
 			array(
-				'id'      => '',
-				'name'    => '',
-				'options' => array(),
-				'current' => '',
-				'label'   => '',
-				'find'    => '',
-				'none'    => '',
-				'count'   => '',
+				'id'          => '',
+				'name'        => '',
+				'options'     => array(),
+				'current'     => '',
+				'label'       => '',
+				'find'        => '',
+				'none'        => '',
+				'count'       => '',
+				'mark'        => '',
+				'describedby' => '',
 			),
 			$args
 		);
@@ -401,11 +407,14 @@ class WPCPM_Dashboards {
 			$count = __( 'Names in the list: %s', 'wpcredits-program-manager' );
 		}
 
-		printf( '<label for="%1$s" id="%2$s">%3$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ) );
+		$mark        = '' !== (string) $args['mark'] ? ' <span class="wpcpm-field__required">' . esc_html( $args['mark'] ) . '</span>' : '';
+		$describedby = '' !== (string) $args['describedby'] ? ' aria-describedby="' . esc_attr( $args['describedby'] ) . '"' : '';
+
+		printf( '<label for="%1$s" id="%2$s">%3$s%4$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_html() above.
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
-		printf( '<select name="%1$s" id="%2$s" autocomplete="off">', esc_attr( $args['name'] ), esc_attr( $id ) );
+		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s>', esc_attr( $args['name'] ), esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 
 		foreach ( (array) $args['options'] as $value => $label ) {
 			printf(
@@ -423,10 +432,11 @@ class WPCPM_Dashboards {
 		// the field brings its list.
 		echo '<div class="wpcpm-dashboard__switcher-combo" hidden>';
 		printf(
-			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s" />',
+			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s"%4$s />',
 			esc_attr( $field ),
 			esc_attr( $list ),
-			esc_attr( $args['find'] )
+			esc_attr( $args['find'] ),
+			$describedby // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 		);
 		printf( '<ul id="%1$s" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="%2$s" hidden></ul>', esc_attr( $list ), esc_attr( $named ) );
 		// Empty until the list opens: a status region is read out when its text changes. Both

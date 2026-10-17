@@ -34,6 +34,7 @@ final class WPCPM_Mail_Catalog {
 	const MODULE_INSTITUTIONS = 'institutions';
 	const MODULE_REPORTS      = 'reports';
 	const MODULE_SPONSORS     = 'sponsors';
+	const MODULE_MENTOR_APPS  = 'mentor-applications';
 	const MODULE_WORDPRESS    = 'wordpress';
 	const MODULE_TWO_FACTOR   = 'two-factor';
 	const MODULE_OTHER        = 'other';
@@ -61,6 +62,7 @@ final class WPCPM_Mail_Catalog {
 			self::MODULE_INSTITUTIONS => __( 'Institutions', 'wpcredits-program-manager' ),
 			self::MODULE_REPORTS      => __( 'Semester reports', 'wpcredits-program-manager' ),
 			self::MODULE_SPONSORS     => __( 'Sponsors', 'wpcredits-program-manager' ),
+			self::MODULE_MENTOR_APPS  => __( 'Mentor applications', 'wpcredits-program-manager' ),
 			self::MODULE_WORDPRESS    => __( 'WordPress', 'wpcredits-program-manager' ),
 			self::MODULE_TWO_FACTOR   => __( 'Two Factor', 'wpcredits-program-manager' ),
 			self::MODULE_OTHER        => __( 'Other', 'wpcredits-program-manager' ),
@@ -102,6 +104,7 @@ final class WPCPM_Mail_Catalog {
 		$n = self::MODULE_INSTITUTIONS;
 		$r = self::MODULE_REPORTS;
 		$s = self::MODULE_SPONSORS;
+		$m = self::MODULE_MENTOR_APPS;
 		$w = self::MODULE_WORDPRESS;
 
 		$list = array(
@@ -188,6 +191,13 @@ final class WPCPM_Mail_Catalog {
 			'offer-low-stock'                    => array( __( 'Codes running low', 'wpcredits-program-manager' ), $s, '' ),
 			'claim-problem'                      => array( __( 'Problem with a claimed code', 'wpcredits-program-manager' ), $s, self::TYPE_ADMIN ),
 			'sponsor-post-returned'              => array( __( 'Sponsor post returned with a note', 'wpcredits-program-manager' ), $s, self::TYPE_SPONSOR ),
+			// Mentor applications (1.122.31): the four emails to the person who applied to mentor, who
+			// has no account, and the Administrators' notice of a new application.
+			'mentor-application-received'        => array( __( 'Mentor application received, to the applicant', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
+			'mentor-selected'                    => array( __( 'Selected to mentor: the mentors\' course', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
+			'mentor-more-information'            => array( __( 'More information asked of a mentor applicant', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
+			'mentor-declined'                    => array( __( 'Mentor application declined', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
+			'mentor-application-notice'          => array( __( 'New mentor application, to Administrators', 'wpcredits-program-manager' ), $m, self::TYPE_ADMIN ),
 			// WordPress's own.
 			'wp-password-reset'                  => array( __( 'Password reset', 'wpcredits-program-manager' ), $w, '' ),
 			'wp-password-changed'                => array( __( 'Password changed', 'wpcredits-program-manager' ), $w, '' ),

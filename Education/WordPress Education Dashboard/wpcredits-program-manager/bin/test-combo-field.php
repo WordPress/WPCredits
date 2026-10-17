@@ -122,6 +122,22 @@ ck( 'and with no count given, the switcher\'s', false !== strpos( combo( array( 
 ck( 'no form, no Show and no note: those are the switcher\'s', array( strpos( $html, '<form' ), strpos( $html, '<button' ), strpos( $html, 'switcher-note' ) ), array( false, false, false ) );
 ck( 'the field loads the script that works it, registered once in the footer', array( $GLOBALS['enqueued'][0] ?? null, $GLOBALS['registered'][ WPCPM_Dashboards::SWITCHER_SCRIPT ]['src'] ?? null, $GLOBALS['registered'][ WPCPM_Dashboards::SWITCHER_SCRIPT ]['footer'] ?? null ), array( WPCPM_Dashboards::SWITCHER_SCRIPT, WPCPM_PLUGIN_URL . 'assets/js/switcher.js', true ) );
 
+// A form's field (the mentor application's country, 1.122.31): the label carries the form's Required
+// mark, and the select and the field are both described by the question's hint and problem, so what
+// a screen reader hears does not change when the script swaps one for the other.
+$marked = combo(
+	array(
+		'mark'        => 'Required',
+		'describedby' => 'wpcpm-test-email-help wpcpm-test-email-problem',
+	)
+);
+ck(
+	'a form can mark its label and describe its select and its field',
+	array( false !== strpos( $marked, '<label for="wpcpm-test-email" id="wpcpm-test-email-label">Email <span class="wpcpm-field__required">Required</span></label>' ), false !== strpos( $marked, '<select name="email" id="wpcpm-test-email" autocomplete="off" aria-describedby="wpcpm-test-email-help wpcpm-test-email-problem">' ), 1 === preg_match( '#<input type="text" id="wpcpm-test-email-input"[^>]* aria-describedby="wpcpm-test-email-help wpcpm-test-email-problem" />#', $marked ) ),
+	array( true, true, true )
+);
+ck( 'and a field asked for neither draws neither', array( strpos( $html, 'wpcpm-field__required' ), strpos( $html, 'aria-describedby' ) ), array( false, false ) );
+
 // The switcher draws its fields through this one, so the two cannot drift apart.
 $source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php' );
 $body   = preg_match( '/function render_switcher\(.*?\n\t}\n/s', $source, $found ) ? $found[0] : '';

@@ -146,11 +146,26 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-application
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-invite.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
+// And the Mentor applications' (1.122.31): the confirming link's handler.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-application.php';
 
-/** The one setting the footer reads, Contact address in emails, as a check sets it. */
+/**
+ * The settings the footer and the emails' examples read, as a check sets them: Contact address in
+ * emails, the mentors' course link, and the course's title, which stays unset (so an email's own
+ * fallback shows) until a check gives it a value of its own.
+ */
 class WPCPM_Settings {
-	public static $contact = '';
-	public static function get_value( $key, $fallback = null ) { return 'mail_contact' === $key ? self::$contact : $fallback; }
+	public static $contact      = '';
+	public static $course       = '';
+	public static $course_title = null;
+	public static function get_value( $key, $fallback = null ) {
+		$set = array(
+			'mail_contact'         => self::$contact,
+			'mentor_course_link'   => self::$course,
+			'checker_course_title' => self::$course_title,
+		);
+		return isset( $set[ $key ] ) ? $set[ $key ] : $fallback;
+	}
 }
 
 /** The dashboards a template's example links, each published at an address of its own. */
@@ -197,7 +212,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports, the Sponsors and the Mentor applications, in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -260,6 +275,11 @@ ck(
 		'offer-low-stock',
 		'claim-problem',
 		'sponsor-post-returned',
+		'mentor-application-received',
+		'mentor-selected',
+		'mentor-more-information',
+		'mentor-declined',
+		'mentor-application-notice',
 	)
 );
 
@@ -453,6 +473,14 @@ $shape = array(
 	'offer-low-stock'               => array( "\n", array(), array() ),
 	'claim-problem'                 => array( "\n", array(), array( 'code_ending' ) ),
 	'sponsor-post-returned'         => array( "\n", array( 'post_title', 'author_name', 'note' ), array( 'note' ) ),
+	// The Mentor applications (1.122.31): the confirming link and the course link each needed, in the
+	// body alone, and the applicant's name, address and profile in the body alone. The request for
+	// more information names nobody and has no placeholder, as its automation had none.
+	'mentor-application-received'   => array( "\n", array( 'verify_link' ), array( 'verify_link', 'applicant_email' ) ),
+	'mentor-selected'               => array( "\n", array( 'course_link' ), array( 'applicant_name', 'course_link' ) ),
+	'mentor-more-information'       => array( "\n", array(), array() ),
+	'mentor-declined'               => array( "\n", array(), array( 'applicant_name' ) ),
+	'mentor-application-notice'     => array( "\n", array(), array( 'applicant_name', 'profile_link' ) ),
 );
 $want_whole = array();
 foreach ( $shape as $id => $want ) {
@@ -562,7 +590,7 @@ foreach ( array_keys( $all ) as $id ) {
 		if ( preg_match_all( '#https?://[^\s/]+#', $value, $hosts ) ) {
 			$links = array_merge( $links, $hosts[0] );
 		}
-		if ( in_array( $name, array( 'student_name', 'mentor_name', 'with_whom', 'canceled_by', 'institution_name', 'company_name', 'contact_name', 'inviter_name', 'uploaded_by', 'administrator_name', 'member_name', 'returned_by', 'claimant_name', 'author_name', 'name_asked_for' ), true ) ) {
+		if ( in_array( $name, array( 'student_name', 'mentor_name', 'with_whom', 'canceled_by', 'institution_name', 'company_name', 'contact_name', 'inviter_name', 'uploaded_by', 'administrator_name', 'member_name', 'returned_by', 'claimant_name', 'author_name', 'name_asked_for', 'applicant_name' ), true ) ) {
 			$names[] = $value;
 		}
 	}
@@ -620,7 +648,7 @@ ck(
 	array( array(), $wanted )
 );
 $secrets = array();
-foreach ( array( 'institution-applied' => 'verify_link', 'institution-invite' => 'accept_link' ) as $id => $name ) {
+foreach ( array( 'institution-applied' => 'verify_link', 'institution-invite' => 'accept_link', 'mentor-application-received' => 'verify_link' ) as $id => $name ) {
 	parse_str( (string) parse_url( WPCPM_Mail_Templates::example_values( $id )[ $name ], PHP_URL_QUERY ), $query );
 	$secrets[ $id ] = array( $query['action'] ?? '', $query['t'] ?? '' );
 }
@@ -628,9 +656,39 @@ ck(
 	'and an application\'s confirmation link and an invitation\'s link are the site\'s own, to the handlers they open, each with a fake secret',
 	$secrets,
 	array(
-		'institution-applied' => array( WPCPM_Institution_Application::ACTION_VERIFY, 'EXAMPLE-NOT-A-REAL-SIGNATURE' ),
-		'institution-invite'  => array( WPCPM_Institution_Invite::ACTION_ACCEPT, 'EXAMPLE-NOT-A-REAL-TOKEN' ),
+		'institution-applied'         => array( WPCPM_Institution_Application::ACTION_VERIFY, 'EXAMPLE-NOT-A-REAL-SIGNATURE' ),
+		'institution-invite'          => array( WPCPM_Institution_Invite::ACTION_ACCEPT, 'EXAMPLE-NOT-A-REAL-TOKEN' ),
+		'mentor-application-received' => array( WPCPM_Mentor_Application::ACTION_VERIFY, 'EXAMPLE-NOT-A-REAL-SIGNATURE' ),
 	)
+);
+ck(
+	'the mentors\' course link of the example is the site\'s own, with a fake invitation in it, and the queue the Mentors screen\'s Waiting for review tab',
+	array( WPCPM_Mail_Templates::example_values( 'mentor-selected' )['course_link'], WPCPM_Mail_Templates::example_values( 'mentor-application-notice' )['queue_link'] ),
+	array( 'https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue' )
+);
+// Once an Administrator sets the course link, a preview or a test of the selection shows that link,
+// and the program's address and the course's title as set, so the email tried is the email an
+// applicant gets. Each is set to a value of its own, not the one its example falls back to, so an
+// example that ignored its setting would fail here.
+WPCPM_Settings::$course       = 'https://example.test/learn/mentors/?invite=SET-IN-SETTINGS';
+WPCPM_Settings::$contact      = 'team@example.test';
+WPCPM_Settings::$course_title = 'The Example Mentors Course';
+$set_selection                = WPCPM_Mail_Templates::example_values( 'mentor-selected' );
+WPCPM_Settings::$course       = '';
+WPCPM_Settings::$contact      = '';
+WPCPM_Settings::$course_title = null;
+$unset_selection              = WPCPM_Mail_Templates::example_values( 'mentor-selected' );
+ck(
+	'and with the course link, the contact address and the course title set, the selection\'s examples are the three as set; with none set, the contact is an example address and the course the default title',
+	array( $set_selection['course_link'], $set_selection['program_contact'], $set_selection['course_name'], $unset_selection['program_contact'], $unset_selection['course_name'] ),
+	array( 'https://example.test/learn/mentors/?invite=SET-IN-SETTINGS', 'team@example.test', 'The Example Mentors Course', 'programs@example.test', 'WordPress Credits Mentor\'s Course' )
+);
+$with_contact = WPCPM_Mail_Templates::render( 'mentor-selected', WPCPM_Mail_Templates::example_values( 'mentor-selected' ) );
+$no_contact   = WPCPM_Mail_Templates::render( 'mentor-selected', array_merge( WPCPM_Mail_Templates::example_values( 'mentor-selected' ), array( 'program_contact' => '' ) ) );
+ck(
+	'the selection asks for a reply when the course is done and names the program\'s address on a line of its own, which no contact address leaves out, so the paragraph reads whole either way',
+	array( false !== strpos( $with_contact['body'], "When you finish the course, please reply to this email to let us know.\nYou can also write to programs@example.test.\n\nOnce we receive your message" ), false !== strpos( $no_contact['body'], "When you finish the course, please reply to this email to let us know.\n\nOnce we receive your message" ), false !== strpos( $no_contact['body'], 'You can also write to' ) ),
+	array( true, true, false )
 );
 ck(
 	'a sponsor\'s uploaded agreement links the agreements waiting on the Sponsors screen, as its email does, and a sponsor application the screen\'s queue',

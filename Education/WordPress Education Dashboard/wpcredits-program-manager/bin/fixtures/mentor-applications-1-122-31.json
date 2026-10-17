@@ -1,0 +1,215 @@
+{
+    "_comment": "What each Mentor applications email said in 1.122.31, recorded through the real senders and WPCPM_Mail by bin/test-mentor-applications-text.php --record. Invented names, every address written \"at example.test\", and the signature of every confirming link a fake. Never edit by hand: a later release is held to these bytes, but for the changes its suite lists.",
+    "cases": {
+        "applied": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "applied-notice-to-the-list": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "mentors-team at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "held-with-no-contact-address": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Ada Okonjo,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+                "headers": [],
+                "files": 0
+            }
+        ],
+        "more-information-then-selected": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-more-information",
+                "subject": "WordPress mentorship application - request for further details",
+                "body": "Hello,\n\nThank you for your interest in contributing to the WordPress project as a mentor, and for taking the time to submit your application.\n\nAs part of the review process carried out by the WordPress Credits team, we aim to better understand each applicant's involvement with the WordPress project and its community. After reviewing your profile and the information you shared with us, we would appreciate a bit more detail to help us clearly identify your contributions and connection to WordPress.\n\nCould you please provide additional information about your participation in the WordPress ecosystem? For example, this could include (but is not limited to):\n\n- Contributions to WordPress, like core, themes, plugins, documentation, translations, or any of the WordPress contribution teams\n- Involvement in WordPress community activities (meetups, WordCamps, organizing, speaking, volunteering, etc.)\n- Mentorship, teaching, or support roles related to WordPress\n- Any other relevant experience that demonstrates your engagement with the WordPress project\n\nThis information will help us better understand your background and evaluate your application more accurately.\n\nThank you very much for your time and your interest in supporting the WordPress community. We look forward to hearing from you.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Ada Okonjo,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\nYou can also write to programs at example.test.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "declined": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-declined",
+                "subject": "Thank you for your interest in the WordPress Credits Program",
+                "body": "Dear Ada Okonjo,\n\nThank you sincerely for expressing your interest in supporting and educating students through the WordPress Credits program. We truly appreciate your enthusiasm and your commitment to fostering contributions within the WordPress community.\n\nWhile we would have been delighted to welcome you to the team, after reviewing your application, we found that the information available in your WordPress.org profile was not sufficient to confirm your eligibility to serve as a mentor at this time. We genuinely value the time and effort you invested, and we encourage you to stay involved with the WordPress Credits initiative by contributing in other ways, such as joining discussions in the WordPress Credits Slack channel (https://wordpress.slack.com/archives/C0959D2M3T8) or helping out with specific tasks in our GitHub repository (https://github.com/WordPress/WPCredits-Tracker).\n\nIf you would like to appeal this decision or share additional details about your background, experience, and reasons why you'd be a great fit as a mentor, please reply to this email and provide more context about your involvement with WordPress and any mentoring or teaching experience you may have.\n\nWe truly appreciate your willingness to contribute to this initiative and would be happy to review your application again once more information is available.\n\nThank you once again for your time, interest, and support.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "a-name-as-typed": [
+            {
+                "to": "zoe at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to zoe at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nZoë \"Z\" Example & Co <3, https://profiles.wordpress.org/zoe-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nZoë \"Z\" Example & Co <3, https://profiles.wordpress.org/zoe-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "zoe at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Zoë \"Z\" Example & Co <3,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\nYou can also write to programs at example.test.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "put-back-after-the-honeypot": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ]
+    }
+}

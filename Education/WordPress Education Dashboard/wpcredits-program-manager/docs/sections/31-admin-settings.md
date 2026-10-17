@@ -81,8 +81,8 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Four sections: **Who is on the program**, **When someone leaves**, **Accounts** and **Landing
-pages**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Five sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -155,6 +155,28 @@ when the page is missing, a sentence saying that re-activating the plugin recrea
   default: the same arrangement for students, with a "Student Report Card" link in the toolbar and
   the same exceptions: a requested destination wins, their own profile screen stays reachable, and
   anyone who can write posts is left alone.
+
+#### Mentor applications
+
+The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
+
+- **Applications from mentors** - **Take mentor applications through the form on this site**. Off
+  by default, since it is a public page anybody can post to; its address is under the switch. Every
+  application is stored for an Administrator to decide on the Mentors screen's **Waiting for
+  review** tab, and nothing is written to Airtable; while this is off, the page shows the public
+  nothing, and an Administrator who opens it one sentence saying why. As with the other two forms,
+  the form shows nothing to the public without a published privacy policy, and the row says so.
+- **Who is mailed** - the addresses told of each new mentor application, chosen as the
+  Institutions tab's reviewers are; with none here, every Administrator is written to. The email
+  names the applicant and their WordPress.org profile and links the Waiting for review tab; it
+  carries none of their other answers. Point it at your own address before you try the form, or
+  every Administrator hears of the test.
+- **Mentors' course invitation link** - the link the selection email gives a selected applicant to
+  join the mentors' course. Its fold: Select is refused while it is empty, since the selection
+  email would have no link to give, and only an https link is kept.
+- **Selected applications lapse after (days)** - from 14 to 365, 90 by default: a selected
+  applicant whose course has not shown after this many days is moved to **Lapsed** with a dated
+  note, and Select is offered on the row again.
 
 ### The Institutions tab
 
@@ -339,20 +361,27 @@ so the limits given below are the field's own.
 
 #### Keeping applications
 
-How long a decided application is kept, institution and sponsor applications alike, and the one
-proxy the two application forms believe.
+How long a decided application is kept, institution, sponsor and mentor applications alike, and the
+one proxy the three application forms believe.
 
 - **Spam kept for (days)** - from 1 to 365, 30 by default: an application marked as spam is deleted
   this many days after it was marked.
-- **Rejected kept for (days)** - from 30 to 3650, a year by default: a rejected application, or one
-  the checks held, is deleted this many days after the decision, which is long enough to recognize
-  the same applicant applying again.
-- **Approved kept for (days)** - from 0 to 3650, 0 by default, which keeps approved applications
-  forever: they are the record of who was let in.
+- **Rejected kept for (days)** - from 30 to 3650, a year by default: a rejected or declined
+  application, or a mentor application that lapsed, is deleted this many days after the decision,
+  and one the checks held, which has no decision, this many days after the last thing that happened
+  to it. Either way the wait is long enough to recognize the same applicant applying again.
+- **Approved kept for (days)** - from 0 to 3650, 0 by default, which keeps approved applications,
+  and the mentor applications of those who became mentors, forever: they are the record of who was
+  let in.
 - **Trusted proxy** - the one IP address, not a range, of the proxy whose forwarded header the
   application forms believe for a sender's address, which their limits count by. Its fold: leave it
   empty unless the site sits behind a proxy, since anybody can send that header; anything but one
   address, a range included, is saved as empty.
+
+The daily run that keeps these days for the mentor applications also lapses a selected application
+whose course has not shown after the days set under **Mentor applications** on the Students and
+mentors tab, and what every deleted mentor application counted for the public feed of application
+figures is kept, so the feed's months do not change as rows go.
 
 #### Agreement files
 

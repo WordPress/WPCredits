@@ -160,6 +160,11 @@ final class WPCPM_Administrators_Cards {
 			'sponsor_applications' => $sponsor_applications,
 			// How many wait in each of the three, which its tile and its card print.
 			'sponsor_totals'       => self::sponsor_totals( $sponsor_posts, $sponsor_agreements['review'], $sponsor_applications ),
+			// How many mentor applications wait for a decision (1.122.31): the number only, read as
+			// IDs through the record class. They are decided on the Mentors screen's Waiting for
+			// review tab, which their tile opens, and on no card here (design of 16 October 2026,
+			// decision 9).
+			'mentor_applications'  => class_exists( 'WPCPM_Mentor_Application' ) ? WPCPM_Mentor_Application::waiting_count() : 0,
 			// Pools under their own threshold, what sponsors said lately, and the sponsors'
 			// figures (Sponsors module, S6): read through the owning classes, never their rows.
 			'offers_low'           => self::offers_low(),
@@ -176,7 +181,7 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * The thirteen tiles of the attention strip, from the arrays the cards draw.
+	 * The fourteen tiles of the attention strip, from the arrays the cards draw.
 	 *
 	 * `n` is a number on every tile, which a reader may compare with zero or with another. The three
 	 * sponsor queues' tiles say how many wait, as `collect()` read them apart from their cards' rows.
@@ -188,9 +193,13 @@ final class WPCPM_Administrators_Cards {
 	 * than the ceiling: a lower bound, not the count. A sum of tiles that holds one is a lower bound
 	 * too, and is not a number to print as a total.
 	 *
+	 * The mentor applications' tile is the one with no card on this page: they are decided on the
+	 * Mentors screen, so the tile carries `url`, the address of its Waiting for review tab, in place
+	 * of `card`.
+	 *
 	 * @param array $data What `collect()` returned.
-	 * @return array[] `label`, `n`, `card`, and `shown` on the sponsor posts' and agreements' tiles,
-	 *                 keyed in the strip's order.
+	 * @return array[] `label`, `n`, `card` (`url` on the mentor applications' tile), and `shown` on
+	 *                 the sponsor posts' and agreements' tiles, keyed in the strip's order.
 	 */
 	public static function counts( array $data ) {
 		$totals = array_merge(
@@ -262,6 +271,13 @@ final class WPCPM_Administrators_Cards {
 				'label' => __( 'Sponsor applications waiting', 'wpcredits-program-manager' ),
 				'n'     => (int) $totals['applications'],
 				'card'  => 'sponsor-applications',
+			),
+			// Beside the other two kinds of application (1.122.31), opening the queue they are
+			// decided in, as no card here lists them.
+			'mentor_applications'  => array(
+				'label' => __( 'Mentor applications waiting', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['mentor_applications'] ) ? (int) $data['mentor_applications'] : 0,
+				'url'   => admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' ),
 			),
 			'offers_low'           => array(
 				'label' => __( 'Offers running low', 'wpcredits-program-manager' ),
@@ -1260,10 +1276,11 @@ final class WPCPM_Administrators_Cards {
 	 */
 
 	/**
-	 * The attention strip: thirteen counts, each an anchor to its card. A zero is muted, not
-	 * hidden, so the strip always has the same shape and a manager learns where to look. A tile
-	 * prints the words it carries for its number (`shown`, a sponsor posts or agreements count as
-	 * `WPCPM_Sponsors::queue_count()` prints it), or its number as it stands.
+	 * The attention strip: fourteen counts, each an anchor to its card, or, for the one tile with no
+	 * card here (`url`, the mentor applications'), a link to the screen it is decided on. A zero is
+	 * muted, not hidden, so the strip always has the same shape and a manager learns where to look.
+	 * A tile prints the words it carries for its number (`shown`, a sponsor posts or agreements count
+	 * as `WPCPM_Sponsors::queue_count()` prints it), or its number as it stands.
 	 *
 	 * @param array $counts What `counts()` returned.
 	 */
@@ -1273,9 +1290,9 @@ final class WPCPM_Administrators_Cards {
 
 		foreach ( $counts as $tile ) {
 			printf(
-				'<li class="wpcpm-attention__tile%1$s"><a class="wpcpm-attention__link" href="#wpcpm-%2$s"><span class="wpcpm-attention__n">%3$s</span><span class="wpcpm-attention__l">%4$s</span></a></li>',
+				'<li class="wpcpm-attention__tile%1$s"><a class="wpcpm-attention__link" href="%2$s"><span class="wpcpm-attention__n">%3$s</span><span class="wpcpm-attention__l">%4$s</span></a></li>',
 				0 === (int) $tile['n'] ? ' wpcpm-attention__tile--zero' : '',
-				esc_attr( $tile['card'] ),
+				isset( $tile['url'] ) ? esc_url( (string) $tile['url'] ) : '#wpcpm-' . esc_attr( $tile['card'] ),
 				esc_html( isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] ) ),
 				esc_html( $tile['label'] )
 			);

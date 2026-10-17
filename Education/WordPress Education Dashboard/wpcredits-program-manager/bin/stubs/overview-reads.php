@@ -22,6 +22,7 @@
  * - `sponsor_posts` and `sponsor_applications`: the rows waiting, and `sponsor_agreements`, ID =>
  *   the facts of a document waiting for review;
  * - `offers`, ID => offer, and `codes`, ID => the offer's code counts;
+ * - `mentor_applications`: how many mentor applications wait in the Mentors screen's queue;
  * - `duplicates`: the Student Duplicate Finder's last report, or none before its first scan;
  * - `progress`: audience => where its sync is (`running`, `label`, `error`).
  *
@@ -258,6 +259,15 @@ class WPCPM_Sponsor_Codes {
 
 	public static function claims( $offer_id ) {
 		return array();
+	}
+}
+
+/* ---- the mentors' queue ------------------------------------------------------ */
+
+/** Mentor applications waiting for a decision (1.122.31): the number, all the cards read of them. */
+class WPCPM_Mentor_Application {
+	public static function waiting_count() {
+		return (int) wpcpm_overview_holds( 'mentor_applications', 0 );
 	}
 }
 

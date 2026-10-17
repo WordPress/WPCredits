@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.30
+Stable tag: 1.122.31
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,7 @@ Runs the WPCredits program on WordPress for five audiences - Students, Mentors, 
 The plugin is organized around five audiences:
 
 1. **Students** - the Student role, Airtable account provisioning, and the Student Report Card, a private page with each student's program details and their assigned mentor. **Built.**
-2. **Mentors** - the Mentor role, Airtable account provisioning, and the Mentor Report Card, a private page listing each mentor's assigned students. **Built.**
+2. **Mentors** - the Mentor role, Airtable account provisioning, the Mentor Report Card, a private page listing each mentor's assigned students, and the public mentor application form with its review queue on the Mentors screen. **Built.**
 3. **Institutions** - the Institution role, the Airtable sync of the institution records, account creation, the Institution Dashboard with its roster, student imports and semester reports, the public institution application form, the Collaboration Agreement, and the institution queues on the Administrator Dashboard. **Built.**
 4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
 5. **Administrators** - the people who manage the program: the built-in WordPress Administrator role, granted the program capabilities.
@@ -291,6 +291,17 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.31 =
+
+* People can apply to mentor on this site, at /become-a-mentor/, with the eleven questions the Airtable form asks, in its order: full name, email, WordPress.org profile, country, whether they are a teacher at a participating institution, the languages they can mentor in, their contribution areas, the hours a week they can give, the compliance declaration, anything else, and the privacy policy. The form is off until Take mentor applications through the form on this site is switched on, under Mentor applications on the Students and mentors tab of Settings, and it is guarded as the sponsor form is. Each applicant sees a reference on the thank-you page and, unless the day's ceiling on acknowledgements has been reached or the email cannot be handed to the mail queue, is emailed an acknowledgement with a link that confirms their address, and the addresses under Who is mailed, or every Administrator, are told of each new application.
+* The page the plugin makes at /become-a-mentor/ starts with the Airtable form's introduction, which is the page's to edit, and the Mentor Application Form block takes the thank-you sentence an applicant reads once the form is sent, in its Thank you panel; the shortcode takes it as thanks. Without one, the plugin's sentence is shown.
+* The Mentors screen has a new first tab, Waiting for review, where each application is read whole and decided: Select, which sends the link set under Mentors' course invitation link, Ask for more information, Second opinion, Decline, Mark as spam, and Withdraw for a selected applicant. Under its five views, Recently decided lists the declined applications and those filed as spam, newest first: Select is offered on a declined one, for an applicant who appeals, and Put back in the queue returns one filed as spam to Waiting, sending the acknowledgement, with the link that confirms the address, to one that never had it. A decision that emails the applicant waits until they have confirmed their address. The screen opens on this tab while applications wait.
+* Nothing is written to Airtable yet. A selected applicant waits under Selected (course pending), and lapses when the course has not shown after the days under Selected applications lapse after (days), 90 by default. Somebody who completes the course still becomes a mentor in Airtable, as before.
+* The five emails are a new Mentor applications area of Tools > Emails, where their words can be edited. The four to the applicant start with the words the program's Airtable automations send.
+* The Administrator Dashboard's strip has a Mentor applications waiting tile, which opens the tab, and the Overview lists the same count.
+* Decided mentor applications are deleted after the days under Applications on the Advanced tab of Settings, as the other two forms' are: spam after 30 days, and declined, lapsed and held ones after a year, by default.
+* A public feed at /wp-json/wpcpm/v1/mentor-applications gives, for each month since the first application, how many people applied, were selected, became mentors, were declined and lapsed, and how many applications are open and how many selected today, with nothing about any person. The feed is there for the Credits Monthly Report and the WPCredits Tracker to read in releases of their own.
 
 = 1.122.30 =
 

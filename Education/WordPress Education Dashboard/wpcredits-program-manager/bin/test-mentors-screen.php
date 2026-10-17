@@ -112,6 +112,27 @@ class WPCPM_Call_Calendar {
 class WPCPM_Group_Sessions {
 	public static function init() {}
 }
+/**
+ * And the applications to mentor (1.122.31): the post type, the public form and the decisions it
+ * boots, how many wait, which the screen's choice of tab reads, and the Waiting for review tab, drawn
+ * here as a mark with the outcome its notices know: bin/test-mentor-application-queue.php draws it whole.
+ */
+class WPCPM_Mentor_Application {
+	public static $waiting = 0;
+	public static function init() {}
+	public static function waiting_count() { return self::$waiting; }
+}
+class WPCPM_Mentor_Application_Form {
+	public static function init() {}
+}
+class WPCPM_Mentor_Application_Feed {
+	public static function init() {}
+}
+class WPCPM_Mentor_Application_Queue {
+	public static function init() {}
+	public static function messages() { return array( 'mapp-selected' => array( 'success', 'The applicant is selected.' ) ); }
+	public static function render() { echo '<div class="wpcpm-card" id="wpcpm-mentor-applications">The applications</div>'; }
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -1792,7 +1813,7 @@ ck( 'a count a press on the ticked accounts left unprinted is not shown under th
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
 	array( array( 12, 13 ), '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
 
-echo "\n=== The screen in three tabs, Accounts, Engagement and Sync, in the bar every audience screen prints ===\n";
+echo "\n=== The screen in four tabs, Waiting for review, Accounts, Engagement and Sync, in the bar every audience screen prints ===\n";
 
 three_mentors();
 manager( 200 );
@@ -1802,6 +1823,7 @@ $three_tabs = function ( $shown ) use ( $home ) {
 	return array(
 		'Secondary menu',
 		array(
+			array( $home . '&tab=queue', 'Waiting for review', 'queue' === $shown, 'queue' === $shown ),
 			array( $home . '&tab=accounts', 'Accounts', 'accounts' === $shown, 'accounts' === $shown ),
 			array( $home . '&tab=engagement', 'Engagement', 'engagement' === $shown, 'engagement' === $shown ),
 			array( $home . '&tab=sync', 'Sync', 'sync' === $shown, 'sync' === $shown ),
@@ -1816,6 +1838,7 @@ WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => array(), 'notes' => arr
 
 foreach ( array(
 	'from the menu'                    => array( 'page' => 'wpcpm-mentors' ),
+	'asked for Waiting for review'     => screen( array( 'tab' => 'queue' ) ),
 	'asked for Accounts'               => screen(),
 	'asked for Engagement'             => screen( array( 'tab' => 'engagement' ) ),
 	'asked for Sync'                   => screen( array( 'tab' => 'sync' ) ),
@@ -1832,10 +1855,11 @@ foreach ( array(
 
 WPCPM_Mentor_Engagement::for_tests( null );
 
-ck( 'the bar holds three tabs, Accounts, Engagement then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Engagement and Sync when asked for, marked for the eye and for a screen reader',
+ck( 'the bar holds four tabs, Waiting for review, Accounts, Engagement then Sync, each at the screen\'s address with its tab; with no application waiting, Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and each other tab when asked for, marked for the eye and for a screen reader',
 	$bars,
 	array(
 		'from the menu'                    => $three_tabs( 'accounts' ),
+		'asked for Waiting for review'     => $three_tabs( 'queue' ),
 		'asked for Accounts'               => $three_tabs( 'accounts' ),
 		'asked for Engagement'             => $three_tabs( 'engagement' ),
 		'asked for Sync'                   => $three_tabs( 'sync' ),
@@ -1853,6 +1877,7 @@ $printed_bar = run(
 			WPCPM_Screen_Tabs::render(
 				'wpcpm-mentors',
 				array(
+					'queue'      => 'Waiting for review',
 					'accounts'   => 'Accounts',
 					'engagement' => 'Engagement',
 					'sync'       => 'Sync',
@@ -1873,10 +1898,11 @@ ck( 'the bar is the one every audience screen prints, `WPCPM_Screen_Tabs`\'s, ta
 	array( true, 1, 0, true ) );
 
 $GLOBALS['l10n'] = array(
-	'Accounts'       => 'Cuentas',
-	'Engagement'     => 'Participación',
-	'Sync'           => 'Sincronización',
-	'Secondary menu' => 'Menú secundario',
+	'Waiting for review' => 'En espera de revisión',
+	'Accounts'           => 'Cuentas',
+	'Engagement'         => 'Participación',
+	'Sync'               => 'Sincronización',
+	'Secondary menu'     => 'Menú secundario',
 );
 $spanish         = page_for( screen( array( 'tab' => 'sync' ) ) );
 $GLOBALS['l10n'] = array();
@@ -1890,7 +1916,7 @@ ck( 'the labels are translated where the bar prints them, and so is the name the
 			return null === $bar ? null : array( $bar[0], array_column( $bar[1], 1 ) );
 		}
 	),
-	array( 'Menú secundario', array( 'Cuentas', 'Participación', 'Sincronización' ) ) );
+	array( 'Menú secundario', array( 'En espera de revisión', 'Cuentas', 'Participación', 'Sincronización' ) ) );
 
 $names = run(
 	function () {
@@ -1898,7 +1924,7 @@ $names = run(
 	}
 );
 
-ck( 'the tabs are the module\'s own list, Accounts first, and a form names its tab in the field the list\'s row links carry theirs in',
+ck( 'the tabs are the module\'s own list, Waiting for review first, and a form names its tab in the field the list\'s row links carry theirs in',
 	got(
 		$names,
 		function ( $out ) {
@@ -1907,6 +1933,7 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 	),
 	array(
 		array(
+			'queue'      => 'Waiting for review',
 			'accounts'   => 'Accounts',
 			'engagement' => 'Engagement',
 			'sync'       => 'Sync',
@@ -1939,7 +1966,7 @@ foreach ( array(
 	);
 }
 
-ck( 'the tab shown is the one the address names, and Accounts when it names none or one the screen does not have',
+ck( 'the tab shown is the one the address names, and, with no application waiting, Accounts when it names none or one the screen does not have',
 	$read,
 	array(
 		'none'       => 'accounts',
@@ -1948,6 +1975,80 @@ ck( 'the tab shown is the one the address names, and Accounts when it names none
 		'sync'       => 'sync',
 		'unknown'    => 'accounts',
 		'empty'      => 'accounts',
+	) );
+
+// The queue first when it holds rows (design of 16 October 2026, section 3, decision 3): from the
+// menu, and for a tab the screen does not have, the screen opens on Waiting for review while
+// applications wait there, and a tab the address names is still the one shown.
+WPCPM_Mentor_Application::$waiting = 2;
+$queue_read                        = array();
+foreach ( array(
+	'none'     => null,
+	'unknown'  => 'nope',
+	'accounts' => 'accounts',
+) as $case => $value ) {
+	request( null === $value ? array( 'page' => 'wpcpm-mentors' ) : array( 'page' => 'wpcpm-mentors', 'tab' => $value ) );
+	$queue_read[ $case ] = got(
+		run(
+			function () {
+				return WPCPM_Mentors::tab();
+			}
+		),
+		function ( $out ) {
+			return $out['value'];
+		}
+	);
+}
+$queue_page = html_of( page_for( array( 'page' => 'wpcpm-mentors' ) ) );
+WPCPM_Mentor_Application::$waiting = 0;
+
+ck( 'with applications waiting, the screen opens on Waiting for review, from the menu and for a tab it does not have, and a tab the address names is still the one shown',
+	$queue_read,
+	array(
+		'none'     => 'queue',
+		'unknown'  => 'queue',
+		'accounts' => 'accounts',
+	) );
+ck( 'and the tab draws the applications, and no account list',
+	array( has( $queue_page, 'id="wpcpm-mentor-applications"' ), has( $queue_page, '<h2>Mentor accounts' ) ),
+	array( true, false ) );
+
+// A sort or a page link of the Accounts list opened from the menu names no tab, since core builds
+// those links from the address the screen was opened at. Such an address, and one that carries a
+// search, is the list's own: it stays on Accounts however many applications wait, while the menu's
+// own address, which carries none of the three, still opens Waiting for review. A search for "0" is
+// a search.
+WPCPM_Mentor_Application::$waiting = 2;
+$list_read                         = array();
+foreach ( array(
+	'menu'     => array(),
+	'page two' => array( 'paged' => '2' ),
+	'sorted'   => array( 'orderby' => 'students', 'order' => 'asc' ),
+	'searched' => array( 's' => 'ada' ),
+	'zero'     => array( 's' => '0' ),
+) as $case => $more ) {
+	request( array_merge( array( 'page' => 'wpcpm-mentors' ), $more ) );
+	$list_read[ $case ] = got(
+		run(
+			function () {
+				return WPCPM_Mentors::tab();
+			}
+		),
+		function ( $out ) {
+			return $out['value'];
+		}
+	);
+}
+WPCPM_Mentor_Application::$waiting = 0;
+
+ck( 'with applications waiting, an address that carries no tab but a page, a sort or a search is the Accounts list\'s own and opens Accounts, and the menu\'s own address still opens Waiting for review',
+	$list_read,
+	array(
+		'menu'     => 'queue',
+		'page two' => 'accounts',
+		'sorted'   => 'accounts',
+		'searched' => 'accounts',
+		'zero'     => 'accounts',
 	) );
 
 echo "\n=== Each tab holds its own cards ===\n";

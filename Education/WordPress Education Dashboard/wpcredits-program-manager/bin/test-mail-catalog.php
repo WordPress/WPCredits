@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 70 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, and the institution\'s invitation with no sender named, its own since 1.122.23', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 70 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 75 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -170,7 +170,33 @@ ck(
 
 ck( 'the last member leaving an institution is named, as the Administrators\' email it is', WPCPM_Mail_Catalog::get( 'member-last' ), array( 'label' => 'Institution has no members left, to Administrators', 'module' => 'institutions', 'audience' => 'administrator', 'test' => false ) );
 
-ck( 'the areas are the ones the Log lists, in its order', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'WordPress', 'Two Factor', 'Other' ) );
+// The Mentor applications area (1.122.31): the four emails to the person who applied to mentor and the
+// Administrators' notice. The four go to somebody with no account, so they are the applicant's, as
+// the other two forms' are: a preview names no dashboard for them, and the Log lists them as an
+// applicant's.
+ck(
+	'the Mentor applications area names its five emails, each with who receives it',
+	array_map(
+		function ( $e ) {
+			return $e['label'] . ' / ' . $e['audience'];
+		},
+		array_filter(
+			$emails,
+			function ( $e ) {
+				return 'mentor-applications' === $e['module'];
+			}
+		)
+	),
+	array(
+		'mentor-application-received' => 'Mentor application received, to the applicant / applicant',
+		'mentor-selected'             => 'Selected to mentor: the mentors\' course / applicant',
+		'mentor-more-information'     => 'More information asked of a mentor applicant / applicant',
+		'mentor-declined'             => 'Mentor application declined / applicant',
+		'mentor-application-notice'   => 'New mentor application, to Administrators / administrator',
+	)
+);
+
+ck( 'the areas are the ones the Log lists, in its order', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications', 'WordPress', 'Two Factor', 'Other' ) );
 
 // Every context the plugin hands the mail layer, read from the source: a literal, or a constant the
 // same file declares, as the second argument of send(), send_to() and mail_members(), the first of
@@ -203,7 +229,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 34 of them (it is not reading nothing); the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 34 );
+ck( 'and the scan found all 36 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 36 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,

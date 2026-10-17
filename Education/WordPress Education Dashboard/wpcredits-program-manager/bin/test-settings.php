@@ -47,7 +47,12 @@ function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return $s; }
 /**
- * Honours the protocol allowlist, as the real one does.
+ * Honours the protocol allowlist, as the real one does, and does what core does since 6.9 with text that
+ * names no scheme: it is given https:// when https is the first protocol allowed, http:// otherwise, and
+ * the spaces typed in it become %20, all before the allowlist is asked. So "not a link at all" is kept
+ * as https://not%20a%20link%20at%20all where https is the only protocol allowed, as it is for the
+ * agreement wording's address and the mentors' course link, and a check that expects it refused would pass
+ * here and fail on the site. A relative link (/, # or ?) and a PHP file name are left alone, as in core.
  *
  * A pass-through stub here would make the "a javascript: endpoint is refused" assertion pass
  * no matter what the plugin did, which is worse than not asserting it.
@@ -57,6 +62,12 @@ function esc_url_raw( $u, $protocols = null ) {
 
 	if ( '' === $u ) {
 		return '';
+	}
+
+	$u = str_replace( ' ', '%20', $u );
+
+	if ( false === strpos( $u, ':' ) && ! in_array( $u[0], array( '/', '#', '?' ), true ) && ! preg_match( '/^[a-z0-9-]+?\.php/i', $u ) ) {
+		$u = ( is_array( $protocols ) && 'https' === reset( $protocols ) ? 'https://' : 'http://' ) . $u;
 	}
 
 	$scheme = strtolower( (string) parse_url( $u, PHP_URL_SCHEME ) );
@@ -493,6 +504,10 @@ $probe = array(
 	'sponsor_notify'                => 'probe-one@example.org,probe-two@example.org',
 	'logo_max_kb'                   => '2048',
 	'offer_low_stock'               => '250',
+	// Mentor applications (1.122.31).
+	'mentor_notify'                 => 'probe-one@example.test,probe-two@example.test',
+	'mentor_course_link'            => 'https://learn.example.test/course/probe/?group=PROBE',
+	'mentor_lapse_days'             => '120',
 	// The Emails tool's contact address (1.122.19).
 	'mail_contact'                  => 'programs@example.test',
 );
@@ -1037,6 +1052,29 @@ ck( 'and cleaned like its siblings: split, lowered, the non-addresses dropped, d
 	'maciej@a8c.com' );
 ck( 'the table ID is saved as text', $saved['team_members_table'], 'tblX' );
 
+echo "\n=== Mentor applications settings (1.122.31) ===\n";
+
+$defaults = WPCPM_Settings::defaults();
+ck( 'the mentor form is off until an Administrator switches it on, a new application is told to every Administrator, no course link is set, and a selected application lapses after 90 days',
+	array( $defaults['mentor_applications_enabled'], $defaults['mentor_notify'], $defaults['mentor_course_link'], $defaults['mentor_lapse_days'] ),
+	array( false, '', '', 90 ) );
+
+$saved = WPCPM_Settings::save( array( 'mentor_notify' => 'Ida@Example.test, not-an-address ida@example.test', 'mentor_course_link' => ' https://learn.example.test/course/mentors/?group=EXAMPLE ', 'mentor_lapse_days' => '1000' ) );
+ck( 'the notice list is cleaned as its siblings are: split, lowered, the non-addresses dropped, duplicates gone', $saved['mentor_notify'], 'ida@example.test' );
+ck( 'the course link is kept as an https link, trimmed', $saved['mentor_course_link'], 'https://learn.example.test/course/mentors/?group=EXAMPLE' );
+ck( 'the days are clamped: 365 at most, 14 at least', array( $saved['mentor_lapse_days'], WPCPM_Settings::save( array( 'mentor_lapse_days' => '3' ) )['mentor_lapse_days'] ), array( 365, 14 ) );
+
+// Refused by every version of WordPress: another scheme than https. Text with no scheme at all is not
+// among them, because core's answer to it changed in 6.9: it is given https:// when https is the only
+// protocol allowed, so "not a link at all" is kept as https://not%20a%20link%20at%20all, where earlier
+// versions gave it http:// and refused it. What the site does on 6.9 and later is pinned after the loop.
+foreach ( array( 'http://learn.example.test/course/mentors/', 'javascript:alert(1)', 'http://example.test/course' ) as $typed ) {
+	ck( sprintf( 'and a course link that is not https is saved as none: %s', $typed ), WPCPM_Settings::save( array( 'mentor_course_link' => $typed ) )['mentor_course_link'], '' );
+}
+
+ck( 'and a course link typed with no scheme is given https and kept, as WordPress 6.9 and later gives it',
+	WPCPM_Settings::save( array( 'mentor_course_link' => 'learn.example.test/course' ) )['mentor_course_link'], 'https://learn.example.test/course' );
+
 echo "\n=== S2: the tools switches and the low-stock default ===\n";
 $defaults = WPCPM_Settings::defaults();
 ck( 'students see the Tools section by default, mentors do not', array( $defaults['tools_students'], $defaults['tools_mentors'] ), array( true, false ) );
@@ -1563,7 +1601,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // no screen drew belong with the others on Connection; Advanced holds the rest of what had no control.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'sponsors_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock' ),
 	'security'                   => array( 'two_factor_roles' ),
@@ -2577,6 +2615,7 @@ $design_sections = array(
 		'When someone leaves'   => 'when-someone-leaves',
 		'Accounts'              => 'accounts',
 		'Landing pages'         => 'landing-pages',
+		'Mentor applications'   => 'mentor-applications',
 	),
 	'institutions' => array(
 		'Applications and enrollment'             => 'institution-applications-and-enrollment',
@@ -2671,8 +2710,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 23 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 23, 0, 23 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 24 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 24, 0, 24 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -2982,8 +3021,8 @@ ck( 'the model is typed while the provider lists no models, the field holding th
     array( true, 0 ) );
 ck( 'the two status lists and the pipeline stages are checkbox lists',
     $drawn_by['checklist_row'], array( 'institution_active_stages', 'past_statuses', 'student_statuses' ) );
-ck( 'the three reviewer lists are the program managers to tick, with a line for other addresses',
-    $drawn_by['reviewers_row'], array( 'agreement_notify', 'report_notify', 'sponsor_notify' ) );
+ck( 'the four reviewer lists are the program managers to tick, with a line for other addresses',
+    $drawn_by['reviewers_row'], array( 'agreement_notify', 'mentor_notify', 'report_notify', 'sponsor_notify' ) );
 // The reviewer lists are drawn by the two helpers every other field is, not by markup of their own:
 // the program managers through the checkbox list, and with nobody to list, the text input.
 $rows_source      = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php' );
@@ -3378,12 +3417,13 @@ ck( 'the trusted proxy\'s help says it is one address, not a range, and its fold
 
 // Two helps joined from two sentences into one keep the referent the second sentence had: it is the
 // starting stage that cannot be left blank, not the application, and a rejected application is
-// deleted that many days after the decision, not after anything else.
+// deleted that many days after the decision, not after anything else; one the checks held has no
+// decision, and goes that many days after the last thing that happened to it.
 ck( 'the starting stage\'s help says the stage cannot be left blank, and the rejected applications\' help from when the days are counted',
     array( help_of( $states['advanced'], 'Institution starting stage' )[0], help_of( $states['advanced'], 'Rejected kept for (days)' )[0] ),
     array(
         array( 'The Current Stage an institution is created at in Airtable when its application is approved; the stage cannot be left blank.' ),
-        array( 'A rejected application, or one the checks held, is deleted this many days after the decision: long enough to recognize the same applicant applying again.' ),
+        array( 'A rejected, declined or lapsed application is deleted this many days after the decision, and one the checks held, after the last thing that happened to it.' ),
     ) );
 
 // The Token scopes help sends the manager to the fold by the word the fold's summary shows, one string
@@ -3571,13 +3611,13 @@ ck( 'and with its page missing, each says so in the same words',
     ) );
 
 // The same words because the same code: the four landing pages are drawn by one row, and each row that
-// prints a page, the four and the two application forms, prints its address, or the sentence saying
+// prints a page, the four and the three application forms, prints its address, or the sentence saying
 // it is missing, through one line of the rows class.
 preg_match_all( "/WPCPM_Settings_Rows::landing_row\(\s*'([a-z_]+)'/", $screen_source, $landing_drawn );
 
 ck( 'the four landing pages are drawn by the one landing row, and the sentence saying a page is missing is written once, in the rows\' page line',
     array( $landing_drawn[1], substr_count( $screen_source . $rows_file_source, 'The page is missing: re-activate the plugin to recreate it.' ), substr_count( $screen_source, 'WPCPM_Settings_Rows::page_line( ' ) ),
-    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 2 ) );
+    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 3 ) );
 
 // The student's page is the Student Report Card, as the toolbar names it for the student; the name
 // it had before, My Program, is one the page no longer carries.

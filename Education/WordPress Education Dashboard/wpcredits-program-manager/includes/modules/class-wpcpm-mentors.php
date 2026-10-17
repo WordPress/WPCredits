@@ -16,9 +16,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * listing their assigned students, and reports on the last sync.
  *
  * Its screen is the accounts screen every audience's module shares (`WPCPM_Accounts_Screen`), in
- * three tabs: Accounts, Engagement (how each mentor uses the site, 1.122.26) and Sync. What is the
- * mentors' own is here: the words, the table, the invitations card, the Engagement tab with its
- * table, and the Sync tab with its warning while names are still unread.
+ * four tabs: Waiting for review (the applications to mentor, 1.122.31), Accounts, Engagement (how
+ * each mentor uses the site, 1.122.26) and Sync. What is the mentors' own is here: the words, the
+ * table, the invitations card, the Engagement tab with its table, the Sync tab with its warning while
+ * names are still unread, and the screen's choice of the tab it opens on.
  */
 class WPCPM_Mentors extends WPCPM_Sync_Module {
 
@@ -45,12 +46,16 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	/** The screen's tab that shows how each mentor uses the site (1.122.26). */
 	const TAB_ENGAGEMENT = 'engagement';
 
+	/** The screen's tab the applications to mentor are decided on (1.122.31), the slug the other two queues use. */
+	const TAB_QUEUE = 'queue';
+
 	/**
-	 * The screen's tabs, slug => label, in the bar's order: the accounts, the tab the screen opens
-	 * on, how each mentor uses the site, then the sync. English, as a constant has to hold them;
-	 * `tab_labels()` translates them.
+	 * The screen's tabs, slug => label, in the bar's order: the applications waiting for review, the
+	 * accounts, how each mentor uses the site, then the sync. English, as a constant has to hold them;
+	 * `tab_labels()` translates them. The tab the screen opens on is `tab()`'s to choose.
 	 */
 	const TABS = array(
+		self::TAB_QUEUE      => 'Waiting for review',
 		self::TAB_ACCOUNTS   => 'Accounts',
 		self::TAB_ENGAGEMENT => 'Engagement',
 		self::TAB_SYNC       => 'Sync',
@@ -122,6 +127,12 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		WPCPM_Mentor_Calls::init();
 		WPCPM_Call_Calendar::init();
 		WPCPM_Group_Sessions::init();
+		// The applications to mentor (1.122.31): the post type they are kept in, the public form, the
+		// decisions taken on the Waiting for review tab, and the public feed of their counts.
+		WPCPM_Mentor_Application::init();
+		WPCPM_Mentor_Application_Form::init();
+		WPCPM_Mentor_Application_Queue::init();
+		WPCPM_Mentor_Application_Feed::init();
 
 		// The hourly call reminders, put back on the clock whenever they are missing, as the
 		// sync above does for its own job: the activation hook is the only other caller and
@@ -149,6 +160,8 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		WPCPM_Mentors_Sync::schedule();
 		WPCPM_Mentor_Calls::schedule();
 		WPCPM_Mentors_Dashboard::ensure_page();
+		// The application form's page (1.122.31), and deliberately not gated: see its `ensure_page()`.
+		WPCPM_Mentor_Application_Form::ensure_page();
 	}
 
 	/**
@@ -157,6 +170,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	public function deactivate() {
 		WPCPM_Mentors_Sync::unschedule();
 		WPCPM_Mentor_Calls::unschedule();
+		WPCPM_Mentor_Application::unschedule();
 	}
 
 	/**
@@ -167,6 +181,12 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	public function uninstall() {
 		WPCPM_Mentor_Notes::delete_all();
 		WPCPM_Mentor_Calls::delete_all();
+		// The applications to mentor (1.122.31): every row, the deletion log, what deleted rows counted
+		// for the feed and the daily run, and the form's page ID. The page itself stays, as every page
+		// the plugin creates does: a page is site content.
+		WPCPM_Mentor_Application::delete_all();
+		delete_option( WPCPM_Mentor_Application_Form::OPT_PAGE );
+		delete_transient( WPCPM_Mentor_Application_Feed::TRANSIENT );
 		// Prefix-named, so it cannot be swept by listing keys: booking locks left by
 		// requests that died holding one, and the per-student resolved-mentor cache.
 		WPCPM_Mentor_Calls::flush_cache();
@@ -325,12 +345,39 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The tab the screen shows: the one its address names, or, from the menu and for a tab the screen
+	 * does not have, Waiting for review while applications wait there and Accounts while none do
+	 * (design of 16 October 2026, section 3, decision 3: the queue first when it holds rows). An
+	 * address that carries a sort, a page or a search is the Accounts list's own and opens Accounts
+	 * whatever waits: core builds the list's sort and page links from the address the screen was
+	 * opened at, which from the menu names no tab.
+	 *
+	 * @return string A key of TABS.
+	 */
+	public static function tab() {
+		$tab = WPCPM_Request::key( 'tab' );
+
+		if ( isset( self::TABS[ $tab ] ) ) {
+			return $tab;
+		}
+
+		// A search for "0" is a search, so the text is compared with the empty string and never tested
+		// for being empty.
+		if ( '' !== WPCPM_Request::key( 'orderby' ) || WPCPM_Request::id( 'paged' ) > 0 || '' !== WPCPM_Request::text( 's' ) ) {
+			return self::TAB_ACCOUNTS;
+		}
+
+		return WPCPM_Mentor_Application::waiting_count() > 0 ? self::TAB_QUEUE : self::TAB_ACCOUNTS;
+	}
+
+	/**
 	 * The tabs as the bar prints them: TABS, each label translated.
 	 *
 	 * @return array<string, string> Slug => label.
 	 */
 	private static function tab_labels() {
 		$translated = array(
+			self::TAB_QUEUE      => __( 'Waiting for review', 'wpcredits-program-manager' ),
 			self::TAB_ACCOUNTS   => __( 'Accounts', 'wpcredits-program-manager' ),
 			self::TAB_ENGAGEMENT => __( 'Engagement', 'wpcredits-program-manager' ),
 			self::TAB_SYNC       => __( 'Sync', 'wpcredits-program-manager' ),
@@ -355,11 +402,23 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			$this->render_tab_sync();
 		} elseif ( self::TAB_ENGAGEMENT === $tab ) {
 			$this->render_tab_engagement();
+		} elseif ( self::TAB_QUEUE === $tab ) {
+			$this->render_tab_queue();
 		} else {
 			$this->render_tab_accounts();
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The Waiting for review tab: what the last decision pressed on it did, then the applications to
+	 * mentor, read and decided here (`WPCPM_Mentor_Application_Queue`).
+	 */
+	private function render_tab_queue() {
+		$this->render_notice_from( WPCPM_Mentor_Application_Queue::messages() );
+
+		WPCPM_Mentor_Application_Queue::render();
 	}
 
 	/**

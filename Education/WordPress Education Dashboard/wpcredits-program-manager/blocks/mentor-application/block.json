@@ -1,0 +1,28 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/mentor-application",
+	"version": "1.122.31",
+	"title": "Mentor Application Form",
+	"category": "widgets",
+	"icon": "welcome-learn-more",
+	"description": "The public form a person fills in to apply to mentor in the WordPress Credits Program.",
+	"keywords": [ "mentor", "application", "apply", "wpcredits" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		},
+		"thanks": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

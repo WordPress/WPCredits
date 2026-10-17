@@ -713,6 +713,15 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators.php';
 
+// How many applications to mentor wait (1.122.31), which the Mentors screen's choice of tab reads:
+// none, so the screen opens on its Accounts tab as the other two do. Declared inside a condition, which
+// PHP does not hoist: the run that loads the plugin as a site does, above, declares the real class.
+if ( ! class_exists( 'WPCPM_Mentor_Application', false ) ) {
+	class WPCPM_Mentor_Application {
+		public static function waiting_count() { return 0; }
+	}
+}
+
 // The plugin's lazy loader, which the plumbing calls before it words an outcome: the tables are
 // loaded above, so it has nothing to do here. Declared as the run reaches this line, never as the
 // file is read, because the run that loads the plugin as a site does declares the plugin's own.
@@ -2393,12 +2402,13 @@ echo "\n=== The screen plumbing the audiences share: one trait, which neither mo
 // does a method moved back out of the trait. Two of them are defaults a module replaces where its
 // audience differs, by design: where its list stands (`list_state()`), which the Students module
 // keeps for its institution filter, and how one account is sent its invitation (`invite_one()`).
-// Three more are replaced by the Mentors module alone, for its third tab, the Engagement tab: the
-// screen's load hook (`load_screen()`, whose trait copy it keeps for the Accounts tab under another
-// name), the tab bar's labels (`tab_labels()`) and the page (`render_admin_page()`).
+// Four more are replaced by the Mentors module alone, for its Engagement and Waiting for review tabs:
+// the screen's load hook (`load_screen()`, whose trait copy it keeps for the Accounts tab under another
+// name), the tab the screen opens on (`tab()`, the queue while applications wait there, 1.122.31), the
+// tab bar's labels (`tab_labels()`) and the page (`render_admin_page()`).
 preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
 
-$replaceable    = array( 'list_state', 'invite_one', 'load_screen', 'tab_labels', 'render_admin_page' );
+$replaceable    = array( 'list_state', 'invite_one', 'load_screen', 'tab', 'tab_labels', 'render_admin_page' );
 $declared_again = function ( $code ) use ( $screen_methods, $replaceable ) {
 	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
 
@@ -2413,7 +2423,7 @@ $uses_screen    = function ( $code ) {
 	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code );
 };
 
-ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and the Mentors module\'s load hook, tab labels and page, which add its Engagement tab',
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and the Mentors module\'s load hook, choice of tab, tab labels and page, which add its Engagement and Waiting for review tabs',
 	array(
 		'trait'    => array_values( array_diff( array( 'list_state', 'hook_screen', 'load_screen', 'handle_list_form', 'apply_pressed', 'save_per_page', 'handle_invite', 'invite_one', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited' ), $screen_methods[1] ) ),
 		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ), $replaced( $students_code ) ),
@@ -2422,7 +2432,7 @@ ck( 'the screen plumbing the Students and Mentors modules held twice is one trai
 	array(
 		'trait'    => array(),
 		'students' => array( true, array(), array( 'list_state' ) ),
-		'mentors'  => array( true, array(), array( 'load_screen', 'tab_labels', 'render_admin_page' ) ),
+		'mentors'  => array( true, array(), array( 'load_screen', 'tab', 'tab_labels', 'render_admin_page' ) ),
 	) );
 
 echo "\n=== The seams answer none on the base, so a list that keeps no records draws as it did ===\n";
@@ -3066,7 +3076,7 @@ foreach ( array( 'WPCPM_Students', 'WPCPM_Mentors', 'WPCPM_Administrators' ) as 
 	}
 }
 
-ck( 'and the Students, Mentors and Administrators screens, whose first tab is Accounts, still open on Accounts',
+ck( 'and the Students and Administrators screens, whose first tab is Accounts, still open on Accounts, and so does the Mentors screen while no application to mentor waits',
 	$still,
 	array_fill_keys(
 		array( 'WPCPM_Students', 'WPCPM_Mentors', 'WPCPM_Administrators' ),

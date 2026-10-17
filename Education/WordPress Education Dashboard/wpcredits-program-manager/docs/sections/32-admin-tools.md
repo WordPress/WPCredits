@@ -36,7 +36,7 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area, each area in a table of its own. There are five:
+The plugin's emails, grouped by area, each area in a table of its own. There are six:
 
 - **Invitations**: the student's, the mentor's and the sponsor's invitation, and the institution's
   two, one for an institution whose Collaboration Agreement is not on file yet and one for an
@@ -68,6 +68,12 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   of force and back in force; what a sponsor says on the Sponsor Dashboard it would like to support,
   and its request to sponsor a mentor; the warning that an offer's codes are running low and a
   claimant's report of a code that did not work; and a sponsor's post sent back to its author.
+- **Mentor applications** (since 1.122.31): what a person who applied to mentor through the form on
+  the site is told, the acknowledgement with the link that confirms the address, the selection with
+  the mentors' course invitation link, the request for more information and the decline, and the
+  notice of a new application to the Administrators. The four to the applicant ship with the words
+  the program's Airtable automations sent, and carry the program's contact address as their
+  Reply-To when **Contact address in emails** is set, so an answer reaches the program.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the five
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
@@ -214,8 +220,9 @@ Each row is one recipient of one email: when it was sent, in the site's time zon
 plain text, and under it the person's name when the address belonged to an account at the time,
 which is a link to the account for as long as the account exists; the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
-area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, WordPress,
-Two Factor or Other); which email it was; its subject; and its status. The status is one of three:
+area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Mentor
+applications, WordPress, Two Factor or Other); which email it was; its subject; and its status. The
+status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the
   inbox: a full mailbox or a spam filter can still stop it after it leaves the site.

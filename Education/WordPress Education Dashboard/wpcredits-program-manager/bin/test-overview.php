@@ -529,6 +529,7 @@ $busy = array(
 		),
 	),
 	'sponsor_applications' => array( array( 'id' => 950 ) ),
+	'mentor_applications'  => 2,
 	'offers'               => array(
 		941 => array(
 			'id'      => 941,
@@ -618,9 +619,9 @@ foreach ( $counts as $tile ) {
 	}
 }
 
-ck( 'and a queue with nothing in it has no link: ten of the thirteen are zero, and none of them is on the list of three',
+ck( 'and a queue with nothing in it has no link: eleven of the fourteen are zero, and none of them is on the list of three',
 	array( count( array_filter( $counts, static function ( $tile ) { return 0 === (int) $tile['n']; } ) ), count( waiting_of( $waiting ) ), $zero_labels ),
-	array( 10, 3, array() ) );
+	array( 11, 3, array() ) );
 
 $busy_counts = counts_for( $busy );
 $busy_html   = draw( $busy );
@@ -628,7 +629,7 @@ $busy_links  = waiting_of( card( $busy_html, 'Waiting for a decision' ) );
 
 ck( 'with every queue waiting, the list is the Administrator Dashboard\'s strip, tile for tile: the same numbers, the same labels, the same order',
 	array( count( $busy_links ), array_map( static function ( $link ) { return array( $link[2], $link[1] ); }, $busy_links ) ),
-	array( 13, strip_tiles( $busy_counts ) ) );
+	array( 14, strip_tiles( $busy_counts ) ) );
 
 $busy_targets = array();
 
@@ -703,7 +704,7 @@ ck( 'every tile the strip counts has a place to link to, and every place on the 
 	is_array( $targets ) ? array( array_values( array_diff( $keys, array_keys( $targets ) ) ), array_values( array_diff( array_keys( $targets ), $keys ) ) ) : $targets,
 	array( array(), array() ) );
 
-ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen at the tab for each, the applications, the posts and the signed agreements on Waiting for review, each at its own card there, and the offers running low on Offers and codes; and the duplicated students the Student Duplicate Finder',
+ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen at the tab for each, the applications, the posts and the signed agreements on Waiting for review, each at its own card there, and the offers running low on Offers and codes; the mentor applications the Mentors screen at Waiting for review; and the duplicated students the Student Duplicate Finder',
 	$targets,
 	array(
 		'applications'         => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
@@ -717,6 +718,7 @@ ck( 'today the institutions\' queues open the Institutions screen at the tab for
 		'sponsor_posts'        => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts',
 		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements',
 		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-applications',
+		'mentor_applications'  => 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=queue',
 		'offers_low'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers',
 		'duplicates'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder',
 	) );
@@ -954,7 +956,7 @@ $everything = draw( array_merge( $busy, $syncs_world ) );
 
 ck( 'nothing on the screen says module, with every queue waiting, every sync and every tool on it',
 	array( count( waiting_of( card( $everything, 'Waiting for a decision' ) ) ), count( rows_of( card( $everything, 'Syncs' ) ) ), modules_in( words_of( $everything ) ) ),
-	array( 13, 5, array() ) );
+	array( 14, 5, array() ) );
 
 // Decisions have one home, the Administrator Dashboard: this screen links to it and to the queues,
 // and posts nothing itself.

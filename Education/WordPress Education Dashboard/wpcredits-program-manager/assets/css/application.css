@@ -265,3 +265,115 @@
 .wpcpm-field input[type="file"] {
 	max-width: 100%;
 }
+
+/*
+ * The mentor application form's country (1.122.31): the one field for a long list, the combobox
+ * assets/js/switcher.js shows in the select's place, as the dashboards' Viewing as switcher draws it
+ * (dashboard.css), value for value, under this form's class: this page loads none of the dashboard
+ * stylesheets. An author `display` beats the browser's `[hidden]`, so the hidden state is said again.
+ */
+.wpcpm-application .wpcpm-field select[hidden],
+.wpcpm-application .wpcpm-dashboard__switcher-combo[hidden],
+.wpcpm-application .wpcpm-dashboard__switcher-list[hidden] {
+	display: none;
+}
+
+.wpcpm-application .wpcpm-dashboard__switcher-combo {
+	box-sizing: border-box;
+	max-width: 100%;
+	position: relative;
+	width: 100%;
+}
+
+/* The field: the form's own text box, with the WordPress chevron 8px in from its edge and room kept
+   for it. */
+.wpcpm-application .wpcpm-dashboard__switcher-input {
+	background-image: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17.5 11.6L12 16l-5.5-4.4.9-1.2L12 14l4.5-3.6 1 1.2z'/%3E%3C/svg%3E" );
+	background-position: right 8px center;
+	background-repeat: no-repeat;
+	background-size: 20px 20px;
+	padding-right: 34px;
+}
+
+/* Its list: under the field, at its width, over what follows, in a pair of colors that read on each
+   other whatever the page's are. */
+.wpcpm-application .wpcpm-dashboard__switcher-list {
+	background: Canvas;
+	border: 1px solid var( --wpcpm-control-border, rgba( 128, 128, 128, 0.9 ) );
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.12 );
+	box-sizing: border-box;
+	color: CanvasText;
+	left: 0;
+	list-style: none;
+	margin: 0;
+	max-height: 24em;
+	overflow-y: auto;
+	padding: 0;
+	position: absolute;
+	top: calc( 100% + 2px );
+	width: 100%;
+	z-index: 10;
+}
+
+.wpcpm-application .wpcpm-dashboard__switcher-option,
+.wpcpm-application .wpcpm-dashboard__switcher-empty {
+	margin: 0;
+	overflow-wrap: anywhere;
+	padding: 0.375em 0.5em;
+}
+
+.wpcpm-application .wpcpm-dashboard__switcher-option {
+	cursor: pointer;
+}
+
+.wpcpm-application .wpcpm-dashboard__switcher-option:hover {
+	background: rgba( 128, 128, 128, 0.15 );
+}
+
+/* The highlighted row, the one Enter picks. */
+.wpcpm-application .wpcpm-dashboard__switcher-option.is-active {
+	background: Highlight;
+	color: HighlightText;
+}
+
+/* The country picked, which the select holds: by weight, so it is not told by a color alone. */
+.wpcpm-application .wpcpm-dashboard__switcher-option.is-current {
+	font-weight: 600;
+}
+
+.wpcpm-application .wpcpm-dashboard__switcher-empty {
+	opacity: 0.72;
+}
+
+@media ( forced-colors: active ) {
+
+	.wpcpm-application .wpcpm-dashboard__switcher-option.is-active {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+}
+
+/* For a screen reader: how many countries the list shows, or that none match. */
+.wpcpm-application .wpcpm-dashboard__switcher-status {
+	border: 0;
+	clip: rect( 0 0 0 0 );
+	clip-path: inset( 50% );
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+/* The long lists of boxes, the languages and the contribution teams: in columns as wide as the
+   longest name needs, so a phone shows one and a wide screen several. */
+.wpcpm-field--languages .wpcpm-field__choices,
+.wpcpm-field--teams .wpcpm-field__choices {
+	display: grid;
+	gap: 0 1.25em;
+	grid-template-columns: repeat( auto-fill, minmax( 13em, 1fr ) );
+}

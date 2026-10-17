@@ -62,6 +62,7 @@ final class WPCPM_Mail_Templates {
 		WPCPM_Mail_Catalog::MODULE_INSTITUTIONS => 'institutions',
 		WPCPM_Mail_Catalog::MODULE_REPORTS      => 'reports',
 		WPCPM_Mail_Catalog::MODULE_SPONSORS     => 'sponsors',
+		WPCPM_Mail_Catalog::MODULE_MENTOR_APPS  => 'mentor-applications',
 	);
 
 	/** What a placeholder looks like: a word in braces. */

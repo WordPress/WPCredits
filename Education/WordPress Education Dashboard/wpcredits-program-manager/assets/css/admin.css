@@ -669,7 +669,8 @@ p.wpcpm-settings__intro {
 /* "Recently decided" sits in the queue's own card, under the list, and takes the sub-heading
    the open application already uses rather than a second one of its own (S5 review). */
 .wpcpm-application h3,
-.wpcpm-sapp-decided > h3 {
+.wpcpm-sapp-decided > h3,
+.wpcpm-mapp-decided > h3 {
 	border-top: 1px solid #f0f0f1;
 	font-size: 14px;
 	margin: 16px 0 8px;

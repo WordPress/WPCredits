@@ -67,8 +67,9 @@ final class WPCPM_Overview {
 	 * and to review at Semester reports, and the locked accounts at Accounts. The sponsors' counts
 	 * open the Sponsors screen the same way: the applications, the sponsor posts and the signed
 	 * agreements at Waiting for review, each at the card there that lists it, and the offers running
-	 * low at Offers and codes. Every count opens a wp-admin screen, so none of them depends on the
-	 * Administrator Dashboard's page being there.
+	 * low at Offers and codes. The mentor applications open the Mentors screen at Waiting for review
+	 * (1.122.31). Every count opens a wp-admin screen, so none of them depends on the Administrator
+	 * Dashboard's page being there.
 	 *
 	 * One map, so pointing a count at another screen, or at a tab of one, is an edit here and
 	 * nowhere else. Every tile `counts()` returns has a place in it, which bin/test-overview.php
@@ -97,6 +98,7 @@ final class WPCPM_Overview {
 			'sponsor_posts'        => $sponsor_queue . '#wpcpm-sponsor-posts',
 			'sponsor_agreements'   => $sponsor_queue . '#wpcpm-sponsor-agreements',
 			'sponsor_applications' => $sponsor_queue . '#wpcpm-sponsor-applications',
+			'mentor_applications'  => admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' ),
 			'offers_low'           => $sponsor_offers,
 			'duplicates'           => admin_url( 'admin.php?page=wpcpm-tool-duplicate-finder' ),
 		);

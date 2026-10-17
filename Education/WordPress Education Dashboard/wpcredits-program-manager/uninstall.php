@@ -101,6 +101,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-call-calendar.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-group-sessions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-engagement.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-form.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-queue.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-feed.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countries.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
