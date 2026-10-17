@@ -426,6 +426,8 @@ ck( "a member of B may not", $P::decide( $P::ACT_RESEND_INVITE, $P::subject_stud
 ck( "an Administrator may, the decision naming the student's own institution", $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 1 ), allowed_as( 'manager', $A ) );
 ck( 'the student may not send their own', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 8 ), refused_for( 'no-ground' ) );
 ck( 'nor may an account that is nobody\'s member', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 4 ), refused_for( 'no-ground' ) );
+// Nobody signed in. The reset before the subjects' checks left it so already; it is said again here
+// because this check asks for the current user, and a check added between the two could change it.
 $GLOBALS['uid'] = 0;
 ck( 'nor a signed-out visitor', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ) ), refused_for( 'no-user' ) );
 ck( 'a student with no stamp is an Administrator\'s alone, naming no institution',

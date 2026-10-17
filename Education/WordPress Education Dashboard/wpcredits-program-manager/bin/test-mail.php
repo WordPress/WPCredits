@@ -103,7 +103,8 @@ function sanitize_text_field( $s ) {
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $n ); }
-function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
+// Core's: the address when it is one, false otherwise.
+function is_email( $s ) { return filter_var( (string) $s, FILTER_VALIDATE_EMAIL ) ? (string) $s : false; }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a ); }
@@ -119,15 +120,36 @@ function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function wp_generate_password( $l = 12, $s = true, $e = false ) { return substr( md5( (string) mt_rand() ), 0, (int) $l ); }
 function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
-// Every read counted by its option, so a check can say which code asked for the queue.
+// Every read counted by its option, so a check can say which code asked for the queue; and every
+// call that names an invitation lock kept, since the lock must go through none of them.
+function lock_name_asked( $how, $k ) {
+	if ( 0 === strpos( (string) $k, 'wpcpm_invite_lock_' ) ) {
+		$GLOBALS['lock_option_api'][] = array( $how, $k );
+	}
+}
 function get_option( $k, $d = false ) {
+	lock_name_asked( 'get', $k );
 	$GLOBALS['option_reads'][ $k ] = ( $GLOBALS['option_reads'][ $k ] ?? 0 ) + 1;
 	return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d;
 }
-function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
-function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
-function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function update_option( $k, $v, $a = null ) { lock_name_asked( 'update', $k ); $GLOBALS['opts'][ $k ] = $v; return true; }
+function add_option( $k, $v, $dep = '', $a = null ) { lock_name_asked( 'add', $k ); if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
+function delete_option( $k ) { lock_name_asked( 'delete', $k ); unset( $GLOBALS['opts'][ $k ] ); return true; }
+// What a request drops from its object cache, kept so a check can say which entry went, and among a
+// send's events when a check records them.
+function wp_cache_delete( $key, $group = '' ) {
+	$GLOBALS['cache_deleted'][] = array( $key, $group );
+	if ( isset( $GLOBALS['events'] ) && is_array( $GLOBALS['events'] ) ) { $GLOBALS['events'][] = 'drop ' . $group; }
+	return true;
+}
+// The invitation stamps read and written, among a send's events when a check records them.
+function stamp_event( $how, $k ) {
+	if ( isset( $GLOBALS['events'] ) && is_array( $GLOBALS['events'] ) && 0 === strpos( (string) $k, 'wpcpm_' ) && '_invited' === substr( (string) $k, -8 ) ) {
+		$GLOBALS['events'][] = $how . ' ' . $k;
+	}
+}
+function get_user_meta( $id, $k, $single = false ) { stamp_event( 'read', $k ); return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
+function update_user_meta( $id, $k, $v ) { stamp_event( 'write', $k ); $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 // The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
 // is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
 function wp_slash( $v ) { return $v; }
@@ -155,6 +177,13 @@ function wp_date( $format, $ts = null, $zone = null ) {
 }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
 function add_filter( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
+// The callback itself taken off, as core takes it off.
+function remove_action( $h, $c, $p = 10 ) {
+	foreach ( $GLOBALS['filters'][ $h ] ?? array() as $i => $added ) {
+		if ( $added === $c ) { unset( $GLOBALS['filters'][ $h ][ $i ] ); return true; }
+	}
+	return false;
+}
 /**
  * `apply_filters()`, running what was registered rather than handing the value straight back.
  *
@@ -189,17 +218,41 @@ function wp_schedule_single_event( $w, $h ) {
 }
 function wp_schedule_event( $w, $r, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
 function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
-// A check can hand it something to run while a send is under way (`$GLOBALS['during_send']`, once).
+// A check can hand it something to run while a send is under way (`$GLOBALS['during_send']`, once);
+// can have the mail host refuse the email, which core's wp_mail() reports on `wp_mail_failed` with
+// the recipients it was given as `to` (`$GLOBALS['mail_fails']`, true or the accounts it refuses), or have another plugin's email
+// fail on the way (`$GLOBALS['other_fails']`, its recipients); and can have the send throw
+// (`$GLOBALS['send_throws']`, once).
 function wp_new_user_notification( $id, $dep = null, $notify = '' ) {
 	$GLOBALS['invited'][] = (int) $id;
+
+	if ( isset( $GLOBALS['events'] ) && is_array( $GLOBALS['events'] ) ) { $GLOBALS['events'][] = 'send'; }
 
 	if ( ! empty( $GLOBALS['during_send'] ) ) {
 		$run                   = $GLOBALS['during_send'];
 		$GLOBALS['during_send'] = null;
 		$run();
 	}
+
+	if ( ! empty( $GLOBALS['send_throws'] ) ) {
+		$GLOBALS['send_throws'] = false;
+		throw new RuntimeException( 'The mailer stopped.' );
+	}
+
+	foreach ( $GLOBALS['other_fails'] ?? array() as $to ) {
+		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.', array( 'to' => $to ) ) );
+	}
+
+	if ( ! empty( $GLOBALS['mail_fails'] ) && ( true === $GLOBALS['mail_fails'] || in_array( (int) $id, (array) $GLOBALS['mail_fails'], true ) ) ) {
+		$user = $GLOBALS['users'][ (int) $id ] ?? null;
+		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.', array( 'to' => array( $user ? $user->user_email : '' ), 'phpmailer_exception_code' => 2 ) ) );
+	}
 }
 function wp_doing_ajax() { return ! empty( $GLOBALS['doing_ajax'] ); }
+// What the invitations card draws its forms with.
+function esc_url( $u ) { return (string) $u; }
+function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
+function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />'; }
 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 /**
@@ -285,10 +338,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
 // The template registry the invitations are built from since 1.122.19, and the catalog that names them.
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 // The Settings screen the sample handler goes back to, and whose outcome it queues through the
 // screen's own door: the real one, since a stand-in's pairing of the two channels would only agree
 // with itself.
@@ -1502,6 +1558,20 @@ ck( 'its refusal is the sentence too_soon_message() words, with the fifteen minu
     array( $refusal->get_error_message(), WPCPM_Mail::too_soon_message() ),
     array_fill( 0, 2, 'This person was sent an invitation less than 15 minutes ago. Another one now would cancel the link in it, so nothing was sent.' ) );
 
+// Worded once too: a Resend invite on every accounts screen and the Institution Dashboard's press
+// print the same sentence when the invitation could not be sent.
+$failed_in = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+	if ( 'php' === $file->getExtension() && false !== strpos( (string) file_get_contents( $file->getPathname() ), "'The invitation could not be sent.'" ) ) {
+		$failed_in[] = substr( $file->getPathname(), strlen( WPCPM_PLUGIN_DIR ) );
+	}
+}
+
+ck( 'the sentence for an invitation that could not be sent is worded once, in the mail layer, and read from there',
+	array( method_exists( 'WPCPM_Mail', 'invite_failed_message' ) ? WPCPM_Mail::invite_failed_message() : null, $failed_in ),
+	array( 'The invitation could not be sent.', array( 'includes/class-wpcpm-mail.php' ) ) );
+
 ck( 'a sent Resend flashes invited', array( WPCPM_Mail::invite_outcome( true ) ), array( 'invited' ) );
 ck( 'a refused one flashes invite-too-soon', array( WPCPM_Mail::invite_outcome( $refusal ) ), array( 'invite-too-soon' ) );
 ck( 'and any other failure the shared error', array( WPCPM_Mail::invite_outcome( new WP_Error( 'wpcpm_not_student' ) ) ), array( 'error' ) );
@@ -1517,6 +1587,266 @@ ck( 'the refusal is a warning that says nothing was sent',
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
 $GLOBALS['invited'] = $before_gap;
+
+/* ---- two sends to one person at the same moment -------------------------- */
+
+echo "\n=== Two sends to one person at the same moment ===\n";
+
+// Two requests for the same account, a row's Resend invite pressed twice or the Institution
+// Dashboard's press beside it, can both pass the fifteen minutes before either has stamped. The
+// account's lock (WPCPM_Lock) is taken before that check and let go after the stamp, so the request
+// that finds it taken is refused as the fifteen minutes refuse it, and one email goes.
+$before_lock = $GLOBALS['invited'];
+$lock_of     = function ( $id ) { return 'wpcpm_invite_lock_' . (int) $id; };
+$code_of     = function ( $r ) { return is_wp_error( $r ) ? $r->get_error_code() : $r; };
+$until_of    = function ( $id ) use ( $lock_of ) { return WPCPM_Test_Options_Wpdb::leading_number( $GLOBALS['opts'][ $lock_of( $id ) ] ?? '' ); };
+$wait_of     = function ( $r ) { return is_wp_error( $r ) && is_array( $r->get_error_data() ) ? (int) $r->get_error_data()['wait'] : null; };
+
+$GLOBALS['users'][831]     = new WP_User( 831, 'A student pressed for twice', 's831@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][832]     = new WP_User( 832, 'A mentor pressed for twice', 'm832@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][833]     = new WP_User( 833, 'A member pressed for twice', 'i833@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['cache_deleted']   = array();
+$GLOBALS['lock_option_api'] = array();
+$GLOBALS['wpdb']            = new WPCPM_Test_Options_Wpdb();
+
+foreach ( array( 831 => 'WPCPM_Students_Sync', 832 => 'WPCPM_Mentors_Sync', 833 => 'WPCPM_Institutions_Sync' ) as $id => $sync ) {
+	$GLOBALS['invited']     = array();
+	$second                 = null;
+	$row_meanwhile          = null;
+	$taken_at               = time();
+	$GLOBALS['during_send'] = function () use ( $id, $sync, &$second, &$row_meanwhile, $until_of ) {
+		$row_meanwhile = $until_of( $id );
+		$second        = $sync::send_invite( $id );
+	};
+	$first = $sync::send_invite( $id );
+
+	ck( sprintf( '%s: a second send while the first is on its way is refused as the fifteen minutes refuse it, in the same sentence, and one email goes', $sync ),
+		array( $code_of( $first ), $code_of( $second ), is_wp_error( $second ) ? $second->get_error_message() : '', $GLOBALS['invited'] ),
+		array( true, 'wpcpm_invite_too_soon', WPCPM_Mail::too_soon_message(), array( $id ) ) );
+	ck( sprintf( '%s: and it is told how long the lock has left, not the fifteen minutes', $sync ),
+		$wait_of( $second ) > 0 && $wait_of( $second ) <= 600, true );
+	ck( sprintf( '%s: while the email is on its way the account\'s lock row runs ten minutes on, is not loaded on every page, and once the send is stamped the row is gone', $sync ),
+		array( $row_meanwhile >= $taken_at + 600 && $row_meanwhile <= time() + 600, $GLOBALS['wpdb']->autoload[ $lock_of( $id ) ] ?? 'gone with its row', array_key_exists( $lock_of( $id ), $GLOBALS['opts'] ) ),
+		array( true, 'gone with its row', false ) );
+	ck( sprintf( '%s: once the lock is taken the account\'s cached user meta is dropped, so the fifteen minutes read the stamp another request may have written since', $sync ),
+		in_array( array( $id, 'user_meta' ), $GLOBALS['cache_deleted'], true ), true );
+}
+
+ck( 'the lock is never asked of the options API, so no cached copy of its row and no "not there" note answers for it',
+	array( $GLOBALS['lock_option_api'], $GLOBALS['wpdb']->unmodeled ), array( array(), array() ) );
+
+// What one send does, in order, on the real rule: the lock first, then the cache dropped, then the
+// fifteen minutes read from the stamps, then the email, then the stamp, then the lock let go. The
+// lock before the fifteen minutes is what closes the race: a check before the lock lets a second
+// request read the stamps before the first writes them, and take the lock once the first lets go.
+$GLOBALS['users'][839] = new WP_User( 839, 'A student sent one invitation', 's839@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['events']     = array();
+WPCPM_Students_Sync::send_invite( 839 );
+$send_order        = $GLOBALS['events'];
+$GLOBALS['events'] = null;
+$reads             = array_map( function ( $k ) { return 'read ' . $k; }, array_values( WPCPM_Mail::STAMPS ) );
+
+ck( 'one send takes the lock, drops the cache, reads the stamps, sends, stamps, and lets the lock go, in that order',
+	$send_order,
+	array_merge( array( 'lock insert', 'drop user_meta' ), $reads, array( 'send', 'write wpcpm_student_invited', 'lock delete' ) ) );
+
+$GLOBALS['wpdb']    = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['invited'] = array();
+$GLOBALS['users'][834] = new WP_User( 834, 'A student another request is sending to', 's834@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+
+$GLOBALS['opts'][ $lock_of( 834 ) ] = (string) ( time() + 400 );
+$held                               = WPCPM_Students_Sync::send_invite( 834 );
+ck( 'an account whose lock another request holds is sent nothing, is told the seconds the lock has left, and the lock is left to that request',
+	array( $code_of( $held ), $wait_of( $held ) >= 399 && $wait_of( $held ) <= 400, $GLOBALS['invited'], $GLOBALS['opts'][ $lock_of( 834 ) ] ?? null ),
+	array( 'wpcpm_invite_too_soon', true, array(), (string) ( time() + 400 ) ) );
+
+$GLOBALS['opts'][ $lock_of( 834 ) ] = (string) ( time() - 1 );
+ck( 'a lock whose time has passed was left by a request that never let it go: it is taken over, the email goes and the row is gone',
+	array( WPCPM_Students_Sync::send_invite( 834 ), $GLOBALS['invited'], array_key_exists( $lock_of( 834 ), $GLOBALS['opts'] ) ),
+	array( true, array( 834 ), false ) );
+
+// Two requests find a lock that ran out, in the moment before either writes; the second sends whole
+// inside the first's take-over. One holds the lock, so one email goes.
+$GLOBALS['users'][840]              = new WP_User( 840, 'A student whose old lock two requests find', 's840@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['invited']                 = array();
+$GLOBALS['opts'][ $lock_of( 840 ) ] = (string) ( time() - 60 );
+$inner                              = null;
+$GLOBALS['wpdb']->before_takeover   = function () use ( &$inner ) {
+	$inner = WPCPM_Students_Sync::send_invite( 840 );
+};
+$outer = WPCPM_Students_Sync::send_invite( 840 );
+ck( 'two requests taking over one lock that ran out send one email: the one that took it over sends, and the other is refused',
+	array( $code_of( $inner ), $code_of( $outer ), $GLOBALS['invited'] ),
+	array( true, 'wpcpm_invite_too_soon', array( 840 ) ) );
+
+// A request that takes the lock and dies before it sends (a fatal error, a killed process) never
+// lets it go. The account waits out the lock's lifetime and no longer.
+$GLOBALS['users'][835] = new WP_User( 835, 'A student whose send died', 's835@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['invited']    = array();
+$taken                 = WPCPM_Lock::take( $lock_of( 835 ), WPCPM_Mail::INVITE_LOCK_TTL );
+$meanwhile             = WPCPM_Students_Sync::send_invite( 835 );
+ck( 'a request that took the lock and died before sending holds the account for the lock\'s lifetime: a send meanwhile is refused and sends nothing',
+	array( '' !== $taken, $code_of( $meanwhile ), $GLOBALS['invited'] ),
+	array( true, 'wpcpm_invite_too_soon', array() ) );
+
+$GLOBALS['opts'][ $lock_of( 835 ) ] = (string) ( $until_of( 835 ) - WPCPM_Mail::INVITE_LOCK_TTL - 1 );
+ck( 'and once its ten minutes have passed, the send goes',
+	array( WPCPM_Students_Sync::send_invite( 835 ), $GLOBALS['invited'] ),
+	array( true, array( 835 ) ) );
+
+// The send throws (a mailer plugin's bug): the lock is let go all the same, and nothing is stamped.
+$GLOBALS['users'][836]  = new WP_User( 836, 'A student whose mailer threw', 's836@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['send_throws'] = true;
+$thrown                 = '';
+try {
+	WPCPM_Students_Sync::send_invite( 836 );
+} catch ( RuntimeException $e ) {
+	$thrown = $e->getMessage();
+}
+ck( 'an exception during the send passes through, lets the lock go and stamps nothing',
+	array( $thrown, array_key_exists( $lock_of( 836 ), $GLOBALS['opts'] ), WPCPM_Mail::last_invited( 836 ) ),
+	array( 'The mailer stopped.', false, 0 ) );
+
+ck( 'the lock holds ten minutes at most, less than the fifteen, under a name of its own that uninstall sweeps',
+	array( defined( 'WPCPM_Mail::INVITE_LOCK_TTL' ) ? WPCPM_Mail::INVITE_LOCK_TTL : null, defined( 'WPCPM_Mail::INVITE_LOCK' ) ? WPCPM_Mail::INVITE_LOCK : null ),
+	array( 600, 'wpcpm_invite_lock_' ) );
+
+echo "\n=== An email the mail host refuses is no send ===\n";
+
+// The refusal is heard by the mail layer, for every route: a row's Resend invite on the four
+// screens, the Institution Dashboard's press and the queue. It writes no stamp, so the account's
+// last invitation stays the last one that went, or none, and the fifteen minutes do not start.
+$GLOBALS['users'][841]          = new WP_User( 841, 'A student whose email was refused', 's841@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][842]          = new WP_User( 842, 'A mentor invited before, whose email was refused', 'm842@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['umeta'][842]          = array( 'wpcpm_mentor_invited' => 1790000000 );
+$GLOBALS['invited']             = array();
+$GLOBALS['mail_fails']          = true;
+$refused                        = WPCPM_Students_Sync::send_invite( 841 );
+$refused_again                  = WPCPM_Mentors_Sync::send_invite( 842 );
+$GLOBALS['mail_fails']          = false;
+
+ck( 'a refused email answers an outcome of its own, which says what happened and what to do next',
+	array( $code_of( $refused ), is_wp_error( $refused ) ? $refused->get_error_message() : '', WPCPM_Mail::invite_outcome( $refused ), WPCPM_Mail::invite_notices()['invite-mail-refused'] ?? null ),
+	array( 'wpcpm_invite_refused', 'The site\'s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site\'s email is working.', 'invite-mail-refused', array( 'error', 'The site\'s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site\'s email is working.' ) ) );
+ck( 'worded once for each reader in the mail layer: the Administrators on the accounts screens, and an institution\'s members on its dashboard',
+	array( method_exists( 'WPCPM_Mail', 'invite_refused_message' ) ? WPCPM_Mail::invite_refused_message() : null, method_exists( 'WPCPM_Mail', 'invite_refused_message' ) ? WPCPM_Mail::invite_refused_message( 'member' ) : null ),
+	array( 'The site\'s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site\'s email is working.', 'The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact.' ) );
+ck( 'and writes no stamp: an account never invited is still never invited, and one invited before keeps that earlier time',
+	array( WPCPM_Mail::last_invited( 841 ), WPCPM_Mail::last_invited( 842 ), $GLOBALS['umeta'][842] ),
+	array( 0, 1790000000, array( 'wpcpm_mentor_invited' => 1790000000 ) ) );
+ck( 'the lock is let go', array( array_key_exists( $lock_of( 841 ), $GLOBALS['opts'] ), array_key_exists( $lock_of( 842 ), $GLOBALS['opts'] ) ), array( false, false ) );
+ck( 'so a second send straight after goes, and is stamped',
+	array( WPCPM_Students_Sync::send_invite( 841 ), WPCPM_Mail::last_invited( 841 ) > 0, $GLOBALS['invited'] ),
+	array( true, true, array( 841, 842, 841 ) ) );
+ck( 'while a send that went still holds the next one to the fifteen minutes', $code_of( WPCPM_Students_Sync::send_invite( 841 ) ), 'wpcpm_invite_too_soon' );
+
+$GLOBALS['users'][843]    = new WP_User( 843, 'A student whose invitation went beside another email that failed', 's843@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['other_fails']   = array( array( 'desk@example.test' ), 'Program Desk <desk@example.test>' );
+$beside                   = WPCPM_Students_Sync::send_invite( 843 );
+$GLOBALS['other_fails']   = array();
+ck( 'another email failing while the invitation is on its way, one another plugin sends from a filter, leaves the invitation sent and stamped',
+	array( $beside, WPCPM_Mail::last_invited( 843 ) > 0 ), array( true, true ) );
+ck( 'and the listener is there for the one send and no longer', count( $GLOBALS['filters']['wp_mail_failed'] ?? array() ), 0 );
+
+echo "\n=== The queue goes through the same rule ===\n";
+
+// "Send invite" and "Resend invite" on ticked accounts queue them; the queue sends each through the
+// rule a row's Resend invite follows, under the account's lock.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb']       = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['users'][844] = new WP_User( 844, 'A queued student another request is sending to', 's844@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][845] = new WP_User( 845, 'A queued student whose email is refused', 's845@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][846] = new WP_User( 846, 'A queued student sent one', 's846@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$held_row              = (string) ( time() + 300 );
+$GLOBALS['opts'][ $lock_of( 844 ) ] = $held_row;
+$GLOBALS['invited']    = array();
+WPCPM_Mail::queue_invites( array( 844, 846 ) );
+WPCPM_Mail::drain_queue();
+
+ck( 'a queued account whose lock another request holds is passed over, as one inside the fifteen minutes is: not sent, not queued again, and the lock left to that request',
+	array( $GLOBALS['invited'], WPCPM_Mail::queued(), $GLOBALS['opts'][ $lock_of( 844 ) ] ?? null, WPCPM_Mail::last_invited( 844 ) ),
+	array( array( 846 ), 0, $held_row, 0 ) );
+ck( 'the others are sent under their own lock, each let go',
+	array( WPCPM_Mail::last_invited( 846 ) > 0, array_key_exists( $lock_of( 846 ), $GLOBALS['opts'] ), count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_invite_lock_846/', $GLOBALS['wpdb']->statements ) ) ),
+	array( true, false, 1 ) );
+
+$GLOBALS['invited']    = array();
+$GLOBALS['mail_fails'] = true;
+WPCPM_Mail::queue_invites( array( 845 ) );
+WPCPM_Mail::drain_queue();
+$GLOBALS['mail_fails'] = false;
+ck( 'a queued account whose email the mail host refuses is not stamped, so the lists show it was never sent one',
+	array( $GLOBALS['invited'], WPCPM_Mail::last_invited( 845 ), WPCPM_Mail::queued() ),
+	array( array( 845 ), 0, 0 ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+// A run of three first invitations: one another request is sending at that moment, one the mail
+// host refuses, one sent. The card the run leaves says how many went and how many did not.
+$GLOBALS['users'][847]              = new WP_User( 847, 'A run\'s student another request is sending to', 's847@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][848]              = new WP_User( 848, 'A run\'s student whose email is refused', 's848@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][849]              = new WP_User( 849, 'A run\'s student sent one', 's849@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['opts'][ $lock_of( 847 ) ] = (string) ( time() + 300 );
+$GLOBALS['invited']                 = array();
+$GLOBALS['mail_fails']              = array( 848 );
+WPCPM_Mail::queue_invites( array( 847, 848, 849 ) );
+WPCPM_Mail::drain_queue();
+$GLOBALS['mail_fails']              = false;
+$finished_run                       = WPCPM_Mail::run();
+ob_start();
+WPCPM_Mail::render_invite_card( array( 'action' => 'wpcpm_students_bulk_invite', 'pending' => array(), 'noun' => 'students' ) );
+$finished_card = (string) ob_get_clean();
+
+ck( 'a finished run counts the accounts it did not send to, the one held by another request and the one the mail host refused',
+	array( $GLOBALS['invited'], $finished_run['total'] ?? null, $finished_run['unsent'] ?? null, ! empty( $finished_run['finished'] ) ),
+	array( array( 848, 849 ), 3, 2, true ) );
+ck( 'and its card says how many were sent and how many were not',
+	false !== strpos( $finished_card, '<strong>Finished: 1 invitation sent to students, 2 not sent.</strong>' ), true );
+
+// An account queued and deleted before its batch came: the queue sends it nothing, and says so.
+WPCPM_Mail::dismiss_run();
+$GLOBALS['users'][852] = new WP_User( 852, 'A run\'s student whose account is about to go', 's852@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][853] = new WP_User( 853, 'A run\'s student sent one beside it', 's853@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['invited']    = array();
+WPCPM_Mail::queue_invites( array( 852, 853 ) );
+unset( $GLOBALS['users'][852] );
+WPCPM_Mail::drain_queue();
+ob_start();
+WPCPM_Mail::render_invite_card( array( 'action' => 'wpcpm_students_bulk_invite', 'pending' => array(), 'noun' => 'students' ) );
+ck( 'an account gone before its batch came is sent nothing, and the card counts it among those not sent',
+	array( $GLOBALS['invited'], WPCPM_Mail::run()['unsent'] ?? null, false !== strpos( (string) ob_get_clean(), '<strong>Finished: 1 invitation sent to students, 1 not sent.</strong>' ) ),
+	array( array( 853 ), 1, true ) );
+
+WPCPM_Mail::dismiss_run();
+$GLOBALS['users'][850] = new WP_User( 850, 'A run\'s only student, sent one', 's850@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][851] = new WP_User( 851, 'A run\'s other student, sent one', 's851@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+WPCPM_Mail::queue_invites( array( 850, 851 ) );
+WPCPM_Mail::drain_queue();
+ob_start();
+WPCPM_Mail::render_invite_card( array( 'action' => 'wpcpm_students_bulk_invite', 'pending' => array(), 'noun' => 'students' ) );
+ck( 'a run that sent every one keeps the sentence it always had',
+	array( WPCPM_Mail::run()['unsent'] ?? null, false !== strpos( (string) ob_get_clean(), '<strong>Finished: 2 invitations sent to students.</strong>' ) ), array( 0, true ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+// Every route that sends one person their invitation at once goes through the one rule that takes
+// the lock: the Students, Mentors and Institutions syncs' send_invite() and the sponsor members',
+// which a row's Resend invite on each accounts screen and the Institution Dashboard's press reach.
+$handed = array();
+
+foreach ( array( 'class-wpcpm-students-sync.php', 'class-wpcpm-mentors-sync.php', 'class-wpcpm-institutions-sync.php', 'class-wpcpm-sponsor-members.php' ) as $file ) {
+	$source   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
+	$body     = substr( $source, (int) strpos( $source, 'public static function send_invite(' ) );
+	$body     = substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
+	$handed[] = array( substr_count( $body, 'return WPCPM_Mail::send_invite_now( $user );' ), substr_count( $body, 'wp_new_user_notification(' ), substr_count( $body, 'WPCPM_Mail::may_invite(' ), substr_count( $body, 'stamp_invited(' ) );
+}
+
+ck( 'each of the four send_invite() hands the account to that rule once its own refusals have passed, and neither checks, sends nor stamps itself', $handed, array_fill( 0, 4, array( 1, 0, 0, 0 ) ) );
+
+$GLOBALS['invited'] = $before_lock;
 
 /* ---- inviting one institution ------------------------------------------- */
 

@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.31\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.32\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-17T04:12:52+00:00\n"
+"POT-Creation-Date: 2026-10-17T13:30:13+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -163,7 +163,7 @@ msgstr ""
 
 #: includes/class-wpcpm-admin.php:121
 #: includes/class-wpcpm-admin.php:230
-#: includes/class-wpcpm-mail.php:945
+#: includes/class-wpcpm-mail.php:1136
 #: includes/class-wpcpm-settings-screen.php:151
 #: includes/class-wpcpm-settings-screen.php:283
 #: includes/class-wpcpm-settings-screen.php:498
@@ -675,26 +675,38 @@ msgid "Learn WordPress answered with status %d instead of the course."
 msgstr ""
 
 #. translators: %d: a number of minutes.
-#: includes/class-wpcpm-mail.php:824
+#: includes/class-wpcpm-mail.php:973
 #, php-format
 msgid "This person was sent an invitation less than %d minutes ago. Another one now would cancel the link in it, so nothing was sent."
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:854
+#: includes/class-wpcpm-mail.php:989
+msgid "The invitation could not be sent."
+msgstr ""
+
+#: includes/class-wpcpm-mail.php:1006
+msgid "The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact."
+msgstr ""
+
+#: includes/class-wpcpm-mail.php:1009
+msgid "The site's mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site's email is working."
+msgstr ""
+
+#: includes/class-wpcpm-mail.php:1044
 msgid "Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email."
 msgstr ""
 
 #. translators: %d: a number of minutes.
-#: includes/class-wpcpm-mail.php:859
+#: includes/class-wpcpm-mail.php:1049
 #, php-format
 msgid "Nothing was sent: this person was sent an invitation less than %d minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later."
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:1026
+#: includes/class-wpcpm-mail.php:1217
 msgid "people"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:1032
+#: includes/class-wpcpm-mail.php:1223
 #: includes/class-wpcpm-settings-screen.php:1610
 #: includes/class-wpcpm-settings-screen.php:1822
 #: includes/mail/class-wpcpm-mail-catalog.php:60
@@ -702,64 +714,72 @@ msgid "Invitations"
 msgstr ""
 
 #. translators: 1: sent so far, 2: total in this run.
-#: includes/class-wpcpm-mail.php:1046
+#: includes/class-wpcpm-mail.php:1238
 #, php-format
 msgid "Sending: %1$d of %2$d sent."
 msgstr ""
 
 #. translators: 1: how many are left, 2: batch size, 3: human time until the next batch.
-#: includes/class-wpcpm-mail.php:1059
+#: includes/class-wpcpm-mail.php:1251
 #, php-format
 msgid "%1$d still to go. They go out %2$d at a time, so this finishes on its own - you can leave this page. Next batch %3$s."
 msgstr ""
 
 #. translators: %s: human time difference.
-#: includes/class-wpcpm-mail.php:1062
+#: includes/class-wpcpm-mail.php:1254
 #, php-format
 msgid "in about %s"
 msgstr ""
 
 #. translators: %s: human time difference.
-#: includes/class-wpcpm-mail.php:1062
+#: includes/class-wpcpm-mail.php:1254
 msgid "shortly"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:1065
+#: includes/class-wpcpm-mail.php:1257
 #: includes/modules/class-wpcpm-mentors.php:741
 #: includes/modules/class-wpcpm-students.php:438
 msgid "Invitations sent"
 msgstr ""
 
-#: includes/class-wpcpm-mail.php:1074
+#: includes/class-wpcpm-mail.php:1266
 msgid "Stop sending? Invitations already sent cannot be recalled."
 msgstr ""
 
 #. translators: %d: how many are still queued.
-#: includes/class-wpcpm-mail.php:1088
+#: includes/class-wpcpm-mail.php:1280
 #, php-format
 msgid "Stop and cancel the remaining %d"
 msgstr ""
 
+#. translators: 1: how many were sent, 2: the people, e.g. "students", 3: how many were not sent: refused by the mail host, held by another request sending them one, invited in the last fifteen minutes, or their account gone.
+#: includes/class-wpcpm-mail.php:1301
+#, php-format
+msgid "Finished: %1$d invitation sent to %2$s, %3$d not sent."
+msgid_plural "Finished: %1$d invitations sent to %2$s, %3$d not sent."
+msgstr[0] ""
+msgstr[1] ""
+
 #. translators: 1: how many were sent, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1109
+#: includes/class-wpcpm-mail.php:1309
 #, php-format
 msgid "Finished: %1$d invitation sent to %2$s."
 msgid_plural "Finished: %1$d invitations sent to %2$s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-mail.php:1119
+#: includes/class-wpcpm-mail.php:1320
 msgid "Dismiss"
 msgstr ""
 
 #. translators: %s: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1129
+#: includes/class-wpcpm-mail.php:1330
 #, php-format
 msgid "Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row."
 msgstr ""
 
 #. translators: 1: how many people, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1149
+#: includes/class-wpcpm-mail.php:1350
 #, php-format
 msgid "Send an invitation to %1$d of the %2$s? It cannot be recalled once sent."
 msgid_plural "Send an invitation to %1$d of the %2$s? They cannot be recalled once sent."
@@ -767,7 +787,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many people, 2: the people, e.g. "students".
-#: includes/class-wpcpm-mail.php:1170
+#: includes/class-wpcpm-mail.php:1371
 #, php-format
 msgid "Invite %1$d %2$s who has never been invited"
 msgid_plural "Invite %1$d %2$s who have never been invited"
@@ -775,7 +795,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: batch size.
-#: includes/class-wpcpm-mail.php:1184
+#: includes/class-wpcpm-mail.php:1385
 #, php-format
 msgid "Anybody already invited is skipped, so this is safe to run twice. Messages go out %d at a time in the background."
 msgstr ""
@@ -1035,7 +1055,7 @@ msgstr ""
 #: includes/class-wpcpm-overview.php:203
 #: includes/modules/class-wpcpm-administrators-cards.php:1939
 #: includes/modules/class-wpcpm-mentors.php:383
-#: includes/modules/trait-wpcpm-accounts-screen.php:534
+#: includes/modules/trait-wpcpm-accounts-screen.php:536
 msgid "Sync"
 msgstr ""
 
@@ -1718,7 +1738,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors.php:381
 #: includes/modules/class-wpcpm-sponsors.php:1452
 #: includes/modules/class-wpcpm-sponsors.php:2268
-#: includes/modules/trait-wpcpm-accounts-screen.php:533
+#: includes/modules/trait-wpcpm-accounts-screen.php:535
 msgid "Accounts"
 msgstr ""
 
@@ -6666,7 +6686,7 @@ msgid "That confirmation link could not be read. It may have been broken across 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1080
-#: includes/modules/class-wpcpm-institution-resend.php:194
+#: includes/modules/class-wpcpm-institution-resend.php:204
 #: includes/modules/class-wpcpm-mentor-application-form.php:1061
 #: includes/modules/class-wpcpm-sponsor-application.php:1007
 msgid "Sending..."
@@ -7289,7 +7309,7 @@ msgid "Invite a colleague"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-invite.php:331
-#: includes/modules/class-wpcpm-institution-resend.php:204
+#: includes/modules/class-wpcpm-institution-resend.php:214
 msgid "Send invitation"
 msgstr ""
 
@@ -8562,57 +8582,52 @@ msgid "This student already has a mentor, so nothing was asked for."
 msgstr ""
 
 #. translators: 1: the day the site began recording sign-ins, 2: the date the last invitation was sent, both in the site's date format.
-#: includes/modules/class-wpcpm-institution-resend.php:177
+#: includes/modules/class-wpcpm-institution-resend.php:187
 #, php-format
 msgid "No sign-in on record since %1$s. Invitation last sent %2$s."
 msgstr ""
 
 #. translators: %s: the day the site began recording sign-ins, in the site's date format.
-#: includes/modules/class-wpcpm-institution-resend.php:184
+#: includes/modules/class-wpcpm-institution-resend.php:194
 #, php-format
 msgid "No sign-in on record since %s. No invitation sent yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-resend.php:204
+#: includes/modules/class-wpcpm-institution-resend.php:214
 msgid "Resend invitation"
 msgstr ""
 
 #. translators: %s: the student's email address, masked, such as a***@example.org.
-#: includes/modules/class-wpcpm-institution-resend.php:263
+#: includes/modules/class-wpcpm-institution-resend.php:274
 #, php-format
 msgid "The invitation is on its way to %s. The new link replaces the one in the earlier email."
 msgstr ""
 
 #. translators: %s: the student's email address, masked, such as a***@example.org.
-#: includes/modules/class-wpcpm-institution-resend.php:271
+#: includes/modules/class-wpcpm-institution-resend.php:282
 #, php-format
 msgid "The invitation is on its way to %s."
 msgstr ""
 
 #. translators: %d: how many invitations an institution may send in a day.
-#: includes/modules/class-wpcpm-institution-resend.php:280
+#: includes/modules/class-wpcpm-institution-resend.php:291
 #, php-format
 msgid "Your institution has sent %d invitation today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team."
 msgid_plural "Your institution has sent %d invitations today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-institution-resend.php:289
+#: includes/modules/class-wpcpm-institution-resend.php:300
 msgid "This student has signed in since the page was drawn, so nothing was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-resend.php:290
-#: includes/modules/trait-wpcpm-accounts-screen.php:455
-msgid "The invitation could not be sent."
-msgstr ""
-
 #. translators: %s: the student's email address, masked, such as a***@example.org.
-#: includes/modules/class-wpcpm-institution-resend.php:296
+#: includes/modules/class-wpcpm-institution-resend.php:308
 #, php-format
 msgid "The invitation is on its way to %s, but the entry saying who sent it could not be written, so it is not in this institution's history. Tell your program contact."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-resend.php:466
+#: includes/modules/class-wpcpm-institution-resend.php:478
 msgid "Welcome invitation sent from the Institution Dashboard."
 msgstr ""
 
@@ -9348,25 +9363,25 @@ msgstr ""
 msgid "The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor's; for any other, correct the Contact Email in Airtable or the account's address first."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-sync.php:1159
-#: includes/modules/class-wpcpm-mentors-sync.php:1945
-#: includes/modules/class-wpcpm-sponsor-members.php:562
-#: includes/modules/class-wpcpm-students-sync.php:3013
+#: includes/modules/class-wpcpm-institutions-sync.php:1160
+#: includes/modules/class-wpcpm-mentors-sync.php:1946
+#: includes/modules/class-wpcpm-sponsor-members.php:563
+#: includes/modules/class-wpcpm-students-sync.php:3014
 msgid "That user does not exist."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-sync.php:1163
+#: includes/modules/class-wpcpm-institutions-sync.php:1164
 msgid "That account does not hold the Institution role."
 msgstr ""
 
 #. translators: 1: user ID, 2: error message.
-#: includes/modules/class-wpcpm-institutions-sync.php:1262
+#: includes/modules/class-wpcpm-institutions-sync.php:1254
 #, php-format
 msgid "Could not revoke the membership of account %1$d: %2$s"
 msgstr ""
 
 #. translators: %s: how many Collaboration Agreements were written to the base.
-#: includes/modules/class-wpcpm-institutions-sync.php:1309
+#: includes/modules/class-wpcpm-institutions-sync.php:1301
 #, php-format
 msgid "%s Collaboration Agreement the base had not been told about was written in this sync run."
 msgid_plural "%s Collaboration Agreements the base had not been told about were written in this sync run."
@@ -12580,7 +12595,7 @@ msgstr ""
 msgid "Could not create the account \"%1$s\": %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1949
+#: includes/modules/class-wpcpm-mentors-sync.php:1950
 msgid "That account does not hold the Mentor role."
 msgstr ""
 
@@ -14379,7 +14394,7 @@ msgstr ""
 msgid "%s no longer holds the posting capabilities an earlier removal left behind."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-members.php:566
+#: includes/modules/class-wpcpm-sponsor-members.php:567
 msgid "That account does not hold the Sponsor role."
 msgstr ""
 
@@ -16682,7 +16697,7 @@ msgid_plural "%s students have a mentor but no report record under their address
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-students-sync.php:3017
+#: includes/modules/class-wpcpm-students-sync.php:3018
 msgid "That account does not hold the Student role."
 msgstr ""
 
@@ -16802,19 +16817,19 @@ msgstr ""
 msgid "That action could not be completed. Reload the screen and try again."
 msgstr ""
 
-#: includes/modules/trait-wpcpm-accounts-screen.php:458
+#: includes/modules/trait-wpcpm-accounts-screen.php:460
 msgid "Invitations queued. They go out in the background - the progress is shown below."
 msgstr ""
 
-#: includes/modules/trait-wpcpm-accounts-screen.php:459
+#: includes/modules/trait-wpcpm-accounts-screen.php:461
 msgid "Nobody was waiting for an invitation."
 msgstr ""
 
-#: includes/modules/trait-wpcpm-accounts-screen.php:460
+#: includes/modules/trait-wpcpm-accounts-screen.php:462
 msgid "Sending stopped. Invitations already sent cannot be recalled."
 msgstr ""
 
-#: includes/modules/trait-wpcpm-accounts-screen.php:602
+#: includes/modules/trait-wpcpm-accounts-screen.php:604
 #: includes/tools/class-wpcpm-mentor-checker.php:713
 msgid "Open settings"
 msgstr ""

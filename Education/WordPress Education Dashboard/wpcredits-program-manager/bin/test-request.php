@@ -25,6 +25,10 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function network_admin_url( $p = '' ) { return 'https://example.test/wp-admin/network/' . $p; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function is_multisite() { return false; }
+// The page the form was posted from, as core's wp_get_referer() reads it: an address on this site,
+// or false.
+$GLOBALS['referer'] = false;
+function wp_get_referer() { return $GLOBALS['referer']; }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 
@@ -55,6 +59,29 @@ ck( 'and an absent argument is 0', WPCPM_Request::id( 'missing' ), 0 );
 ck( 'the same on a posted number', WPCPM_Request::posted_id( 'n' ), 17 );
 ck( 'a posted array is 0 even when its one value is a number', WPCPM_Request::posted_id( 'arr' ), 0 );
 ck( 'a posted blank is 0', WPCPM_Request::posted_id( 'blank' ), 0 );
+
+echo "\n=== back(): where a handler sends a press back to ===\n";
+
+/** What back() answers, or that there is no back() to ask. */
+function back_to( ...$fallbacks ) { return method_exists( 'WPCPM_Request', 'back' ) ? WPCPM_Request::back( ...$fallbacks ) : 'no back()'; }
+
+$GLOBALS['referer'] = 'https://example.test/institution-dashboard/?wpcpm_institution_student=10';
+ck( 'the page the form was posted from, as wp_get_referer() reads it', back_to( 'https://example.test/institution-dashboard/', 'https://example.test/' ), 'https://example.test/institution-dashboard/?wpcpm_institution_student=10' );
+$GLOBALS['referer'] = false;
+ck( 'with none, the first fallback', back_to( 'https://example.test/institution-dashboard/', 'https://example.test/' ), 'https://example.test/institution-dashboard/' );
+ck( 'an empty fallback is passed over for the next', back_to( '', 'https://example.test/' ), 'https://example.test/' );
+ck( 'and with nothing to go back to, nothing', back_to( '', '' ), '' );
+
+// The Institution Dashboard's three card presses go back the same way: the page, else the
+// dashboard's own, else the site's home, at the card's anchor.
+$back_by = array();
+
+foreach ( array( 'class-wpcpm-institution-resend.php', 'class-wpcpm-institution-students.php', 'class-wpcpm-institution-student-form.php' ) as $file ) {
+	$source    = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
+	$back_by[] = array( substr_count( $source, "wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );" ), substr_count( $source, 'wp_get_referer()' ) );
+}
+
+ck( 'the Institution Dashboard\'s resend, student and student form presses each ask back() for the one way back, and none reads the referer itself', $back_by, array_fill( 0, 3, array( 1, 0 ) ) );
 
 echo "\n=== posted_verbatim(): a code is kept as it was typed ===\n";
 

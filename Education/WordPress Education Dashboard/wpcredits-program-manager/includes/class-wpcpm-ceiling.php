@@ -170,7 +170,8 @@ class WPCPM_Ceiling {
 	 *
 	 * @param string $key    What is being limited, as it was claimed.
 	 * @param int    $window Window length in seconds, the same one `claim()` was given.
-	 * @param int    $amount How many places to give back. One by default.
+	 * @param int    $amount How many places to give back. One by default, and one for an amount
+	 *                       of zero or less, as `claim()` takes one.
 	 * @return bool Whether a place was given back.
 	 */
 	public static function release( $key, $window, $amount = 1 ) {

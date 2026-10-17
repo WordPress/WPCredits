@@ -60,6 +60,12 @@ $GLOBALS['current_screen']   = null;    // What get_current_screen() answers: se
 $GLOBALS['list_screen']      = null;    // What convert_to_screen() answers when a table is built: none, unless a check plants one.
 $GLOBALS['l10n']             = array(); // Text => its translation, for a check that draws the screen in another language.
 $GLOBALS['wp_version']       = '7.1';   // The WordPress version get_bloginfo() reports: the one the plugin is tested up to.
+$GLOBALS['during_send']      = null;    // Something a check runs once while wp_new_user_notification() is sending: another request.
+$GLOBALS['mail_fails']       = false;   // Whether the mail host refuses the next login invitation, reported on `wp_mail_failed`.
+$GLOBALS['cache_deleted']    = array(); // Every entry wp_cache_delete() was asked to drop, as its key and group.
+
+// The options table's lock statements (WPCPM_Lock), over the options above.
+require_once __DIR__ . '/options-lock-wpdb.php';
 
 // How a meta query is read, which every stand-in user query shares: this file's and the one in
 // bin/test-accounts-table.php.
@@ -461,12 +467,37 @@ function wp_new_user_notification( $id, $deprecated = null, $notify = '' ) {
 		'subject' => sprintf( (string) $email['subject'], $blogname ),
 		'notify'  => $notify,
 	);
+
+	// Another request a check plays while this message is on its way, once.
+	if ( is_callable( $GLOBALS['during_send'] ) ) {
+		$run                    = $GLOBALS['during_send'];
+		$GLOBALS['during_send'] = null;
+		$run();
+	}
+
+	// The mail host refusing it, which core's wp_mail() reports with the recipients it was given.
+	if ( $GLOBALS['mail_fails'] ) {
+		$GLOBALS['mail_fails'] = false;
+		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.', array( 'to' => array( $user ? $user->user_email : '' ) ) ) );
+	}
 }
 function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
 }
 function update_option( $key, $value, $autoload = null ) {
 	$GLOBALS['opts'][ $key ] = $value;
+
+	return true;
+}
+/**
+ * Core's `wp_cache_delete()`: nothing is cached here, so the entry asked about is only kept.
+ *
+ * @param int|string $key   The entry.
+ * @param string     $group Its group.
+ * @return bool
+ */
+function wp_cache_delete( $key, $group = '' ) {
+	$GLOBALS['cache_deleted'][] = array( $key, $group );
 
 	return true;
 }
@@ -773,6 +804,53 @@ function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 }
 function add_filter( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 	return add_action( $hook, $callback, $priority, $accepted_args );
+}
+if ( ! function_exists( 'do_action' ) ) {
+	/**
+	 * Run the actions added to a hook, lowest priority first, each handed as many arguments as it
+	 * takes.
+	 *
+	 * @param string $hook    Hook name.
+	 * @param mixed  ...$args The arguments.
+	 */
+	function do_action( $hook, ...$args ) {
+		$added = isset( $GLOBALS['hooks'][ $hook ] ) ? $GLOBALS['hooks'][ $hook ] : array();
+
+		usort(
+			$added,
+			function ( $a, $b ) {
+				return $a[1] - $b[1];
+			}
+		);
+
+		foreach ( $added as $action ) {
+			call_user_func_array( $action[0], array_slice( $args, 0, $action[2] ) );
+		}
+	}
+}
+if ( ! function_exists( 'remove_action' ) ) {
+	/**
+	 * Core's: an action is a filter.
+	 *
+	 * @param string   $hook     Hook name.
+	 * @param callable $callback The callback.
+	 * @param int      $priority Its priority.
+	 * @return bool
+	 */
+	function remove_action( $hook, $callback, $priority = 10 ) {
+		return remove_filter( $hook, $callback, $priority );
+	}
+}
+if ( ! function_exists( 'is_email' ) ) {
+	/**
+	 * Core's answer: the address when it is one, false otherwise.
+	 *
+	 * @param string $email The address.
+	 * @return string|false
+	 */
+	function is_email( $email ) {
+		return false !== filter_var( (string) $email, FILTER_VALIDATE_EMAIL ) ? (string) $email : false;
+	}
 }
 /**
  * Take a callback off a hook, as WordPress does: the same callback at the same priority. The accounts

@@ -136,7 +136,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
@@ -1604,6 +1606,62 @@ $failed = run(
 ck( 'a row\'s send that fails comes back to the Accounts tab, which says the invitation could not be sent, and sends nothing',
 	array( link_of( $failed['redirect'] ), html_of( notice_now() ), $GLOBALS['mails'] ),
 	array( $accounts, '<div class="notice notice-error is-dismissible"><p>The invitation could not be sent.</p></div>', array() ) );
+
+// The same row's link followed twice at the same moment, from two tabs or by two Administrators:
+// the second request, made while the first is sending, comes back saying nothing was sent, as the
+// fifteen minutes say it, and Bruno is sent one email.
+three_students();
+manager( 271 );
+request( $bruno_link[1] );
+$meanwhile              = array();
+$GLOBALS['during_send'] = function () use ( &$meanwhile ) {
+	$GLOBALS['uid'] = 272;
+	$meanwhile      = run(
+		function () {
+			( new WPCPM_Students() )->handle_invite();
+		}
+	);
+	$GLOBALS['uid'] = 271;
+};
+$first          = run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+$first_notice   = html_of( notice_now() );
+$GLOBALS['uid'] = 272;
+$second_notice  = html_of( notice_now() );
+$GLOBALS['uid'] = 271;
+
+ck( 'two requests following Bruno\'s link at the same moment send him one email: the first says it went, and the second, made while it was on its way, that nothing was sent',
+	array( $GLOBALS['mails'], link_of( $first['redirect'] ), link_of( $meanwhile['redirect'] ?? '' ), has( $first_notice, 'Invitation email sent.' ), has( $second_notice, 'Nothing was sent: this person was sent an invitation less than 15 minutes ago' ) ),
+	array( array( 12 ), $accounts, $accounts, true, true ) );
+
+// The mail host refuses Bruno's invitation: the row's link comes back saying it could not be sent,
+// writes no stamp, so the list still shows him never invited, and the link followed again straight
+// after sends, the fifteen minutes not having started.
+three_students();
+manager( 273 );
+request( $bruno_link[1] );
+$GLOBALS['mail_fails'] = true;
+$refused_row           = run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+$refused_notice        = html_of( notice_now() );
+$refused_stamp         = isset( $GLOBALS['umeta'][12]['wpcpm_student_invited'] );
+manager( 274 );
+request( $bruno_link[1] );
+run(
+	function () {
+		( new WPCPM_Students() )->handle_invite();
+	}
+);
+
+ck( 'a row\'s send the mail host refuses comes back saying so, that the earlier link no longer works and what to do next, stamps nothing, and the link followed again at once sends',
+	array( link_of( $refused_row['redirect'] ), $refused_notice, $refused_stamp, $GLOBALS['mails'], isset( $GLOBALS['umeta'][12]['wpcpm_student_invited'] ) ),
+	array( $accounts, '<div class="notice notice-error is-dismissible"><p>The site&#039;s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site&#039;s email is working.</p></div>', false, array( 12 ), true ) );
 
 echo "\n=== A row's invitation comes back to the list's page ===\n";
 

@@ -4,6 +4,8 @@
 
 Amended the same day with the owner's answers to the plan's review: the card's wording (section 3), the mail refused (sections 3 and 7) and the privacy clause (section 5).
 
+Amended on 17 October 2026 by the owner's decision, for release 1.122.32: an email the mail host refuses keeps no invitation stamp, on every route that sends one (sections 3 and 7). Until then the stamp the send wrote stayed, so a school had to wait fifteen minutes to press again after a refusal. The earlier invitation's link does not come back: WordPress makes the new password-reset key before it hands the email over, so the refused attempt has already canceled it, and the notice says so.
+
 ## 1. The problem
 
 When a school adds a student, the program sends the student's welcome invitation once. If the student loses it, or it lands in spam, the school cannot send it again and has to ask the program team, who resend it from wp-admin. The school waits, the team is the go-between, and the student loses days.
@@ -32,7 +34,7 @@ After a press the card comes back with one notice:
 - too soon: the existing sentence, "This person was sent an invitation less than 15 minutes ago. Another one now would cancel the link in it, so nothing was sent.";
 - the day's ceiling: "Your institution has sent 20 invitations today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team.";
 - signed in meanwhile: "This student has signed in since the page was drawn, so nothing was sent.";
-- the mail refused: the shared error sentence the Resend in wp-admin shows, "The invitation could not be sent." The send answers an error (no account, no Student role, the fifteen minutes reached in the same instant), or the host refuses the email, which WordPress reports on `wp_mail_failed` and the press listens for around its own send alone: the day's place is given back and no history row is written; the stamp the send wrote stays, since its new link has replaced the old one either way;
+- the mail refused: the shared error sentence the Resend in wp-admin shows, "The invitation could not be sent." The send answers an error (no account, no Student role, the fifteen minutes reached in the same instant), or the host refuses the email, which WordPress reports on `wp_mail_failed` and the send listens for around itself alone: the day's place is given back and no history row is written; and, as amended on 17 October 2026, no invitation stamp is written, so the line still names the last invitation that went, or none, though that one's link no longer works, since the refused attempt made a new one, and the school can press again at once; the notice for it is its own: "The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact.";
 - three more, approved by the owner on 16 October 2026: a first invitation, "The invitation is on its way to {masked address}." (no earlier email to speak of); the history row that would not insert after the email went, "The invitation is on its way to {masked address}, but the entry saying who sent it could not be written, so it is not in this institution's history. Tell your program contact."; and the policy's one refusal, "That record is not on your roster."
 
 ## 4. The press, in order
@@ -58,7 +60,7 @@ The institutions guide gains a paragraph on resending an invitation (where, for 
 ## 7. Testing
 
 - The policy suite: the new action for the member ground (own institution only), the manager ground, a member of another institution, a student, a signed-out visitor.
-- The handler: every refusal in order (nonce, policy, not a student, signed in, too soon, the ceiling at 20 and its key per institution) and that none of them sends, stamps, records or spends the ceiling; the mail refused, with the suite's stand-in firing `wp_mail_failed`: the error notice, no history row and no place spent, the stamp the send wrote kept; the send stamps, logs one email and records one history row; the notice for each outcome.
+- The handler: every refusal in order (nonce, policy, not a student, signed in, too soon, the ceiling at 20 and its key per institution) and that none of them sends, stamps, records or spends the ceiling; the mail refused, with the suite's stand-in firing `wp_mail_failed`: the error notice, no history row and no place spent, no stamp written and a press straight after sent (amended 17 October 2026); the send stamps, logs one email and records one history row; the notice for each outcome.
 - The card: no line for a student with a sign-in on record, nor while the site keeps no sign-in record; the two "No sign-in on record since" sentences, the record's first day and the last invitation in the site's date format; the two button labels; the nonce keyed to the account; nothing for a reader the policy refuses.
 - A trial on the main-line copy (Studio 8883) as a member and through the switcher, every email read in the copy's own log.
 

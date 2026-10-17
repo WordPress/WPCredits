@@ -411,9 +411,10 @@ $GLOBALS['add_fails'] = false;
 
 echo "\n=== A place given back ===\n";
 
-// For a claim whose action did not happen: the Institution Dashboard claims a place of the day's
-// invitations before it sends one, and gives the place back when the send answers an error, so a
-// press that sends nothing takes none of the school's places.
+// For a claim whose action did not happen: the Institution Dashboard's press claims a place of the
+// day's invitations before it sends one, and gives the place back when nothing went, the send
+// answering an error or the host refusing the email, so a press that sends nothing takes none of
+// the school's places.
 reset_store();
 WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS );
 WPCPM_Ceiling::claim( 'resend', 3, DAY_IN_SECONDS );
@@ -438,6 +439,12 @@ ck( 'an amount gives back that many, and never below zero, in the count or in th
 $written = count( $GLOBALS['writes'] );
 ck( 'a window at zero gives nothing back and writes nothing', array( WPCPM_Ceiling::release( 'resend', DAY_IN_SECONDS ), count( $GLOBALS['writes'] ) ), array( false, $written ) );
 ck( 'nor does a window with no row, which is left with none', array( WPCPM_Ceiling::release( 'never', DAY_IN_SECONDS ), in_array( name_for( 'never', DAY_IN_SECONDS ), ceiling_names(), true ) ), array( false, false ) );
+
+reset_store();
+WPCPM_Ceiling::claim( 'none', 5, DAY_IN_SECONDS, 4 );
+ck( 'an amount of zero or less gives back one place, as claim() takes one',
+    array( WPCPM_Ceiling::release( 'none', DAY_IN_SECONDS, 0 ), WPCPM_Ceiling::count( 'none', DAY_IN_SECONDS ), WPCPM_Ceiling::release( 'none', DAY_IN_SECONDS, -3 ), WPCPM_Ceiling::count( 'none', DAY_IN_SECONDS ) ),
+    array( true, 3, true, 2 ) );
 
 reset_store();
 WPCPM_Ceiling::claim( 'mine', 5, DAY_IN_SECONDS );

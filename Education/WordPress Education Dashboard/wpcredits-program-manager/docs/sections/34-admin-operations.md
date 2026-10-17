@@ -47,10 +47,18 @@ time.
 Each invitation cancels the link in the one before it, so only the newest email works: somebody who
 opens an older one is told the link appears to be invalid. For the same reason a second invitation
 to the same person within fifteen minutes is not sent, on purpose. **Resend invite** on a person's
-row says so and sends nothing; **Resend invite** on ticked accounts leaves out anybody invited in
-the last fifteen minutes and says how many it left out; and a bulk send passes over anybody invited
-in the last fifteen minutes. Ask them to use their newest email, or send another once the fifteen
-minutes are up.
+row says so and sends nothing, and so does a second press made while the first is still sending;
+**Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes and says
+how many it left out; and a bulk send passes over anybody invited in the last fifteen minutes or
+being sent one at that moment. Ask them to use their newest email, or send another once the fifteen
+minutes are up. An invitation the mail host refuses does not count as sent: **Resend invite** on the
+row says the mail host refused it, the fifteen minutes do not start, and the lists still show the
+last invitation that did go, or none, as a bulk send that meets a refusal leaves them too, its card
+counting how many it did not send. "Not sent" there covers anybody the mail host refused, anybody
+another press was sending one to at that moment, anybody invited in the last fifteen minutes, and
+an account deleted before its turn; the Emails tool's **Log** shows each refusal. That last
+invitation's link no longer works, though, since the refused attempt made a new one: send another
+once the site's email is working.
 
 Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
 on the Institution Dashboard, a student with no sign-in on record since the site began recording
@@ -63,12 +71,16 @@ a sign-in on record shows no line and no button: a lost password has WordPress's
 institution learns only whether a sign-in is on record, never when.
 
 The fifteen minutes hold here too, and each institution can send twenty a day, the presses of an
-Administrator through the switcher included. A press that sends nothing takes none of the day's
-twenty, an email the host refuses included, though a refused email still starts the fifteen minutes,
-since the new link made for it has replaced the old one. Each send is in the Emails tool's **Log**,
-which keeps its rows for 30 days, and the institution's history records each one in its audit log,
-with who pressed it and whether as a member or as an Administrator. No screen lists those audit log
-rows yet.
+Administrator through the switcher included. Two presses for one student at the same moment send one
+invitation: the second is told what a press within the fifteen minutes is told. A press that sends
+nothing takes none of the day's twenty, an email the mail host refuses included, and a refused email
+does not start the fifteen minutes either. The card then says the invitation could not be sent and
+that the link in any earlier invitation no longer works, and asks the school to try again in a few
+minutes and to write to their program contact if it fails again; its line still names the last
+invitation that went, though that one's link no longer works. Each send is in the Emails tool's
+**Log**, which keeps its rows for 30 days, and the institution's history records each one in its
+audit log, with who pressed it and whether as a member or as an Administrator. No screen lists those
+audit log rows yet.
 
 ### Pages the plugin owns
 

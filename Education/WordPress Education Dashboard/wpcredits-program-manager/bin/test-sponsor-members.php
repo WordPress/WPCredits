@@ -310,28 +310,19 @@ ck( 'a second call does nothing at all: the repair runs once per site', array( c
 
 echo "\n=== One account's invitation, sent now ===\n";
 /**
- * The mail layer, as far as one account's invitation reaches it: whether one may go now, which the
- * real class answers from the account's stamps against its fifteen-minute gap and refuses with
- * `wpcpm_invite_too_soon`, here for the accounts a check names; and the stamp it writes once one has
- * gone. Each ask kept, so a check reads what was asked and in what order. The real class is
- * bin/test-mail.php's, and the Sponsors screen's Accounts tab sends through it in
- * bin/test-sponsors-accounts.php.
+ * The mail layer, as far as one account's invitation reaches it: its one rule for sending one
+ * person their invitation now (`send_invite_now()`), which the real class runs under the account's
+ * lock, against its fifteen-minute gap, and answers with `wpcpm_invite_too_soon` when either refuses,
+ * here for the accounts a check names. Each hand-off kept, so a check reads what was asked. The real
+ * rule, its lock, its send to the account alone and its stamp, is bin/test-mail.php's, and the
+ * Sponsors screen's Accounts tab sends through it in bin/test-sponsors-accounts.php.
  */
 class WPCPM_Mail {
-	public static function may_invite( $user_id ) {
-		$GLOBALS['mail_asked'][] = array( 'may', (int) $user_id );
+	public static function send_invite_now( WP_User $user ) {
+		$GLOBALS['mail_asked'][] = array( 'send-now', (int) $user->ID );
 
-		return in_array( (int) $user_id, $GLOBALS['too_soon'], true ) ? new WP_Error( 'wpcpm_invite_too_soon', 'Sent too recently.' ) : true;
+		return in_array( (int) $user->ID, $GLOBALS['too_soon'], true ) ? new WP_Error( 'wpcpm_invite_too_soon', 'Sent too recently.' ) : true;
 	}
-	public static function stamp_invited( WP_User $user ) {
-		$GLOBALS['mail_asked'][] = array( 'stamp', (int) $user->ID );
-
-		return array( 'wpcpm_sponsor_invited' );
-	}
-}
-/** Core's login invitation, each call kept as it was asked. */
-function wp_new_user_notification( $user_id, $deprecated = null, $notify = '' ) {
-	$GLOBALS['mail_asked'][] = array( 'notify', (int) $user_id, $deprecated, $notify );
 }
 
 $GLOBALS['too_soon']   = array();
@@ -347,16 +338,16 @@ $GLOBALS['too_soon']   = array( 5 );
 $GLOBALS['mail_asked'] = array();
 $recent                = WPCPM_Sponsor_Members::send_invite( 5 );
 
-ck( 'one sent an invitation inside the gap is refused with the mail layer\'s own answer, and nothing is sent or stamped',
+ck( 'one the mail layer refuses, sent an invitation inside the gap or being sent one by another request, is refused with the mail layer\'s own answer, the account handed over once',
 	array( code( $recent ), $GLOBALS['mail_asked'] ),
-	array( 'wpcpm_invite_too_soon', array( array( 'may', 5 ) ) ) );
+	array( 'wpcpm_invite_too_soon', array( array( 'send-now', 5 ) ) ) );
 
 $GLOBALS['too_soon']   = array();
 $GLOBALS['mail_asked'] = array();
 
-ck( 'a sponsor\'s account outside the gap is sent core\'s invitation, to the account alone, then stamped by the mail layer\'s one rule, and the send answers true',
+ck( 'a sponsor\'s account is handed to the mail layer\'s one rule for a single invitation, which sends core\'s invitation to the account alone and stamps it, and the send answers what the rule answered',
 	array( WPCPM_Sponsor_Members::send_invite( 5 ), $GLOBALS['mail_asked'] ),
-	array( true, array( array( 'may', 5 ), array( 'notify', 5, null, 'user' ), array( 'stamp', 5 ) ) ) );
+	array( true, array( array( 'send-now', 5 ) ) ) );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php' );

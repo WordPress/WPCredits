@@ -999,14 +999,7 @@ final class WPCPM_Institution_Students {
 			)
 		);
 
-		$back = wp_get_referer();
-
-		if ( ! $back ) {
-			$page = WPCPM_Institutions_Dashboard::page_url();
-			$back = '' !== $page ? $page : home_url( '/' );
-		}
-
-		wp_safe_redirect( $back . '#' . self::ANCHOR );
+		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );
 		exit;
 	}
 }

@@ -50,6 +50,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ceiling.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-refusal-meter.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-lock.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-templates.php';
@@ -252,8 +253,9 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // track editor keeps for a day (1.107.0; the deep check of 1.109.1, SURFACES-7): named after the
 // course, so they are swept by prefix too, from the two rows a transient is where no object cache
 // is installed, the value and its timeout; where one is installed they are not in this table and
-// expire in the cache within the day.
-foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_' ) as $wpcpm_prefix ) {
+// expire in the cache within the day. And the lock an account's invitation holds while it is sent
+// (1.122.32), which a request that dies sending leaves behind, one row per account.
+foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}

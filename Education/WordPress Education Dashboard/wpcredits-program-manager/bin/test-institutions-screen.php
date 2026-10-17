@@ -1164,9 +1164,9 @@ function get_post_modified_time( $format, $gmt = false, $post = null, $translate
  *
  * And the invitations, as far as the Accounts tab's frame reaches them: the stamps the list's
  * views read, the map every stand-in mail class reads (bin/stubs/stamps.php), the words a row's
- * invitation leaves, who was never sent one, and the card, drawn as a marker holding the form the
- * module hands it. The invitations themselves, and the card's own words, are
- * bin/test-institutions-accounts.php's, against the real class.
+ * invitation leaves, its failure's among them, who was never sent one, and the card, drawn as a
+ * marker holding the form the module hands it. The invitations themselves, and the card's own
+ * words, are bin/test-institutions-accounts.php's, against the real class.
  */
 if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	class WPCPM_Mail {
@@ -1176,6 +1176,9 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 				'invited'         => array( 'success', 'Invitation email sent.' ),
 				'invite-too-soon' => array( 'warning', 'Nothing was sent: too soon.' ),
 			);
+		}
+		public static function invite_failed_message() {
+			return 'The invitation could not be sent.';
 		}
 		public static function never_invited( $role, $meta ) {
 			$GLOBALS['never_invited_asked'][] = array( $role, $meta );

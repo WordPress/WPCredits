@@ -305,6 +305,16 @@ ck( 'a recorded sign-in, as an int or as the string user meta comes back as, is 
 ck( 'no key, a zero or a word is never signed in',
 	array( WPCPM_Sign_Ins::has_signed_in( 42 ), WPCPM_Sign_Ins::has_signed_in( 43 ), WPCPM_Sign_Ins::has_signed_in( 44 ) ), array( false, false, false ) );
 ck( 'a visit alone is not a sign-in', WPCPM_Sign_Ins::has_signed_in( 45 ), false );
+// What only a hand-edited or damaged row could hold: a time below zero, and a time written with a
+// fraction, as a number string can be.
+$GLOBALS['umeta'][46] = array( $S => -$T );
+$GLOBALS['umeta'][47] = array( $S => (string) -$T );
+$GLOBALS['umeta'][48] = array( $S => $T . '.5' );
+$GLOBALS['umeta'][49] = array( $S => '0.5' );
+ck( 'a time below zero, as an int or as a string, is never a sign-in',
+	array( WPCPM_Sign_Ins::has_signed_in( 46 ), WPCPM_Sign_Ins::has_signed_in( 47 ) ), array( false, false ) );
+ck( 'a time written with a fraction is the whole second it holds, and a fraction below one is no time at all',
+	array( WPCPM_Sign_Ins::has_signed_in( 48 ), WPCPM_Sign_Ins::has_signed_in( 49 ) ), array( true, false ) );
 ck( 'and asking writes nothing', $GLOBALS['writes'], 0 );
 
 // Last, because a constant cannot be taken back.

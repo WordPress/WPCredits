@@ -30,13 +30,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  * invitation cancels the link in the one before it, and `PER_DAY` sends a day for each
  * institution, through `WPCPM_Ceiling`. The day's place is claimed only once every refusal
  * before it has passed, and given back when the send answers an error or the host refuses its
- * email, so a press that sends nothing takes none of the school's twenty.
+ * email, so a press that sends nothing takes none of the school's twenty. Two presses for one
+ * student at the same moment both pass the fifteen minutes before either has stamped; the send
+ * takes the student's lock (`WPCPM_Mail::send_invite_now()`), so the press that reaches it second
+ * is refused there as the fifteen minutes refuse it, and gives its place back.
  *
  * **The send.** `WPCPM_Students_Sync::send_invite()`, the one Administrators press in wp-admin:
  * the site's own welcome invitation with a new link, its time stamped and its row in the email
- * log. Nobody else is emailed. An email the host refuses (WordPress's `wp_mail_failed`, listened
- * for around this one send) is no send: the place is given back and no history row is written,
- * while the stamp the send wrote stays, since its new link has replaced the old one either way.
+ * log. Nobody else is emailed. An invitation the mail host refuses is no send, as the mail layer
+ * hears it for every route (`WPCPM_Mail::send_invite_now()`: WordPress's `wp_mail_failed`, counted
+ * only for a failure addressed to the student): it is not stamped, so the card's "Invitation last
+ * sent" stays the last one that went and the school may press again at once, though that one's
+ * link no longer works, since core made the new key before the email was refused, which the notice
+ * says; the place is given back and no history row is written. Another email failing while the
+ * invitation is on its way, one another plugin sends from a filter, leaves the invitation sent.
  *
  * **The record.** One history row per send (`WPCPM_Institution_Audit::record()`): the
  * institution, the student's account, who pressed and on which ground.
@@ -75,7 +82,7 @@ final class WPCPM_Institution_Resend {
 	/** Outcome: sent, the first invitation the account was ever sent. */
 	const OUT_SENT = 'invite-sent';
 
-	/** Outcome: the last invitation went less than fifteen minutes ago, so nothing was sent. */
+	/** Outcome: the last invitation went less than fifteen minutes ago, or another is being sent, so nothing was sent. */
 	const OUT_TOO_SOON = 'invite-too-soon';
 
 	/** Outcome: the institution has sent `PER_DAY` today, so nothing was sent. */
@@ -84,8 +91,11 @@ final class WPCPM_Institution_Resend {
 	/** Outcome: the student signed in after the card was drawn, so nothing was sent. */
 	const OUT_SIGNED_IN = 'invite-signed-in';
 
-	/** Outcome: the account cannot be sent an invitation, the send answered an error, or the host refused its email. */
+	/** Outcome: the account cannot be sent an invitation, or the send answered an error. */
 	const OUT_ERROR = 'invite-error';
+
+	/** Outcome: the mail host refused the invitation, so nothing was sent and the earlier link is gone. */
+	const OUT_MAIL_REFUSED = 'invite-mail-refused';
 
 	/** Outcome: the policy refused the press. */
 	const OUT_REFUSED = 'invite-refused';
@@ -246,8 +256,9 @@ final class WPCPM_Institution_Resend {
 	 *
 	 * Every refusal says that nothing was sent, because the reader has just pressed a button and
 	 * cannot see the server. The fifteen minutes are `WPCPM_Mail::too_soon_message()`, the
-	 * sentence every route's refusal gives; a failed send is the sentence the Resend invite in
-	 * wp-admin prints.
+	 * sentence every route's refusal gives; a failed send is `WPCPM_Mail::invite_failed_message()`,
+	 * the sentence the Resend invite in wp-admin prints; an email the mail host refused is
+	 * `WPCPM_Mail::invite_refused_message()`, worded for an institution's members.
 	 *
 	 * @param string $address The student's address, masked by `WPCPM_Mail::mask_address()`.
 	 * @return array<string, array{0: string, 1: string}> Outcome to its tone and sentence.
@@ -256,7 +267,7 @@ final class WPCPM_Institution_Resend {
 		$address = (string) $address;
 
 		return array(
-			self::OUT_RESENT    => array(
+			self::OUT_RESENT       => array(
 				'success',
 				sprintf(
 					/* translators: %s: the student's email address, masked, such as a***@example.org. */
@@ -264,7 +275,7 @@ final class WPCPM_Institution_Resend {
 					$address
 				),
 			),
-			self::OUT_SENT      => array(
+			self::OUT_SENT         => array(
 				'success',
 				sprintf(
 					/* translators: %s: the student's email address, masked, such as a***@example.org. */
@@ -272,8 +283,8 @@ final class WPCPM_Institution_Resend {
 					$address
 				),
 			),
-			self::OUT_TOO_SOON  => array( 'warning', WPCPM_Mail::too_soon_message() ),
-			self::OUT_CEILING   => array(
+			self::OUT_TOO_SOON     => array( 'warning', WPCPM_Mail::too_soon_message() ),
+			self::OUT_CEILING      => array(
 				'error',
 				sprintf(
 					/* translators: %d: how many invitations an institution may send in a day. */
@@ -286,10 +297,11 @@ final class WPCPM_Institution_Resend {
 					self::PER_DAY
 				),
 			),
-			self::OUT_SIGNED_IN => array( 'info', __( 'This student has signed in since the page was drawn, so nothing was sent.', 'wpcredits-program-manager' ) ),
-			self::OUT_ERROR     => array( 'error', __( 'The invitation could not be sent.', 'wpcredits-program-manager' ) ),
-			self::OUT_REFUSED   => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
-			self::OUT_UNLOGGED  => array(
+			self::OUT_SIGNED_IN    => array( 'info', __( 'This student has signed in since the page was drawn, so nothing was sent.', 'wpcredits-program-manager' ) ),
+			self::OUT_ERROR        => array( 'error', WPCPM_Mail::invite_failed_message() ),
+			self::OUT_MAIL_REFUSED => array( 'error', WPCPM_Mail::invite_refused_message( 'member' ) ),
+			self::OUT_REFUSED      => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
+			self::OUT_UNLOGGED     => array(
 				'error',
 				sprintf(
 					/* translators: %s: the student's email address, masked, such as a***@example.org. */
@@ -312,8 +324,8 @@ final class WPCPM_Institution_Resend {
 	 * policy. Then the student, asked again here rather than taken from the page: an account
 	 * holding the Student role, with no recorded sign-in and an address to send to. Then the
 	 * fifteen minutes, then the day's place, claimed only now, so no refusal before it spends
-	 * one. Then the send, which gives the place back when it answers an error or its email is
-	 * refused, and the history row. Every step ends in `bounce()`, which does not return.
+	 * one. Then the send, which gives the place back when it answers an error, its email refused
+	 * among them, and the history row. Every step ends in `bounce()`, which does not return.
 	 */
 	public static function handle_resend() {
 		// Read to key the token and for nothing else: whose student this is, and whether the
@@ -358,21 +370,21 @@ final class WPCPM_Institution_Resend {
 		// earlier email whose link the new one replaces.
 		$earlier = WPCPM_Mail::last_invited( $user_id ) > 0;
 
-		// `send_invite()` cannot tell a refused email from a sent one: WordPress drops what
-		// `wp_mail()` answered. The refusal is heard here, for this one send and no other.
-		$refused = false;
-		$listen  = static function () use ( &$refused ) {
-			$refused = true;
-		};
-
-		add_action( 'wp_mail_failed', $listen );
+		// A refused email comes back as an error too: the mail layer listens for it around the send.
 		$result = WPCPM_Students_Sync::send_invite( $user_id );
-		remove_action( 'wp_mail_failed', $listen );
 
-		if ( is_wp_error( $result ) || $refused ) {
+		if ( is_wp_error( $result ) ) {
 			WPCPM_Ceiling::release( $key, DAY_IN_SECONDS );
 
-			self::bounce( is_wp_error( $result ) && 'wpcpm_invite_too_soon' === $result->get_error_code() ? self::OUT_TOO_SOON : self::OUT_ERROR, $user_id );
+			// The send's answer read as wp-admin's Resend reads it: the fifteen minutes, the email
+			// the mail host refused, or the shared error.
+			$outcomes = array(
+				'invite-too-soon'     => self::OUT_TOO_SOON,
+				'invite-mail-refused' => self::OUT_MAIL_REFUSED,
+			);
+			$outcome  = WPCPM_Mail::invite_outcome( $result );
+
+			self::bounce( isset( $outcomes[ $outcome ] ) ? $outcomes[ $outcome ] : self::OUT_ERROR, $user_id );
 		}
 
 		$address = WPCPM_Mail::mask_address( (string) $student->user_email );
@@ -492,14 +504,7 @@ final class WPCPM_Institution_Resend {
 			)
 		);
 
-		$back = wp_get_referer();
-
-		if ( ! $back ) {
-			$page = WPCPM_Institutions_Dashboard::page_url();
-			$back = '' !== $page ? $page : home_url( '/' );
-		}
-
-		wp_safe_redirect( $back . '#' . self::ANCHOR );
+		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );
 		exit;
 	}
 }

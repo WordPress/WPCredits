@@ -546,11 +546,12 @@ final class WPCPM_Sponsor_Members {
 	 * sends through this (`WPCPM_Sponsors::invite_one()`). Sent at once, not queued as provisioning
 	 * queues the account it makes: one message to one account somebody picked.
 	 *
-	 * Refused for an account that does not exist, for one that does not hold the Sponsor role, and
-	 * inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a second one would
-	 * cancel the link in the first (`WPCPM_Mail::may_invite()`). Stamped by the mail layer's one rule
-	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's would:
-	 * stamped for each program role it holds, the stamp this class names (`META_INVITED`) among them.
+	 * Refused for an account that does not exist and for one that does not hold the Sponsor role.
+	 * Then the mail layer's one rule for a single invitation (`WPCPM_Mail::send_invite_now()`):
+	 * refused inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a second one
+	 * would cancel the link in the first, and while another request is sending it one; stamped as the
+	 * queue stamps (`WPCPM_Mail::stamp_invited()`), for each program role it holds, the stamp this
+	 * class names (`META_INVITED`) among them.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
@@ -566,15 +567,6 @@ final class WPCPM_Sponsor_Members {
 			return new WP_Error( 'wpcpm_not_sponsor', __( 'That account does not hold the Sponsor role.', 'wpcredits-program-manager' ) );
 		}
 
-		$allowed = WPCPM_Mail::may_invite( $user->ID );
-
-		if ( is_wp_error( $allowed ) ) {
-			return $allowed;
-		}
-
-		wp_new_user_notification( $user->ID, null, 'user' );
-		WPCPM_Mail::stamp_invited( $user );
-
-		return true;
+		return WPCPM_Mail::send_invite_now( $user );
 	}
 }

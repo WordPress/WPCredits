@@ -445,14 +445,16 @@ trait WPCPM_Accounts_Screen {
 	 * for every audience's screen (`WPCPM_Mail::invite_notices()`), with the `error` its failed send
 	 * leaves, and the invitations'. The sync's own print on the Sync tab.
 	 *
-	 * The `error` is worded for this tab: the shared sentence sends the reader to the last sync's
-	 * error below it, which the Sync tab prints and this one does not.
+	 * The `error` is worded for this tab rather than taken from the syncs' shared sentence, which
+	 * sends the reader to the last sync's error below it, printed on the Sync tab and not on this
+	 * one. Its words are the mail layer's for an invitation that could not be sent
+	 * (`WPCPM_Mail::invite_failed_message()`), which the Institution Dashboard's press prints too.
 	 *
 	 * @return array<string, array{0: string, 1: string}> Status => notice type and sentence.
 	 */
 	private function accounts_messages() {
 		return array_merge(
-			array( 'error' => array( 'error', __( 'The invitation could not be sent.', 'wpcredits-program-manager' ) ) ),
+			array( 'error' => array( 'error', WPCPM_Mail::invite_failed_message() ) ),
 			WPCPM_Mail::invite_notices(),
 			array(
 				'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),

@@ -19,8 +19,14 @@
  *   inviting the student in the same instant and the account losing the Student role, are
  *   played between the claim and the send, on a day with places already taken.
  * - **An email the host refuses is no send.** The stand-in for WordPress's notification fires
- *   `wp_mail_failed`: the notice is the shared error sentence, no history row is written and
- *   the day's place is given back, while the stamp the send wrote stays.
+ *   `wp_mail_failed`: the notice is the shared error sentence, no history row is written, the
+ *   day's place is given back, and no stamp is written, so the card's "Invitation last sent"
+ *   stays the last one that went and a press straight after sends. Only a refusal addressed to
+ *   the student counts, however the address is written: another plugin's email failing on the way
+ *   leaves the invitation sent, and a failure naming no recipient counts as the invitation's.
+ * - **Two presses for one student at the same moment send one email.** The second, made while the
+ *   first is sending, is refused at the send by the student's lock as the fifteen minutes refuse
+ *   it, and gives its place back; a lock a dead request left holds the student until it ages out.
  * - **The day's twenty are counted per institution**, under a key that keeps the record ID's
  *   case, and an Administrator pressing through the switcher counts against the institution.
  * - **Every outcome's sentence**, one for each outcome and none for any other, printed on the
@@ -59,8 +65,18 @@ $GLOBALS['referer']     = array();
 $GLOBALS['bad_nonce']   = false;
 $GLOBALS['no_insert']   = false;
 $GLOBALS['after_claim'] = null;
-// Whether the host refuses the next email, which WordPress reports on `wp_mail_failed`.
+// Whether the host refuses the invitation, which WordPress reports on `wp_mail_failed`: true for a
+// refusal as core reports it, naming the account's address as `to`; a `to` of the check's own; or
+// 'unnamed' for a failure that names no recipient.
 $GLOBALS['mail_fails'] = false;
+// The recipients of other emails, sent by another plugin's filter while the invitation is on its
+// way, that the host refuses.
+$GLOBALS['other_fails'] = array();
+// Another request a check plays once while an email is on its way.
+$GLOBALS['during_send'] = null;
+// The page the browser says the form was posted from, and the Institution Dashboard's own page.
+$GLOBALS['http_referer']   = 'https://example.test/institution-dashboard/?wpcpm_institution_student=10';
+$GLOBALS['dashboard_page'] = 'https://example.test/institution-dashboard/';
 // Every write to a ceiling row, so a refusal can be shown to have claimed nothing at all rather
 // than to have claimed a place and given it back.
 $GLOBALS['ceiling_writes'] = 0;
@@ -94,7 +110,7 @@ function esc_url( $s ) { return (string) $s; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n" ), '', strip_tags( (string) $s ) ) ); }
 function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
-function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
+function is_email( $e ) { return filter_var( (string) $e, FILTER_VALIDATE_EMAIL ) ? (string) $e : false; }
 function wp_unslash( $v ) { return $v; }
 function wp_slash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
@@ -141,6 +157,7 @@ function add_option( $k, $v, $dep = '', $a = 'yes' ) {
 }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; after_claim( $k ); return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+function wp_cache_delete( $key, $group = '' ) { return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
@@ -150,7 +167,9 @@ function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? 
 require_once __DIR__ . '/stubs/caps.php';
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
-function wp_get_referer() { return 'https://example.test/institution-dashboard/?wpcpm_institution_student=10'; }
+// The page the form was posted from, as core's wp_get_referer() reads it, or false for a browser that
+// sent none.
+function wp_get_referer() { return $GLOBALS['http_referer']; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect:' . $to ); }
 /** Records the action the token was checked against, and dies as core does on a bad token. */
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) {
@@ -158,19 +177,54 @@ function check_admin_referer( $a = -1, $q = '_wpnonce' ) {
 	if ( $GLOBALS['bad_nonce'] ) { throw new Exception( 'wp_die:nonce' ); }
 	return 1;
 }
-/** The field core prints, with the action left readable so the keying can be asserted. */
-function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $e = true ) {
-	echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
-}
 /**
- * The email WordPress would send: recorded by account, as core's own function is called. When the
- * suite says the host refuses it, `wp_mail()` reports so on `wp_mail_failed`, as core's does, and
- * the function answers nothing either way, as core's does.
+ * The fields core prints, as it prints them: the token, its id and name the field's name, and the
+ * page the form is drawn on, the request's address without a referer of its own, which
+ * `wp_get_referer()` reads when the press comes back. The action is left readable in the token so
+ * the keying can be asserted.
+ */
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( remove_query_arg( '_wp_http_referer', $_SERVER['REQUEST_URI'] ) ) . '" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $e = true ) {
+	$field = '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />' . ( $r ? wp_referer_field( false ) : '' );
+	if ( $e ) { echo $field; }
+	return $field;
+}
+/** Core's, for the one argument the referer field takes off its address. */
+function remove_query_arg( $key, $url ) {
+	$parts = explode( '?', (string) $url, 2 );
+	if ( ! isset( $parts[1] ) ) { return $parts[0]; }
+	parse_str( $parts[1], $query );
+	unset( $query[ $key ] );
+	return $parts[0] . ( $query ? '?' . http_build_query( $query ) : '' );
+}
+// The card's page, the address the line is drawn on.
+$_SERVER['REQUEST_URI'] = '/institution-dashboard/?wpcpm_institution_student=10';
+/**
+ * The email WordPress would send: recorded by account, as core's own function is called. An email
+ * another plugin's filter sends on the way, which the host refuses, is reported on `wp_mail_failed`
+ * first, naming its own recipients. When the suite says the host refuses the invitation,
+ * `wp_mail()` reports so on `wp_mail_failed` as core's does, with the recipients it was given as
+ * `to`, and the function answers nothing either way, as core's does.
  */
 function wp_new_user_notification( $id, $dep = null, $notify = '' ) {
 	$GLOBALS['invited'][] = array( (int) $id, (string) $notify );
-	if ( $GLOBALS['mail_fails'] ) {
+	if ( is_callable( $GLOBALS['during_send'] ) ) {
+		$run                    = $GLOBALS['during_send'];
+		$GLOBALS['during_send'] = null;
+		$run();
+	}
+	foreach ( $GLOBALS['other_fails'] as $to ) {
+		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.', array( 'to' => $to, 'subject' => 'Another plugin\'s email' ) ) );
+	}
+	if ( 'unnamed' === $GLOBALS['mail_fails'] ) {
 		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.' ) );
+	} elseif ( $GLOBALS['mail_fails'] ) {
+		$to = true === $GLOBALS['mail_fails'] ? array( $GLOBALS['users'][ (int) $id ]->user_email ) : $GLOBALS['mail_fails'];
+		do_action( 'wp_mail_failed', new WP_Error( 'wp_mail_failed', 'Could not instantiate mail function.', array( 'to' => $to, 'subject' => '[Example] Login Details', 'phpmailer_exception_code' => 2 ) ) );
 	}
 }
 function wp_insert_post( $a, $error = false ) {
@@ -212,7 +266,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 
@@ -234,9 +291,9 @@ class WPCPM_Institution_Members {
 class WPCPM_Institution_Agreement {
 	public static function is_settled( $id ) { return in_array( $id, $GLOBALS['settled'], true ); }
 }
-/** Where a press goes back to when the browser sent no referer. */
+/** Where a press goes back to when the browser sent no referer: '' while no page holds the dashboard. */
 class WPCPM_Institutions_Dashboard {
-	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	public static function page_url() { return $GLOBALS['dashboard_page']; }
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
@@ -296,6 +353,11 @@ function reset_world() {
 	$GLOBALS['no_insert']   = false;
 	$GLOBALS['after_claim'] = null;
 	$GLOBALS['mail_fails']  = false;
+	$GLOBALS['other_fails'] = array();
+	$GLOBALS['during_send'] = null;
+
+	$GLOBALS['http_referer']   = 'https://example.test/institution-dashboard/?wpcpm_institution_student=10';
+	$GLOBALS['dashboard_page'] = 'https://example.test/institution-dashboard/';
 	$GLOBALS['manage']      = array( 30 );
 	$GLOBALS['settled']     = array( $A, $B );
 
@@ -479,7 +541,7 @@ function nothing( $outcome, $ended = 'redirect' ) {
 
 reset_world();
 $GLOBALS['bad_nonce'] = true;
-ck( 'a token that does not match dies before anything is read', refused( 20, 10 ), nothing( '', 'wp_die:nonce' ) );
+ck( 'a token that does not match dies at the token: nothing is sent, stamped, recorded or spent', refused( 20, 10 ), nothing( '', 'wp_die:nonce' ) );
 $GLOBALS['bad_nonce'] = false;
 
 reset_world();
@@ -551,6 +613,24 @@ ck( 'and keeps its case, so two records that differ only in case are two days',
 	WPCPM_Institution_Resend::ceiling_key( $A ) === WPCPM_Institution_Resend::ceiling_key( strtolower( $A ) ), false );
 ck( 'the figure is twenty', WPCPM_Institution_Resend::PER_DAY, 20 );
 
+// At the edge of the day: nineteen places taken, then a send the host refuses, which gives its
+// place back, so the next press is still the twentieth and sends, and the one after it is refused.
+reset_world();
+$GLOBALS['users'][18]                                            = new WP_User( 18, 'Ivo Petrov', 'ivo@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][18][ WPCPM_Students_Sync::META_INSTITUTION ] = $A;
+WPCPM_Ceiling::claim( WPCPM_Institution_Resend::ceiling_key( $A ), WPCPM_Institution_Resend::PER_DAY, DAY_IN_SECONDS, 19 );
+
+$GLOBALS['mail_fails'] = true;
+press( 20, 10 );
+$GLOBALS['mail_fails'] = false;
+ck( 'nineteen in, a send the host refuses says so and gives its place back, one place and no more', array( outcome_of( 20 ), spent( $A ) ), array( 'invite-mail-refused', 19 ) );
+
+press( 20, 12 );
+ck( 'so the next press is the twentieth, and sends', array( outcome_of( 20 ), $GLOBALS['invited'], spent( $A ) ), array( 'invite-sent', array( array( 12, 'user' ) ), 20 ) );
+
+$edge = refused( 20, 18 );
+ck( 'and the twenty-first is refused, sending, stamping and recording nothing', array( $edge['outcome'], $edge['sent'], $edge['stamp'], count( rows( $A ) ), spent( $A ) ), array( 'invite-ceiling', array(), true, 1, 20 ) );
+
 /* ---- 5. a send that answers an error gives the place back ----------------- */
 
 echo "\n=== A send that answers an error gives the day's place back ===\n";
@@ -593,18 +673,151 @@ $before                = WPCPM_Mail::last_invited( 10 );
 press( 20, 10 );
 
 ck( 'the email was handed to WordPress, and the host refused it', $GLOBALS['invited'], array( array( 10, 'user' ) ) );
-ck( 'the notice is the shared error sentence', outcome_of( 20 ), 'invite-error' );
+ck( 'the notice is the refused email\'s own', outcome_of( 20 ), 'invite-mail-refused' );
 ck( 'with no address quoted', flash_of( 20 )['detail'], '' );
 ck( 'the day\'s place is given back', spent( $A ), 3 );
 ck( 'no history row is written', rows( $A ), array() );
-ck( 'the stamp the send wrote stays, since its new link replaced the old one', WPCPM_Mail::last_invited( 10 ) > $before, true );
-ck( 'and the press listens for a refusal only around its own send', in_array( 'wp_mail_failed', array_column( $GLOBALS['hooks'], 0 ), true ), false );
+ck( 'no stamp is written: the last invitation is still the one that went nine days ago', WPCPM_Mail::last_invited( 10 ), $before );
+ck( 'and the refusal is listened for only around the send', in_array( 'wp_mail_failed', array_column( $GLOBALS['hooks'], 0 ), true ), false );
+
+// The card the press comes back to: the notice, and the line naming the last invitation that went.
+$reader = fresh_reader( $A );
+WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, flash_of( 20 ), $reader );
+$after = draw( $reader, 10 );
+ck( 'the card after a refusal says the invitation could not be sent and that the earlier link no longer works, and its line names the last one that went, not the refused attempt',
+	array( has( $after, 'The invitation could not be sent, and the link in any earlier invitation no longer works.' ), has( $after, 'Invitation last sent ' . gmdate( 'F j, Y', $before ) . '.' ), $before < time() - DAY_IN_SECONDS ),
+	array( true, true, true ) );
 
 $GLOBALS['mail_fails'] = false;
 press( 20, 10 );
-ck( 'so a press straight after is held to the fifteen minutes', array( outcome_of( 20 ), $GLOBALS['invited'], spent( $A ) ), array( 'invite-too-soon', array(), 3 ) );
+ck( 'so a press straight after sends, the fifteen minutes not having started', array( outcome_of( 20 ), $GLOBALS['invited'], spent( $A ), WPCPM_Mail::last_invited( 10 ) >= $NW ), array( 'invite-resent', array( array( 10, 'user' ) ), 4, true ) );
+press( 20, 10 );
+ck( 'while one that went holds the next press to the fifteen minutes', array( outcome_of( 20 ), $GLOBALS['invited'], spent( $A ) ), array( 'invite-too-soon', array(), 4 ) );
 
-/* ---- 6. a row that will not insert ---------------------------------------- */
+// A student never sent one, whose first invitation the host refuses: the card still says none went.
+reset_world();
+$GLOBALS['mail_fails'] = true;
+press( 20, 12 );
+$GLOBALS['mail_fails'] = false;
+$reader = fresh_reader( $A );
+WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, flash_of( 20 ), $reader );
+$after = draw( $reader, 12 );
+ck( 'a first invitation the host refuses leaves the card saying none was sent yet, with the button to send the first',
+	array( outcome_of( 20 ), WPCPM_Mail::last_invited( 12 ), has( $after, 'No invitation sent yet.' ), has( $after, '>Send invitation</button>' ) ),
+	array( 'invite-mail-refused', 0, true, true ) );
+
+echo "\n=== Only a refusal of the invitation itself counts ===\n";
+
+// Another plugin's filter sends an email of its own while the invitation is on its way, and the
+// host refuses that one: the invitation went.
+reset_world();
+$GLOBALS['other_fails'] = array( array( 'notify@example.test' ), 'Program Desk <desk@example.test>' );
+press( 20, 10 );
+
+ck( 'other emails the host refuses while the invitation goes out are not the invitation: the notice says it is on its way', array( outcome_of( 20 ), $GLOBALS['invited'] ), array( 'invite-resent', array( array( 10, 'user' ) ) ) );
+ck( 'and the place stays taken, and the history row is written', array( spent( $A ), count( rows( $A ) ) ), array( 1, 1 ) );
+
+// The invitation's own refusal, however its recipient is written.
+$own = array(
+	'as core reports it, the address the account holds' => true,
+	'with a name, in another case'                      => array( 'Ana Lopez <ANA@Example.TEST>' ),
+	'in a comma-separated list'                         => 'someone@example.test, ana@example.test',
+);
+
+foreach ( $own as $how => $to ) {
+	reset_world();
+	$GLOBALS['mail_fails'] = $to;
+	press( 20, 10 );
+	ck( sprintf( 'the invitation\'s own refusal counts, %s: the refused email\'s notice, the place given back, no row', $how ), array( outcome_of( 20 ), spent( $A ), count( rows( $A ) ) ), array( 'invite-mail-refused', 0, 0 ) );
+}
+
+reset_world();
+$GLOBALS['other_fails'] = array( array( 'notify@example.test' ) );
+$GLOBALS['mail_fails']  = true;
+press( 20, 10 );
+ck( 'another email failing first does not hide the invitation failing after it', array( outcome_of( 20 ), spent( $A ), count( rows( $A ) ) ), array( 'invite-mail-refused', 0, 0 ) );
+
+// A failure that names no recipient, which core's wp_mail() never reports, cannot be told apart
+// from the invitation's own.
+reset_world();
+$GLOBALS['mail_fails'] = 'unnamed';
+press( 20, 10 );
+ck( 'a failure that names no recipient counts as the invitation\'s', array( outcome_of( 20 ), spent( $A ), count( rows( $A ) ) ), array( 'invite-mail-refused', 0, 0 ) );
+
+/* ---- 6. two presses at the same moment ------------------------------------ */
+
+echo "\n=== Two presses for one student at the same moment ===\n";
+
+/**
+ * A press another request makes while the first one is sending: its own reader and its own form,
+ * the first press's reader and form put back once it has ended.
+ *
+ * @param int $viewer  Who presses.
+ * @param int $student The account the form names.
+ * @return string The redirect or the death, as the stand-ins report them.
+ */
+function press_meanwhile( $viewer, $student ) {
+	$uid            = $GLOBALS['uid'];
+	$post           = $_POST;
+	$ended          = '';
+	$GLOBALS['uid'] = (int) $viewer;
+	$_POST          = array(
+		'action' => WPCPM_Institution_Resend::ACTION,
+		'user'   => (string) $student,
+	);
+
+	try {
+		WPCPM_Institution_Resend::handle_resend();
+	} catch ( Exception $e ) {
+		$ended = $e->getMessage();
+	}
+
+	$GLOBALS['uid'] = $uid;
+	$_POST          = $post;
+
+	return $ended;
+}
+
+// Two members press for Ana in the same moment: both pass the fifteen minutes before either has
+// stamped, and the second reaches the send while the first is sending.
+reset_world();
+$second                 = fresh_reader( $A );
+$GLOBALS['during_send'] = function () use ( $second ) {
+	press_meanwhile( $second, 10 );
+};
+press( 20, 10 );
+
+ck( 'two members pressing for the same student at the same moment send one email', $GLOBALS['invited'], array( array( 10, 'user' ) ) );
+ck( 'the first is told it is on its way, the second that it was refused as the fifteen minutes refuse it', array( outcome_of( 20 ), outcome_of( $second ) ), array( 'invite-resent', 'invite-too-soon' ) );
+ck( 'the second press\'s place is given back, so the day counts one', spent( $A ), 1 );
+ck( 'and the history holds one row, the first press\'s', array( count( rows( $A ) ), rows( $A )[0]['actor'] ?? 0 ), array( 1, 20 ) );
+
+// A request that took Ana's lock and died before it sent: the press waits out the lock's lifetime.
+reset_world();
+$lock = 'wpcpm_invite_lock_10';
+$died = class_exists( 'WPCPM_Lock' ) ? WPCPM_Lock::take( $lock, 600 ) : '';
+
+$held = refused( 20, 10 );
+ck( 'a press while a request that died holds the student\'s lock is refused as too soon, and sends, records and spends nothing',
+	array( '' !== $died, $held['outcome'], $held['sent'], $held['stamp'], $held['rows'], $held['spent'] ),
+	array( true, 'invite-too-soon', array(), true, 0, 0 ) );
+
+// Ten minutes on: the row's time has passed.
+if ( isset( $GLOBALS['opts'][ $lock ] ) ) {
+	$GLOBALS['opts'][ $lock ] = (string) ( time() - 1 );
+}
+press( 20, 10 );
+ck( 'once the lock has aged out the press sends, and lets the lock go', array( outcome_of( 20 ), $GLOBALS['invited'], spent( $A ), isset( $GLOBALS['opts'][ $lock ] ) ), array( 'invite-resent', array( array( 10, 'user' ) ), 1, false ) );
+
+echo "\n=== A press whose browser names no page to go back to ===\n";
+
+reset_world();
+$GLOBALS['http_referer'] = false;
+ck( 'goes back to the Institution Dashboard\'s page, at the line', press( 20, 10 ), 'redirect:https://example.test/institution-dashboard/#wpcpm-student-invite' );
+$GLOBALS['dashboard_page'] = '';
+ck( 'and to the site\'s home while no page holds the dashboard', press( 20, 12 ), 'redirect:https://example.test/#wpcpm-student-invite' );
+
+/* ---- 7. a row that will not insert ---------------------------------------- */
 
 echo "\n=== The invitation went, and its row would not insert ===\n";
 
@@ -616,7 +829,7 @@ ck( 'the invitation is still sent', $GLOBALS['invited'], array( array( 10, 'user
 ck( 'and the notice says the history is missing it, naming the address', array( outcome_of( 20 ), flash_of( 20 )['detail'] ), array( 'invite-unlogged', 'a***@example.test' ) );
 ck( 'the place stays taken, since the email went', spent( $A ), 1 );
 
-/* ---- 7. an Administrator through the switcher ----------------------------- */
+/* ---- 8. an Administrator through the switcher ----------------------------- */
 
 echo "\n=== An Administrator through the switcher ===\n";
 
@@ -634,25 +847,31 @@ press( 30, 12 );
 ck( 'an unsettled agreement does not stop an Administrator', outcome_of( 30 ), 'invite-sent' );
 $GLOBALS['settled'] = array( $A, $B );
 
-/* ---- 8. what each outcome says -------------------------------------------- */
+/* ---- 9. what each outcome says -------------------------------------------- */
 
 echo "\n=== What each outcome says ===\n";
 
 reset_world();
 
 $expected = array(
-	'invite-resent'    => array( 'success', 'The invitation is on its way to a***@example.test. The new link replaces the one in the earlier email.' ),
-	'invite-sent'      => array( 'success', 'The invitation is on its way to a***@example.test.' ),
-	'invite-too-soon'  => array( 'warning', 'This person was sent an invitation less than 15 minutes ago. Another one now would cancel the link in it, so nothing was sent.' ),
-	'invite-ceiling'   => array( 'error', 'Your institution has sent 20 invitations today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team.' ),
-	'invite-signed-in' => array( 'info', 'This student has signed in since the page was drawn, so nothing was sent.' ),
-	'invite-error'     => array( 'error', 'The invitation could not be sent.' ),
-	'invite-refused'   => array( 'error', 'That record is not on your roster.' ),
-	'invite-unlogged'  => array( 'error', 'The invitation is on its way to a***@example.test, but the entry saying who sent it could not be written, so it is not in this institution\'s history. Tell your program contact.' ),
+	'invite-resent'       => array( 'success', 'The invitation is on its way to a***@example.test. The new link replaces the one in the earlier email.' ),
+	'invite-sent'         => array( 'success', 'The invitation is on its way to a***@example.test.' ),
+	'invite-too-soon'     => array( 'warning', 'This person was sent an invitation less than 15 minutes ago. Another one now would cancel the link in it, so nothing was sent.' ),
+	'invite-ceiling'      => array( 'error', 'Your institution has sent 20 invitations today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team.' ),
+	'invite-signed-in'    => array( 'info', 'This student has signed in since the page was drawn, so nothing was sent.' ),
+	'invite-error'        => array( 'error', 'The invitation could not be sent.' ),
+	'invite-mail-refused' => array( 'error', 'The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact.' ),
+	'invite-refused'      => array( 'error', 'That record is not on your roster.' ),
+	'invite-unlogged'     => array( 'error', 'The invitation is on its way to a***@example.test, but the entry saying who sent it could not be written, so it is not in this institution\'s history. Tell your program contact.' ),
 );
 
 ck( 'every outcome has its sentence, and no other outcome has one', WPCPM_Institution_Resend::messages( 'a***@example.test' ), $expected );
 ck( 'the fifteen minutes are the sentence every route refuses with', WPCPM_Institution_Resend::messages()['invite-too-soon'][1], WPCPM_Mail::too_soon_message() );
+ck( 'and a send that failed is the sentence the Resend invite in wp-admin prints, worded in the mail layer', WPCPM_Institution_Resend::messages()['invite-error'][1], method_exists( 'WPCPM_Mail', 'invite_failed_message' ) ? WPCPM_Mail::invite_failed_message() : 'no invite_failed_message()' );
+ck( 'and a refused email the mail layer\'s sentence for an institution\'s members, with what to do next', WPCPM_Institution_Resend::messages()['invite-mail-refused'][1] ?? null, method_exists( 'WPCPM_Mail', 'invite_refused_message' ) ? WPCPM_Mail::invite_refused_message( 'member' ) : 'no invite_refused_message()' );
+ck( 'which of the two a failed send says is the mail layer\'s reading of its answer, as wp-admin\'s Resend reads it: the press names no error code of its own',
+	array( has( $body, 'WPCPM_Mail::invite_outcome( $result )' ), has( $body, "'wpcpm_invite_too_soon'" ) ),
+	array( true, false ) );
 
 /** Draw one student's line as one reader. */
 function draw( $viewer, $student ) {
@@ -662,7 +881,7 @@ function draw( $viewer, $student ) {
 	return (string) ob_get_clean();
 }
 
-/* ---- 9. the line on the card ---------------------------------------------- */
+/* ---- 10. the line on the card --------------------------------------------- */
 
 echo "\n=== The line on the card ===\n";
 
@@ -678,9 +897,14 @@ ck( 'the record\'s day is the sign-in record\'s own start', $since, 'October 15,
 ck( 'with a button to send it again', has( $line, '<button type="submit" class="wpcpm-button">Resend invitation</button>' ), true );
 ck( 'in a one-press form that says it is sending, posting to admin-post.php',
 	has( $line, '<form class="wpcpm-institution__invite-form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Sending...">' ), true );
-ck( 'carrying the action and the student\'s account, and nothing else to read',
-	array( has( $line, '<input type="hidden" name="action" value="wpcpm_institution_resend_invite" />' ), has( $line, '<input type="hidden" name="user" value="10" />' ), substr_count( $line, '<input' ) ),
-	array( true, true, 3 ) );
+ck( 'carrying the action and the student\'s account beside the two fields core\'s nonce field prints, the token and the page the press comes back to, and nothing else to read',
+	array(
+		has( $line, '<input type="hidden" name="action" value="wpcpm_institution_resend_invite" />' ),
+		has( $line, '<input type="hidden" name="user" value="10" />' ),
+		has( $line, '<input type="hidden" id="_wpnonce" name="_wpnonce" value="nonce-wpcpm_institution_resend_invite_10" /><input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_institution_student=10" />' ),
+		substr_count( $line, '<input' ),
+	),
+	array( true, true, true, 4 ) );
 ck( 'its nonce keyed to the student\'s account', has( $line, 'value="nonce-wpcpm_institution_resend_invite_10"' ), true );
 ck( 'under the line\'s anchor', has( $line, '<div class="wpcpm-institution__invite" id="wpcpm-student-invite">' ), true );
 
@@ -724,7 +948,7 @@ ck( 'a sign-in key holding no time reads as no sign-in on record', has( draw( 20
 update_user_meta( 10, WPCPM_Sign_Ins::META_SIGN_IN, gmmktime( 12, 0, 0, 3, 3, 2026 ) );
 ck( 'and once a time is on record the card prints nothing, so no time of a sign-in reaches the page', draw( 20, 10 ), '' );
 
-/* ---- 10. the notices on the card ----------------------------------------- */
+/* ---- 11. the notices on the card ----------------------------------------- */
 
 echo "\n=== What the card says after a press ===\n";
 
@@ -740,6 +964,21 @@ foreach ( $expected as $outcome => $message ) {
 $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-resent', 'user' => 12, 'detail' => 'c***@example.test' ), $reader );
 ck( 'a notice about another student is not printed on this card', has( draw( $reader, 10 ), 'is-success' ), false );
+ck( 'and it is spent by that render, not left waiting for the card it was about', isset( $GLOBALS['umeta'][ $reader ]['wpcpm_flash'][ WPCPM_Institution_Resend::FLASH ] ), false );
+
+$reader = fresh_reader( $A );
+WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-error', 'user' => 14, 'detail' => '' ), $reader );
+ck( 'an account that no longer holds the Student role gets the notice and no line',
+	draw( $reader, 14 ),
+	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-error" role="status">The invitation could not be sent.</p></div>' );
+
+$reader                                       = fresh_reader( $A );
+$GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] = 0;
+WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-resent', 'user' => 10, 'detail' => 'a***@example.test' ), $reader );
+ck( 'while the site keeps no sign-in record, a notice is printed and no line',
+	draw( $reader, 10 ),
+	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-success" role="status">The invitation is on its way to a***@example.test. The new link replaces the one in the earlier email.</p></div>' );
+$GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] = $SINCE;
 
 $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-signed-in', 'user' => 11, 'detail' => '' ), $reader );
@@ -766,7 +1005,7 @@ WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-r
 ck( 'a reader the policy refuses is printed nothing, notice or not', draw( $reader, 10 ), '' );
 ck( 'and the notice is spent, not left waiting', isset( $GLOBALS['umeta'][ $reader ]['wpcpm_flash'][ WPCPM_Institution_Resend::FLASH ] ), false );
 
-/* ---- 11. the stylesheet dresses what the line prints ---------------------- */
+/* ---- 12. the stylesheet dresses what the line prints ---------------------- */
 
 echo "\n=== The stylesheet dresses the line ===\n";
 

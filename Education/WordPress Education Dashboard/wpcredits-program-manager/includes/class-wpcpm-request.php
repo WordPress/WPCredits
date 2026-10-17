@@ -220,6 +220,33 @@ class WPCPM_Request {
 	}
 
 	/**
+	 * Where a handler sends a press back to: the page the form was posted from, as
+	 * `wp_get_referer()` reads it, or the first of the fallbacks that is not empty, or '' when none
+	 * is.
+	 *
+	 * `wp_get_referer()` answers only an address on this site, and false for a request that names
+	 * none or another site's. The caller still redirects through `wp_safe_redirect()`.
+	 *
+	 * @param string ...$fallbacks Where to go back to when the request names no page, best first.
+	 * @return string
+	 */
+	public static function back( ...$fallbacks ) {
+		$back = wp_get_referer();
+
+		if ( $back ) {
+			return (string) $back;
+		}
+
+		foreach ( $fallbacks as $fallback ) {
+			if ( '' !== (string) $fallback ) {
+				return (string) $fallback;
+			}
+		}
+
+		return '';
+	}
+
+	/**
 	 * A slug-shaped argument from a posted form.
 	 *
 	 * The counterpart to `key()`, and needed for the same reason `posted_id()` is: a form
@@ -248,16 +275,19 @@ class WPCPM_Request {
 	/**
 	 * A positive integer from a posted form.
 	 *
-	 * Only for reading *view state* back off a form - which student a manager was looking
-	 * at when they saved - inside a handler that has already verified its nonce and
-	 * capability. It does not verify anything itself. Like `id()`, an array is 0, not the 1
+	 * For two readings inside a handler. View state read back off a form - which student a
+	 * manager was looking at when they saved - once the handler has verified its nonce and
+	 * capability. And the record or account a form's nonce is keyed to, read before the nonce is
+	 * checked so the check can name it (`check_admin_referer( ACTION . '_' . $id )`): nothing is
+	 * done with it until the nonce has passed, and what is read is a whole number or 0, never the
+	 * field as posted. It does not verify anything itself. Like `id()`, an array is 0, not the 1
 	 * that `absint()` would make of it.
 	 *
 	 * @param string $name Field name.
 	 * @return int
 	 */
 	public static function posted_id( $name ) {
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before it acts on the value, which may be what the nonce is keyed to.
 		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
 			return 0;
 		}

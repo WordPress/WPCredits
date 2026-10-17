@@ -3368,14 +3368,16 @@ $GLOBALS['opts'] = array();
 
 echo "\n=== The stamp and the screen the table reads from the rest of the plugin ===\n";
 
-// One map of the stamps, the mail layer's: the queue stamps through its one rule, the rule writes
-// over the map, and the table reads each role's key from it, spelling none of its own. The map every
+// One map of the stamps, the mail layer's: the queue sends each account through the rule one
+// person's send follows, which stamps through the one stamping rule; that rule writes over the map,
+// and the table reads each role's key from it, spelling none of its own. The map every
 // stand-in mail layer reads, named once in bin/stubs/stamps.php and this suite's among them, is the
 // real one's, read here from the real one's source.
 $mail       = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' );
 $table_code = code_of( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php' ) );
 preg_match( '/const STAMPS = array\((.*?)\);/s', $mail, $map );
 preg_match( '/public static function drain_queue\(\).*?\n\t}\n/s', $mail, $drain );
+preg_match( '/public static function send_invite_now\(.*?\n\t}\n/s', $mail, $send_now );
 preg_match( '/public static function stamp_invited\(.*?\n\t}\n/s', $mail, $rule );
 preg_match_all( "/WPCPM_Roles::ROLE_([A-Z]+)\s*=> '([a-z_]+)'/", isset( $map[1] ) ? $map[1] : '', $pairs, PREG_SET_ORDER );
 
@@ -3390,9 +3392,9 @@ foreach ( array_keys( $real_map ) as $role ) {
 	$read[ $role ]                  = WPCPM_Test_Role_Table::stamp();
 }
 
-ck( 'the queue stamps through the mail layer\'s one rule, which writes over its one map, the map the stand-ins share is that one, and each role\'s accounts are read by that map\'s key, the table spelling no key of its own',
+ck( 'the queue sends through the rule one person\'s send follows, which stamps through the mail layer\'s one rule, which writes over its one map, the map the stand-ins share is that one, and each role\'s accounts are read by that map\'s key, the table spelling no key of its own',
 	array(
-		has( isset( $drain[0] ) ? $drain[0] : '', 'self::stamp_invited( $user );' ),
+		has( isset( $drain[0] ) ? $drain[0] : '', 'self::send_invite_now( $user )' ) && has( isset( $send_now[0] ) ? $send_now[0] : '', 'self::stamp_invited( $user );' ),
 		has( isset( $rule[0] ) ? $rule[0] : '', 'foreach ( self::STAMPS as $role => $meta )' ),
 		count( $real_map ),
 		WPCPM_STUB_STAMPS === $real_map,

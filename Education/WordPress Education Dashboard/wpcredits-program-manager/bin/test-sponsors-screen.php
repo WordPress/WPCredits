@@ -470,11 +470,11 @@ require_once __DIR__ . '/stubs/stamps.php';
 /**
  * The mail layer, as far as the screen reaches it: the queue provisioning puts a welcome in, the
  * masked address, and the invitations as the Accounts tab's frame reaches them: the stamps the
- * list's views read, the words a row's invitation leaves, who was never sent one (the accounts
- * holding the role with no stamp), and the card, drawn as the real one draws its button, a form
- * posting the action and the fields the module hands it, without the once attribute. The
- * invitations themselves and the card's own words are bin/test-sponsors-accounts.php's, against the
- * real class.
+ * list's views read, the words a row's invitation leaves, its failure's among them, who was never
+ * sent one (the accounts holding the role with no stamp), and the card, drawn as the real one draws
+ * its button, a form posting the action and the fields the module hands it, without the once
+ * attribute. The invitations themselves and the card's own words are
+ * bin/test-sponsors-accounts.php's, against the real class.
  */
 class WPCPM_Mail {
 	const STAMPS = WPCPM_STUB_STAMPS;
@@ -485,6 +485,9 @@ class WPCPM_Mail {
 			'invited'         => array( 'success', 'Invitation email sent.' ),
 			'invite-too-soon' => array( 'warning', 'Nothing was sent: too soon.' ),
 		);
+	}
+	public static function invite_failed_message() {
+		return 'The invitation could not be sent.';
 	}
 	public static function never_invited( $role, $meta ) {
 		$GLOBALS['never_invited_asked'][] = array( $role, $meta );

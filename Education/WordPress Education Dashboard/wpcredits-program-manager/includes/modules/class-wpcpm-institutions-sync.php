@@ -1144,10 +1144,11 @@ class WPCPM_Institutions_Sync {
 	 * Sent at once, not queued as `provision()` queues the account it makes: this is one message
 	 * to one account somebody picked, and the queue is for the many accounts a run makes together.
 	 *
-	 * Refused inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a
-	 * second one would cancel the link in the first. Stamped by the mail layer's one rule
-	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's
-	 * would: stamped for each program role it holds.
+	 * An account that does not exist or does not hold the Institution role is refused here. Then
+	 * the mail layer's one rule for a single invitation (`WPCPM_Mail::send_invite_now()`): refused
+	 * inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a second one would
+	 * cancel the link in the first, and while another request is sending it one; stamped as the
+	 * queue stamps (`WPCPM_Mail::stamp_invited()`), for each program role the account holds.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
@@ -1163,16 +1164,7 @@ class WPCPM_Institutions_Sync {
 			return new WP_Error( 'wpcpm_not_institution', __( 'That account does not hold the Institution role.', 'wpcredits-program-manager' ) );
 		}
 
-		$allowed = WPCPM_Mail::may_invite( $user->ID );
-
-		if ( is_wp_error( $allowed ) ) {
-			return $allowed;
-		}
-
-		wp_new_user_notification( $user->ID, null, 'user' );
-		WPCPM_Mail::stamp_invited( $user );
-
-		return true;
+		return WPCPM_Mail::send_invite_now( $user );
 	}
 
 	/**

@@ -421,7 +421,10 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	 * mail class reads), whichever audience's it is, refused with the mail layer's code while the
 	 * gap runs. And its one stamping rule, which notes each account it is asked to stamp and the
 	 * moment it is given (0 for now, which the real rule reads as the time of the call), and writes
-	 * the one key WPCPM_TEST_RULE_STAMP at that moment, which the gap reads beside the four.
+	 * the one key WPCPM_TEST_RULE_STAMP at that moment, which the gap reads beside the four. And the
+	 * rule a sync hands one account's invitation to (`send_invite_now()`), answered as the real one
+	 * answers it, by that gap, core's notification to the account alone and that stamping rule, with
+	 * each account handed to it noted. Its lock is bin/test-mail.php's to pin.
 	 */
 	class WPCPM_Mail {
 		const INVITE_GAP = 900;
@@ -442,6 +445,16 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 			}
 			$wait = $last ? $last + self::INVITE_GAP - time() : 0;
 			return $wait <= 0 ? true : new WP_Error( 'wpcpm_invite_too_soon', 'This person was sent an invitation less than 15 minutes ago.', array( 'wait' => $wait ) );
+		}
+		public static function send_invite_now( WP_User $user ) {
+			$GLOBALS['calls']['send_invite_now'][] = (int) $user->ID;
+			$allowed                               = self::may_invite( $user->ID );
+			if ( is_wp_error( $allowed ) ) {
+				return $allowed;
+			}
+			wp_new_user_notification( $user->ID, null, 'user' );
+			self::stamp_invited( $user );
+			return true;
 		}
 	}
 }
@@ -1134,6 +1147,7 @@ ck( 'and so is an account without the Institution role, a mentor\'s', invite_one
 $recent = invite_one( 62 );
 ck( 'and an institution account sent a mentor\'s invitation a minute ago, by the gap', is_array( $recent ) ? $recent[0] : $recent, 'wpcpm_invite_too_soon' );
 ck( 'none of the three was sent anything or stamped', array( sends(), $GLOBALS['umeta'] ), array( array(), array( 62 => array( 'wpcpm_mentor_invited' => $mentor_sent ) ) ) );
+ck( 'the two the sync refuses itself never reach the mail layer: only the account that holds the role is handed to its rule for one invitation', $GLOBALS['calls']['send_invite_now'] ?? array(), array( 62 ) );
 
 $before = time();
 

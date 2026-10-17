@@ -51,6 +51,20 @@ class WPCPM_Mail {
 	const INVITE_GAP = 900;
 
 	/**
+	 * Prefix of the option row that holds one account while its invitation is being sent; the rest of
+	 * the name is the account's ID (`send_invite_now()`, through `WPCPM_Lock`). Uninstall sweeps the
+	 * rows by it.
+	 */
+	const INVITE_LOCK = 'wpcpm_invite_lock_';
+
+	/**
+	 * How long an invitation's lock holds at most, in seconds: ten minutes, far longer than one email
+	 * takes to hand over, and shorter than `INVITE_GAP`. Only a request that dies while sending holds
+	 * it that long.
+	 */
+	const INVITE_LOCK_TTL = 600;
+
+	/**
 	 * The invitation stamps, by the program role each belongs to: user meta holding when the account
 	 * was last sent its login invitation, as a Unix time.
 	 *
@@ -606,6 +620,7 @@ class WPCPM_Mail {
 				'total'    => count( $queue ),
 				'started'  => time(),
 				'finished' => 0,
+				'unsent'   => 0,
 			),
 			false
 		);
@@ -618,7 +633,11 @@ class WPCPM_Mail {
 	/**
 	 * The bulk invite currently running, or the last one to finish.
 	 *
-	 * @return array{total:int,started:int,finished:int}|array{} Empty when there has been none.
+	 * `unsent` is how many of its accounts the queue passed over without sending: one sent an
+	 * invitation inside the gap or being sent one at that moment, one whose email the mail host
+	 * refused, one whose account was gone.
+	 *
+	 * @return array{total:int,started:int,finished:int,unsent:int}|array{} Empty when there has been none.
 	 */
 	public static function run() {
 		$run = get_option( self::RUN_OPTION, array() );
@@ -631,6 +650,7 @@ class WPCPM_Mail {
 			'total'    => (int) $run['total'],
 			'started'  => (int) ( isset( $run['started'] ) ? $run['started'] : 0 ),
 			'finished' => (int) ( isset( $run['finished'] ) ? $run['finished'] : 0 ),
+			'unsent'   => (int) ( isset( $run['unsent'] ) ? $run['unsent'] : 0 ),
 		);
 	}
 
@@ -664,8 +684,12 @@ class WPCPM_Mail {
 	/**
 	 * Send the next batch of invitations.
 	 *
-	 * After each message the account is stamped by the rule every route that sends an invitation
-	 * follows (`stamp_invited()`). With anybody left, the next run is booked before the first message.
+	 * Each account goes through the rule every route that sends one person an invitation follows
+	 * (`send_invite_now()`): under the account's lock, against the fifteen minutes, and stamped once
+	 * the email has gone. An account that rule refuses, sent one inside the gap, being sent one by
+	 * another request at that moment, or whose email the mail host refused, is passed over: it has
+	 * left the queue with its batch, as an account inside the gap always has, and is not queued again.
+	 * With anybody left, the next run is booked before the first message.
 	 */
 	public static function drain_queue() {
 		$queue = self::queue();
@@ -696,22 +720,26 @@ class WPCPM_Mail {
 			wp_schedule_single_event( time() + 120, self::CRON_QUEUE );
 		}
 
+		$unsent = 0;
+
 		foreach ( $batch as $user_id ) {
 			$user = get_user_by( 'id', $user_id );
 
 			if ( ! $user instanceof WP_User ) {
+				++$unsent;
 				continue;
 			}
 
-			// Somebody sent an invitation inside the gap - by Resend invite while they waited here,
-			// or by another run of this queue that reached them first - keeps the link they have.
-			if ( is_wp_error( self::may_invite( $user->ID ) ) ) {
-				continue;
+			// Somebody sent an invitation inside the gap, or being sent one right now - by Resend
+			// invite while they waited here, or by another run of this queue that reached them
+			// first - keeps the link they have, and is passed over, as is one whose email the mail
+			// host refuses. The run counts each, so the card does not call them sent.
+			if ( is_wp_error( self::send_invite_now( $user ) ) ) {
+				++$unsent;
 			}
-
-			wp_new_user_notification( $user->ID, null, 'user' );
-			self::stamp_invited( $user );
 		}
+
+		self::count_unsent( $unsent );
 
 		// The last batch books nothing. The run is stamped finished only once that batch has been sent,
 		// not when the queue option was emptied above, which is *before* sending: a screen reading
@@ -723,9 +751,9 @@ class WPCPM_Mail {
 
 	/**
 	 * Stamp an account as sent its login invitation, by the one rule every route that sends one
-	 * follows: the queue (`drain_queue()`), and for one person the Students, Mentors and
-	 * Institutions syncs' `send_invite()` and the sponsor members' own
-	 * (`WPCPM_Sponsor_Members::send_invite()`).
+	 * follows, once the email has gone (`send_invite_now()`): the queue (`drain_queue()`), and for
+	 * one person the Students, Mentors and Institutions syncs' `send_invite()` and the sponsor
+	 * members' own (`WPCPM_Sponsor_Members::send_invite()`), which hand the account to it.
 	 *
 	 * Each program role the account holds is asked on its own and stamped under its key (`STAMPS`),
 	 * all at one moment, the one given or now; an account holding none of them is stamped as a
@@ -788,12 +816,10 @@ class WPCPM_Mail {
 	/**
 	 * Whether an invitation may go to somebody now: true, or why not.
 	 *
-	 * The one check every route asks before it sends - the Students, Mentors and Institutions
-	 * syncs' `send_invite()` and the sponsor members' (`WPCPM_Sponsor_Members::send_invite()`), one
-	 * person at a time, and the queue - so no route cancels a link another sent inside
-	 * `INVITE_GAP`. The queue stamps only after it sends, so two runs racing
-	 * each other can still both send in the moment before either stamps: this narrows that window
-	 * to the send itself, it does not close it.
+	 * The one check every route asks before it sends, through `send_invite_now()`: a row's Resend
+	 * invite, the Institution Dashboard's press and the queue, so no route cancels a link another
+	 * sent inside `INVITE_GAP`. It is asked under the account's lock, which closes the moment between
+	 * this check and the stamp.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error `wpcpm_invite_too_soon`, carrying the seconds still to wait as `wait`.
@@ -806,15 +832,138 @@ class WPCPM_Mail {
 			return true;
 		}
 
-		return new WP_Error( 'wpcpm_invite_too_soon', self::too_soon_message(), array( 'wait' => $wait ) );
+		return self::too_soon( $wait );
+	}
+
+	/**
+	 * Send one account its login invitation now, by the one rule every route follows: the Students,
+	 * Mentors and Institutions syncs' `send_invite()` and the sponsor members'
+	 * (`WPCPM_Sponsor_Members::send_invite()`), which a row's Resend invite in wp-admin and the
+	 * Institution Dashboard's press reach, and the queue (`drain_queue()`). Each `send_invite()`
+	 * refuses an account that is not its audience's before it gets here.
+	 *
+	 * **The lock comes first.** The account's lock (`WPCPM_Lock`, `INVITE_LOCK` and the ID, for
+	 * `INVITE_LOCK_TTL`) is taken before the fifteen minutes are asked and let go in `finally`, once
+	 * the invitation is stamped or the send has ended any other way, an exception included. So two
+	 * requests for one account at the same moment send one email: the one that finds the lock taken
+	 * is refused as the fifteen minutes refuse it, in the same words, carrying the seconds until the
+	 * lock runs out, and the one that takes it once the other has let it go finds the other's stamp.
+	 * With the lock taken, the account's user meta is dropped from the object cache (a persistent
+	 * one's shared copy too), so the fifteen minutes read the stamp as the database holds it, however
+	 * long ago this request read it.
+	 *
+	 * **A refused email is no send.** The invitation goes as core's new-user notification to the
+	 * account alone, and WordPress drops what `wp_mail()` answered, so a refusal is listened for on
+	 * `wp_mail_failed` around this one send and counted only when it is addressed to the account
+	 * (`refused_for()`): another plugin can send an email of its own from a filter while the invitation
+	 * is on its way, and that one failing says nothing of the invitation. A refused invitation is not
+	 * stamped, so the account's last invitation stays the last one that went, or none, and the
+	 * fifteen minutes do not start: whoever pressed can send again at once. That last invitation's
+	 * link no longer works all the same, because core made the new password-reset key before it
+	 * handed the email over, which the refusal's sentence says (`invite_refused_message()`). A sent
+	 * one is stamped by the mail layer's one rule (`stamp_invited()`).
+	 *
+	 * @param WP_User $user The account.
+	 * @return true|WP_Error `wpcpm_invite_too_soon` while another request is sending the account an
+	 *                       invitation, or inside `INVITE_GAP` of the last one; `wpcpm_invite_refused`
+	 *                       when the mail host refused the email.
+	 */
+	public static function send_invite_now( WP_User $user ) {
+		$user_id = (int) $user->ID;
+		$lock    = self::INVITE_LOCK . $user_id;
+		$token   = WPCPM_Lock::take( $lock, self::INVITE_LOCK_TTL );
+
+		if ( '' === $token ) {
+			$until = WPCPM_Lock::until( $lock );
+
+			return self::too_soon( $until > time() ? $until - time() : self::INVITE_GAP );
+		}
+
+		try {
+			wp_cache_delete( $user_id, 'user_meta' );
+
+			$allowed = self::may_invite( $user_id );
+
+			if ( is_wp_error( $allowed ) ) {
+				return $allowed;
+			}
+
+			$refused = false;
+			$to      = (string) $user->user_email;
+			$listen  = static function ( $error = null ) use ( &$refused, $to ) {
+				if ( self::refused_for( $error, $to ) ) {
+					$refused = true;
+				}
+			};
+
+			add_action( 'wp_mail_failed', $listen );
+
+			try {
+				wp_new_user_notification( $user_id, null, 'user' );
+			} finally {
+				remove_action( 'wp_mail_failed', $listen );
+			}
+
+			if ( $refused ) {
+				return new WP_Error( 'wpcpm_invite_refused', self::invite_refused_message() );
+			}
+
+			self::stamp_invited( $user );
+
+			return true;
+		} finally {
+			WPCPM_Lock::release( $lock, $token );
+		}
+	}
+
+	/**
+	 * Whether a failure WordPress reported on `wp_mail_failed` was an email to this address.
+	 *
+	 * Core hands the hook a `WP_Error` carrying the email's recipients as `to`, a list or a
+	 * comma-separated string, each an address or a name with one in angle brackets; they are read
+	 * as the mail log reads them (`WPCPM_Mail_Capture::recipients()`) and compared without regard to
+	 * case. A failure that names no recipient at all, which core's `wp_mail()` never reports, cannot
+	 * be told apart from the invitation's own, and counts as it.
+	 *
+	 * @param mixed  $error   What the hook was handed.
+	 * @param string $address The account's address.
+	 * @return bool
+	 */
+	private static function refused_for( $error, $address ) {
+		$data = is_wp_error( $error ) ? $error->get_error_data() : null;
+		$to   = is_array( $data ) && isset( $data['to'] ) ? $data['to'] : '';
+
+		if ( '' === $to || array() === $to ) {
+			return true;
+		}
+
+		foreach ( WPCPM_Mail_Capture::recipients( $to, '' ) as $recipient ) {
+			if ( 0 === strcasecmp( $recipient, (string) $address ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The refusal `may_invite()` and a lock another request holds both answer.
+	 *
+	 * @param int $wait The seconds still to wait: to the end of the fifteen minutes, or to the time a
+	 *                  held lock runs out.
+	 * @return WP_Error `wpcpm_invite_too_soon`, carrying them as `wait`.
+	 */
+	private static function too_soon( $wait ) {
+		return new WP_Error( 'wpcpm_invite_too_soon', self::too_soon_message(), array( 'wait' => (int) $wait ) );
 	}
 
 	/**
 	 * The sentence `may_invite()` refuses with: the last invitation went less than `INVITE_GAP`
-	 * ago, so nothing was sent.
+	 * ago, so nothing was sent. A send refused because another request holds the account's lock is
+	 * refused in it too, since that other request's invitation is going out as it is read.
 	 *
-	 * Worded once, for that refusal and for the notice the Institution Dashboard prints after a
-	 * press it refused, so the two cannot drift apart.
+	 * Worded once, for those refusals and for the notice the Institution Dashboard prints after a
+	 * press it refused, so they cannot drift apart.
 	 *
 	 * @return string
 	 */
@@ -827,22 +976,63 @@ class WPCPM_Mail {
 	}
 
 	/**
+	 * The sentence for an invitation that could not be sent: the account cannot be sent one, or the
+	 * send answered an error. An email the mail host refused has its own
+	 * (`invite_refused_message()`).
+	 *
+	 * Worded once, for the `error` a Resend invite press leaves on every accounts screen
+	 * (`invite_outcome()`) and for the Institution Dashboard's press, so the two say the same.
+	 *
+	 * @return string
+	 */
+	public static function invite_failed_message() {
+		return __( 'The invitation could not be sent.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The sentence for an invitation the mail host refused, for the one who pressed: what happened,
+	 * that the earlier link is gone too, and what to do next.
+	 *
+	 * Core makes the new password-reset key before it hands the email over, so a refused invitation
+	 * has already canceled the link in the one before it. Worded once for each reader: the
+	 * Administrators, on the accounts screens (`invite_notices()`), and an institution's members, on
+	 * the Institution Dashboard, who cannot see the site's email and are sent to their program contact.
+	 *
+	 * @param string $reader `administrator`, or `member` for an institution's member.
+	 * @return string
+	 */
+	public static function invite_refused_message( $reader = 'administrator' ) {
+		if ( 'member' === $reader ) {
+			return __( 'The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'The site\'s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site\'s email is working.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * The outcome a Resend invite press flashes, from what `send_invite()` answered.
 	 *
 	 * @param true|WP_Error $result What the send answered.
-	 * @return string `invited`, `invite-too-soon`, or the shared `error`.
+	 * @return string `invited`, `invite-too-soon`, `invite-mail-refused`, or the shared `error`.
 	 */
 	public static function invite_outcome( $result ) {
 		if ( ! is_wp_error( $result ) ) {
 			return 'invited';
 		}
 
-		return 'wpcpm_invite_too_soon' === $result->get_error_code() ? 'invite-too-soon' : 'error';
+		switch ( $result->get_error_code() ) {
+			case 'wpcpm_invite_too_soon':
+				return 'invite-too-soon';
+			case 'wpcpm_invite_refused':
+				return 'invite-mail-refused';
+			default:
+				return 'error';
+		}
 	}
 
 	/**
-	 * The two notices a Resend invite press can leave, worded once for the Students, Mentors,
-	 * Institutions and Sponsors screens.
+	 * The three notices a Resend invite press can leave, worded once for the Students, Mentors,
+	 * Institutions and Sponsors screens: sent, too soon, and refused by the mail host.
 	 *
 	 * The sent notice says the new email replaces the earlier link, because whoever pressed is
 	 * usually helping somebody whose link failed, and the old email is still in that inbox.
@@ -851,8 +1041,8 @@ class WPCPM_Mail {
 	 */
 	public static function invite_notices() {
 		return array(
-			'invited'         => array( 'success', __( 'Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.', 'wpcredits-program-manager' ) ),
-			'invite-too-soon' => array(
+			'invited'             => array( 'success', __( 'Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.', 'wpcredits-program-manager' ) ),
+			'invite-too-soon'     => array(
 				'warning',
 				sprintf(
 					/* translators: %d: a number of minutes. */
@@ -860,6 +1050,7 @@ class WPCPM_Mail {
 					(int) ( self::INVITE_GAP / MINUTE_IN_SECONDS )
 				),
 			),
+			'invite-mail-refused' => array( 'error', self::invite_refused_message() ),
 		);
 	}
 
@@ -1034,8 +1225,9 @@ class WPCPM_Mail {
 		// A run in progress owns the card. Offering "send" while a send is under way is how the
 		// same people get two emails.
 		if ( $waiting > 0 && ! empty( $run ) ) {
-			$sent    = max( 0, $run['total'] - $waiting );
-			$percent = $run['total'] > 0 ? (int) round( ( $sent / $run['total'] ) * 100 ) : 0;
+			$done    = max( 0, $run['total'] - $waiting );
+			$sent    = max( 0, $done - $run['unsent'] );
+			$percent = $run['total'] > 0 ? (int) round( ( $done / $run['total'] ) * 100 ) : 0;
 			$next    = wp_next_scheduled( self::CRON_QUEUE );
 
 			printf(
@@ -1101,17 +1293,26 @@ class WPCPM_Mail {
 		}
 
 		if ( ! empty( $run ) && $run['finished'] ) {
-			printf(
-				'<p class="wpcpm-invites__count"><strong>%s</strong></p>',
-				esc_html(
-					sprintf(
-						/* translators: 1: how many were sent, 2: the people, e.g. "students". */
-						_n( 'Finished: %1$d invitation sent to %2$s.', 'Finished: %1$d invitations sent to %2$s.', $run['total'], 'wpcredits-program-manager' ),
-						$run['total'],
-						$noun
-					)
-				)
-			);
+			$sent = max( 0, $run['total'] - $run['unsent'] );
+
+			if ( $run['unsent'] > 0 ) {
+				$said = sprintf(
+					/* translators: 1: how many were sent, 2: the people, e.g. "students", 3: how many were not sent: refused by the mail host, held by another request sending them one, invited in the last fifteen minutes, or their account gone. */
+					_n( 'Finished: %1$d invitation sent to %2$s, %3$d not sent.', 'Finished: %1$d invitations sent to %2$s, %3$d not sent.', $sent, 'wpcredits-program-manager' ),
+					$sent,
+					$noun,
+					$run['unsent']
+				);
+			} else {
+				$said = sprintf(
+					/* translators: 1: how many were sent, 2: the people, e.g. "students". */
+					_n( 'Finished: %1$d invitation sent to %2$s.', 'Finished: %1$d invitations sent to %2$s.', $sent, 'wpcredits-program-manager' ),
+					$sent,
+					$noun
+				);
+			}
+
+			printf( '<p class="wpcpm-invites__count"><strong>%s</strong></p>', esc_html( $said ) );
 
 			printf( '<form method="post" action="%s">', $post ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
 			wp_nonce_field( self::ACTION_DISMISS );
@@ -1241,6 +1442,23 @@ class WPCPM_Mail {
 				)
 			)
 		);
+	}
+
+	/**
+	 * Add to the running bulk invite's count of accounts passed over without an email.
+	 *
+	 * @param int $unsent How many this batch passed over.
+	 */
+	private static function count_unsent( $unsent ) {
+		$run = self::run();
+
+		if ( (int) $unsent < 1 || empty( $run ) || $run['finished'] ) {
+			return;
+		}
+
+		$run['unsent'] += (int) $unsent;
+
+		update_option( self::RUN_OPTION, $run, false );
 	}
 
 	/**
