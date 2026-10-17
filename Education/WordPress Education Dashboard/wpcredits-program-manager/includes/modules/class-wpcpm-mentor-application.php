@@ -25,20 +25,29 @@ if ( ! defined( 'ABSPATH' ) ) {
  * is pending), `declined` and `active` (the account exists, which M2 sets) are a person's; `lapsed`
  * is the clock's, or an Administrator's who withdrew a selected applicant. A row filed as spam that
  * an Administrator puts back in the queue is `new` again, and one never acknowledged is sent the
- * acknowledgement then. The queue is the four open states; `selected` waits for the course; the
- * rest are closed.
+ * acknowledgement then; an open row never acknowledged is sent it by Send the acknowledgement, and
+ * stays where it is (1.122.33). The queue is the four open states; `selected` waits for the course;
+ * the rest are closed.
  *
- * **The daily run** (`daily()`) moves a selected row the course never reached to `lapsed`, then
- * deletes what the retention settings say to, the three the other two application forms keep
- * (design, section 9): spam after its days, declined, lapsed and held rows after the rejected days,
- * an active row only if approved ones are ever set to go. A held row is one of the four open states
- * and goes all the same, as the sponsor application's does: it has no decision, so its days are
- * counted from the last thing that happened to it. A new, info or second row is never deleted, and
- * a selected one lapses first. What a row counted for the feed is kept when it goes (`forget()`),
- * so the months behind the feed do not shrink as rows are deleted.
+ * **The daily run** (`daily()`) moves a selected row the course never reached to `lapsed`, under the
+ * row's lock, then settles the activations (`WPCPM_Mentor_Activation::settle_all()`), then deletes
+ * what the retention settings say to, the three the other two application forms keep (design,
+ * section 9): spam after its days, declined, lapsed and held rows after the rejected days, an active
+ * row only if approved ones are ever set to go, and never while its Mentors row is still to be
+ * written. A held row is one of the four open states and goes all the same, as the sponsor
+ * application's does: it has no decision, so its days are counted from the last thing that happened
+ * to it. A new, info or second row is never deleted, and a selected one lapses first. What a row
+ * counted for the feed is kept when it goes (`forget()`), so the months behind the feed do not
+ * shrink as rows are deleted.
  *
- * Nothing here sends anything or draws anything: the form, the queue and the feed read and write
- * through this class.
+ * **What an activation keeps here** (1.122.33): the account it made a mentor and how it found it,
+ * when, the Mentors row's fate, and why an account could not be made, each a site field with its
+ * reader; and the name of the application's one lock (`lock_name()`), which the activation, its
+ * retry, settling, the lapse clock, Withdraw and Send the acknowledgement take.
+ * `WPCPM_Mentor_Activation` writes them.
+ *
+ * Nothing here sends anything or draws anything: the form, the queue, the feed and the activation
+ * read and write through this class.
  */
 final class WPCPM_Mentor_Application {
 
@@ -90,10 +99,70 @@ final class WPCPM_Mentor_Application {
 	 */
 	const META_DECIDED = '_wpcpm_mapp_decided';
 
+	/**
+	 * Post meta: the account an activation made a mentor (1.122.33), a user ID; absent until then.
+	 */
+	const META_USER = '_wpcpm_mapp_user';
+
+	/**
+	 * Post meta: what became of the application's Mentors row in Airtable (1.122.33): `state`
+	 * (`pending`, `created`, `reactivated`, `adopted`, `found`, `gone`, `already` or `refused`), `how`
+	 * (`create` or `reactivate`), `record`, `error`, `left_out` and `at` (`airtable_of()`).
+	 */
+	const META_AIRTABLE = '_wpcpm_mapp_airtable';
+
+	/**
+	 * Post meta: why the last activation could not make the account (1.122.33), `at` and `message`;
+	 * absent once an activation makes it.
+	 */
+	const META_PROBLEM = '_wpcpm_mapp_problem';
+
+	/**
+	 * Post meta: when the application was made a mentor (1.122.33), a Unix time: the index the
+	 * Activated list orders by, and the moment its invitation line counts from.
+	 */
+	const META_ACTIVATED_AT = '_wpcpm_mapp_activated';
+
+	/**
+	 * Post meta: how the activation found the account it made a mentor (1.122.33): `created` for a
+	 * new one; how `WPCPM_Mentor_Provision::find_account()` found it (`email`, `login`, `profile`);
+	 * or, for the account linked by its record id to the Mentors row that holds the address, `record`
+	 * when another account answered for the applicant and `row` when none did. A `login` or a `record`
+	 * account is sent no invitation until a person confirms it is the person's (rulings R5 and P9b),
+	 * and the Activated list says so by this.
+	 */
+	const META_LINKED_BY = '_wpcpm_mapp_linked_by';
+
+	/**
+	 * Post meta: the Mentor Status Checker's last look at the applicant's WordPress.org profile
+	 * (1.122.33), `at`, `state` and `message`; absent until the checker has looked. One look, the
+	 * latest, replaced by the next (`note_check()`, `last_check()`).
+	 */
+	const META_CHECKED = '_wpcpm_mapp_checked';
+
+	/**
+	 * The option name an application's lock is kept under, with the application's ID after it
+	 * (`lock_name()`, through `WPCPM_Lock`). The activation, its retry, settling, the lapse clock,
+	 * and Withdraw and Send the acknowledgement on the Waiting for review tab take it, so one of them
+	 * at a time works on one application; the uninstaller sweeps the prefix.
+	 */
+	const LOCK_PREFIX = 'wpcpm_mapp_lock_';
+
+	/**
+	 * How long an application's lock holds at most, in seconds: past the longest an activation takes,
+	 * an account, a mail queued and three Airtable requests, so a lock a request that died left runs
+	 * out by itself.
+	 */
+	const LOCK_TTL = 600;
+
 	/** The `admin_post_` action the confirming link lands on (`WPCPM_Mentor_Application_Form::handle_verify()`). */
 	const ACTION_VERIFY = 'wpcpm_mentor_apply_verify';
 
-	/** What the history calls each thing that happened. A decision writes one of these, and the feed counts four. */
+	/**
+	 * What the history calls each thing that happened. A decision writes one of these. The feed reads
+	 * five of them as four figures, each application once per figure in a month (selected, activated,
+	 * declined, and lapsed or withdrawn as lapsed), and counts no other event.
+	 */
 	const EVENT_SUBMITTED = 'submitted';
 	const EVENT_CONFIRMED = 'address confirmed';
 	const EVENT_SELECTED  = 'selected';
@@ -108,6 +177,27 @@ final class WPCPM_Mentor_Application {
 
 	/** Put back in the queue and sent the acknowledgement it never had, with the confirming link. */
 	const EVENT_REOPENED_ACKNOWLEDGED = 'put back in the queue, acknowledgement sent';
+
+	/**
+	 * Sent the acknowledgement it never had, with the confirming link, by Send the acknowledgement on
+	 * an open row (1.122.33); the row stays in its state. Not counted by the feed.
+	 */
+	const EVENT_ACKNOWLEDGED = 'acknowledgement sent';
+
+	/**
+	 * The activation's Mentors row (1.122.33): written, refused, and, for a mentor on this site
+	 * already, filed as such. None is counted by the feed.
+	 */
+	const EVENT_AIRTABLE_WRITTEN = 'Airtable row written';
+	const EVENT_AIRTABLE_REFUSED = 'Airtable row refused';
+	const EVENT_ALREADY_MENTOR   = 'already a mentor';
+
+	/**
+	 * The row settled with nothing written from here (1.122.33): the account holds its record,
+	 * linked by the mentors sync or by hand, or the account is gone. Its own event, so the history
+	 * never claims a write the site did not make; not counted by the feed.
+	 */
+	const EVENT_AIRTABLE_SETTLED = 'Airtable row settled';
 
 	/** The daily run: the lapse clock, then retention. */
 	const CRON_DAILY = 'wpcpm_mentor_applications_daily';
@@ -155,10 +245,18 @@ final class WPCPM_Mentor_Application {
 	}
 
 	/**
-	 * The daily run: lapse first, so a row that lapses tonight starts its retention days tonight.
+	 * The daily run: lapse first, so a row that lapses tonight starts its retention days tonight; then
+	 * settle the activations whose Mentors row was linked meanwhile or whose account is gone, while
+	 * the activation's class is loaded, so a settled row neither reads as refused nor is kept for
+	 * ever (1.122.33); then retention.
 	 */
 	public static function daily() {
 		self::lapse();
+
+		if ( class_exists( 'WPCPM_Mentor_Activation' ) ) {
+			WPCPM_Mentor_Activation::settle_all();
+		}
+
 		self::purge();
 	}
 
@@ -500,6 +598,141 @@ final class WPCPM_Mentor_Application {
 	}
 
 	/**
+	 * The account an activation made a mentor, or 0 (1.122.33).
+	 *
+	 * @param WP_Post $post The application.
+	 * @return int
+	 */
+	public static function user_of( WP_Post $post ) {
+		return absint( get_post_meta( (int) $post->ID, self::META_USER, true ) );
+	}
+
+	/**
+	 * What became of the application's Mentors row (1.122.33), every key there, or none when no
+	 * activation wrote one or it is stored in another shape.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return array `state`, `how`, `record`, `error`, `left_out` and `at`, or `array()`.
+	 */
+	public static function airtable_of( WP_Post $post ) {
+		$kept = get_post_meta( (int) $post->ID, self::META_AIRTABLE, true );
+
+		if ( ! is_array( $kept ) || ! isset( $kept['state'] ) || '' === (string) $kept['state'] ) {
+			return array();
+		}
+
+		return array(
+			'state'    => (string) $kept['state'],
+			'how'      => isset( $kept['how'] ) ? (string) $kept['how'] : '',
+			'record'   => isset( $kept['record'] ) ? (string) $kept['record'] : '',
+			'error'    => isset( $kept['error'] ) ? (string) $kept['error'] : '',
+			'left_out' => isset( $kept['left_out'] ) && is_array( $kept['left_out'] ) ? $kept['left_out'] : array(),
+			'at'       => isset( $kept['at'] ) ? (int) $kept['at'] : 0,
+		);
+	}
+
+	/**
+	 * Why the last activation could not make the account (1.122.33), or none.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return array `at` and `message`, or `array()`.
+	 */
+	public static function problem_of( WP_Post $post ) {
+		$kept = get_post_meta( (int) $post->ID, self::META_PROBLEM, true );
+
+		if ( ! is_array( $kept ) || ! isset( $kept['message'] ) || '' === (string) $kept['message'] ) {
+			return array();
+		}
+
+		return array(
+			'at'      => isset( $kept['at'] ) ? (int) $kept['at'] : 0,
+			'message' => (string) $kept['message'],
+		);
+	}
+
+	/**
+	 * How the activation found the account it made a mentor (`META_LINKED_BY`), or '' (1.122.33).
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string `created`, `email`, `login`, `profile`, `record`, `row` or ''.
+	 */
+	public static function linked_by_of( WP_Post $post ) {
+		return (string) get_post_meta( (int) $post->ID, self::META_LINKED_BY, true );
+	}
+
+	/**
+	 * Keep what the Mentor Status Checker found when it last looked up the applicant's profile
+	 * (1.122.33), in place of the look before it: the moment, the state it answered (`completed`,
+	 * `not_completed`, `no_username`, `not_found` or `error`) and its message. It writes nothing else,
+	 * and changes no state of the application: whether the course shows is the checker's to read, and
+	 * the activation is the step that makes a mentor of it.
+	 *
+	 * @param int    $post_id The application.
+	 * @param string $state   The state the profile check answered.
+	 * @param string $message Its message, or ''.
+	 */
+	public static function note_check( $post_id, $state, $message ) {
+		update_post_meta(
+			(int) $post_id,
+			self::META_CHECKED,
+			wp_slash(
+				array(
+					'at'      => time(),
+					'state'   => sanitize_text_field( (string) $state ),
+					'message' => sanitize_text_field( (string) $message ),
+				)
+			)
+		);
+	}
+
+	/**
+	 * The checker's last look at the applicant's profile (1.122.33), every key there, or none when it
+	 * has not looked or the value is stored in another shape.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return array `at`, `state` and `message`, or `array()` for never.
+	 */
+	public static function last_check( WP_Post $post ) {
+		$kept = get_post_meta( (int) $post->ID, self::META_CHECKED, true );
+
+		if ( ! is_array( $kept ) || ! isset( $kept['state'] ) || '' === (string) $kept['state'] ) {
+			return array();
+		}
+
+		return array(
+			'at'      => isset( $kept['at'] ) ? (int) $kept['at'] : 0,
+			'state'   => (string) $kept['state'],
+			'message' => isset( $kept['message'] ) ? (string) $kept['message'] : '',
+		);
+	}
+
+	/**
+	 * The name of an application's lock, which `WPCPM_Lock` keeps as a row of the options table
+	 * (1.122.33).
+	 *
+	 * @param int $post_id The application.
+	 * @return string
+	 */
+	public static function lock_name( $post_id ) {
+		return self::LOCK_PREFIX . (int) $post_id;
+	}
+
+	/**
+	 * Drop this request's copy of an application's meta, so the next read comes from the table.
+	 *
+	 * WordPress keeps every meta row it has read for the rest of the request, and a list read before
+	 * a lock (the daily check's, the lapse clock's) has read them all; a state checked under the lock
+	 * would be the one from before it, and an activation another request finished in between would
+	 * not be seen. Called right after the application's lock is taken, before anything under it is
+	 * read, as `WPCPM_Mentor_Calls::forget_cached()` is for a call (1.122.33).
+	 *
+	 * @param int $post_id The application.
+	 */
+	public static function forget_cached( $post_id ) {
+		wp_cache_delete( (int) $post_id, 'post_meta' );
+	}
+
+	/**
 	 * What the form's checks raised against an application.
 	 *
 	 * @param WP_Post $post The application.
@@ -565,6 +798,37 @@ final class WPCPM_Mentor_Application {
 		$stored = (string) get_post_meta( (int) $post->ID, self::META_REFERENCE, true );
 
 		return '' !== $stored ? $stored : self::reference( (int) $post->ID );
+	}
+
+	/**
+	 * The application that carries a reference, for the command that prints the row it would write.
+	 * The stored reference is the one asked for, as `reference_of()` reads it first.
+	 *
+	 * @param string $reference A reference such as `MAPP-2026-0503`.
+	 * @return WP_Post|null Null for none, and for a reference that is empty.
+	 */
+	public static function by_reference( $reference ) {
+		$reference = trim( (string) $reference );
+
+		if ( '' === $reference ) {
+			return null;
+		}
+
+		$found = get_posts(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => 'private',
+				'numberposts' => 1,
+				'meta_query'  => array(
+					array(
+						'key'   => self::META_REFERENCE,
+						'value' => $reference,
+					),
+				),
+			)
+		);
+
+		return ! empty( $found[0] ) && $found[0] instanceof WP_Post ? $found[0] : null;
 	}
 
 	/**
@@ -794,6 +1058,10 @@ final class WPCPM_Mentor_Application {
 	 * Move every selected row whose last selection is older than the days set to `lapsed`, with a
 	 * dated note by the site (design, section 6). Two weeks at least, whatever the setting holds.
 	 *
+	 * A row that is due is lapsed under its lock (1.122.33), and read again once the lock is held: a
+	 * row whose lock another request holds is being made a mentor, so it is left tonight, and one an
+	 * activation finished since the list was read is active and stays so.
+	 *
 	 * @param int $now A Unix time, or 0 for now.
 	 * @return int How many lapsed.
 	 */
@@ -803,26 +1071,55 @@ final class WPCPM_Mentor_Application {
 		$lapsed = 0;
 
 		foreach ( self::applications( array( self::STATE_SELECTED ) ) as $post ) {
-			$selected = self::last_at( (int) $post->ID, self::EVENT_SELECTED );
-			$selected = $selected > 0 ? $selected : (int) get_post_time( 'U', true, $post );
-
-			if ( $selected > $now - $days * DAY_IN_SECONDS ) {
+			if ( 0 === self::selected_due( $post, $now, $days ) ) {
 				continue;
 			}
 
-			$note = sprintf(
-				/* translators: 1: the day the applicant was selected, 2: how many days the course had. */
-				__( 'Selected on %1$s, and the mentors\' course had not shown %2$s days later.', 'wpcredits-program-manager' ),
-				wp_date( 'Y-m-d', $selected ),
-				number_format_i18n( $days )
-			);
+			$lock  = self::lock_name( (int) $post->ID );
+			$token = WPCPM_Lock::take( $lock, self::LOCK_TTL );
 
-			if ( self::decide( (int) $post->ID, self::STATE_LAPSED, self::EVENT_LAPSED, 0, $note, $now ) ) {
-				++$lapsed;
+			if ( '' === $token ) {
+				continue;
+			}
+
+			try {
+				self::forget_cached( (int) $post->ID );
+
+				$selected = self::STATE_SELECTED === self::state_of( $post ) ? self::selected_due( $post, $now, $days ) : 0;
+
+				if ( $selected > 0 ) {
+					$note = sprintf(
+						/* translators: 1: the day the applicant was selected, 2: how many days the course had. */
+						__( 'Selected on %1$s, and the mentors\' course had not shown %2$s days later.', 'wpcredits-program-manager' ),
+						wp_date( 'Y-m-d', $selected ),
+						number_format_i18n( $days )
+					);
+
+					if ( self::decide( (int) $post->ID, self::STATE_LAPSED, self::EVENT_LAPSED, 0, $note, $now ) ) {
+						++$lapsed;
+					}
+				}
+			} finally {
+				WPCPM_Lock::release( $lock, $token );
 			}
 		}
 
 		return $lapsed;
+	}
+
+	/**
+	 * When a selected row was last selected, if the clock has run out on it.
+	 *
+	 * @param WP_Post $post The application.
+	 * @param int     $now  A Unix time.
+	 * @param int     $days The days a selected row has.
+	 * @return int The time of its last selection when it is due to lapse, or 0 when it is not.
+	 */
+	private static function selected_due( WP_Post $post, $now, $days ) {
+		$selected = self::last_at( (int) $post->ID, self::EVENT_SELECTED );
+		$selected = $selected > 0 ? $selected : (int) get_post_time( 'U', true, $post );
+
+		return $selected > $now - $days * DAY_IN_SECONDS ? 0 : max( 1, $selected );
 	}
 
 	/**
@@ -833,7 +1130,10 @@ final class WPCPM_Mentor_Application {
 	 * (`lapse()`). The clock of a spam, declined or lapsed row runs from its decision (`decided_at()`),
 	 * so a decision restarts it and an address confirmed afterwards does not; a held or an active row
 	 * has no decision, and its clock runs from the last thing that happened to it. A held row is open,
-	 * waiting for a person, and is deleted all the same, as the sponsor application's is.
+	 * waiting for a person, and is deleted all the same, as the sponsor application's is. An active row
+	 * whose Mentors row is still to be written (`pending` or `refused`) is kept whatever the approved
+	 * days say, since Write the Airtable row again needs its answers (1.122.33); the daily run settles
+	 * one the sync linked, or whose account is gone, before this reads it.
 	 *
 	 * @param int $now A Unix time, or 0 for now.
 	 * @return int How many were deleted.
@@ -857,6 +1157,10 @@ final class WPCPM_Mentor_Application {
 			}
 
 			foreach ( self::applications( array( $state ) ) as $post ) {
+				if ( self::STATE_ACTIVE === $state && self::row_unwritten( $post ) ) {
+					continue;
+				}
+
 				// A spam, declined or lapsed row counts from its decision, which an address confirmed
 				// afterwards does not move. `decided_at()` is 0 for a row with none, and that row counts
 				// from the last thing that happened to it.
@@ -871,6 +1175,19 @@ final class WPCPM_Mentor_Application {
 		}
 
 		return $purged;
+	}
+
+	/**
+	 * Whether an application's Mentors row is still to be written: its state `pending` or `refused`
+	 * (1.122.33).
+	 *
+	 * @param WP_Post $post The application.
+	 * @return bool
+	 */
+	public static function row_unwritten( WP_Post $post ) {
+		$row = self::airtable_of( $post );
+
+		return isset( $row['state'] ) && in_array( $row['state'], array( 'pending', 'refused' ), true );
 	}
 
 	/**
@@ -918,12 +1235,27 @@ final class WPCPM_Mentor_Application {
 	}
 
 	/**
-	 * What one row counts for the feed, by month on the site's clock: received where it arrived,
-	 * unless it is spam; then each selection, activation and decline in its month, and a lapse or a
-	 * withdrawal as lapsed. A spam row counts for nothing, as the sponsors feed counts none.
+	 * What one row counts for the feed, by month on the site's clock. The feed answers how many
+	 * applications reached a step in a month, never how many events there were (design, section 3,
+	 * decision 10), so an application counts at most once per figure in a month, each figure 0 or 1:
+	 * received where it arrived, unless it is spam; selected, activated or declined in each month it
+	 * was; and lapsed in each month it lapsed or was withdrawn, a withdrawal and a lapse in one month
+	 * being one lapse. An application selected twice in a month counts once there, and one selected
+	 * again in a later month, after a lapse or an appeal, counts in each month it was selected, so
+	 * the months are not to be added up as if each application counted once in all. A spam row counts
+	 * for nothing, as the sponsors feed counts none.
+	 *
+	 * Only those decisions are counted: `EVENT_SELECTED`, `EVENT_ACTIVATED`, `EVENT_DECLINED`,
+	 * `EVENT_LAPSED` and `EVENT_WITHDRAWN`. An event that is not a decision never is: not
+	 * `EVENT_ALREADY_MENTOR` (an applicant who was a mentor already is filed as one, and was not made
+	 * one, so is no activation), not `EVENT_AIRTABLE_WRITTEN`, `EVENT_AIRTABLE_REFUSED` or
+	 * `EVENT_AIRTABLE_SETTLED` (what became of the Mentors row, which settling closes without a
+	 * write from here), not the acknowledgements, and not the confirming of an address, a question, a
+	 * second opinion or a reopening. Counts already kept from deleted rows (`OPT_KEPT`) are added as
+	 * they were kept.
 	 *
 	 * @param WP_Post $post The row.
-	 * @return array<string, array{received: int, selected: int, activated: int, declined: int, lapsed: int}>
+	 * @return array<string, array{received: int, selected: int, activated: int, declined: int, lapsed: int}> Each figure 0 or 1.
 	 */
 	public static function month_counts_of( WP_Post $post ) {
 		if ( self::STATE_SPAM === self::state_of( $post ) ) {
@@ -943,7 +1275,8 @@ final class WPCPM_Mentor_Application {
 				$out[ $month ] = array_fill_keys( array( 'received', 'selected', 'activated', 'declined', 'lapsed' ), 0 );
 			}
 
-			++$out[ $month ][ $key ];
+			// Set, never added to: the figure is whether the application reached the step that month.
+			$out[ $month ][ $key ] = 1;
 		};
 
 		$add( substr( (string) $post->post_date, 0, 7 ), 'received' );

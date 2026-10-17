@@ -352,6 +352,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+// The account key an activation of a mentor application holds an invitation by, which the queue reads.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 // The third sync with a row invitation of its own, which stamps by the mail layer's rule as the
 // other two do.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
@@ -1847,6 +1849,51 @@ foreach ( array( 'class-wpcpm-students-sync.php', 'class-wpcpm-mentors-sync.php'
 ck( 'each of the four send_invite() hands the account to that rule once its own refusals have passed, and neither checks, sends nor stamps itself', $handed, array_fill( 0, 4, array( 1, 0, 0, 0 ) ) );
 
 $GLOBALS['invited'] = $before_lock;
+
+/* ---- an invitation an activation held ----------------------------------- */
+
+echo "\n=== An invitation an activation held ===\n";
+
+// An account an activation of a mentor application linked by its WordPress.org username alone, or
+// with another account answering for the applicant, holds the Mentor role and was never invited, but
+// its invitation carries the welcome's private links, so it waits for an Administrator to confirm
+// the account is the person's (rulings R5 and P9b): no bulk route sends it, and the account's own row
+// does, which lets go of the hold.
+$before_held = $GLOBALS['invited'];
+$held_key    = WPCPM_Mentor_Provision::USER_INVITE_HELD;
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited']    = array();
+$GLOBALS['users'][860] = new WP_User( 860, 'A mentor whose invitation is held', 'm860@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][861] = new WP_User( 861, 'A mentor beside it', 'm861@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][862] = new WP_User( 862, 'A mentor held, whose email is refused', 'm862@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+update_user_meta( 860, $held_key, 'login' );
+update_user_meta( 862, $held_key, 'record' );
+
+ck( 'the key is the provision class\'s, beside its other two', $held_key, 'wpcpm_mentor_invite_held' );
+ck( 'the bulk invite passes over an account whose invitation an activation held, and queues the one beside it',
+	array( WPCPM_Mail::queue_invites( array( 860, 861 ) ), WPCPM_Mail::queue() ), array( 1, array( 861 ) ) );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+// Queued as a ticked Resend invite queues an account, or before the activation held it.
+WPCPM_Mail::queue_invite( 860 );
+WPCPM_Mail::drain_queue();
+ck( 'and the queue, which a held account could reach another way, sends it nothing, stamps nothing and keeps the hold',
+	array( $GLOBALS['invited'], WPCPM_Mail::last_invited( 860 ), WPCPM_Mail::queued(), get_user_meta( 860, $held_key ) ),
+	array( array(), 0, 0, 'login' ) );
+$sent_held = WPCPM_Mentors_Sync::send_invite( 860 );
+ck( 'the account\'s own row on the Mentors screen sends it, and lets go of the hold',
+	array( $sent_held, $GLOBALS['invited'], metadata_exists( 'user', 860, $held_key ) ), array( true, array( 860 ), false ) );
+$GLOBALS['invited']    = array();
+$GLOBALS['mail_fails'] = array( 862 );
+$refused_held          = WPCPM_Mentors_Sync::send_invite( 862 );
+$GLOBALS['mail_fails'] = false;
+ck( 'while one the mail host refused keeps it, so no bulk route sends it meanwhile',
+	array( is_wp_error( $refused_held ) ? $refused_held->get_error_code() : $refused_held, metadata_exists( 'user', 862, $held_key ) ), array( 'wpcpm_invite_refused', true ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = $before_held;
 
 /* ---- inviting one institution ------------------------------------------- */
 

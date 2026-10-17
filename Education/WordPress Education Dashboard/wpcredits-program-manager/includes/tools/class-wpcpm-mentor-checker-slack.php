@@ -56,6 +56,9 @@ final class WPCPM_Mentor_Checker_Slack {
 	 */
 	const LOCK_TIMEOUT = 5 * MINUTE_IN_SECONDS;
 
+	/** The `source` of a mentor made from an application on this site, not promoted in Airtable (1.122.33). */
+	const SOURCE_SITE = 'site';
+
 	/** Mentors per message, so a long list never meets Slack's limit on a message's length. */
 	const PER_MESSAGE = 25;
 
@@ -105,7 +108,9 @@ final class WPCPM_Mentor_Checker_Slack {
 	 * that follow it, not a backlog nobody asked about. A mentor already waiting is not added twice:
 	 * `add_option()` refuses a name that exists.
 	 *
-	 * @param array $mentor The mentor as the runner reads them: id, name and profile.
+	 * @param array $mentor The mentor as the runner reads them: id, name and profile, and `source`,
+	 *                      `site` for a mentor made from an application on this site (1.122.33), which the
+	 *                      message says, and anything else for one promoted in Airtable.
 	 */
 	public static function record( array $mentor ) {
 		if ( '' === self::webhook() || empty( $mentor['id'] ) ) {
@@ -119,6 +124,7 @@ final class WPCPM_Mentor_Checker_Slack {
 					'record_id' => (string) $mentor['id'],
 					'name'      => isset( $mentor['name'] ) ? (string) $mentor['name'] : '',
 					'username'  => WPCPM_Mentor_Checker_Profile::normalize_username( isset( $mentor['profile'] ) ? $mentor['profile'] : '' ),
+					'source'    => isset( $mentor['source'] ) && self::SOURCE_SITE === $mentor['source'] ? self::SOURCE_SITE : '',
 				),
 				self::actor()
 			),
@@ -289,7 +295,7 @@ final class WPCPM_Mentor_Checker_Slack {
 	 * The message, in Slack's markup, in the site's language whatever the language of the request
 	 * that sends it: a manager reading wp-admin in their own language shares the channel with others.
 	 *
-	 * @param array $entries Waiting entries: record_id, name, username, via, by, and slack once read.
+	 * @param array $entries Waiting entries: record_id, name, username, source, via, by, and slack once read.
 	 * @return string
 	 */
 	public static function message( array $entries ) {
@@ -328,6 +334,12 @@ final class WPCPM_Mentor_Checker_Slack {
 			if ( '' !== $slack ) {
 				/* translators: %s: a person's Slack name, as code. */
 				$line .= ' - ' . sprintf( __( 'Slack: %s', 'wpcredits-program-manager' ), '`' . self::escape( $slack ) . '`' );
+			}
+
+			// A mentor made from an application on this site is named as one promoted in Airtable is, the
+			// line ending in where they came from (owner item 6).
+			if ( isset( $entry['source'] ) && self::SOURCE_SITE === $entry['source'] ) {
+				$line .= ' - ' . __( 'from an application on the site', 'wpcredits-program-manager' );
 			}
 
 			$lines[] = $line;
@@ -478,6 +490,7 @@ final class WPCPM_Mentor_Checker_Slack {
 				'record_id' => $value['record_id'],
 				'name'      => $text( 'name' ),
 				'username'  => $text( 'username' ),
+				'source'    => self::SOURCE_SITE === $text( 'source' ) ? self::SOURCE_SITE : '',
 				'via'       => in_array( $text( 'via' ), array( 'cron', 'cli' ), true ) ? $text( 'via' ) : 'user',
 				'by'        => $text( 'by' ),
 			);

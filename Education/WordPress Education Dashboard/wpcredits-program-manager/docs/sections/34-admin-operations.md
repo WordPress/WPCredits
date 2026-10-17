@@ -29,11 +29,34 @@ drafting and the ceiling's sweep - because the settings behind them are in days 
 down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
 reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
 
-Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
-account is ever deleted by a sync** - the most it will do is remove a role.
+Accounts are matched by the Airtable record the sync stored, then by email address, and, for
+mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
+do is remove a role.
 
 The sync report on each screen says what happened rather than only that it finished: created,
 updated, skipped and why.
+
+Since 1.122.33 the mentors sync makes and links its accounts through the same step that making a
+mentor from an application uses, so there is one way to make a mentor: it matches as above, reports
+an account matched by username alone for an Administrator to confirm is the same person, and makes
+an account only when none matches. An application has no record id yet, so its lookup is the
+address, then the username, then the profile an account holds. The sync leaves a mentor made from an
+application alone while that mentor's Mentors row is not written (see *Applications to mentor*): it
+does not revoke the account while the row is not written. If the sync itself links the account to an
+Active row, that ends the wait, and the account is treated as any other mentor's. Nor does a run revoke a mentor who was made one,
+or whose row was written or found, after the run began; the next run reads the row and decides. The
+Mentors screen's **Sync** tab says how many wait.
+
+Two commands go with the Mentors row an activation writes. `wp wpcredits mentor_airtable_row
+<reference>` prints the row an application would write, each cell as its column takes it and what
+would be left out, and writes nothing; it reads Airtable and prints the applicant's answers, so it is
+for a test application. `wp wpcredits mentor_airtable_row --check --email=<address>` is for the
+launch, run by hand before **Make mentors from applications** is switched on: it writes one synthetic
+row to the Mentors table, with the address given and the Status Inactive, which neither the mentors
+sync nor the Mentor Status Checker reads, reads it back, deletes it, and says which columns the base
+kept. It deletes only the row it wrote, it changes nothing on the site, and it ends in an error while
+a row may be left behind, which then has to be deleted in Airtable by hand, and while a column did
+not take what the site sends.
 
 ### Invitations
 
@@ -59,6 +82,28 @@ another press was sending one to at that moment, anybody invited in the last fif
 an account deleted before its turn; the Emails tool's **Log** shows each refusal. That last
 invitation's link no longer works, though, since the refused attempt made a new one: send another
 once the site's email is working.
+
+Since 1.122.33 the mentor's invitation carries the welcome a new mentor is sent, after the
+invitation's own lines: the two **Start here** posts, one welcoming mentors to their Mentor Report
+Card and one welcoming students to their Student Report Card; the four student courses on
+learn.wordpress.org, which a mentor joins through each course's invitation link to see what is asked
+of their mentees; the program's private Slack channel for mentors; the discount codes for students'
+tools, which are in that channel; the mentor resource folder; and the sign-off. The courses'
+invitation links and the folder's link are private, and are not in the plugin or in this guide: the
+shipped text holds one bracketed line where they go, and the mentor coordinator types them into the
+template, **Invitation: mentor** in **Tools > Emails**, before any mentor is sent it. A saved edit of
+that template is sent in place of the shipped text, welcome or none, so an edit saved before the
+welcome existed has to be replaced. A reply to the invitation reaches the address under **Contact
+address in emails**, as the program's Reply-To, which no other invitation carries.
+
+The mentor's invitation is queued on every activation of a mentor application, whatever
+**Invitation emails** says, and goes out a few at a time like the others, under the same rules: the
+fifteen minutes, the lock, and a refused email writes no stamp. It is not queued for an
+Administrator, and it is held when the account is not yet confirmed as the person's, linked by
+WordPress.org username alone or with another account also answering for the applicant: **Resend
+invite** on the Mentors screen's **Accounts** tab sends it once an Administrator has confirmed which
+account is the person's. The **Activated** view of the Mentors screen's Waiting for review tab says
+what became of it since the person was made a mentor.
 
 Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
 on the Institution Dashboard, a student with no sign-in on record since the site began recording
@@ -182,6 +227,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_institutions_lock` | `WPCPM_Institutions_Sync::OPT_LOCK` |
 | `wpcpm_institutions_report` | `WPCPM_Institutions_Sync::OPT_REPORT` |
 | `wpcpm_institutions_state` | `WPCPM_Institutions_Sync::OPT_STATE` |
+| `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
 | `wpcpm_mentor_application_log` | `WPCPM_Mentor_Application::OPT_LOG` |
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |

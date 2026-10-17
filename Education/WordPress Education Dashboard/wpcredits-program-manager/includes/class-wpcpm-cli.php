@@ -162,14 +162,17 @@ class WPCPM_CLI {
 	/**
 	 * Run the Mentor Status Checker.
 	 *
-	 * Checks every mentor holding the source status against their WordPress.org
-	 * profile for the mentor's course completion. Reports only unless --promote is
-	 * given, because promoting writes to the shared Airtable base.
+	 * Checks every mentor application selected on this site, and every mentor holding the source
+	 * status in Airtable (while Airtable is connected and Stop checking mentors in Airtable is not
+	 * ticked), against their WordPress.org profile for the mentor's course completion. Reports only
+	 * unless --promote is given, because promoting writes to the shared Airtable base and, where Make
+	 * mentors from applications is on, makes mentors on this site.
 	 *
 	 * ## OPTIONS
 	 *
 	 * [--promote]
-	 * : Also move mentors who qualify to the target status in Airtable.
+	 * : Also move mentors who qualify to the target status in Airtable, and make a mentor of each
+	 *   selected application whose course shows (when Make mentors from applications is on).
 	 *
 	 * ## EXAMPLES
 	 *
@@ -182,24 +185,26 @@ class WPCPM_CLI {
 	public function check_mentors( $args, $assoc_args ) {
 		unset( $args );
 
-		if ( ! WPCPM_Mentor_Checker::is_configured() ) {
-			WP_CLI::error( 'Airtable is not configured.' );
+		$promote   = ! empty( $assoc_args['promote'] );
+		$began     = time();
+		$settings  = WPCPM_Mentor_Checker::config();
+		$runner    = new WPCPM_Mentor_Checker_Runner( $settings );
+		$seen      = 0;
+		$connected = WPCPM_Mentor_Checker::is_configured();
+		$reads     = $connected && empty( $settings['skip_airtable'] );
+		$how       = $promote ? sprintf( ' - will promote to "%s".', $settings['target_status'] ) : ' - report only.';
+
+		// The sources the run reads, said first: the site's applications always, Airtable's mentors while
+		// it is connected and nobody has stopped checking them.
+		if ( $reads ) {
+			WP_CLI::log( sprintf( 'Checking the applications selected on this site and the Airtable mentors with status "%1$s" for "%2$s"%3$s', $settings['source_status'], $settings['course_title'], $how ) );
+		} else {
+			WP_CLI::log( sprintf( 'Checking the applications selected on this site for "%1$s"%2$s', $settings['course_title'], $how ) );
 		}
 
-		$promote  = ! empty( $assoc_args['promote'] );
-		$began    = time();
-		$settings = WPCPM_Mentor_Checker::config();
-		$runner   = new WPCPM_Mentor_Checker_Runner( $settings );
-		$seen     = 0;
-
-		WP_CLI::log(
-			sprintf(
-				'Checking mentors with status "%s" for "%s"%s',
-				$settings['source_status'],
-				$settings['course_title'],
-				$promote ? sprintf( ' - will promote to "%s".', $settings['target_status'] ) : ' - report only.'
-			)
-		);
+		if ( ! $connected ) {
+			WP_CLI::log( 'Airtable is not connected: only the applications selected on this site are checked.' );
+		}
 
 		// One line per mentor, so a run over ~60 profiles visibly progresses
 		// instead of sitting silent for several minutes.
@@ -221,6 +226,11 @@ class WPCPM_CLI {
 
 		if ( is_wp_error( $result ) ) {
 			WP_CLI::error( $result->get_error_message() );
+		}
+
+		// Airtable's mentors were left out because it could not be read: the counts below are the site's.
+		if ( ! empty( $result['airtable_error'] ) ) {
+			WP_CLI::warning( sprintf( 'Airtable could not be read, so its mentors were left out of this run: %s', $result['airtable_error'] ) );
 		}
 
 		foreach ( $result['summary'] as $key => $value ) {
@@ -550,6 +560,138 @@ class WPCPM_CLI {
 		}
 
 		WP_CLI\Utils\format_items( $format, $rows, WPCPM_Mentor_Engagement::EXPORT_FIELDS );
+	}
+
+	/**
+	 * Print the Mentors row an application would write, or check that the base takes a whole row.
+	 *
+	 * With a reference, prints each cell the application would write to the Mentors table, as the
+	 * base's columns take it, and what would be left out. It reads Airtable and writes nothing. It
+	 * prints the applicant's answers, so use it on a test application, not on a real person's.
+	 *
+	 * With --check, writes one synthetic row with the test mailbox's address and a Status that the
+	 * mentors sync and the Mentor Status Checker do not read, reads it back, deletes it and says which
+	 * columns the base kept. Run it before switching Make mentors from applications on. Nothing on
+	 * this site changes.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<reference>]
+	 * : The application's reference, such as MAPP-2026-0503.
+	 *
+	 * [--check]
+	 * : Write the synthetic row, read it back and delete it.
+	 *
+	 * [--email=<address>]
+	 * : With --check: the test mailbox's address.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits mentor_airtable_row MAPP-2026-0503
+	 *     wp wpcredits mentor_airtable_row --check --email=owner+check@example.test
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function mentor_airtable_row( $args, $assoc_args ) {
+		if ( ! WPCPM_Settings::is_connected() ) {
+			WP_CLI::error( 'Airtable is not configured.' );
+		}
+
+		if ( ! empty( $assoc_args['check'] ) ) {
+			$this->mentor_airtable_check( isset( $assoc_args['email'] ) && is_string( $assoc_args['email'] ) ? trim( $assoc_args['email'] ) : '' );
+
+			return;
+		}
+
+		$reference = isset( $args[0] ) ? trim( (string) $args[0] ) : '';
+
+		if ( '' === $reference ) {
+			WP_CLI::error( 'Give the application\'s reference, such as MAPP-2026-0503, or use --check.' );
+		}
+
+		$post = WPCPM_Mentor_Application::by_reference( $reference );
+
+		if ( ! $post instanceof WP_Post ) {
+			WP_CLI::error( sprintf( 'No mentor application has the reference %s.', $reference ) );
+		}
+
+		$row = WPCPM_Mentor_Airtable_Row::preview( $post, new WPCPM_Airtable() );
+
+		foreach ( $row['cells'] as $column => $value ) {
+			if ( is_bool( $value ) ) {
+				$value = $value ? 'Yes' : 'No';
+			} elseif ( is_array( $value ) ) {
+				$value = implode( ', ', $value );
+			}
+
+			WP_CLI::log( sprintf( '%s: %s', $column, $value ) );
+		}
+
+		$left_out = WPCPM_Mentor_Airtable_Row::left_out_sentence( $row['left_out'] );
+
+		if ( '' !== $left_out ) {
+			WP_CLI::log( $left_out );
+		}
+
+		WP_CLI::success( 'Nothing was written to Airtable.' );
+	}
+
+	/**
+	 * Write one synthetic Mentors row, read it back and delete it, and say what the base kept.
+	 *
+	 * The command ends in an error while a row may be left in the Mentors table, and while a column
+	 * did not take what the site sends, since either holds the launch.
+	 *
+	 * @param string $email The test mailbox's address.
+	 */
+	private function mentor_airtable_check( $email ) {
+		if ( '' === $email ) {
+			WP_CLI::error( 'Give the test mailbox\'s address as --email=<address>.' );
+		}
+
+		// Before anything is sent: a process killed in the middle leaves this line in its output,
+		// naming the address to look for in the Mentors table.
+		WP_CLI::log( sprintf( 'Writing the check row for %s. If this stops before it ends, look for that address in the Mentors table and delete the row by hand.', $email ) );
+
+		$check  = WPCPM_Mentor_Airtable_Row::check_row( $email, new WPCPM_Airtable() );
+		$record = (string) $check['record'];
+
+		if ( '' === $record ) {
+			// Nothing sent (an address, the columns, a row already holding the address) says why as it is;
+			// a create that was sent and refused, or answered no record, says it was Airtable's.
+			$refused = array() === $check['found_before'] && array() !== $check['written'];
+
+			WP_CLI::error( $refused ? sprintf( 'Airtable refused the check row: %s', $check['error'] ) : $check['error'] );
+		}
+
+		WP_CLI::log( sprintf( 'Written: %s', implode( ', ', $check['written'] ) ) );
+
+		if ( '' === $check['read_error'] ) {
+			WP_CLI::log( sprintf( 'Kept by the base: %s', implode( ', ', $check['kept'] ) ) );
+		}
+
+		foreach ( $check['notes'] as $note ) {
+			WP_CLI::log( sprintf( 'Only left out: %s', $note ) );
+		}
+
+		foreach ( $check['stops'] as $stop ) {
+			WP_CLI::warning( $stop );
+		}
+
+		if ( ! $check['deleted'] ) {
+			WP_CLI::error( sprintf( 'The check row %1$s was written but could not be deleted: %2$s Delete it in Airtable by hand.', $record, rtrim( (string) $check['delete_error'], '. ' ) . '.' ) );
+		}
+
+		if ( '' !== $check['read_error'] ) {
+			WP_CLI::error( sprintf( 'The check row %1$s was written and deleted, but it could not be read back: %2$s Run the check again.', $record, rtrim( (string) $check['read_error'], '. ' ) . '.' ) );
+		}
+
+		if ( array() !== $check['stops'] ) {
+			WP_CLI::error( sprintf( 'The check row %s was written, read back and deleted, but the live base would not take the whole row. Put that right before switching Make mentors from applications on.', $record ) );
+		}
+
+		WP_CLI::success( sprintf( 'The check row %s was written, read back and deleted. Nothing on this site changed.', $record ) );
 	}
 
 	/**

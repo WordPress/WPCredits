@@ -372,6 +372,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 // The report form owns the list of screenshot columns; the sync asks Airtable for them.
@@ -1808,11 +1809,12 @@ echo "\n=== What the base holds is what the mentors sync keeps ===\n";
 
 // The mentors sync's writers, called as its phases call them: no suite runs that sync end to end
 // (its schema and profile reads have no stand-in here), and these three are where it writes words.
-// User meta unslashes what it is handed, so the profile cell and the mentees' rows keep a backslash
-// only as slashed copies.
+// The two account writers moved to the shared provisioning step in 1.122.33, so they are called on
+// `WPCPM_Mentor_Provision`; the mentees' writer stayed with the sync. User meta unslashes what it
+// is handed, so the profile cell and the mentees' rows keep a backslash only as slashed copies.
 $typed_profile = 'https://profiles.wordpress.org/mia-example/ C:\drafts \\\\ "x"';
-$mentor_calls  = static function ( $method, array $args ) {
-	$m = new ReflectionMethod( 'WPCPM_Mentors_Sync', $method );
+$mentor_calls  = static function ( $class, $method, array $args ) {
+	$m = new ReflectionMethod( $class, $method );
 
 	// Before PHP 8.1 a private method has to be made accessible first, or the call is refused.
 	if ( PHP_VERSION_ID < 80100 ) {
@@ -1826,14 +1828,14 @@ $typed_mentor_row = array( 'record_id' => 'recMENTOR0000000A', 'name' => 'Mia Ty
 
 $args       = array( 'miatyped', 'mia.typed@example.test', $typed_mentor_row );
 $args[]     = &$mentor_state;
-$created_id = (int) $mentor_calls( 'create_mentor_user', $args );
+$created_id = (int) $mentor_calls( 'WPCPM_Mentor_Provision', 'create_mentor_user', $args );
 
 ck( 'a mentor account the sync creates keeps the profile exactly as the base holds it', $created_id > 0 ? get_user_meta( $created_id, WPCPM_Mentors_Sync::META_PROFILE, true ) : null, $typed_profile );
 
 $GLOBALS['users'][700] = array( 'login' => 'linked', 'email' => 'linked@example.test', 'name' => 'Linked Mentor', 'roles' => array( WPCPM_Roles::ROLE_MENTOR ) );
 $args   = array( new WP_User( 700 ), array_merge( $typed_mentor_row, array( 'record_id' => 'recMENTOR0000000B' ) ), 'email' );
 $args[] = &$mentor_state;
-$mentor_calls( 'link_existing_user', $args );
+$mentor_calls( 'WPCPM_Mentor_Provision', 'link_existing_user', $args );
 
 ck( 'and so does one it links to an existing account', get_user_meta( 700, WPCPM_Mentors_Sync::META_PROFILE, true ), $typed_profile );
 // The address it sets is `esc_url_raw()`'s, which on a site drops a backslash but keeps a quote:
@@ -1848,7 +1850,7 @@ $mentor_state['mentors'] = array( 'recMENTOR0000000A' => array( 'user_id' => $cr
 $mentor_state['reports'] = array( array( 'record_id' => 'recRTYPED00000001', 'name' => $typed_name, 'email_key' => 'zoe.slash@example.test', 'mentor_ids' => array( 'recMENTOR0000000A' ), 'is_past' => false ) );
 $args = array();
 $args[] = &$mentor_state;
-$mentor_calls( 'phase_assign', $args );
+$mentor_calls( 'WPCPM_Mentors_Sync', 'phase_assign', $args );
 
 ck( 'and the mentee row it assigns keeps the student\'s name', get_user_meta( $created_id, WPCPM_Mentors_Sync::META_MENTEES, true )[0]['name'] ?? null, $typed_name );
 

@@ -383,11 +383,13 @@ function overview_lines( $html ) {
 	return $lines;
 }
 
-// A tool that cannot run says why on its card, as a warning, in its own words: the Mentor Status
-// Checker and the Student Duplicate Finder need Airtable, and Need help? needs its switch and a
-// provider and no Airtable at all. Emails needs nothing, and counts what its log holds, which on a
-// new site is nothing. On a new site nothing is connected and no provider is set. The
-// line is the card's status line either way, with its rule above it, and its words the warning.
+// A tool that cannot run says why on its card, as a warning, in its own words: the Student Duplicate
+// Finder needs Airtable, and Need help? needs its switch and a provider and no Airtable at all. The
+// Mentor Status Checker needs no Airtable since 1.122.33 (the applications selected on this site are
+// checked without it), so it is ready, and its line says what it does not check, as words and not as a
+// warning. Emails needs nothing, and counts what its log holds, which on a new site is nothing. On a
+// new site nothing is connected and no provider is set. The line is the card's status line either way,
+// with its rule above it, and its words the warning for a tool that cannot run.
 // The Overview's Tools card says the same of each tool, the same warning included, in a row of its
 // own: both screens print a tool's line the one way (`WPCPM_Admin::render_tool_status()`).
 $airtable_missing = 'Airtable is not connected yet, so this tool cannot run.';
@@ -395,7 +397,7 @@ $new_site_lines   = array(
 	'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
 	'Emails'                   => array( array( 'wpcpm-tool-status', false, '0 emails in the last 30 days.' ) ),
 	'Need help?'               => array( array( 'wpcpm-tool-status', true, 'No AI provider is configured, so questions cannot be answered.' ) ),
-	'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
+	'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', false, 'Airtable is not connected: the applications selected on this site are checked, and Airtable\'s mentors are not.' ) ),
 	'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
 	'Track Builder'            => array( array( 'wpcpm-tool-status', false, '0 tracks, 0 published.' ) ),
 );

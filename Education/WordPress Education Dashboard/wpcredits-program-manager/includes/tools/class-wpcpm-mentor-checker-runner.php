@@ -11,6 +11,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Runs the check in batches so a long mentor list never depends on one long request.
+ *
+ * **Two sources, the site's first (1.122.33).** The applications selected on this site come first,
+ * the newest selection first, each looked up on WordPress.org exactly as an Airtable mentor is; a
+ * row where the course shows is made a mentor through `WPCPM_Mentor_Activation`, or, while Make
+ * mentors from applications is off, is left waiting and says so. The mentors holding the source
+ * status in Airtable come after them, for as long as they are read: while Airtable is connected and
+ * a person has not ticked Stop checking mentors in Airtable. It is a stop and not a "keep reading"
+ * box so that a save of the checker's screen from a page that does not draw it, which posts no box,
+ * leaves Airtable's mentors checked rather than dropping them. A site row's key is `app-` and the
+ * application's ID (`APP_KEY`), where an Airtable row's is its record ID.
  */
 class WPCPM_Mentor_Checker_Runner {
 
@@ -20,6 +30,9 @@ class WPCPM_Mentor_Checker_Runner {
 	const RESULT_KEY   = 'wpcpm_checker_last_run';
 	const QUEUE_TTL    = 3 * HOUR_IN_SECONDS;
 	const MAX_LOG_ROWS = 500;
+
+	/** What a site row's key begins with, the application's ID after it (`application_of()`). */
+	const APP_KEY = 'app-';
 
 	/**
 	 * Plugin settings.
@@ -54,30 +67,108 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Every mentor currently holding the source status.
+	 * Whether Airtable's mentors are read: while Airtable is connected and Stop checking mentors in
+	 * Airtable is not ticked.
 	 *
-	 * @return array|WP_Error List of arrays with id, name, profile and status keys.
+	 * @return bool
+	 */
+	private function reads_airtable() {
+		return WPCPM_Mentor_Checker::is_configured() && empty( $this->settings['skip_airtable'] );
+	}
+
+	/**
+	 * The applications selected on this site, as rows to check: the newest selection first, and the
+	 * higher ID first among selections of one second, so the order is one on every PHP the plugin
+	 * runs on (`usort()` keeps equal rows in place only from PHP 8.0).
+	 *
+	 * @return array[] Each `id` (`app-` and the ID), `application`, `name`, `profile` (the profile's
+	 *                 address), `status` and `source` (`site`).
+	 */
+	public function site_rows() {
+		$rows = array();
+		$at   = array();
+		$ids  = array();
+
+		foreach ( WPCPM_Mentor_Application::applications( array( WPCPM_Mentor_Application::STATE_SELECTED ) ) as $post ) {
+			$rows[] = $this->application_row( $post );
+			$at[]   = WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_SELECTED );
+			$ids[]  = (int) $post->ID;
+		}
+
+		array_multisort( $at, SORT_DESC, SORT_NUMERIC, $ids, SORT_DESC, SORT_NUMERIC, $rows );
+
+		return $rows;
+	}
+
+	/**
+	 * One application as the row the checker works on.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return array See `site_rows()`.
+	 */
+	private function application_row( WP_Post $post ) {
+		return array(
+			'id'          => self::APP_KEY . (int) $post->ID,
+			'application' => (int) $post->ID,
+			'name'        => WPCPM_Mentor_Application::name_of( $post ),
+			'profile'     => WPCPM_Mentor_Application::profile_url( WPCPM_Mentor_Application::handle_of( $post ) ),
+			'status'      => __( 'Selected on this site', 'wpcredits-program-manager' ),
+			'source'      => 'site',
+		);
+	}
+
+	/**
+	 * The application a key names: `app-` and digits to the end of the string, else 0 (so a record
+	 * ID, a key with anything after its digits, a line break included, and a malformed one are none).
+	 *
+	 * @param mixed $key A row's key.
+	 * @return int The application's ID, or 0.
+	 */
+	public static function application_of( $key ) {
+		return is_string( $key ) && 1 === preg_match( '/^' . preg_quote( self::APP_KEY, '/' ) . '([0-9]+)\z/', $key, $found ) ? (int) $found[1] : 0;
+	}
+
+	/**
+	 * Every mentor to check: the site's applications, then every mentor currently holding the source
+	 * status in Airtable while those are read.
+	 *
+	 * A read of Airtable that fails costs the run its Airtable mentors and nothing more while there are
+	 * applications to check, and the error is handed back for the run to keep; with none to check the
+	 * error is the answer, as it was when Airtable was the only source.
+	 *
+	 * @return array|WP_Error `mentors` (a list of arrays with id, application, name, profile, status and
+	 *                        source keys) and `error` (why Airtable's could not be read, or '').
 	 */
 	private function get_mentors_to_check() {
-		$records = $this->airtable->fetch_all(
-			$this->settings['table_id'],
-			array(
-				'formula' => $this->airtable->formula_in( $this->settings['field_status'], array( $this->settings['source_status'] ) ),
-				'fields'  => array( $this->settings['field_name'], $this->settings['field_profile'], $this->settings['field_status'] ),
-			)
+		$mentors = $this->site_rows();
+		$error   = '';
+
+		if ( $this->reads_airtable() ) {
+			$records = $this->airtable->fetch_all(
+				$this->settings['table_id'],
+				array(
+					'formula' => $this->airtable->formula_in( $this->settings['field_status'], array( $this->settings['source_status'] ) ),
+					'fields'  => array( $this->settings['field_name'], $this->settings['field_profile'], $this->settings['field_status'] ),
+				)
+			);
+
+			if ( is_wp_error( $records ) ) {
+				if ( array() === $mentors ) {
+					return $records;
+				}
+
+				$error = $records->get_error_message();
+			} else {
+				foreach ( $records as $record ) {
+					$mentors[] = $this->shape_mentor( $record );
+				}
+			}
+		}
+
+		return array(
+			'mentors' => $mentors,
+			'error'   => $error,
 		);
-
-		if ( is_wp_error( $records ) ) {
-			return $records;
-		}
-
-		$mentors = array();
-
-		foreach ( $records as $record ) {
-			$mentors[] = $this->shape_mentor( $record );
-		}
-
-		return $mentors;
 	}
 
 	/**
@@ -90,6 +181,23 @@ class WPCPM_Mentor_Checker_Runner {
 		$record = $this->airtable->get_record( $this->settings['table_id'], $record_id );
 
 		return is_wp_error( $record ) ? $record : $this->shape_mentor( $record );
+	}
+
+	/**
+	 * Read one application of this site fresh, as the row to check, or why it is not one.
+	 *
+	 * @param int $application The application's ID.
+	 * @return array|WP_Error A row as `site_rows()` gives, or `wpcpm_checker_not_selected` for an
+	 *                        application that is none or has left the selected state since the run.
+	 */
+	private function read_application( $application ) {
+		$post = WPCPM_Mentor_Application::application( $application );
+
+		if ( null === $post || WPCPM_Mentor_Application::STATE_SELECTED !== WPCPM_Mentor_Application::state_of( $post ) ) {
+			return new WP_Error( 'wpcpm_checker_not_selected', __( 'That application is no longer waiting for the course.', 'wpcredits-program-manager' ) );
+		}
+
+		return $this->application_row( $post );
 	}
 
 	/**
@@ -112,7 +220,8 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Reduce a raw Airtable record to the four keys this tool works with.
+	 * Reduce a raw Airtable record to the keys this tool works with: the four it reads, and the two
+	 * that tell it from an application of this site (`application` 0, `source` `airtable`).
 	 *
 	 * @param array $record Raw record.
 	 * @return array
@@ -125,25 +234,30 @@ class WPCPM_Mentor_Checker_Runner {
 		};
 
 		return array(
-			'id'      => isset( $record['id'] ) ? (string) $record['id'] : '',
-			'name'    => $read( 'field_name' ),
-			'profile' => $read( 'field_profile' ),
-			'status'  => $read( 'field_status' ),
+			'id'          => isset( $record['id'] ) ? (string) $record['id'] : '',
+			'application' => 0,
+			'name'        => $read( 'field_name' ),
+			'profile'     => $read( 'field_profile' ),
+			'status'      => $read( 'field_status' ),
+			'source'      => 'airtable',
 		);
 	}
 
 	/**
 	 * Build the queue of mentors to check.
 	 *
-	 * @param bool $apply Whether matches should be promoted as the run proceeds.
-	 * @return array|WP_Error Array with run_id, total, batch_size and queue keys.
+	 * @param bool $apply Whether matches should be promoted, or made mentors, as the run proceeds.
+	 * @return array|WP_Error Array with run_id, total, batch_size, queue and airtable_error keys;
+	 *                        the error when Airtable could not be read and no application waits.
 	 */
 	public function start( $apply = false ) {
-		$mentors = $this->get_mentors_to_check();
+		$found = $this->get_mentors_to_check();
 
-		if ( is_wp_error( $mentors ) ) {
-			return $mentors;
+		if ( is_wp_error( $found ) ) {
+			return $found;
 		}
+
+		$mentors = $found['mentors'];
 
 		// Lower-case only: the run ID travels through sanitize_key() on the way back
 		// from the browser, which would fold any capitals and break the lookup.
@@ -161,16 +275,19 @@ class WPCPM_Mentor_Checker_Runner {
 		update_option(
 			self::RESULT_KEY,
 			array(
-				'run_id'     => $run_id,
-				'started'    => time(),
-				'finished'   => 0,
-				'apply'      => (bool) $apply,
-				'total'      => count( $mentors ),
-				'source'     => $this->settings['source_status'],
-				'target'     => $this->settings['target_status'],
-				'course'     => $this->settings['course_title'],
-				'rows'       => array(),
-				'is_partial' => true,
+				'run_id'         => $run_id,
+				'started'        => time(),
+				'finished'       => 0,
+				'apply'          => (bool) $apply,
+				'total'          => count( $mentors ),
+				'source'         => $this->settings['source_status'],
+				'target'         => $this->settings['target_status'],
+				'course'         => $this->settings['course_title'],
+				// Why Airtable's mentors were left out of this run, or '': the screen says so above the
+				// results and WP-CLI after the run.
+				'airtable_error' => $found['error'],
+				'rows'           => array(),
+				'is_partial'     => true,
 			),
 			false
 		);
@@ -191,10 +308,11 @@ class WPCPM_Mentor_Checker_Runner {
 		}
 
 		return array(
-			'run_id'     => $run_id,
-			'total'      => count( $mentors ),
-			'batch_size' => max( 1, (int) $this->settings['batch_size'] ),
-			'queue'      => $queue,
+			'run_id'         => $run_id,
+			'total'          => count( $mentors ),
+			'batch_size'     => max( 1, (int) $this->settings['batch_size'] ),
+			'queue'          => $queue,
+			'airtable_error' => $found['error'],
 		);
 	}
 
@@ -247,15 +365,27 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Check a single mentor, optionally promoting them.
+	 * Check a single mentor, optionally promoting them, or, for an application of this site, optionally
+	 * making a mentor of them.
 	 *
-	 * @param array $mentor   Mentor record (id, name, profile, status).
-	 * @param bool  $apply    Whether to write the target status on a match.
+	 * An application's look is kept on it whatever the answer (`WPCPM_Mentor_Application::note_check()`).
+	 * Where the course shows and the check applies, the application is made a mentor through
+	 * `WPCPM_Mentor_Activation::activate()`; while Make mentors from applications is off it is `eligible`
+	 * all the same, and says it waits for the switch.
+	 *
+	 * @param array $mentor   Mentor record (id, name, profile, status), and for an application of this
+	 *                        site `application`, its ID.
+	 * @param bool  $apply    Whether to write the target status, or make a mentor, on a match.
 	 * @param bool  $use_cache Whether a cached profile result may be reused.
 	 * @return array Result row.
 	 */
 	public function check_mentor( array $mentor, $apply = false, $use_cache = true ) {
-		$result = $this->checker->check( $mentor['profile'], $use_cache );
+		$result      = $this->checker->check( $mentor['profile'], $use_cache );
+		$application = isset( $mentor['application'] ) ? (int) $mentor['application'] : 0;
+
+		if ( $application > 0 ) {
+			WPCPM_Mentor_Application::note_check( $application, $result['state'], $result['message'] );
+		}
 
 		$row = array(
 			'record_id'   => $mentor['id'],
@@ -275,6 +405,10 @@ class WPCPM_Mentor_Checker_Runner {
 
 		if ( ! $result['completed'] ) {
 			return $row;
+		}
+
+		if ( $application > 0 ) {
+			return $this->make_mentor( $row, $application, $apply );
 		}
 
 		if ( ! $apply ) {
@@ -300,6 +434,63 @@ class WPCPM_Mentor_Checker_Runner {
 		$row['status']      = $promotion['status'];
 
 		return $row;
+	}
+
+	/**
+	 * Make a mentor of an application whose course shows, when the check applies and Make mentors from
+	 * applications is on.
+	 *
+	 * @param array $row         The result row so far.
+	 * @param int   $application The application's ID.
+	 * @param bool  $apply       Whether the check applies.
+	 * @return array The result row.
+	 */
+	private function make_mentor( array $row, $application, $apply ) {
+		$enabled = WPCPM_Mentor_Activation::enabled();
+
+		if ( ! $apply || ! $enabled ) {
+			$row['action']      = 'eligible';
+			$row['action_note'] = $enabled
+				? __( 'Ready to be made a mentor.', 'wpcredits-program-manager' )
+				: __( 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.', 'wpcredits-program-manager' );
+
+			return $row;
+		}
+
+		$answer  = WPCPM_Mentor_Activation::activate( $application, self::actor() );
+		$outcome = isset( $answer['outcome'] ) ? (string) $answer['outcome'] : '';
+		$message = isset( $answer['message'] ) ? trim( (string) $answer['message'] ) : '';
+
+		if ( 'activated' === $outcome ) {
+			// What was held or not written on the way (a held invitation, an Airtable row refused) is
+			// said after it, since the mentor is made all the same and the person pressing has to know.
+			$row['action']      = 'activated';
+			$row['action_note'] = trim( __( 'Made a mentor on this site.', 'wpcredits-program-manager' ) . ' ' . $message );
+			$row['status']      = __( 'Made a mentor', 'wpcredits-program-manager' );
+		} elseif ( in_array( $outcome, array( 'already', 'already-mentor' ), true ) ) {
+			$row['action']      = 'skipped';
+			$row['action_note'] = __( 'Already a mentor on this site; left unchanged.', 'wpcredits-program-manager' );
+			$row['status']      = __( 'Made a mentor', 'wpcredits-program-manager' );
+		} else {
+			$row['action']      = 'failed';
+			$row['action_note'] = '' !== $message ? $message : __( 'The application was not made a mentor.', 'wpcredits-program-manager' );
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Who is making mentors, for the application's history: nobody under the daily check or WP-CLI,
+	 * else the person signed in.
+	 *
+	 * @return int A user ID, or 0.
+	 */
+	private static function actor() {
+		if ( wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			return 0;
+		}
+
+		return (int) get_current_user_id();
 	}
 
 	/**
@@ -365,16 +556,18 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Re-check one mentor by record ID and promote them if they qualify.
+	 * Re-check one mentor by key and promote them, or make them a mentor, if they qualify.
 	 *
 	 * Used by the per-row "Promote" button, which must never trust the browser's
-	 * claim that a mentor passed the check.
+	 * claim that a mentor passed the check. An application is read fresh, never from the
+	 * profile cache, and one that is no longer selected is refused.
 	 *
-	 * @param string $record_id Airtable record ID.
+	 * @param string $record_id Airtable record ID, or an application's key (`app-` and its ID).
 	 * @return array|WP_Error Result row.
 	 */
 	public function verify_and_promote( $record_id ) {
-		$record = $this->read_mentor( $record_id );
+		$application = self::application_of( $record_id );
+		$record      = $application > 0 ? $this->read_application( $application ) : $this->read_mentor( $record_id );
 
 		if ( is_wp_error( $record ) ) {
 			return $record;
@@ -487,6 +680,7 @@ class WPCPM_Mentor_Checker_Runner {
 			'completed' => 0,
 			'eligible'  => 0,
 			'promoted'  => 0,
+			'activated' => 0,
 			'skipped'   => 0,
 			'failed'    => 0,
 			'problems'  => 0,
@@ -508,6 +702,9 @@ class WPCPM_Mentor_Checker_Runner {
 				case 'promoted':
 					++$summary['promoted'];
 					break;
+				case 'activated':
+					++$summary['activated'];
+					break;
 				case 'skipped':
 					++$summary['skipped'];
 					break;
@@ -525,9 +722,11 @@ class WPCPM_Mentor_Checker_Runner {
 	 *
 	 * Suitable for WP-CLI and cron, where there is no browser to drive the batches.
 	 *
-	 * @param bool          $apply    Whether to promote matches.
+	 * @param bool          $apply    Whether to promote matches and make mentors of the applications whose
+	 *                                course shows.
 	 * @param callable|null $progress Optional callback receiving each result row.
-	 * @return array|WP_Error Array with rows and summary keys.
+	 * @return array|WP_Error Array with rows, summary and airtable_error keys (why Airtable's mentors were
+	 *                        left out, or '').
 	 */
 	public function run_all( $apply = false, $progress = null ) {
 		$start = $this->start( $apply );
@@ -562,8 +761,9 @@ class WPCPM_Mentor_Checker_Runner {
 		} while ( ! $batch['done'] );
 
 		return array(
-			'rows'    => $rows,
-			'summary' => self::summarize( $rows ),
+			'rows'           => $rows,
+			'summary'        => self::summarize( $rows ),
+			'airtable_error' => $start['airtable_error'],
 		);
 	}
 
@@ -627,7 +827,9 @@ class WPCPM_Mentor_Checker_Runner {
 	public static function run_cron() {
 		$settings = WPCPM_Mentor_Checker::config();
 
-		if ( empty( $settings['cron_enabled'] ) || ! WPCPM_Mentor_Checker::is_configured() ) {
+		// With or without the Airtable connection: the site's applications are checked either way, and
+		// Airtable's mentors only while it is connected (`reads_airtable()`).
+		if ( empty( $settings['cron_enabled'] ) ) {
 			return;
 		}
 

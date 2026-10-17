@@ -416,7 +416,9 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 * mentor, read and decided here (`WPCPM_Mentor_Application_Queue`).
 	 */
 	private function render_tab_queue() {
-		$this->render_notice_from( WPCPM_Mentor_Application_Queue::messages() );
+		// The queue's notices with the sentence a press carried for its outcome, taken here, where the
+		// notice prints (1.122.33).
+		$this->render_notice_from( WPCPM_Mentor_Application_Queue::notices() );
 
 		WPCPM_Mentor_Application_Queue::render();
 	}
@@ -539,9 +541,9 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the last run's
-	 * error, the warning while names are still unread, the Airtable sync card and the last run's
-	 * report.
+	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the warning while
+	 * mentors made from applications wait for their Airtable row (1.122.33), the last run's error, the
+	 * warning while names are still unread, the Airtable sync card and the last run's report.
 	 */
 	private function render_tab_sync() {
 		$report = get_option( WPCPM_Mentors_Sync::OPT_REPORT );
@@ -549,6 +551,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 
 		$this->render_notice_from( self::sync_messages() );
 		$this->render_not_connected();
+		$this->render_unwritten();
 
 		if ( $error ) {
 			printf(
@@ -576,7 +579,35 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The invitations card, on the Accounts tab: every mentor never invited.
+	 * The mentors made from applications whose Mentors row in Airtable is not written yet (1.122.33):
+	 * the sync leaves each such account alone until it is, so the Sync tab says how many, and where
+	 * Write the Airtable row again is. Counting may settle a row whose account was linked meanwhile
+	 * or is gone, under that row's lock and only for such a row (ruling R1).
+	 */
+	private function render_unwritten() {
+		$count = WPCPM_Mentor_Activation::unwritten_count();
+
+		if ( $count <= 0 ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: how many mentors made from applications have no Airtable row yet. */
+					_n( '%s mentor made from an application has no Airtable row yet.', '%s mentors made from applications have no Airtable row yet.', $count, 'wpcredits-program-manager' ),
+					number_format_i18n( $count )
+				)
+			),
+			esc_url( WPCPM_Mentor_Application_Queue::view_url( 'active' ) ),
+			esc_html__( 'Write the Airtable row again is on each, under Activated on the Waiting for review tab.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The invitations card, on the Accounts tab: every mentor never invited, and how many of them are
+	 * left out because an activation held their invitation (1.122.33), which only their own row sends.
 	 *
 	 * Its button posts the tab, so the press comes back to it. Its Stop and Dismiss are the mail
 	 * layer's own forms, which name no tab: they come back to the address they were pressed on, this
@@ -588,11 +619,26 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			array(
 				'action'  => self::ACTION_BULK,
 				'pending' => self::never_invited(),
+				'held'    => count( self::held_back() ),
 				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
 				'hidden'  => array( self::TAB_FIELD => self::TAB_ACCOUNTS ),
 				'flash'   => $this->flash_key(),
 			)
 		);
+	}
+
+	/**
+	 * The mentors never invited whose invitation an activation held (`WPCPM_Mail::held_back()`), by
+	 * the Mentors table's role and stamp, as `never_invited()` reads them.
+	 *
+	 * @return int[]
+	 */
+	private static function held_back() {
+		wpcpm_load_accounts_tables();
+
+		$table_class = static::table_class();
+
+		return WPCPM_Mail::held_back( $table_class::role(), $table_class::invite_meta() );
 	}
 
 	/**

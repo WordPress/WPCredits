@@ -14,6 +14,11 @@
  * kept, so a check can see what was posted, how often, and where. Two hooks let a check act as
  * another request would in the middle of a send: while a profile is read, and while Slack is asked.
  *
+ * Since 1.122.33 the check reads the site's selected mentor applications first and Airtable's mentors after them
+ * until Stop checking mentors in Airtable is ticked (the sections from "The site's applications" on): the
+ * record of applications and the activation step are stood in, each call kept, so a check can see who was made
+ * a mentor, by whom, and what the checker noted on an application.
+ *
  * Run from the plugin root:  php bin/test-mentor-checker.php
  *
  * @package WPCreditsProgramManager
@@ -37,6 +42,11 @@ class WP_Error {
 	public function __construct( $code = '', $message = '' ) { $this->code = $code; $this->message = $message; }
 	public function get_error_code() { return $this->code; }
 	public function get_error_message() { return $this->message; }
+}
+
+class WP_Post {
+	public $ID = 0;
+	public function __construct( $id = 0 ) { $this->ID = (int) $id; }
 }
 
 class WP_User {
@@ -170,6 +180,7 @@ function wp_doing_cron() { return $GLOBALS['doing_cron']; }
 
 $GLOBALS['user'] = new WP_User( 7, 'Ada Admin' );
 function wp_get_current_user() { return $GLOBALS['user']; }
+function get_current_user_id() { return $GLOBALS['user']->ID; }
 function current_user_can( $cap ) { return true; }
 function check_ajax_referer( $a = -1, $q = false ) { return true; }
 
@@ -211,7 +222,8 @@ define( 'WEBHOOK', 'https://hooks.slack.com/services/' . 'T00000000/B00000000/' 
  * check sets.
  */
 class WPCPM_Settings {
-	public static $values = array();
+	public static $values    = array();
+	public static $connected = true;
 
 	public static function get() {
 		return array_merge(
@@ -231,6 +243,7 @@ class WPCPM_Settings {
 				'checker_cache_ttl'         => 0,
 				'checker_cron_enabled'      => true,
 				'checker_cron_promotes'     => true,
+				'checker_skip_airtable'     => false,
 				'checker_slack_webhook'     => WEBHOOK,
 				'checker_slack_channel'     => '#mentors',
 			),
@@ -238,7 +251,7 @@ class WPCPM_Settings {
 		);
 	}
 
-	public static function is_connected() { return true; }
+	public static function is_connected() { return self::$connected; }
 }
 
 class WPCPM_Roles {
@@ -257,6 +270,7 @@ class WPCPM_Mentors_Sync {
 class WPCPM_Airtable {
 	public static $records    = array();
 	public static $fail_write = false;
+	public static $fail_read  = false;
 
 	public function __construct( $settings = array() ) {}
 
@@ -268,6 +282,10 @@ class WPCPM_Airtable {
 	}
 
 	public function fetch_all( $table, $args = array() ) {
+		if ( self::$fail_read ) {
+			return new WP_Error( 'airtable', 'Airtable is out of reach.' );
+		}
+
 		return array_values(
 			array_filter(
 				self::$records,
@@ -304,7 +322,8 @@ class WPCPM_Airtable {
  * reduces to (the last segment of the address).
  */
 class WPCPM_Mentor_Checker_Profile {
-	public static $completed = array();
+	public static $completed  = array();
+	public static $cache_used = null;
 
 	public function __construct( $settings = array() ) {}
 
@@ -314,6 +333,8 @@ class WPCPM_Mentor_Checker_Profile {
 	}
 
 	public function check( $profile, $use_cache = true ) {
+		self::$cache_used = $use_cache;
+
 		$username  = self::normalize_username( $profile );
 		$completed = in_array( $username, self::$completed, true );
 
@@ -347,6 +368,64 @@ class WPCPM_WPorg_Profile {
 		}
 		return array_key_exists( $username, self::$slack ) ? array( 'username' => $username, 'slack' => self::$slack[ $username ] ) : null;
 	}
+}
+
+/**
+ * The applications the site holds, as the checker reads them: `$selected` maps an application's ID to
+ * its `name`, `handle` and `selected_at`, and every ID in it is in the selected state; any other ID is
+ * active. `note_check()` keeps what the checker noted, as `array( ID, state )`.
+ */
+class WPCPM_Mentor_Application {
+	const STATE_SELECTED = 'selected';
+	const STATE_ACTIVE   = 'active';
+	const EVENT_SELECTED = 'selected';
+
+	public static $selected = array();
+	public static $checked  = array();
+
+	public static function applications( array $states, $limit = 0 ) {
+		return array_map(
+			function ( $id ) {
+				return new WP_Post( $id );
+			},
+			array_keys( self::$selected )
+		);
+	}
+
+	public static function application( $post_id ) { return new WP_Post( $post_id ); }
+
+	public static function state_of( WP_Post $post ) { return isset( self::$selected[ $post->ID ] ) ? self::STATE_SELECTED : self::STATE_ACTIVE; }
+
+	public static function last_at( $post_id, $event = '' ) { return isset( self::$selected[ $post_id ] ) ? self::$selected[ $post_id ]['selected_at'] : 0; }
+
+	public static function name_of( WP_Post $post ) { return self::$selected[ $post->ID ]['name']; }
+
+	public static function handle_of( WP_Post $post ) { return self::$selected[ $post->ID ]['handle']; }
+
+	public static function profile_url( $handle ) {
+		$handle = trim( (string) $handle );
+
+		return '' === $handle ? '' : 'https://profiles.wordpress.org/' . rawurlencode( $handle ) . '/';
+	}
+
+	public static function note_check( $post_id, $state, $message ) { self::$checked[] = array( (int) $post_id, $state ); }
+}
+
+/**
+ * The activation step: every call kept as `array( ID, actor )`, the answer a check sets, and the switch.
+ */
+class WPCPM_Mentor_Activation {
+	public static $calls   = array();
+	public static $answer  = array( 'outcome' => 'activated', 'user_id' => 9, 'airtable' => 'created', 'message' => '' );
+	public static $enabled = true;
+
+	public static function activate( $post_id, $actor = 0, $note = '' ) {
+		self::$calls[] = array( (int) $post_id, (int) $actor );
+
+		return self::$answer;
+	}
+
+	public static function enabled() { return self::$enabled; }
 }
 
 class WPCPM_Request {
@@ -396,13 +475,21 @@ function reset_world() {
 	$GLOBALS['user']          = new WP_User( 7, 'Ada Admin' );
 	$_POST                    = array();
 
-	WPCPM_Settings::$values                  = array();
-	WPCPM_Airtable::$records                 = array();
-	WPCPM_Airtable::$fail_write              = false;
-	WPCPM_Mentor_Checker_Profile::$completed = array();
-	WPCPM_WPorg_Profile::$slack              = array();
-	WPCPM_WPorg_Profile::$looked             = array();
-	WPCPM_WPorg_Profile::$reading            = null;
+	WPCPM_Settings::$values                   = array();
+	WPCPM_Settings::$connected                = true;
+	WPCPM_Airtable::$records                  = array();
+	WPCPM_Airtable::$fail_write               = false;
+	WPCPM_Airtable::$fail_read                = false;
+	WPCPM_Mentor_Checker_Profile::$completed  = array();
+	WPCPM_Mentor_Checker_Profile::$cache_used = null;
+	WPCPM_Mentor_Application::$selected       = array();
+	WPCPM_Mentor_Application::$checked        = array();
+	WPCPM_Mentor_Activation::$calls           = array();
+	WPCPM_Mentor_Activation::$answer          = array( 'outcome' => 'activated', 'user_id' => 9, 'airtable' => 'created', 'message' => '' );
+	WPCPM_Mentor_Activation::$enabled         = true;
+	WPCPM_WPorg_Profile::$slack               = array();
+	WPCPM_WPorg_Profile::$looked              = array();
+	WPCPM_WPorg_Profile::$reading             = null;
 }
 
 /**
@@ -576,8 +663,8 @@ ck( 'each promotion is kept in a row of its own, with the username its profile r
     array( WPCPM_Mentor_Checker_Slack::waiting(), array_keys( $GLOBALS['opts'] ) ),
     array(
         array(
-            array( 'record_id' => 'recMENTOR00000001', 'name' => 'Mentor One', 'username' => 'mentor-one', 'via' => 'user', 'by' => 'Ada Admin' ),
-            array( 'record_id' => 'recMENTOR00000002', 'name' => 'Mentor Two', 'username' => 'mentor-two', 'via' => 'user', 'by' => 'Ada Admin' ),
+            array( 'record_id' => 'recMENTOR00000001', 'name' => 'Mentor One', 'username' => 'mentor-one', 'source' => '', 'via' => 'user', 'by' => 'Ada Admin' ),
+            array( 'record_id' => 'recMENTOR00000002', 'name' => 'Mentor Two', 'username' => 'mentor-two', 'source' => '', 'via' => 'user', 'by' => 'Ada Admin' ),
         ),
         array( 'wpcpm_checker_slack_pending_recMENTOR00000001', 'wpcpm_checker_slack_pending_recMENTOR00000002' ),
     ) );
@@ -619,7 +706,7 @@ ck( 'a row that names another record than its own name is no mentor, so it is ne
 ck( 'a row with nothing but its ID is read whole, sent as an unnamed mentor with no profile, without a warning',
     array( $entries[0], explode( "\n", texts()[0] )[1], last_line( texts()[0] ), $warnings ),
     array(
-        array( 'record_id' => 'recCCCC0000000003', 'name' => '', 'username' => '', 'via' => 'user', 'by' => '' ),
+        array( 'record_id' => 'recCCCC0000000003', 'name' => '', 'username' => '', 'source' => '', 'via' => 'user', 'by' => '' ),
         '• (unnamed) - no WordPress.org profile',
         'Promoted by an administrator.',
         array(),
@@ -1008,6 +1095,260 @@ $GLOBALS['cron'][ WPCPM_Mentor_Checker_Slack::RETRY_HOOK ]           = array( 't
 
 ck( 'uninstall forgets every waiting row, one that is no entry included, the last send, the lock and a waiting retry, and nothing else of the checker\'s',
     array( array_keys( $GLOBALS['opts'] ), array_keys( $GLOBALS['cron'] ) ), array( array( 'wpcpm_checker_other' ), array() ) );
+
+echo "\n=== The site's applications ===\n";
+
+reset_world();
+WPCPM_Mentor_Application::$selected = array(
+	501 => array( 'name' => 'Ada Example', 'handle' => 'ada-example', 'selected_at' => 100 ),
+	502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ),
+	503 => array( 'name' => 'Cy Example', 'handle' => 'cy-example', 'selected_at' => 300 ),
+);
+WPCPM_Airtable::mentor( 'recVETTED00000001', 'Di Example', 'https://profiles.wordpress.org/di-example/' );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example', 'di-example' );
+ck( 'Airtable\'s mentors are checked after the site\'s until Stop checking mentors in Airtable is ticked, and the site\'s newest selection first, the higher ID first on a tie',
+	array_column( ( new WPCPM_Mentor_Checker_Runner() )->start( false )['queue'], 'record_id' ), array( 'app-503', 'app-502', 'app-501', 'recVETTED00000001' ) );
+WPCPM_Settings::$values = array( 'checker_skip_airtable' => true );
+ck( 'and once it is ticked, only the site\'s', array_column( ( new WPCPM_Mentor_Checker_Runner() )->start( false )['queue'], 'record_id' ), array( 'app-503', 'app-502', 'app-501' ) );
+WPCPM_Settings::$values    = array();
+WPCPM_Settings::$connected = false;
+$result                    = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
+ck( 'without the Airtable connection the site\'s applications are checked, and the one whose course shows is made a mentor by whoever ran the check',
+	array( count( $result['rows'] ), WPCPM_Mentor_Activation::$calls, $result['summary']['activated'], array_keys( $result['summary'] ) ),
+	array( 3, array( array( 502, 7 ) ), 1, array( 'checked', 'completed', 'eligible', 'promoted', 'activated', 'skipped', 'failed', 'problems' ) ) );
+ck( 'every site row\'s check is kept on its application', WPCPM_Mentor_Application::$checked, array( array( 503, 'not_completed' ), array( 502, 'completed' ), array( 501, 'not_completed' ) ) );
+ck( 'and the row reads what happened', array( $result['rows'][1]['action'], $result['rows'][1]['action_note'], $result['rows'][1]['status'] ), array( 'activated', 'Made a mentor on this site.', 'Made a mentor' ) );
+WPCPM_Settings::$connected        = true;
+WPCPM_Mentor_Activation::$calls   = array();
+WPCPM_Mentor_Activation::$enabled = false;
+$waits                            = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
+ck( 'an application whose course shows waits while Make mentors from applications is off, and nobody is made a mentor',
+	array( $waits['rows'][1]['action'], $waits['rows'][1]['action_note'], WPCPM_Mentor_Activation::$calls ),
+	array( 'eligible', 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.', array() ) );
+WPCPM_Mentor_Activation::$enabled = true;
+$dry                              = ( new WPCPM_Mentor_Checker_Runner() )->run_all( false );
+ck( 'report only, a site row whose course shows is ready, and nobody is made a mentor', array( $dry['rows'][1]['action'], $dry['rows'][1]['action_note'], WPCPM_Mentor_Activation::$calls ), array( 'eligible', 'Ready to be made a mentor.', array() ) );
+WPCPM_Mentor_Activation::$answer = array( 'outcome' => 'already-mentor', 'user_id' => 9, 'airtable' => '', 'message' => '' );
+ck( 'Promote on a site row re-checks the profile, never the cache, and an applicant who is a mentor already is skipped',
+	array( ( new WPCPM_Mentor_Checker_Runner() )->verify_and_promote( 'app-502' )['action'], WPCPM_Mentor_Checker_Profile::$cache_used, end( WPCPM_Mentor_Activation::$calls ) ),
+	array( 'skipped', false, array( 502, 7 ) ) );
+unset( WPCPM_Mentor_Application::$selected[503] );
+$gone = ( new WPCPM_Mentor_Checker_Runner() )->verify_and_promote( 'app-503' );
+ck( 'and on an application no longer waiting for the course it is refused', array( is_wp_error( $gone ) ? $gone->get_error_code() : $gone, is_wp_error( $gone ) ? $gone->get_error_message() : '' ), array( 'wpcpm_checker_not_selected', 'That application is no longer waiting for the course.' ) );
+ck( 'a key names an application only as app- and digits', array( WPCPM_Mentor_Checker_Runner::application_of( 'app-502' ), WPCPM_Mentor_Checker_Runner::application_of( 'app-5x' ), WPCPM_Mentor_Checker_Runner::application_of( "app-502\n" ), WPCPM_Mentor_Checker_Runner::application_of( 'recVETTED00000001' ) ), array( 502, 0, 0, 0 ) );
+WPCPM_Mentor_Activation::$answer = array( 'outcome' => 'activated', 'user_id' => 9, 'airtable' => 'created', 'message' => '' );
+WPCPM_Mentor_Activation::$calls  = array();
+( new WPCPM_Mentor_Checker_Runner() )->run_all( false );
+$_POST = array( 'nonce' => 'ok' );
+$all   = ajax( 'ajax_promote_all' );
+ck( 'Promote all eligible makes a mentor of each eligible site row, with the Airtable ones', array( $all->ok, WPCPM_Mentor_Activation::$calls ), array( true, array( array( 502, 7 ) ) ) );
+WPCPM_Airtable::$fail_read = true;
+$kept                      = ( new WPCPM_Mentor_Checker_Runner() )->start( false );
+ck( 'an Airtable read that fails leaves the site\'s applications checked, and the run keeps the error', array( count( $kept['queue'] ), WPCPM_Mentor_Checker_Runner::get_last_run()['airtable_error'] ), array( 2, 'Airtable is out of reach.' ) );
+
+echo "\n=== The daily check without Airtable ===\n";
+WPCPM_Airtable::$fail_read      = false;
+WPCPM_Settings::$connected      = false;
+$GLOBALS['doing_cron']          = true;
+WPCPM_Mentor_Activation::$calls = array();
+WPCPM_Mentor_Checker_Runner::run_cron();
+$GLOBALS['doing_cron'] = false;
+ck( 'the daily check runs without the Airtable connection for the site\'s applications, and makes its mentors as the daily check', WPCPM_Mentor_Activation::$calls, array( array( 502, 0 ) ) );
+ck( 'and the tool is ready without it, its line saying what is not checked', array( ( new WPCPM_Mentor_Checker() )->is_ready(), ( new WPCPM_Mentor_Checker() )->status_line() ), array( true, 'Airtable is not connected: the applications selected on this site are checked, and Airtable\'s mentors are not.' ) );
+
+echo "\n=== The Slack line ===\n";
+reset_world();
+WPCPM_Mentor_Checker_Slack::forget();
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'https://profiles.wordpress.org/bo-example/', 'source' => 'site' ) );
+ck( 'a mentor made from an application is named as the others are, the line saying where they came from',
+	explode( "\n", WPCPM_Mentor_Checker_Slack::message( WPCPM_Mentor_Checker_Slack::waiting() ) )[1],
+	'• Bo Example - <https://profiles.wordpress.org/bo-example/|@bo-example> - from an application on the site' );
+
+echo "\n=== What an activation answers, row by row ===\n";
+
+reset_world();
+WPCPM_Mentor_Application::$selected      = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example' );
+$answers                                 = array(
+	'activated, with what was held' => array( 'outcome' => 'activated', 'user_id' => 9, 'airtable' => 'refused', 'message' => 'Made a mentor, but the invitation is held: confirm the account first.' ),
+	'already a mentor'              => array( 'outcome' => 'already-mentor', 'user_id' => 9, 'airtable' => '', 'message' => 'The applicant is a mentor on this site already.' ),
+	'already made'                  => array( 'outcome' => 'already', 'user_id' => 9, 'airtable' => '', 'message' => 'This application was made a mentor already.' ),
+	'busy'                          => array( 'outcome' => 'busy', 'user_id' => 0, 'airtable' => '', 'message' => 'Another request is making this applicant a mentor at this moment, so nothing was done.' ),
+	'no account'                    => array( 'outcome' => 'no-account', 'user_id' => 0, 'airtable' => '', 'message' => 'The account could not be made, so the application stays selected: no.' ),
+	'switched off meanwhile'        => array( 'outcome' => 'off', 'user_id' => 0, 'airtable' => '', 'message' => 'Nothing was done: Make mentors from applications is off.' ),
+);
+$rows                                    = array();
+
+foreach ( $answers as $which => $answer ) {
+	WPCPM_Mentor_Activation::$answer = $answer;
+	$row                             = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true )['rows'][0];
+	$rows[ $which ]                  = array( $row['action'], $row['action_note'], $row['status'] );
+}
+
+ck( 'a mentor made says so and what was held or not written after it; one who was one already is skipped, whichever way the step says it; and every other outcome fails with the step\'s own sentence, the application still waiting',
+	$rows,
+	array(
+		'activated, with what was held' => array( 'activated', 'Made a mentor on this site. Made a mentor, but the invitation is held: confirm the account first.', 'Made a mentor' ),
+		'already a mentor'              => array( 'skipped', 'Already a mentor on this site; left unchanged.', 'Made a mentor' ),
+		'already made'                  => array( 'skipped', 'Already a mentor on this site; left unchanged.', 'Made a mentor' ),
+		'busy'                          => array( 'failed', 'Another request is making this applicant a mentor at this moment, so nothing was done.', 'Selected on this site' ),
+		'no account'                    => array( 'failed', 'The account could not be made, so the application stays selected: no.', 'Selected on this site' ),
+		'switched off meanwhile'        => array( 'failed', 'Nothing was done: Make mentors from applications is off.', 'Selected on this site' ),
+	) );
+
+WPCPM_Mentor_Activation::$answer = array( 'outcome' => 'unheard-of', 'user_id' => 0, 'airtable' => '', 'message' => '' );
+$unheard                         = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true )['rows'][0];
+$summary                         = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true )['summary'];
+
+ck( 'an answer with no sentence still says it failed, and the run counts it so', array( $unheard['action'], $unheard['action_note'], $summary['failed'], $summary['activated'] ), array( 'failed', 'The application was not made a mentor.', 1, 0 ) );
+
+echo "\n=== A press on one site row ===\n";
+
+reset_world();
+WPCPM_Mentor_Application::$selected      = array(
+	501 => array( 'name' => 'Ada Example', 'handle' => 'ada-example', 'selected_at' => 100 ),
+	502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ),
+);
+WPCPM_Airtable::mentor( 'recVETTED00000001', 'Di Example', 'https://profiles.wordpress.org/di-example/' );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example', 'di-example' );
+( new WPCPM_Mentor_Checker_Runner() )->run_all( false );
+$_POST    = array( 'record_id' => 'app-502', 'nonce' => 'n' );
+$pressed  = ajax( 'ajax_promote' );
+$stored   = array_column( WPCPM_Mentor_Checker_Runner::get_last_run()['rows'], 'action', 'record_id' );
+
+ck( 'Promote on a site row makes the mentor as the manager who pressed it, answers the row drawn, and the stored run reads the row as made',
+	array( $pressed->ok, WPCPM_Mentor_Activation::$calls, $pressed->data['row']['action'], false !== strpos( $pressed->data['row']['html'], 'wpcpm-checker-action--activated' ), $stored['app-502'], $stored['app-501'] ),
+	array( true, array( array( 502, 7 ) ), 'activated', true, 'activated', 'none' ) );
+
+$_POST = array( 'record_id' => 'app-5x', 'nonce' => 'n' );
+WPCPM_Mentor_Activation::$calls = array();
+$bad   = ajax( 'ajax_promote' );
+
+ck( 'a key that is neither an Airtable record ID nor an application is refused before anything is read', array( $bad->ok, $bad->data['message'], WPCPM_Mentor_Activation::$calls ), array( false, 'That does not look like an Airtable record ID or an application.', array() ) );
+
+$_POST = array( 'record_id' => 'recVETTED00000001', 'nonce' => 'n' );
+$air   = ajax( 'ajax_promote' );
+
+ck( 'and an Airtable record is promoted as it was', array( $air->ok, WPCPM_Airtable::$records['recVETTED00000001']['fields']['Status'], WPCPM_Mentor_Activation::$calls ), array( true, 'Active', array() ) );
+
+$tool = new WPCPM_Mentor_Checker();
+$eligible = $tool->prepare_row_for_js( array( 'record_id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'https://profiles.wordpress.org/bo-example/', 'username' => 'bo-example', 'status' => 'Selected on this site', 'completed' => true, 'state' => 'completed', 'action' => 'eligible', 'action_note' => 'Ready to be made a mentor.' ) );
+
+ck( 'an eligible site row keeps its Promote button, keyed by the application, and its status is drawn as it is',
+	array( false !== strpos( $eligible['html'], 'class="button button-small wpcpm-checker-promote" data-record-id="app-502"' ), false !== strpos( $eligible['html'], 'Selected on this site' ) ), array( true, true ) );
+
+echo "\n=== Where the mentors come from ===\n";
+
+reset_world();
+WPCPM_Mentor_Application::$selected = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Airtable::mentor( 'recVETTED00000001', 'Di Example', 'https://profiles.wordpress.org/di-example/' );
+WPCPM_Airtable::$fail_read = true;
+WPCPM_Settings::$connected = false;
+$unread                    = ( new WPCPM_Mentor_Checker_Runner() )->start( false );
+
+ck( 'Airtable is not asked for its mentors while it is not connected, and nothing is kept as an error', array( count( $unread['queue'] ), $unread['airtable_error'], WPCPM_Mentor_Checker_Runner::get_last_run()['airtable_error'] ), array( 1, '', '' ) );
+
+WPCPM_Settings::$connected = true;
+WPCPM_Settings::$values    = array( 'checker_skip_airtable' => true );
+$stopped                   = ( new WPCPM_Mentor_Checker_Runner() )->start( false );
+
+ck( 'nor once Stop checking mentors in Airtable is ticked', array( count( $stopped['queue'] ), $stopped['airtable_error'] ), array( 1, '' ) );
+
+WPCPM_Settings::$values = array();
+WPCPM_Mentor_Application::$selected = array();
+$nothing = ( new WPCPM_Mentor_Checker_Runner() )->start( false );
+
+ck( 'with no application selected, an Airtable read that fails is the answer, as it was when Airtable was the only source', array( is_wp_error( $nothing ), is_wp_error( $nothing ) ? $nothing->get_error_message() : '' ), array( true, 'Airtable is out of reach.' ) );
+
+WPCPM_Airtable::$fail_read = false;
+WPCPM_Airtable::$records   = array();
+$empty                     = ( new WPCPM_Mentor_Checker_Runner() )->start( false );
+
+ck( 'and with nothing to check from either source the run is empty, not an error', array( is_wp_error( $empty ), $empty['total'], $empty['queue'] ), array( false, 0, array() ) );
+
+reset_world();
+WPCPM_Mentor_Application::$selected = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Airtable::$fail_read          = true;
+$_POST                              = array( 'nonce' => 'n' );
+$started                            = ajax( 'ajax_start_run' );
+
+ck( 'the screen\'s run starts on the site\'s applications drawn row by row, and is told that Airtable\'s mentors were left out and why',
+	array( $started->ok, $started->data['airtable_error'], array_column( $started->data['queue'], 'record_id' ), false !== strpos( $started->data['queue'][0]['html'], 'data-record-id="app-502"' ) ),
+	array( true, 'Airtable is out of reach.', array( 'app-502' ), true ) );
+
+reset_world();
+ck( 'the tool\'s configuration says whether Airtable\'s mentors are stopped, and the setting is one of the tool\'s own',
+	array( WPCPM_Mentor_Checker::config()['skip_airtable'], ( new WPCPM_Mentor_Checker() )->settings_keys() === array_values( array_unique( ( new WPCPM_Mentor_Checker() )->settings_keys() ) ), in_array( 'checker_skip_airtable', ( new WPCPM_Mentor_Checker() )->settings_keys(), true ) ),
+	array( false, true, true ) );
+WPCPM_Settings::$values = array( 'checker_skip_airtable' => true );
+ck( 'ticked, it reads true', WPCPM_Mentor_Checker::config()['skip_airtable'], true );
+
+// The tool's one-line description, on the Tools screen, says what its screen's lede says: Airtable's
+// mentors are checked only until the box that stops them is ticked.
+reset_world();
+ck( 'the tool\'s description says Airtable\'s mentors are checked until Stop checking mentors in Airtable is ticked',
+	( new WPCPM_Mentor_Checker() )->description(),
+	'Checks every mentor application selected on this site, and, until Stop checking mentors in Airtable is ticked, every mentor whose Airtable status is "' . WPCPM_Mentor_Checker::config()['source_status'] . '", against their WordPress.org profile. An applicant who has completed "' . WPCPM_Mentor_Checker::config()['course_title'] . '" is made a mentor on this site, and an Airtable mentor is moved to "' . WPCPM_Mentor_Checker::config()['target_status'] . '".' );
+
+reset_world();
+WPCPM_Mentor_Application::$selected      = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example' );
+WPCPM_Settings::$values                  = array( 'checker_cron_promotes' => false );
+$GLOBALS['doing_cron']                   = true;
+WPCPM_Mentor_Checker_Runner::run_cron();
+$GLOBALS['doing_cron'] = false;
+
+ck( 'a daily check that only reports makes nobody a mentor, and the application\'s look is still kept', array( WPCPM_Mentor_Activation::$calls, WPCPM_Mentor_Application::$checked ), array( array(), array( array( 502, 'completed' ) ) ) );
+
+reset_world();
+WPCPM_Mentor_Application::$selected = array( 502 => array( 'name' => 'Bo Example', 'handle' => '', 'selected_at' => 300 ) );
+$noted = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
+
+ck( 'an application with no WordPress.org username is looked up as none: its look is kept, it is a problem to look at, and nobody is made a mentor',
+	array( WPCPM_Mentor_Application::$checked, WPCPM_Mentor_Activation::$calls, $noted['rows'][0]['profile'], $noted['summary']['problems'] ), array( array( array( 502, 'not_completed' ) ), array(), '', 0 ) );
+
+echo "\n=== The Slack line, beside the others ===\n";
+
+reset_world();
+WPCPM_Mentor_Checker_Slack::forget();
+promoted( 'one' );
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'https://profiles.wordpress.org/bo-example/', 'source' => 'site' ) );
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'recMENTOR00000003', 'name' => 'Mentor Three', 'profile' => 'mentor-three', 'source' => 'airtable' ) );
+WPCPM_WPorg_Profile::$slack = array( 'bo-example' => 'bo.example' );
+WPCPM_Mentor_Checker_Slack::flush();
+
+ck( 'a site entry keeps where it came from, any other source is none, and the message ends only a site entry\'s line with it, after the Slack name',
+	array( array_column( WPCPM_Mentor_Checker_Slack::waiting(), 'source' ), count( $GLOBALS['posted'] ), explode( "\n", texts()[0] ) ),
+	array(
+		array(),
+		1,
+		array(
+			'<!channel> 3 mentors were moved to Active. Please add them to #mentors:',
+			'• Mentor One - <https://profiles.wordpress.org/mentor-one/|@mentor-one>',
+			'• Bo Example - <https://profiles.wordpress.org/bo-example/|@bo-example> - Slack: `bo.example` - from an application on the site',
+			'• Mentor Three - <https://profiles.wordpress.org/mentor-three/|@mentor-three>',
+			'Promoted by Ada Admin.',
+		),
+	) );
+
+reset_world();
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'bo-example', 'source' => 'site' ) );
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'recMENTOR00000003', 'name' => 'Mentor Three', 'profile' => 'mentor-three', 'source' => 'airtable' ) );
+WPCPM_Mentor_Checker_Slack::record( array( 'id' => 'recMENTOR00000004', 'name' => 'Mentor Four', 'profile' => 'mentor-four' ) );
+
+ck( 'recorded, a site entry\'s source is kept in its row and read back, and a record promoted in Airtable has none',
+	array_column( WPCPM_Mentor_Checker_Slack::waiting(), 'source', 'record_id' ), array( 'app-502' => 'site', 'recMENTOR00000003' => '', 'recMENTOR00000004' => '' ) );
+
+echo "\n=== Under WP-CLI ===\n";
+
+// Last, since a constant cannot be taken back: nothing after this reads a manager.
+reset_world();
+define( 'WP_CLI', true );
+WPCPM_Mentor_Application::$selected      = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example' );
+( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
+
+ck( 'WP-CLI makes its mentors as nobody, as the daily check does, though a manager is signed in', WPCPM_Mentor_Activation::$calls, array( array( 502, 0 ) ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S) of $total\n" : "ALL PASS ($total)\n" );
 exit( $fail ? 1 : 0 );

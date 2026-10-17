@@ -1,23 +1,36 @@
 <?php
 /**
- * The Waiting for review tab and its seven decisions (1.122.31): `WPCPM_Mentor_Application_Queue`.
+ * The Waiting for review tab and its ten decisions (1.122.31, 1.122.33): `WPCPM_Mentor_Application_Queue`.
  *
- * Design of 16 October 2026, section 5. What each block pins, and why:
+ * Design of 16 October 2026, sections 5 to 7. What each block pins, and why:
  *
  * - **Who may press**: an Administrator, the capability asked before anything else, the nonce keyed
  *   to the decision and the row next, then the row, which must be an application in a state the
  *   decision takes. Every decision is registered for signed-in requests alone.
- * - **Each decision from each state**, every pair of the seven and the nine in one table: the state it
+ * - **Each decision from each state**, every pair of the ten and the nine in one table: the state it
  *   moves to and its sentence, the email it sends or does not, or, from a state it does not take,
  *   the row left as it was and nothing sent; the row's history with who, when and the note; Select
- *   offered again on a lapsed or a declined row; Withdraw on a selected row alone; Put back in the
- *   queue on a spam row alone, sending the acknowledgement once to a row that never had it, and
- *   nothing to one acknowledged before.
+ *   offered again on a lapsed or a declined row; Withdraw on a selected row alone, under the
+ *   application's lock, so a row an activation holds or has filed active is left as it is; Put back
+ *   in the queue on a spam row alone, sending the acknowledgement once to a row that never had it,
+ *   and nothing to one acknowledged before.
+ * - **The course is completed** (1.122.33), on a selected row while Make mentors from applications
+ *   is on: the activation, by who pressed and with the note, the Slack message, and the notice each
+ *   outcome leaves, the one Task 3's step words carried with it; an invitation held because the
+ *   account was linked by its username alone, or because another account also answered for the
+ *   applicant, or not sent to an Administrator, says so. The Selected row says what the daily check
+ *   last found, or that the applicant waits while the switch is off.
+ * - **Activated** (1.122.33): the rows the activation's list gives, in its order, each with its
+ *   account, the invitation's fate since the activation and never before it, and the Airtable row's,
+ *   and Write the Airtable row again only on a row still waiting for it.
+ * - **Send the acknowledgement** (1.122.33), on an open row whose acknowledgement never went: once,
+ *   with the confirming link, the row left in its state; under the application's lock, so two
+ *   presses at one moment send it once.
  * - **The address is confirmed first** for every decision that emails the applicant, and Select
  *   needs the course invitation link; a send that fails leaves the row as it was.
  * - **A note** that is needed and too short, too long, or that the cleaner would take words from is
  *   refused, nothing done, and the typing comes back in that row's box.
- * - **The tab**: five views with their counts; each row whole, its answers escaped, its marks (the
+ * - **The tab**: six views with their counts; each row whole, its answers escaped, its marks (the
  *   acknowledgement not sent among them), its history, "asked for more information on" where it
  *   applies, a selected row's lapse day, and the decisions its state allows, each a form with its
  *   own nonce that comes back to its view; under the views, Recently decided, the rows filed as spam
@@ -41,10 +54,14 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 require_once __DIR__ . '/stubs/mentor-applications.php';
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
 
-$GLOBALS['mail']       = array();
-$GLOBALS['mail_fails'] = false;
-$GLOBALS['settings']   = array();
+$GLOBALS['mail']         = array();
+$GLOBALS['mail_fails']   = false;
+$GLOBALS['settings']     = array();
+$GLOBALS['invite_queue'] = array();
+$GLOBALS['invited_at']   = array();
+$GLOBALS['log_rows']     = array();
 
 /** The settings the decisions read, as a check sets them. */
 class WPCPM_Settings {
@@ -68,8 +85,84 @@ class WPCPM_Mail {
 	public static function site_name() {
 		return 'WordPress Credits';
 	}
+	// Who waits in the invitation queue, when each account was last invited, and the sentence for a
+	// refused invitation, the real one's for an Administrator.
+	public static function queue() {
+		return array_values( array_map( 'intval', $GLOBALS['invite_queue'] ) );
+	}
+	public static function last_invited( $user_id ) {
+		return isset( $GLOBALS['invited_at'][ (int) $user_id ] ) ? (int) $GLOBALS['invited_at'][ (int) $user_id ] : 0;
+	}
+	public static function invite_refused_message( $reader = 'administrator' ) {
+		return 'The site\'s mail host refused the invitation, so nothing was sent, and the link in any earlier invitation no longer works. Send it again once the site\'s email is working.';
+	}
 }
 
+/** The mail log at its contract: the rows a check plants, newest first, and what it was asked. */
+class WPCPM_Mail_Log {
+	const STATUS_SENT        = 'sent';
+	const STATUS_FAILED      = 'failed';
+	const STATUS_UNCONFIRMED = 'unconfirmed';
+	public static $asked = array();
+	public static function find( array $filters, $page = 1, $per_page = 25 ) {
+		self::$asked[] = array( $filters, $page, $per_page );
+		return array(
+			'rows'  => $GLOBALS['log_rows'],
+			'total' => count( $GLOBALS['log_rows'] ),
+		);
+	}
+}
+
+/** The shared activation step (Task 3's), as a check sets its answers, keeping what it was asked. */
+class WPCPM_Mentor_Activation {
+	public static $calls        = array();
+	public static $retries      = array();
+	public static $answer       = array();
+	public static $retry_answer = array();
+	public static $enabled      = true;
+	public static $unwritten    = 0;
+	public static $activated    = array();
+	public static $limits       = array();
+	public static function activate( $post_id, $actor = 0, $note = '' ) {
+		self::$calls[] = array( (int) $post_id, (int) $actor, (string) $note );
+		return self::$answer;
+	}
+	public static function retry_airtable( $post_id, $actor ) {
+		self::$retries[] = array( (int) $post_id, (int) $actor );
+		return self::$retry_answer;
+	}
+	public static function enabled() {
+		return self::$enabled;
+	}
+	public static function unwritten_count() {
+		return self::$unwritten;
+	}
+	public static function activated_posts( $limit ) {
+		self::$limits[] = (int) $limit;
+		return array_slice( self::$activated, 0, max( 1, (int) $limit ) );
+	}
+}
+
+/** The account key an activation leaves while the Mentors row is still to be written, the real one's name. */
+class WPCPM_Mentor_Provision {
+	const USER_ROW_PENDING = 'wpcpm_mentor_row_pending';
+}
+
+/** The Mentor Status Checker's Slack message, counting each send of what waits. */
+class WPCPM_Mentor_Checker_Slack {
+	public static $flushed = 0;
+	public static function flush() {
+		++self::$flushed;
+		return null;
+	}
+}
+
+/** An account's profile screen, as core addresses it. */
+function get_edit_user_link( $user_id = null ) {
+	return 'https://example.test/wp-admin/user-edit.php?user_id=' . (int) $user_id;
+}
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
@@ -78,6 +171,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-form.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-airtable-row.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-queue.php';
 
 $fails = 0;
@@ -114,11 +208,56 @@ function reset_world() {
 		'mail_contact'         => 'programs@example.test',
 	);
 	an_account( 9, 'Ida Admin', 'ida@example.test', array( 'administrator' ) );
-	$GLOBALS['uid']    = 9;
-	$GLOBALS['manage'] = array( 9 );
-	$_POST             = array();
-	$_GET              = array();
-	$_REQUEST          = array();
+	$GLOBALS['uid']                         = 9;
+	$GLOBALS['manage']                      = array( 9 );
+	$GLOBALS['invite_queue']                = array();
+	$GLOBALS['invited_at']                  = array();
+	$GLOBALS['log_rows']                    = array();
+	WPCPM_Mail_Log::$asked                  = array();
+	WPCPM_Mentor_Activation::$calls         = array();
+	WPCPM_Mentor_Activation::$retries       = array();
+	WPCPM_Mentor_Activation::$answer        = array(
+		'outcome'  => 'activated',
+		'user_id'  => 70,
+		'airtable' => 'created',
+		'message'  => '',
+	);
+	WPCPM_Mentor_Activation::$retry_answer  = array(
+		'outcome' => 'written',
+		'message' => '',
+	);
+	WPCPM_Mentor_Activation::$enabled       = true;
+	WPCPM_Mentor_Activation::$unwritten     = 0;
+	WPCPM_Mentor_Activation::$activated     = array();
+	WPCPM_Mentor_Activation::$limits        = array();
+	WPCPM_Mentor_Checker_Slack::$flushed    = 0;
+	$GLOBALS['wpdb']->statements            = array();
+	$GLOBALS['wpdb']->before_takeover       = null;
+	$_POST                                  = array();
+	$_GET                                   = array();
+	$_REQUEST                               = array();
+}
+
+/** The number of forms a part of the tab holds that post one decision. */
+function count_forms( $html, $action ) {
+	return substr_count( $html, 'name="action" value="' . $action . '"' );
+}
+
+/** When an application was made a mentor, as the activation writes it. */
+function activated_at( $id, $time ) {
+	update_post_meta( $id, WPCPM_Mentor_Application::META_ACTIVATED_AT, (int) $time );
+}
+
+/**
+ * What a press carried beside its outcome for the notice, read from the store rather than taken,
+ * for the reason `kept()` reads there: a take is kept for the rest of a request.
+ *
+ * @return mixed
+ */
+function carried() {
+	$flash = get_user_meta( 9, 'wpcpm_flash', true );
+
+	return is_array( $flash ) && array_key_exists( WPCPM_Mentor_Application_Queue::FLASH_MESSAGE, $flash ) ? $flash[ WPCPM_Mentor_Application_Queue::FLASH_MESSAGE ] : null;
 }
 
 /** One application, stored as the form stores it, in a state, its address confirmed or not. */
@@ -264,6 +403,19 @@ function row_ids( $html ) {
 	return array_map( 'intval', $found[1] );
 }
 
+/** One row of a part of the tab, from its opening to the next row's, or to the end of the part. */
+function row_for_id( $html, $id ) {
+	$at = strpos( $html, '<li class="wpcpm-queue-item" id="wpcpm-mentor-application-' . (int) $id . '">' );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$next = strpos( $html, '<li class="wpcpm-queue-item"', $at + 1 );
+
+	return false === $next ? substr( $html, $at ) : substr( $html, $at, $next - $at );
+}
+
 /** The age line each row of a part of the tab carries, by ID. */
 function age_lines( $html ) {
 	preg_match_all( '#id="wpcpm-mentor-application-(\d+)">.*?<p class="wpcpm-queue-age">([^<]*)</p>#s', $html, $found, PREG_SET_ORDER );
@@ -282,9 +434,9 @@ echo "=== The hooks ===\n";
 $GLOBALS['hooks'] = array();
 WPCPM_Mentor_Application_Queue::init();
 ck(
-	'seven decisions, each for a signed-in request alone',
+	'ten decisions, each for a signed-in request alone',
 	array( array_values( array_filter( array_keys( $GLOBALS['hooks'] ), function ( $hook ) { return 0 === strpos( $hook, 'admin_post_' ); } ) ) ),
-	array( array( 'admin_post_wpcpm_mapp_select', 'admin_post_wpcpm_mapp_info', 'admin_post_wpcpm_mapp_second', 'admin_post_wpcpm_mapp_decline', 'admin_post_wpcpm_mapp_spam', 'admin_post_wpcpm_mapp_withdraw', 'admin_post_wpcpm_mapp_reopen' ) )
+	array( array( 'admin_post_wpcpm_mapp_select', 'admin_post_wpcpm_mapp_info', 'admin_post_wpcpm_mapp_second', 'admin_post_wpcpm_mapp_decline', 'admin_post_wpcpm_mapp_spam', 'admin_post_wpcpm_mapp_withdraw', 'admin_post_wpcpm_mapp_reopen', 'admin_post_wpcpm_mapp_complete', 'admin_post_wpcpm_mapp_airtable', 'admin_post_wpcpm_mapp_acknowledge' ) )
 );
 
 echo "\n=== Who may press ===\n";
@@ -362,29 +514,38 @@ ck( 'Select is offered again on a lapsed or a declined row, and refused on a spa
 
 echo "\n=== Every decision from every state ===\n";
 
-// The states each decision takes, what it moves a row to, its sentence and how many emails it sends;
-// from any other state it is refused, the row left as it was and nothing sent.
+// The states each decision takes, what it moves a row to (null: it stays where it is), its sentence
+// and how many emails it sends; from any other state it is refused, the row left as it was and nothing
+// sent. The course is completed and Write the Airtable row again reach the activation, stood in here,
+// which moves nothing itself; Send the acknowledgement is pressed on rows that never had theirs.
 $takes = array(
-	'wpcpm_mapp_select'   => array( array( 'new', 'held', 'info', 'second', 'lapsed', 'declined' ), 'selected', 'mapp-selected', 1 ),
-	'wpcpm_mapp_info'     => array( array( 'new', 'held', 'info', 'second' ), 'info', 'mapp-info', 1 ),
-	'wpcpm_mapp_second'   => array( array( 'new', 'held', 'info', 'second' ), 'second', 'mapp-second', 0 ),
-	'wpcpm_mapp_decline'  => array( array( 'new', 'held', 'info', 'second' ), 'declined', 'mapp-declined', 1 ),
-	'wpcpm_mapp_spam'     => array( array( 'new', 'held', 'info', 'second' ), 'spam', 'mapp-spam', 0 ),
-	'wpcpm_mapp_withdraw' => array( array( 'selected' ), 'lapsed', 'mapp-withdrawn', 0 ),
-	'wpcpm_mapp_reopen'   => array( array( 'spam' ), 'new', 'mapp-reopened', 0 ),
+	'wpcpm_mapp_select'      => array( array( 'new', 'held', 'info', 'second', 'lapsed', 'declined' ), 'selected', 'mapp-selected', 1 ),
+	'wpcpm_mapp_info'        => array( array( 'new', 'held', 'info', 'second' ), 'info', 'mapp-info', 1 ),
+	'wpcpm_mapp_second'      => array( array( 'new', 'held', 'info', 'second' ), 'second', 'mapp-second', 0 ),
+	'wpcpm_mapp_decline'     => array( array( 'new', 'held', 'info', 'second' ), 'declined', 'mapp-declined', 1 ),
+	'wpcpm_mapp_spam'        => array( array( 'new', 'held', 'info', 'second' ), 'spam', 'mapp-spam', 0 ),
+	'wpcpm_mapp_withdraw'    => array( array( 'selected' ), 'lapsed', 'mapp-withdrawn', 0 ),
+	'wpcpm_mapp_reopen'      => array( array( 'spam' ), 'new', 'mapp-reopened', 0 ),
+	'wpcpm_mapp_complete'    => array( array( 'selected' ), null, 'mapp-activated', 0 ),
+	'wpcpm_mapp_airtable'    => array( array( 'active' ), null, 'mapp-airtable-written', 0 ),
+	'wpcpm_mapp_acknowledge' => array( array( 'new', 'held', 'info', 'second' ), null, 'mapp-acknowledged', 1 ),
 );
-$pressed = array();
-$wanted  = array();
+$pressed  = array();
+$wanted   = array();
+$asked_of = array();
 foreach ( $takes as $action => $rule ) {
+	$asked_of[ $action ] = 0;
 	foreach ( WPCPM_Mentor_Application::states() as $state ) {
 		reset_world();
-		$id                         = an_application( $state );
-		$out                        = press( $action, $id, array( 'note' => 'A note long enough for every decision.' ) );
+		$id                           = an_application( $state, true, array(), 'wpcpm_mapp_acknowledge' === $action ? array( 'mail-ceiling' ) : array() );
+		$out                          = press( $action, $id, array( 'note' => 'A note long enough for every decision.' ) );
 		$pressed[ $action ][ $state ] = $out['state'] . ' ' . $out['flash'] . ' ' . count( $out['mail'] );
-		$wanted[ $action ][ $state ]  = in_array( $state, $rule[0], true ) ? $rule[1] . ' ' . $rule[2] . ' ' . $rule[3] : $state . ' mapp-state 0';
+		$wanted[ $action ][ $state ]  = in_array( $state, $rule[0], true ) ? ( null === $rule[1] ? $state : $rule[1] ) . ' ' . $rule[2] . ' ' . $rule[3] : $state . ' mapp-state 0';
+		$asked_of[ $action ]         += count( WPCPM_Mentor_Activation::$calls ) + count( WPCPM_Mentor_Activation::$retries );
 	}
 }
 ck( 'every decision from each of the nine states: where it takes the row, its sentence and its email; anywhere else the row as it was, mapp-state and nothing sent', array( array_keys( $takes ), $pressed ), array( array_keys( WPCPM_Mentor_Application_Queue::decisions() ), $wanted ) );
+ck( 'and the activation is reached from the one state each of its two presses takes, and by no other decision', $asked_of, array_merge( array_fill_keys( array_keys( $takes ), 0 ), array( 'wpcpm_mapp_complete' => 1, 'wpcpm_mapp_airtable' => 1 ) ) );
 
 echo "\n=== Ask for more information, Second opinion, Decline, Mark as spam ===\n";
 
@@ -419,6 +580,33 @@ $selected = an_application( 'selected' );
 ck( 'Withdraw takes a selected row alone', press( WPCPM_Mentor_Application_Queue::ACTION_WITHDRAW, $open, array( 'note' => 'They wrote to stop.' ) )['flash'], 'mapp-state' );
 $withdraw = press( WPCPM_Mentor_Application_Queue::ACTION_WITHDRAW, $selected, array( 'note' => 'They wrote that they cannot continue.', 'view' => 'selected' ) );
 ck( 'it lapses the row with the note, sends nothing, and comes back to the view it was pressed on', array( $withdraw['state'], $withdraw['mail'], last_event( $selected ), $withdraw['stop'] ), array( 'lapsed', array(), array( 'withdrawn', 9, 'They wrote that they cannot continue.' ), 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=selected' ) );
+ck( 'under the application\'s lock, which the activation and the lapse clock take, let go once the row has lapsed',
+	array( count( preg_grep( '/^INSERT IGNORE .*\'' . WPCPM_Mentor_Application::lock_name( $selected ) . '\'/', $GLOBALS['wpdb']->statements ) ), count( preg_grep( '/^DELETE .*\'' . WPCPM_Mentor_Application::lock_name( $selected ) . '\'/', $GLOBALS['wpdb']->statements ) ), array_key_exists( WPCPM_Mentor_Application::lock_name( $selected ), $GLOBALS['opts'] ) ),
+	array( 1, 1, false ) );
+
+// A request making the applicant a mentor holds the application's lock: a Withdraw in that moment would
+// file Lapsed an application that is becoming active, whose row could then never be written again.
+reset_world();
+$in_hand   = an_application( 'selected' );
+$held_till = (string) ( time() + 600 );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $in_hand ) ] = $held_till;
+$busy_withdraw = press( WPCPM_Mentor_Application_Queue::ACTION_WITHDRAW, $in_hand, array( 'note' => 'They wrote that they cannot continue.' ) );
+ck( 'Withdraw while the application\'s lock is held changes nothing, and says another request is working on it',
+	array( $busy_withdraw['state'], $busy_withdraw['flash'], carried(), last_event( $in_hand ), $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $in_hand ) ] ),
+	array( 'selected', 'mapp-busy', array( 'status' => 'mapp-busy', 'message' => 'Another request is working on this application at this moment, so nothing was done.' ), array( 'address confirmed', 0, '' ), $held_till ) );
+
+// The activation finishes in the moment between the press's first read of the row and its lock: a lock
+// the activation left behind is taken over, and the row, read again under it, is active.
+reset_world();
+$taken = an_application( 'selected' );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $taken ) ] = '1';
+$GLOBALS['wpdb']->before_takeover = function () use ( $taken ) {
+	WPCPM_Mentor_Application::decide( $taken, WPCPM_Mentor_Application::STATE_ACTIVE, WPCPM_Mentor_Application::EVENT_ACTIVATED, 0 );
+};
+$late_withdraw = press( WPCPM_Mentor_Application_Queue::ACTION_WITHDRAW, $taken, array( 'note' => 'They wrote that they cannot continue.' ) );
+ck( 'Withdraw after an activation took the row changes nothing: the row is read again under the lock, and stays active',
+	array( $late_withdraw['state'], $late_withdraw['flash'], last_event( $taken ), array_key_exists( WPCPM_Mentor_Application::lock_name( $taken ), $GLOBALS['opts'] ) ),
+	array( 'active', 'mapp-state', array( 'activated', 0, '' ), false ) );
 
 echo "\n=== A note refused for its words ===\n";
 
@@ -428,7 +616,406 @@ $long = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note
 ck( 'a note longer than the box holds is refused, nothing sent', array( $long['flash'], $long['state'], $long['mail'] ), array( 'mapp-note-long', 'new', array() ) );
 $loss = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note' => 'Kids <12 free, adults >18 pay' ) );
 ck( 'and so is one the cleaner would take words from, its typing kept', array( $loss['flash'], $loss['state'], kept( $id, 'decline' ) ), array( 'mapp-note-loss', 'new', 'Kids <12 free, adults >18 pay' ) );
-ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
+ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss', 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-acknowledged' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
+
+$words = WPCPM_Mentor_Application_Queue::messages();
+ck(
+	'and the activation\'s, the retry\'s and the acknowledgement\'s are worded as the design gives them, each with its kind of notice',
+	array_intersect_key( $words, array_flip( array( 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-acknowledged' ) ) ),
+	array(
+		'mapp-activated'           => array( 'success', 'The applicant is a mentor now: their account is made, the Airtable row written, and the invitation with the welcome is on its way.' ),
+		'mapp-activated-refused'   => array( 'warning', 'The applicant is a mentor now: their account is made and the invitation with the welcome is on its way. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-activated-linked'    => array( 'success', 'The applicant is a mentor now: their existing account is linked, the Airtable row written, and the invitation with the welcome is on its way.' ),
+		'mapp-activated-linked-refused' => array( 'warning', 'The applicant is a mentor now: their existing account is linked and the invitation with the welcome is on its way. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-already'             => array( 'warning', 'That application was made a mentor already. Nothing was changed.' ),
+		'mapp-already-mentor'      => array( 'success', 'That applicant is a mentor on this site already: the application is filed under Activated with a note, and nothing was sent or written to Airtable.' ),
+		'mapp-off'                 => array( 'error', 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings. It is switched on at the launch.' ),
+		'mapp-busy'                => array( 'warning', 'Another request is making that applicant a mentor at this moment. Reload the page in a minute to see where it got to.' ),
+		'mapp-no-account'          => array( 'error', 'The account could not be made, so the application waits under Selected (course pending), with the reason on it.' ),
+		'mapp-airtable-written'    => array( 'success', 'The Airtable row is written, and the mentor\'s account holds its record.' ),
+		'mapp-airtable-refused'    => array( 'error', 'Airtable refused the row again. The reason is on the application; nothing else changed.' ),
+		'mapp-airtable-not-needed' => array( 'success', 'Nothing was written: the mentor\'s account holds its Airtable record already.' ),
+		'mapp-acknowledged'        => array( 'success', 'The acknowledgement is sent, with the link that confirms the address. The application stays where it was.' ),
+	)
+);
+ck(
+	'and an invitation held, or not sent to an Administrator, never reads as on its way: the reason, what to do, and the Airtable row\'s fate after it',
+	array_intersect_key( $words, array_flip( array( 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused' ) ) ),
+	array(
+		'mapp-activated-login'          => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
+		'mapp-activated-login-refused'  => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-activated-record'         => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
+		'mapp-activated-record-refused' => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-activated-admin'          => array( 'success', 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already. The Airtable row is written.' ),
+		'mapp-activated-admin-refused'  => array( 'warning', 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+	)
+);
+
+echo "\n=== The course is completed ===\n";
+reset_world();
+$sel = an_application( 'selected' );
+update_post_meta( $sel, WPCPM_Mentor_Application::META_CHECKED, array( 'at' => $GLOBALS['now'], 'state' => 'not_completed', 'message' => '' ) );
+$selected_tab = view_part( tab( 'selected' ) );
+ck( 'the Selected view shows the last check and the press, which asks first',
+	array( false !== strpos( $selected_tab, 'Checked on October 16, 2026: the course does not show on the profile yet.' ), false !== strpos( $selected_tab, 'data-wpcpm-confirm="Make Ada Okonjo a mentor now?' ), count_forms( $selected_tab, WPCPM_Mentor_Application_Queue::ACTION_COMPLETE ) ),
+	array( true, true, 1 ) );
+ck( 'the press carries its question whole and its note box, and comes before Withdraw',
+	array( false !== strpos( $selected_tab, 'data-wpcpm-confirm="Make Ada Okonjo a mentor now? Their account is made, the Airtable row written and the invitation with the welcome sent."' ), false !== strpos( $selected_tab, 'How you know, for the next Administrator, optional. It is never sent.' ), strpos( $selected_tab, 'value="wpcpm_mapp_complete"' ) < strpos( $selected_tab, 'value="wpcpm_mapp_withdraw"' ) ),
+	array( true, true, true ) );
+$checked = array();
+foreach ( array(
+	'never'     => null,
+	'completed' => array( 'completed', '' ),
+	'not found' => array( 'not_found', 'The profile page was not found.' ),
+	'error'     => array( 'error', 'HTTP 503' ),
+) as $case => $look ) {
+	reset_world();
+	$row = an_application( 'selected' );
+	if ( null !== $look ) {
+		update_post_meta( $row, WPCPM_Mentor_Application::META_CHECKED, array( 'at' => $GLOBALS['now'], 'state' => $look[0], 'message' => $look[1] ) );
+	}
+	preg_match( '#<p class="wpcpm-mapp-check">([^<]*)</p>#', view_part( tab( 'selected' ) ), $line );
+	$checked[ $case ] = isset( $line[1] ) ? html_entity_decode( $line[1], ENT_QUOTES ) : null;
+}
+ck( 'and what the daily check last found, in each of its words',
+	$checked,
+	array(
+		'never'     => 'Not checked yet: the daily check reads the profile next.',
+		'completed' => 'Checked on October 16, 2026: the course shows on the profile.',
+		'not found' => 'Checked on October 16, 2026: the profile could not be read (The profile page was not found.).',
+		'error'     => 'Checked on October 16, 2026: the profile could not be read (HTTP 503).',
+	) );
+reset_world();
+$sel = an_application( 'selected' );
+update_post_meta( $sel, WPCPM_Mentor_Application::META_PROBLEM, array( 'at' => $GLOBALS['now'], 'message' => 'Sorry, that username already exists!' ) );
+ck( 'a selected row whose account could not be made says when and why', false !== strpos( view_part( tab( 'selected' ) ), 'The account could not be made on October 16, 2026: Sorry, that username already exists!' ), true );
+WPCPM_Mentor_Activation::$enabled = false;
+$waiting_tab                      = view_part( tab( 'selected' ) );
+ck( 'while Make mentors from applications is off, the row says the applicant waits and offers no press',
+	array( false !== strpos( $waiting_tab, 'Making mentors from applications is off until the launch: this applicant waits.' ), count_forms( $waiting_tab, WPCPM_Mentor_Application_Queue::ACTION_COMPLETE ) ),
+	array( true, 0 ) );
+WPCPM_Mentor_Activation::$enabled = true;
+$done                             = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, $sel, array( 'note' => 'Wrote in on Monday.', 'view' => 'selected' ) );
+ck( 'The course is completed on a selected row makes the applicant a mentor, by who pressed and with the note, sends the Slack message, and comes back to the Selected view saying so',
+	array( $done['flash'], $done['stop'], WPCPM_Mentor_Activation::$calls, WPCPM_Mentor_Checker_Slack::$flushed ),
+	array( 'mapp-activated', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=selected', array( array( $sel, 9, 'Wrote in on Monday.' ) ), 1 ) );
+ck( 'and carries no words of its own for the notice, whose sentence is the one above', carried(), '' );
+foreach ( array(
+	'refused'        => array( 'activated', 'refused', 'mapp-activated-refused' ),
+	'already'        => array( 'already', '', 'mapp-already' ),
+	'already-mentor' => array( 'already-mentor', '', 'mapp-already-mentor' ),
+	'off'            => array( 'off', '', 'mapp-off' ),
+	'busy'           => array( 'busy', '', 'mapp-busy' ),
+	'no-account'     => array( 'no-account', '', 'mapp-no-account' ),
+	'not-selected'   => array( 'not-selected', '', 'mapp-state' ),
+	'unknown'        => array( 'unknown', '', 'mapp-unknown' ),
+) as $case => $answer ) {
+	WPCPM_Mentor_Activation::$answer = array( 'outcome' => $answer[0], 'user_id' => 0, 'airtable' => $answer[1], 'message' => '' );
+	ck( 'and says ' . $case . ' in its own words', press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, an_application( 'selected' ), array( 'view' => 'selected' ) )['flash'], $answer[2] );
+}
+ck( 'it is refused on a row that is not selected, and nothing is activated', array( press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, an_application( 'new' ) )['flash'], count( WPCPM_Mentor_Activation::$calls ) ), array( 'mapp-state', 9 ) );
+$GLOBALS['manage'] = array();
+$refused           = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, $sel, array( 'nonce' => 'nonce-wrong' ) );
+ck( 'without the capability it is refused before its nonce is read, and nothing is activated', array( 0 === strpos( $refused['stop'], 'wp_die: You do not have permission' ), count( WPCPM_Mentor_Activation::$calls ) ), array( true, 9 ) );
+$GLOBALS['manage'] = array( 9 );
+ck( 'and a nonce that is not this press\'s for this row is refused', press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, $sel, array( 'nonce' => wp_create_nonce( WPCPM_Mentor_Application_Queue::ACTION_SELECT . '_' . $sel ) ) )['stop'], 'nonce refused: wpcpm_mapp_complete_' . $sel );
+
+// An invitation held for a person to confirm the account (rulings R5 and P9b), or one an
+// Administrator's account is never sent, is never said to be on its way.
+$held = array();
+foreach ( array(
+	'login'          => array( false, 'login', 'created' ),
+	'login refused'  => array( false, 'login', 'refused' ),
+	'record'         => array( false, 'record', 'reactivated' ),
+	'record refused' => array( false, 'record', 'refused' ),
+	'admin'          => array( false, '', 'adopted' ),
+	'admin refused'  => array( false, '', 'refused' ),
+	'invited'        => array( true, '', 'created', false ),
+	'linked'         => array( true, '', 'reactivated', true ),
+	'linked refused' => array( true, '', 'refused', true ),
+) as $case => $answer ) {
+	reset_world();
+	WPCPM_Mentor_Activation::$answer = array( 'outcome' => 'activated', 'user_id' => 70, 'airtable' => $answer[2], 'invited' => $answer[0], 'held' => $answer[1], 'linked' => isset( $answer[3] ) ? $answer[3] : true, 'message' => 'Made a mentor, but the invitation is held.' );
+	$held[ $case ]                   = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, an_application( 'selected' ), array( 'view' => 'selected' ) )['flash'];
+}
+ck( 'an invitation held because the account was linked by username alone, or because another account also answered, or not sent to an Administrator, leaves its own notice, and the refused row its own beside it',
+	$held,
+	array(
+		'login'          => 'mapp-activated-login',
+		'login refused'  => 'mapp-activated-login-refused',
+		'record'         => 'mapp-activated-record',
+		'record refused' => 'mapp-activated-record-refused',
+		'admin'          => 'mapp-activated-admin',
+		'admin refused'  => 'mapp-activated-admin-refused',
+		'invited'        => 'mapp-activated',
+		'linked'         => 'mapp-activated-linked',
+		'linked refused' => 'mapp-activated-linked-refused',
+	) );
+
+// Task 3's step words a sentence for every outcome that is not a mentor made: the press carries it
+// with its outcome, and the notice prints it.
+reset_world();
+WPCPM_Mentor_Activation::$answer = array( 'outcome' => 'no-account', 'user_id' => 0, 'airtable' => '', 'invited' => false, 'held' => '', 'message' => 'The account could not be made, so the application stays selected: Sorry, that username already exists!' );
+$failed                          = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, an_application( 'selected' ), array( 'view' => 'selected' ) );
+ck( 'an activation that made no mentor carries the step\'s own sentence with its outcome',
+	array( $failed['flash'], carried() ),
+	array( 'mapp-no-account', array( 'status' => 'mapp-no-account', 'message' => 'The account could not be made, so the application stays selected: Sorry, that username already exists!' ) ) );
+ck( 'and nothing is told to Slack for it', WPCPM_Mentor_Checker_Slack::$flushed, 0 );
+$GLOBALS['uid'] = 31;
+WPCPM_Flash::set( WPCPM_Mentor_Application_Queue::FLASH_MESSAGE, array( 'status' => 'mapp-no-account', 'message' => 'The account could not be made, so the application stays selected: Sorry, that username already exists!' ) );
+ck( 'and the notice for that outcome prints it', WPCPM_Mentor_Application_Queue::notices()['mapp-no-account'], array( 'error', 'The account could not be made, so the application stays selected: Sorry, that username already exists!' ) );
+$GLOBALS['uid'] = 32;
+WPCPM_Flash::set( WPCPM_Mentor_Application_Queue::FLASH_MESSAGE, array( 'status' => 'mapp-off', 'message' => 'Nothing was done: Make mentors from applications is off.' ) );
+ck( 'while a sentence carried for another outcome is that outcome\'s alone, and every other notice keeps its own', array_diff_key( WPCPM_Mentor_Application_Queue::notices(), array( 'mapp-off' => true ) ), array_diff_key( $words, array( 'mapp-off' => true ) ) );
+$GLOBALS['uid'] = 33;
+ck( 'and with nothing carried, the notices are the plain map', WPCPM_Mentor_Application_Queue::notices(), $words );
+$GLOBALS['uid'] = 9;
+
+echo "\n=== Activated ===\n";
+reset_world();
+$made    = an_application( 'active' );
+$refused = an_application( 'active' );
+an_account( 70, 'Ada Okonjo', 'ada@example.test', array( 'wpcpm_mentor' ), array( WPCPM_Mentor_Provision::USER_ROW_PENDING => 1 ) );
+foreach ( array( $made => 'created', $refused => 'refused' ) as $id => $state ) {
+	update_post_meta( $id, WPCPM_Mentor_Application::META_USER, 70 );
+	activated_at( $id, $GLOBALS['now'] );
+	update_post_meta( $id, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => $state, 'how' => 'create', 'record' => 'created' === $state ? 'recNEWMENTOR00001' : '', 'error' => 'refused' === $state ? 'Airtable refused the write.' : '', 'left_out' => array(), 'at' => $GLOBALS['now'] ) );
+}
+WPCPM_Mentor_Activation::$activated = array( get_post( $refused ), get_post( $made ) );
+$active_tab                         = view_part( tab( 'active' ) );
+ck( 'the Activated view draws the rows in the order the list gives, the one waiting for its row first, with the retry only there',
+	array( row_ids( $active_tab ), count_forms( $active_tab, WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE ) ), array( array( $refused, $made ), 1 ) );
+ck( 'each with its Airtable line',
+	array( false !== strpos( $active_tab, 'Airtable refused the row on October 16, 2026: Airtable refused the write.' ), false !== strpos( $active_tab, 'Airtable row written on October 16, 2026.' ) ), array( true, true ) );
+ck( 'the day it was made a mentor, and the account, its username linked to its profile screen',
+	array( age_lines( $active_tab )[ $made ], false !== strpos( $active_tab, 'Account: <a href="https://example.test/wp-admin/user-edit.php?user_id=70">adaokonjo</a>' ) ),
+	array( 'Made a mentor on October 16, 2026.', true ) );
+ck( 'the retry is the refused row\'s, asks nothing and has no note box', array( false !== strpos( $active_tab, '<input type="hidden" name="action" value="wpcpm_mapp_airtable" /><input type="hidden" name="wpcpm_mapp_app" value="' . $refused . '" />' ), substr_count( $active_tab, 'data-wpcpm-confirm' ), substr_count( $active_tab, '<textarea' ) ), array( true, 0, 0 ) );
+$GLOBALS['log_rows'] = array( array( 'status' => 'failed', 'error' => 'Could not instantiate mail function.', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] + 60 ) ) );
+ck( 'a refused welcome reads as refused, with what to do',
+	WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ),
+	'The invitation with the welcome went to the mail host on October 16, 2026. ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' Resend invite is on the Mentors screen\'s Accounts tab.' );
+ck( 'the mail log is asked for the newest mentor invitation to the account\'s own address', end( WPCPM_Mail_Log::$asked ), array( array( 'exact_email' => 'ada@example.test', 'template' => 'invite-mentor' ), 1, 1 ) );
+an_account( 73, 'Bo Example', '', array( 'wpcpm_mentor' ) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 73 );
+WPCPM_Mail_Log::$asked = array();
+ck( 'an account with no address asks the log nothing, which would read an empty address as anybody\'s', array( WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), WPCPM_Mail_Log::$asked ), array( 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.', array() ) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 70 );
+$GLOBALS['log_rows']       = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] - 30 * DAY_IN_SECONDS ) ) );
+$GLOBALS['invited_at'][70] = $GLOBALS['now'] - 30 * DAY_IN_SECONDS;
+ck( 'an invitation older than the activation is never read as the welcome: a sent row and a stamp from before it say nothing went since',
+	WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ),
+	'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.' );
+$GLOBALS['log_rows'] = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] ) ) );
+ck( 'one sent at the activation\'s own second is the welcome', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome was sent on October 16, 2026.' );
+$GLOBALS['log_rows']       = array();
+$GLOBALS['invited_at'][70] = $GLOBALS['now'] + 120;
+ck( 'past the log\'s thirty days, a stamp from after the activation is the welcome', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome was sent on October 16, 2026.' );
+$GLOBALS['log_rows'] = array( array( 'status' => 'unconfirmed', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] + 60 ) ) );
+ck( 'one the mail log could not confirm says so', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome was handed over on October 16, 2026, and the mail log does not say whether it went.' );
+$GLOBALS['invite_queue'] = array( 70 );
+ck( 'one still in the queue waits there', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome waits in the email queue.' );
+$GLOBALS['invite_queue']   = array();
+$GLOBALS['log_rows']       = array();
+$GLOBALS['invited_at'][70] = 0;
+$linked                    = array();
+foreach ( array( 'login', 'record', 'row', 'email' ) as $how ) {
+	update_post_meta( $made, WPCPM_Mentor_Application::META_LINKED_BY, $how );
+	$linked[ $how ] = WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) );
+}
+ck( 'an invitation the activation held, for an account linked by username alone or while another account also answered, says why and what to do, and an account found any other way reads as one nothing has gone to since',
+	$linked,
+	array(
+		'login'  => 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.',
+		'record' => 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.',
+		'row'    => 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.',
+		'email'  => 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.',
+	) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_LINKED_BY, 'login' );
+$GLOBALS['log_rows'] = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] + DAY_IN_SECONDS ) ) );
+ck( 'and once a person has sent it, it reads as sent', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome was sent on October 17, 2026.' );
+$GLOBALS['log_rows'] = array();
+delete_post_meta( $made, WPCPM_Mentor_Application::META_LINKED_BY );
+an_account( 72, 'Ida Okafor', 'ida.okafor@example.test', array( 'administrator' ) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 72 );
+ck( 'and an Administrator\'s account, which gets none, says why', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'No invitation: the account is an Administrator\'s, which signs in already.' );
+update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 999 );
+ck( 'an account deleted since the activation reads as gone, on both lines, and nothing fails',
+	array( WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), false !== strpos( view_part( tab( 'active' ) ), 'Account: the account made for this mentor no longer exists.' ) ),
+	array( 'The account is gone, so no invitation can reach it.', true ) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'found', 'how' => 'create', 'record' => 'recBYHAND00000002', 'error' => '', 'left_out' => array(), 'at' => $GLOBALS['now'] ) );
+ck( 'and a row the mentors sync linked reads as found and adds no retry: the one form left is the refused row\'s', array( false !== strpos( view_part( tab( 'active' ) ), 'The account holds its Airtable record, linked by the mentors sync or by hand; nothing was written from here.' ), count_forms( view_part( tab( 'active' ) ), WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE ) ), array( true, 1 ) );
+// A refused row is offered the retry only while its account is there and still waits for its row.
+$offered = array();
+foreach ( array(
+	'waits'         => array( 70, true ),
+	'waits no more' => array( 70, false ),
+	'gone'          => array( 999, true ),
+) as $case => $account ) {
+	update_post_meta( $refused, WPCPM_Mentor_Application::META_USER, $account[0] );
+	// The account gone, its wait is planted all the same, so only the account's absence refuses it.
+	if ( $account[1] ) {
+		$GLOBALS['umeta'][ $account[0] ][ WPCPM_Mentor_Provision::USER_ROW_PENDING ] = 1;
+	} else {
+		unset( $GLOBALS['umeta'][ $account[0] ][ WPCPM_Mentor_Provision::USER_ROW_PENDING ] );
+	}
+	$offered[ $case ] = count_forms( row_for_id( view_part( tab( 'active' ) ), $refused ), WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE );
+}
+update_post_meta( $refused, WPCPM_Mentor_Application::META_USER, 70 );
+$GLOBALS['umeta'][70][ WPCPM_Mentor_Provision::USER_ROW_PENDING ] = 1;
+unset( $GLOBALS['umeta'][999] );
+ck( 'a refused row is offered Write the Airtable row again while its account still waits for the row, and not once the sync linked it or the account is gone', $offered, array( 'waits' => 1, 'waits no more' => 0, 'gone' => 0 ) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 70 );
+$airtable_lines = array();
+foreach ( array(
+	'reactivated' => array(),
+	'adopted'     => array(),
+	'gone'        => array(),
+	'already'     => array(),
+	'pending'     => array(),
+	'created'     => array( 'Languages' => array( 'why' => 'unmatched', 'values' => array( 'Klingon' ) ) ),
+) as $state => $left_out ) {
+	update_post_meta( $made, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => $state, 'how' => 'create', 'record' => '', 'error' => '', 'left_out' => $left_out, 'at' => $GLOBALS['now'] ) );
+	preg_match( '#<p class="wpcpm-mapp-airtable">([^<]*)</p>#', row_for_id( view_part( tab( 'active' ) ), $made ), $line );
+	$airtable_lines[ $state ] = isset( $line[1] ) ? html_entity_decode( $line[1], ENT_QUOTES ) : null;
+}
+ck( 'the Airtable line of every other fate the row can have, with what was left out of it after',
+	$airtable_lines,
+	array(
+		'reactivated' => 'The mentor\'s own Airtable row was set back to Active on October 16, 2026.',
+		'adopted'     => 'The Mentors row that held this address was set back to Active and linked on October 16, 2026.',
+		'gone'        => 'The account made for this mentor no longer exists, so no Airtable row is written for it.',
+		'already'     => 'A mentor already: nothing was written.',
+		'pending'     => 'The Airtable row has not been written yet.',
+		'created'     => 'Airtable row written on October 16, 2026. Languages: not in the base: Klingon.',
+	) );
+update_post_meta( $made, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'already', 'how' => '', 'record' => 'recOWNMENTOR00001', 'error' => '', 'left_out' => array(), 'at' => $GLOBALS['now'] ) );
+$filed = row_for_id( view_part( tab( 'active' ) ), $made );
+ck( 'an application filed as already a mentor is dated so, and has no invitation line', array( age_lines( $filed )[ $made ], substr_count( $filed, 'class="wpcpm-mapp-invitation"' ) ), array( 'Filed as already a mentor on October 16, 2026.', 0 ) );
+$retried = press( WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE, $refused, array( 'view' => 'active' ) );
+ck( 'Write the Airtable row again on an activated application writes it, by who pressed, and comes back to Activated',
+	array( $retried['flash'], $retried['stop'], WPCPM_Mentor_Activation::$retries ),
+	array( 'mapp-airtable-written', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=active', array( array( $refused, 9 ) ) ) );
+ck( 'and is refused on a row that is not active', press( WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE, an_application( 'selected' ) )['flash'], 'mapp-state' );
+$retry_flashes = array();
+foreach ( array(
+	'refused'    => array( 'refused', 'The Airtable row was not written: Airtable refused the write.', 'mapp-airtable-refused' ),
+	'not-needed' => array( 'not-needed', 'The account made for this mentor no longer exists; nothing more is written for it.', 'mapp-airtable-not-needed' ),
+	'busy'       => array( 'busy', 'Another request is working on this application at this moment, so nothing was done.', 'mapp-busy' ),
+	'not-active' => array( 'not-active', 'Only an application that was made a mentor has an Airtable row to write, and this one was not.', 'mapp-state' ),
+	'unknown'    => array( 'unknown', 'There is no such mentor application.', 'mapp-unknown' ),
+) as $case => $answer ) {
+	WPCPM_Mentor_Activation::$retry_answer = array( 'outcome' => $answer[0], 'message' => $answer[1] );
+	$out                                    = press( WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE, $refused, array( 'view' => 'active' ) );
+	$retry_flashes[ $case ]                 = array( $out['flash'], carried() );
+}
+ck( 'each other outcome of the retry leaves its notice, with the step\'s own sentence carried for it',
+	$retry_flashes,
+	array(
+		'refused'    => array( 'mapp-airtable-refused', array( 'status' => 'mapp-airtable-refused', 'message' => 'The Airtable row was not written: Airtable refused the write.' ) ),
+		'not-needed' => array( 'mapp-airtable-not-needed', array( 'status' => 'mapp-airtable-not-needed', 'message' => 'The account made for this mentor no longer exists; nothing more is written for it.' ) ),
+		'busy'       => array( 'mapp-busy', array( 'status' => 'mapp-busy', 'message' => 'Another request is working on this application at this moment, so nothing was done.' ) ),
+		'not-active' => array( 'mapp-state', array( 'status' => 'mapp-state', 'message' => 'Only an application that was made a mentor has an Airtable row to write, and this one was not.' ) ),
+		'unknown'    => array( 'mapp-unknown', array( 'status' => 'mapp-unknown', 'message' => 'There is no such mentor application.' ) ),
+	) );
+
+reset_world();
+$jo = an_application( 'active' );
+WPCPM_Mentor_Application::add_event( $jo, WPCPM_Mentor_Application::EVENT_AIRTABLE_REFUSED, 0, 'Airtable refused the write.' );
+WPCPM_Mentor_Application::add_event( $jo, WPCPM_Mentor_Application::EVENT_AIRTABLE_WRITTEN, 9 );
+WPCPM_Mentor_Application::add_event( $jo, WPCPM_Mentor_Application::EVENT_AIRTABLE_SETTLED, 0 );
+$ann = an_application( 'active' );
+WPCPM_Mentor_Application::add_event( $ann, WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR, 9 );
+WPCPM_Mentor_Application::add_event( $ann, WPCPM_Mentor_Application::EVENT_AIRTABLE_SETTLED, 0 );
+update_post_meta( $ann, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'gone', 'how' => 'create', 'record' => '', 'error' => '', 'left_out' => array(), 'at' => $GLOBALS['now'] ) );
+$mo = an_application( 'new', false, array(), array( 'mail-ceiling' ) );
+WPCPM_Mentor_Application::add_event( $mo, WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED, 9 );
+WPCPM_Mentor_Application::add_event( $mo, WPCPM_Mentor_Application::EVENT_ACTIVATED, 0 );
+WPCPM_Mentor_Activation::$activated = array( get_post( $jo ), get_post( $ann ) );
+$active_part                        = view_part( tab( 'active' ) );
+$jo_history                         = row_for_id( $active_part, $jo );
+$ann_history                        = row_for_id( $active_part, $ann );
+$mo_history                         = row_for_id( view_part( tab() ), $mo );
+$settled_words                      = array( ': the row was linked by the mentors sync or by hand, by the site.', ': the account is gone, so nothing more is written for it, by the site.' );
+ck( 'the history words what the activation and the acknowledgement write: the row written, refused and settled, linked or gone by the row\'s own fate, filed as already a mentor, the acknowledgement sent',
+	array(
+		'linked' => array( substr_count( $jo_history, ': Airtable refused the row, by the site.' ), substr_count( $jo_history, ': wrote the Airtable row, Ida Admin.' ), substr_count( $jo_history, $settled_words[0] ), substr_count( $jo_history, $settled_words[1] ) ),
+		'gone'   => array( substr_count( $ann_history, ': filed as already a mentor, Ida Admin.' ), substr_count( $ann_history, $settled_words[0] ), substr_count( $ann_history, $settled_words[1] ) ),
+		'open'   => array( substr_count( $mo_history, ': sent the acknowledgement, Ida Admin.' ), substr_count( $mo_history, ': made a mentor, by the site.' ) ),
+	),
+	array(
+		'linked' => array( 1, 1, 1, 0 ),
+		'gone'   => array( 1, 0, 1 ),
+		'open'   => array( 1, 1 ),
+	) );
+
+reset_world();
+$many = array();
+for ( $i = 1; $i <= WPCPM_Mentor_Application_Queue::QUEUE_MAX + 1; $i++ ) {
+	$many[] = get_post( an_application( 'active' ) );
+}
+WPCPM_Mentor_Activation::$activated = $many;
+$cut                                = view_part( tab( 'active' ) );
+ck( 'past fifty, Activated asks the list for one more than it draws, draws fifty, and says it was cut',
+	array( WPCPM_Mentor_Activation::$limits, count( row_ids( $cut ) ), false !== strpos( $cut, 'Showing 50 of 51: those still waiting for their Airtable row first, then the most recently made mentors.' ) ),
+	array( array( WPCPM_Mentor_Application_Queue::QUEUE_MAX + 1 ), 50, true ) );
+WPCPM_Mentor_Activation::$activated = array_slice( $many, 0, 50 );
+wp_delete_post( $many[50]->ID, true );
+ck( 'and at fifty, all fifty with nothing said', array( count( row_ids( view_part( tab( 'active' ) ) ) ), false === strpos( view_part( tab( 'active' ) ), 'Showing ' ) ), array( 50, true ) );
+
+echo "\n=== Send the acknowledgement ===\n";
+reset_world();
+$late = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+ck( 'a row in Waiting whose acknowledgement never went offers Send the acknowledgement', count_forms( view_part( tab() ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), 1 );
+ck( 'and its press asks first', false !== strpos( view_part( tab() ), 'data-wpcpm-confirm="Send Ada Okonjo the acknowledgement, with the link that confirms the address?"' ), true );
+$sent = press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $late );
+ck( 'the press sends it once, with the confirming link, writes who sent it, and leaves the row in its state',
+	array( $sent['flash'], count( $sent['mail'] ), $sent['mail'][0]['context'], last_event( $late ), $sent['state'] ),
+	array( 'mapp-acknowledged', 1, 'mentor-application-received', array( 'acknowledgement sent', 9, '' ), 'new' ) );
+ck( 'to the applicant, with the link that confirms the address', array( $sent['mail'][0]['to'], false !== strpos( $sent['mail'][0]['body'], WPCPM_Mentor_Application::verify_url( $late ) ) ), array( 'ada@example.test', true ) );
+ck( 'after which the mark is gone, the press is not offered, and a second press sends nothing',
+	array( false !== strpos( view_part( tab() ), 'The acknowledgement was not sent' ), count_forms( view_part( tab() ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $late )['flash'], press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $late )['mail'] ),
+	array( false, 0, 'mapp-state', array() ) );
+ck( 'and the row reads as unconfirmed until the applicant follows the link', array_column( marks_of( tab() ), 0 ), array( 'unconfirmed' ) );
+press( WPCPM_Mentor_Application_Queue::ACTION_SPAM, $late );
+ck( 'marked as spam and put back afterwards, it is sent nothing again', array_intersect_key( press( WPCPM_Mentor_Application_Queue::ACTION_REOPEN, $late ), array_flip( array( 'flash', 'mail' ) ) ), array( 'flash' => 'mapp-reopened', 'mail' => array() ) );
+reset_world();
+an_application( 'new' );
+ck( 'a row acknowledged when it came is offered no such press', count_forms( view_part( tab() ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), 0 );
+$failing               = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_FAILED ) );
+$GLOBALS['mail_fails'] = true;
+ck( 'a hand-off that fails leaves the row as it was', array( press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $failing )['flash'], last_event( $failing )[0] ), array( 'mapp-not-sent', 'submitted' ) );
+ck( 'and lets go of the application\'s lock all the same', array_key_exists( WPCPM_Mentor_Application::lock_name( $failing ), $GLOBALS['opts'] ), false );
+$GLOBALS['mail_fails'] = false;
+
+// Two presses at one moment: the second finds the application's lock held, and sends nothing.
+reset_world();
+$twice     = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+$held_till = (string) ( time() + 600 );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $twice ) ] = $held_till;
+$busy_ack = press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $twice );
+ck( 'Send the acknowledgement while the application\'s lock is held sends nothing, writes nothing, and says another request is working on it',
+	array( $busy_ack['flash'], carried(), $busy_ack['mail'], last_event( $twice )[0], $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $twice ) ] ),
+	array( 'mapp-busy', array( 'status' => 'mapp-busy', 'message' => 'Another request is working on this application at this moment, so nothing was done.' ), array(), 'submitted', $held_till ) );
+
+// The first press sends in the moment between the second's first read of the row and its lock: the
+// second, reading the row again under the lock, finds the acknowledgement sent.
+reset_world();
+$raced = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $raced ) ] = '1';
+$GLOBALS['wpdb']->before_takeover = function () use ( $raced ) {
+	WPCPM_Mentor_Application::add_event( $raced, WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED, 9 );
+};
+$second_ack = press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $raced );
+ck( 'and a press that finds, under the lock, the acknowledgement sent by another sends it no second time',
+	array( $second_ack['flash'], $second_ack['mail'], count( array_keys( array_column( WPCPM_Mentor_Application::events( $raced ), 'event' ), WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED, true ) ), array_key_exists( WPCPM_Mentor_Application::lock_name( $raced ), $GLOBALS['opts'] ) ),
+	array( 'mapp-state', array(), 1, false ) );
+$nowhere               = an_application( 'held', false, array( 'email' => '' ), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+ck( 'a row with no address is offered no such press, and a press made all the same sends nothing',
+	array( count_forms( row_for_id( view_part( tab() ), $nowhere ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), array_intersect_key( press( WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE, $nowhere ), array_flip( array( 'flash', 'mail' ) ) ) ),
+	array( 0, array( 'flash' => 'mapp-no-email', 'mail' => array() ) ) );
+$filed = an_application( 'spam', false, array(), array( 'honeypot' ) );
+ck( 'and one filed as spam is offered Put back in the queue, not this press', count_forms( decided_part( tab() ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), 0 );
 
 echo "\n=== Recently decided, and Put back in the queue ===\n";
 
@@ -521,7 +1108,7 @@ ck( 'at exactly fifty, all fifty are listed and nothing says it was cut', array(
 
 echo "\n=== The marks: a row whose acknowledgement never went says so once ===\n";
 
-$none = ' The applicant has no link to confirm the address with, so Select, Ask for more information and Decline wait. Put back in the queue sends it to an application filed as spam, once.';
+$none = ' The applicant has no link to confirm the address with, so Select, Ask for more information and Decline wait. Send the acknowledgement sends it now, once; for an application filed as spam, Put back in the queue does.';
 $mark = function ( $cause ) use ( $none ) {
 	return array( 'unacknowledged', 'acknowledgement not sent', 'The acknowledgement was not sent, because ' . $cause . '.' . $none );
 };
@@ -592,15 +1179,22 @@ $first   = an_application( 'held', false, array( 'name' => 'Cy <b>Tag</b>', 'any
 $asked   = an_application( 'info' );
 $second  = an_application( 'second' );
 $picked  = an_application( 'selected' );
+$made    = an_application( 'active' );
 $gone    = an_application( 'lapsed' );
 $closed  = an_application( 'declined' );
 $waiting = tab();
 
 preg_match_all( '#<li class="([a-z]+)"><a href="([^"]*)"( class="current" aria-current="page")?>([^<]*) <span class="count">\((\d+)\)</span>#', $waiting, $views, PREG_SET_ORDER );
 ck(
-	'five views, each at its own address with its count; Waiting is the queue, its four open states',
+	'six views, each at its own address with its count; Waiting is the queue, its four open states, and Activated comes between Selected and Lapsed',
 	array_map( function ( $v ) { return array( $v[1], $v[4], $v[5], '' !== $v[3] ); }, $views ),
-	array( array( 'waiting', 'Waiting', '3', true ), array( 'info', 'Asked for more information', '1', false ), array( 'second', 'Second opinion', '1', false ), array( 'selected', 'Selected (course pending)', '1', false ), array( 'lapsed', 'Lapsed', '1', false ) )
+	array( array( 'waiting', 'Waiting', '3', true ), array( 'info', 'Asked for more information', '1', false ), array( 'second', 'Second opinion', '1', false ), array( 'selected', 'Selected (course pending)', '1', false ), array( 'active', 'Activated', '1', false ), array( 'lapsed', 'Lapsed', '1', false ) )
+);
+ck( 'Activated is at its own address', WPCPM_Mentor_Application_Queue::view_url( 'active' ), 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=active' );
+ck(
+	'the tab says what each decision sends, and how a selected applicant is made a mentor',
+	false !== strpos( $waiting, '<p class="description">People who applied to mentor through the form on the site, oldest first. Select sends the mentors&#039; course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on.</p>' ),
+	true
 );
 preg_match_all( '#<li class="wpcpm-queue-item" id="wpcpm-mentor-application-(\d+)">#', view_part( $waiting ), $listed );
 ck( 'Waiting lists the queue oldest first, and nothing decided', array_map( 'intval', $listed[1] ), array( $first, $asked, $second ) );
@@ -625,7 +1219,7 @@ ck( 'each form carries the nonce of its decision for its row, and the view to co
 
 $selected_view = view_part( tab( 'selected' ) );
 preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_mapp_[a-z]+)" />#', $selected_view, $selected_forms );
-ck( 'Selected lists the row waiting for the course, the day it lapses, and Withdraw alone', array( substr_count( $selected_view, 'class="wpcpm-queue-item"' ), false !== strpos( $selected_view, 'It lapses from ' ), $selected_forms[1] ), array( 1, true, array( 'wpcpm_mapp_withdraw' ) ) );
+ck( 'Selected lists the row waiting for the course, the day it lapses, and The course is completed and Withdraw alone', array( substr_count( $selected_view, 'class="wpcpm-queue-item"' ), false !== strpos( $selected_view, 'It lapses from ' ), $selected_forms[1] ), array( 1, true, array( 'wpcpm_mapp_complete', 'wpcpm_mapp_withdraw' ) ) );
 $lapsed_view = view_part( tab( 'lapsed' ) );
 preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_mapp_[a-z]+)" />#', $lapsed_view, $lapsed_forms );
 ck( 'Lapsed lists the lapsed row with Select offered again', array( substr_count( $lapsed_view, 'class="wpcpm-queue-item"' ), $lapsed_forms[1] ), array( 1, array( 'wpcpm_mapp_select' ) ) );
@@ -635,7 +1229,7 @@ ck( 'a view with nothing in it says so', false !== strpos( tab(), 'Nothing here.
 $GLOBALS['manage'] = array();
 an_application();
 ck( 'and somebody without the capability is shown nothing', tab(), '' );
-ck( 'nothing was asked of WordPress that the stand-ins do not model', isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), array() );
+ck( 'nothing was asked of WordPress that the stand-ins do not model', array( isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), $GLOBALS['wpdb']->unmodeled ), array( array(), array() ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

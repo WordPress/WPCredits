@@ -1030,7 +1030,13 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Email each new mentor and student a password-reset link as their account is created', 'wpcredits-program-manager' ),
 			esc_html__( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $invitations, __( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row(
+			$invitations,
+			array(
+				__( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ),
+				__( 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.', 'wpcredits-program-manager' ),
+			)
+		);
 
 		// Read by a person on the settings screen, so it says the cadence outright and had to move
 		// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's, half
@@ -1086,8 +1092,9 @@ class WPCPM_Settings_Screen {
 
 	/**
 	 * The Students and mentors tab's last section, the mentor application form (1.122.31): whether
-	 * it takes applications, who is told of each, the link the selection email gives, and when a
-	 * selected application lapses.
+	 * it takes applications, whether a selected applicant is made a mentor on the site (1.122.33),
+	 * who is told of each application, the link the selection email gives, and when a selected
+	 * application lapses.
 	 *
 	 * Drawn as the Sponsors tab draws its form's switch: off by default, the privacy policy named on
 	 * the same row because the form shows nothing without one, and the page's address under it.
@@ -1116,7 +1123,20 @@ class WPCPM_Settings_Screen {
 				: ''
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and nothing is written to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ) );
+
+		// Make mentors from applications (1.122.33): off until the launch (owner item 1), the one switch
+		// `WPCPM_Mentor_Activation::enabled()` reads before it makes anybody a mentor.
+		$activation = __( 'Make mentors from applications', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_activation_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $activation ),
+			checked( ! empty( $settings['mentor_activation_enabled'] ), true, false ),
+			esc_html__( 'Make a mentor of each selected applicant whose course shows, or for whom The course is completed is pressed', 'wpcredits-program-manager' ),
+			esc_html__( 'Off until the launch.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $activation, __( 'While it is off, an applicant whose course shows waits under Selected (course pending).', 'wpcredits-program-manager' ) );
 
 		WPCPM_Settings_Rows::reviewers_row(
 			'mentor_notify',
@@ -1702,12 +1722,12 @@ class WPCPM_Settings_Screen {
 			array(
 				'scope'    => 'data.records:write',
 				'required' => __( 'Required by the Mentor Status Checker', 'wpcredits-program-manager' ),
-				'note'     => __( 'Changing a mentor\'s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails.', 'wpcredits-program-manager' ),
+				'note'     => __( 'Changing a mentor\'s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable\'s refusal waits on the application. The launch\'s check row, which WP-CLI writes and deletes, needs it too.', 'wpcredits-program-manager' ),
 			),
 			array(
 				'scope'    => 'schema.bases:read',
 				'required' => __( 'Optional', 'wpcredits-program-manager' ),
-				'note'     => __( 'Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker\'s screen offer, and reading each column\'s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead.', 'wpcredits-program-manager' ),
+				'note'     => __( 'Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker\'s screen offer, and reading each column\'s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant\'s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.', 'wpcredits-program-manager' ),
 			),
 		);
 

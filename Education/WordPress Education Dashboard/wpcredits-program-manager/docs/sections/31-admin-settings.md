@@ -37,7 +37,7 @@ sections, **Airtable** and **Tables**, the tab's **Save settings**, and under it
 | --- | --- |
 | **Personal Access Token** | Stored in the database and never sent back to the browser: the field shows it masked. Leave it blank to keep the current token. |
 | **Schema token** | Optional, and used by the Track Builder alone, to create a track's columns when it is published. Its fold says the rest: it needs the `schema.bases:write` scope and must belong to somebody with the base creator role on the base; left blank it keeps the current one, and typing remove takes it away. Without it, publishing lists the columns for somebody to create by hand. |
-| **Token scopes** | The scopes the token needs, listed in the row's fold with what each is for: `data.records:read`, required, for reading mentors, students and tutors; `data.records:write`, required by the Mentor Status Checker, for changing a mentor's status when you promote them (without it the tool can still run in report-only mode, but promoting fails); `schema.bases:read`, optional, for listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable (without it each of those settings is typed, and the built-in descriptions are shown instead). Set them on the token itself at airtable.com/create/tokens, with access to the WPCredits base; they cannot be checked from here without writing to the base, so the list is the reference. |
+| **Token scopes** | The scopes the token needs, listed in the row's fold with what each is for: `data.records:read`, required, for reading mentors, students and tutors; `data.records:write`, required by the Mentor Status Checker, for changing a mentor's status when you promote them (without it the tool can still run in report-only mode, but promoting fails), and for the Mentors row that making a mentor from an application writes, a new row or the Status of the row that already holds the person (without it that mentor is made and invited all the same, and Airtable's refusal waits on the application), and for the check row that `wp wpcredits mentor_airtable_row --check` writes and deletes at the launch; `schema.bases:read`, optional, for listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable (without it each of those settings is typed, and the built-in descriptions are shown instead), and for letting that Mentors row carry the applicant's answers (without it the row holds the name, profile, email and Status alone, and the site never updates it later). Set them on the token itself at airtable.com/create/tokens, with access to the WPCredits base; they cannot be checked from here without writing to the base, so the list is the reference. |
 | **Base ID** | The Airtable base holding the program, chosen from the bases the token can open, each with its ID beside its name. Listing the bases needs the token's `schema.bases:read` scope; when the list cannot be read, the ID is typed, and a sentence under the field says why. |
 
 #### Tables
@@ -131,7 +131,10 @@ answer that removes comes first, and it is the default for both.
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students or Mentors screen's list and invite them together.
+  several in the Students or Mentors screen's list and invite them together. A mentor made from an
+  application is sent theirs whatever this says, since it carries the welcome, except an
+  Administrator, and a mentor whose account is not yet confirmed as the person's (see *Applications
+  to mentor*).
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. The
   sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the
@@ -163,9 +166,17 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
 - **Applications from mentors** - **Take mentor applications through the form on this site**. Off
   by default, since it is a public page anybody can post to; its address is under the switch. Every
   application is stored for an Administrator to decide on the Mentors screen's **Waiting for
-  review** tab, and nothing is written to Airtable; while this is off, the page shows the public
-  nothing, and an Administrator who opens it one sentence saying why. As with the other two forms,
-  the form shows nothing to the public without a published privacy policy, and the row says so.
+  review** tab, and the form writes nothing to Airtable; while this is off, the page shows the
+  public nothing, and an Administrator who opens it one sentence saying why. As with the other two
+  forms, the form shows nothing to the public without a published privacy policy, and the row says
+  so.
+- **Make mentors from applications** (since 1.122.33) - **Make a mentor of each selected applicant
+  whose course shows, or for whom The course is completed is pressed**. Off until the launch, since
+  on means accounts made, invitations sent and rows written in the shared Airtable base, which
+  somebody decides on the day rather than an update deciding it. Its fold: while it is off, an
+  applicant whose course shows waits under Selected (course pending). What it does, and what the
+  launch asks of a person beforehand, is under *Applications to mentor* in the part on the plugin
+  in wp-admin.
 - **Who is mailed** - the addresses told of each new mentor application, chosen as the
   Institutions tab's reviewers are; with none here, every Administrator is written to. The email
   names the applicant and their WordPress.org profile and links the Waiting for review tab; it
@@ -372,7 +383,8 @@ one proxy the three application forms believe.
   to it. Either way the wait is long enough to recognize the same applicant applying again.
 - **Approved kept for (days)** - from 0 to 3650, 0 by default, which keeps approved applications,
   and the mentor applications of those who became mentors, forever: they are the record of who was
-  let in.
+  let in. An application made a mentor whose Airtable row is still to be written is kept whatever
+  this says, since Write the Airtable row again needs its answers.
 - **Trusted proxy** - the one IP address, not a range, of the proxy whose forwarded header the
   application forms believe for a sender's address, which their limits count by. Its fold: leave it
   empty unless the site sits behind a proxy, since anybody can send that header; anything but one

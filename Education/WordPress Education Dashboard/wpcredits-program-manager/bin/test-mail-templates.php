@@ -503,6 +503,40 @@ ck( 'the institution\'s and the company\'s name say they are the name the applic
 $student = WPCPM_Mail_Templates::render( 'invite-student', WPCPM_Mail_Templates::example_values( 'invite-student' ) );
 ck( 'filled with its examples, an invitation carries a marked example link and the dashboard of its audience', array( false !== strpos( $student['body'], 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $student['body'], "Your Student Report Card:\r\nhttps://example.test/student-report-card/" ), $student['subject'] ), array( true, true, '[WordPress Credits] Welcome to the WordPress Credits Program' ) );
 
+// The mentor's invitation carries the welcome a new mentor is sent (1.122.33). Its private links, the
+// student courses' group invitation links and the mentor resource folder's, are never in the shipped
+// text: one bracketed line stands where they go, and the mentor coordinator types them on the site.
+$shipped = WPCPM_Mail_Templates::get( 'invite-mentor' );
+preg_match_all( '#https?://[^\s]+#', $shipped['body'], $links );
+$found = WPCPM_Mail_Templates::placeholders_in( $shipped['body'] );
+sort( $found );
+ck( 'the mentor\'s invitation holds the six public links of its welcome and no other link', $links[0], array(
+	'https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
+	'https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/',
+	'https://learn.wordpress.org/course/wordpress-credits-foundations/',
+	'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+	'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+	'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
+) );
+ck( 'and says once, in brackets, where the private links go', substr_count( $shipped['body'], '[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]' ), 1 );
+ck( 'and its placeholders are the invitation\'s own: the welcome adds none', $found, array( 'dashboard_link', 'login_url', 'set_password_link', 'username' ) );
+ck( 'and its trigger names the three ways a mentor is sent it', $shipped['trigger'], 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account with invitation emails on.' );
+ck( 'and the other invitations hold no welcome and no link of the welcome\'s',
+	array_map(
+		static function ( $id ) {
+			$body = WPCPM_Mail_Templates::get( $id )['body'];
+			return array( substr_count( $body, 'learn.wordpress.org' ), substr_count( $body, 'Report Card, https' ), false !== strpos( $body, 'Tools > Emails' ) );
+		},
+		array( 'invite-student', 'invite-institution', 'invite-institution-settled', 'invite-sponsor' )
+	),
+	array_fill( 0, 4, array( 0, 0, false ) ) );
+ck( 'and it ends the way every invitation does, with a line break, and the welcome sits below the dashboard line after one blank line', array(
+	"\n" === substr( $shipped['body'], -1 ),
+	false !== strpos( $shipped['body'], "\n{dashboard_link}\n\nThank you, and congratulations on completing the WordPress Credits Mentor's Course! " ),
+	substr_count( $shipped['body'], "\r" ),
+), array( true, true, 0 ) );
+ck( 'and an Administrator can save it as shipped: the cleaner takes nothing from it', WPCPM_Mail_Templates::refusal( $shipped['placeholders'], $shipped['subject'], $shipped['body'] ), '' );
+
 $words = array();
 foreach ( $all as $entry ) {
 	$words[] = $entry['trigger'];

@@ -1,0 +1,161 @@
+{
+    "_comment": "What the emails an activation brings said in 1.122.33, recorded through the real senders and WPCPM_Mail by bin/test-mentor-activation-text.php --record: the mentor's invitation with the welcome and the program's Reply-To, and the acknowledgement Send the acknowledgement sends. Invented names, every address written \"at example.test\", the signature of every confirming link and the key of every password link a fake, and the welcome's one bracketed line where the private links go. Never edit by hand: a later release is held to these bytes.",
+    "cases": {
+        "course-shown-to-the-daily-check": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Ada Okonjo,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\nYou can also write to programs at example.test.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "invite-mentor",
+                "subject": "[WordPress Credits] Your mentor account is ready",
+                "body": "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.\r\n\r\nSet your password using the link below, then publish the hours you are free so your students can book calls with you.\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/wp-login.php?login=ada-example&key=TEST-KEY-NOT-A-REAL-LINK&action=rp\r\n\r\nThe link above sets your password and stops working after a day. Your username is ada-example.\r\n\r\nAfter that, sign in at the login page. If the password link has expired, open the login page, choose \"Lost your password?\" and enter your username or email address to get a fresh one.\r\nhttps://example.test/wp-login.php\r\n\r\nEach new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.\r\n\r\nYour students:\r\nhttps://example.test/mentor-report-card/\r\n\r\nThank you, and congratulations on completing the WordPress Credits Mentor's Course! As soon as the first students are assigned to you, you will receive the introduction email connecting you with them.\r\n\r\nHere are a few details you will need for now.\r\n\r\nYour Mentor Report Card on this site has your students on it, a triage of who needs a call, your call notes, and a calendar students book directly from. Once you have set your password, check that your account details look right and set your availability: students cannot book a call with you until you have.\r\n\r\nStart here:\r\n- Mentors: Welcome to your Mentor Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/\r\n- Students: Welcome to your Student Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/\r\n\r\nAccess to the student courses, so you always know what is being asked of your mentees (join each course through its invitation link to see it):\r\n- WordPress Credits Foundations (the base course, for 150 hours or more): https://learn.wordpress.org/course/wordpress-credits-foundations/\r\n- WordPress Credits Dev Track: https://learn.wordpress.org/course/wordpress-credits-developer-track/\r\n- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/\r\n- WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/\r\n[Each course's invitation link and the mentor resource folder's link are added here in Tools > Emails before this email is sent to mentors.]\r\n\r\nPrivate Slack channel: we will invite you to the program's private Slack channel for mentors, where you can report updates or ask any questions that come up during your mentorship.\r\n\r\nDiscount codes for students' tools: you will find them in the canvas inside that channel. Please share them only with your students, and only when they ask for each one. Thank you!\r\n\r\nWe have shared the mentor resource folder with you. Feel free to create your own subfolder to organize your notes on your students and any related resources.\r\n\r\nIf you have any questions, please reply to this email or write in the private Slack channel.\r\n\r\nThanks so much for your help, and a big hug.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.\r\n",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "course-completed-pressed": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Ada Okonjo,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\nYou can also write to programs at example.test.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "invite-mentor",
+                "subject": "[WordPress Credits] Your mentor account is ready",
+                "body": "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.\r\n\r\nSet your password using the link below, then publish the hours you are free so your students can book calls with you.\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/wp-login.php?login=ada-example&key=TEST-KEY-NOT-A-REAL-LINK&action=rp\r\n\r\nThe link above sets your password and stops working after a day. Your username is ada-example.\r\n\r\nAfter that, sign in at the login page. If the password link has expired, open the login page, choose \"Lost your password?\" and enter your username or email address to get a fresh one.\r\nhttps://example.test/wp-login.php\r\n\r\nEach new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.\r\n\r\nYour students:\r\nhttps://example.test/mentor-report-card/\r\n\r\nThank you, and congratulations on completing the WordPress Credits Mentor's Course! As soon as the first students are assigned to you, you will receive the introduction email connecting you with them.\r\n\r\nHere are a few details you will need for now.\r\n\r\nYour Mentor Report Card on this site has your students on it, a triage of who needs a call, your call notes, and a calendar students book directly from. Once you have set your password, check that your account details look right and set your availability: students cannot book a call with you until you have.\r\n\r\nStart here:\r\n- Mentors: Welcome to your Mentor Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/\r\n- Students: Welcome to your Student Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/\r\n\r\nAccess to the student courses, so you always know what is being asked of your mentees (join each course through its invitation link to see it):\r\n- WordPress Credits Foundations (the base course, for 150 hours or more): https://learn.wordpress.org/course/wordpress-credits-foundations/\r\n- WordPress Credits Dev Track: https://learn.wordpress.org/course/wordpress-credits-developer-track/\r\n- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/\r\n- WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/\r\n[Each course's invitation link and the mentor resource folder's link are added here in Tools > Emails before this email is sent to mentors.]\r\n\r\nPrivate Slack channel: we will invite you to the program's private Slack channel for mentors, where you can report updates or ask any questions that come up during your mentorship.\r\n\r\nDiscount codes for students' tools: you will find them in the canvas inside that channel. Please share them only with your students, and only when they ask for each one. Thank you!\r\n\r\nWe have shared the mentor resource folder with you. Feel free to create your own subfolder to organize your notes on your students and any related resources.\r\n\r\nIf you have any questions, please reply to this email or write in the private Slack channel.\r\n\r\nThanks so much for your help, and a big hug.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.\r\n",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "returning-mentor": [
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-selected",
+                "subject": "WordPress Credits Program - Mentor welcome and mandatory course",
+                "body": "Hi Ada Okonjo,\n\nCongratulations! You have been selected as a mentor for the WordPress Credits Program.\n\nPlease remember that we cannot ensure sponsorship for mentors. Please move forward with the next steps only if you are sure you can commit at least two hours each week to the program's students.\n\nAs the next step, please access the WordPress Credits Mentor's Course through this invitation link: https://example.test/mentors-course/?invite=EXAMPLE-NOT-A-REAL-CODE\n\nInside, you will find all the guidance, materials, and examples you need to support your students effectively throughout the WordPress Credits program.\n\nWhen you finish the course, please reply to this email to let us know.\nYou can also write to programs at example.test.\n\nOnce we receive your message, we will review your course report and confirm when you are officially ready to start mentoring in the WordPress Credits program.\n\nIf you experience any issues accessing the course, just reply to this email and we will assist you right away.\n\nThank you for joining the WordPress Credits mentor community. Your support makes a real difference!\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "invite-mentor",
+                "subject": "[WordPress Credits] Your mentor account is ready",
+                "body": "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.\r\n\r\nSet your password using the link below, then publish the hours you are free so your students can book calls with you.\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/wp-login.php?login=adaokonjo&key=TEST-KEY-NOT-A-REAL-LINK&action=rp\r\n\r\nThe link above sets your password and stops working after a day. Your username is adaokonjo.\r\n\r\nAfter that, sign in at the login page. If the password link has expired, open the login page, choose \"Lost your password?\" and enter your username or email address to get a fresh one.\r\nhttps://example.test/wp-login.php\r\n\r\nEach new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.\r\n\r\nYour students:\r\nhttps://example.test/mentor-report-card/\r\n\r\nThank you, and congratulations on completing the WordPress Credits Mentor's Course! As soon as the first students are assigned to you, you will receive the introduction email connecting you with them.\r\n\r\nHere are a few details you will need for now.\r\n\r\nYour Mentor Report Card on this site has your students on it, a triage of who needs a call, your call notes, and a calendar students book directly from. Once you have set your password, check that your account details look right and set your availability: students cannot book a call with you until you have.\r\n\r\nStart here:\r\n- Mentors: Welcome to your Mentor Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/\r\n- Students: Welcome to your Student Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/\r\n\r\nAccess to the student courses, so you always know what is being asked of your mentees (join each course through its invitation link to see it):\r\n- WordPress Credits Foundations (the base course, for 150 hours or more): https://learn.wordpress.org/course/wordpress-credits-foundations/\r\n- WordPress Credits Dev Track: https://learn.wordpress.org/course/wordpress-credits-developer-track/\r\n- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/\r\n- WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/\r\n[Each course's invitation link and the mentor resource folder's link are added here in Tools > Emails before this email is sent to mentors.]\r\n\r\nPrivate Slack channel: we will invite you to the program's private Slack channel for mentors, where you can report updates or ask any questions that come up during your mentorship.\r\n\r\nDiscount codes for students' tools: you will find them in the canvas inside that channel. Please share them only with your students, and only when they ask for each one. Thank you!\r\n\r\nWe have shared the mentor resource folder with you. Feel free to create your own subfolder to organize your notes on your students and any related resources.\r\n\r\nIf you have any questions, please reply to this email or write in the private Slack channel.\r\n\r\nThanks so much for your help, and a big hug.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.\r\n",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ],
+        "acknowledged-by-hand": [
+            {
+                "to": "ida at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ben at example.test",
+                "context": "mentor-application-notice",
+                "subject": "[WordPress Credits] New mentor application: MAPP-2026-0500",
+                "body": "Somebody has applied to mentor through the form on the site, and the application passed every check.\n\nAda Okonjo, https://profiles.wordpress.org/ada-example/\n\nIt is on the queue here:\n\nhttps://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [],
+                "files": 0
+            },
+            {
+                "to": "ada at example.test",
+                "context": "mentor-application-received",
+                "subject": "Mentor application received - WordPress Credits Program",
+                "body": "Hi!\n\nThank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.\n\nPlease note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.\n\nWe are grateful for your patience and interest in being part of this program.\n\nPlease confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:\n\nhttps://example.test/wp-admin/admin-post.php?action=wpcpm_mentor_apply_verify&app=500&t=EXAMPLE-NOT-A-REAL-SIGNATURE\n\nThis message went to ada at example.test because that address was given on the mentor application form at WordPress Credits. If it was not you, you can ignore it: nothing happens until the address is confirmed.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs at example.test.",
+                "headers": [
+                    "Reply-To: programs at example.test"
+                ],
+                "files": 0
+            }
+        ]
+    }
+}

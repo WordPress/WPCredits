@@ -581,8 +581,13 @@ class WPCPM_Mail {
 	 * already: `send_invite()`, behind Resend invite on a person's row, which is one message to one
 	 * named person rather than a few hundred at once.
 	 *
+	 * **An invitation an activation held is dropped too** (`is_held()`, 1.122.33): it carries the
+	 * mentor's welcome, with its private links, to an account nobody has confirmed is the person's,
+	 * so only the account's own row sends it.
+	 *
 	 * @param int[] $user_ids Users to invite.
-	 * @return int How many were added, after dropping duplicates, anyone queued, and anyone sent to.
+	 * @return int How many were added, after dropping duplicates, anyone queued, anyone sent to, and
+	 *             anyone whose invitation is held.
 	 */
 	public static function queue_invites( array $user_ids ) {
 		$queue = self::queue();
@@ -598,6 +603,10 @@ class WPCPM_Mail {
 				if ( metadata_exists( 'user', $id, $meta ) ) {
 					continue 2;
 				}
+			}
+
+			if ( self::is_held( $id ) ) {
+				continue;
 			}
 
 			$fresh[] = $id;
@@ -635,7 +644,7 @@ class WPCPM_Mail {
 	 *
 	 * `unsent` is how many of its accounts the queue passed over without sending: one sent an
 	 * invitation inside the gap or being sent one at that moment, one whose email the mail host
-	 * refused, one whose account was gone.
+	 * refused, one whose account was gone, one whose invitation an activation held.
 	 *
 	 * @return array{total:int,started:int,finished:int,unsent:int}|array{} Empty when there has been none.
 	 */
@@ -689,7 +698,9 @@ class WPCPM_Mail {
 	 * the email has gone. An account that rule refuses, sent one inside the gap, being sent one by
 	 * another request at that moment, or whose email the mail host refused, is passed over: it has
 	 * left the queue with its batch, as an account inside the gap always has, and is not queued again.
-	 * With anybody left, the next run is booked before the first message.
+	 * So is an account whose invitation an activation held (`is_held()`), however it came to be
+	 * queued: only its own row sends it. With anybody left, the next run is booked before the first
+	 * message.
 	 */
 	public static function drain_queue() {
 		$queue = self::queue();
@@ -725,7 +736,7 @@ class WPCPM_Mail {
 		foreach ( $batch as $user_id ) {
 			$user = get_user_by( 'id', $user_id );
 
-			if ( ! $user instanceof WP_User ) {
+			if ( ! $user instanceof WP_User || self::is_held( $user->ID ) ) {
 				++$unsent;
 				continue;
 			}
@@ -861,7 +872,9 @@ class WPCPM_Mail {
 	 * fifteen minutes do not start: whoever pressed can send again at once. That last invitation's
 	 * link no longer works all the same, because core made the new password-reset key before it
 	 * handed the email over, which the refusal's sentence says (`invite_refused_message()`). A sent
-	 * one is stamped by the mail layer's one rule (`stamp_invited()`).
+	 * one is stamped by the mail layer's one rule (`stamp_invited()`), and lets go of an invitation an
+	 * activation held (`is_held()`): the queue passes such an account over before it gets here, so a
+	 * send that reaches it is a person's press on that one account.
 	 *
 	 * @param WP_User $user The account.
 	 * @return true|WP_Error `wpcpm_invite_too_soon` while another request is sending the account an
@@ -910,10 +923,43 @@ class WPCPM_Mail {
 
 			self::stamp_invited( $user );
 
+			// Sent to this one account, which a person chose: whatever held it is past.
+			if ( '' !== self::held_key() ) {
+				delete_user_meta( $user_id, self::held_key() );
+			}
+
 			return true;
 		} finally {
 			WPCPM_Lock::release( $lock, $token );
 		}
+	}
+
+	/**
+	 * The account key an activation of a mentor application holds an invitation by
+	 * (`WPCPM_Mentor_Provision::USER_INVITE_HELD`), or '' where that class is not loaded, when no
+	 * account can carry it.
+	 *
+	 * @return string
+	 */
+	private static function held_key() {
+		return class_exists( 'WPCPM_Mentor_Provision' ) ? WPCPM_Mentor_Provision::USER_INVITE_HELD : '';
+	}
+
+	/**
+	 * Whether an activation of a mentor application held an account's invitation (1.122.33): the
+	 * account was linked by its WordPress.org username alone, or another account also answered for
+	 * the applicant, and the invitation, which carries the mentor's welcome with its private links,
+	 * waits for an Administrator to confirm the account is the person's. The bulk invite, its card and
+	 * the queue pass it over; the account's own row sends it (`send_invite_now()`), which lets go of
+	 * the hold.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function is_held( $user_id ) {
+		$key = self::held_key();
+
+		return '' !== $key && metadata_exists( 'user', (int) $user_id, $key );
 	}
 
 	/**
@@ -1210,11 +1256,16 @@ class WPCPM_Mail {
 	 *     @type array  $hidden  Fields the sending form posts besides its action, name => value.
 	 *     @type string $flash   The flash channel the screen reads its outcomes from, which the
 	 *                           Stop form names, so the screen says sending stopped.
+	 *     @type int    $held    Optional: how many never invited are left out of `pending` because
+	 *                           an activation held their invitation (`held_back()`), which the card
+	 *                           says, in place of saying every one has been invited when nobody else
+	 *                           is left.
 	 * }
 	 */
 	public static function render_invite_card( array $args ) {
 		$pending = isset( $args['pending'] ) ? (array) $args['pending'] : array();
 		$noun    = isset( $args['noun'] ) ? (string) $args['noun'] : __( 'people', 'wpcredits-program-manager' );
+		$held    = isset( $args['held'] ) ? max( 0, (int) $args['held'] ) : 0;
 		$run     = self::run();
 		$waiting = self::queued();
 		$post    = esc_url( admin_url( 'admin-post.php' ) );
@@ -1297,7 +1348,7 @@ class WPCPM_Mail {
 
 			if ( $run['unsent'] > 0 ) {
 				$said = sprintf(
-					/* translators: 1: how many were sent, 2: the people, e.g. "students", 3: how many were not sent: refused by the mail host, held by another request sending them one, invited in the last fifteen minutes, or their account gone. */
+					/* translators: 1: how many were sent, 2: the people, e.g. "students", 3: how many were not sent: refused by the mail host, held by another request sending them one, invited in the last fifteen minutes, their account gone, or their invitation held for an Administrator to confirm the account. */
 					_n( 'Finished: %1$d invitation sent to %2$s, %3$d not sent.', 'Finished: %1$d invitations sent to %2$s, %3$d not sent.', $sent, 'wpcredits-program-manager' ),
 					$sent,
 					$noun,
@@ -1321,11 +1372,18 @@ class WPCPM_Mail {
 			echo '</form>';
 		}
 
+		$held_line = $held > 0 ? sprintf(
+			/* translators: 1: how many accounts never invited are left out, 2: the people, e.g. "mentors". */
+			_n( '%1$d of the %2$s is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.', '%1$d of the %2$s are left out: their invitations are held until an Administrator confirms each account is the person\'s, then sends each from its row.', $held, 'wpcredits-program-manager' ),
+			$held,
+			$noun
+		) : '';
+
 		if ( empty( $pending ) ) {
 			printf(
 				'<p class="description">%s</p>',
 				esc_html(
-					sprintf(
+					'' !== $held_line ? $held_line : sprintf(
 						/* translators: %s: the people, e.g. "students". */
 						__( 'Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row.', 'wpcredits-program-manager' ),
 						$noun
@@ -1388,6 +1446,10 @@ class WPCPM_Mail {
 			)
 		);
 
+		if ( '' !== $held_line ) {
+			printf( '<p class="description">%s</p>', esc_html( $held_line ) );
+		}
+
 		echo '</div>';
 	}
 
@@ -1402,6 +1464,10 @@ class WPCPM_Mail {
 	 * clause of the list: WordPress binds one key in the join a `NOT EXISTS` clause makes, and each
 	 * such join holds at most one row an account.
 	 *
+	 * An account whose invitation an activation held (`is_held()`, 1.122.33) is left out, so the
+	 * invitations card's button never sends it: only the account's own row does. The card names how
+	 * many were left out so (`held_back()`).
+	 *
 	 * @param string $role Role slug.
 	 * @param string $meta The role's own stamp, as its accounts table names it
 	 *                     (`WPCPM_Accounts_Table::invite_meta()`), which says whether the plugin
@@ -1411,6 +1477,32 @@ class WPCPM_Mail {
 	 * @return int[] User IDs.
 	 */
 	public static function never_invited( $role, $meta ) {
+		return self::unstamped( $role, $meta, false );
+	}
+
+	/**
+	 * Everybody holding a role who has never been sent an invitation and whose invitation an
+	 * activation held (`is_held()`, 1.122.33): the accounts `never_invited()` leaves out for that,
+	 * whom the invitations card names. None where no account can carry the hold.
+	 *
+	 * @param string $role Role slug.
+	 * @param string $meta The role's own stamp, as `never_invited()` takes it.
+	 * @return int[] User IDs.
+	 */
+	public static function held_back( $role, $meta ) {
+		return '' === self::held_key() ? array() : self::unstamped( $role, $meta, true );
+	}
+
+	/**
+	 * The accounts of a role that carry none of the stamps, with an invitation an activation held or
+	 * without one, as `never_invited()` and `held_back()` read them.
+	 *
+	 * @param string $role Role slug.
+	 * @param string $meta The role's own stamp, as `never_invited()` takes it.
+	 * @param bool   $held Whether to answer the held ones, rather than the others.
+	 * @return int[] User IDs.
+	 */
+	private static function unstamped( $role, $meta, $held ) {
 		// The empty key, which WordPress finds on no account, for a role the plugin never invites.
 		$keys  = '' === (string) $meta ? array( '' ) : array_values( self::STAMPS );
 		$query = array( 'relation' => 'AND' );
@@ -1419,6 +1511,13 @@ class WPCPM_Mail {
 			$query[] = array(
 				'key'     => $key,
 				'compare' => 'NOT EXISTS',
+			);
+		}
+
+		if ( '' !== self::held_key() ) {
+			$query[] = array(
+				'key'     => self::held_key(),
+				'compare' => $held ? 'EXISTS' : 'NOT EXISTS',
 			);
 		}
 
@@ -1554,7 +1653,9 @@ class WPCPM_Mail {
 	 *
 	 * The wording is the template registry's (`WPCPM_Mail_Templates`, the Invitations area), which
 	 * an Administrator can edit in WPCredits Program > Tools > Emails; this works out which of the
-	 * five invitations the account is sent and the values its placeholders take.
+	 * five invitations the account is sent and the values its placeholders take. The mentor's
+	 * carries the welcome a new mentor is sent, which asks for a reply, and so the program's
+	 * Reply-To (1.122.33).
 	 *
 	 * @param array   $email    `to`, `subject`, `message`, `headers`.
 	 * @param WP_User $user     The new user.
@@ -1667,10 +1768,45 @@ class WPCPM_Mail {
 		$email['subject'] = str_replace( '%', '%%', $mail['subject'] );
 		$email['message'] = WPCPM_Mail_Templates::add_footer( $mail['body'], $user, $id );
 
+		// The mentor's invitation carries the welcome, which asks the mentor to reply, so a reply
+		// reaches the program and not the site's own sender: the program's Reply-To, while Contact
+		// address in emails holds an address. The other invitations ask for no reply.
+		if ( 'mentor' === $kind ) {
+			$email['headers'] = self::with_reply_to( isset( $email['headers'] ) ? $email['headers'] : '', WPCPM_Mail_Templates::program_contact() );
+		}
+
 		// WordPress is about to call `wp_mail()` itself, so this is the only moment at which
 		// the log can be told that what follows is an invitation and whose it is.
 		self::$context = $id;
 
 		return $email;
+	}
+
+	/**
+	 * The headers of an email with the program's Reply-To added after the ones it has.
+	 *
+	 * Core hands the new-account filter `headers` as '' and `wp_mail()` reads a string or an array,
+	 * so the answer is an array of lines whatever came in: '' becomes the Reply-To alone, a string
+	 * of one or more lines (a line break ends each, as `wp_mail()` reads it) is kept, line by line,
+	 * as the first lines before it, and an array keeps its lines as they are. With no address,
+	 * nothing changes and what came in goes out as it came.
+	 *
+	 * @param string|array $headers The email's headers as they stand.
+	 * @param string       $contact The program's contact address, or '' for none
+	 *                              (`WPCPM_Mail_Templates::program_contact()`).
+	 * @return string|array
+	 */
+	private static function with_reply_to( $headers, $contact ) {
+		if ( '' === (string) $contact ) {
+			return $headers;
+		}
+
+		if ( ! is_array( $headers ) ) {
+			$headers = preg_split( '/\R/', trim( (string) $headers ), -1, PREG_SPLIT_NO_EMPTY );
+		}
+
+		$headers[] = 'Reply-To: ' . $contact;
+
+		return $headers;
 	}
 }

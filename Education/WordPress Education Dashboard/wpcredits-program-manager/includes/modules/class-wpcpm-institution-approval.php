@@ -180,8 +180,8 @@ class WPCPM_Institution_Approval {
 		$found = get_user_by( 'email', $email );
 
 		// Design spec 7.3, step 5. Found by email with no institution stamp is a conflict and
-		// not a match: `provision_mentor()`'s conflict test only fires on a different stamp of
-		// the same kind, so a student, a mentor or a hand-made administrator would otherwise be
+		// not a match: `WPCPM_Mentor_Provision::provision()`'s conflict test only fires on a different
+		// stamp of the same kind, so a student, a mentor or a hand-made administrator would otherwise be
 		// adopted here and mailed a password link for an institution nobody asked them to act
 		// for. The single exception is the account an earlier press of this button created,
 		// which the application names; without it a half-done approval could never be finished.

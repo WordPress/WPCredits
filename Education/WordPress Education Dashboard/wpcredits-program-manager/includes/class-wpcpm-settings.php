@@ -117,6 +117,11 @@ class WPCPM_Settings {
 			// applicant to join the mentors' course, which an Administrator fills in and no code
 			// holds; and how many days a selected applicant has before the application lapses.
 			'mentor_applications_enabled'   => false,
+			// Make mentors from applications (1.122.33): whether a selected applicant whose course shows,
+			// or for whom The course is completed is pressed, is made a mentor on the site. Off until the
+			// launch (owner item 1), since on means accounts made, invitations sent and rows written to
+			// the shared base, which somebody decides on the day rather than an update deciding it.
+			'mentor_activation_enabled'     => false,
 			'mentor_notify'                 => '',
 			'mentor_course_link'            => '',
 			'mentor_lapse_days'             => 90,
@@ -226,6 +231,11 @@ class WPCPM_Settings {
 			// Off by default: promoting a mentor is a write to a shared base.
 			'checker_cron_enabled'          => false,
 			'checker_cron_promotes'         => false,
+			// Stop checking mentors in Airtable (1.122.33): the checker reads the applications selected
+			// on this site first and, until a person ticks this, Airtable's mentors holding the source
+			// status after them. A stop, so that a save of the checker's screen from a page loaded
+			// before this existed, which posts no box, leaves Airtable's mentors checked.
+			'checker_skip_airtable'         => false,
 			// The Slack incoming webhook the message after a promotion goes to, and the channel the
 			// message asks administrators to add the mentors to. Empty: no message. The channel has no
 			// default because this code is published and the channel is private.
@@ -283,6 +293,7 @@ class WPCPM_Settings {
 				'mentor_home',
 				'student_home',
 				'mentor_applications_enabled',
+				'mentor_activation_enabled',
 				'mentor_notify',
 				'mentor_course_link',
 				'mentor_lapse_days',
@@ -339,6 +350,7 @@ class WPCPM_Settings {
 				'checker_cache_ttl',
 				'checker_cron_enabled',
 				'checker_cron_promotes',
+				'checker_skip_airtable',
 				'checker_slack_webhook',
 				'checker_slack_channel',
 			),
@@ -439,9 +451,9 @@ class WPCPM_Settings {
 	 * scope that the input lacks is off, since the scope's form draws its box and an unticked box
 	 * posts nothing, and every setting outside the scope stays as it was, whatever the input holds
 	 * for it. A scope this version does not have writes nothing. Given none, the save is every
-	 * scope's, by the rules the screen's single form was saved by: every setting is read, ten are
+	 * scope's, by the rules the screen's single form was saved by: every setting is read, eleven are
 	 * written whatever the input holds (the four leaving rules, four switches of the Students and
-	 * mentors tab and the daily check's two), and every other setting only when the input holds it.
+	 * mentors tab and the checker's three), and every other setting only when the input holds it.
 	 * Code outside the Settings screen that changes a setting or two writes through `patch()`.
 	 *
 	 * @param array  $input Raw input, typically from $_POST.
@@ -477,8 +489,8 @@ class WPCPM_Settings {
 	 *
 	 * For code that changes a setting or two outside the Settings screen, such as the handbook's
 	 * move off a retired model. `save()` is the wrong door for that: with no scope it keeps the
-	 * single form's rules, which write the four leaving rules and six switches from whatever input
-	 * they are handed, so a one-setting save switches those six off and puts each rule at its
+	 * single form's rules, which write the four leaving rules and seven switches from whatever input
+	 * they are handed, so a one-setting save switches those seven off and puts each rule at its
 	 * fallback answer. A patch fills in nothing absent. It writes the settings it holds, puts back a
 	 * setting that cannot be blank only when it holds that one, stamps the settings version only
 	 * when it holds "Currently mentoring", reschedules the daily check only when it changed one
@@ -578,7 +590,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		// This rule and nine settings further down (the other three leaving rules and six switches)
+		// This rule and ten settings further down (the other three leaving rules and seven switches)
 		// are written from whatever input a write reads them from, absent included: a radio always
 		// posts one of its answers, and a box left unticked posts nothing. So each is written only
 		// by a save that reads it or a patch that holds it, and another tab's Save leaves it alone.
@@ -712,7 +724,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled', 'mentor_applications_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -793,7 +805,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'checker_cron_enabled', 'checker_cron_promotes' ) as $flag ) {
+		foreach ( array( 'checker_cron_enabled', 'checker_cron_promotes', 'checker_skip_airtable' ) as $flag ) {
 			if ( isset( $reads[ $flag ] ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

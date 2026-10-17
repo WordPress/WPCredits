@@ -177,7 +177,7 @@ warning that says why, in the tool's own words.
 | Screen | What it does |
 | --- | --- |
 | **Students** | Two tabs: **Accounts**, the invitations and every Student account in one list, and **Sync**, the students sync and its last report. |
-| **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync and its last report. |
+| **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, with the applicants made mentors under **Activated**, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync, a warning while mentors made from applications wait for their Airtable row, and its last report. |
 | **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
 | **Sponsors** | Six tabs: **Waiting for review**, the sponsor applications, sponsor posts and signed agreements waiting, read here and decided on the Administrator Dashboard; **Sponsors**, the sponsors sync and every sponsor with its status, program contact and accounts; **Accounts**, the invitations, every sponsor account in one list, the Approved sponsors with no account yet, and each sponsor's accounts; **Offers and codes**, every offer with its codes and claims; **Interests**, what sponsors said they would like to support; and **Agreements**, the state of every Approved sponsor's agreement. |
 | **Administrators** | Two tabs, under the button to the Administrator Dashboard while that page exists: **Accounts**, every administrator account in one list, and **Capabilities**, the program capabilities granted to Administrator. |
@@ -194,11 +194,11 @@ The **Student accounts** list works like WordPress's own **Users** screen: every
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that student's Student Report Card, and **Send invite** or **Resend invite**, which emails that one student at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. On WordPress 6.7 or later, on this list and on every other accounts list, the action chosen under **Bulk actions** runs only when **Apply** is pressed: a search sent with rows ticked and an action chosen comes back to the list with nothing done to them, and Enter pressed in the menu does not apply it. Below 6.7, WordPress's own behavior stands. **Send invite** queues a first invitation for each ticked account that has never had one, as the card's button does, and the card shows the progress. **Resend invite** queues a fresh invitation for each ticked account invited before, which goes out with the next batch: the card's progress bar and its stop button follow a run of first invitations, and a re-invitation starts no run, so on its own it shows on neither. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, institution, sort and page. However it is asked for, nobody is sent a second invitation within fifteen minutes of the last one: **Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes, and its notice says how many it left out.
 
-In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
+In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds, since 1.122.33, a warning while mentors made from applications have no Airtable row yet, with the way to where each is written, the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
 Since 1.122.26 the Mentors screen has a third tab between them, **Engagement**. It opens with the figures the Administrator Dashboard's **Mentor engagement** card shows, then lists every mentor: **Status**, whether Airtable holds them as Active (and **Administrator** for an Administrator who also mentors), their **Students** now and before, their **Last visit** (the latest day they opened a page of the site while signed in, which the site notes once a day) and **Last sign-in**, their **Schedule** (weekly hours and a meeting link, or what is missing), the **Notes** they wrote, their one-to-one **Calls** held and to come with how many held calls have a note, and their **Group sessions** held and to come. The 7 days and the 30 days count whichever is later, a mentor's last sign-in or last visit, so a mentor on a remembered session is not shown as absent; a mentor for whom the site holds neither is counted as never signed in. Sort by **Mentor**, **Students**, **Last visit**, **Last sign-in**, **Notes** or **Calls**; the list opens with the most students first. **Search mentors** finds a mentor by name, username or email address. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden. The views, each with its count, find who to follow up with: **All**, **Active**, **With students now**, **Never signed in**, **Not seen in 30 days**, **No program action** (no note, no saved schedule, no group session created and no call they canceled, including those who never signed in, so it can list more mentors than the card's count of those who signed in without one), **Students, no weekly hours** and **Administrators**. Every view but **All** and **Administrators** lists active mentors only, those Airtable holds as Active, and so do the figures above, except the call and group session figures, which count every call and group session on the site; an Administrator who also mentors is counted apart, and **Administrators** lists the active ones. **All** lists every mentor, active or not. The tab reads only. Sign-ins from before the release were read once from what the site already held and are approximate, and visits start with the release, so a date can read **Not recorded yet**; the note under the list gives the date of the reading. The site records the last sign-in and last visit of every account, not only mentors', and uninstalling the plugin removes them. `wp wpcredits mentor_engagement --summary` prints the same figures on the command line, and without `--summary` it prints one row per mentor, as a table, JSON or CSV; it writes nothing.
 
-The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **No students**, the fourth view, with its count too, lists the mentors whose **Students** column shows 0: no current student, whether every student they had has finished or they never had one. The search, the sorts and the pages work in it as in the other views, and when every mentor has a current student it says so. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited.
+The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **No students**, the fourth view, with its count too, lists the mentors whose **Students** column shows 0: no current student, whether every student they had has finished or they never had one. The search, the sorts and the pages work in it as in the other views, and when every mentor has a current student it says so. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited, except one whose invitation was held when an application made them a mentor: the card says how many it left out, and only that mentor's own row sends it (see *Becoming a mentor*).
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
 
@@ -214,9 +214,12 @@ off until **Take mentor applications through the form on this site** is switched
 **Mentor applications** on the Students and mentors tab of Settings. While it is off, or while the
 site has no published privacy policy or the syncs have read no countries or no contribution teams
 yet, the page shows the public nothing, and an Administrator who opens it one sentence saying why.
-The page is not gated: the people it is for have no account. Nothing is written to
-Airtable in this release: an application stops at the mentors' course, and somebody who completes
-it still becomes a mentor in Airtable, as before.
+The page is not gated: the people it is for have no account. The form writes nothing to Airtable.
+Since 1.122.33 a selected applicant who completes the mentors' course becomes a mentor on this site
+once **Make mentors from applications** is switched on, under **Mentor applications** on the
+Students and mentors tab of Settings, as *Becoming a mentor*, further down, describes. It is off
+until the launch, and while it is off an application stops at the mentors' course, as it did before
+1.122.33, and nothing is written to Airtable.
 
 The page the plugin makes starts with the Airtable form's introduction, two paragraphs above the
 form, and they are the page's to edit. So is the sentence an applicant reads once the form is sent:
@@ -251,17 +254,24 @@ each one the checks did not hold, with the applicant's name and profile and the 
 
 **WPCredits Program > Mentors** opens on **Waiting for review** while any application waits there,
 and on **Accounts** while none does; the tab is first in the bar either way. It lists the
-applications oldest first, fifty at a time, in five views, each with its count: **Waiting**, every
+applications oldest first, fifty at a time, in six views, each with its count: **Waiting**, every
 application not decided yet; **Asked for more information** and **Second opinion**, those two kinds
-among them; **Selected (course pending)**, the applicants sent to the mentors' course; and
-**Lapsed**. Under the list, in every view, **Recently decided** lists the fifty applications most
-recently declined or filed as spam, newest first, until they are deleted. Each application shows
-the name and reference, how long it has waited (for a selected one, the day it was selected and the
-day it lapses; for a decided one, the day it was declined or filed as spam), its marks (**held**,
-**possible duplicate**, **already a mentor**, **address not confirmed** and **acknowledgement not
-sent**), every answer, its history (each decision with its day, who took it and their note) and the
+among them; **Selected (course pending)**, the applicants sent to the mentors' course;
+**Activated**, the applicants made mentors, which orders its list differently (see *Becoming a
+mentor*); and **Lapsed**. Under the list, in every view, **Recently decided** lists the fifty
+applications most recently declined or filed as spam, newest first, until they are deleted. Each
+application shows the name and reference, how long it has waited (for a selected one, the day it was
+selected and the day it lapses; for an activated one, the day it was made a mentor; for a decided
+one, the day it was declined or filed as spam), its marks (**held**, **possible duplicate**,
+**already a mentor**, **address not confirmed** and **acknowledgement not sent**), every answer, its history (each decision with its day, who took it and their note) and the
 decisions its state allows. The Administrator Dashboard's strip counts the applications waiting, and
 its tile opens this tab.
+
+A selected application also shows what the Mentor Status Checker last found on the applicant's
+WordPress.org profile: *Not checked yet*, or the day of the last check and whether the course shows,
+does not show yet, or the profile could not be read, and why. While **Make mentors from
+applications** is off it says the applicant waits; and when the account for an applicant whose
+course showed could not be made, it says on which day and why, and the application stays selected.
 
 The decisions, each with a box for a note where it takes one; a note stays on this site and is
 never sent:
@@ -281,8 +291,24 @@ never sent:
   in its history. One that was never acknowledged, and so carries the mark **acknowledgement not
   sent**, is sent the acknowledgement then, once, with the link that confirms the address; one
   acknowledged when it came, marked as spam by mistake, is sent nothing.
+- **Send the acknowledgement**, on an application still in the queue that carries the mark
+  **acknowledgement not sent**, sends it now, once, with the link that confirms the address, and
+  leaves the application where it is. It is for an application past the day's ceiling on
+  acknowledgements, or whose hand-off to the mail queue was refused; one filed as spam is sent it by
+  Put back in the queue. An application acknowledged already, or holding no address, is sent
+  nothing, and two presses at one moment send it once.
+- **The course is completed**, on a selected application, and offered only while **Make mentors
+  from applications** is on: for an applicant an Administrator knows has completed the mentors'
+  course, whatever the profile shows. Its note, how you know, is optional and never sent. It makes
+  the applicant a mentor at once, by the Administrator who pressed it, as *Becoming a mentor*
+  describes.
 - **Withdraw**, on a selected application alone, moves it to **Lapsed** now and sends nothing. Its
-  note, what the applicant wrote, is needed, and the public figures count it as lapsed.
+  note, what the applicant wrote, is needed, and the public figures count it as lapsed. An
+  application that another request is making a mentor at that moment is left as it is, and the
+  press says so.
+- **Write the Airtable row again**, on an activated application whose Mentors row Airtable refused
+  or never finished, writes it as the activation did; it takes no note, and a second press makes no
+  second row (see *Becoming a mentor*).
 
 Select, Ask for more information and Decline wait until the applicant has confirmed the address with
 the link in the acknowledgement: until then each is refused and says so. An application whose
@@ -292,20 +318,132 @@ the public figures, so that applicant is not counted as having applied. An appli
 acknowledgements, or one whose acknowledgement could not be handed to the mail queue when it was
 submitted, was never sent the link, so its address cannot be confirmed and the three decisions that
 email the applicant stay refused until it is: Put back in the queue sends it to an application filed
-as spam, and the mark goes. An application with the mark that still sits in Waiting, past the
-ceiling or after a refused hand-off, is first marked as spam and then put back in the queue from
-Recently decided, which sends the acknowledgement. Select, Decline, Mark as spam and Withdraw ask
-before they act. The five emails are the **Mentor applications** area of **Tools > Emails**, where
-their words can be edited.
+as spam, and Send the acknowledgement to one still in the queue, past the ceiling or after a refused
+hand-off, and the mark goes either way. Select, Decline, Mark as spam, Withdraw, The course is
+completed and Send the acknowledgement ask before they act. The five emails are the **Mentor
+applications** area of **Tools > Emails**, where their words can be edited.
 
 A selected application whose course has not shown after the days under **Selected applications
 lapse after (days)**, 90 by default, moves to **Lapsed** by itself, with a line in its history, in
 the daily run that also keeps the days under **Applications** on the Advanced tab: spam is
-deleted after 30 days, and declined, lapsed and held applications after a year, by default. The
-figures for the Credits Monthly Report and the WPCredits Tracker are public at
-`/wp-json/wpcpm/v1/mentor-applications`: for each month since the first application, how many people
-applied, were selected, became mentors, were declined and lapsed, and how many applications are open
-and how many selected today, with nothing about any person.
+deleted after 30 days, and declined, lapsed and held applications after a year, by default. A
+selected application that is being made a mentor at that moment is left to that and does not lapse.
+The figures for the Credits Monthly Report and the WPCredits Tracker are public at
+`/wp-json/wpcpm/v1/mentor-applications`: for each month since the first application, how many
+applications were received, selected, activated (made a mentor), declined and lapsed, and how many
+applications are open and how many selected today, with nothing about any person. An application
+filed as spam is not counted as received. Each application
+counts once per figure in a month: one selected twice in a month counts once there, a withdrawal and
+a lapse in one month are one lapse, and one selected again in a later month, after a lapse or an
+appeal, counts in both months, so the months are not to be added up as if each application counted
+once. An applicant filed as already a mentor is not counted as made a mentor, and what happens to
+the Airtable row counts for nothing.
+
+#### Becoming a mentor
+
+With **Make mentors from applications** on, a selected applicant becomes a mentor in one of two
+ways: the Mentor Status Checker finds the mentors' course on their WordPress.org profile when it
+promotes (the daily check does so when **Let the daily check also promote mentors** is ticked in the
+tool's settings, and **Run check and promote** and `wp wpcredits check_mentors --promote` always
+do), or an Administrator presses **The course is completed** on their application, which asks first.
+It is one step either way, and the mentors sync makes a mentor the same way. It runs in this order,
+so that a mentor is never kept waiting on Airtable:
+
+1. **The account.** The applicant's account is the one that has their email address, else the one
+   named after their WordPress.org username, else the one that holds their profile; where the Mentors
+   row that holds their address is already linked to an account, that account is theirs. With none,
+   an account is made, named after the username, with the Mentor role. An account that exists is
+   linked and given the Mentor role besides its own: no role is taken away, and an Administrator's
+   roles are never touched. A former mentor is a mentor again on their own account. If the account
+   cannot be made, the application stays selected, with the reason on it.
+2. **The application** moves to **Activated**, with a line in its history, and the Mentor Status
+   Checker's Slack message names the new mentor.
+3. **The invitation.** One invitation, which carries the welcome, is queued whatever **Invitation
+   emails** says, and goes out with the queue, a few at a time. None goes to an Administrator's
+   account, which signs in already, and none goes yet in two cases where the site cannot be sure
+   whose address it would reach: when the account was found by the WordPress.org username alone,
+   which may be somebody else's, and when the Mentors row that holds the applicant's address belongs
+   to one account while another account also answered for the applicant. The mentor is made all the
+   same. The notice after the press, the application's history and its row under Activated say the
+   invitation is held and why, and once an Administrator has confirmed which account is the
+   person's, **Resend invite** on the Mentors screen's **Accounts** tab sends it. Until then the
+   **Invitations** card's button and the email queue pass the account over, and the card says how
+   many it left out.
+4. **The Airtable row**, last. An account that holds its own Mentors row already, a former
+   mentor's, has that row's Status set back to Active, the status the mentors sync reads, and no
+   search is made; only if Airtable says that row is gone is the table searched, as for anyone
+   else. Otherwise the Mentors table is searched for the applicant's address first. A row that
+   holds it, whatever its Status, is set back to Active and linked to the account; only its Status
+   changes. With none, one new row is written, with the applicant's name, WordPress.org profile,
+   email and Status and their answers whose columns the table has, each shaped as its column takes
+   it. A country, language or contribution area the base does not hold is left out by name, the
+   application says so, and the rest of the row is written. Writing needs the token's
+   `data.records:write` scope, and reading each column's type its `schema.bases:read` scope; where
+   the token lacks the second, the row holds the name, profile, email and Status alone. Nothing else
+   in Airtable is ever changed and nothing is deleted; after this the row is Airtable's, and the
+   site never updates it again.
+
+An applicant who is a mentor already, an account with the Mentor role, or an Administrator's, that
+is active and linked to its Mentors row, is filed under **Activated** as already a mentor, with a
+note in the history: nothing is sent, nothing is written to Airtable, and the public figures do not
+count them as made a mentor. An Administrator who applied keeps their roles and is sent no
+invitation. Two presses, or a press and the daily check, on one application at the same moment do
+the step once: the second is told it is in hand. While **Make mentors from applications** is off nothing is made, and an
+applicant whose course shows waits under Selected (course pending).
+
+**Activated** lists the mentors made from applications. The applications still waiting for their
+Airtable row come first, oldest first; the others follow, the newest mentor first. Fifty are drawn,
+and a line says how many there are when there are more. Each row shows the account, linked to its
+profile screen, and the invitation's fate and the Airtable row's. The invitation line counts from the
+moment the applicant was made a mentor, never from an older invitation to the same address: it says
+the invitation waits in the email queue; or was sent on a day; or was handed over on a day and the
+mail log does not say whether it went; or that the site's mail host refused it, so that nothing was
+sent and the link in any earlier invitation no longer works, with where Resend invite is; or that
+none has gone since, because it was held for a person to confirm the account or was passed over,
+with where Resend invite is. For an Administrator's account it says none is
+sent, for an account that is gone that none can reach it, and for an applicant filed as already a
+mentor it says nothing. The Airtable line says whether the row was written, set back to Active or
+linked, and what was left out of it.
+
+If Airtable refuses the row (a token without write access, a column that refuses a value, a table
+that cannot be read, the network, or no Airtable connection at all), the mentor is made and invited
+all the same. The application says Airtable's words, and **Write the Airtable row again** waits on it
+under Activated. It searches the table by the address before it writes anything, so a row that a
+request which died had made is found and never made twice. Meanwhile the mentors sync does not
+unmake the mentor. If it links the account to an Active row itself, that ends the wait, and the
+application then reads as linked by the mentors sync or by hand, with nothing more to write. An
+account that is gone has nothing to write for, and the application says so. The Mentors screen's **Sync** tab says how many
+mentors are waiting for their row.
+
+#### Switching it on
+
+**Make mentors from applications** ships off, and a person switches it on at the launch, in this
+order:
+
+1. Before the release that carries it is deployed, the mentor coordinator edits **Invitation:
+   mentor** in **Tools > Emails**. Until the deploy the live editor shows the earlier text, with no
+   welcome, so they add the welcome after the invitation's own lines, copied from the release's
+   shipped text of that email, which shows it with one bracketed line where the private links go.
+   They type the courses' invitation links and the mentor resource folder's link in where that line
+   stands, and save. The edit just saved is the one that will be sent, since a saved edit is sent in
+   place of the shipped text, welcome or none, so they check that no other, older saved edit is what
+   is in place. **Contact address in emails** is set as well, since the welcome asks mentors to reply
+   and a reply reaches that address. From the deploy on, every invitation the mentor's template
+   sends carries the welcome: an activation's, one sent from the Mentors screen, and one the mentors
+   sync queues while **Invitation emails** is on.
+2. The person running the launch reads the Airtable base's automations, which the site cannot see,
+   so that none fires on the check row of the next step.
+3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by hand,
+   once. It writes one synthetic row to the Mentors table, with that address and a Status that
+   neither the mentors sync nor the Mentor Status Checker reads, reads it back, deletes it, and says
+   which columns the base kept and which names it would leave out. It may be run against the live
+   base because it only ever deletes the row it just wrote. It changes nothing on the site, and it
+   ends in an error while a row may be left behind, which then has to be deleted in
+   Airtable by hand, and while a column did not take what the site sends. `wp wpcredits
+   mentor_airtable_row <reference>` prints the row an application would write and writes nothing; it
+   prints the applicant's answers, so use it on a test application.
+4. They switch **Make mentors from applications** on, and switch off the Airtable automation that
+   emails the welcome, so that a new mentor is not welcomed twice.
 
 ### Institutions
 
@@ -407,7 +545,7 @@ sections, **Airtable** and **Tables**, the tab's **Save settings**, and under it
 | --- | --- |
 | **Personal Access Token** | Stored in the database and never sent back to the browser: the field shows it masked. Leave it blank to keep the current token. |
 | **Schema token** | Optional, and used by the Track Builder alone, to create a track's columns when it is published. Its fold says the rest: it needs the `schema.bases:write` scope and must belong to somebody with the base creator role on the base; left blank it keeps the current one, and typing remove takes it away. Without it, publishing lists the columns for somebody to create by hand. |
-| **Token scopes** | The scopes the token needs, listed in the row's fold with what each is for: `data.records:read`, required, for reading mentors, students and tutors; `data.records:write`, required by the Mentor Status Checker, for changing a mentor's status when you promote them (without it the tool can still run in report-only mode, but promoting fails); `schema.bases:read`, optional, for listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable (without it each of those settings is typed, and the built-in descriptions are shown instead). Set them on the token itself at airtable.com/create/tokens, with access to the WPCredits base; they cannot be checked from here without writing to the base, so the list is the reference. |
+| **Token scopes** | The scopes the token needs, listed in the row's fold with what each is for: `data.records:read`, required, for reading mentors, students and tutors; `data.records:write`, required by the Mentor Status Checker, for changing a mentor's status when you promote them (without it the tool can still run in report-only mode, but promoting fails), and for the Mentors row that making a mentor from an application writes, a new row or the Status of the row that already holds the person (without it that mentor is made and invited all the same, and Airtable's refusal waits on the application), and for the check row that `wp wpcredits mentor_airtable_row --check` writes and deletes at the launch; `schema.bases:read`, optional, for listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable (without it each of those settings is typed, and the built-in descriptions are shown instead), and for letting that Mentors row carry the applicant's answers (without it the row holds the name, profile, email and Status alone, and the site never updates it later). Set them on the token itself at airtable.com/create/tokens, with access to the WPCredits base; they cannot be checked from here without writing to the base, so the list is the reference. |
 | **Base ID** | The Airtable base holding the program, chosen from the bases the token can open, each with its ID beside its name. Listing the bases needs the token's `schema.bases:read` scope; when the list cannot be read, the ID is typed, and a sentence under the field says why. |
 
 #### Tables
@@ -501,7 +639,10 @@ answer that removes comes first, and it is the default for both.
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students or Mentors screen's list and invite them together.
+  several in the Students or Mentors screen's list and invite them together. A mentor made from an
+  application is sent theirs whatever this says, since it carries the welcome, except an
+  Administrator, and a mentor whose account is not yet confirmed as the person's (see *Applications
+  to mentor*).
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. The
   sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the
@@ -533,9 +674,17 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
 - **Applications from mentors** - **Take mentor applications through the form on this site**. Off
   by default, since it is a public page anybody can post to; its address is under the switch. Every
   application is stored for an Administrator to decide on the Mentors screen's **Waiting for
-  review** tab, and nothing is written to Airtable; while this is off, the page shows the public
-  nothing, and an Administrator who opens it one sentence saying why. As with the other two forms,
-  the form shows nothing to the public without a published privacy policy, and the row says so.
+  review** tab, and the form writes nothing to Airtable; while this is off, the page shows the
+  public nothing, and an Administrator who opens it one sentence saying why. As with the other two
+  forms, the form shows nothing to the public without a published privacy policy, and the row says
+  so.
+- **Make mentors from applications** (since 1.122.33) - **Make a mentor of each selected applicant
+  whose course shows, or for whom The course is completed is pressed**. Off until the launch, since
+  on means accounts made, invitations sent and rows written in the shared Airtable base, which
+  somebody decides on the day rather than an update deciding it. Its fold: while it is off, an
+  applicant whose course shows waits under Selected (course pending). What it does, and what the
+  launch asks of a person beforehand, is under *Applications to mentor* in the part on the plugin
+  in wp-admin.
 - **Who is mailed** - the addresses told of each new mentor application, chosen as the
   Institutions tab's reviewers are; with none here, every Administrator is written to. The email
   names the applicant and their WordPress.org profile and links the Waiting for review tab; it
@@ -742,7 +891,8 @@ one proxy the three application forms believe.
   to it. Either way the wait is long enough to recognize the same applicant applying again.
 - **Approved kept for (days)** - from 0 to 3650, 0 by default, which keeps approved applications,
   and the mentor applications of those who became mentors, forever: they are the record of who was
-  let in.
+  let in. An application made a mentor whose Airtable row is still to be written is kept whatever
+  this says, since Write the Airtable row again needs its answers.
 - **Trusted proxy** - the one IP address, not a range, of the proxy whose forwarded header the
   application forms believe for a sender's address, which their limits count by. Its fold: leave it
   empty unless the site sits behind a proxy, since anybody can send that header; anything but one
@@ -812,9 +962,9 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 The plugin's emails, grouped by area, each area in a table of its own. There are six:
 
-- **Invitations**: the student's, the mentor's and the sponsor's invitation, and the institution's
-  two, one for an institution whose Collaboration Agreement is not on file yet and one for an
-  institution whose agreement is on file.
+- **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
+  is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
+  Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
 - **Mentor calls**: what the mentor and the students are told about one-to-one calls, group sessions
   and series of sessions: a booking, a join, a series joined, a session moved, a place left or
   released, a call or a session canceled, and the reminder a day before. Where the mentor and the
@@ -1033,10 +1183,32 @@ recipient type; those older than 30 days are deleted with the rest.
 
 ### Mentor Status Checker
 
-**WPCredits Program > Tools > Mentor Status Checker.** Promotes mentors from *Vetted - positive* to
-*Active* in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It
-reads profiles, matches the badge, and reports what it would change before it changes anything. It
-needs the Airtable connection, so it refuses to run until that is set up.
+**WPCredits Program > Tools > Mentor Status Checker.** Reads the WordPress.org profile of each mentor
+who has still to be made one, matches the Credits Mentor's Course completion, and reports what it
+would change before it changes anything. It has two sources. First the applications selected on this
+site, the newest selection first: where the course shows on an applicant's profile, they are made a
+mentor on this site, once **Make mentors from applications** is on (see *Applications to mentor* in
+the part on the plugin in wp-admin). Then, until **Stop checking mentors in Airtable** is ticked, the
+mentors whose Airtable status is the one set under **Check mentors with status**, *Vetted -
+positive* by default: where the course shows on one of those profiles, they are promoted to *Active*
+in Airtable, as they were before 1.122.33.
+
+It needs the Airtable connection only for Airtable's mentors. The applications selected on this site
+are checked without it; while Airtable is not connected, the tool's status line and its screen say
+that Airtable's mentors are not checked, and that a mentor made from an application gets no Airtable
+row until it is. A run in which Airtable cannot be read still checks the site's applications, and
+says above its results that Airtable's mentors were left out of it; with no application selected,
+the error is the answer, as it was when Airtable was the only source.
+
+An application's row in the results reads *Made a mentor* once it is, with what was held or not
+written on the way (an invitation held, an Airtable row refused), and the tally counts **made a
+mentor** beside **promoted**. A run that only reports, and any run while **Make mentors from
+applications** is off, makes nobody a mentor: an application whose course shows reads *Awaiting
+promotion*, "Ready to be made a mentor", with "it waits until Make mentors from applications is
+switched on" while the switch is off. A report keeps on each application the day of its last check,
+which the Selected view shows. **Run check and promote** and **Promote all eligible** promote and
+make mentors from both sources, and **Promote** on one row re-checks that mentor or application
+first, never from the cache, and refuses an application that has left Selected (course pending).
 
 #### Settings
 
@@ -1046,27 +1218,33 @@ settings**:
 | Setting | What it is for |
 | --- | --- |
 | **Check mentors with status** and **Promote them to** | The Mentors table's status a run reads mentors at, *Vetted - positive* by default, and the one it moves them to, *Active*, each chosen from the table's Status options, or typed, with a sentence saying why, when those cannot be read. Writing the second needs the `data.records:write` scope on the token. |
+| **Mentors in Airtable** | **Stop checking mentors in Airtable**, unticked by default: until it is ticked, the mentors holding the status above in Airtable are checked after the site's applications. Tick it once no mentor in Airtable holds that status. It is a stop and not a box to keep reading with, so that a save of this form from a page loaded before the box existed, which posts no box, leaves Airtable's mentors checked. |
 | **Course title** and **Course slug** | The course a profile has to show as completed, the WordPress Credits Mentor's Course by default. The slug, from the course's address on learn.wordpress.org, is the reliable signal, and the title only a fallback. Both are typed: learn.wordpress.org has no list to read them from. |
 | **Completion phrase** | Words that must appear in the same profile history entry as the course, *Completed the course* by default, so somebody who merely blogged about the course is not counted. |
 | **Profile history filter** | **Milestones only (faster)**, the default, or **All contributions**: course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Its fold: switch to all contributions only if WordPress.org changes and completions stop being found. |
 | **Maximum history pages per mentor** | From 1 to 100, 15 by default. A mentor whose history is longer is reported as "could not check", never as "not completed", since a false negative would leave them waiting. |
 | **Mentors per batch** and **Delay between requests (ms)** | How hard a run reads WordPress.org, from 1 to 25 mentors a batch, three by default, and from 0 to 5000 ms between requests, none by default: each mentor can cost several requests, so smaller batches keep the screen responsive. |
 | **Cache profile results for (seconds)** | How long a settled answer is kept, up to thirty days, twelve hours by default. A failed read is always tried again, and `0` keeps nothing. |
-| **Daily check** | Two boxes, **Run the check automatically once a day** and **Let the daily check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately. The check ran once a week until 1.122.4; a site that had the weekly run moves to the daily one by itself, its next run within the hour. |
-| **Slack webhook** | The Slack incoming webhook the message after a promotion goes to, which decides the channel it lands in. Shown masked and never sent to the browser: leave it blank to keep the one saved, or type `remove` to take it away. Only an address starting `https://hooks.slack.com/services/` is taken; anything else is refused with an error on the screen, and the one saved before stays. Its fold says how to get one: a Slack app in the workspace, with Incoming Webhooks switched on and a webhook added for the administrators' channel. |
+| **Daily check** | Two boxes, **Run the check automatically once a day** and **Let the daily check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base and, where **Make mentors from applications** is on, makes mentors on this site and sends their invitations, so turn the second on deliberately. The check ran once a week until 1.122.4; a site that had the weekly run moves to the daily one by itself, its next run within the hour. |
+| **Slack webhook** | The Slack incoming webhook the message after a promotion goes to, which decides the channel it lands in. Shown masked and never sent to the browser: leave it blank to keep the one saved, or type `remove` to take it away. Only a Slack incoming webhook address, as Slack gives it, is taken; anything else is refused with an error on the screen, and the one saved before stays. Its fold says how to get one: a Slack app in the workspace, with Incoming Webhooks switched on and a webhook added for the administrators' channel. |
 | **Channel to add them to** | The channel the message asks the administrators to add the mentors to, as it is named in Slack, such as `#mentors`. Left empty, the message says "the mentors channel". |
 
 #### The Slack message after a promotion
 
-With a webhook saved, every action that promotes sends **one** message once it has finished: a run,
-whether the daily one, **Run check and promote** or `wp wpcredits check_mentors --promote`; **Promote
-all eligible**; or **Promote** on one row. It calls the channel (`@channel`), says how many mentors
-were moved to the status they were promoted to and which channel to add them to, and lists each one
-with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is
-the name to type when adding them, shown as code so that an address typed there is not a link. The last
+With a webhook saved, every action that promotes or makes a mentor sends **one** message once it has
+finished: a run, whether the daily one, **Run check and promote** or `wp wpcredits check_mentors
+--promote`; **Promote all eligible**; **Promote** on one row; or, since 1.122.33, **The course is
+completed** on an application, which sends its message at once. It calls the channel (`@channel`),
+says how many mentors were moved to the status they were promoted to and which channel to add them
+to, and lists each one with a link to their WordPress.org profile and, where the profile shows one,
+their Slack name, which is the name to type when adding them, shown as code so that an address typed
+there is not a link. The line of a mentor made from an application ends *from an application on the
+site*, and the count and the status in the first line cover them as they cover a promotion. The last
 line says who promoted: *the daily check*, *WP-CLI* or the administrator who pressed the button. Only
-mentors whose status was actually written are named; an action that moved nobody sends nothing, and
-a long list goes in messages of 25. The message is in the site's language, whoever pressed the button.
+mentors whose status was actually written, and applicants actually made mentors, are named: an
+applicant is named as soon as the account is made, so one whose Airtable row was refused is named all
+the same, and one filed as already a mentor is not. An action that moved nobody sends nothing, and a
+long list goes in messages of 25. The message is in the site's language, whoever pressed the button.
 
 A message Slack refuses, or that cannot reach Slack, is not lost. Its mentors are kept and sent with
 the next message, and every run sends what is kept even when it promotes nobody, so with the daily
@@ -1641,11 +1819,34 @@ drafting and the ceiling's sweep - because the settings behind them are in days 
 down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
 reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
 
-Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
-account is ever deleted by a sync** - the most it will do is remove a role.
+Accounts are matched by the Airtable record the sync stored, then by email address, and, for
+mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
+do is remove a role.
 
 The sync report on each screen says what happened rather than only that it finished: created,
 updated, skipped and why.
+
+Since 1.122.33 the mentors sync makes and links its accounts through the same step that making a
+mentor from an application uses, so there is one way to make a mentor: it matches as above, reports
+an account matched by username alone for an Administrator to confirm is the same person, and makes
+an account only when none matches. An application has no record id yet, so its lookup is the
+address, then the username, then the profile an account holds. The sync leaves a mentor made from an
+application alone while that mentor's Mentors row is not written (see *Applications to mentor*): it
+does not revoke the account while the row is not written. If the sync itself links the account to an
+Active row, that ends the wait, and the account is treated as any other mentor's. Nor does a run revoke a mentor who was made one,
+or whose row was written or found, after the run began; the next run reads the row and decides. The
+Mentors screen's **Sync** tab says how many wait.
+
+Two commands go with the Mentors row an activation writes. `wp wpcredits mentor_airtable_row
+<reference>` prints the row an application would write, each cell as its column takes it and what
+would be left out, and writes nothing; it reads Airtable and prints the applicant's answers, so it is
+for a test application. `wp wpcredits mentor_airtable_row --check --email=<address>` is for the
+launch, run by hand before **Make mentors from applications** is switched on: it writes one synthetic
+row to the Mentors table, with the address given and the Status Inactive, which neither the mentors
+sync nor the Mentor Status Checker reads, reads it back, deletes it, and says which columns the base
+kept. It deletes only the row it wrote, it changes nothing on the site, and it ends in an error while
+a row may be left behind, which then has to be deleted in Airtable by hand, and while a column did
+not take what the site sends.
 
 ### Invitations
 
@@ -1671,6 +1872,28 @@ another press was sending one to at that moment, anybody invited in the last fif
 an account deleted before its turn; the Emails tool's **Log** shows each refusal. That last
 invitation's link no longer works, though, since the refused attempt made a new one: send another
 once the site's email is working.
+
+Since 1.122.33 the mentor's invitation carries the welcome a new mentor is sent, after the
+invitation's own lines: the two **Start here** posts, one welcoming mentors to their Mentor Report
+Card and one welcoming students to their Student Report Card; the four student courses on
+learn.wordpress.org, which a mentor joins through each course's invitation link to see what is asked
+of their mentees; the program's private Slack channel for mentors; the discount codes for students'
+tools, which are in that channel; the mentor resource folder; and the sign-off. The courses'
+invitation links and the folder's link are private, and are not in the plugin or in this guide: the
+shipped text holds one bracketed line where they go, and the mentor coordinator types them into the
+template, **Invitation: mentor** in **Tools > Emails**, before any mentor is sent it. A saved edit of
+that template is sent in place of the shipped text, welcome or none, so an edit saved before the
+welcome existed has to be replaced. A reply to the invitation reaches the address under **Contact
+address in emails**, as the program's Reply-To, which no other invitation carries.
+
+The mentor's invitation is queued on every activation of a mentor application, whatever
+**Invitation emails** says, and goes out a few at a time like the others, under the same rules: the
+fifteen minutes, the lock, and a refused email writes no stamp. It is not queued for an
+Administrator, and it is held when the account is not yet confirmed as the person's, linked by
+WordPress.org username alone or with another account also answering for the applicant: **Resend
+invite** on the Mentors screen's **Accounts** tab sends it once an Administrator has confirmed which
+account is the person's. The **Activated** view of the Mentors screen's Waiting for review tab says
+what became of it since the person was made a mentor.
 
 Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
 on the Institution Dashboard, a student with no sign-in on record since the site began recording
@@ -1794,6 +2017,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_institutions_lock` | `WPCPM_Institutions_Sync::OPT_LOCK` |
 | `wpcpm_institutions_report` | `WPCPM_Institutions_Sync::OPT_REPORT` |
 | `wpcpm_institutions_state` | `WPCPM_Institutions_Sync::OPT_STATE` |
+| `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
 | `wpcpm_mentor_application_log` | `WPCPM_Mentor_Application::OPT_LOG` |
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |

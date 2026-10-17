@@ -11,7 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Promotes vetted mentors to Active once their WordPress.org profile shows the
- * mentor's course completion.
+ * mentor's course completion, and, since 1.122.33, makes a mentor on this site of each selected
+ * mentor application whose profile shows it.
  *
  * Was the standalone "Credits Program Mentor Checker" plugin. Folded in here so
  * there is one Airtable connection, one store of settings and one place to look -
@@ -50,7 +51,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		return sprintf(
 			/* translators: 1: source status, 2: course title, 3: target status. */
-			__( 'Checks every mentor whose Airtable status is "%1$s" against their WordPress.org profile, and moves those who have completed "%2$s" to "%3$s".', 'wpcredits-program-manager' ),
+			__( 'Checks every mentor application selected on this site, and, until Stop checking mentors in Airtable is ticked, every mentor whose Airtable status is "%1$s", against their WordPress.org profile. An applicant who has completed "%2$s" is made a mentor on this site, and an Airtable mentor is moved to "%3$s".', 'wpcredits-program-manager' ),
 			$settings['source_status'],
 			$settings['course_title'],
 			$settings['target_status']
@@ -96,16 +97,29 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			'profile_cache_ttl' => $settings['checker_cache_ttl'],
 			'cron_enabled'      => $settings['checker_cron_enabled'],
 			'cron_promotes'     => $settings['checker_cron_promotes'],
+			'skip_airtable'     => ! empty( $settings['checker_skip_airtable'] ),
 		);
 	}
 
 	/**
-	 * Whether the tool can reach Airtable.
+	 * Whether the tool can reach Airtable: whether Airtable's mentors can be read and promoted. The
+	 * applications selected on this site are checked without it.
 	 *
 	 * @return bool
 	 */
 	public static function is_configured() {
 		return WPCPM_Settings::is_connected();
+	}
+
+	/**
+	 * Always ready: the applications selected on this site are checked, and made mentors, without the
+	 * Airtable connection (1.122.33). What is not checked without it, Airtable's mentors, is said by
+	 * the status line and the screen's notice.
+	 *
+	 * @return bool
+	 */
+	public function is_ready() {
+		return true;
 	}
 
 	/**
@@ -144,15 +158,16 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * A status line for the Tools screen: why no check can run, while none can, and otherwise the last
-	 * run.
+	 * A status line for the Tools screen and the Overview: what is not checked, while Airtable is not
+	 * connected, and otherwise the last run. The tool is ready all the same (`is_ready()`), so both
+	 * screens print the line as the words it is, not as a warning.
 	 *
 	 * @return string
 	 */
 	public function status_line() {
-		// Why it cannot run comes before when it last did: no check starts without Airtable.
-		if ( ! $this->is_ready() ) {
-			return parent::status_line();
+		// What is not checked comes before when it last ran: Airtable's mentors are not read without it.
+		if ( ! self::is_configured() ) {
+			return __( 'Airtable is not connected: the applications selected on this site are checked, and Airtable\'s mentors are not.', 'wpcredits-program-manager' );
 		}
 
 		$run = WPCPM_Mentor_Checker_Runner::get_last_run();
@@ -191,6 +206,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			'checker_cache_ttl',
 			'checker_cron_enabled',
 			'checker_cron_promotes',
+			'checker_skip_airtable',
 			'checker_slack_webhook',
 			'checker_slack_channel',
 		);
@@ -207,6 +223,20 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		$why      = WPCPM_Settings_Rows::typed( 'status', WPCPM_Settings_Choices::why_empty( 'mentor_statuses', $settings ) );
 
 		WPCPM_Settings_Rows::select_row( 'checker_source_status', __( 'Check mentors with status', 'wpcredits-program-manager' ), $settings['checker_source_status'], $statuses, __( 'Only mentors holding this status are looked up.', 'wpcredits-program-manager' ), $why );
+
+		// A stop and not a "keep reading" box: a save from a page that does not draw it posts no box,
+		// which reads as unticked, and Airtable's mentors go on being checked (`WPCPM_Settings::save()`).
+		$airtable = __( 'Mentors in Airtable', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="checker_skip_airtable" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $airtable ),
+			checked( ! empty( $settings['checker_skip_airtable'] ), true, false ),
+			esc_html__( 'Stop checking mentors in Airtable', 'wpcredits-program-manager' ),
+			esc_html__( 'Tick it once no mentor in Airtable holds the status above: until then the mentors selected in Airtable before applications moved to this site are checked too.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $airtable );
+
 		WPCPM_Settings_Rows::select_row( 'checker_target_status', __( 'Promote them to', 'wpcredits-program-manager' ), $settings['checker_target_status'], $statuses, __( 'Writing this status needs the <code>data.records:write</code> scope on the token.', 'wpcredits-program-manager' ), $why );
 
 		// Typed, not chosen: learn.wordpress.org has no read API to list its courses from.
@@ -239,7 +269,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			esc_html__( 'Run the check automatically once a day', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['checker_cron_promotes'] ), true, false ),
 			esc_html__( 'Let the daily check also promote mentors', 'wpcredits-program-manager' ),
-			esc_html__( 'Both off by default: an unattended promotion writes to the shared Airtable base, so turn the second one on deliberately.', 'wpcredits-program-manager' )
+			esc_html__( 'Both off by default: an unattended promotion writes to the shared Airtable base and can make mentors on this site, so turn the second one on deliberately.', 'wpcredits-program-manager' )
 		);
 
 		// The webhook is a secret like the Airtable token: shown masked, blank keeps it, "remove"
@@ -291,7 +321,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( self::NONCE ),
 				'i18n'    => array(
-					'starting'     => __( 'Reading mentors from Airtable…', 'wpcredits-program-manager' ),
+					'starting'     => __( 'Reading the mentors to check…', 'wpcredits-program-manager' ),
 					'checking'     => __( 'Reading WordPress.org profiles…', 'wpcredits-program-manager' ),
 					/* translators: 1: mentors checked so far, 2: mentors in the run. */
 					'progress'     => __( 'Checked %1$d of %2$d mentors.', 'wpcredits-program-manager' ),
@@ -313,10 +343,12 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					'promote'      => __( 'Promote', 'wpcredits-program-manager' ),
 					'confirmApply' => sprintf(
 						/* translators: %s: target status name, e.g. "Active". */
-						__( 'This changes mentor statuses to "%s" in the shared Airtable base. Continue?', 'wpcredits-program-manager' ),
+						__( 'This changes mentor statuses to "%s" in the shared Airtable base and, where Make mentors from applications is on, makes a mentor on this site of each selected application whose course shows. Continue?', 'wpcredits-program-manager' ),
 						$settings['target_status']
 					),
-					'confirmOne'   => __( 'Re-check this mentor and update their Airtable status?', 'wpcredits-program-manager' ),
+					'confirmOne'   => __( 'Re-check this mentor and, if their course shows, update their Airtable status or make them a mentor on this site?', 'wpcredits-program-manager' ),
+					/* translators: %s: why Airtable could not be read. */
+					'leftOut'      => __( 'Airtable could not be read, so its mentors were left out of this run: %s', 'wpcredits-program-manager' ),
 				),
 			)
 		);
@@ -347,7 +379,8 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * AJAX: build the queue of mentors to check.
+	 * AJAX: build the queue of mentors to check, the applications selected on this site first. The
+	 * answer carries `airtable_error` when Airtable's mentors could not be read and were left out.
 	 */
 	public function ajax_start_run() {
 		$this->verify_ajax();
@@ -397,15 +430,15 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * AJAX: re-check and promote a single mentor.
+	 * AJAX: re-check and promote a single mentor, or make a mentor of a single application.
 	 */
 	public function ajax_promote() {
 		$this->verify_ajax();
 
 		$record_id = isset( $_POST['record_id'] ) ? sanitize_text_field( wp_unslash( $_POST['record_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in verify_ajax().
 
-		if ( ! WPCPM_Airtable::is_record_id( $record_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'That does not look like an Airtable record ID.', 'wpcredits-program-manager' ) ) );
+		if ( ! WPCPM_Airtable::is_record_id( $record_id ) && 0 === WPCPM_Mentor_Checker_Runner::application_of( $record_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'That does not look like an Airtable record ID or an application.', 'wpcredits-program-manager' ) ) );
 		}
 
 		$runner = new WPCPM_Mentor_Checker_Runner();
@@ -421,7 +454,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * AJAX: promote every mentor the last run marked eligible.
+	 * AJAX: promote every mentor, and make a mentor of every application, the last run marked eligible.
 	 */
 	public function ajax_promote_all() {
 		$this->verify_ajax();
@@ -571,23 +604,27 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		);
 
 		$actions = array(
-			'none'     => array(
+			'none'      => array(
 				'label' => '-',
 				'class' => '',
 			),
-			'eligible' => array(
+			'eligible'  => array(
 				'label' => __( 'Awaiting promotion', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--eligible',
 			),
-			'promoted' => array(
+			'promoted'  => array(
 				'label' => __( 'Promoted', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--promoted',
 			),
-			'skipped'  => array(
+			'activated' => array(
+				'label' => __( 'Made a mentor', 'wpcredits-program-manager' ),
+				'class' => 'wpcpm-checker-action wpcpm-checker-action--activated',
+			),
+			'skipped'   => array(
 				'label' => __( 'Skipped', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--skipped',
 			),
-			'failed'   => array(
+			'failed'    => array(
 				'label' => __( 'Failed', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--failed',
 			),
@@ -709,7 +746,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 						<?php
 						printf(
 							/* translators: %s: link to the settings screen. */
-							esc_html__( 'Add an Airtable Personal Access Token before running a check. %s', 'wpcredits-program-manager' ),
+							esc_html__( 'Airtable is not connected: the applications selected on this site are checked, Airtable\'s mentors are not, and a mentor made from an application gets no Airtable row until it is. %s', 'wpcredits-program-manager' ),
 							'<a href="' . esc_url( admin_url( 'admin.php?page=wpcpm-settings' ) ) . '">' . esc_html__( 'Open settings', 'wpcredits-program-manager' ) . '</a>'
 						);
 						?>
@@ -721,7 +758,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<?php
 				printf(
 					/* translators: 1: source status, 2: course title, 3: target status. */
-					esc_html__( 'Every mentor whose Airtable status is %1$s is looked up on WordPress.org. If their contribution history records completing %2$s, their status is changed to %3$s.', 'wpcredits-program-manager' ),
+					esc_html__( 'Every application selected on this site, and, until Stop checking mentors in Airtable is ticked, every mentor whose Airtable status is %1$s, is looked up on WordPress.org. Where the contribution history records completing %2$s, an application is made a mentor on this site, and an Airtable mentor\'s status is changed to %3$s.', 'wpcredits-program-manager' ),
 					'<code>' . esc_html( $settings['source_status'] ) . '</code>',
 					'<em>' . esc_html( $settings['course_title'] ) . '</em>',
 					'<code>' . esc_html( $settings['target_status'] ) . '</code>'
@@ -736,14 +773,14 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			?>
 
 			<p class="description">
-				<?php esc_html_e( 'Promoting writes to the shared Airtable base, so the token also needs the "data.records:write" scope. "Report only" never writes anything.', 'wpcredits-program-manager' ); ?>
+				<?php esc_html_e( 'Promoting writes to the shared Airtable base, so the token also needs the "data.records:write" scope, and, where Make mentors from applications is on, makes a mentor on this site of each application whose course shows and sends them the invitation with the welcome, unless the account is an Administrator\'s or is not yet confirmed as the person\'s. "Report only" writes nothing to Airtable and makes nobody a mentor: it notes on each application when it was checked and what was found.', 'wpcredits-program-manager' ); ?>
 			</p>
 
 			<div class="wpcpm-checker-controls">
-				<button type="button" class="button button-primary" id="wpcpm-checker-run-dry" <?php disabled( ! $configured ); ?>>
+				<button type="button" class="button button-primary" id="wpcpm-checker-run-dry">
 					<?php esc_html_e( 'Run check (report only)', 'wpcredits-program-manager' ); ?>
 				</button>
-				<button type="button" class="button" id="wpcpm-checker-run-apply" <?php disabled( ! $configured ); ?>>
+				<button type="button" class="button" id="wpcpm-checker-run-apply">
 					<?php
 					printf(
 						/* translators: %s: target status name. */
@@ -752,7 +789,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					);
 					?>
 				</button>
-				<button type="button" class="button" id="wpcpm-checker-promote-all" <?php disabled( ! $configured || 0 === $summary['eligible'] ); ?>>
+				<button type="button" class="button" id="wpcpm-checker-promote-all" <?php disabled( 0 === $summary['eligible'] ); ?>>
 					<?php esc_html_e( 'Promote all eligible', 'wpcredits-program-manager' ); ?>
 					<span id="wpcpm-checker-eligible-count">(<?php echo esc_html( number_format_i18n( $summary['eligible'] ) ); ?>)</span>
 				</button>
@@ -802,6 +839,17 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				?>
 			</p>
 
+			<?php
+			// Above the results: Airtable's mentors were left out of the last run, so a list that reads as
+			// complete is not. The screen fills it in for a run it starts (`assets/js/mentor-checker.js`).
+			$left_out = ! empty( $run['airtable_error'] ) ? sprintf(
+				/* translators: %s: why Airtable could not be read. */
+				__( 'Airtable could not be read, so its mentors were left out of this run: %s', 'wpcredits-program-manager' ),
+				(string) $run['airtable_error']
+			) : '';
+			?>
+			<p class="wpcpm-warning wpcpm-checker-left-out" id="wpcpm-checker-left-out" role="status"<?php echo '' === $left_out ? ' hidden' : ''; ?>><?php echo esc_html( $left_out ); ?></p>
+
 			<div class="wpcpm-checker-progress" id="wpcpm-checker-progress" hidden>
 				<div class="wpcpm-checker-progress__head">
 					<span class="wpcpm-checker-progress__label" id="wpcpm-checker-progress-label"></span>
@@ -821,6 +869,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<span class="wpcpm-checker-stat"><b data-stat="completed"><?php echo esc_html( number_format_i18n( $summary['completed'] ) ); ?></b> <?php esc_html_e( 'completed the course', 'wpcredits-program-manager' ); ?></span>
 				<span class="wpcpm-checker-stat"><b data-stat="eligible"><?php echo esc_html( number_format_i18n( $summary['eligible'] ) ); ?></b> <?php esc_html_e( 'awaiting promotion', 'wpcredits-program-manager' ); ?></span>
 				<span class="wpcpm-checker-stat"><b data-stat="promoted"><?php echo esc_html( number_format_i18n( $summary['promoted'] ) ); ?></b> <?php esc_html_e( 'promoted', 'wpcredits-program-manager' ); ?></span>
+				<span class="wpcpm-checker-stat"><b data-stat="activated"><?php echo esc_html( number_format_i18n( $summary['activated'] ) ); ?></b> <?php esc_html_e( 'made a mentor', 'wpcredits-program-manager' ); ?></span>
 				<span class="wpcpm-checker-stat"><b data-stat="problems"><?php echo esc_html( number_format_i18n( $summary['problems'] ) ); ?></b> <?php esc_html_e( 'need attention', 'wpcredits-program-manager' ); ?></span>
 			</div>
 
@@ -830,7 +879,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 						<th scope="col"><?php esc_html_e( 'Mentor', 'wpcredits-program-manager' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'WordPress.org', 'wpcredits-program-manager' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Course', 'wpcredits-program-manager' ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Airtable status', 'wpcredits-program-manager' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Status', 'wpcredits-program-manager' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Outcome', 'wpcredits-program-manager' ); ?></th>
 					</tr>
 				</thead>

@@ -1075,6 +1075,52 @@ foreach ( array( 'http://learn.example.test/course/mentors/', 'javascript:alert(
 ck( 'and a course link typed with no scheme is given https and kept, as WordPress 6.9 and later gives it',
 	WPCPM_Settings::save( array( 'mentor_course_link' => 'learn.example.test/course' ) )['mentor_course_link'], 'https://learn.example.test/course' );
 
+echo "\n=== Make mentors from applications (1.122.33) ===\n";
+
+// Owner item 1: nothing activates on the live site until a person switches this on at the launch.
+// The checks below store their own copy; the one the suite had is put back after them.
+$opts_before_activation  = $GLOBALS['opts'];
+$umeta_before_activation = $GLOBALS['umeta'];
+store_settings( WPCPM_Settings::defaults() );
+$activation_default  = WPCPM_Settings::defaults()['mentor_activation_enabled'];
+$activation_ticked   = WPCPM_Settings::save( array( 'mentor_activation_enabled' => '1' ), 'people' )['mentor_activation_enabled'];
+$activation_unticked = WPCPM_Settings::save( array(), 'people' )['mentor_activation_enabled'];
+ck( 'Make mentors from applications is off by default, saved by the Students and mentors tab, and kept off when it is unticked',
+	array( $activation_default, in_array( 'mentor_activation_enabled', WPCPM_Settings::scope_keys( 'people' ), true ), $activation_ticked, $activation_unticked ),
+	array( false, true, true, false ) );
+store_settings( array_merge( WPCPM_Settings::defaults(), array( 'mentor_activation_enabled' => true ) ) );
+ck( 'and a save of another tab, a save that names no tab without it, or a patch of another setting leaves it on',
+	array( WPCPM_Settings::save( array(), 'sponsors' )['mentor_activation_enabled'], WPCPM_Settings::save( array( 'mentor_lapse_days' => '30' ) )['mentor_activation_enabled'], WPCPM_Settings::patch( array( 'mentor_lapse_days' => '40' ) )['mentor_activation_enabled'] ),
+	array( true, true, true ) );
+$GLOBALS['opts']  = $opts_before_activation;
+$GLOBALS['umeta'] = $umeta_before_activation;
+
+echo "\n=== Stop checking mentors in Airtable (1.122.33) ===\n";
+
+// The Mentor Status Checker reads the site's applications first and Airtable's mentors after them until a person
+// ticks this. It is a stop, so a save of the checker's screen from a page that does not draw it, which posts no
+// box, leaves Airtable's mentors checked. Like the box above, the checks store their own copy.
+$opts_before_stop  = $GLOBALS['opts'];
+$umeta_before_stop = $GLOBALS['umeta'];
+store_settings( WPCPM_Settings::defaults() );
+$stop_default  = WPCPM_Settings::defaults()['checker_skip_airtable'];
+$stop_ticked   = WPCPM_Settings::save( array( 'checker_skip_airtable' => '1' ), 'tool:mentor-status-checker' )['checker_skip_airtable'];
+$stop_unticked = WPCPM_Settings::save( array( 'checker_batch_size' => '5' ), 'tool:mentor-status-checker' )['checker_skip_airtable'];
+ck( 'Stop checking mentors in Airtable is unticked by default, saved by the checker\'s own form and in its settings keys, and a save of that form without it keeps Airtable\'s mentors checked',
+	array( $stop_default, in_array( 'checker_skip_airtable', WPCPM_Settings::scope_keys( 'tool:mentor-status-checker' ), true ), in_array( 'checker_skip_airtable', ( new WPCPM_Mentor_Checker() )->settings_keys(), true ), $stop_ticked, $stop_unticked ),
+	array( false, true, true, true, false ) );
+ck( 'and the checker\'s own settings keys are the keys of its scope, no more and no fewer',
+	( function () { $own = ( new WPCPM_Mentor_Checker() )->settings_keys(); sort( $own ); $scope = WPCPM_Settings::scope_keys( 'tool:mentor-status-checker' ); sort( $scope ); return $own === $scope; } )(), true );
+store_settings( array_merge( WPCPM_Settings::defaults(), array( 'checker_skip_airtable' => true ) ) );
+ck( 'while a save of another tab, or a patch of another setting, leaves it ticked',
+	array( WPCPM_Settings::save( array(), 'sponsors' )['checker_skip_airtable'], WPCPM_Settings::save( array( 'mentor_lapse_days' => '30' ), 'people' )['checker_skip_airtable'], WPCPM_Settings::patch( array( 'checker_batch_size' => '4' ) )['checker_skip_airtable'] ),
+	array( true, true, true ) );
+ck( 'and a patch can tick it and take the tick away', array( WPCPM_Settings::patch( array( 'checker_skip_airtable' => false ) )['checker_skip_airtable'], WPCPM_Settings::patch( array( 'checker_skip_airtable' => '1' ) )['checker_skip_airtable'] ), array( false, true ) );
+store_settings( array_merge( WPCPM_Settings::defaults(), array( 'checker_skip_airtable' => true ) ) );
+ck( 'and the checker\'s configuration carries it for the runner', array( WPCPM_Mentor_Checker::config()['skip_airtable'], ( function () { store_settings( WPCPM_Settings::defaults() ); return WPCPM_Mentor_Checker::config()['skip_airtable']; } )() ), array( true, false ) );
+$GLOBALS['opts']  = $opts_before_stop;
+$GLOBALS['umeta'] = $umeta_before_stop;
+
 echo "\n=== S2: the tools switches and the low-stock default ===\n";
 $defaults = WPCPM_Settings::defaults();
 ck( 'students see the Tools section by default, mentors do not', array( $defaults['tools_students'], $defaults['tools_mentors'] ), array( true, false ) );
@@ -1465,7 +1511,7 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	public static function summarize( array $rows ) {
-		return array( 'checked' => count( $rows ), 'completed' => 0, 'eligible' => 0, 'promoted' => 0, 'skipped' => 0, 'failed' => 0, 'problems' => 0 );
+		return array( 'checked' => count( $rows ), 'completed' => 0, 'eligible' => 0, 'promoted' => 0, 'activated' => 0, 'skipped' => 0, 'failed' => 0, 'problems' => 0 );
 	}
 }
 
@@ -1601,7 +1647,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // no screen drew belong with the others on Connection; Advanced holds the rest of what had no control.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'sponsors_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock' ),
 	'security'                   => array( 'two_factor_roles' ),
@@ -1621,9 +1667,9 @@ $sorted = static function ( array $map ) {
 	return $map;
 };
 
-ck( 'each scope holds the settings the design gives its tab or tool, fourteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4) and six for Need help?',
+ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and six for Need help?',
     array( $sorted( $scopes ), count( $by_design['tool:mentor-status-checker'] ), count( $by_design['tool:handbook'] ) ),
-    array( $sorted( $by_design ), 14, 6 ) );
+    array( $sorted( $by_design ), 15, 6 ) );
 
 // Every setting stored at its default with every switch on, and a save handed the round-trip probe
 // with every switch off: every setting the save may write shows as a change.
@@ -1653,8 +1699,9 @@ foreach ( $scopes as $scope => $keys ) {
 	ck( sprintf( 'a save of %s writes its own %d settings and no other, though its input holds every setting', $scope, count( $keys ) ), settings_changed_since( $switched_on ), $own );
 }
 
-// The ten settings the one form's save wrote whatever its input held: a leaving rule reads as its
+// The eleven settings the one form's save writes whatever its input holds: a leaving rule reads as its
 // fallback answer when absent, a switch as off. Stored at the other answer and on, so a write shows.
+// The eleventh is Stop checking mentors in Airtable (1.122.33), a stop for the reason its own section gives.
 $ten = array(
 	'on_inactive'             => 'people',
 	'send_welcome_email'      => 'people',
@@ -1666,6 +1713,7 @@ $ten = array(
 	'sponsor_on_inactive'     => 'sponsors',
 	'checker_cron_enabled'    => 'tool:mentor-status-checker',
 	'checker_cron_promotes'   => 'tool:mentor-status-checker',
+	'checker_skip_airtable'   => 'tool:mentor-status-checker',
 );
 
 $other_answers = array_merge(
@@ -1696,7 +1744,7 @@ foreach ( $ten as $key => $own ) {
 }
 
 // A save that names no scope is every scope's, by the rules the screen's single form was saved by:
-// every setting is read, the ten are written from any input, and the other switches only when the
+// every setting is read, the eleven are written from any input, and the other switches only when the
 // input holds them. The screen's one form is the caller that needs it, until each tab posts its own.
 store_settings( $switched_on );
 WPCPM_Settings::save( $everything );
@@ -1710,7 +1758,7 @@ WPCPM_Settings::save( array() );
 $the_ten = array_keys( $ten );
 sort( $the_ten );
 
-ck( 'and writes the ten from any input, leaving every other switch as it was, as the single form\'s save did', settings_changed_since( $other_answers ), $the_ten );
+ck( 'and writes the eleven from any input, leaving every other switch as it was, as the single form\'s save did', settings_changed_since( $other_answers ), $the_ten );
 // From the same stored settings each time, so the two agree because they are the same save rather than
 // because the second starts where the first left off.
 store_settings( $other_answers );
@@ -3377,7 +3425,10 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
         'Invitation emails'                  => array(
             array( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.' ),
-            array( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.' ),
+            array(
+                'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.',
+                'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.',
+            ),
         ),
         'Automatic sync'                     => array(
             array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.' ),
@@ -3396,12 +3447,29 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
     ) );
 
+preg_match( '#<tr><th scope="row">Make mentors from applications</th>.*?</tr>#s', $states['people'], $activation_row );
+
+// The form writes nothing to Airtable; a mentor made from an application does, which its own switch says.
+ck( 'the fold of Applications from mentors says the form writes nothing to Airtable, which is true of the form alone',
+    help_of( $states['people'], 'Applications from mentors' )[1] ?? null,
+    array( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.' ) );
+
+ck( 'the Mentor applications section draws Make mentors from applications after the form\'s own switch: its box, off by default, one sentence saying it waits for the launch, and its fold what waits meanwhile',
+    array(
+        isset( $activation_row[0] ) ? $activation_row[0] : null,
+        strpos( $states['people'], '>Applications from mentors</th>' ) < strpos( $states['people'], '>Make mentors from applications</th>' ) && strpos( $states['people'], '>Make mentors from applications</th>' ) < strpos( $states['people'], 'Who is mailed' ),
+    ),
+    array(
+        '<tr><th scope="row">Make mentors from applications</th><td><label><input type="checkbox" name="mentor_activation_enabled" value="1"> Make a mentor of each selected applicant whose course shows, or for whom The course is completed is pressed</label><p class="description">Off until the launch.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Make mentors from applications</span></summary><p>While it is off, an applicant whose course shows waits under Selected (course pending).</p></details></td></tr>',
+        true,
+    ) );
+
 preg_match( '#<tr><th scope="row">Token scopes</th>.*?</tr>#s', $states['connection'], $scopes_row );
 preg_match( '#<tr><th scope="row">Automatic sync</th>.*?</tr>#s', $states['people'], $sync_row );
 
 ck( 'the Token scopes row says one sentence, and its fold holds the scopes, each with what it is for, the schema scope with every list the screens draw from Airtable, and the line saying the list is the reference',
     isset( $scopes_row[0] ) ? $scopes_row[0] : null,
-    '<tr><th scope="row">Token scopes</th><td><p class="description">Set the scopes listed under Details on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Token scopes</span></summary><ul class="wpcpm-scopes"><li><code>data.records:read</code> <strong>Required</strong><br /><span class="description">Reading mentors, students and tutors.</span></li><li><code>data.records:write</code> <strong>Required by the Mentor Status Checker</strong><br /><span class="description">Changing a mentor&#039;s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails.</span></li><li><code>schema.bases:read</code> <strong>Optional</strong><br /><span class="description">Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker&#039;s screen offer, and reading each column&#039;s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead.</span></li></ul><p>Scopes cannot be checked from here without writing to the base, so this list is the reference.</p></details></td></tr>' );
+    '<tr><th scope="row">Token scopes</th><td><p class="description">Set the scopes listed under Details on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Token scopes</span></summary><ul class="wpcpm-scopes"><li><code>data.records:read</code> <strong>Required</strong><br /><span class="description">Reading mentors, students and tutors.</span></li><li><code>data.records:write</code> <strong>Required by the Mentor Status Checker</strong><br /><span class="description">Changing a mentor&#039;s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable&#039;s refusal waits on the application. The launch&#039;s check row, which WP-CLI writes and deletes, needs it too.</span></li><li><code>schema.bases:read</code> <strong>Optional</strong><br /><span class="description">Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker&#039;s screen offer, and reading each column&#039;s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant&#039;s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.</span></li></ul><p>Scopes cannot be checked from here without writing to the base, so this list is the reference.</p></details></td></tr>' );
 ck( 'and the Automatic sync row its switch, one sentence, and its fold',
     isset( $sync_row[0] ) ? $sync_row[0] : null,
     '<tr><th scope="row">Automatic sync</th><td><label><input type="checkbox" name="auto_sync" value="1" checked=\'checked\'> Read Airtable on a schedule</label><p class="description">Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Automatic sync</span></summary><p>The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</p></details></td></tr>' );
@@ -3908,7 +3976,7 @@ $GLOBALS['signed_in'] = 31;
 $checker_screen       = draw_tool_screen( 'mentor-status-checker' );
 
 ck( 'the Mentor Status Checker\'s screen opens on its Settings section: after its title, its notice and its lede, and before what a run writes, its buttons and its results',
-    in_order( offsets_of( $checker_screen, array( '<h1>Mentor Status Checker</h1>', 'Add an Airtable Personal Access Token before running a check.', '<p class="wpcpm-lede">', '<h2 id="settings">Settings</h2>', 'Promoting writes to the shared Airtable base', '<div class="wpcpm-checker-controls">', 'wpcpm-checker-results' ) ) ),
+    in_order( offsets_of( $checker_screen, array( '<h1>Mentor Status Checker</h1>', 'Airtable is not connected: the applications selected on this site are checked', '<p class="wpcpm-lede">', '<h2 id="settings">Settings</h2>', 'Promoting writes to the shared Airtable base', '<div class="wpcpm-checker-controls">', 'wpcpm-checker-results' ) ) ),
     true );
 
 // The token is not one of the checker's settings: that link still opens the Settings screen, where
@@ -3916,6 +3984,65 @@ ck( 'the Mentor Status Checker\'s screen opens on its Settings section: after it
 ck( 'and its one link to the Settings screen is the token\'s, which is kept there',
     array( preg_match_all( '#href="[^"]*page=wpcpm-settings\b#', $checker_screen ), substr_count( $checker_screen, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-settings">Open settings</a>' ), substr_count( $checker_screen, 'id="settings"' ) ),
     array( 1, 1, 1 ) );
+
+// Since 1.122.33 the applications selected on this site are checked without Airtable.
+preg_match( '#<button type="button" class="button button-primary" id="wpcpm-checker-run-dry"[^>]*>#', $checker_screen, $run_dry_button );
+preg_match( '#<button type="button" class="button" id="wpcpm-checker-run-apply"[^>]*>#', $checker_screen, $run_apply_button );
+preg_match( '#<button type="button" class="button" id="wpcpm-checker-promote-all"[^>]*>#', $checker_screen, $promote_all_button );
+ck( 'the Mentor Status Checker\'s screen with Airtable not connected says what is checked and what is not, and its run buttons are enabled; Promote all eligible waits for a row to promote',
+    array(
+        1 === substr_count( $checker_screen, 'Airtable is not connected: the applications selected on this site are checked, Airtable&#039;s mentors are not, and a mentor made from an application gets no Airtable row until it is. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-settings">Open settings</a>' ),
+        false === strpos( $run_dry_button[0], 'disabled' ),
+        false === strpos( $run_apply_button[0], 'disabled' ),
+        false !== strpos( $promote_all_button[0], 'disabled' ),
+    ),
+    array( true, true, true, true ) );
+ck( 'what a run writes is said truly: promoting makes a mentor of an application and invites them, except an Administrator or an account not yet confirmed, and Report only writes nothing to Airtable and makes nobody a mentor, while it notes each look on the application',
+    1 === substr_count( $checker_screen, 'Promoting writes to the shared Airtable base, so the token also needs the &quot;data.records:write&quot; scope, and, where Make mentors from applications is on, makes a mentor on this site of each application whose course shows and sends them the invitation with the welcome, unless the account is an Administrator&#039;s or is not yet confirmed as the person&#039;s. &quot;Report only&quot; writes nothing to Airtable and makes nobody a mentor: it notes on each application when it was checked and what was found.' ) && false === strpos( $checker_screen, 'never writes anything' ),
+    true );
+ck( 'its lede names both sources, and the box that stops Airtable\'s',
+    false !== strpos( $checker_screen, '<p class="wpcpm-lede">' ) && false !== strpos( $checker_screen, 'Every application selected on this site, and, until Stop checking mentors in Airtable is ticked, every mentor whose Airtable status is <code>Vetted - positive</code>, is looked up on WordPress.org. Where the contribution history records completing <em>WordPress Credits Mentor&#039;s Course</em>, an application is made a mentor on this site, and an Airtable mentor&#039;s status is changed to <code>Active</code>.' ),
+    true );
+ck( 'the box that stops Airtable\'s mentors is drawn under Check mentors with status and above Promote them to, unticked, with the sentence saying when to tick it',
+    array(
+        in_order( offsets_of( $checker_screen, array( 'Check mentors with status', '<th scope="row">Mentors in Airtable</th>', '<input type="checkbox" name="checker_skip_airtable" value="1"> Stop checking mentors in Airtable', 'Promote them to' ) ) ),
+        false !== strpos( $checker_screen, '<p class="description">Tick it once no mentor in Airtable holds the status above: until then the mentors selected in Airtable before applications moved to this site are checked too.</p>' ),
+    ),
+    array( true, true ) );
+store_settings( array_merge( $defaults, array( 'checker_skip_airtable' => true ) ) );
+ck( 'and ticked once a person has ticked it', false !== strpos( draw_tool_screen( 'mentor-status-checker' ), '<input type="checkbox" name="checker_skip_airtable" value="1" checked=\'checked\'> Stop checking mentors in Airtable' ), true );
+WPCPM_Mentor_Checker_Runner::$last_run = array( 'started' => 5, 'rows' => array(), 'airtable_error' => 'Airtable is out of reach.' );
+$left_out_screen                       = draw_tool_screen( 'mentor-status-checker' );
+WPCPM_Mentor_Checker_Runner::$last_run = array( 'started' => 5, 'rows' => array() );
+$no_left_out_screen                    = draw_tool_screen( 'mentor-status-checker' );
+ck( 'a run that left Airtable\'s mentors out says so above the results, and one that did not leaves the line hidden',
+    array(
+        1 === substr_count( $left_out_screen, '<p class="wpcpm-warning wpcpm-checker-left-out" id="wpcpm-checker-left-out" role="status">Airtable could not be read, so its mentors were left out of this run: Airtable is out of reach.</p>' ),
+        in_order( offsets_of( $left_out_screen, array( 'id="wpcpm-checker-left-out"', 'id="wpcpm-checker-progress"', 'wpcpm-checker-results' ) ) ),
+        1 === substr_count( $no_left_out_screen, '<p class="wpcpm-warning wpcpm-checker-left-out" id="wpcpm-checker-left-out" role="status" hidden></p>' ),
+    ),
+    array( true, true, true ) );
+
+// The owner's spacing rule (the trial of 17 October 2026): the status line keeps half a line, 6.5
+// pixels at 13, above and below it, and the warning under it had a paragraph's whole line, 13, which
+// opened a gap of 13 where the screen's rhythm is 6.5. Its own class takes half a line above it, and
+// keeps the whole line it had below it, so no other gap moves; a class outranks wp-admin's `p` rule.
+$left_out_css = array();
+
+foreach ( css_rules( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/mentor-checker.css' ) ) as $rule ) {
+	if ( false !== strpos( $rule[0], 'wpcpm-checker-left-out' ) || false !== strpos( $rule[0], 'wpcpm-checker-status' ) ) {
+		$left_out_css[ $rule[0] ] = array( $rule[1]['margin'] ?? null, specificity( $rule[0] ) > specificity( 'p' ) );
+	}
+}
+
+ck( 'the left-out warning sits half a line under the status line, as the status line\'s own margin does, and keeps its whole line below',
+    $left_out_css,
+    array(
+        '.wpcpm-checker-status'   => array( '0.5em 0', true ),
+        '.wpcpm-checker-left-out' => array( '0.5em 0 1em', true ),
+    ) );
+WPCPM_Mentor_Checker_Runner::$last_run = array();
+store_settings( $defaults );
 
 unset( $GLOBALS['signed_in'] );
 

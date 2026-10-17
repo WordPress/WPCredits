@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.32
+Stable tag: 1.122.33
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -228,9 +228,9 @@ If a run genuinely stops advancing for more than two minutes, the screen says so
 
 Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program > Tools > Mentor Status Checker**. Folded in so there is one Airtable connection, one store of settings and one place to look; its settings are in the Settings section at the top of its screen. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own automatic check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
 
-It reads every mentor whose Airtable status is `Vetted - positive`, looks up their WordPress.org contribution history, and moves those who have completed the *WordPress Credits Mentor's Course* to `Active`.
+It reads the mentor applications selected on this site and, until **Stop checking mentors in Airtable** is ticked, every mentor whose Airtable status is `Vetted - positive`, looks up their WordPress.org contribution history, and makes a mentor on this site of each applicant who has completed the *WordPress Credits Mentor's Course* (once **Make mentors from applications** is on) and moves each Airtable mentor who has to `Active`. The applications are checked without the Airtable connection.
 
-* **Report only** is the default and never writes anything. A separate button promotes, and each row also has its own **Promote**.
+* **Report only** is the default and never promotes anyone or makes a mentor. A separate button promotes, and each row also has its own **Promote**.
 * Promotion **re-reads the record immediately before writing**, so a status somebody else changed in the meantime is left alone.
 * A mentor whose history is longer than the page cap is reported as *could not check*, never as *not completed* - a false negative would leave them waiting.
 * The completion phrase and the course link must appear in the **same** history entry, so a mentor who merely blogged about the course is not counted as having taken it.
@@ -238,7 +238,7 @@ It reads every mentor whose Airtable status is `Vetted - positive`, looks up the
 * A daily automatic run is available, off by default - as is letting that run promote.
 * **A Slack message after every promotion**, once a Slack incoming webhook is saved in the tool's settings: one message per run or press, calling the channel and naming each mentor moved, with their WordPress.org profile and, where their profile shows one, their Slack name, so an administrator adds them to the mentors' channel. A message Slack refuses is kept and sent with the next one.
 
-Promoting writes to Airtable, so it needs the `data.records:write` scope. Everything else is read-only.
+Promoting writes to Airtable, so it needs the `data.records:write` scope. So does making a mentor from an application, which writes one row to the Mentors table (or sets the Status of the row that already holds the person), and `wp wpcredits mentor_airtable_row --check`, which writes one check row and deletes it. Everything else is read-only.
 
 `wp wpcredits check_mentors [--promote]` does the same from the command line.
 
@@ -247,8 +247,8 @@ Promoting writes to Airtable, so it needs the `data.records:write` scope. Everyt
 An Airtable Personal Access Token on the WPCredits base with:
 
 * `data.records:read` - **required.** Reading mentors, students and tutors.
-* `data.records:write` - **required by the Mentor Status Checker.** Changing a mentor's status when you promote them. Without it the tool still runs in report-only mode, but promoting fails with a 403.
-* `schema.bases:read` - optional. Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable; without it each of those settings is typed, and the built-in descriptions are shown.
+* `data.records:write` - **required by the Mentor Status Checker.** Changing a mentor's status when you promote them, and the Mentors row that making a mentor from an application writes (a new row, or the Status of the row that already holds the person). Without it the tool still runs in report-only mode, but promoting fails with a 403, and a mentor made from an application is made and invited all the same, with Airtable's refusal waiting on the application.
+* `schema.bases:read` - optional. Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable; without it each of those settings is typed, and the built-in descriptions are shown. It also lets the Mentors row of a mentor made from an application carry their answers; without it the row holds the name, profile, email and Status alone, and the site never updates it later.
 
 The scopes are listed on the Connection tab of **WPCredits Program > Settings** too. They cannot be verified from WordPress without writing to the base, so if a promotion fails with a permissions error the plugin names the scope that is missing rather than passing Airtable's message through unchanged.
 
@@ -265,7 +265,7 @@ The token is stored in the database, is only ever rendered masked, and is never 
 
 = Does syncing email anyone? =
 
-No. Accounts are created silently with a random password. Invitations are sent only when you enable the setting or press **Send invite** for a specific mentor.
+No. Accounts are created silently with a random password. Invitations are sent only when you enable the setting, press **Send invite** for a specific mentor, or, once **Make mentors from applications** is on, make a mentor of a selected applicant: that invitation carries the welcome and is queued whatever the setting says, except to an Administrator and while the account is not yet confirmed as the person's.
 
 = What happens to a mentor who is no longer Active in Airtable? =
 
@@ -291,6 +291,20 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.33 =
+
+* A selected applicant can become a mentor on this site: once Make mentors from applications is switched on, under Mentor applications on the Students and mentors tab of Settings (it is off until the launch), the daily Mentor Status Checker finding the mentors' course on their WordPress.org profile, or an Administrator pressing The course is completed on their application, makes or links their account as the mentors sync makes one, writes one row to the Airtable Mentors table (or sets the row that already holds them back to Active), and sends them one invitation that carries the welcome, except to an Administrator, and when the account is not yet confirmed as the person's (linked by WordPress.org username alone, or another account also answered for the applicant). An applicant who is a mentor already is filed as such, and nothing is sent.
+* The invitation goes whatever Invitation emails says, since it carries the welcome. It is held, and the mentor is made all the same, in the two cases where the site cannot be sure whose address it would reach: the account was found by the applicant's WordPress.org username alone, which may be somebody else's, or the Mentors row that holds the applicant's address belongs to one account while another account also answered for the applicant. Activated says so and why, and an Administrator presses Resend invite on the Mentors screen's Accounts tab once the account is confirmed; until then the Mentors screen's invitations card leaves the account out of its count and its button, saying how many it left out, and the email queue passes it over. An Administrator who applied keeps their roles and is sent no invitation.
+* The Institution Dashboard's Resend invitation, pressed by an institution's representative, sends nothing to such an account: the press says the invitation could not be sent, no place of the day's twenty is spent, and the hold stays for an Administrator to lift.
+* If Airtable refuses the row, the mentor is made and invited all the same, and Write the Airtable row again waits on the application under Activated, a new view of the Waiting for review tab, where those rows come first and each says what became of the welcome since; the Mentors screen's Sync tab says how many are waiting, and the mentors sync leaves those mentors alone meanwhile.
+* The Mentor Status Checker reads the applications selected on this site, newest first, and, until Stop checking mentors in Airtable is ticked on its screen, the Airtable mentors at its source status as before. It checks the site's applications without the Airtable connection, and its Slack message names the mentors made from applications.
+* Invitation: mentor carries the welcome after its own lines: the two Start here posts, the four student courses, the private Slack channel, the discount codes, the mentor resource folder and the sign-off. The courses' invitation links and the folder's link are typed into the template in Tools > Emails; until then one bracketed line says where they go. A reply to it reaches the address under Contact address in emails.
+* Before this release is deployed, two things are done on the site, since every invitation the mentor's template sends carries the welcome from the deploy on (an activation's, one sent from the Mentors screen, and one the mentors sync queues with Invitation emails on): the mentor coordinator edits Invitation: mentor in Tools > Emails, where the live editor shows the earlier text with no welcome, adding the welcome after the invitation's own lines, copied from the release's shipped text of that email (which shows it with one bracketed line where the private links go), types the private links in where that line stands, and saves, and checks that the edit just saved is the one in place and no other, older saved edit, since a saved edit is sent in place of the shipped text, welcome or none; and Contact address in emails is set, since the welcome asks mentors to reply.
+* Send the acknowledgement, on an application in Waiting whose acknowledgement never went, sends it once, with the link that confirms the address, and two presses at one moment send it once. Withdraw leaves alone an application that another request is making a mentor at that moment.
+* The feed at /wp-json/wpcpm/v1/mentor-applications counts each application once per figure in a month; one selected again in a later month counts in both.
+* For developers: the mentors sync makes and links accounts through `WPCPM_Mentor_Provision`, which `WPCPM_Mentor_Activation` shares; `WPCPM_Mentor_Airtable_Row` finds a person's row by address and shapes a new one by each column's type from the base's schema; an activation, Withdraw and Send the acknowledgement hold the application through `WPCPM_Lock`; an invitation an activation held is marked with `WPCPM_Mentor_Provision::USER_INVITE_HELD`, which `WPCPM_Mail::never_invited()`, `queue_invites()` and `drain_queue()` pass over (`WPCPM_Mail::is_held()`; `held_back()` lists those left out) and `send_invite_now()` deletes once it has sent; `wp wpcredits mentor_airtable_row <reference>` prints the row an application would write and writes nothing.
+* `wp wpcredits mentor_airtable_row --check --email=<address>` is for the launch only, run by hand before Make mentors from applications is switched on: it writes one synthetic row to the Airtable Mentors table, with the address given and a Status that neither the mentors sync nor the Mentor Status Checker reads, reads it back, deletes it, and says which columns the base kept. It may be run against the live base because it only ever deletes the row it just wrote. It ends in an error while a row may be left behind or while a column did not take what the site sends, and it changes nothing on the site.
 
 = 1.122.32 =
 

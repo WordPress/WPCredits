@@ -26,6 +26,7 @@
 	var summary = document.getElementById( 'wpcpm-checker-summary' );
 	var tbody = document.getElementById( 'wpcpm-checker-results-body' );
 	var eligibleCount = document.getElementById( 'wpcpm-checker-eligible-count' );
+	var leftOutEl = document.getElementById( 'wpcpm-checker-left-out' );
 
 	if ( ! runDry || ! tbody ) {
 		return;
@@ -59,6 +60,20 @@
 		if ( statusEl ) {
 			statusEl.textContent = message;
 		}
+	}
+
+	/**
+	 * Say that Airtable's mentors were left out of the run, above the results, or take the sentence away.
+	 *
+	 * @param {string} message The sentence, or '' for none.
+	 */
+	function showLeftOut( message ) {
+		if ( ! leftOutEl ) {
+			return;
+		}
+
+		leftOutEl.textContent = message;
+		leftOutEl.hidden = '' === message;
 	}
 
 	function setBusy( state ) {
@@ -167,7 +182,7 @@
 	 * @return {Object} Tallies keyed by outcome.
 	 */
 	function tally() {
-		var counts = { queued: 0, checked: 0, completed: 0, eligible: 0, promoted: 0, problems: 0 };
+		var counts = { queued: 0, checked: 0, completed: 0, eligible: 0, promoted: 0, activated: 0, problems: 0 };
 
 		allRows().forEach( function ( row ) {
 			if ( row.querySelector( '.wpcpm-checker-pill--pending' ) ) {
@@ -189,6 +204,8 @@
 				counts.eligible++;
 			} else if ( 'promoted' === action ) {
 				counts.promoted++;
+			} else if ( 'activated' === action ) {
+				counts.activated++;
 			}
 		} );
 
@@ -356,9 +373,12 @@
 		startedAt = Date.now();
 		announce( i18n.starting );
 		paintProgress( 0, 0, i18n.starting );
+		showLeftOut( '' );
 
 		post( 'wpcpm_checker_start_run', { apply: apply ? '1' : '' } )
 			.then( function ( start ) {
+				showLeftOut( start.airtable_error ? sprintf( i18n.leftOut, [ start.airtable_error ] ) : '' );
+
 				if ( 0 === start.total ) {
 					stopTicker();
 					paintProgress( 0, 0, i18n.doneLabel );

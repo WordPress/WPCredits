@@ -90,6 +90,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-notes.php';
 // The calendar's three classes are required here for one reason: `WPCPM_Mentors`
@@ -106,6 +107,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-queue.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-application-feed.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-airtable-row.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-activation.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countries.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
@@ -194,6 +197,12 @@ WPCPM_Modules::uninstall();
 // Airtable holds; the accounts they describe are people and are left alone.
 WPCPM_Roster_Index::delete_all();
 delete_metadata( 'user', 0, WPCPM_Students_Sync::META_INSTITUTION, '', true );
+// The three keys an activation of a mentor application leaves on the account it made a mentor
+// (1.122.33): that its Mentors row is still to be written, when it was made, and why its invitation
+// is held. The account is a person and is left alone.
+delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_ROW_PENDING, '', true );
+delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_ACTIVATED_AT, '', true );
+delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_INVITE_HELD, '', true );
 WPCPM_Tools::uninstall();
 WPCPM_Roles::unregister();
 
@@ -254,8 +263,9 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // course, so they are swept by prefix too, from the two rows a transient is where no object cache
 // is installed, the value and its timeout; where one is installed they are not in this table and
 // expire in the cache within the day. And the lock an account's invitation holds while it is sent
-// (1.122.32), which a request that dies sending leaves behind, one row per account.
-foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK ) as $wpcpm_prefix ) {
+// (1.122.32), which a request that dies sending leaves behind, one row per account; and the lock an
+// application holds while it is made a mentor (1.122.33), one row per application, the same way.
+foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}
@@ -277,6 +287,10 @@ delete_transient( WPCPM_Airtable::SCHEMA_TRANSIENT );
 delete_transient( WPCPM_Airtable::BASES_TRANSIENT );
 delete_transient( WPCPM_Airtable::OPTIONS_TRANSIENT );
 delete_transient( WPCPM_Airtable::FAILED_TRANSIENT );
+
+// The names of the tables a Mentors row links to (the countries and the languages), kept a day by
+// the table so that a row is not written with a read of each (1.122.33).
+delete_transient( WPCPM_Mentor_Airtable_Row::LINKS_TRANSIENT );
 
 delete_option( WPCPM_Notices::OPT_PLAIN );
 delete_metadata( 'post', 0, WPCPM_Notices::META_AUDIENCE, '', true );

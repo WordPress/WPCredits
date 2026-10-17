@@ -10,11 +10,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * `GET /wp-json/wpcpm/v1/mentor-applications`: how many people applied to mentor, were selected,
- * became mentors, were declined and lapsed, per calendar month since the first application, and how
- * many applications are open and how many selected and waiting for the course today (design of
+ * `GET /wp-json/wpcpm/v1/mentor-applications`: how many applications were received, selected,
+ * activated, declined and lapsed per calendar month since the first application, and how many
+ * applications are open and how many selected and waiting for the course today (design of
  * 16 October 2026, section 3, decision 10). The Credits Monthly Report and the WPCredits Tracker read
  * it, in releases of their own, where they read the Airtable Mentors table's Status until now.
+ *
+ * **Applications, once per figure in a month** (1.122.33). A figure is how many applications reached
+ * that step in that month, never how many events there were: an application selected twice in a
+ * month counts once there, a withdrawal and a lapse in one month are one lapse, and one selected
+ * again in a later month, after a lapse or an appeal, counts in each month it was selected, so the
+ * months must not be added up as if each application counted once in all. The rule is
+ * `WPCPM_Mentor_Application::month_counts_of()`'s.
+ *
+ * **Only decisions are counted.** Selecting, activating, declining, lapsing and withdrawing are;
+ * an event that is not a decision never is: not an applicant filed as already a mentor
+ * (`EVENT_ALREADY_MENTOR`), not the activation's Airtable row written, refused or settled
+ * (`EVENT_AIRTABLE_WRITTEN`, `EVENT_AIRTABLE_REFUSED`, `EVENT_AIRTABLE_SETTLED`), and not an
+ * acknowledgement. Settling closes a row with nothing written from here, so it is no activation.
  *
  * **Counts, never people.** The answer holds month keys, numbers and the time it was built: no name,
  * address, username, reference or note, ever. The months come from `WPCPM_Mentor_Application::

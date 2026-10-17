@@ -1,6 +1,6 @@
 # Mentor applications on the site: the design
 
-The mentor sign-up form, the review of applications and every email a mentor gets on the way in move from Airtable to wordpresseducation.org. Design of 16 October 2026, for the WPCredits Program Manager plugin (main at 1.122.29). Status: M1 shipped as 1.122.31 on 17 October 2026 (the plan docs/plans/2026-10-16-mentor-applications-m1.md, whose closing note records how the code departs from the plan's blocks); M2 is not planned yet. This is the next step of the Airtable exit the product owner named on 14 October 2026: the mentor welcome emails move to the site, and so does the sign-up form.
+The mentor sign-up form, the review of applications and every email a mentor gets on the way in move from Airtable to wordpresseducation.org. Design of 16 October 2026, for the WPCredits Program Manager plugin (main at 1.122.29). Status: M1 shipped as 1.122.31 on 17 October 2026 (the plan docs/plans/2026-10-16-mentor-applications-m1.md, whose closing note records how the code departs from the plan's blocks); M2 is planned in docs/plans/2026-10-17-mentor-applications-m2.md. This is the next step of the Airtable exit the product owner named on 14 October 2026: the mentor welcome emails move to the site, and so does the sign-up form.
 
 ## 1. Settled by the product owner
 

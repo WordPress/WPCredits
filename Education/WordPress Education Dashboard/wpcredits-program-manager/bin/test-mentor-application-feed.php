@@ -9,7 +9,11 @@
  *   clock (half past eleven at night UTC on the last day of a month is the next month on a site two
  *   hours ahead), each with received, selected, activated, declined and lapsed, a month with
  *   nothing a month of zeros, between two others or this one; a spam row counts for nothing; a
- *   withdrawal counts as lapsed; what deleted rows counted is in its months still. A count in a
+ *   withdrawal counts as lapsed; what deleted rows counted is in its months still. A month's figure
+ *   is the applications that reached the step that month (1.122.33), so an application selected
+ *   twice in a month counts once there and again in a later month it is selected in, and an event
+ *   that is no decision (the Airtable row written, refused or settled, an applicant filed as already
+ *   a mentor, an acknowledgement) is never counted. A count in a
  *   corrupted option is left out when it is not a row of counts, or sits under a key that is no
  *   month of the year or comes after this month, and the walk still runs from the first real month
  *   to this one. With no application, the months are an empty object.
@@ -168,6 +172,52 @@ ck( 'and when it was built', $built['generated'], '2027-03-16T12:00:00+00:00' );
 $declined = WPCPM_Mentor_Application::applications( array( 'declined' ) );
 WPCPM_Mentor_Application::forget( $declined[0], 365, 0 );
 ck( 'a row retention deleted still counts in its months', WPCPM_Mentor_Application_Feed::build( $GLOBALS['now'] )['months'], $built['months'] );
+
+fresh();
+// An application counts once per figure in a month (1.122.33), as the design words the feed: the
+// applications that received, selected, activated, declined or lapsed, never the events. One selected
+// twice in January is one selection there; the other, selected in January and again in March, is one
+// in each month; one that was withdrawn and then lapsed in the same month is one lapse.
+a_row( gmmktime( 9, 0, 0, 1, 4, 2027 ), 'selected', array( array( 'selected', 'selected', gmmktime( 9, 0, 0, 1, 5, 2027 ) ), array( 'withdrawn', 'lapsed', gmmktime( 9, 0, 0, 1, 6, 2027 ) ), array( 'selected', 'selected', gmmktime( 9, 0, 0, 1, 12, 2027 ) ) ) );
+a_row( gmmktime( 9, 0, 0, 1, 6, 2027 ), 'lapsed', array( array( 'selected', 'selected', gmmktime( 9, 0, 0, 1, 8, 2027 ) ), array( 'withdrawn', 'lapsed', gmmktime( 9, 0, 0, 2, 3, 2027 ) ), array( 'lapsed', 'lapsed', gmmktime( 9, 0, 0, 2, 10, 2027 ) ), array( 'selected', 'selected', gmmktime( 9, 0, 0, 3, 2, 2027 ) ) ) );
+ck(
+	'a month\'s figure is the applications that reached the step that month: two applications, one selected twice, are two selections',
+	WPCPM_Mentor_Application_Feed::build( $GLOBALS['now'] )['months'],
+	array(
+		'2027-01' => month( 2, 2, 0, 0, 1 ),
+		'2027-02' => month( 0, 0, 0, 0, 1 ),
+		'2027-03' => month( 0, 1 ),
+	)
+);
+
+fresh();
+// What a row holds that is no decision is no figure (ruling R2): the Airtable row refused, written and
+// settled, the applicant filed as already a mentor, the acknowledgement. Each falls in a month that
+// holds no decision of the same row, so counting any of them as a figure would show; an activation is
+// one activation in its month, however many entries surround it.
+a_row(
+	gmmktime( 9, 0, 0, 1, 28, 2027 ),
+	'active',
+	array(
+		array( 'selected', 'selected', gmmktime( 9, 0, 0, 1, 29, 2027 ) ),
+		array( 'activated', 'active', gmmktime( 9, 0, 0, 1, 30, 2027 ) ),
+		array( 'activated', 'active', gmmktime( 9, 0, 0, 1, 31, 2027 ) ),
+		array( 'Airtable row refused', 'active', gmmktime( 9, 0, 0, 2, 2, 2027 ) ),
+		array( 'Airtable row written', 'active', gmmktime( 9, 0, 0, 2, 5, 2027 ) ),
+		array( 'Airtable row settled', 'active', gmmktime( 9, 0, 0, 3, 6, 2027 ) ),
+		array( 'acknowledgement sent', 'active', gmmktime( 9, 0, 0, 3, 7, 2027 ) ),
+	)
+);
+a_row( gmmktime( 9, 0, 0, 2, 9, 2027 ), 'active', array( array( 'already a mentor', 'active', gmmktime( 9, 0, 0, 2, 10, 2027 ) ) ) );
+ck(
+	'the Airtable row refused, written or settled, the acknowledgement and an applicant filed as already a mentor are no figure, and an activation counts once',
+	WPCPM_Mentor_Application_Feed::build( $GLOBALS['now'] )['months'],
+	array(
+		'2027-01' => month( 1, 1, 1 ),
+		'2027-02' => month( 1 ),
+		'2027-03' => month( 0 ),
+	)
+);
 
 fresh();
 // Nothing happened in December, January or March: the rows arrived in November and February, and

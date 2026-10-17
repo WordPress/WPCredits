@@ -187,6 +187,14 @@ class WPCPM_Mentors_Sync {
 				'mentor_wants_sponsor'   => 'Wants to be in the looking for sponsors list',
 				'mentor_sponsor_company' => 'Sponsor Company Name',
 				'mentor_expertise'       => 'Contribution Area - Expertise',
+				// The columns an application's answers are written to when it becomes a mentor's row
+				// (`WPCPM_Mentor_Airtable_Row`, 1.122.33), asserted against the same fixture. The last
+				// one is spelled with a right single quotation mark, as the table spells it.
+				'mentor_country'         => 'Country',
+				'mentor_languages'       => 'Languages',
+				'mentor_hours'           => 'Available hours per week',
+				'mentor_teacher'         => 'Teacher from a participating institution?',
+				'mentor_anything'        => 'Anything else you’d like us to know?',
 				// Students Reports table.
 				'report_name'            => 'Name',
 				'report_email'           => 'Email',
@@ -1248,190 +1256,15 @@ class WPCPM_Mentors_Sync {
 	/**
 	 * Create or link the WordPress account for one mentor.
 	 *
+	 * The account half is the shared provisioning step's (1.122.33), which the activation of a mentor
+	 * application uses too, so there is one way to make a mentor.
+	 *
 	 * @param array $mentor Mentor data from Airtable.
 	 * @param array $state  Sync state, by reference.
 	 * @return int User ID, or 0 when the mentor could not be provisioned.
 	 */
 	private static function provision_mentor( array $mentor, array &$state ) {
-		$login = self::wporg_username( $mentor['profile'] );
-		$email = sanitize_email( $mentor['email'] );
-
-		if ( '' === $login ) {
-			$state['notices'][] = sprintf(
-				/* translators: 1: mentor name, 2: raw profile value from Airtable. */
-				__( 'Skipped %1$s - no WordPress.org username could be read from "%2$s".', 'wpcredits-program-manager' ),
-				$mentor['name'] ? $mentor['name'] : $mentor['record_id'],
-				$mentor['profile']
-			);
-			++$state['stats']['skipped'];
-
-			return 0;
-		}
-
-		if ( ! is_email( $email ) ) {
-			$state['notices'][] = sprintf(
-				/* translators: %s: mentor name. */
-				__( 'Skipped %s - Airtable has no valid email address, and WordPress cannot create an account without one.', 'wpcredits-program-manager' ),
-				$mentor['name'] ? $mentor['name'] : $login
-			);
-			++$state['stats']['skipped'];
-
-			return 0;
-		}
-
-		// Identify in order of reliability: the record ID we stored ourselves, then
-		// the email address, then the login. Anything else risks writing a mentor's
-		// data onto a stranger's account.
-		$user = self::find_by_record_id( $mentor['record_id'] );
-		$how  = 'record';
-
-		if ( ! $user ) {
-			$user = get_user_by( 'email', $email );
-			$how  = 'email';
-		}
-
-		if ( ! $user ) {
-			$user = get_user_by( 'login', $login );
-			$how  = 'login';
-		}
-
-		if ( $user instanceof WP_User ) {
-			// A login already claimed by a different mentor record is a genuine
-			// clash - two people cannot share one account.
-			$claimed = (string) get_user_meta( $user->ID, self::META_RECORD_ID, true );
-
-			if ( '' !== $claimed && $claimed !== $mentor['record_id'] ) {
-				$state['notices'][] = sprintf(
-					/* translators: 1: mentor name, 2: WordPress username. */
-					__( 'Skipped %1$s - the account "%2$s" is already linked to a different Airtable mentor record. Resolve the duplicate in Airtable.', 'wpcredits-program-manager' ),
-					$mentor['name'] ? $mentor['name'] : $login,
-					$user->user_login
-				);
-				++$state['stats']['conflicts'];
-
-				return 0;
-			}
-
-			self::link_existing_user( $user, $mentor, $how, $state );
-
-			return $user->ID;
-		}
-
-		return self::create_mentor_user( $login, $email, $mentor, $state );
-	}
-
-	/**
-	 * Attach mentor data to an account that already exists.
-	 *
-	 * @param WP_User $user   Existing user.
-	 * @param array   $mentor Mentor data.
-	 * @param string  $how    How the user was matched: record, email or login.
-	 * @param array   $state  Sync state, by reference.
-	 */
-	private static function link_existing_user( WP_User $user, array $mentor, $how, array &$state ) {
-		$was_linked = '' !== (string) get_user_meta( $user->ID, self::META_RECORD_ID, true );
-
-		update_user_meta( $user->ID, self::META_RECORD_ID, $mentor['record_id'] );
-		// Slashed, because user meta unslashes what it is handed and the base's cell is not.
-		update_user_meta( $user->ID, self::META_PROFILE, wp_slash( $mentor['profile'] ) );
-		update_user_meta( $user->ID, self::META_ACTIVE, 1 );
-
-		$is_admin  = in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true );
-		$is_mentor = in_array( WPCPM_Roles::ROLE_MENTOR, (array) $user->roles, true );
-
-		if ( ! $is_mentor && ! $is_admin ) {
-			// add_role() rather than set_role(): the account may legitimately be an
-			// author or editor as well, and a sync should not demote anyone.
-			$user->add_role( WPCPM_Roles::ROLE_MENTOR );
-			$state['notices'][] = sprintf(
-				/* translators: 1: WordPress username, 2: mentor name. */
-				__( 'Added the Mentor role to the existing account "%1$s" (%2$s).', 'wpcredits-program-manager' ),
-				$user->user_login,
-				$mentor['name']
-			);
-		}
-
-		// A slashed copy: core slashes the stored user, merges what it is handed and unslashes the
-		// result, so it expects slashed input.
-		if ( $mentor['profile'] && $mentor['profile'] !== $user->user_url ) {
-			wp_update_user(
-				wp_slash(
-					array(
-						'ID'       => $user->ID,
-						'user_url' => esc_url_raw( $mentor['profile'] ),
-					)
-				)
-			);
-		}
-
-		if ( $was_linked ) {
-			++$state['stats']['updated'];
-		} else {
-			++$state['stats']['linked'];
-			if ( 'login' === $how ) {
-				$state['notices'][] = sprintf(
-					/* translators: 1: WordPress username, 2: mentor name. */
-					__( 'Linked mentor record to the pre-existing account "%1$s" (%2$s) by username. Confirm it is the same person.', 'wpcredits-program-manager' ),
-					$user->user_login,
-					$mentor['name']
-				);
-			}
-		}
-	}
-
-	/**
-	 * Create a fresh Mentor account.
-	 *
-	 * @param string $login  WordPress.org username.
-	 * @param string $email  Email address.
-	 * @param array  $mentor Mentor data.
-	 * @param array  $state  Sync state, by reference.
-	 * @return int User ID, or 0 on failure.
-	 */
-	private static function create_mentor_user( $login, $email, array $mentor, array &$state ) {
-		$user_id = WPCPM_Roles::insert_user(
-			array(
-				'user_login'   => $login,
-				'user_email'   => $email,
-				'user_pass'    => wp_generate_password( 24, true, true ),
-				'display_name' => $mentor['name'] ? $mentor['name'] : $login,
-				'nickname'     => $mentor['name'] ? $mentor['name'] : $login,
-				'user_url'     => esc_url_raw( $mentor['profile'] ),
-				'role'         => WPCPM_Roles::ROLE_MENTOR,
-			)
-		);
-
-		if ( is_wp_error( $user_id ) ) {
-			$state['notices'][] = sprintf(
-				/* translators: 1: WordPress username, 2: error message. */
-				__( 'Could not create the account "%1$s": %2$s', 'wpcredits-program-manager' ),
-				$login,
-				$user_id->get_error_message()
-			);
-			++$state['stats']['skipped'];
-
-			return 0;
-		}
-
-		update_user_meta( $user_id, self::META_RECORD_ID, $mentor['record_id'] );
-		// Slashed, as `link_existing_user()` writes it.
-		update_user_meta( $user_id, self::META_PROFILE, wp_slash( $mentor['profile'] ) );
-		update_user_meta( $user_id, self::META_ACTIVE, 1 );
-
-		++$state['stats']['created'];
-
-		// wp_insert_user() sends nothing on its own. Accounts are created with a
-		// random password, so an invite is the only way in - but sending ~90 of
-		// them is a decision for a human, hence the opt-in setting.
-		if ( WPCPM_Settings::get_value( 'send_welcome_email' ) ) {
-			// Queued, not sent. A first sync creates around ninety accounts inside one
-			// request, and ninety sends from there means a timeout or a host's hourly mail
-			// limit somewhere in the middle with no way to know how far it got.
-			WPCPM_Mail::queue_invite( $user_id );
-			++$state['stats']['invited'];
-		}
-
-		return (int) $user_id;
+		return WPCPM_Mentor_Provision::provision( $mentor, $state );
 	}
 
 	/**
@@ -1443,6 +1276,7 @@ class WPCPM_Mentors_Sync {
 	 */
 	private static function phase_revoke( array &$state, array $settings ) {
 		$active_ids = array_keys( is_array( $state['mentors'] ) ? $state['mentors'] : array() );
+		$started    = isset( $state['started'] ) ? (int) $state['started'] : 0;
 
 		$linked = get_users(
 			array(
@@ -1470,6 +1304,18 @@ class WPCPM_Mentors_Sync {
 			$record_id = (string) get_user_meta( $user_id, self::META_RECORD_ID, true );
 
 			if ( '' === $record_id || in_array( $record_id, $active_ids, true ) ) {
+				continue;
+			}
+
+			// A mentor an activation is holding (1.122.33), passed by in two cases. It holds
+			// `USER_ROW_PENDING`: its Mentors row is not written yet, so the row Airtable has is not
+			// Active, or not there. Or its `USER_ACTIVATED_AT` is at or after this run's start: the
+			// activation stamps it when it makes the account a mentor and again whenever it writes the
+			// row, or finds it linked, just before the wait ends, so the row, or the Status set back,
+			// reached Airtable after this run read the table. The next run reads the row and decides.
+			$activated = (int) get_user_meta( $user_id, WPCPM_Mentor_Provision::USER_ACTIVATED_AT, true );
+
+			if ( '' !== (string) get_user_meta( $user_id, WPCPM_Mentor_Provision::USER_ROW_PENDING, true ) || ( $started > 0 && $activated >= $started ) ) {
 				continue;
 			}
 
@@ -1860,24 +1706,6 @@ class WPCPM_Mentors_Sync {
 			'orphaned'              => 0,
 			'mentors_with_students' => 0,
 		);
-	}
-
-	/**
-	 * Find the account already linked to an Airtable mentor record.
-	 *
-	 * @param string $record_id Airtable record ID.
-	 * @return WP_User|null
-	 */
-	private static function find_by_record_id( $record_id ) {
-		$users = get_users(
-			array(
-				'meta_key'   => self::META_RECORD_ID,
-				'meta_value' => $record_id,
-				'number'     => 1,
-			)
-		);
-
-		return ! empty( $users[0] ) ? $users[0] : null;
 	}
 
 	/**

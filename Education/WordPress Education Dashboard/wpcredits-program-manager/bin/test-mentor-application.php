@@ -27,9 +27,18 @@
  *   lapsed and held rows after the rejected days, never a new, info, second, selected or active row
  *   while approved ones are kept for ever (the sponsor application's three settings, reused). The
  *   days of a spam, declined or lapsed row run from its decision, which an address confirmed
- *   afterwards does not move.
+ *   afterwards does not move. Since 1.122.33 the clock takes each row's lock before it lapses it, so
+ *   an activation in hand is left alone; the run settles the activations between the clock and
+ *   retention; and an active row whose Airtable row is not written is kept whatever the approved
+ *   days say.
+ * - **What an activation keeps on the row** (1.122.33): its lock's name, and readers that answer a
+ *   whole shape or none.
  * - **History survives retention**: what a row counted for the feed, by month on the site's clock,
  *   is kept when the row is deleted, and a spam row counts for nothing.
+ * - **An application counts once per figure in a month** (1.122.33): selected twice in a month is one
+ *   selection, a withdrawal and a lapse in a month are one lapse, selected again in a later month it
+ *   counts there too, and an event that is no decision (an applicant filed as already a mentor, the
+ *   Airtable row written, refused or settled, an acknowledgement) is never counted (ruling R2).
  *
  * Run from the plugin root:  php bin/test-mentor-application.php
  */
@@ -39,6 +48,9 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 require_once __DIR__ . '/stubs/mentor-applications.php';
+// The lapse clock takes an application's lock (1.122.33): the real lock, over the options table.
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php';
 
 $fails = 0;
@@ -310,6 +322,11 @@ $lapsed_row = end( $lapsed_row );
 ck( 'with a dated note in the history, written by the site', array( $lapsed_row['event'], $lapsed_row['actor'], $lapsed_row['note'] ), array( 'lapsed', 0, 'Selected on ' . wp_date( 'Y-m-d', $GLOBALS['now'] - 91 * DAY_IN_SECONDS ) . ', and the mentors\' course had not shown 90 days later.' ) );
 WPCPM_Mentor_Application::decide( $old, 'selected', 'selected', 7, '', $GLOBALS['now'] );
 ck( 'a row selected again starts its days again', array( WPCPM_Mentor_Application::lapse( $GLOBALS['now'] ), WPCPM_Mentor_Application::state_of( get_post( $old ) ) ), array( 0, 'selected' ) );
+$GLOBALS['pmeta'][ $old ][ WPCPM_Mentor_Application::META_EVENT ][ count( $GLOBALS['pmeta'][ $old ][ WPCPM_Mentor_Application::META_EVENT ] ) - 1 ]['at'] = $GLOBALS['now'] - 91 * DAY_IN_SECONDS;
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $old ) ] = (string) ( time() + 600 );
+ck( 'a row whose lock another request holds, an activation in hand, is left tonight, and the lock with it', array( WPCPM_Mentor_Application::lapse( $GLOBALS['now'] ), WPCPM_Mentor_Application::state_of( get_post( $old ) ), $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $old ) ] ), array( 0, 'selected', (string) ( time() + 600 ) ) );
+unset( $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $old ) ] );
+ck( 'and lapsed once it is free, the lock let go after', array( WPCPM_Mentor_Application::lapse( $GLOBALS['now'] ), WPCPM_Mentor_Application::state_of( get_post( $old ) ), isset( $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $old ) ] ) ), array( 1, 'lapsed', false ) );
 fresh();
 $GLOBALS['settings'] = array( 'mentor_lapse_days' => 3 );
 $recent              = aged( 'selected', 10, 'selected' );
@@ -340,6 +357,20 @@ ck( 'retention deletes spam after its days, and declined, lapsed and held rows a
 ck( 'and keeps every new, info and second row, a selected one, an active one while approved ones are kept for ever, and the rest inside their days', array( array_map( function ( $id ) { return null !== get_post( $id ); }, $kept ), array_map( function ( $id ) { return null !== get_post( $id ); }, $gone ) ), array( array_fill_keys( array_keys( $kept ), true ), array_fill_keys( array_keys( $gone ), false ) ) );
 $log = WPCPM_Mentor_Application::deletion_log();
 ck( 'each deletion leaves a reference, a state, the days and a time, and nothing a person wrote', array( count( $log ), array_keys( $log[0] ), $log[0]['state'], $log[0]['days'] ), array( 4, array( 'at', 'id', 'reference', 'state', 'days', 'actor' ), 'spam', 30 ) );
+
+fresh();
+$GLOBALS['settings'] = array( 'application_approved_days' => 30 );
+$unwritten           = aged( 'active', 40, 'activated' );
+$written             = aged( 'active', 40, 'activated' );
+update_post_meta( $unwritten, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'refused' ) );
+update_post_meta( $written, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'created' ) );
+ck( 'retention keeps an active application whose Airtable row is not written, whatever the approved days say', array( WPCPM_Mentor_Application::purge( $GLOBALS['now'] ), null !== get_post( $unwritten ), null !== get_post( $written ) ), array( 1, true, false ) );
+
+// What the daily run does, in order, read from its body: the activation's class is not loaded here.
+preg_match( '/public static function daily\(\) \{(.*?)\n\t\}/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php' ), $daily_body );
+$daily_body = isset( $daily_body[1] ) ? $daily_body[1] : '';
+$daily_at   = array( strpos( $daily_body, 'self::lapse(' ), strpos( $daily_body, 'WPCPM_Mentor_Activation::settle_all(' ), strpos( $daily_body, 'self::purge(' ) );
+ck( 'the daily run lapses, then settles, then purges', array( ! in_array( false, $daily_at, true ), $daily_at[0] < $daily_at[1] && $daily_at[1] < $daily_at[2], false !== strpos( $daily_body, "class_exists( 'WPCPM_Mentor_Activation' )" ) ), array( true, true, true ) );
 
 fresh();
 $GLOBALS['settings'] = array( 'application_spam_days' => 30 );
@@ -379,6 +410,110 @@ WPCPM_Mentor_Application::forget( get_post( $again ), 365, 0 );
 WPCPM_Mentor_Application::forget( get_post( $later ), 365, 0 );
 ck( 'and a second deletion adds to the same months', array( WPCPM_Mentor_Application::kept_counts()['2027-01']['received'], WPCPM_Mentor_Application::kept_counts()['2027-02']['received'], WPCPM_Mentor_Application::kept_counts()['2027-02']['selected'] ), array( 2, 1, 1 ) );
 
+// Each application counts at most once per figure in a month (1.122.33): the feed answers how many
+// applications reached a step that month, not how many events there were.
+fresh();
+$GLOBALS['site_offset'] = 2 * HOUR_IN_SECONDS;
+$GLOBALS['now']         = gmmktime( 9, 0, 0, 1, 10, 2027 );
+$twice                  = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+WPCPM_Mentor_Application::add_event( $twice, 'selected', 7, '', gmmktime( 10, 0, 0, 2, 2, 2027 ) );
+WPCPM_Mentor_Application::add_event( $twice, 'withdrawn', 7, '', gmmktime( 10, 0, 0, 2, 9, 2027 ) );
+WPCPM_Mentor_Application::add_event( $twice, 'selected', 7, '', gmmktime( 10, 0, 0, 2, 16, 2027 ) );
+WPCPM_Mentor_Application::decide( $twice, 'lapsed', 'lapsed', 0, '', gmmktime( 10, 0, 0, 2, 23, 2027 ) );
+WPCPM_Mentor_Application::add_event( $twice, 'selected', 7, '', gmmktime( 10, 0, 0, 4, 2, 2027 ) );
+ck(
+	'an application selected twice in a month counts once there, and a withdrawal and a lapse in one month count one lapse; selected again in a later month, it counts there too',
+	WPCPM_Mentor_Application::month_counts_of( get_post( $twice ) ),
+	array(
+		'2027-01' => array( 'received' => 1, 'selected' => 0, 'activated' => 0, 'declined' => 0, 'lapsed' => 0 ),
+		'2027-02' => array( 'received' => 0, 'selected' => 1, 'activated' => 0, 'declined' => 0, 'lapsed' => 1 ),
+		'2027-04' => array( 'received' => 0, 'selected' => 1, 'activated' => 0, 'declined' => 0, 'lapsed' => 0 ),
+	)
+);
+$mentor_already = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+WPCPM_Mentor_Application::decide( $mentor_already, 'active', WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR, 7, '', gmmktime( 10, 0, 0, 1, 20, 2027 ) );
+ck( 'and an application filed as already a mentor is no activation', WPCPM_Mentor_Application::month_counts_of( get_post( $mentor_already ) )['2027-01']['activated'], 0 );
+
+// Ruling R2: an event that is no decision is never counted, however many a month holds. The list is
+// every event the record names but the five a figure reads (selected, activated, declined, lapsed,
+// withdrawn) and the spam filing, which a spam row's state already leaves out.
+$not_decisions = array(
+	WPCPM_Mentor_Application::EVENT_SUBMITTED,
+	WPCPM_Mentor_Application::EVENT_CONFIRMED,
+	WPCPM_Mentor_Application::EVENT_INFO,
+	WPCPM_Mentor_Application::EVENT_SECOND,
+	WPCPM_Mentor_Application::EVENT_REOPENED,
+	WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED,
+	WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED,
+	WPCPM_Mentor_Application::EVENT_AIRTABLE_WRITTEN,
+	WPCPM_Mentor_Application::EVENT_AIRTABLE_REFUSED,
+	WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR,
+	WPCPM_Mentor_Application::EVENT_AIRTABLE_SETTLED,
+);
+$quiet         = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+foreach ( $not_decisions as $at => $event ) {
+	WPCPM_Mentor_Application::add_event( $quiet, $event, 7, '', gmmktime( 10, 0, 0, 1, 11 + $at, 2027 ) );
+}
+ck( 'an event that is no decision, the Airtable row settled and written and refused and the acknowledgement among them, counts for nothing but the row\'s arrival',
+	WPCPM_Mentor_Application::month_counts_of( get_post( $quiet ) ),
+	array( '2027-01' => array( 'received' => 1, 'selected' => 0, 'activated' => 0, 'declined' => 0, 'lapsed' => 0 ) ) );
+$activated = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+WPCPM_Mentor_Application::decide( $activated, 'active', WPCPM_Mentor_Application::EVENT_ACTIVATED, 7, '', gmmktime( 10, 0, 0, 1, 20, 2027 ) );
+WPCPM_Mentor_Application::add_event( $activated, WPCPM_Mentor_Application::EVENT_AIRTABLE_REFUSED, 0, '', gmmktime( 10, 0, 1, 1, 20, 2027 ) );
+WPCPM_Mentor_Application::add_event( $activated, WPCPM_Mentor_Application::EVENT_AIRTABLE_WRITTEN, 7, '', gmmktime( 10, 0, 0, 1, 21, 2027 ) );
+WPCPM_Mentor_Application::add_event( $activated, WPCPM_Mentor_Application::EVENT_AIRTABLE_SETTLED, 7, '', gmmktime( 10, 0, 0, 1, 22, 2027 ) );
+WPCPM_Mentor_Application::add_event( $activated, WPCPM_Mentor_Application::EVENT_ACTIVATED, 7, '', gmmktime( 10, 0, 0, 1, 23, 2027 ) );
+ck( 'an activation counts once in its month, with its Airtable row refused, written and settled around it and a second activation entry the same month',
+	WPCPM_Mentor_Application::month_counts_of( get_post( $activated ) ),
+	array( '2027-01' => array( 'received' => 1, 'selected' => 0, 'activated' => 1, 'declined' => 0, 'lapsed' => 0 ) ) );
+
+echo "\n=== What an activation keeps on the row (1.122.33) ===\n";
+
+fresh();
+$kept_row = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+ck( 'one lock per application, under a prefix of its own, held ten minutes at most', array( WPCPM_Mentor_Application::lock_name( $kept_row ), WPCPM_Mentor_Application::LOCK_TTL ), array( 'wpcpm_mapp_lock_' . $kept_row, 600 ) );
+ck( 'a row never made a mentor has no account, no Airtable row, no problem and was found by nothing',
+	array( WPCPM_Mentor_Application::user_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::airtable_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::problem_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::linked_by_of( get_post( $kept_row ) ) ),
+	array( 0, array(), array(), '' ) );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_USER, '1001' );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_AIRTABLE, array( 'state' => 'refused', 'error' => 'No.' ) );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_PROBLEM, array( 'message' => 'Could not.' ) );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_LINKED_BY, 'login' );
+ck( 'and the readers answer whole shapes from what is stored, a missing key filled in',
+	array( WPCPM_Mentor_Application::user_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::airtable_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::problem_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::linked_by_of( get_post( $kept_row ) ) ),
+	array( 1001, array( 'state' => 'refused', 'how' => '', 'record' => '', 'error' => 'No.', 'left_out' => array(), 'at' => 0 ), array( 'at' => 0, 'message' => 'Could not.' ), 'login' ) );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_AIRTABLE, 'not a row' );
+update_post_meta( $kept_row, WPCPM_Mentor_Application::META_PROBLEM, array( 'at' => 5 ) );
+ck( 'while a value stored in another shape reads as none', array( WPCPM_Mentor_Application::airtable_of( get_post( $kept_row ) ), WPCPM_Mentor_Application::problem_of( get_post( $kept_row ) ) ), array( array(), array() ) );
+
+echo "\n=== What the Mentor Status Checker notes on the row (1.122.33) ===\n";
+
+// The real note_check() and last_check() as a pair: the checker's own suite stands both in, so it could
+// not tell if what one writes the other reads (ruling P7).
+fresh();
+$checked_row = WPCPM_Mentor_Application::store( answers(), 'new', array(), array() );
+ck( 'a row the checker never looked up has no check, and the meta it keeps one under is named for the record',
+	array( WPCPM_Mentor_Application::META_CHECKED, WPCPM_Mentor_Application::last_check( get_post( $checked_row ) ) ),
+	array( '_wpcpm_mapp_checked', array() ) );
+$noted_after = time();
+WPCPM_Mentor_Application::note_check( $checked_row, 'not_completed', 'The course does not show yet.' );
+$noted_before = time();
+$noted        = WPCPM_Mentor_Application::last_check( get_post( $checked_row ) );
+ck( 'what note_check() writes last_check() reads: the moment of the check, its state and its message, in that order',
+	array( array_keys( $noted ), $noted['at'] >= $noted_after && $noted['at'] <= $noted_before, $noted['state'], $noted['message'] ),
+	array( array( 'at', 'state', 'message' ), true, 'not_completed', 'The course does not show yet.' ) );
+ck( 'and it is stored whole under the meta, as the three keys',
+	array_keys( (array) get_post_meta( $checked_row, WPCPM_Mentor_Application::META_CHECKED, true ) ), array( 'at', 'state', 'message' ) );
+WPCPM_Mentor_Application::note_check( $checked_row, 'error', 'Could not reach C:\\path "profiles".' );
+$again = WPCPM_Mentor_Application::last_check( get_post( $checked_row ) );
+ck( 'a later check replaces the earlier one, and a message keeps its backslash and its quotes', array( $again['state'], $again['message'] ), array( 'error', 'Could not reach C:\\path "profiles".' ) );
+WPCPM_Mentor_Application::note_check( $checked_row, 'completed', '' );
+ck( 'a check that has nothing to say is kept with an empty message', array( WPCPM_Mentor_Application::last_check( get_post( $checked_row ) )['state'], WPCPM_Mentor_Application::last_check( get_post( $checked_row ) )['message'] ), array( 'completed', '' ) );
+update_post_meta( $checked_row, WPCPM_Mentor_Application::META_CHECKED, 'not a check' );
+$odd_shape = WPCPM_Mentor_Application::last_check( get_post( $checked_row ) );
+update_post_meta( $checked_row, WPCPM_Mentor_Application::META_CHECKED, array( 'at' => 5, 'message' => 'No state.' ) );
+ck( 'while a value stored in another shape, or with no state, reads as never', array( $odd_shape, WPCPM_Mentor_Application::last_check( get_post( $checked_row ) ) ), array( array(), array() ) );
+
 echo "\n=== Uninstall ===\n";
 
 fresh();
@@ -389,7 +524,7 @@ update_option( WPCPM_Mentor_Application::OPT_KEPT, array( '2027-01' => array() )
 WPCPM_Mentor_Application::delete_all();
 ck( 'deleting everything removes every row, the log, the kept counts and the daily run', array( count( $GLOBALS['posts'] ), get_option( WPCPM_Mentor_Application::OPT_LOG ), get_option( WPCPM_Mentor_Application::OPT_KEPT ), isset( $GLOBALS['cron']['wpcpm_mentor_applications_daily'] ) ), array( 0, false, false, false ) );
 
-ck( 'nothing was asked of WordPress that the stand-ins do not model', isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), array() );
+ck( 'nothing was asked of WordPress that the stand-ins do not model', array( isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), $GLOBALS['wpdb']->unmodeled ), array( array(), array() ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

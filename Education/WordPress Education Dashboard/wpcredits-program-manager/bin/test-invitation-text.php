@@ -25,6 +25,14 @@
  * and checks it fell on the institution's three invitations that ask for the Collaboration Agreement
  * and nowhere else.
  *
+ * A second change has been made since, on purpose, in 1.122.33: the mentor's invitation carries the
+ * welcome a new mentor is sent, in the lines below the ones it had, and, since the welcome asks the
+ * mentor to reply, the program's Reply-To while Contact address in emails holds an address. The
+ * recording stays as 1.122.18 wrote it; the suite appends the welcome to the four recorded
+ * invitations that are a mentor's (an account holding the Mentor role is sent the mentor's, whatever
+ * else it holds), keeps its own copy of the welcome's lines so a drift in the template is caught, and
+ * checks the other invitations still match the recording byte for byte.
+ *
  * Run from the plugin root:  php bin/test-invitation-text.php
  * Record (once, against 1.122.18, before the move):  php bin/test-invitation-text.php --record
  */
@@ -58,6 +66,7 @@ function get_bloginfo( $k = 'name' ) { return 'WordPress Credits'; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function add_action() {}
 function add_filter() {}
+function is_email( $e ) { return false !== filter_var( (string) $e, FILTER_VALIDATE_EMAIL ) ? $e : false; }
 // Nobody here may manage the program, so each account is the kind its role says.
 function user_can( $user, $cap ) { return false; }
 require_once __DIR__ . '/stubs/specialchars.php';
@@ -69,6 +78,17 @@ require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 // Which kind of person an account is, which the footer's dashboard line reads.
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-capture.php';
+
+/**
+ * The Contact address in emails setting, as a check sets it in `$GLOBALS['contact']`: empty unless
+ * one does, which keeps the footer as the recording has it (no contact sentence).
+ */
+class WPCPM_Settings {
+	public static function get_value( $key, $default = '' ) {
+		return 'mail_contact' === $key ? $GLOBALS['contact'] : $default;
+	}
+}
+$GLOBALS['contact'] = '';
 
 /** The dashboards, each at the address a case gives it, '' while its page is not published. */
 class WPCPM_Students_Dashboard {
@@ -207,12 +227,13 @@ function cases() {
 }
 
 /**
- * One case's invitation, through the real filter.
+ * One case's email as the real filter hands it back.
  *
- * @param array $case One of `cases()`.
- * @return array subject and message.
+ * @param array        $case     One of `cases()`.
+ * @param string|array $incoming The `headers` core hands the filter: '' as core's own are.
+ * @return array to, subject, message and headers.
  */
-function invitation( array $case ) {
+function filtered_email( array $case, $incoming = '' ) {
 	$page = $case['page'];
 
 	WPCPM_Students_Dashboard::$url     = $page ? 'https://example.test/student-report-card/' : '';
@@ -222,12 +243,37 @@ function invitation( array $case ) {
 	WPCPM_Institution_Agreement::$settled = $case['settled'];
 
 	$user  = new WP_User( 70, $case['login'], $case['roles'] );
-	$email = WPCPM_Mail::welcome_email( core_email( $case['login'], $case['version'] ), $user, $case['blogname'] );
+	$core  = core_email( $case['login'], $case['version'] );
+
+	$core['headers'] = $incoming;
+
+	return WPCPM_Mail::welcome_email( $core, $user, $case['blogname'] );
+}
+
+/**
+ * One case's invitation, through the real filter.
+ *
+ * @param array $case One of `cases()`.
+ * @return array subject and message.
+ */
+function invitation( array $case ) {
+	$email = filtered_email( $case );
 
 	return array(
 		'subject' => $email['subject'],
 		'message' => $email['message'],
 	);
+}
+
+/**
+ * The `headers` the real filter answers for a case, from a core email whose own are '', as core's are.
+ *
+ * @param array        $case     One of `cases()`.
+ * @param string|array $incoming What core, or a filter before this one, handed over.
+ * @return string|array
+ */
+function headers_of( array $case, $incoming = '' ) {
+	return filtered_email( $case, $incoming )['headers'];
 }
 
 /**
@@ -251,6 +297,66 @@ function footer_of() {
  */
 function reworded( $message, &$count = 0 ) {
 	return str_replace( 'A program manager then accepts it', 'An Administrator then accepts it', (string) $message, $count );
+}
+
+/**
+ * The welcome a new mentor is sent after the mentor's invitation, line by line, as the template
+ * ships it in 1.122.33: the suite's own copy, so a change to the template that was not meant is
+ * caught. It holds the six public links a mentor needs and the one bracketed line where the mentor
+ * coordinator types the private ones on the site; nothing private is here.
+ *
+ * @return string[]
+ */
+function welcome_lines() {
+	return array(
+		'Thank you, and congratulations on completing the WordPress Credits Mentor\'s Course! As soon as the first students are assigned to you, you will receive the introduction email connecting you with them.',
+		'',
+		'Here are a few details you will need for now.',
+		'',
+		'Your Mentor Report Card on this site has your students on it, a triage of who needs a call, your call notes, and a calendar students book directly from. Once you have set your password, check that your account details look right and set your availability: students cannot book a call with you until you have.',
+		'',
+		'Start here:',
+		'- Mentors: Welcome to your Mentor Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
+		'- Students: Welcome to your Student Report Card, https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/',
+		'',
+		'Access to the student courses, so you always know what is being asked of your mentees (join each course through its invitation link to see it):',
+		'- WordPress Credits Foundations (the base course, for 150 hours or more): https://learn.wordpress.org/course/wordpress-credits-foundations/',
+		'- WordPress Credits Dev Track: https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+		'- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+		'- WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
+		'[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]',
+		'',
+		'Private Slack channel: we will invite you to the program\'s private Slack channel for mentors, where you can report updates or ask any questions that come up during your mentorship.',
+		'',
+		'Discount codes for students\' tools: you will find them in the canvas inside that channel. Please share them only with your students, and only when they ask for each one. Thank you!',
+		'',
+		'We have shared the mentor resource folder with you. Feel free to create your own subfolder to organize your notes on your students and any related resources.',
+		'',
+		'If you have any questions, please reply to this email or write in the private Slack channel.',
+		'',
+		'Thanks so much for your help, and a big hug.',
+	);
+}
+
+/**
+ * The 1.122.18 recording with the welcome after it, for an account holding the Mentor role, whose
+ * invitation the mentor's is; any other invitation as it was.
+ *
+ * @param string $message The recorded body, ending with a line break.
+ * @param array  $case    One of `cases()`.
+ * @param int    $hits    Set to 1 when the welcome was added.
+ * @return string
+ */
+function welcomed( $message, array $case, &$hits = 0 ) {
+	$hits = 0;
+
+	if ( ! in_array( WPCPM_Roles::ROLE_MENTOR, $case['roles'], true ) ) {
+		return (string) $message;
+	}
+
+	$hits = 1;
+
+	return (string) $message . "\r\n" . implode( "\r\n", welcome_lines() ) . "\r\n";
 }
 
 $fixture = __DIR__ . '/fixtures/invitations-1-122-18.json';
@@ -285,23 +391,69 @@ ck( 'the recording is there, and holds every case', is_array( $recorded ) && iss
 ck( 'the recording is the one made from 1.122.18', is_file( $fixture ) ? hash_file( 'sha256', $fixture ) : null, 'd6174c852747000d5164f20d25cc42d4568ce442f16224913673eea18622e5f1' );
 
 $reworded_in = array();
+$welcomed_in = array();
 
 foreach ( $cases as $name => $case ) {
-	$want = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : array( 'subject' => null, 'message' => null );
-	$got  = invitation( $case );
-	$hits = 0;
-	$body = null === $want['message'] ? null : reworded( $want['message'], $hits );
+	$want    = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : array( 'subject' => null, 'message' => null );
+	$got     = invitation( $case );
+	$hits    = 0;
+	$welcome = 0;
+	$body    = null === $want['message'] ? null : welcomed( reworded( $want['message'], $hits ), $case, $welcome );
 
 	if ( $hits > 0 ) {
 		$reworded_in[] = $name . ' x' . $hits;
 	}
 
+	if ( $welcome > 0 ) {
+		$welcomed_in[] = $name;
+	}
+
 	ck( $name . ': the subject, byte for byte', $got['subject'], $want['subject'] );
-	ck( $name . ': the body, byte for byte, then the signature and footer', $got['message'], null === $body ? null : $body . footer_of() );
+	ck( $name . ': the body, byte for byte, then the welcome of a mentor\'s, the signature and the footer', $got['message'], null === $body ? null : $body . footer_of() );
 }
 
 ck( 'and the one sentence worded differently since 1.122.18 is in the institution\'s three invitations that ask for the Collaboration Agreement, once each, and in no other',
     $reworded_in, array( 'institution-7-1 x1', 'institution-7-1-no-page x1', 'institution-6-5 x1' ) );
+
+ck( 'and the welcome follows the mentor\'s invitations, once each, and no other invitation',
+    $welcomed_in, array( 'mentor-7-1', 'mentor-7-1-no-page', 'mentor-6-5', 'mentor-and-institution-7-1' ) );
+
+// The welcome asks the mentor to reply, so the mentor's invitation carries the program's Reply-To.
+$GLOBALS['contact'] = 'programs@example.test';
+ck( 'with Contact address in emails set, the mentor\'s invitation carries the program\'s Reply-To, since its welcome asks for a reply, and the student\'s none',
+    array( headers_of( $cases['mentor-7-1'] ), headers_of( $cases['student-7-1'] ) ),
+    array( array( 'Reply-To: programs@example.test' ), '' ) );
+ck( 'and so does the invitation of a mentor who is also an institution\'s member, which is the mentor\'s, and no other kind\'s',
+    array( headers_of( $cases['mentor-and-institution-7-1'] ), headers_of( $cases['institution-7-1'] ), headers_of( $cases['sponsor-7-1'] ) ),
+    array( array( 'Reply-To: programs@example.test' ), '', '' ) );
+ck( 'what core or a filter before this one handed over is kept, as the first lines, and the Reply-To follows it',
+    array( headers_of( $cases['mentor-7-1'], 'Bcc: copy@example.test' ), headers_of( $cases['mentor-7-1'], "Bcc: copy@example.test\r\nX-Example: 1" ), headers_of( $cases['mentor-7-1'], array( 'Bcc: copy@example.test' ) ) ),
+    array(
+        array( 'Bcc: copy@example.test', 'Reply-To: programs@example.test' ),
+        array( 'Bcc: copy@example.test', 'X-Example: 1', 'Reply-To: programs@example.test' ),
+        array( 'Bcc: copy@example.test', 'Reply-To: programs@example.test' ),
+    ) );
+ck( 'while the student\'s invitation keeps what it was handed, as it came',
+    array( headers_of( $cases['student-7-1'], 'Bcc: copy@example.test' ), headers_of( $cases['student-7-1'], array( 'Bcc: copy@example.test' ) ) ),
+    array( 'Bcc: copy@example.test', array( 'Bcc: copy@example.test' ) ) );
+$GLOBALS['contact'] = 'not an address';
+ck( 'a contact address that is no address is no Reply-To',
+    headers_of( $cases['mentor-7-1'] ), '' );
+$GLOBALS['contact'] = '';
+ck( 'and with none set, the mentor\'s invitation keeps core\'s headers as they came', headers_of( $cases['mentor-7-1'] ), '' );
+ck( 'and what a filter before this one handed over comes back as it came', array( headers_of( $cases['mentor-7-1'], 'Bcc: copy@example.test' ), headers_of( $cases['mentor-7-1'], array( 'Bcc: copy@example.test' ) ) ), array( 'Bcc: copy@example.test', array( 'Bcc: copy@example.test' ) ) );
+
+// The welcome holds no link but the six public ones, and none that is private.
+ck( 'the welcome holds the six public links and no other',
+    preg_match_all( '#https?://[^\s]+#', implode( "\n", welcome_lines() ), $welcome_links ) ? $welcome_links[0] : array(),
+    array(
+        'https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
+        'https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/',
+        'https://learn.wordpress.org/course/wordpress-credits-foundations/',
+        'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+        'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+        'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
+    ) );
 
 // The site's name as core hands it over is read back once more, by the template alone, as every value
 // is: until the fix wave of 1.122.23 the plugin read it back first, so a name holding a typed-out

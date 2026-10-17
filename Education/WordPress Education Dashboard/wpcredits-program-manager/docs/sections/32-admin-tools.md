@@ -38,9 +38,9 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 The plugin's emails, grouped by area, each area in a table of its own. There are six:
 
-- **Invitations**: the student's, the mentor's and the sponsor's invitation, and the institution's
-  two, one for an institution whose Collaboration Agreement is not on file yet and one for an
-  institution whose agreement is on file.
+- **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
+  is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
+  Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
 - **Mentor calls**: what the mentor and the students are told about one-to-one calls, group sessions
   and series of sessions: a booking, a join, a series joined, a session moved, a place left or
   released, a call or a session canceled, and the reminder a day before. Where the mentor and the
@@ -259,10 +259,32 @@ recipient type; those older than 30 days are deleted with the rest.
 
 ### Mentor Status Checker
 
-**WPCredits Program > Tools > Mentor Status Checker.** Promotes mentors from *Vetted - positive* to
-*Active* in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It
-reads profiles, matches the badge, and reports what it would change before it changes anything. It
-needs the Airtable connection, so it refuses to run until that is set up.
+**WPCredits Program > Tools > Mentor Status Checker.** Reads the WordPress.org profile of each mentor
+who has still to be made one, matches the Credits Mentor's Course completion, and reports what it
+would change before it changes anything. It has two sources. First the applications selected on this
+site, the newest selection first: where the course shows on an applicant's profile, they are made a
+mentor on this site, once **Make mentors from applications** is on (see *Applications to mentor* in
+the part on the plugin in wp-admin). Then, until **Stop checking mentors in Airtable** is ticked, the
+mentors whose Airtable status is the one set under **Check mentors with status**, *Vetted -
+positive* by default: where the course shows on one of those profiles, they are promoted to *Active*
+in Airtable, as they were before 1.122.33.
+
+It needs the Airtable connection only for Airtable's mentors. The applications selected on this site
+are checked without it; while Airtable is not connected, the tool's status line and its screen say
+that Airtable's mentors are not checked, and that a mentor made from an application gets no Airtable
+row until it is. A run in which Airtable cannot be read still checks the site's applications, and
+says above its results that Airtable's mentors were left out of it; with no application selected,
+the error is the answer, as it was when Airtable was the only source.
+
+An application's row in the results reads *Made a mentor* once it is, with what was held or not
+written on the way (an invitation held, an Airtable row refused), and the tally counts **made a
+mentor** beside **promoted**. A run that only reports, and any run while **Make mentors from
+applications** is off, makes nobody a mentor: an application whose course shows reads *Awaiting
+promotion*, "Ready to be made a mentor", with "it waits until Make mentors from applications is
+switched on" while the switch is off. A report keeps on each application the day of its last check,
+which the Selected view shows. **Run check and promote** and **Promote all eligible** promote and
+make mentors from both sources, and **Promote** on one row re-checks that mentor or application
+first, never from the cache, and refuses an application that has left Selected (course pending).
 
 #### Settings
 
@@ -272,27 +294,33 @@ settings**:
 | Setting | What it is for |
 | --- | --- |
 | **Check mentors with status** and **Promote them to** | The Mentors table's status a run reads mentors at, *Vetted - positive* by default, and the one it moves them to, *Active*, each chosen from the table's Status options, or typed, with a sentence saying why, when those cannot be read. Writing the second needs the `data.records:write` scope on the token. |
+| **Mentors in Airtable** | **Stop checking mentors in Airtable**, unticked by default: until it is ticked, the mentors holding the status above in Airtable are checked after the site's applications. Tick it once no mentor in Airtable holds that status. It is a stop and not a box to keep reading with, so that a save of this form from a page loaded before the box existed, which posts no box, leaves Airtable's mentors checked. |
 | **Course title** and **Course slug** | The course a profile has to show as completed, the WordPress Credits Mentor's Course by default. The slug, from the course's address on learn.wordpress.org, is the reliable signal, and the title only a fallback. Both are typed: learn.wordpress.org has no list to read them from. |
 | **Completion phrase** | Words that must appear in the same profile history entry as the course, *Completed the course* by default, so somebody who merely blogged about the course is not counted. |
 | **Profile history filter** | **Milestones only (faster)**, the default, or **All contributions**: course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Its fold: switch to all contributions only if WordPress.org changes and completions stop being found. |
 | **Maximum history pages per mentor** | From 1 to 100, 15 by default. A mentor whose history is longer is reported as "could not check", never as "not completed", since a false negative would leave them waiting. |
 | **Mentors per batch** and **Delay between requests (ms)** | How hard a run reads WordPress.org, from 1 to 25 mentors a batch, three by default, and from 0 to 5000 ms between requests, none by default: each mentor can cost several requests, so smaller batches keep the screen responsive. |
 | **Cache profile results for (seconds)** | How long a settled answer is kept, up to thirty days, twelve hours by default. A failed read is always tried again, and `0` keeps nothing. |
-| **Daily check** | Two boxes, **Run the check automatically once a day** and **Let the daily check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately. The check ran once a week until 1.122.4; a site that had the weekly run moves to the daily one by itself, its next run within the hour. |
-| **Slack webhook** | The Slack incoming webhook the message after a promotion goes to, which decides the channel it lands in. Shown masked and never sent to the browser: leave it blank to keep the one saved, or type `remove` to take it away. Only an address starting `https://hooks.slack.com/services/` is taken; anything else is refused with an error on the screen, and the one saved before stays. Its fold says how to get one: a Slack app in the workspace, with Incoming Webhooks switched on and a webhook added for the administrators' channel. |
+| **Daily check** | Two boxes, **Run the check automatically once a day** and **Let the daily check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base and, where **Make mentors from applications** is on, makes mentors on this site and sends their invitations, so turn the second on deliberately. The check ran once a week until 1.122.4; a site that had the weekly run moves to the daily one by itself, its next run within the hour. |
+| **Slack webhook** | The Slack incoming webhook the message after a promotion goes to, which decides the channel it lands in. Shown masked and never sent to the browser: leave it blank to keep the one saved, or type `remove` to take it away. Only a Slack incoming webhook address, as Slack gives it, is taken; anything else is refused with an error on the screen, and the one saved before stays. Its fold says how to get one: a Slack app in the workspace, with Incoming Webhooks switched on and a webhook added for the administrators' channel. |
 | **Channel to add them to** | The channel the message asks the administrators to add the mentors to, as it is named in Slack, such as `#mentors`. Left empty, the message says "the mentors channel". |
 
 #### The Slack message after a promotion
 
-With a webhook saved, every action that promotes sends **one** message once it has finished: a run,
-whether the daily one, **Run check and promote** or `wp wpcredits check_mentors --promote`; **Promote
-all eligible**; or **Promote** on one row. It calls the channel (`@channel`), says how many mentors
-were moved to the status they were promoted to and which channel to add them to, and lists each one
-with a link to their WordPress.org profile and, where the profile shows one, their Slack name, which is
-the name to type when adding them, shown as code so that an address typed there is not a link. The last
+With a webhook saved, every action that promotes or makes a mentor sends **one** message once it has
+finished: a run, whether the daily one, **Run check and promote** or `wp wpcredits check_mentors
+--promote`; **Promote all eligible**; **Promote** on one row; or, since 1.122.33, **The course is
+completed** on an application, which sends its message at once. It calls the channel (`@channel`),
+says how many mentors were moved to the status they were promoted to and which channel to add them
+to, and lists each one with a link to their WordPress.org profile and, where the profile shows one,
+their Slack name, which is the name to type when adding them, shown as code so that an address typed
+there is not a link. The line of a mentor made from an application ends *from an application on the
+site*, and the count and the status in the first line cover them as they cover a promotion. The last
 line says who promoted: *the daily check*, *WP-CLI* or the administrator who pressed the button. Only
-mentors whose status was actually written are named; an action that moved nobody sends nothing, and
-a long list goes in messages of 25. The message is in the site's language, whoever pressed the button.
+mentors whose status was actually written, and applicants actually made mentors, are named: an
+applicant is named as soon as the account is made, so one whose Airtable row was refused is named all
+the same, and one filed as already a mentor is not. An action that moved nobody sends nothing, and a
+long list goes in messages of 25. The message is in the site's language, whoever pressed the button.
 
 A message Slack refuses, or that cannot reach Slack, is not lost. Its mentors are kept and sent with
 the next message, and every run sends what is kept even when it promotes nobody, so with the daily

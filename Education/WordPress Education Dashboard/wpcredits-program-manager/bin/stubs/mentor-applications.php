@@ -46,19 +46,26 @@ $GLOBALS['next_id']     = 500;
 $GLOBALS['now']         = gmmktime( 10, 0, 0, 10, 16, 2026 );
 $GLOBALS['site_offset'] = 2 * HOUR_IN_SECONDS;
 $GLOBALS['insert_fails'] = false;
+$GLOBALS['insert_error'] = null;
+$GLOBALS['next_user']    = 1000;
 
 class WP_Error {
 	public $code    = '';
 	public $message = '';
+	public $data    = null;
 	public function __construct( $code = '', $message = '', $data = null ) {
 		$this->code    = $code;
 		$this->message = $message;
+		$this->data    = $data;
 	}
 	public function get_error_code() {
 		return $this->code;
 	}
 	public function get_error_message() {
 		return $this->message;
+	}
+	public function get_error_data() {
+		return $this->data;
 	}
 }
 
@@ -67,7 +74,7 @@ class WP_Post {
 }
 
 class WP_User {
-	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
+	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $user_url = '', $roles = array();
 	public function __construct( $id = 0, $name = '', $email = '', array $roles = array() ) {
 		$this->ID           = (int) $id;
 		$this->display_name = $name;
@@ -77,6 +84,18 @@ class WP_User {
 	}
 	public function exists() {
 		return $this->ID > 0;
+	}
+	// The account is the object `$GLOBALS['users']` keeps, so its roles are written where they are read.
+	public function add_role( $role ) {
+		if ( ! in_array( $role, $this->roles, true ) ) {
+			$this->roles[] = $role;
+		}
+	}
+	public function remove_role( $role ) {
+		$this->roles = array_values( array_diff( $this->roles, array( $role ) ) );
+	}
+	public function set_role( $role ) {
+		$this->roles = array( $role );
 	}
 }
 
@@ -221,6 +240,9 @@ function add_action( $hook, $callback, $priority = 10, $args = 1 ) {
 function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
 	$GLOBALS['hooks'][ $hook ][] = $callback;
 }
+function remove_filter( $hook, $callback, $priority = 10 ) {
+	return true;
+}
 function apply_filters( $hook, $value, ...$args ) {
 	return $value;
 }
@@ -330,6 +352,23 @@ function delete_option( $key ) {
 	unset( $GLOBALS['opts'][ $key ] );
 	return true;
 }
+/**
+ * `wp_cache_delete()`: this request's copy of a row dropped, so the next read comes from the table.
+ * The stand-in keeps no copy, so each call is only kept (`$GLOBALS['cache_deleted']`), and among the
+ * lock's statements when a check records them (`$GLOBALS['events']`, when it is an array), so a check
+ * can read that a read under a lock was made fresh (1.122.33).
+ *
+ * @param int|string $key   The row.
+ * @param string     $group The cache group.
+ * @return bool
+ */
+function wp_cache_delete( $key, $group = '' ) {
+	$GLOBALS['cache_deleted'][] = array( $key, $group );
+	if ( isset( $GLOBALS['events'] ) && is_array( $GLOBALS['events'] ) ) {
+		$GLOBALS['events'][] = 'drop ' . $group . ' ' . $key;
+	}
+	return true;
+}
 function get_transient( $key ) {
 	return array_key_exists( $key, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $key ] : false;
 }
@@ -413,7 +452,17 @@ function add_post_meta( $id, $key, $value, $unique = false ) {
 	$GLOBALS['pmeta'][ (int) $id ][ $key ][] = stripslashes_deep( $value );
 	return true;
 }
+// While `$GLOBALS['write_log']` is an array, each key written is appended to it, with the user meta
+// `update_user_meta()` writes, so a check can read the order of the writes; and while
+// `$GLOBALS['throw_on_write']` names a key, a write of that key throws, as a request that fails part
+// way does, so a check can read what is let go after it (1.122.33).
 function update_post_meta( $id, $key, $value ) {
+	if ( isset( $GLOBALS['throw_on_write'] ) && $key === $GLOBALS['throw_on_write'] ) {
+		throw new RuntimeException( 'write refused: ' . $key );
+	}
+	if ( isset( $GLOBALS['write_log'] ) && is_array( $GLOBALS['write_log'] ) ) {
+		$GLOBALS['write_log'][] = $key;
+	}
 	$GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) );
 	return true;
 }
@@ -576,6 +625,12 @@ function get_user_meta( $id, $key = '', $single = false ) {
 	return $single ? $value : ( '' === $value ? array() : array( $value ) );
 }
 function update_user_meta( $id, $key, $value ) {
+	if ( isset( $GLOBALS['throw_on_write'] ) && $key === $GLOBALS['throw_on_write'] ) {
+		throw new RuntimeException( 'write refused: ' . $key );
+	}
+	if ( isset( $GLOBALS['write_log'] ) && is_array( $GLOBALS['write_log'] ) ) {
+		$GLOBALS['write_log'][] = $key;
+	}
 	$GLOBALS['umeta'][ (int) $id ][ $key ] = $value;
 	return true;
 }
@@ -583,11 +638,23 @@ function delete_user_meta( $id, $key, $value = '' ) {
 	unset( $GLOBALS['umeta'][ (int) $id ][ $key ] );
 	return true;
 }
+// Whether an account's key is there at all, whatever it holds, as core's `metadata_exists()` answers:
+// the mail layer reads a held invitation by it. Asked of anything but an account, it is recorded in
+// `$GLOBALS['unmodeled']`.
+function metadata_exists( $type, $id, $key ) {
+	if ( 'user' !== $type ) {
+		$GLOBALS['unmodeled'][] = 'metadata_exists ' . $type;
+		return false;
+	}
+	return isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $key, $GLOBALS['umeta'][ (int) $id ] );
+}
 
 /**
- * `get_users()` as the duplicate check asks it: the accounts holding a role, or a meta key, or
- * either (`relation` OR across a role and a meta key is asked as two calls by the plugin), with
- * `fields` all or ID.
+ * `get_users()` as the duplicate check and the account step ask it: the accounts holding a role, or
+ * a meta key (and, with `meta_value`, that value exactly), or a `meta_query` of `EXISTS` clauses
+ * (the key is there, whatever it holds), or either (`relation` OR across a role and a meta key is
+ * asked as two calls by the plugin), with `fields` all or ID. A clause of any other kind is
+ * recorded in `$GLOBALS['unmodeled']`, which a suite checks is empty at its end.
  *
  * @param array $args The query.
  * @return array
@@ -600,6 +667,18 @@ function get_users( $args = array() ) {
 		}
 		if ( isset( $args['meta_key'] ) && '' === (string) get_user_meta( $user->ID, $args['meta_key'], true ) ) {
 			continue;
+		}
+		if ( isset( $args['meta_key'], $args['meta_value'] ) && (string) $args['meta_value'] !== (string) get_user_meta( $user->ID, $args['meta_key'], true ) ) {
+			continue;
+		}
+		foreach ( isset( $args['meta_query'] ) ? (array) $args['meta_query'] : array() as $clause ) {
+			if ( ! is_array( $clause ) || ! isset( $clause['key'], $clause['compare'] ) || 'EXISTS' !== $clause['compare'] ) {
+				$GLOBALS['unmodeled'][] = 'get_users: a meta_query clause that is not an EXISTS';
+				continue;
+			}
+			if ( ! isset( $GLOBALS['umeta'][ $user->ID ] ) || ! array_key_exists( $clause['key'], $GLOBALS['umeta'][ $user->ID ] ) ) {
+				continue 2;
+			}
 		}
 		if ( isset( $args['capability'] ) && ! user_can( $user, $args['capability'] ) ) {
 			continue;
@@ -615,4 +694,60 @@ function get_users( $args = array() ) {
 		);
 	}
 	return $out;
+}
+
+/**
+ * `wp_insert_user()` as core answers it for a new account: what it is handed is slashed, so it is
+ * unslashed here; a login or an address another account holds is refused with core's own words, and
+ * so is whatever `$GLOBALS['insert_error']` holds, for a check that needs WordPress to say no. The
+ * account answers with its ID, and holds the one role it was given.
+ *
+ * @param array $userdata The account, slashed.
+ * @return int|WP_Error
+ */
+function wp_insert_user( $userdata ) {
+	$data = wp_unslash( (array) $userdata );
+	if ( $GLOBALS['insert_error'] instanceof WP_Error ) {
+		return $GLOBALS['insert_error'];
+	}
+	$login = isset( $data['user_login'] ) ? (string) $data['user_login'] : '';
+	$email = isset( $data['user_email'] ) ? (string) $data['user_email'] : '';
+	if ( '' === $login ) {
+		return new WP_Error( 'empty_user_login', 'Cannot create a user with an empty login name.' );
+	}
+	if ( get_user_by( 'login', $login ) ) {
+		return new WP_Error( 'existing_user_login', 'Sorry, that username already exists!' );
+	}
+	if ( '' !== $email && get_user_by( 'email', $email ) ) {
+		return new WP_Error( 'existing_user_email', 'Sorry, that email address is already used!' );
+	}
+	$id               = $GLOBALS['next_user']++;
+	$user             = new WP_User( $id, isset( $data['display_name'] ) ? (string) $data['display_name'] : '', $email, empty( $data['role'] ) ? array() : array( (string) $data['role'] ) );
+	$user->user_login = $login;
+	$user->user_url   = isset( $data['user_url'] ) ? (string) $data['user_url'] : '';
+
+	$GLOBALS['users'][ $id ] = $user;
+
+	return $id;
+}
+
+/**
+ * `wp_update_user()` as far as the account step reaches it: the address, the display name and the
+ * website of an account that exists, from slashed data.
+ *
+ * @param array $userdata The changes, with the account's ID, slashed.
+ * @return int|WP_Error
+ */
+function wp_update_user( $userdata ) {
+	$data = wp_unslash( (array) $userdata );
+	$user = get_userdata( isset( $data['ID'] ) ? (int) $data['ID'] : 0 );
+	if ( ! $user ) {
+		return new WP_Error( 'invalid_user_id', 'Invalid user ID.' );
+	}
+	foreach ( array( 'user_url', 'user_email', 'display_name' ) as $field ) {
+		if ( isset( $data[ $field ] ) ) {
+			$user->$field = (string) $data[ $field ];
+		}
+	}
+	return $user->ID;
 }

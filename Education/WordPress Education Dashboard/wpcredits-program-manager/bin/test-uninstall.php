@@ -660,6 +660,11 @@ foreach ( $swept_options as $name ) {
 	$GLOBALS['opts'][ $name ] = array( 'seeded' => true );
 }
 
+// The lock an application holds while it is made a mentor (1.122.33), which a request that dies
+// inside the activation leaves behind, one row per application: the time it runs to, as a lock
+// writes it.
+$GLOBALS['opts']['wpcpm_mapp_lock_501'] = (string) ( time() + 600 );
+
 // Two mentors the Mentor Status Checker promoted and has not announced on Slack yet (1.122.4), a row
 // each, which the tool's own uninstall forgets.
 $GLOBALS['opts']['wpcpm_checker_slack_pending_recSEED0000000003'] = array( 'record_id' => 'recSEED0000000003' );
@@ -678,6 +683,8 @@ set_transient( 'wpcpm_learn_course_example-course', array( 'id' => 1 ), DAY_IN_S
 set_transient( 'wpcpm_learn_structure_1', array(), DAY_IN_SECONDS );
 // The mentor application feed's answer, kept fifteen minutes (1.122.31).
 set_transient( 'wpcpm_mentor_applications_feed', array( 'months' => array() ), 15 * MINUTE_IN_SECONDS );
+// The names of the tables a Mentors row links to, kept a day by the table (1.122.33).
+set_transient( 'wpcpm_mapp_link_names', array( 'tblCOUNTRIES00001' => array( 'read' => time(), 'names' => array( 'poland' => 'recCOUNTRYPL00001' ) ) ), DAY_IN_SECONDS );
 
 // The mail log holds the addresses mail went to; the queue, the people still waiting for one; the
 // run, the counts and times of the last bulk invite (the final fix wave, item 6).
@@ -765,7 +772,18 @@ $student = a_user(
 		'nickname'                  => 'student-one',
 	)
 );
-$mentor  = a_user( array( 'editor', 'wpcpm_mentor' ) );
+// A mentor an activation made (1.122.33): the three keys it leaves on the account go, and the
+// account's own stay.
+$mentor  = a_user(
+	array( 'editor', 'wpcpm_mentor' ),
+	array(),
+	array(
+		'wpcpm_mentor_row_pending'  => 1,          // WPCPM_Mentor_Provision::USER_ROW_PENDING.
+		'wpcpm_mentor_activated_at' => 1792000000, // WPCPM_Mentor_Provision::USER_ACTIVATED_AT.
+		'wpcpm_mentor_invite_held'  => 'login',    // WPCPM_Mentor_Provision::USER_INVITE_HELD.
+		'nickname'                  => 'mentor-one',
+	)
+);
 $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts', 'upload_files' ), array( 'wpcpm_sponsor_active' => 1 ) );
 
 // The cron schedule: the twelve hooks the file clears itself, every hook the modules and the tools
@@ -867,6 +885,8 @@ ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) 
 echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
+ck( 'the three keys an activation leaves on a mentor\'s account go, the held invitation among them, and the account\'s own stays', $GLOBALS['umeta'][ $mentor ], array( 'nickname' => 'mentor-one' ) );
+ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
 ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too', $GLOBALS['umeta'][ $admin ], array() );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
@@ -884,6 +904,7 @@ echo "\n=== What the Track Builder keeps outside its posts (SURFACES-7) ===\n";
 ck( 'the publish lock a killed run left behind goes', get_option( 'wpcpm_track_publish_lock', 'gone' ), 'gone' );
 ck( 'and so does the claim on the upgrade of the seeding a killed request left behind', get_option( 'wpcpm_tracks_upgrade_lock', 'gone' ), 'gone' );
 ck( 'the copy of the base\'s schema goes, with its timeout', array_values( preg_grep( '/wpcpm_airtable_schema/', array_map( 'strval', array_keys( $GLOBALS['opts'] ) ) ) ), array() );
+ck( 'the linked names the Mentors row was written with go, with their timeout', array_values( preg_grep( '/wpcpm_mapp_link_names/', array_map( 'strval', array_keys( $GLOBALS['opts'] ) ) ) ), array() );
 ck( 'every copy of a Learn course and of a course\'s structure goes, with its timeout', array_values( preg_grep( '/wpcpm_learn_/', array_map( 'strval', array_keys( $GLOBALS['opts'] ) ) ) ), array() );
 ck( 'while a transient that is not the plugin\'s stays, with its timeout', array( get_transient( 'feed_example' ), isset( $GLOBALS['opts']['_transient_timeout_feed_example'] ) ), array( 'kept', true ) );
 
@@ -1005,6 +1026,11 @@ $names = array(
 	'WPCPM_Mentor_Application::CRON_DAILY'          => 'wpcpm_mentor_applications_daily',
 	'WPCPM_Mentor_Application_Form::OPT_PAGE'       => 'wpcpm_mentor_application_page_id',
 	'WPCPM_Mentor_Application_Feed::TRANSIENT'      => 'wpcpm_mentor_applications_feed',
+	'WPCPM_Mentor_Provision::USER_ROW_PENDING'      => 'wpcpm_mentor_row_pending',
+	'WPCPM_Mentor_Provision::USER_ACTIVATED_AT'     => 'wpcpm_mentor_activated_at',
+	'WPCPM_Mentor_Provision::USER_INVITE_HELD'      => 'wpcpm_mentor_invite_held',
+	'WPCPM_Mentor_Airtable_Row::LINKS_TRANSIENT'    => 'wpcpm_mapp_link_names',
+	'WPCPM_Mentor_Application::LOCK_PREFIX'         => 'wpcpm_mapp_lock_',
 );
 
 ck( 'the names seeded above are the ones the classes declare', array_map( 'declared', array_keys( $names ) ), array_values( $names ) );

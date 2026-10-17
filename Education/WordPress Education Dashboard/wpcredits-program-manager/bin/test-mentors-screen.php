@@ -128,10 +128,35 @@ class WPCPM_Mentor_Application_Form {
 class WPCPM_Mentor_Application_Feed {
 	public static function init() {}
 }
+/**
+ * The queue's notices take the words a press carried for its outcome where it carried any
+ * (`notices()`, 1.122.33), stood in here as a check sets them, and its Activated view is at its own
+ * address, which the Sync tab links.
+ */
 class WPCPM_Mentor_Application_Queue {
+	public static $carried = array();
 	public static function init() {}
 	public static function messages() { return array( 'mapp-selected' => array( 'success', 'The applicant is selected.' ) ); }
+	public static function notices() {
+		$messages = self::messages();
+		foreach ( self::$carried as $status => $words ) {
+			$messages[ $status ][1] = $words;
+		}
+		return $messages;
+	}
+	public static function view_url( $view = 'waiting' ) {
+		$url = admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' );
+		return 'waiting' === $view ? $url : add_query_arg( 'mapp_view', $view, $url );
+	}
 	public static function render() { echo '<div class="wpcpm-card" id="wpcpm-mentor-applications">The applications</div>'; }
+}
+/**
+ * And the activation (1.122.33), as far as the Sync tab reads it: how many mentors made from
+ * applications wait for their Airtable row, as a check sets it.
+ */
+class WPCPM_Mentor_Activation {
+	public static $unwritten = 0;
+	public static function unwritten_count() { return self::$unwritten; }
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
@@ -149,6 +174,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.ph
 // The students sync keeps the three-hour recurrence every sync's schedule is placed on.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
@@ -970,6 +996,48 @@ ck( 'the card asks before it sends, of the two, in the plural',
 ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
 	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),
 	array( array( 11, 16 ), array( 12, 13 ) ) );
+
+echo "\n=== An invitation an activation held waits for its own row ===\n";
+
+// An account an activation of a mentor application linked by its WordPress.org username alone, or
+// with another account answering for the applicant, holds the Mentor role and was never invited, but
+// its invitation carries the welcome's private links and waits for an Administrator to confirm the
+// account is the person's (rulings R5 and P9b). Hal is such an account: the card leaves him out and
+// says so, and its button queues him nothing; his row still offers the invitation.
+three_mentors();
+mentor( 17, 'Hal Held', 'hheld', array( WPCPM_Roles::ROLE_MENTOR ), 0, 0, 1 );
+$GLOBALS['umeta'][17][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+manager( 901 );
+$held_page = html_of( page_for( screen() ) );
+$held_card = forms_by_action( $held_page );
+
+ck( 'the invitations card counts the two never sent one and leaves out the one held, saying so, and his row still offers Send invite',
+	array(
+		has( isset( $held_card[ WPCPM_Mentors::ACTION_BULK ] ) ? $held_card[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 2 mentors who have never been invited</button>' ),
+		has( $held_page, '<p class="description">1 of the mentors is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+		array_keys( actions_in( row_for( $held_page, 17 ) ) ),
+	),
+	array( true, true, array( 'edit', 'view', 'invite' ) ) );
+manager( 902 );
+post_to( 'handle_bulk_invite', WPCPM_Mentors::ACTION_BULK, array( 'wpcpm_tab' => 'accounts' ) );
+ck( 'and its button queues the two, and not the one held', WPCPM_Mail::queue(), array( 12, 13 ) );
+
+// With nobody else left to invite, the card does not say that every one has been invited.
+reset_site();
+mentor( 11, 'Ada Kowalski', 'akowalski', array( WPCPM_Roles::ROLE_MENTOR ), 4, 2, 1, 1700000000 );
+mentor( 17, 'Hal Held', 'hheld', array( WPCPM_Roles::ROLE_MENTOR ), 0, 0, 1 );
+mentor( 18, 'Ivy Held', 'iheld', array( WPCPM_Roles::ROLE_MENTOR ), 0, 0, 1 );
+$GLOBALS['umeta'][17][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+$GLOBALS['umeta'][18][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'record';
+manager( 903 );
+$all_held = html_of( page_for( screen() ) );
+ck( 'with only held ones left, the card offers no button and says they are left out, not that every one was invited',
+	array(
+		isset( forms_by_action( $all_held )[ WPCPM_Mentors::ACTION_BULK ] ),
+		has( $all_held, '<p class="description">2 of the mentors are left out: their invitations are held until an Administrator confirms each account is the person&#039;s, then sends each from its row.</p>' ),
+		has( $all_held, 'Every one of the mentors has been invited.' ),
+	),
+	array( false, true, false ) );
 
 echo "\n=== The search: the name, the username and the email ===\n";
 
@@ -2170,6 +2238,43 @@ $connected_sync     = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
 ck( 'with Airtable connected, neither tab warns',
 	array( shown_tab( $connected_accounts ), has( $connected_accounts, 'Airtable is not connected yet' ), shown_tab( $connected_sync ), has( $connected_sync, 'Airtable is not connected yet' ) ),
 	array( 'Accounts', false, 'Sync', false ) );
+
+// The mentors made from applications whose Airtable row is not written yet (1.122.33): the Sync tab
+// counts them, since the sync leaves each alone until it is, and links the view that writes them.
+$unwritten = array();
+foreach ( array( 2, 1, 0 ) as $count ) {
+	manager( 270 + $count );
+	WPCPM_Mentor_Activation::$unwritten = $count;
+	$drawn                              = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+	preg_match_all( '#<div class="notice notice-warning"><p>[^<]*no Airtable row yet\..*?</p></div>#s', $drawn, $found );
+	$unwritten[ $count ] = $found[0];
+}
+WPCPM_Mentor_Activation::$unwritten = 0;
+$accounts_unwritten                 = html_of( page_for( screen() ) );
+
+ck( 'the Sync tab says how many mentors made from applications have no Airtable row yet, linking the Activated view',
+	$unwritten,
+	array(
+		2 => array( '<div class="notice notice-warning"><p>2 mentors made from applications have no Airtable row yet. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=queue&#038;mapp_view=active">Write the Airtable row again is on each, under Activated on the Waiting for review tab.</a></p></div>' ),
+		1 => array( '<div class="notice notice-warning"><p>1 mentor made from an application has no Airtable row yet. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&#038;tab=queue&#038;mapp_view=active">Write the Airtable row again is on each, under Activated on the Waiting for review tab.</a></p></div>' ),
+		0 => array(),
+	) );
+ck( 'and only the Sync tab', has( $accounts_unwritten, 'no Airtable row yet' ), false );
+
+// A press on the Waiting for review tab may carry the words for its notice (Task 3's step words one
+// for every outcome that made no mentor): the tab prints them in place of the map's sentence.
+manager( 273 );
+WPCPM_Mentor_Application_Queue::$carried = array( 'mapp-selected' => 'The words the press carried.' );
+WPCPM_Flash::set( 'mentors_admin', 'mapp-selected' );
+$carried_notice                          = notices_in( html_of( page_for( screen( array( 'tab' => 'queue' ) ) ) ) );
+WPCPM_Mentor_Application_Queue::$carried = array();
+manager( 274 );
+WPCPM_Flash::set( 'mentors_admin', 'mapp-selected' );
+$own_notice = notices_in( html_of( page_for( screen( array( 'tab' => 'queue' ) ) ) ) );
+
+ck( 'the Waiting for review tab prints the words a press carried for its notice, and the map\'s sentence when it carried none',
+	array( $carried_notice, $own_notice ),
+	array( '<div class="notice notice-success is-dismissible"><p>The words the press carried.</p></div>', '<div class="notice notice-success is-dismissible"><p>The applicant is selected.</p></div>' ) );
 
 echo "\n=== Every form names the tab it is on ===\n";
 

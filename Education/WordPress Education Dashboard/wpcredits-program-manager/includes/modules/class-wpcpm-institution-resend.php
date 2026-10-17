@@ -322,7 +322,9 @@ final class WPCPM_Institution_Resend {
 	 *
 	 * The order is the rule. The nonce first, keyed to the account the form names. Then the
 	 * policy. Then the student, asked again here rather than taken from the page: an account
-	 * holding the Student role, with no recorded sign-in and an address to send to. Then the
+	 * holding the Student role, with no recorded sign-in, an address to send to, and no invitation
+	 * an activation of a mentor application held (`WPCPM_Mail::is_held()`), which only an
+	 * Administrator sends, from the account's row on the Mentors screen. Then the
 	 * fifteen minutes, then the day's place, claimed only now, so no refusal before it spends
 	 * one. Then the send, which gives the place back when it answers an error, its email refused
 	 * among them, and the history row. Every step ends in `bounce()`, which does not return.
@@ -353,6 +355,13 @@ final class WPCPM_Institution_Resend {
 		// An account with no address it could be sent to is refused before the day's place is
 		// claimed, rather than told an invitation is on its way to nobody.
 		if ( ! is_email( (string) $student->user_email ) ) {
+			self::bounce( self::OUT_ERROR, $user_id );
+		}
+
+		// An account an activation of a mentor application held the invitation of (1.122.33) would be
+		// sent the mentor's, with the welcome's private links, before an Administrator has confirmed
+		// it is the person's: refused here, so no place is spent and the hold stays for them to lift.
+		if ( WPCPM_Mail::is_held( $user_id ) ) {
 			self::bounce( self::OUT_ERROR, $user_id );
 		}
 

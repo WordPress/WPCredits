@@ -2,7 +2,9 @@
 /**
  * The WP-CLI command that needs no Airtable: `wp wpcredits seed_tracks` (Track Builder, phase T3c);
  * `wp wpcredits check_mentors`; `wp wpcredits outcome_figures` (1.122.24), its read stood in; and
- * `wp wpcredits mentor_engagement` (1.122.26), its report read from the engagement reader's test input.
+ * `wp wpcredits mentor_engagement` (1.122.26), its report read from the engagement reader's test input; and
+ * `wp wpcredits mentor_airtable_row` (1.122.33), the Mentors row an application would write and the check row,
+ * both read from a stand-in of the row class.
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -61,17 +63,23 @@ class WPCPM_Track_Store {
 	public static function compile() { ++self::$compiled; }
 }
 
-/** The Mentor Status Checker, for `wp wpcredits check_mentors`: one mentor promoted, and a sentence about the Slack message. */
+/**
+ * The Mentor Status Checker, for `wp wpcredits check_mentors`: one mentor promoted, and a sentence about the Slack message.
+ * `$configured` is the Airtable connection and `$skip` Stop checking mentors in Airtable, each set by a check.
+ */
 class WPCPM_Mentor_Checker {
-	public static function is_configured() { return true; }
-	public static function config() { return array( 'source_status' => 'Vetted - positive', 'target_status' => 'Active', 'course_title' => 'The course' ); }
+	public static $configured = true;
+	public static $skip       = false;
+	public static function is_configured() { return self::$configured; }
+	public static function config() { return array( 'source_status' => 'Vetted - positive', 'target_status' => 'Active', 'course_title' => 'The course', 'skip_airtable' => self::$skip ); }
 }
 class WPCPM_Mentor_Checker_Runner {
+	public static $airtable_error = '';
 	public function __construct( $settings = null ) {}
 	public function run_all( $apply = false, $progress = null ) {
 		$row = array( 'name' => 'Mentor One', 'state' => 'completed', 'action_note' => 'Moved from "Vetted - positive" to "Active".' );
 		call_user_func( $progress, $row );
-		return array( 'rows' => array( $row ), 'summary' => array( 'checked' => 1, 'promoted' => 1 ) );
+		return array( 'rows' => array( $row ), 'summary' => array( 'checked' => 1, 'promoted' => 1 ), 'airtable_error' => self::$airtable_error );
 	}
 }
 class WPCPM_Mentor_Checker_Slack {
@@ -97,6 +105,50 @@ class WPCPM_Outcome_Figures {
 	public static function stored() { return self::$stored; }
 	public static function published() { return self::$published; }
 	public static function status() { return self::$status; }
+}
+
+/**
+ * The Mentors row, for `wp wpcredits mentor_airtable_row`: an application is a post for one reference, and the
+ * row class answers what a check sets. `preview()` and `check_row()` keep what they were asked; `check_row()`
+ * answers the next of `$checks`. `left_out_sentence()` is the real one's sentence for a name the base lacks.
+ */
+class WP_Post {
+	public $ID = 0;
+}
+class WPCPM_Airtable {}
+/** The connection, for the commands that read or write Airtable: configured, unless a check says not. */
+class WPCPM_Settings {
+	public static $connected = true;
+	public static function is_connected() { return self::$connected; }
+}
+class WPCPM_Mentor_Application {
+	public static function by_reference( $reference ) {
+		if ( 'MAPP-2026-0503' !== $reference ) {
+			return null;
+		}
+
+		$post     = new WP_Post();
+		$post->ID = 503;
+
+		return $post;
+	}
+}
+class WPCPM_Mentor_Airtable_Row {
+	public static $preview = array();
+	public static $checks  = array();
+	public static $asked   = array();
+	public static $lines_when_asked = array();
+	public static function preview( WP_Post $post, WPCPM_Airtable $airtable ) { self::$asked[] = array( 'preview', $post->ID ); return self::$preview; }
+	public static function check_row( $email, WPCPM_Airtable $airtable ) { self::$asked[] = array( 'check', $email ); self::$lines_when_asked = WP_CLI::$lines; return array_shift( self::$checks ); }
+	public static function left_out_sentence( array $left_out ) {
+		$sentences = array();
+
+		foreach ( $left_out as $column => $entry ) {
+			$sentences[] = sprintf( '%1$s: not in the base: %2$s.', $column, implode( ', ', $entry['values'] ) );
+		}
+
+		return implode( ' ', $sentences );
+	}
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
@@ -195,6 +247,77 @@ WPCPM_Mentor_Checker_Slack::$sentence = '';
 ( new WPCPM_CLI() )->check_mentors( array(), array() );
 
 ck( 'and says nothing of Slack when there is nothing to say', array_slice( WP_CLI::$lines, -2 ), array( 'log: promoted     1', 'success: Mentor status check complete.' ) );
+
+/**
+ * Run check_mentors with the Airtable connection and the stop as given; the lines it wrote.
+ *
+ * @param bool   $configured Whether Airtable is connected.
+ * @param bool   $skip       Whether Stop checking mentors in Airtable is ticked.
+ * @param bool   $promote    Whether --promote is given.
+ * @param string $error      Why Airtable's mentors could not be read, or ''.
+ * @return string[]
+ */
+function run_check_mentors( $configured, $skip, $promote = false, $error = '' ) {
+	WP_CLI::$lines                               = array();
+	WPCPM_Mentor_Checker::$configured            = $configured;
+	WPCPM_Mentor_Checker::$skip                  = $skip;
+	WPCPM_Mentor_Checker_Runner::$airtable_error = $error;
+	WPCPM_Mentor_Checker_Slack::$sentence        = '';
+
+	( new WPCPM_CLI() )->check_mentors( array(), $promote ? array( 'promote' => true ) : array() );
+
+	WPCPM_Mentor_Checker::$configured            = true;
+	WPCPM_Mentor_Checker::$skip                  = false;
+	WPCPM_Mentor_Checker_Runner::$airtable_error = '';
+
+	return WP_CLI::$lines;
+}
+
+$both = run_check_mentors( true, false );
+$site = run_check_mentors( false, false );
+
+ck( 'check_mentors names the sources it reads: the site\'s applications and Airtable\'s mentors, or the site\'s alone, and says when Airtable is not connected',
+	array( array_slice( $both, 0, 2 ), array_slice( $site, 0, 3 ) ),
+	array(
+		array(
+			'log: Checking the applications selected on this site and the Airtable mentors with status "Vetted - positive" for "The course" - report only.',
+			'log: [  1] Mentor One                   completed        Moved from "Vetted - positive" to "Active".',
+		),
+		array(
+			'log: Checking the applications selected on this site for "The course" - report only.',
+			'log: Airtable is not connected: only the applications selected on this site are checked.',
+			'log: [  1] Mentor One                   completed        Moved from "Vetted - positive" to "Active".',
+		),
+	) );
+ck( 'and it no longer refuses without the connection: it runs to its last word',
+	array( end( $site ), in_array( 'error: Airtable is not configured.', $site, true ) ), array( 'success: Mentor status check complete.', false ) );
+
+$stopped = run_check_mentors( true, true, true );
+
+ck( 'with Stop checking mentors in Airtable ticked the site\'s are named alone, and nothing says Airtable is not connected, since it is; --promote is said as it was',
+	array_slice( $stopped, 0, 2 ),
+	array(
+		'log: Checking the applications selected on this site for "The course" - will promote to "Active".',
+		'log: [  1] Mentor One                   completed        Moved from "Vetted - positive" to "Active".',
+	) );
+
+$both_down = run_check_mentors( false, true );
+
+ck( 'ticked and not connected both, the site\'s alone are named and the connection is said too', array_slice( $both_down, 0, 2 ),
+	array(
+		'log: Checking the applications selected on this site for "The course" - report only.',
+		'log: Airtable is not connected: only the applications selected on this site are checked.',
+	) );
+
+$unread = run_check_mentors( true, false, false, 'Airtable is out of reach.' );
+
+ck( 'an Airtable read that failed is a warning above the counts, with what is left out',
+	array( array_slice( $unread, 2, 2 ) ),
+	array( array(
+		'warning: Airtable could not be read, so its mentors were left out of this run: Airtable is out of reach.',
+		'log: checked      1',
+	) ) );
+ck( 'and no warning is printed for a run that read both', in_array( true, array_map( function ( $line ) { return 0 === strpos( $line, 'warning:' ); }, $both ), true ), false );
 
 echo "\n=== wp wpcredits outcome_figures ===\n";
 
@@ -597,6 +720,147 @@ WPCPM_Mentor_Engagement::for_tests( null );
 restore_error_handler();
 
 ck( 'and the section raised no PHP warning, notice or deprecation', $me_warnings, array() );
+
+echo "\n=== wp wpcredits mentor_airtable_row ===\n";
+
+/** Run the command; what it printed, the exit read from the last line. */
+function cli_lines( $method, $args, $assoc = array() ) {
+	WP_CLI::$lines = array();
+
+	try {
+		( new WPCPM_CLI() )->$method( $args, $assoc );
+	} catch ( ExitSignal $e ) {
+		// WP_CLI::error() has printed its line, and the process would have ended there.
+		unset( $e );
+	}
+
+	return WP_CLI::$lines;
+}
+
+$row_warnings = array();
+
+set_error_handler( static function ( $number, $message ) use ( &$row_warnings ) { $row_warnings[] = $message; return true; } );
+
+WPCPM_Mentor_Airtable_Row::$preview = array(
+	'cells'    => array(
+		'Full Name'                => 'Ada Example',
+		'Languages'                => array( 'recLANGENGLISH001', 'recLANGPOLISH0001' ),
+		'Available hours per week' => 2.5,
+	),
+	'left_out' => array( 'Languages' => array( 'why' => 'unmatched', 'values' => array( 'Wu Chinese (Shanghainese)' ) ) ),
+);
+ck( 'mentor_airtable_row prints each cell an application would write, lists values with commas, says what would be left out, and writes nothing',
+	cli_lines( 'mentor_airtable_row', array( 'MAPP-2026-0503' ) ),
+	array( 'log: Full Name: Ada Example', 'log: Languages: recLANGENGLISH001, recLANGPOLISH0001', 'log: Available hours per week: 2.5', 'log: Languages: not in the base: Wu Chinese (Shanghainese).', 'success: Nothing was written to Airtable.' ) );
+ck( 'and asked the row class about that application alone', WPCPM_Mentor_Airtable_Row::$asked, array( array( 'preview', 503 ) ) );
+WPCPM_Mentor_Airtable_Row::$preview = array(
+	'cells'    => array( 'Teacher from a participating institution?' => false, 'Sponsored' => true ),
+	'left_out' => array(),
+);
+ck( 'a yes or no cell prints as Yes or No, and nothing left out adds no line',
+	cli_lines( 'mentor_airtable_row', array( 'MAPP-2026-0503' ) ),
+	array( 'log: Teacher from a participating institution?: No', 'log: Sponsored: Yes', 'success: Nothing was written to Airtable.' ) );
+ck( 'and refuses a reference no application carries', cli_lines( 'mentor_airtable_row', array( 'MAPP-2026-9999' ) ), array( 'error: No mentor application has the reference MAPP-2026-9999.' ) );
+ck( 'and asks for a reference when it is given none', cli_lines( 'mentor_airtable_row', array() ), array( 'error: Give the application\'s reference, such as MAPP-2026-0503, or use --check.' ) );
+
+/** What the check row answers when it wrote, read back and deleted a row with nothing wrong. */
+function check_result( array $over = array() ) {
+	$columns = array( 'Full Name', 'WordPress profile', 'Email', 'Status', 'Country' );
+
+	return array_merge(
+		array(
+			'written'      => $columns,
+			'record'       => 'recNEWMENTOR00001',
+			'kept'         => $columns,
+			'missing'      => array(),
+			'stops'        => array(),
+			'notes'        => array(),
+			'found_before' => array(),
+			'cleaned'      => array(),
+			'deleted'      => true,
+			'error'        => '',
+			'read_error'   => '',
+			'delete_error' => '',
+		),
+		$over
+	);
+}
+
+/** The line the check logs before it asks the row class anything, naming the address to look for if the run is killed. */
+$check_announced = 'log: Writing the check row for owner+check@example.test. If this stops before it ends, look for that address in the Mentors table and delete the row by hand.';
+
+/**
+ * The check as the command is asked it, with the next answer the row class gives: the lines it
+ * printed after the one that announces the address, which the checks of the announcement pin.
+ */
+function check_lines( array $result, array $assoc = array( 'check' => true, 'email' => 'owner+check@example.test' ) ) {
+	global $check_announced;
+
+	WPCPM_Mentor_Airtable_Row::$checks = array( $result );
+	$lines                             = cli_lines( 'mentor_airtable_row', array(), $assoc );
+
+	return isset( $lines[0] ) && $check_announced === $lines[0] ? array_slice( $lines, 1 ) : $lines;
+}
+
+WPCPM_Mentor_Airtable_Row::$asked = array();
+ck( 'the check prints what was written and kept, a note as a note, and says the row is gone and nothing on the site changed',
+	check_lines( check_result( array( 'notes' => array( 'Contribution Area - Expertise: not in the base: Hosting.' ) ) ) ),
+	array( 'log: Written: Full Name, WordPress profile, Email, Status, Country', 'log: Kept by the base: Full Name, WordPress profile, Email, Status, Country', 'log: Only left out: Contribution Area - Expertise: not in the base: Hosting.', 'success: The check row recNEWMENTOR00001 was written, read back and deleted. Nothing on this site changed.' ) );
+ck( 'it asks the row class for the address given, and previews nothing', WPCPM_Mentor_Airtable_Row::$asked, array( array( 'check', 'owner+check@example.test' ) ) );
+ck( 'it logs the address to look for before the row class is asked anything, so a process killed in the middle leaves the line in the output',
+	WPCPM_Mentor_Airtable_Row::$lines_when_asked,
+	array( $check_announced ) );
+WPCPM_Mentor_Airtable_Row::$checks = array( check_result() );
+ck( 'and that line is the first of the check\'s output, whatever follows', array_slice( cli_lines( 'mentor_airtable_row', array(), array( 'check' => true, 'email' => 'owner+check@example.test' ) ), 0, 2 ), array( $check_announced, 'log: Written: Full Name, WordPress profile, Email, Status, Country' ) );
+ck( 'a stop is a warning, and the check ends in an error that holds the sitting',
+	check_lines( check_result( array( 'kept' => array( 'Full Name', 'WordPress profile', 'Email', 'Status' ), 'missing' => array( 'Country' ), 'stops' => array( 'Country: sent, and not read back.' ) ) ) ),
+	array( 'log: Written: Full Name, WordPress profile, Email, Status, Country', 'log: Kept by the base: Full Name, WordPress profile, Email, Status', 'warning: Country: sent, and not read back.', 'error: The check row recNEWMENTOR00001 was written, read back and deleted, but the live base would not take the whole row. Put that right before switching Make mentors from applications on.' ) );
+ck( 'a row already holding the check address is named, and nothing was written',
+	check_lines( check_result( array( 'written' => array(), 'record' => '', 'kept' => array(), 'deleted' => false, 'found_before' => array( 'recLEFTOVER000001' ), 'error' => 'Rows with the check address are already in the Mentors table: recLEFTOVER000001. Delete them by hand, then check again.' ) ) ),
+	array( 'error: Rows with the check address are already in the Mentors table: recLEFTOVER000001. Delete them by hand, then check again.' ) );
+ck( 'a refused create is printed in the base\'s words with what the search after it found',
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.' ) ) ),
+	array( 'error: Airtable refused the check row: Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.' ) );
+ck( 'a create whose row the search after it found and deleted says so in the same line',
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'cleaned' => array( 'recLOSTCHECK00001' ), 'error' => 'Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.' ) ) ),
+	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.' ) );
+ck( 'a search after the create that failed too names the address to look for by hand',
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.' ) ) ),
+	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.' ) );
+ck( 'and a row the search found that could not be deleted names the row to delete by hand',
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.' ) ) ),
+	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.' ) );
+ck( 'a check stopped before anything was sent prints the reason as it is',
+	check_lines( check_result( array( 'written' => array(), 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'The activation\'s status, Active, is not a choice of the Status column.' ) ) ),
+	array( 'error: The activation\'s status, Active, is not a choice of the Status column.' ) );
+ck( 'a refused delete names the row to delete by hand',
+	check_lines( check_result( array( 'deleted' => false, 'delete_error' => 'Airtable refused the delete.' ) ) ),
+	array( 'log: Written: Full Name, WordPress profile, Email, Status, Country', 'log: Kept by the base: Full Name, WordPress profile, Email, Status, Country', 'error: The check row recNEWMENTOR00001 was written but could not be deleted: Airtable refused the delete. Delete it in Airtable by hand.' ) );
+ck( 'a refused delete that has no full stop is closed with one, and comes after the warnings',
+	check_lines( check_result( array( 'deleted' => false, 'delete_error' => 'Operation timed out', 'stops' => array( 'Country: sent, and not read back.' ), 'missing' => array( 'Country' ), 'kept' => array( 'Full Name' ) ) ) ),
+	array( 'log: Written: Full Name, WordPress profile, Email, Status, Country', 'log: Kept by the base: Full Name', 'warning: Country: sent, and not read back.', 'error: The check row recNEWMENTOR00001 was written but could not be deleted: Operation timed out. Delete it in Airtable by hand.' ) );
+ck( 'a read-back that failed says the check proved nothing about the columns, and prints no list of what the base kept',
+	check_lines( check_result( array( 'kept' => array(), 'read_error' => 'Airtable is out of reach.' ) ) ),
+	array( 'log: Written: Full Name, WordPress profile, Email, Status, Country', 'error: The check row recNEWMENTOR00001 was written and deleted, but it could not be read back: Airtable is out of reach. Run the check again.' ) );
+WPCPM_Mentor_Airtable_Row::$asked = array();
+ck( 'and without an address it asks for one, and logs no address', cli_lines( 'mentor_airtable_row', array(), array( 'check' => true ) ), array( 'error: Give the test mailbox\'s address as --email=<address>.' ) );
+ck( 'and asks the row class nothing', WPCPM_Mentor_Airtable_Row::$asked, array() );
+
+WPCPM_Settings::$connected = false;
+WPCPM_Mentor_Airtable_Row::$asked = array();
+ck( 'with no Airtable connection configured the preview refuses as the dry run does, and asks nothing',
+	array( cli_lines( 'mentor_airtable_row', array( 'MAPP-2026-0503' ) ), WPCPM_Mentor_Airtable_Row::$asked ),
+	array( array( 'error: Airtable is not configured.' ), array() ) );
+WPCPM_Mentor_Airtable_Row::$checks = array( check_result() );
+ck( 'and so does the check, before it logs an address',
+	array( cli_lines( 'mentor_airtable_row', array(), array( 'check' => true, 'email' => 'owner+check@example.test' ) ), WPCPM_Mentor_Airtable_Row::$asked ),
+	array( array( 'error: Airtable is not configured.' ), array() ) );
+WPCPM_Settings::$connected = true;
+ck( 'an address given as a bare flag is no address', cli_lines( 'mentor_airtable_row', array(), array( 'check' => true, 'email' => true ) ), array( 'error: Give the test mailbox\'s address as --email=<address>.' ) );
+
+restore_error_handler();
+
+ck( 'and the section raised no PHP warning, notice or deprecation', $row_warnings, array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

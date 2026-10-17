@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Where an Administrator reads a mentor application and decides it (design of 16 October 2026,
- * section 5): the Mentors screen's Waiting for review tab, in five views, each row whole, and the
+ * sections 5 to 7): the Mentors screen's Waiting for review tab, in six views, each row whole, and the
  * decisions under it; then, under the views, the rows recently decided as spam or declined, which
  * no view lists, so a genuine application the checks filed as spam, or a declined applicant who
  * appeals, can still be reached (the sponsor queue's "Recently decided", its S5 review's lesson).
@@ -30,23 +30,40 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   form's checks filed as spam, or one past the day's limit on acknowledgements) is sent the
  *   acknowledgement then, once, with the link that confirms the address, and one acknowledged
  *   before, marked as spam by mistake, is sent nothing.
+ * - The course is completed, on a selected row while Make mentors from applications is on
+ *   (1.122.33): the applicant is made a mentor through the step the daily check takes
+ *   (`WPCPM_Mentor_Activation::activate()`), by who pressed and with the note, and the Mentor Status
+ *   Checker's Slack message names them; the row moves to `active`, listed under Activated.
+ * - Write the Airtable row again, on an Activated row whose Mentors row is still to be written
+ *   (1.122.33): the row is written as the activation writes it (`retry_airtable()`).
+ * - Send the acknowledgement, on an open row whose acknowledgement never went (1.122.33): it goes
+ *   now, once, with the link that confirms the address, and the row stays where it is.
  *
  * A decision that emails the applicant refuses an address nobody has confirmed through the
  * acknowledgement's link, as the institution approval does, and Select refuses while no course
  * invitation link is set. The email goes before the state moves: a send that fails leaves the row as
  * it was. Every decision is a press by an Administrator, the capability asked first and then the
  * nonce keyed to the decision and the row, and is written to the row's history with who and when.
+ *
+ * **Activated** lists the mentors made from applications, each with its account, what became of the
+ * invitation since the activation (`invitation_line()`), read from the email queue, the mail log and
+ * the account's stamp and never from before the activation, and what became of its Mentors row in
+ * Airtable. The activation's own sentence for an outcome that made no mentor, and the retry's, are
+ * carried beside the outcome and printed as its notice (`notices()`).
  */
 final class WPCPM_Mentor_Application_Queue {
 
-	/** The seven decisions, one action apiece, so a nonce from one form cannot press another. */
-	const ACTION_SELECT   = 'wpcpm_mapp_select';
-	const ACTION_INFO     = 'wpcpm_mapp_info';
-	const ACTION_SECOND   = 'wpcpm_mapp_second';
-	const ACTION_DECLINE  = 'wpcpm_mapp_decline';
-	const ACTION_SPAM     = 'wpcpm_mapp_spam';
-	const ACTION_WITHDRAW = 'wpcpm_mapp_withdraw';
-	const ACTION_REOPEN   = 'wpcpm_mapp_reopen';
+	/** The ten decisions, one action apiece, so a nonce from one form cannot press another. */
+	const ACTION_SELECT      = 'wpcpm_mapp_select';
+	const ACTION_INFO        = 'wpcpm_mapp_info';
+	const ACTION_SECOND      = 'wpcpm_mapp_second';
+	const ACTION_DECLINE     = 'wpcpm_mapp_decline';
+	const ACTION_SPAM        = 'wpcpm_mapp_spam';
+	const ACTION_WITHDRAW    = 'wpcpm_mapp_withdraw';
+	const ACTION_REOPEN      = 'wpcpm_mapp_reopen';
+	const ACTION_COMPLETE    = 'wpcpm_mapp_complete';
+	const ACTION_AIRTABLE    = 'wpcpm_mapp_airtable';
+	const ACTION_ACKNOWLEDGE = 'wpcpm_mapp_acknowledge';
 
 	/** The field naming the application a decision is posted for. */
 	const FIELD_APPLICATION = 'wpcpm_mapp_app';
@@ -76,7 +93,16 @@ final class WPCPM_Mentor_Application_Queue {
 	const FLASH = 'mentors_admin';
 
 	/**
-	 * Hooks: the seven decisions, for a signed-in Administrator alone (`admin_post_`, never `nopriv`).
+	 * The flash channel a press's own sentence for its notice travels on, tagged with the outcome it
+	 * was worded for (1.122.33): the activation's for an outcome that made no mentor, and the retry's.
+	 */
+	const FLASH_MESSAGE = 'mentors_admin_mapp';
+
+	/** The mentor invitation's id, which the mail log keeps every one under. */
+	const MAIL_INVITE = 'invite-mentor';
+
+	/**
+	 * Hooks: the ten decisions, for a signed-in Administrator alone (`admin_post_`, never `nopriv`).
 	 */
 	public static function init() {
 		foreach ( self::decisions() as $action => $method ) {
@@ -91,13 +117,16 @@ final class WPCPM_Mentor_Application_Queue {
 	 */
 	public static function decisions() {
 		return array(
-			self::ACTION_SELECT   => 'handle_select',
-			self::ACTION_INFO     => 'handle_info',
-			self::ACTION_SECOND   => 'handle_second',
-			self::ACTION_DECLINE  => 'handle_decline',
-			self::ACTION_SPAM     => 'handle_spam',
-			self::ACTION_WITHDRAW => 'handle_withdraw',
-			self::ACTION_REOPEN   => 'handle_reopen',
+			self::ACTION_SELECT      => 'handle_select',
+			self::ACTION_INFO        => 'handle_info',
+			self::ACTION_SECOND      => 'handle_second',
+			self::ACTION_DECLINE     => 'handle_decline',
+			self::ACTION_SPAM        => 'handle_spam',
+			self::ACTION_WITHDRAW    => 'handle_withdraw',
+			self::ACTION_REOPEN      => 'handle_reopen',
+			self::ACTION_COMPLETE    => 'handle_complete',
+			self::ACTION_AIRTABLE    => 'handle_airtable',
+			self::ACTION_ACKNOWLEDGE => 'handle_acknowledge',
 		);
 	}
 
@@ -112,9 +141,10 @@ final class WPCPM_Mentor_Application_Queue {
 	}
 
 	/**
-	 * The tab's five views, slug => the states each lists and its label, in the bar's order: the
-	 * queue itself, the two kinds of row in it a person may look for, then the two the queue has let
-	 * go of, the selected ones waiting for the course and the lapsed ones.
+	 * The tab's six views, slug => the states each lists and its label, in the bar's order: the
+	 * queue itself, the two kinds of row in it a person may look for, then the three the queue has let
+	 * go of, the selected ones waiting for the course, the ones made mentors (1.122.33) and the lapsed
+	 * ones.
 	 *
 	 * @return array<string, array{states: string[], label: string}>
 	 */
@@ -135,6 +165,10 @@ final class WPCPM_Mentor_Application_Queue {
 			'selected' => array(
 				'states' => array( WPCPM_Mentor_Application::STATE_SELECTED ),
 				'label'  => __( 'Selected (course pending)', 'wpcredits-program-manager' ),
+			),
+			'active'   => array(
+				'states' => array( WPCPM_Mentor_Application::STATE_ACTIVE ),
+				'label'  => __( 'Activated', 'wpcredits-program-manager' ),
 			),
 			'lapsed'   => array(
 				'states' => array( WPCPM_Mentor_Application::STATE_LAPSED ),
@@ -380,14 +414,58 @@ final class WPCPM_Mentor_Application_Queue {
 	/**
 	 * Withdraw: a selected applicant wrote that they are not continuing, so the row lapses now, with
 	 * the note saying so, and nothing is sent, as Airtable's Dropped out sent nothing.
+	 *
+	 * Under the application's lock (`locked()`), as the activation and the lapse clock work: a row
+	 * that an activation filed active meanwhile stays active, since one filed Lapsed under a mentor
+	 * would never have its Airtable row written again, and a row another request holds is left.
 	 */
 	public static function handle_withdraw() {
 		$post = self::begin( self::ACTION_WITHDRAW, array( WPCPM_Mentor_Application::STATE_SELECTED ) );
 		$note = self::note( $post, 'withdraw', true );
 
-		WPCPM_Mentor_Application::decide( (int) $post->ID, WPCPM_Mentor_Application::STATE_LAPSED, WPCPM_Mentor_Application::EVENT_WITHDRAWN, get_current_user_id(), $note );
+		self::locked(
+			$post,
+			static function ( WP_Post $row ) use ( $note ) {
+				if ( WPCPM_Mentor_Application::STATE_SELECTED !== WPCPM_Mentor_Application::state_of( $row ) ) {
+					return 'mapp-state';
+				}
 
-		self::leave( 'mapp-withdrawn' );
+				WPCPM_Mentor_Application::decide( (int) $row->ID, WPCPM_Mentor_Application::STATE_LAPSED, WPCPM_Mentor_Application::EVENT_WITHDRAWN, get_current_user_id(), $note );
+
+				return 'mapp-withdrawn';
+			}
+		);
+	}
+
+	/**
+	 * Do a press's work under the application's lock (`WPCPM_Mentor_Application::lock_name()`,
+	 * through `WPCPM_Lock`), the one the activation, its retry, settling and the lapse clock take, so
+	 * one of them at a time works on the row (1.122.33). Once the lock is held, the row's meta is
+	 * dropped from this request's copy, so the work reads the row as it stands; the work answers the
+	 * outcome. Another request holding the lock is `mapp-busy`, with that sentence carried and
+	 * nothing done. The outcome is left with once the lock is let go, never inside the `try`: the
+	 * redirect ends the request, and `exit` runs no `finally`.
+	 *
+	 * @param WP_Post  $post The row.
+	 * @param callable $work Given the row, answers a key of `messages()`.
+	 */
+	private static function locked( WP_Post $post, callable $work ) {
+		$lock  = WPCPM_Mentor_Application::lock_name( (int) $post->ID );
+		$token = WPCPM_Lock::take( $lock, WPCPM_Mentor_Application::LOCK_TTL );
+
+		if ( '' === $token ) {
+			self::leave( 'mapp-busy', __( 'Another request is working on this application at this moment, so nothing was done.', 'wpcredits-program-manager' ) );
+		}
+
+		try {
+			WPCPM_Mentor_Application::forget_cached( (int) $post->ID );
+
+			$status = (string) call_user_func( $work, $post );
+		} finally {
+			WPCPM_Lock::release( $lock, $token );
+		}
+
+		self::leave( $status );
 	}
 
 	/**
@@ -409,6 +487,132 @@ final class WPCPM_Mentor_Application_Queue {
 		WPCPM_Mentor_Application::decide( (int) $post->ID, WPCPM_Mentor_Application::STATE_NEW, $send ? WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED : WPCPM_Mentor_Application::EVENT_REOPENED, get_current_user_id() );
 
 		self::leave( $send ? 'mapp-reopened-sent' : 'mapp-reopened' );
+	}
+
+	/**
+	 * The course is completed: an Administrator who knows the applicant finished the mentors' course
+	 * makes them a mentor now, through the step the daily check takes when the course shows on the
+	 * profile (design, section 6), by who pressed and with the note. The step refuses while Make
+	 * mentors from applications is off; the press is not offered then. The Mentor Status Checker's
+	 * Slack message, which the step told, is sent at once. For an outcome that made no mentor, the
+	 * step's own sentence is carried beside the outcome for the notice.
+	 */
+	public static function handle_complete() {
+		$post   = self::begin( self::ACTION_COMPLETE, array( WPCPM_Mentor_Application::STATE_SELECTED ) );
+		$note   = self::note( $post, 'complete', false );
+		$answer = WPCPM_Mentor_Activation::activate( (int) $post->ID, get_current_user_id(), $note );
+		$answer = is_array( $answer ) ? $answer : array();
+
+		$outcome = isset( $answer['outcome'] ) ? (string) $answer['outcome'] : '';
+
+		if ( 'activated' === $outcome ) {
+			WPCPM_Mentor_Checker_Slack::flush();
+
+			self::leave( self::activated_status( $answer ) );
+		}
+
+		$statuses = array(
+			'already'        => 'mapp-already',
+			'already-mentor' => 'mapp-already-mentor',
+			'off'            => 'mapp-off',
+			'busy'           => 'mapp-busy',
+			'no-account'     => 'mapp-no-account',
+			'not-selected'   => 'mapp-state',
+		);
+
+		self::leave( isset( $statuses[ $outcome ] ) ? $statuses[ $outcome ] : 'mapp-unknown', isset( $answer['message'] ) ? (string) $answer['message'] : '' );
+	}
+
+	/**
+	 * The notice an activation that made a mentor leaves, by what became of the invitation and of the
+	 * Airtable row: sent, to an account made or to one that was there and was linked, held because
+	 * the account was linked by its WordPress.org username alone (ruling R5), held because another
+	 * account also answered for the applicant (ruling P9b), or not sent, as an Administrator's account
+	 * is never sent one; and the row written or refused.
+	 *
+	 * @param array $answer What `WPCPM_Mentor_Activation::activate()` answered.
+	 * @return string A key of `messages()`.
+	 */
+	private static function activated_status( array $answer ) {
+		$held    = isset( $answer['held'] ) ? (string) $answer['held'] : '';
+		$refused = isset( $answer['airtable'] ) && 'refused' === $answer['airtable'];
+
+		if ( in_array( $held, array( 'login', 'record' ), true ) ) {
+			$status = 'mapp-activated-' . $held;
+		} elseif ( isset( $answer['invited'] ) && false === $answer['invited'] ) {
+			$status = 'mapp-activated-admin';
+		} elseif ( ! empty( $answer['linked'] ) ) {
+			$status = 'mapp-activated-linked';
+		} else {
+			$status = 'mapp-activated';
+		}
+
+		return $refused ? $status . '-refused' : $status;
+	}
+
+	/**
+	 * Write the Airtable row again: for an activated application whose Mentors row Airtable refused,
+	 * or whose write a request that died never finished, by who pressed (design, section 7). No note
+	 * and no question: the write searches the table by the address before it creates anything, so a
+	 * second press makes no second row. The step's own sentence is carried beside the outcome for the
+	 * notice, since a row with nothing more to write may be one whose account is gone.
+	 */
+	public static function handle_airtable() {
+		$post   = self::begin( self::ACTION_AIRTABLE, array( WPCPM_Mentor_Application::STATE_ACTIVE ) );
+		$answer = WPCPM_Mentor_Activation::retry_airtable( (int) $post->ID, get_current_user_id() );
+		$answer = is_array( $answer ) ? $answer : array();
+
+		$statuses = array(
+			'written'    => 'mapp-airtable-written',
+			'refused'    => 'mapp-airtable-refused',
+			'not-needed' => 'mapp-airtable-not-needed',
+			'busy'       => 'mapp-busy',
+			'not-active' => 'mapp-state',
+		);
+		$outcome  = isset( $answer['outcome'] ) ? (string) $answer['outcome'] : '';
+
+		self::leave( isset( $statuses[ $outcome ] ) ? $statuses[ $outcome ] : 'mapp-unknown', isset( $answer['message'] ) ? (string) $answer['message'] : '' );
+	}
+
+	/**
+	 * Send the acknowledgement: an open row whose acknowledgement never went, past the day's limit on
+	 * acknowledgements or after a hand-off the mail layer refused, is sent it now, through the form's
+	 * own sender, with the link that confirms the address, and stays where it is. It goes once, since
+	 * the history then says it went, and it does not count against the form's daily limit, as Put back
+	 * in the queue's does not. A row acknowledged before, or with no address, is sent nothing; a send
+	 * that fails leaves the row as it was.
+	 *
+	 * The send is made under the application's lock (`locked()`), with the row read again there, so
+	 * two presses at one moment send it once: the second finds the lock held, or, once it is let go,
+	 * the acknowledgement in the history.
+	 */
+	public static function handle_acknowledge() {
+		$post = self::begin( self::ACTION_ACKNOWLEDGE, WPCPM_Mentor_Application::open_states() );
+
+		if ( self::acknowledged( $post ) ) {
+			self::leave( 'mapp-state' );
+		}
+
+		if ( '' === WPCPM_Mentor_Application::email_of( $post ) ) {
+			self::leave( 'mapp-no-email' );
+		}
+
+		self::locked(
+			$post,
+			static function ( WP_Post $row ) {
+				if ( ! in_array( WPCPM_Mentor_Application::state_of( $row ), WPCPM_Mentor_Application::open_states(), true ) || self::acknowledged( $row ) ) {
+					return 'mapp-state';
+				}
+
+				if ( ! WPCPM_Mentor_Application_Form::mail_applicant( (int) $row->ID ) ) {
+					return 'mapp-not-sent';
+				}
+
+				WPCPM_Mentor_Application::add_event( (int) $row->ID, WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED, get_current_user_id() );
+
+				return 'mapp-acknowledged';
+			}
+		);
 	}
 
 	/**
@@ -436,13 +640,19 @@ final class WPCPM_Mentor_Application_Queue {
 	/**
 	 * Whether the applicant was sent the acknowledgement, with the link that confirms the address:
 	 * every row but one the form's checks filed as spam, one past the day's limit on acknowledgements
-	 * or one whose hand-off the mail layer refused, until Put back in the queue sends it.
+	 * or one whose hand-off the mail layer refused, until Put back in the queue or Send the
+	 * acknowledgement sends it.
 	 *
 	 * @param WP_Post $post The row.
 	 * @return bool
 	 */
 	private static function acknowledged( WP_Post $post ) {
-		return array() === self::withheld( $post ) || 0 < WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED );
+		if ( array() === self::withheld( $post ) ) {
+			return true;
+		}
+
+		return 0 < WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED )
+			|| 0 < WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED );
 	}
 
 	/**
@@ -464,7 +674,7 @@ final class WPCPM_Mentor_Application_Queue {
 			$because = __( 'The acknowledgement was not sent, because the form\'s checks filed the application as spam.', 'wpcredits-program-manager' );
 		}
 
-		return $because . ' ' . __( 'The applicant has no link to confirm the address with, so Select, Ask for more information and Decline wait. Put back in the queue sends it to an application filed as spam, once.', 'wpcredits-program-manager' );
+		return $because . ' ' . __( 'The applicant has no link to confirm the address with, so Select, Ask for more information and Decline wait. Send the acknowledgement sends it now, once; for an application filed as spam, Put back in the queue does.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -477,16 +687,50 @@ final class WPCPM_Mentor_Application_Queue {
 	}
 
 	/**
-	 * Back to the tab with a one-shot outcome, at the view the press was made on.
+	 * Back to the tab with a one-shot outcome, at the view the press was made on, and, where the step
+	 * pressed worded its own sentence for it, that sentence beside it, tagged with the outcome
+	 * (`notices()`). Every press writes the second channel, empty when it carries nothing, so a
+	 * sentence a redirect nobody followed left behind is never printed under a later press.
 	 *
-	 * @param string $status A key of `messages()`.
+	 * @param string $status  A key of `messages()`.
+	 * @param string $message The step's own sentence for it, or ''.
 	 */
-	private static function leave( $status ) {
-		$view = WPCPM_Request::posted_key( self::VIEW_ARG, 'waiting' );
+	private static function leave( $status, $message = '' ) {
+		$view    = WPCPM_Request::posted_key( self::VIEW_ARG, 'waiting' );
+		$message = trim( (string) $message );
 
 		WPCPM_Flash::set( self::FLASH, $status );
+		WPCPM_Flash::set(
+			self::FLASH_MESSAGE,
+			'' === $message ? '' : array(
+				'status'  => (string) $status,
+				'message' => $message,
+			)
+		);
 		wp_safe_redirect( self::view_url( isset( self::views()[ $view ] ) ? $view : 'waiting' ) );
 		exit;
+	}
+
+	/**
+	 * The notices the tab prints: `messages()`, with the sentence the last press carried for its
+	 * outcome in place of that outcome's own, which the activation and the retry word themselves.
+	 *
+	 * Called where the notice is printed and nowhere else, since what was carried is one-shot: the
+	 * Mentors screen's Waiting for review tab, which takes the outcome itself. It is taken whatever
+	 * the outcome printed, and only the outcome it was carried for reads it, so it never surfaces
+	 * under a later press. `messages()` stays a plain map anything may read (the S5 review's lesson).
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice class and sentence.
+	 */
+	public static function notices() {
+		$messages = self::messages();
+		$carried  = WPCPM_Flash::take( self::FLASH_MESSAGE );
+
+		if ( is_array( $carried ) && isset( $carried['status'], $carried['message'], $messages[ (string) $carried['status'] ] ) && '' !== trim( (string) $carried['message'] ) ) {
+			$messages[ (string) $carried['status'] ][1] = (string) $carried['message'];
+		}
+
+		return $messages;
 	}
 
 	/**
@@ -495,6 +739,55 @@ final class WPCPM_Mentor_Application_Queue {
 	 * @return array<string, array{0: string, 1: string}> Status => notice class and sentence.
 	 */
 	public static function messages() {
+		return array_merge( self::decision_messages(), self::activation_messages() );
+	}
+
+	/**
+	 * What The course is completed, Write the Airtable row again and Send the acknowledgement can
+	 * leave (1.122.33). An activation that made a mentor says whether the account was made or linked
+	 * and what became of the invitation, sent, held for a person to confirm the account (rulings R5
+	 * and P9b) or not sent to an Administrator, then of the Airtable row; an outcome that made none prints the activation's own sentence where
+	 * the press carried it (`notices()`), and these where it did not.
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice class and sentence.
+	 */
+	private static function activation_messages() {
+		$written = __( 'The Airtable row is written.', 'wpcredits-program-manager' );
+		$refused = __( 'Airtable refused the row, so Write the Airtable row again waits on it under Activated.', 'wpcredits-program-manager' );
+		$login   = __( 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		$record  = __( 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		$admin   = __( 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already.', 'wpcredits-program-manager' );
+
+		return array(
+			'mapp-activated'                => array( 'success', __( 'The applicant is a mentor now: their account is made, the Airtable row written, and the invitation with the welcome is on its way.', 'wpcredits-program-manager' ) ),
+			'mapp-activated-refused'        => array( 'warning', __( 'The applicant is a mentor now: their account is made and the invitation with the welcome is on its way.', 'wpcredits-program-manager' ) . ' ' . $refused ),
+			'mapp-activated-linked'         => array( 'success', __( 'The applicant is a mentor now: their existing account is linked, the Airtable row written, and the invitation with the welcome is on its way.', 'wpcredits-program-manager' ) ),
+			'mapp-activated-linked-refused' => array( 'warning', __( 'The applicant is a mentor now: their existing account is linked and the invitation with the welcome is on its way.', 'wpcredits-program-manager' ) . ' ' . $refused ),
+			'mapp-activated-login'          => array( 'warning', $login . ' ' . $written ),
+			'mapp-activated-login-refused'  => array( 'warning', $login . ' ' . $refused ),
+			'mapp-activated-record'         => array( 'warning', $record . ' ' . $written ),
+			'mapp-activated-record-refused' => array( 'warning', $record . ' ' . $refused ),
+			'mapp-activated-admin'          => array( 'success', $admin . ' ' . $written ),
+			'mapp-activated-admin-refused'  => array( 'warning', $admin . ' ' . $refused ),
+			'mapp-already'                  => array( 'warning', __( 'That application was made a mentor already. Nothing was changed.', 'wpcredits-program-manager' ) ),
+			'mapp-already-mentor'           => array( 'success', __( 'That applicant is a mentor on this site already: the application is filed under Activated with a note, and nothing was sent or written to Airtable.', 'wpcredits-program-manager' ) ),
+			'mapp-off'                      => array( 'error', __( 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings. It is switched on at the launch.', 'wpcredits-program-manager' ) ),
+			'mapp-busy'                     => array( 'warning', __( 'Another request is making that applicant a mentor at this moment. Reload the page in a minute to see where it got to.', 'wpcredits-program-manager' ) ),
+			'mapp-no-account'               => array( 'error', __( 'The account could not be made, so the application waits under Selected (course pending), with the reason on it.', 'wpcredits-program-manager' ) ),
+			'mapp-airtable-written'         => array( 'success', __( 'The Airtable row is written, and the mentor\'s account holds its record.', 'wpcredits-program-manager' ) ),
+			'mapp-airtable-refused'         => array( 'error', __( 'Airtable refused the row again. The reason is on the application; nothing else changed.', 'wpcredits-program-manager' ) ),
+			'mapp-airtable-not-needed'      => array( 'success', __( 'Nothing was written: the mentor\'s account holds its Airtable record already.', 'wpcredits-program-manager' ) ),
+			'mapp-acknowledged'             => array( 'success', __( 'The acknowledgement is sent, with the link that confirms the address. The application stays where it was.', 'wpcredits-program-manager' ) ),
+		);
+	}
+
+	/**
+	 * What the seven decisions of the queue itself can leave (1.122.31), and the refusals every press
+	 * shares.
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice class and sentence.
+	 */
+	private static function decision_messages() {
 		return array(
 			'mapp-selected'       => array( 'success', __( 'The applicant is selected, and the selection email with the mentors\' course invitation link is sent. The application waits for the course under Selected (course pending).', 'wpcredits-program-manager' ) ),
 			'mapp-info'           => array( 'success', __( 'The request for more information is sent. The application stays in the queue, under Asked for more information; record what comes back in the note of the decision you take next.', 'wpcredits-program-manager' ) ),
@@ -527,6 +820,12 @@ final class WPCPM_Mentor_Application_Queue {
 	 * The Waiting for review tab: the views with their counts, then the view's rows, oldest first,
 	 * each whole with the decisions its state allows. The capability is asked here as well as by the
 	 * screen: every answer a stranger typed is printed below.
+	 *
+	 * Activated draws the activation's own list (`WPCPM_Mentor_Activation::activated_posts()`), every
+	 * row still waiting for its Mentors row first, then the most recently made mentors, read one past
+	 * the rows it draws so it can say when it was cut. The list may settle a row as it reads it, a
+	 * row whose account was linked meanwhile or is gone, under that row's lock and only for such a
+	 * row (ruling R1).
 	 */
 	public static function render() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -536,11 +835,19 @@ final class WPCPM_Mentor_Application_Queue {
 		$view  = self::current_view();
 		$views = self::views();
 		$total = WPCPM_Mentor_Application::count_in( $views[ $view ]['states'] );
-		$rows  = WPCPM_Mentor_Application::applications( $views[ $view ]['states'], self::QUEUE_MAX );
+
+		if ( 'active' === $view ) {
+			$rows = WPCPM_Mentor_Activation::activated_posts( self::QUEUE_MAX + 1 );
+			$cut  = count( $rows ) > self::QUEUE_MAX;
+			$rows = array_slice( $rows, 0, self::QUEUE_MAX );
+		} else {
+			$rows = WPCPM_Mentor_Application::applications( $views[ $view ]['states'], self::QUEUE_MAX );
+			$cut  = count( $rows ) < $total;
+		}
 
 		echo '<div class="wpcpm-card" id="wpcpm-mentor-applications">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Mentor applications', 'wpcredits-program-manager' ), esc_html( number_format_i18n( WPCPM_Mentor_Application::waiting_count() ) ) );
-		echo '<p class="description">' . esc_html__( 'People who applied to mentor through the form on the site, oldest first. Select sends the mentors\' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'People who applied to mentor through the form on the site, oldest first. Select sends the mentors\' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '<ul class="subsubsub">';
 
@@ -568,7 +875,19 @@ final class WPCPM_Mentor_Application_Queue {
 			return;
 		}
 
-		if ( count( $rows ) < $total ) {
+		if ( $cut && 'active' === $view ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: how many rows are drawn, 2: how many there are. */
+						__( 'Showing %1$s of %2$s: those still waiting for their Airtable row first, then the most recently made mentors.', 'wpcredits-program-manager' ),
+						number_format_i18n( count( $rows ) ),
+						number_format_i18n( $total )
+					)
+				)
+			);
+		} elseif ( $cut ) {
 			printf(
 				'<p class="description">%s</p>',
 				esc_html(
@@ -659,6 +978,13 @@ final class WPCPM_Mentor_Application_Queue {
 		printf( '<p class="wpcpm-queue-age">%s</p>', esc_html( self::age_line( $post, $state ) ) );
 
 		self::render_marks( $post, $state );
+
+		if ( WPCPM_Mentor_Application::STATE_SELECTED === $state ) {
+			self::render_course( $post );
+		} elseif ( WPCPM_Mentor_Application::STATE_ACTIVE === $state ) {
+			self::render_activation( $post );
+		}
+
 		self::render_answers( $post );
 		self::render_history( $post );
 		self::render_decisions( $post, $state, $view );
@@ -669,7 +995,8 @@ final class WPCPM_Mentor_Application_Queue {
 	/**
 	 * When the row arrived, or for a selected, lapsed, declined or spam row, when that happened: the
 	 * decision's own day (`WPCPM_Mentor_Application::decided_at()`), never the day of the newest thing
-	 * that happened to the row, which an applicant confirming the address would move.
+	 * that happened to the row, which an applicant confirming the address would move. An activated
+	 * row says when it was made a mentor, or filed as already a mentor (1.122.33).
 	 *
 	 * @param WP_Post $post  The row.
 	 * @param string  $state Its state.
@@ -687,6 +1014,24 @@ final class WPCPM_Mentor_Application_Queue {
 				__( 'Selected on %1$s. It lapses from %2$s if the course has not shown by then.', 'wpcredits-program-manager' ),
 				wp_date( $format, $selected ),
 				wp_date( $format, $selected + $days * DAY_IN_SECONDS )
+			);
+		}
+
+		if ( WPCPM_Mentor_Application::STATE_ACTIVE === $state ) {
+			$airtable = WPCPM_Mentor_Application::airtable_of( $post );
+
+			if ( isset( $airtable['state'] ) && 'already' === $airtable['state'] ) {
+				return sprintf(
+					/* translators: %s: the day the application was filed as already a mentor. */
+					__( 'Filed as already a mentor on %s.', 'wpcredits-program-manager' ),
+					wp_date( $format, self::activated_time( $post ) )
+				);
+			}
+
+			return sprintf(
+				/* translators: %s: the day the applicant was made a mentor. */
+				__( 'Made a mentor on %s.', 'wpcredits-program-manager' ),
+				wp_date( $format, self::activated_time( $post ) )
 			);
 		}
 
@@ -792,6 +1137,297 @@ final class WPCPM_Mentor_Application_Queue {
 	}
 
 	/**
+	 * A selected row's course step (1.122.33): what the Mentor Status Checker last found on the
+	 * applicant's profile, or that it has not looked yet; while Make mentors from applications is off,
+	 * that the applicant waits for it; and, when an activation could not make the account, when and
+	 * why.
+	 *
+	 * @param WP_Post $post The row.
+	 */
+	private static function render_course( WP_Post $post ) {
+		$format  = (string) get_option( 'date_format', 'F j, Y' );
+		$check   = WPCPM_Mentor_Application::last_check( $post );
+		$problem = WPCPM_Mentor_Application::problem_of( $post );
+
+		if ( ! WPCPM_Mentor_Activation::enabled() ) {
+			printf( '<p class="wpcpm-mapp-waits">%s</p>', esc_html__( 'Making mentors from applications is off until the launch: this applicant waits.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( array() === $check ) {
+			$line = __( 'Not checked yet: the daily check reads the profile next.', 'wpcredits-program-manager' );
+		} elseif ( 'completed' === $check['state'] ) {
+			/* translators: %s: the day the profile was last checked. */
+			$line = sprintf( __( 'Checked on %s: the course shows on the profile.', 'wpcredits-program-manager' ), wp_date( $format, $check['at'] ) );
+		} elseif ( 'not_completed' === $check['state'] ) {
+			/* translators: %s: the day the profile was last checked. */
+			$line = sprintf( __( 'Checked on %s: the course does not show on the profile yet.', 'wpcredits-program-manager' ), wp_date( $format, $check['at'] ) );
+		} else {
+			$line = sprintf(
+				/* translators: 1: the day the profile was last checked, 2: why it could not be read, as the check said. */
+				__( 'Checked on %1$s: the profile could not be read (%2$s).', 'wpcredits-program-manager' ),
+				wp_date( $format, $check['at'] ),
+				'' !== $check['message'] ? $check['message'] : $check['state']
+			);
+		}
+
+		printf( '<p class="wpcpm-mapp-check">%s</p>', esc_html( $line ) );
+
+		if ( array() !== $problem ) {
+			printf(
+				'<p class="wpcpm-mapp-problem">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: the day the account could not be made, 2: why, in the words the account step gave. */
+						__( 'The account could not be made on %1$s: %2$s', 'wpcredits-program-manager' ),
+						wp_date( $format, $problem['at'] ),
+						$problem['message']
+					)
+				)
+			);
+		}
+	}
+
+	/**
+	 * An activated row's lines (1.122.33): the account it made a mentor, the invitation's fate since,
+	 * and the Mentors row's in Airtable.
+	 *
+	 * @param WP_Post $post The row.
+	 */
+	private static function render_activation( WP_Post $post ) {
+		$user = get_userdata( WPCPM_Mentor_Application::user_of( $post ) );
+
+		if ( $user instanceof WP_User ) {
+			$link  = (string) get_edit_user_link( (int) $user->ID );
+			$named = '' !== $link ? '<a href="' . esc_url( $link ) . '">' . esc_html( $user->user_login ) . '</a>' : esc_html( $user->user_login );
+
+			/* translators: %s: the username of the mentor's account, a link to its profile screen. */
+			$account = sprintf( esc_html__( 'Account: %s', 'wpcredits-program-manager' ), $named );
+
+			printf( '<p class="wpcpm-mapp-account">%s</p>', $account ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The words are escaped, and the username and its link are built escaped above.
+		} else {
+			printf( '<p class="wpcpm-mapp-account">%s</p>', esc_html__( 'Account: the account made for this mentor no longer exists.', 'wpcredits-program-manager' ) );
+		}
+
+		$invitation = self::invitation_line( $post );
+
+		if ( '' !== $invitation ) {
+			printf( '<p class="wpcpm-mapp-invitation">%s</p>', esc_html( $invitation ) );
+		}
+
+		$airtable = self::airtable_line( $post );
+
+		if ( '' !== $airtable ) {
+			printf( '<p class="wpcpm-mapp-airtable">%s</p>', esc_html( $airtable ) );
+		}
+	}
+
+	/**
+	 * What became of an activated applicant's invitation, which carries the welcome, since the
+	 * activation (design, section 6; Review Focus 5). Only what happened at or after the moment the
+	 * application was made a mentor counts: a refused or skipped invitation writes no stamp, so the
+	 * account may hold an older one, and the mail log may hold an older invitation to the address.
+	 *
+	 * In order: none for an application filed as already a mentor; the account gone, or an
+	 * Administrator's, which is sent none; waiting in the email queue; the newest mentor invitation of
+	 * the mail log to the account's address since the activation, sent, refused by the mail host or
+	 * not confirmed; past the log's thirty days, the account's stamp since the activation; and
+	 * otherwise nothing since, with why when the activation held it for a person to confirm the
+	 * account (rulings R5 and P9b), a send the fifteen minutes or another request's lock passed over,
+	 * or one refused before the log's thirty days.
+	 *
+	 * @param WP_Post $post An activated application.
+	 * @return string '' when there is nothing to say.
+	 */
+	public static function invitation_line( WP_Post $post ) {
+		$airtable = WPCPM_Mentor_Application::airtable_of( $post );
+
+		if ( isset( $airtable['state'] ) && 'already' === $airtable['state'] ) {
+			return '';
+		}
+
+		$user = get_userdata( WPCPM_Mentor_Application::user_of( $post ) );
+
+		if ( ! $user instanceof WP_User ) {
+			return __( 'The account is gone, so no invitation can reach it.', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true ) ) {
+			return __( 'No invitation: the account is an Administrator\'s, which signs in already.', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( (int) $user->ID, WPCPM_Mail::queue(), true ) ) {
+			return __( 'The invitation with the welcome waits in the email queue.', 'wpcredits-program-manager' );
+		}
+
+		$since  = self::activated_time( $post );
+		$format = (string) get_option( 'date_format', 'F j, Y' );
+		$email  = trim( (string) $user->user_email );
+		// An account with no address is asked nothing: the log reads an empty address as no filter.
+		$found = '' === $email ? array() : WPCPM_Mail_Log::find(
+			array(
+				'exact_email' => $email,
+				'template'    => self::MAIL_INVITE,
+			),
+			1,
+			1
+		);
+		$row   = isset( $found['rows'][0] ) && is_array( $found['rows'][0] ) ? $found['rows'][0] : null;
+		$at    = null !== $row && isset( $row['sent_at'] ) ? (int) strtotime( (string) $row['sent_at'] . ' UTC' ) : 0;
+
+		if ( null !== $row && $at >= $since ) {
+			$status = isset( $row['status'] ) ? (string) $row['status'] : '';
+
+			if ( WPCPM_Mail_Log::STATUS_FAILED === $status ) {
+				return sprintf(
+					/* translators: %s: the day the invitation was handed to the mail host. */
+					__( 'The invitation with the welcome went to the mail host on %s.', 'wpcredits-program-manager' ),
+					wp_date( $format, $at )
+				) . ' ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' ' . __( 'Resend invite is on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			}
+
+			if ( WPCPM_Mail_Log::STATUS_UNCONFIRMED === $status ) {
+				return sprintf(
+					/* translators: %s: the day the invitation was handed over. */
+					__( 'The invitation with the welcome was handed over on %s, and the mail log does not say whether it went.', 'wpcredits-program-manager' ),
+					wp_date( $format, $at )
+				);
+			}
+
+			if ( WPCPM_Mail_Log::STATUS_SENT === $status ) {
+				return self::invitation_sent( $at );
+			}
+		}
+
+		// No row since the activation, as the log keeps thirty days: the account's stamp, which only an
+		// invitation that went writes.
+		$stamp = (int) WPCPM_Mail::last_invited( (int) $user->ID );
+
+		if ( $stamp > 0 && $stamp >= $since ) {
+			return self::invitation_sent( $stamp );
+		}
+
+		$linked_by = WPCPM_Mentor_Application::linked_by_of( $post );
+
+		if ( 'login' === $linked_by ) {
+			return __( 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'record' === $linked_by ) {
+			return __( 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The invitation line for one that went.
+	 *
+	 * @param int $at When, a Unix time.
+	 * @return string
+	 */
+	private static function invitation_sent( $at ) {
+		return sprintf(
+			/* translators: %s: the day the invitation was sent. */
+			__( 'The invitation with the welcome was sent on %s.', 'wpcredits-program-manager' ),
+			wp_date( (string) get_option( 'date_format', 'F j, Y' ), (int) $at )
+		);
+	}
+
+	/**
+	 * What became of an activated applicant's Mentors row in Airtable, then what was left out of it
+	 * when the base did not hold a value or a column.
+	 *
+	 * @param WP_Post $post An activated application.
+	 * @return string '' when the activation kept nothing of it.
+	 */
+	private static function airtable_line( WP_Post $post ) {
+		$row = WPCPM_Mentor_Application::airtable_of( $post );
+
+		if ( array() === $row ) {
+			return '';
+		}
+
+		$day = wp_date( (string) get_option( 'date_format', 'F j, Y' ), $row['at'] );
+
+		switch ( $row['state'] ) {
+			case 'created':
+				/* translators: %s: the day the Mentors row was written. */
+				$line = sprintf( __( 'Airtable row written on %s.', 'wpcredits-program-manager' ), $day );
+				break;
+
+			case 'reactivated':
+				/* translators: %s: the day the mentor's own Mentors row was set back to Active. */
+				$line = sprintf( __( 'The mentor\'s own Airtable row was set back to Active on %s.', 'wpcredits-program-manager' ), $day );
+				break;
+
+			case 'adopted':
+				/* translators: %s: the day the Mentors row that held the address was set back to Active and linked. */
+				$line = sprintf( __( 'The Mentors row that held this address was set back to Active and linked on %s.', 'wpcredits-program-manager' ), $day );
+				break;
+
+			case 'found':
+				$line = __( 'The account holds its Airtable record, linked by the mentors sync or by hand; nothing was written from here.', 'wpcredits-program-manager' );
+				break;
+
+			case 'gone':
+				$line = __( 'The account made for this mentor no longer exists, so no Airtable row is written for it.', 'wpcredits-program-manager' );
+				break;
+
+			case 'already':
+				$line = __( 'A mentor already: nothing was written.', 'wpcredits-program-manager' );
+				break;
+
+			case 'refused':
+				/* translators: 1: the day Airtable refused the Mentors row, 2: Airtable's words, or the site's, for why. */
+				$line = sprintf( __( 'Airtable refused the row on %1$s: %2$s', 'wpcredits-program-manager' ), $day, $row['error'] );
+				break;
+
+			default:
+				$line = __( 'The Airtable row has not been written yet.', 'wpcredits-program-manager' );
+		}
+
+		$left_out = WPCPM_Mentor_Airtable_Row::left_out_sentence( $row['left_out'] );
+
+		return '' !== $left_out ? $line . ' ' . $left_out : $line;
+	}
+
+	/**
+	 * When an application was made a mentor: the moment the activation kept, or, for one that keeps
+	 * none, its newest activation in the history.
+	 *
+	 * @param WP_Post $post An activated application.
+	 * @return int A Unix time, or 0.
+	 */
+	private static function activated_time( WP_Post $post ) {
+		$at = (int) get_post_meta( (int) $post->ID, WPCPM_Mentor_Application::META_ACTIVATED_AT, true );
+
+		if ( $at > 0 ) {
+			return $at;
+		}
+
+		return max( WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_ACTIVATED ), WPCPM_Mentor_Application::last_at( (int) $post->ID, WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR ) );
+	}
+
+	/**
+	 * Whether an activated row is offered Write the Airtable row again: its Mentors row still to be
+	 * written, refused or never finished, and its account still there and still waiting for it. One
+	 * the mentors sync linked meanwhile waits for nothing, and one whose account is gone has nothing
+	 * to write for.
+	 *
+	 * @param WP_Post $post An activated application.
+	 * @return bool
+	 */
+	private static function retry_offered( WP_Post $post ) {
+		if ( ! WPCPM_Mentor_Application::row_unwritten( $post ) ) {
+			return false;
+		}
+
+		$user_id = WPCPM_Mentor_Application::user_of( $post );
+
+		return get_userdata( $user_id ) instanceof WP_User && '' !== (string) get_user_meta( $user_id, WPCPM_Mentor_Provision::USER_ROW_PENDING, true );
+	}
+
+	/**
 	 * Every answer, in the order the form asked, each printed escaped: a stranger's words on an
 	 * Administrator's screen. The profile is a link, with the username beside it.
 	 *
@@ -842,9 +1478,10 @@ final class WPCPM_Mentor_Application_Queue {
 	 * @param WP_Post $post The row.
 	 */
 	private static function render_history( WP_Post $post ) {
-		$events = WPCPM_Mentor_Application::events( (int) $post->ID );
-		$words  = self::event_words();
-		$format = (string) get_option( 'date_format', 'F j, Y' );
+		$events   = WPCPM_Mentor_Application::events( (int) $post->ID );
+		$airtable = WPCPM_Mentor_Application::airtable_of( $post );
+		$words    = self::event_words( isset( $airtable['state'] ) && 'gone' === $airtable['state'] ? 'gone' : 'found' );
+		$format   = (string) get_option( 'date_format', 'F j, Y' );
 
 		printf( '<h4>%s</h4>', esc_html__( 'History', 'wpcredits-program-manager' ) );
 		echo '<ul class="wpcpm-app-history">';
@@ -873,22 +1510,34 @@ final class WPCPM_Mentor_Application_Queue {
 	/**
 	 * What the history calls each event, in the Administrator's words.
 	 *
+	 * The Mentors row settled with nothing written from here (ruling R2) is worded by how it settled,
+	 * which the row's kept Airtable state says: an application settles once, since a settled row is no
+	 * longer one to write.
+	 *
+	 * @param string $settled How the application's Mentors row settled: `found` or `gone`.
 	 * @return array<string, string>
 	 */
-	private static function event_words() {
+	private static function event_words( $settled = 'found' ) {
 		return array(
-			WPCPM_Mentor_Application::EVENT_SUBMITTED => __( 'applied', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_CONFIRMED => __( 'confirmed the address', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_SELECTED  => __( 'selected', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_INFO      => __( 'asked for more information', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_SECOND    => __( 'asked for a second opinion', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_DECLINED  => __( 'declined', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_SPAM      => __( 'marked as spam', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_WITHDRAWN => __( 'withdrawn', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_REOPENED  => __( 'put back in the queue', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_SUBMITTED      => __( 'applied', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_CONFIRMED      => __( 'confirmed the address', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_SELECTED       => __( 'selected', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_INFO           => __( 'asked for more information', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_SECOND         => __( 'asked for a second opinion', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_DECLINED       => __( 'declined', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_SPAM           => __( 'marked as spam', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_WITHDRAWN      => __( 'withdrawn', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_REOPENED       => __( 'put back in the queue', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED => __( 'put back in the queue, acknowledgement sent', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_LAPSED    => __( 'lapsed', 'wpcredits-program-manager' ),
-			WPCPM_Mentor_Application::EVENT_ACTIVATED => __( 'made a mentor', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED   => __( 'sent the acknowledgement', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_LAPSED         => __( 'lapsed', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_ACTIVATED      => __( 'made a mentor', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR => __( 'filed as already a mentor', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_AIRTABLE_WRITTEN => __( 'wrote the Airtable row', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_AIRTABLE_REFUSED => __( 'Airtable refused the row', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_AIRTABLE_SETTLED => 'gone' === $settled
+				? __( 'the account is gone, so nothing more is written for it', 'wpcredits-program-manager' )
+				: __( 'the row was linked by the mentors sync or by hand', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -904,6 +1553,23 @@ final class WPCPM_Mentor_Application_Queue {
 		$name = '' !== $name ? $name : WPCPM_Mentor_Application::reference_of( $post );
 		$open = in_array( $state, WPCPM_Mentor_Application::open_states(), true );
 		$kept = WPCPM_Typed_Text::box_form( self::TYPED, (int) $post->ID );
+
+		// First, since Select, Ask for more information and Decline wait on the link it carries.
+		if ( $open && ! self::acknowledged( $post ) && '' !== WPCPM_Mentor_Application::email_of( $post ) ) {
+			self::render_form(
+				$post,
+				$view,
+				array(
+					'action'  => self::ACTION_ACKNOWLEDGE,
+					'label'   => __( 'Send the acknowledgement', 'wpcredits-program-manager' ),
+					'confirm' => sprintf(
+						/* translators: %s: the applicant's name. */
+						__( 'Send %s the acknowledgement, with the link that confirms the address?', 'wpcredits-program-manager' ),
+						$name
+					),
+				)
+			);
+		}
 
 		if ( in_array( $state, self::select_states(), true ) ) {
 			self::render_form(
@@ -983,6 +1649,38 @@ final class WPCPM_Mentor_Application_Queue {
 				array(
 					'action' => self::ACTION_REOPEN,
 					'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
+				)
+			);
+		}
+
+		// While Make mentors from applications is off the step refuses, so the press is not offered and
+		// the row says the applicant waits (`render_course()`).
+		if ( WPCPM_Mentor_Application::STATE_SELECTED === $state && WPCPM_Mentor_Activation::enabled() ) {
+			self::render_form(
+				$post,
+				$view,
+				array(
+					'action'  => self::ACTION_COMPLETE,
+					'label'   => __( 'The course is completed', 'wpcredits-program-manager' ),
+					'class'   => 'button button-primary',
+					'note'    => __( 'How you know, for the next Administrator, optional. It is never sent.', 'wpcredits-program-manager' ),
+					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'complete' ),
+					'confirm' => sprintf(
+						/* translators: %s: the applicant's name. */
+						__( 'Make %s a mentor now? Their account is made, the Airtable row written and the invitation with the welcome sent.', 'wpcredits-program-manager' ),
+						$name
+					),
+				)
+			);
+		}
+
+		if ( WPCPM_Mentor_Application::STATE_ACTIVE === $state && self::retry_offered( $post ) ) {
+			self::render_form(
+				$post,
+				$view,
+				array(
+					'action' => self::ACTION_AIRTABLE,
+					'label'  => __( 'Write the Airtable row again', 'wpcredits-program-manager' ),
 				)
 			);
 		}

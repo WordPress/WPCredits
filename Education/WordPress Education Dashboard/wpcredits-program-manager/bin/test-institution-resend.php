@@ -13,7 +13,9 @@
  *   nothing.** The nonce (keyed to the account the form names), the policy (a member of another
  *   institution, a student, a stranger, nobody signed in, a locked agreement, an account with no
  *   institution stamp even for an Administrator), an account that is not a student, a student
- *   who has signed in, an account with no address, the fifteen minutes, and the day's twenty.
+ *   who has signed in, an account with no address, an account whose invitation an activation of a
+ *   mentor application held (it would carry the mentor's welcome, and the hold is the program's
+ *   Administrators' to lift), the fifteen minutes, and the day's twenty.
  *   The day's place is claimed only after all of them, so none of them costs the school one.
  * - **A send that answers an error gives the place back.** The two ways it can, another route
  *   inviting the student in the same instant and the account losing the Student role, are
@@ -161,6 +163,9 @@ function wp_cache_delete( $key, $group = '' ) { return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
+// Whether the key is there at all, whatever it holds, as core's `metadata_exists()` answers: the mail
+// layer reads an invitation an activation held by it.
+function metadata_exists( $type, $id, $k ) { return 'user' === $type && isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $k, $GLOBALS['umeta'][ (int) $id ] ); }
 function get_user_by( $f, $v ) { return 'id' === $f ? ( $GLOBALS['users'][ (int) $v ] ?? false ) : false; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
@@ -272,6 +277,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+// The account key an activation of a mentor application holds an invitation by (1.122.33).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 
 /* ---- the pieces around the press, each to its contract -------------------- */
 
@@ -561,6 +568,18 @@ ck( 'a student who has signed in is not sent one, and is told so', refused( 20, 
 ck( 'a student with no address is not sent one', refused( 20, 15 ), nothing( 'invite-error' ) );
 ck( 'nor one whose address is not an address', refused( 20, 17 ), nothing( 'invite-error' ) );
 
+// A student made a mentor from an application whose account was linked by the WordPress.org username
+// alone: the invitation would be the mentor's, with the welcome's private links, and it waits for an
+// Administrator to confirm the account is the person's (rulings R5 and P9b). The representative's
+// press sends nothing, spends no place, and leaves the hold where it is.
+$GLOBALS['users'][12]->roles[]                                    = WPCPM_Roles::ROLE_MENTOR;
+$GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+ck( 'a student whose invitation an activation held is not sent one, and the hold stays',
+	array( refused( 20, 12 ), $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] ?? null ),
+	array( nothing( 'invite-error' ), 'login' ) );
+$GLOBALS['users'][12]->roles = array( WPCPM_Roles::ROLE_STUDENT );
+unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
+
 update_user_meta( 10, WPCPM_Mail::STAMPS[ WPCPM_Roles::ROLE_STUDENT ], time() - 5 * MINUTE_IN_SECONDS );
 ck( 'a student invited five minutes ago is not sent another', refused( 20, 10 ), nothing( 'invite-too-soon' ) );
 
@@ -571,7 +590,7 @@ $body   = substr( $source, (int) strpos( $source, 'public static function handle
 $body   = substr( $body, 0, (int) strpos( $body, 'public static function ceiling_key(' ) );
 $at     = array();
 
-foreach ( array( 'check_admin_referer(', 'self::decision(', 'self::student(', 'WPCPM_Sign_Ins::has_signed_in(', 'is_email(', 'WPCPM_Mail::may_invite(', 'WPCPM_Ceiling::claim(', 'WPCPM_Students_Sync::send_invite(', 'self::log(' ) as $call ) {
+foreach ( array( 'check_admin_referer(', 'self::decision(', 'self::student(', 'WPCPM_Sign_Ins::has_signed_in(', 'is_email(', 'WPCPM_Mail::is_held(', 'WPCPM_Mail::may_invite(', 'WPCPM_Ceiling::claim(', 'WPCPM_Students_Sync::send_invite(', 'self::log(' ) as $call ) {
 	$at[ $call ] = strpos( $body, $call );
 }
 

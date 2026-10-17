@@ -25,6 +25,13 @@
 	color: #50575e;
 }
 
+/* The warning that Airtable's mentors were left out sits under the status line at the screen's
+   half-line rhythm, as the status line's own margin does, where a paragraph's whole line opened a
+   gap twice that; below it, the whole line it always had, so nothing under it moves. */
+.wpcpm-checker-left-out {
+	margin: 0.5em 0 1em;
+}
+
 .wpcpm-checker-progress {
 	max-width: 42em;
 	padding: 12px 16px;
@@ -196,7 +203,8 @@ tr.is-checking {
 	background: #d7e9f7;
 }
 
-.wpcpm-checker-action--promoted {
+.wpcpm-checker-action--promoted,
+.wpcpm-checker-action--activated {
 	color: #005c2a;
 	background: #d5f2e0;
 }
