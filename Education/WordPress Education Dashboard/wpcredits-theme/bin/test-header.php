@@ -15,14 +15,19 @@
  *
  * The markup the menu needs (theme 1.24.20): the head mark, the logo link's name, the lone navigation
  * item's marks, and the Menu button, the panel's ID and the class a signed-in reader's header gets,
- * run on the stand-ins of bin/stubs/hub-wp.php over the markup of bin/stubs/header-markup.php.
+ * run on the stand-ins of bin/stubs/hub-wp.php over the markup of bin/stubs/header-markup.php. Each
+ * class the entry count names is counted on its own (theme 1.24.21), the three filters are hooked at
+ * their priority with the arguments they take, the logo link's name is plain text, and the Menu
+ * label has its translators note, in the source and in the template.
  *
  * The menu layout (theme 1.24.20), read from the sheet as it is written: each rule the one-row bar, the
  * panel, the account picture, the rows and the signed-out phone row rest on is in the sheet once, in its
  * at-rule, with the declarations the cascade and the layout depend on; every rule of it is under
  * `.wpc-js .wpc-header--menu` and inside the screen query below 1200px; the submenu rules outrank every
- * rule outside the menu layout that reveals a submenu; nothing but the open panel and the picture is made
- * visible; and the layout comes after the header rules it restates, so a tie of specificity goes its way.
+ * rule outside the menu layout that reveals a submenu, and core's reveal on focus, each selector weighed
+ * on its own (theme 1.24.21); nothing but the open panel and the picture is made visible; and the layout
+ * comes after the header rules it restates, so a tie of specificity goes its way. The signed-out phone
+ * row is judged inside its own block of the sheet.
  *
  * The menu script (theme 1.24.20): the callbacks hooked on `wp_enqueue_scripts` enqueue it for a
  * signed-in reader alone, deferred, and the handbook launcher's comment names the plugin's class it
@@ -89,12 +94,15 @@ require_once WPCREDITS_THEME_DIR . 'inc/header.php';
  *
  * @return array[] Each as `array( 'at' => at-rules joined by " > " or '', 'selector' => the selector
  *                 list, whitespace run together, 'declarations' => the declarations, one per entry,
- *                 whitespace run together )`.
+ *                 whitespace run together, 'block' => the number of the innermost at-rule block the
+ *                 rule sits in, counted from 1 in the order the sheet opens them, or 0 outside any )`.
  */
 function sheet_rules() {
-	$css   = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'style.css' ) );
-	$rules = array();
-	$stack = array();
+	$css    = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'style.css' ) );
+	$rules  = array();
+	$stack  = array();
+	$blocks = array();
+	$opened = 0;
 
 	preg_match_all( '/\{|\}|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[^{}"\']+/s', $css, $tokens );
 
@@ -114,8 +122,9 @@ function sheet_rules() {
 			$name = trim( preg_replace( '/\s+/', ' ', $prelude ) );
 
 			if ( preg_match( '/^@(?:media|supports|container|layer)\b/', $name ) ) {
-				$stack[] = $name;
-				$prelude = '';
+				$stack[]  = $name;
+				$blocks[] = ++$opened;
+				$prelude  = '';
 			} else {
 				$body = '';
 			}
@@ -145,12 +154,14 @@ function sheet_rules() {
 					'at'           => implode( ' > ', $stack ),
 					'selector'     => trim( preg_replace( '/\s+/', ' ', $prelude ) ),
 					'declarations' => $declarations,
+					'block'        => $blocks ? end( $blocks ) : 0,
 				);
 
 				$body    = null;
 				$prelude = '';
 			} else {
 				array_pop( $stack );
+				array_pop( $blocks );
 				$prelude = '';
 			}
 
@@ -299,6 +310,16 @@ $hooked_priority_of = static function ( $hook, $function ) {
 	return null;
 };
 
+$hooked_as = static function ( $hook, $function ) {
+	foreach ( isset( $GLOBALS['hooks'][ $hook ] ) ? $GLOBALS['hooks'][ $hook ] : array() as $hooked ) {
+		if ( $function === $hooked[0] ) {
+			return array( $hooked[1], $hooked[2] );
+		}
+	}
+
+	return null;
+};
+
 $printed_by = static function ( $function ) {
 	ob_start();
 	$function();
@@ -306,18 +327,7 @@ $printed_by = static function ( $function ) {
 	return (string) ob_get_clean();
 };
 
-$three_with_submenu = array(
-	array( 'Homepage', 'https://site.example/' ),
-	array( 'About the program', 'https://site.example/about/' ),
-	array(
-		'Programs',
-		'',
-		array(
-			array( 'WordPress Credits', 'https://site.example/credits/' ),
-			array( 'Campus Connect', 'https://site.example/campus/' ),
-		),
-	),
-);
+$three_with_submenu = wpcredits_test_three_with_submenu();
 $no_extras          = array(
 	'help'    => false,
 	'student' => false,
@@ -391,6 +401,25 @@ $three_with_submenu_no_help_no_cards = wpcredits_test_header( array_merge( $no_e
 ck( 'a header that would list one entry, Log out alone, is left as it is; Homepage and Log out are two and get the button; so does the navigation of three items with a submenu and nothing else',
 	array( $menu( $log_out_alone ) === $log_out_alone, $buttons_in( $menu( $homepage_and_log_out ) ), $buttons_in( $menu( $three_with_submenu_no_help_no_cards ) ) ),
 	array( true, 1, 1 ) );
+
+$help_and_log_out        = wpcredits_test_header(
+	array(
+		'nav'     => array(),
+		'student' => false,
+		'mentor'  => false,
+	)
+);
+$report_card_and_log_out = wpcredits_test_header(
+	array(
+		'nav'    => array(),
+		'help'   => false,
+		'mentor' => false,
+	)
+);
+
+ck( 'with no navigation, Need help? and Log out are two entries and get the button, and so do one report card link and Log out: each class the entry count names is counted on its own',
+	array( $entries_of( $menu( $help_and_log_out ) ), $buttons_in( $menu( $help_and_log_out ) ), $entries_of( $menu( $report_card_and_log_out ) ), $buttons_in( $menu( $report_card_and_log_out ) ) ),
+	array( array( 'Need help?', 'Log out' ), 1, array( 'Student Report Card', 'Log out' ), 1 ) );
 
 $GLOBALS['logged_in'] = false;
 $signed_out_kept      = $menu( $admin ) === $admin;
@@ -483,6 +512,14 @@ ck( 'functions.php requires inc/header.php right after inc/hub-content.php, and 
 	),
 	array( true, array( 'inc/header.php' ), array( 'inc/header.php' ) ) );
 
+ck( 'the filters are hooked as WordPress needs them, each as priority and accepted arguments: the menu on `render_block_core/group` at 10 taking two (the content and the block; one would be a fatal error on every page), the logo fallback on `render_block_core/site-logo` and the lone item on `render_block_core/navigation` at 10 taking one',
+	array(
+		$hooked_as( 'render_block_core/group', 'wpcredits_header_menu' ),
+		$hooked_as( 'render_block_core/site-logo', 'wpcredits_site_logo_fallback' ),
+		$hooked_as( 'render_block_core/navigation', 'wpcredits_lone_nav_item' ),
+	),
+	array( array( 10, 2 ), array( 10, 1 ), array( 10, 1 ) ) );
+
 $logo_link_attributes = static function ( $html ) use ( $page_of, $has, $attributes_of ) {
 	$page = $page_of( $html );
 	$link = $page->query( '//a[' . $has( 'custom-logo-link' ) . ']' )->item( 0 );
@@ -531,6 +568,12 @@ ck( 'the logo link is named with the site\'s name, or "Home" on a site with none
 		true,
 	) );
 
+$marked_up = $logo_link_attributes( $with_blogname( '<b>WP</b> Education', 'wpcredits_site_logo_fallback' ) );
+
+ck( 'the logo link\'s name is the site name as text: a name holding markup (`<b>WP</b> Education`) gives its words alone, `WP Education`',
+	isset( $marked_up['aria-label'] ) ? $marked_up['aria-label'] : null,
+	'WP Education' );
+
 /**
  * The classes among those given that a PHP file of the theme does not print in its code, read with the
  * tokenizer without its comments, as whole class names.
@@ -570,6 +613,13 @@ ck( 'the fixture prints the classes the blocks print: each of wpc-ask, wpc-viewe
 		)
 	),
 	array() );
+
+ck( 'the Menu button\'s label tells a translator what it is: a translators note right above it says it is the label of the button that opens the site menu on narrow screens, and the template carries the note',
+	array(
+		(bool) preg_match( "#/\* translators: [^*]*button that opens the site menu on narrow screens[^*]*\*/\n\s*esc_attr__\( 'Menu', 'wpcredits-theme' \)#", theme_file( 'inc/header.php' ) ),
+		(bool) preg_match( '#\n\#\. translators: [^\n]*button that opens the site menu on narrow screens[^\n]*\n\#: inc/header\.php:\d+\nmsgid "Menu"\n#', theme_file( 'languages/wpcredits-theme.pot' ) ),
+	),
+	array( true, true ) );
 
 echo "\n=== The menu layout ===\n";
 
@@ -690,12 +740,18 @@ $index_of_first_rule_naming = static function ( $name ) {
 	return -1;
 };
 
-$deepest_among = static function ( $needle, $in_menu ) use ( $selectors_of, $specificity ) {
+/**
+ * How deep the deepest selector is that names a text and is not part of the menu layout.
+ *
+ * @param string $needle The text.
+ * @return int
+ */
+$deepest_outside_menu = static function ( $needle ) use ( $selectors_of, $specificity ) {
 	$deepest = 0;
 
 	foreach ( sheet_rules() as $rule ) {
 		foreach ( $selectors_of( $rule['selector'] ) as $selector ) {
-			if ( false !== strpos( $selector, $needle ) && ( false !== strpos( $selector, 'wpc-header--menu' ) ) === $in_menu ) {
+			if ( false !== strpos( $selector, $needle ) && false === strpos( $selector, 'wpc-header--menu' ) ) {
 				$deepest = max( $deepest, $specificity( $selector ) );
 			}
 		}
@@ -704,11 +760,20 @@ $deepest_among = static function ( $needle, $in_menu ) use ( $selectors_of, $spe
 	return $deepest;
 };
 
-$deepest_outside_menu         = static function ( $needle ) use ( $deepest_among ) {
-	return $deepest_among( $needle, false );
-};
-$deepest_menu_selector_naming = static function ( $needle ) use ( $deepest_among ) {
-	return $deepest_among( $needle, true );
+/**
+ * Whether a selector is in the sheet, written as given, as one of a rule's selector list.
+ *
+ * @param string $wanted The selector.
+ * @return bool
+ */
+$is_in_the_sheet = static function ( $wanted ) use ( $selectors_of ) {
+	foreach ( sheet_rules() as $rule ) {
+		if ( in_array( $wanted, $selectors_of( $rule['selector'] ), true ) ) {
+			return true;
+		}
+	}
+
+	return false;
 };
 
 $selectors_declaring_under = static function ( $class, $declaration ) {
@@ -838,12 +903,16 @@ ck( 'inside the panel the navigation is a plain block list: its own toggle and c
 			$m . ' .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open )' => array( 'display: block;', 'height: auto;', 'padding: 0;', 'position: static;', 'width: auto;' ),
 			$m . ' .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-dialog, ' . $m . ' .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-container-content' => array( 'display: block;', 'padding: 0;', 'position: static;' ),
 			$m . ' .wpc-nav .wp-block-navigation__container, ' . $m . ' .wpc-nav .wp-block-navigation-item' => array( 'display: block;', 'width: auto;' ),
-			$m . ' .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded] ~ .wp-block-navigation__submenu-container, ' . $m . ' .wpc-nav .has-child .wp-block-navigation__submenu-container' => array( 'display: block;', 'height: auto;', 'min-width: 0;', 'opacity: 1;', 'overflow: visible;', 'padding: 0 0 0 12px;', 'position: static;', 'visibility: inherit;', 'width: auto;' ),
+			$m . ' .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded] ~ .wp-block-navigation__submenu-container, ' . $m . ' .wpc-nav .has-child .wp-block-navigation__submenu-container, ' . $m . ' .wpc-nav.wp-block-navigation .has-child:not( .open-on-click ) .wp-block-navigation__submenu-container' => array( 'display: block;', 'height: auto;', 'min-width: 0;', 'opacity: 1;', 'overflow: visible;', 'padding: 0 0 0 12px;', 'position: static;', 'visibility: inherit;', 'width: auto;' ),
 			$m . ' .wpc-nav .wp-block-navigation__submenu-icon' => array( 'display: none;' ),
 		),
 		$menu_at
 	),
 	array() );
+
+ck( 'the navigation\'s container, while it is not open, declares no background: core\'s `background-color: inherit !important` for a container that is not open outranks any, so a declaration here would do nothing and the panel\'s own surface shows through; its rule holds the five layout declarations and no more',
+	rules_of( $m . ' .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open )', $menu_at ),
+	array( array( 'display: block;', 'height: auto;', 'padding: 0;', 'position: static;', 'width: auto;' ) ) );
 
 ck( 'every entry is a 44px row (15px type on a 20px line with 12px above and below, a hairline under it, the full width), whatever block prints it; hover and focus turn it brand blue; Log out is last, so it has no hairline; the page being viewed is brand blue; each rule once, in the screen query',
 	$unpinned(
@@ -865,8 +934,19 @@ $signed_out_scope = ':has( .wpc-nav--home )';
 $signed_out_inner = 'body:not( .wpc-signed-in ) .wpc-header__inner' . $signed_out_scope;
 $signed_out_hider = 'body:not( .wpc-signed-in ) .wpc-header .wpc-nav--home';
 $signed_out_loose = array();
+$signed_out_block = 0;
 
 foreach ( sheet_rules() as $rule ) {
+	if ( $phone_at === $rule['at'] && $signed_out_hider === $rule['selector'] ) {
+		$signed_out_block = $rule['block'];
+	}
+}
+
+foreach ( sheet_rules() as $rule ) {
+	if ( 0 === $signed_out_block || $signed_out_block !== $rule['block'] ) {
+		continue;
+	}
+
 	foreach ( $selectors_of( $rule['selector'] ) as $selector ) {
 		if ( false !== strpos( $selector, 'wpc-signed-in' ) && false === strpos( $selector, $signed_out_scope ) && $signed_out_hider !== $selector ) {
 			$signed_out_loose[] = $selector;
@@ -874,7 +954,7 @@ foreach ( sheet_rules() as $rule ) {
 	}
 }
 
-ck( 'signed out, a phone is one row only where its lone navigation link, the home page, is left out: the bar does not wrap and gaps by 12px, the brand takes the room and gaps by 12px, the group is as wide as the button, and the navigation of one link home is not displayed; each rule once, in the 640px query, and every rule of the row but the one that leaves the link out is scoped to a bar holding `.wpc-nav--home` with `:has()`, so any other lone link, or a browser without `:has()`, keeps the two rows',
+ck( 'signed out, a phone is one row only where its lone navigation link, the home page, is left out: the bar does not wrap and gaps by 12px, the brand takes the room and gaps by 12px, the group is as wide as the button, and the navigation of one link home is not displayed; each rule once, in the 640px query, and every rule of that block that names `wpc-signed-in`, but the one that leaves the link out, is scoped to a bar holding `.wpc-nav--home` with `:has()`, so any other lone link keeps the two rows (a rule naming `wpc-signed-in` elsewhere in the sheet is not this block\'s to judge)',
 	array(
 		$unpinned(
 			array(
@@ -897,16 +977,31 @@ ck( 'nothing in the panel but the picture and the open panel itself is made visi
 	$selectors_declaring_under( 'wpc-header--menu', 'visibility: visible;' ),
 	array( '.wpc-js .wpc-header--menu.wpc-header--open .wpc-nav__center', '.wpc-js .wpc-header--menu .wpc-viewer__avatar' ) );
 
-ck( 'the menu\'s submenu rules are in the sheet and outrank every rule outside the menu layout that reveals or restyles a submenu: deeper than each (6 today), so the closed panel stays closed after a submenu toggle is pressed, and a submenu row keeps the 44px row',
-	array( $deepest_menu_selector_naming( '.wp-block-navigation__submenu-container' ) > $deepest_outside_menu( '.wp-block-navigation__submenu-container' ), $deepest_menu_selector_naming( '.wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content' ) > $deepest_outside_menu( '.wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content' ) ),
-	array( true, true ) );
+$submenu_container = '.wp-block-navigation__submenu-container';
+$submenu_row       = $submenu_container . ' > .wp-block-navigation-item > .wp-block-navigation-item__content';
+
+// The reveal of core's navigation stylesheet that the sheet does not hold: a submenu opened by focus.
+$core_focus_reveal = '.wp-block-navigation .has-child:not(.open-on-click):not(.open-on-hover-click):focus-within > ' . $submenu_container;
+
+// The menu's selectors that decide a submenu, each weighed against the sheet's own deepest one and core's.
+$container_with_toggle = $m . ' .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded] ~ ' . $submenu_container;
+$container_hover_mode  = $m . ' .wpc-nav.wp-block-navigation .has-child:not( .open-on-click ) ' . $submenu_container;
+$container_to_outrank  = max( $deepest_outside_menu( $submenu_container ), $specificity( $core_focus_reveal ) );
+
+ck( 'the menu\'s submenu selectors are in the sheet, each deeper than every rule outside the menu layout that reveals or restyles a submenu (6 today) and than core\'s reveal on focus (6): the container of a submenu with a toggle, the container of one that opens on hover and has none, and the submenu row, so the closed panel stays closed after a submenu toggle is pressed or the focus comes into a submenu, and a submenu row keeps the 44px row',
+	array(
+		$is_in_the_sheet( $container_with_toggle ) && $specificity( $container_with_toggle ) > $container_to_outrank,
+		$is_in_the_sheet( $container_hover_mode ) && $specificity( $container_hover_mode ) > $container_to_outrank,
+		$is_in_the_sheet( $row_selectors[1] ) && $specificity( $row_selectors[1] ) > $deepest_outside_menu( $submenu_row ),
+	),
+	array( true, true, true ) );
 
 ck( 'every rule of the menu layout is inside the screen query below 1200px, or its forced-colors twin, and each of its selectors starts with `.wpc-js .wpc-header--menu`, so without JavaScript, signed out, in print and from 1200px nothing of it applies',
 	array( $at_rules_of_rules_naming( array( 'wpc-header--menu', 'wpc-header--open' ) ), $selectors_not_starting_with( '.wpc-js .wpc-header--menu' ) ),
 	array( array( '@media screen and ( max-width: 1199px )', '@media screen and ( max-width: 1199px ) and ( forced-colors: active )' ), array() ) );
 
-ck( 'the menu layout comes after every header rule it restates, the 640px, 960px and stacked blocks among them, so a tie of specificity goes its way',
-	$index_of_first_rule_naming( 'wpc-header--menu' ) > $index_of_last_rule_naming( array( '.wpc-header--stacked', 'wpc-nav--lone', '.wpc-viewer__logout', '.wpc-nav__center' ), array( 'wpc-header--menu', 'wpc-signed-in' ) ),
+ck( 'the menu layout comes after every header rule it restates, the 640px, 960px and stacked blocks among them, so a tie of specificity goes its way: the 960px rule that shows the navigation\'s own toggle ties the menu\'s rule that hides it, and the navigation\'s links and container are restated alike',
+	$index_of_first_rule_naming( 'wpc-header--menu' ) > $index_of_last_rule_naming( array( '.wpc-header--stacked', 'wpc-nav--lone', '.wpc-viewer__logout', '.wpc-nav__center', 'wp-block-navigation-item__content', 'responsive-container' ), array( 'wpc-header--menu', 'wpc-signed-in' ) ),
 	true );
 
 echo "\n=== The menu script ===\n";

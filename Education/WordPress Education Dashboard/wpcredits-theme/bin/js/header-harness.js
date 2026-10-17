@@ -7,8 +7,9 @@
  * The markup comes on stdin, as bin/test-header-js.php renders it with the theme's own header filter:
  * a JSON object of named pages. Each scenario opens a page in the stand-in of bin/js/hub-dom.js, runs
  * assets/js/header-height.js and then assets/js/header-menu.js as a browser runs deferred scripts,
- * after the markup, and drives the page as a person does: a press, a touch, a key pressed on the
- * element that has the focus, the focus moved, a link followed.
+ * after the markup, and drives the page as a person does: a press (a pointerdown alone, or a full
+ * one with the focus and the click after it), a touch, a key pressed on the element that has the
+ * focus, the focus moved, a link followed.
  *
  * What the height script reads of the layout is stood in for on the page's window: a ResizeObserver
  * whose callback is kept and called by the page's `resize()`, frames that are queued and run by
@@ -127,13 +128,35 @@ function open( name, before ) {
 }
 
 /**
- * Focus an element, then click it, as a person does with the mouse or a tap.
+ * Focus an element, then click it, as a keyboard or a tap that focuses does.
  *
- * @param {Object}  where   The page.
  * @param {Element} element The element.
  */
-function tap( where, element ) {
+function tap( element ) {
 	element.focus();
+	element.click();
+}
+
+/**
+ * A press as a browser makes it with a mouse: a pointerdown on the element, then the focus (to the
+ * link, button or element with a tabindex the element is or sits in, or, where there is none, away
+ * from whatever had it), then the click. A button is focused by the press here; Safari does not focus
+ * one, which a scenario makes with `blur()` and `click()`.
+ *
+ * @param {Element} element What is pressed.
+ */
+function fullPress( element ) {
+	const focusable = element.closest( 'a[href], button, [tabindex]' );
+	const had = element.ownerDocument.activeElement;
+
+	press( element );
+
+	if ( focusable ) {
+		focusable.focus();
+	} else if ( had ) {
+		had.blur();
+	}
+
 	element.click();
 }
 
@@ -166,9 +189,9 @@ scenario( 'the button opens the menu and closes it again, aria-expanded and the 
 	const button = toggle( where );
 	const states = [];
 
-	tap( where, button );
+	tap( button );
 	states.push( [ expanded( where ), marked( where, 'wpc-header--open' ), focused( where, button ) ] );
-	tap( where, button );
+	tap( button );
 	states.push( [ expanded( where ), marked( where, 'wpc-header--open' ), focused( where, button ) ] );
 
 	return states;
@@ -180,7 +203,7 @@ scenario( 'Escape closes the open menu from any entry in it and puts focus on th
 	const where = open( 'admin' );
 	const button = toggle( where );
 	const answers = entries( where ).map( ( entry ) => {
-		tap( where, button );
+		tap( button );
 		entry.focus();
 		pressKey( where, 'Escape' );
 
@@ -200,7 +223,7 @@ scenario( 'Escape still closes it when a listener inside the panel stops the key
 	const button = toggle( where );
 
 	where.document.querySelector( 'nav' ).addEventListener( 'keydown', ( event ) => event.stopPropagation() );
-	tap( where, button );
+	tap( button );
 	where.document.querySelector( '.wp-block-navigation-item__content' ).focus();
 	pressKey( where, 'Escape' );
 
@@ -222,11 +245,11 @@ scenario( 'a click outside the menu and the button closes it and moves no focus;
 	const button = toggle( where );
 	const answers = [];
 
-	tap( where, button );
+	tap( button );
 	text( where ).click();
 	answers.push( [ expanded( where ), focused( where, button ) ] );
 
-	tap( where, button );
+	tap( button );
 	holds( 'true' === expanded( where ), 'the menu did not open again' );
 	where.document.querySelector( '.wpc-viewer__avatar' ).click();
 	answers.push( expanded( where ) );
@@ -239,17 +262,46 @@ scenario( 'a touch outside closes it on pointerdown, as on a phone that sends th
 	const button = toggle( where );
 	const states = [];
 
-	tap( where, button );
+	tap( button );
 	press( text( where ) );
 	states.push( expanded( where ) );
 
-	tap( where, button );
+	tap( button );
 	press( where.document.querySelector( '.wpc-viewer__link' ) );
 	states.push( expanded( where ) );
 	press( button );
 	states.push( expanded( where ) );
 
 	return states;
+} );
+
+// The pieces of a press are tried apart above. Together they must not undo each other: the pointerdown
+// closes the menu, and the click that follows must not open it again; the press of a text or of the
+// picture leaves the focus on nothing, as a browser does; the press of the Menu button opens it and
+// the next closes it, once each.
+scenario( 'a full press, pointerdown then focus then click, on page text or on the account picture closes the menu and leaves it closed with the focus on nothing; on the Menu button it opens the menu, and the next closes it', [ [ 'false', true ], [ 'false', true ], [ 'true', 'false' ] ], () => {
+	const answers = [
+		( where ) => text( where ),
+		( where ) => where.document.querySelector( '.wpc-viewer__avatar' ),
+	].map( ( pressed ) => {
+		const where = open( 'admin' );
+
+		tap( toggle( where ) );
+		holds( 'true' === expanded( where ), 'the menu did not open' );
+		fullPress( pressed( where ) );
+
+		return [ expanded( where ), null === where.document.activeElement ];
+	} );
+	const where = open( 'admin' );
+	const states = [];
+
+	fullPress( toggle( where ) );
+	states.push( expanded( where ) );
+	fullPress( toggle( where ) );
+	states.push( expanded( where ) );
+	answers.push( states );
+
+	return answers;
 } );
 
 // A script on the page may stop a press from going further up than its own element; a listener on the
@@ -267,7 +319,7 @@ scenario( 'a press outside still closes it when a listener on the page\'s conten
 		where.document.addEventListener( type, () => heard.push( type ) );
 	} );
 
-	tap( where, toggle( where ) );
+	tap( toggle( where ) );
 	holds( 'true' === expanded( where ), 'the menu did not open' );
 	heard.length = 0;
 	pressOutside( where );
@@ -286,16 +338,16 @@ scenario( 'a link followed from the menu closes it, its default prevented or not
 	const followed = [];
 	const elsewhere = [];
 
-	tap( where, button );
-	tap( where, student );
+	tap( button );
+	tap( student );
 	followed.push( expanded( where ) );
 
 	mentor.addEventListener( 'click', ( event ) => event.preventDefault() );
-	tap( where, button );
-	tap( where, mentor );
+	tap( button );
+	tap( mentor );
 	followed.push( expanded( where ) );
 
-	tap( where, button );
+	tap( button );
 	[ 'ctrlKey', 'metaKey', 'shiftKey', 'altKey' ].forEach( ( key ) => {
 		student.click( { [ key ]: true } );
 		elsewhere.push( expanded( where ) );
@@ -335,7 +387,7 @@ scenario( 'the assistant opened with the menu closed, as from the desktop row, g
 	const answers = [];
 	let where = open( 'admin' );
 
-	tap( where, help( where ) );
+	tap( help( where ) );
 	holds( assistantOpen( where ), 'the assistant did not open' );
 	await settled();
 	where.closeAssistant();
@@ -343,23 +395,43 @@ scenario( 'the assistant opened with the menu closed, as from the desktop row, g
 	answers.push( focused( where, help( where ) ) );
 
 	where = open( 'admin' );
-	tap( where, toggle( where ) );
-	tap( where, help( where ) );
+	tap( toggle( where ) );
+	tap( help( where ) );
 	await settled();
-	tap( where, toggle( where ) );
+	tap( toggle( where ) );
 	pressKey( where, 'Escape' );
 	holds( 'false' === expanded( where ) && focused( where, toggle( where ) ), 'Escape did not close the menu opened again' );
 	where.closeAssistant();
 	await settled();
 	holds( focused( where, help( where ) ), 'the assistant open while the menu was opened again did not leave the focus on Need help?' );
 
-	tap( where, help( where ) );
+	tap( help( where ) );
 	await settled();
 	where.closeAssistant();
 	await settled();
 	answers.push( focused( where, help( where ) ) );
 
 	return answers;
+} );
+
+// The hand-off is marked by Need help? in the open menu, but the focus goes to the Menu button only
+// when the root element's class goes from present to absent. Here the assistant never opens (a script
+// on the page stops the click above the document, where the plugin listens), so the mark stays set
+// and the root's class changes later for another reason, absent before and after.
+scenario( 'the root element\'s class changing while Need help? was pressed in the menu but the assistant never opened moves no focus to the Menu button', [ 'false', true, false ], async () => {
+	const where = open( 'admin' );
+	const button = toggle( where );
+
+	where.document.querySelector( '.wpc-header-part' ).addEventListener( 'click', ( event ) => event.stopPropagation() );
+	button.click();
+	help( where ).click();
+	holds( 'false' === expanded( where ), 'Need help? did not close the menu' );
+	holds( ! assistantOpen( where ), 'the assistant opened' );
+	pageLink( where ).focus();
+	where.document.documentElement.classList.add( 'another-script-was-here' );
+	await settled();
+
+	return [ expanded( where ), focused( where, pageLink( where ) ), focused( where, button ) ];
 } );
 
 /* ---- the focus leaving ----------------------------------------------------------- */
@@ -370,12 +442,12 @@ scenario( 'focus moving from the menu to the page closes it; to the Menu button,
 	const logOut = where.document.querySelector( '.wpc-viewer__logout' );
 	const states = [];
 
-	tap( where, button );
+	tap( button );
 	logOut.focus();
 	pageLink( where ).focus();
 	states.push( expanded( where ) );
 
-	tap( where, button );
+	tap( button );
 	logOut.focus();
 	button.focus();
 	states.push( expanded( where ) );
@@ -397,13 +469,26 @@ scenario( 'a navigation of three items with a submenu: the submenu\'s toggle and
 	const submenuLink = panel( where ).querySelector( '.wp-block-navigation__submenu-container a[href]' );
 
 	holds( submenuToggle && submenuLink, 'the submenu is not in the panel' );
-	tap( where, button );
+	tap( button );
 	press( submenuToggle );
-	tap( where, submenuToggle );
+	tap( submenuToggle );
 	holds( 'true' === expanded( where ), 'the submenu\'s toggle closed the menu' );
-	tap( where, submenuLink );
+	tap( submenuLink );
 
 	return [ expanded( where ) ];
+} );
+
+// A student on their own page: the Student Report Card link is the page being viewed, so it carries
+// the current-page mark in the open menu, and the menu lists four entries, the link among them.
+scenario( 'a student on their own Student Report Card page: the open menu lists Homepage, Need help?, the Student Report Card and Log out, and the Student Report Card alone is marked as the current page', [ 'true', [ 'Homepage', 'Need help?', 'Student Report Card', 'Log out' ], [ 'Student Report Card' ], [ 'page' ] ], () => {
+	const where = open( 'student' );
+	const words = ( element ) => element.textContent.replace( /\s+/g, ' ' ).trim();
+
+	tap( toggle( where ) );
+
+	const current = panel( where ).querySelectorAll( '[aria-current]' );
+
+	return [ expanded( where ), entries( where ).map( words ), current.map( words ), current.map( ( element ) => element.getAttribute( 'aria-current' ) ) ];
 } );
 
 /* ---- a header without the button, and without MutationObserver ---------------------- */
@@ -440,9 +525,9 @@ scenario( 'without MutationObserver the menu still opens and closes, and the ass
 	const button = toggle( where );
 	const states = [];
 
-	tap( where, button );
+	tap( button );
 	states.push( expanded( where ) );
-	tap( where, help( where ) );
+	tap( help( where ) );
 	states.push( expanded( where ) );
 	await settled();
 	where.closeAssistant();

@@ -172,6 +172,15 @@ function wpcredits_printed( $corpus, $name ) {
 }
 
 /**
+ * The alternatives that match one JavaScript string literal, double-quoted, single-quoted or a template
+ * literal, with its escapes: what both the comment stripper below and the scan of the scripts' quoted
+ * names read a string by, so they cannot come to disagree about where a string ends.
+ */
+const WPCREDITS_JS_STRING = <<<'REGEX'
+"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`
+REGEX;
+
+/**
  * A PHP or JavaScript file's source without its comments, so a class named only in a comment is not
  * taken as printed. PHP is read with the tokenizer, which knows a comment from a string holding two
  * slashes; JavaScript by a pattern that keeps every string and drops what is between its quotes only
@@ -201,9 +210,7 @@ function wpcredits_without_comments( $source, $extension ) {
 
 	if ( 'js' === $extension ) {
 		// A string is kept whole; a block comment or a line comment, met outside one, is dropped.
-		$pattern = <<<'REGEX'
-~("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|/\*.*?\*/|//[^\n]*~s
-REGEX;
+		$pattern = '~(' . WPCREDITS_JS_STRING . ')|/\*.*?\*/|//[^\n]*~s';
 
 		return (string) preg_replace_callback(
 			$pattern,
@@ -448,9 +455,7 @@ foreach ( wpcredits_source_files( $plugin, array( 'php', 'js', 'html', 'json' ) 
 
 $script_files = array_merge( glob( $theme . '/assets/js/*.js' ) ?: array(), glob( $theme . '/blocks/*/view.js' ) ?: array() );
 $script_reads = array();
-$quoted       = <<<'REGEX'
-~"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`~s
-REGEX;
+$quoted       = '~' . WPCREDITS_JS_STRING . '~s';
 
 sort( $script_files );
 

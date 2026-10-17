@@ -31,7 +31,8 @@
  *   uploaded; false, a site that has none, unless a check sets it.
  * - `$GLOBALS['hooks']`, `$GLOBALS['styles']`, `$GLOBALS['enqueued']`, `$GLOBALS['editor_styles']`,
  *   `$GLOBALS['scripts']` and `$GLOBALS['blocks']`: what the theme hooked, registered and enqueued;
- *   `scripts` is handle => `array( src, deps, ver, args )`.
+ *   `hooks` is hook => a list of `array( callback, priority, accepted arguments )`, one per
+ *   `add_action()` or `add_filter()` call, and `scripts` is handle => `array( src, deps, ver, args )`.
  *
  * Loaded with `require_once __DIR__ . '/stubs/hub-wp.php';` from a suite's header, before the theme's
  * files.
@@ -178,7 +179,7 @@ function wp_login_url( $redirect = '' ) {
 
 /* ---- hooks, styles and blocks ----------------------------------------------------- */
 
-function add_action( $hook, $callback, $priority = 10, $accepted = 1 ) { $GLOBALS['hooks'][ $hook ][] = array( $callback, $priority ); return true; }
+function add_action( $hook, $callback, $priority = 10, $accepted = 1 ) { $GLOBALS['hooks'][ $hook ][] = array( $callback, $priority, $accepted ); return true; }
 function add_filter( $hook, $callback, $priority = 10, $accepted = 1 ) { return add_action( $hook, $callback, $priority, $accepted ); }
 
 /**

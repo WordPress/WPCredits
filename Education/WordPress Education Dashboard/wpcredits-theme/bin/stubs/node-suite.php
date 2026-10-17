@@ -14,18 +14,27 @@
  * A machine without node on the path is told so by the runner, with a `skip` line and an exit of 0,
  * before it renders anything: every other check of the theme is PHP and needs nothing installed.
  *
- * Loaded with `require_once __DIR__ . '/stubs/node-suite.php';` from a runner's header.
+ * Loaded with `require_once __DIR__ . '/stubs/node-suite.php';` from a runner's header, after
+ * bin/stubs/hub-wp.php: wpcredits_run_node_suite() hands the harness `WPCREDITS_THEME_DIR`, which that
+ * file defines.
  *
  * @package WPCredits_Theme
  */
 
 /**
- * Where node is, or '' when it is not on the path.
+ * Where node is, or '' when it is not on the path. Looked up once per run: the runner asks first, to
+ * skip when there is none, and wpcredits_run_node_suite() asks again to run the harness.
  *
  * @return string
  */
 function wpcredits_node() {
-	return trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+	static $node = null;
+
+	if ( null === $node ) {
+		$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+	}
+
+	return $node;
 }
 
 /**

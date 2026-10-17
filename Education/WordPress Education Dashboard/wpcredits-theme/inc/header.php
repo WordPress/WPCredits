@@ -158,6 +158,7 @@ function wpcredits_header_menu_entries( $html ) {
 function wpcredits_header_menu_button() {
 	return sprintf(
 		'<button type="button" class="wpc-menu-toggle" aria-controls="wpc-header-menu" aria-expanded="false" aria-label="%1$s">%2$s%3$s</button>',
+		/* translators: The label of the button that opens the site menu on narrow screens. */
 		esc_attr__( 'Menu', 'wpcredits-theme' ),
 		wpcredits_get_icon( 'menu', 24, 'wpc-menu-toggle__open' ),
 		wpcredits_get_icon( 'close', 24, 'wpc-menu-toggle__close' )

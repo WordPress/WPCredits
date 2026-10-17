@@ -95,6 +95,27 @@ function wpcredits_test_navigation( array $items ) {
 }
 
 /**
+ * The navigation both header suites use for a menu with a submenu: three items, the third a submenu of
+ * two opened on click.
+ *
+ * @return array[] The items, as wpcredits_test_navigation() takes them.
+ */
+function wpcredits_test_three_with_submenu() {
+	return array(
+		array( 'Homepage', 'https://site.example/' ),
+		array( 'About the program', 'https://site.example/about/' ),
+		array(
+			'Programs',
+			'',
+			array(
+				array( 'WordPress Credits', 'https://site.example/credits/' ),
+				array( 'Campus Connect', 'https://site.example/campus/' ),
+			),
+		),
+	);
+}
+
+/**
  * One of the viewer chip's report card links, as the block prints it.
  *
  * @param string $label   The link's text.

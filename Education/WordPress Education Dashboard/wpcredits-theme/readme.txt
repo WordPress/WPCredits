@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.20
+Stable tag: 1.24.21
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -186,6 +186,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.21 =
+* Site header: below 1200px wide, the closed menu stays closed for a submenu that opens on hover and has no toggle, as it already did for one with a toggle. Nothing else a reader sees changes.
+* For developers: `bin/test-header.php` counts each class the menu's entry count names on its own, reads the priority and the accepted arguments of the three header filters (the stand-in's `add_action` and `add_filter` keep them), checks a site name holding markup, weighs each submenu selector of the menu layout against the sheet's rules outside it and core's reveal on focus, names the navigation's links and container in the order check, judges the signed-out phone row inside its own block of the sheet, and pins the closed navigation container's declarations and the Menu label's translators note; `bin/test-header-js.php` has scenarios for a student's own page, for the observer's present-to-absent rule and for a full press (pointerdown, focus, click); `bin/check-selectors.php` shares one JavaScript string pattern between its two scans; `bin/stubs/node-suite.php` looks node up once; the three-item navigation is one function in `bin/stubs/header-markup.php`.
 
 = 1.24.20 =
 * Site header: below 1200px wide, phones and most iPads among them, held either way, a signed-in reader's header is one row: the brand, the account picture and a Menu button. The button opens a panel under the bar that lists, in the order of the wide row, the navigation, Need help? where the handbook assistant is available, the Student Report Card and the Mentor Report Card the reader can open, and Log out, which a phone did not show before; the page being viewed is marked, and each entry is a row at least 44px tall. The button, Escape, a tap or click outside, a link or Need help? closes the panel; Escape, and the assistant closing, put the focus back on the button. Opening it does not move the page. Without JavaScript the header keeps its wrapped row of links, and from 1200px the row is as before.

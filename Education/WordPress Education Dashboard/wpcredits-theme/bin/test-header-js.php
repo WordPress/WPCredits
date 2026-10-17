@@ -53,26 +53,12 @@ function wpcredits_test_header_page( array $reader, $logged_in ) {
 		. '<main><p>The page\'s own text, and <a href="https://site.example/about/">a link in it</a>.</p></main>';
 }
 
-// The same navigation as bin/test-header.php's: three items, one a submenu of two, opened on click.
-$three_with_submenu = array(
-	array( 'Homepage', 'https://site.example/' ),
-	array( 'About the program', 'https://site.example/about/' ),
-	array(
-		'Programs',
-		'',
-		array(
-			array( 'WordPress Credits', 'https://site.example/credits/' ),
-			array( 'Campus Connect', 'https://site.example/campus/' ),
-		),
-	),
-);
-
 // The pages the scenarios open: an Administrator's header with every entry, the navigation with a
 // submenu, a student's on their own Student Report Card, a header of Log out alone, which gets no
 // button, and a guest's.
 $pages = array(
 	'admin'   => wpcredits_test_header_page( array(), true ),
-	'submenu' => wpcredits_test_header_page( array( 'nav' => $three_with_submenu ), true ),
+	'submenu' => wpcredits_test_header_page( array( 'nav' => wpcredits_test_three_with_submenu() ), true ),
 	'student' => wpcredits_test_header_page(
 		array(
 			'mentor'  => false,

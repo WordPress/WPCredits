@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.20
+Version: 1.24.21
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -105,8 +105,9 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 	/* How far below the sticky bar's top edge an anchored heading, card or item lands, so the bar
 	   does not cover it: the bar's real height and 28px of air, so the offset grows with the bar
 	   when its links wrap to a second row on a mid-width window, and to two to four rows on a
-	   phone. WordPress reserves the admin bar's own height above this for a signed-in reader. A
-	   phone has its own stand-in for a bar not yet measured (below). */
+	   phone that does not get the menu layout (a signed-in reader's bar is one row there, with
+	   JavaScript on). WordPress reserves the admin bar's own height above this for a signed-in
+	   reader. A phone has its own stand-in for a bar not yet measured (below). */
 	--wpc-landing-offset: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + 28px );
 }
 
@@ -1302,8 +1303,10 @@ p.is-style-pill {
 @media ( max-width: 640px ) {
 	/* The landing offset is the bar's measured height and the same 28px of air here as at any
 	   other width. Only the stand-in for a bar not yet measured differs: the 76px constant would
-	   leave an anchored target under a bar two to four rows tall, so until the script has written
-	   the real height, and without it, a phone keeps the 208px it had, 180px of bar and the air. */
+	   leave an anchored target under a bar two to four rows tall, as a phone's is where the menu
+	   layout does not apply (a signed-in reader's bar with JavaScript is one row, 65px, or 82px on
+	   the narrowest phones), so until the script has written the real height, and without it, a
+	   phone keeps the 208px it had, 180px of bar and the air. */
 	:root {
 		--wpc-chrome-gutter: 20px;
 		--wpc-landing-offset: calc( var( --wpc-header-live, 180px ) + 28px );
@@ -1313,7 +1316,9 @@ p.is-style-pill {
 		font-size: 17px;
 	}
 
-	/* The header becomes two rows on a phone.
+	/* The header becomes two rows on a phone. A signed-in reader whose page runs JavaScript has the
+	 * menu layout's one row instead, and a signed-out phone whose navigation holds one link, to the
+	 * home page, has one row too (both further down).
 	 *
 	 * It was one row of three items that could not shrink: `.wpc-brand` and `.wpc-viewer` were
 	 * both `flex: none`, and "WordPress Education Dashboard" alone is wider than 375px once the
@@ -1575,7 +1580,6 @@ p.is-style-pill {
 	}
 
 	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) {
-		background: none;
 		display: block;
 		height: auto;
 		padding: 0;
@@ -1600,10 +1604,13 @@ p.is-style-pill {
 	   are as deep as they are to outrank the rules that reveal and restyle a submenu, in whichever order
 	   they are printed: the first is seven classes deep, with `[aria-expanded]`, against the six of the
 	   `[aria-expanded="true"] ~` reveal above (`display: flex`, `width: 240px`) and of core's focus
-	   reveal; the second is five, against the closed state's four. Their visibility says `inherit`, so a
-	   submenu is as hidden as the closed panel around it, whatever a pressed toggle says. */
+	   reveal; the second is five, against the closed state's four; the third is seven too, for a
+	   submenu that opens on hover and has no toggle for the first to name, against the six of core's
+	   reveal on focus. Their visibility says `inherit`, so a submenu is as hidden as the closed panel
+	   around it, whatever a pressed toggle or the focus says. */
 	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded] ~ .wp-block-navigation__submenu-container,
-	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container {
+	.wpc-js .wpc-header--menu .wpc-nav .has-child .wp-block-navigation__submenu-container,
+	.wpc-js .wpc-header--menu .wpc-nav.wp-block-navigation .has-child:not( .open-on-click ) .wp-block-navigation__submenu-container {
 		border: 0;
 		box-shadow: none;
 		display: block;
@@ -1679,10 +1686,13 @@ p.is-style-pill {
 /* Signed out, a phone shows the brand and the Log in button on one row where the navigation's one
    link leads to the home page: that link is left out, since the logo and the title lead there already
    (`wpc-nav--home` marks it). The rules of the row are scoped to a bar that holds the mark with
-   `:has()`, so any other lone link, which stays shown, and a browser without `:has()` keep the two
-   rows: a link with a long label beside the brand on one row would squeeze the title to a letter a
-   line. The bar's and the brand's 12px gaps are restated with `body:not( .wpc-signed-in )` in front, so
-   the block gap WordPress prints for the groups cannot win in either print order. */
+   `:has()`, so any other lone link, which stays shown, keeps the two rows: a link with a long label
+   beside the brand on one row would squeeze the title to a letter a line. A browser without `:has()`
+   drops the scoped rules, but the rule that leaves the link out has no `:has()`: the home link is
+   still hidden there, and Log in drops to a second row through the 640px block's rule above that
+   gives the brand the whole first row (`.wpc-brand { flex: 1 1 100% }`). The bar's and the brand's 12px
+   gaps are restated with `body:not( .wpc-signed-in )` in front, so the block gap WordPress prints for
+   the groups cannot win in either print order. */
 @media ( max-width: 640px ) {
 	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) {
 		column-gap: 12px;
