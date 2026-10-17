@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,26 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.0.5 =
+
+`Needs Action` now counts as in planning. It is the one status a Campus Connect
+event can hold that this plugin did not recognise.
+
+A Campus Connect event can hold nine statuses. The bucket map carried eight of
+them and was missing `Needs Action`, which is the only one **exclusive** to
+Campus Connect: WordCamp Central unsets it for every other post type. So the map
+knew every status Campus Connect borrows from the WordCamp pipeline and not the
+one that is its own, and an event sitting in it fell to the excluded bucket and
+appeared in no headline figure.
+
+* Fixed: `Needs Action` is mapped to the planning bucket. On the live data that
+  moves one event out of nowhere and into "in setup and planning".
+* Found by `unmapped_statuses`, added in 1.0.3 for exactly this, which reported
+  it on real data eight days later.
+* Added: a test that all nine statuses a Campus Connect event can hold resolve,
+  so the next missing one fails a test rather than waiting to be noticed. Suite
+  151 to 162.
 
 = 1.0.4 =
 

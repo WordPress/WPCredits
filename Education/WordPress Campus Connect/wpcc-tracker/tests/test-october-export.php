@@ -134,6 +134,35 @@ t_eq(
 	'but the blob now names the status that took it'
 );
 
+// Needs Action is the one status exclusive to Campus Connect, and the map was
+// missing it until 2026-10-17: it knew every status Campus Connect borrows from
+// the WordCamp pipeline and not the one that is its own. unmapped_statuses found
+// it on live data a week after that surface was added, which is what it is for.
+t_ok( WPCCT_Normalize::is_known_status( 'Needs Action' ), 'Needs Action is a known status' );
+t_eq(
+	WPCCT_Normalize::status_bucket( 'Needs Action' ),
+	WPCCT_Normalize::STATUS_PLANNING,
+	'and counts as in planning, like the other pre-event stages'
+);
+
+// All nine statuses a Campus Connect event can actually hold must resolve. The
+// map carries three more with no Campus Connect slug, because the report
+// queries post_status => any and an event bulk-edited into a WordCamp-pipeline
+// status before the Campus Connect list existed still has to resolve.
+foreach ( array(
+	'Needs Vetting',
+	'Needs Action',
+	'Needs Orientation/Interview',
+	'On Hold',
+	'Approved for Pre-Planning Pending Agreement',
+	'Scheduled',
+	'Closed',
+	'Declined',
+	'Cancelled',
+) as $cc_status ) {
+	t_ok( WPCCT_Normalize::is_known_status( $cc_status ), sprintf( '%s resolves', $cc_status ) );
+}
+
 // Blanks are reported too, exactly as a blank Country is.
 $blanked              = $oct;
 $blanked[0]['Status'] = '';

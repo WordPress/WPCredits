@@ -88,7 +88,7 @@ The report emits 11 statuses. They collapse to three buckets plus an excluded se
 | --- | --- | --- |
 | Completed | `Closed` | 56 |
 | Scheduled | `Scheduled` | 15 |
-| In Planning | `In Pre-Planning`, `Needs Vetting`, `Needs Orientation/Interview`, `Interview/Orientation Scheduled`, `Approved for Pre-Planning Pending Agreement`, `Needs to Fill Out Listing`, `On Hold` | 46 |
+| In Planning | `In Pre-Planning`, `Needs Vetting`, `Needs Action`, `Needs Orientation/Interview`, `Interview/Orientation Scheduled`, `Approved for Pre-Planning Pending Agreement`, `Needs to Fill Out Listing`, `On Hold` | 46 |
 | Excluded from headline figures | `Cancelled` (12), `Declined` (13) | 25 |
 
 The In Planning bucket sums to 46, matching the sheet's regional "In Planning" total
@@ -97,6 +97,12 @@ disagree in the source spreadsheet. This plugin uses 46, the value that reconcil
 
 Completed 56 and Scheduled 15 exceed the sheet's 55 and 14 because the sheet was last
 refreshed 2026-08-25 and two events have since changed state.
+
+**Amended 2026-10-17:** `Needs Action` added to the In Planning bucket, which is why the list above has eight entries and the 2026-08-27 count of 46 does not include it (no row in either frozen export carries it).
+
+A Campus Connect event can hold nine statuses, the set `WordCamp_Loader::get_campus_connect_statuses()` lists. This map had eight and was missing `Needs Action`, the one status **exclusive** to Campus Connect: `WordCamp_Admin::get_post_statuses()` unsets it for every other post type. So the map knew every status Campus Connect borrows from the WordCamp pipeline and not the one that is its own, and an event sitting in it fell to the excluded bucket and showed up in no headline figure.
+
+Found on the live data by `unmapped_statuses`, the surface added eight days earlier for exactly this, and counted as planning on the owner's decision the same day, since it sits among the other pre-event stages. The three entries with no Campus Connect slug stay because the report queries `post_status => 'any'`.
 
 Filter: `wpcct_status_buckets`.
 

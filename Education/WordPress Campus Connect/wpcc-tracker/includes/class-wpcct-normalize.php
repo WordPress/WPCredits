@@ -40,6 +40,23 @@ class WPCCT_Normalize {
 	 * than guessed at, so a new upstream status never silently inflates a
 	 * headline figure - it shows up as a shortfall instead.
 	 *
+	 * A Campus Connect event can hold nine of these, the set
+	 * WordCamp_Loader::get_campus_connect_statuses() lists. This map had eight
+	 * of the nine and was missing `Needs Action`, which is the one status
+	 * exclusive to Campus Connect: WordCamp_Admin::get_post_statuses() unsets
+	 * it for every other post type. So the map knew every status Campus Connect
+	 * BORROWS from the WordCamp pipeline and not the one that is its own, and
+	 * an event sitting in it fell to the excluded bucket and appeared in no
+	 * headline figure. Found on 2026-10-17 by unmapped_statuses, which is what
+	 * that surface was added for; counted as planning on the owner's decision
+	 * the same day, since it sits among the other pre-event stages.
+	 *
+	 * The three entries with no Campus Connect slug - In Pre-Planning,
+	 * Interview/Orientation Scheduled, Needs to Fill Out Listing - stay because
+	 * the report queries post_status => 'any', so an event bulk-edited into a
+	 * WordCamp-pipeline status before the Campus Connect list existed still
+	 * resolves rather than being reported as unmapped.
+	 *
 	 * @param string $status Raw status from the report.
 	 * @return string One of the STATUS_* constants.
 	 */
@@ -68,6 +85,7 @@ class WPCCT_Normalize {
 				'Scheduled'                                   => self::STATUS_SCHEDULED,
 				'In Pre-Planning'                             => self::STATUS_PLANNING,
 				'Needs Vetting'                               => self::STATUS_PLANNING,
+				'Needs Action'                                => self::STATUS_PLANNING,
 				'Needs Orientation/Interview'                 => self::STATUS_PLANNING,
 				'Interview/Orientation Scheduled'             => self::STATUS_PLANNING,
 				'Approved for Pre-Planning Pending Agreement' => self::STATUS_PLANNING,
