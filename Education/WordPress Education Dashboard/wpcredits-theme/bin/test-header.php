@@ -237,6 +237,19 @@ ck( 'parts/header.html still gives its inner group the class `wpc-header__inner`
 	array( $inner->length, $inside, (bool) preg_match( '/<!-- wp:group \{"className":"wpc-header__inner",/', theme_file( 'parts/header.html' ) ) ),
 	array( 1, 1, true ) );
 
+$justified = static function ( $lines ) {
+	return array_values( array_filter( $lines, static function ( $line ) { return 0 === strpos( $line, 'justify-content:' ); } ) );
+};
+
+ck( 'the group of the navigation, the help button and the viewer chip ends at the right edge of the content on the wide bar: parts/header.html says "justifyContent":"right" for it, the justification core prints at one class after the sheet, agreeing with the sheet\'s own flex-end (while the part said "center", until 1.24.23, the group sat centered between the brand and the edge); the phone\'s second row still starts under the brand, said at two classes so core\'s rule does not move it, and the phone\'s one-class rule no longer says it',
+	array(
+		preg_match( '/<!-- wp:group \{"className":"wpc-nav__center","layout":\{[^}]*"justifyContent":"([a-z]+)"/', theme_file( 'parts/header.html' ), $group_layout ) ? $group_layout[1] : '',
+		$justified( rules_of( '.wpc-nav__center' )[0] ?? array() ),
+		rules_of( '.wpc-header .wpc-nav__center', '@media ( max-width: 640px )' ),
+		$justified( rules_of( '.wpc-nav__center', '@media ( max-width: 640px )' )[0] ?? array() ),
+	),
+	array( 'right', array( 'justify-content: flex-end;' ), array( array( 'justify-content: flex-start;' ) ), array() ) );
+
 ck( 'the bar\'s one-class rules are still one class: the base rule, once, outside any query, with the wrap and the 4px row gap it was designed with, so a later edit does not turn it into a two-class rule that would outrank the phone block\'s',
 	array( count( rules_of( '.wpc-header__inner' ) ), array_intersect( array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: 40px;' ), rules_of( '.wpc-header__inner' )[0] ?? array() ) ),
 	array( 1, array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: 40px;' ) ) );

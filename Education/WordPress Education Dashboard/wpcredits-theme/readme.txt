@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.22
+Stable tag: 1.24.23
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -186,6 +186,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.23 =
+* Site header: on the wide bar the navigation, the help button and the account picture, or a visitor's Log in, end at the right edge of the content below them, as the header was designed. The header template asked for them centered, and that won over the stylesheet, so they sat in the middle of the space beside the brand. On a phone the second row still starts under the brand.
+* For developers: `bin/test-header.php` checks the header part's justification for that group and the phone's two-class rule that keeps its start.
 
 = 1.24.22 =
 * Education Hub: behind the hero's picture stands a mountain drawn in words, rows of the pathway's step names cut to two peaks that rise above the editor pieces. The higher peak stands over the chart, with a flag on its summit and its snow cap in the brand blue, and a trail with a dashed route zigzags between the pieces from the mountain's foot to the flag. Like the rest of the picture it is decoration, hidden from screen readers and not shown below 900px wide.

@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.22
+Version: 1.24.23
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -352,7 +352,9 @@ body .skip-link.screen-reader-text:focus {
    profile photo - lines up with the right edge of everything below it. The
    reference centers this group because its own last item is a wide blue button
    that reads as deliberate in the middle; an avatar floating there just looks
-   unaligned. */
+   unaligned. The header part says the same, "justifyContent":"right": core prints the part's
+   justification for this group at one class, after this sheet, so while the part said "center"
+   (until 1.24.23) the group sat centered between the brand and the edge, whatever this rule said. */
 .wpc-nav__center {
 	display: flex;
 	flex: 1;
@@ -1356,8 +1358,13 @@ p.is-style-pill {
 	.wpc-nav__center {
 		flex: 1 1 100%;
 		flex-wrap: wrap;
-		justify-content: flex-start;
 		row-gap: 4px;
+	}
+
+	/* The second row starts under the brand. Said at two classes: core prints the header part's
+	   "right" for this group at one class, after this sheet. */
+	.wpc-header .wpc-nav__center {
+		justify-content: flex-start;
 	}
 
 	.wpc-viewer {
