@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.11
+Stable tag: 1.1.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,33 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.12 =
+
+Nothing filled the sync queue on a schedule. Now something does.
+
+`wcac_run_queue` only ever drained. The two methods that put jobs in the queue,
+`enqueue_full()` and `enqueue_incremental()`, were reachable only from the admin
+buttons and `wp wcac sync`. So a site nobody touched synced nothing, while its
+five-minute tick ran all day over an empty queue and every status screen looked
+healthy: no errors, no backlog, a recent slice time. Campus Connect sat eight
+days stale that way before anyone noticed.
+
+* Added: a daily `wcac_enqueue_daily` event that calls `enqueue_incremental()`.
+  Incremental rather than full because the two differ only for WordCamps and
+  Meetups; the Campus Connect report accepts no query parameters, so its job is
+  the same complete re-read either way.
+* Safe unattended, by the design that was already there: `enqueue_incremental()`
+  appends rather than clearing, so a queue still draining is not discarded, and
+  its `without_queued_duplicates()` drops a second Campus Connect job while one
+  is pending. It does not clear the failure latch, which was removed from that
+  path precisely because a crontab takes it.
+* Fixed: the schedule repaired itself only on an admin page load. The site this
+  runs on is a private P2 that can go a fortnight without one, and the event
+  being repaired is the one that fills the queue, so waiting on a human visit to
+  restore unattended syncing was circular. It now also repairs on WP-CLI and
+  cron requests, the way the settings rewrite has since 1.1.3.
+* Every sync toggle is still honoured: switching one off switches it off here.
 
 = 1.1.11 =
 

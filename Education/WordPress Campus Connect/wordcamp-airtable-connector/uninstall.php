@@ -35,4 +35,5 @@ foreach ( array( 'wcac_settings', 'wcac_queue', 'wcac_camps', 'wcac_state', 'wca
 delete_transient( 'wcac_lock' );
 
 wp_clear_scheduled_hook( 'wcac_run_queue' );
+wp_clear_scheduled_hook( 'wcac_enqueue_daily' );
 wp_clear_scheduled_hook( 'wcac_continue_queue' );

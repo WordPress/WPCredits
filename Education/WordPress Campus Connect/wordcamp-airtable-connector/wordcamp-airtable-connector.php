@@ -3,7 +3,7 @@
  * Plugin Name:       WordCamp Airtable Connector
  * Plugin URI:        https://github.com/gomp/wordcamp-airtable-connector
  * Description:       Pulls WordCamps, Meetups, Sessions, Speakers, Sponsors and Campus Connect events from the WordCamp.org REST API and upserts them into an Airtable base on a schedule.
- * Version:           1.1.11
+ * Version:           1.1.12
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WCAC_VERSION', '1.1.11' );
+define( 'WCAC_VERSION', '1.1.12' );
 define( 'WCAC_FILE', __FILE__ );
 define( 'WCAC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCAC_URL', plugin_dir_url( __FILE__ ) );
@@ -31,6 +31,17 @@ define( 'WCAC_CRON_HOOK', 'wcac_run_queue' );
  * backfill is not paced by the recurring interval.
  */
 define( 'WCAC_CONTINUE_HOOK', 'wcac_continue_queue' );
+
+/**
+ * The daily hook that FILLS the queue.
+ *
+ * WCAC_CRON_HOOK only drains. Until this existed, nothing put a job in the
+ * queue on a schedule: enqueue_full() and enqueue_incremental() were reached
+ * only from the admin buttons and `wp wcac sync`, so a site nobody touched
+ * synced nothing while its five-minute tick ran all day over an empty queue
+ * and looked healthy. Campus Connect sat eight days stale that way.
+ */
+define( 'WCAC_ENQUEUE_HOOK', 'wcac_enqueue_daily' );
 
 require_once WCAC_DIR . 'includes/class-wcac-settings.php';
 require_once WCAC_DIR . 'includes/class-wcac-logger.php';
@@ -76,6 +87,31 @@ add_action( WCAC_CRON_HOOK, 'wcac_cron_tick' );
 add_action( WCAC_CONTINUE_HOOK, 'wcac_cron_tick' );
 
 /**
+ * Fill the queue once a day. Fired by WP-Cron.
+ *
+ * Incremental, not full: the two differ only for WordCamps and Meetups, which
+ * take a `since`, and the Campus Connect report accepts no query parameters at
+ * all, so its job is the same complete re-read either way.
+ *
+ * Safe to run unattended. enqueue_incremental() appends rather than clearing,
+ * so a queue still draining is not discarded, and its own
+ * without_queued_duplicates() drops a second Campus Connect job while one is
+ * pending, which is the only job expensive enough to matter. It does not clear
+ * the Campus Connect failure latch either: that was removed precisely because
+ * this path is what a crontab takes, and re-arming a failing job once a cycle
+ * made the escalation in cc_fail() unreachable.
+ *
+ * Each toggle is still honoured inside: switching a sync off switches it off
+ * here too.
+ *
+ * @return void
+ */
+function wcac_cron_enqueue() {
+	( new WCAC_Sync() )->enqueue_incremental();
+}
+add_action( WCAC_ENQUEUE_HOOK, 'wcac_cron_enqueue' );
+
+/**
  * Release the Campus Connect failure latch whenever the Central credential
  * actually changes.
  *
@@ -102,6 +138,10 @@ add_action(
 function wcac_maybe_schedule() {
 	if ( ! wp_next_scheduled( WCAC_CRON_HOOK ) ) {
 		wp_schedule_event( time() + MINUTE_IN_SECONDS, 'wcac_five_minutes', WCAC_CRON_HOOK );
+	}
+
+	if ( ! wp_next_scheduled( WCAC_ENQUEUE_HOOK ) ) {
+		wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', WCAC_ENQUEUE_HOOK );
 	}
 }
 add_action( 'admin_init', 'wcac_maybe_schedule' );
@@ -131,6 +171,16 @@ add_action( 'admin_init', 'wcac_maybe_upgrade' );
 // authority, so on a healthy site this costs a read and nothing else.
 if ( ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() ) {
 	add_action( 'init', 'wcac_maybe_upgrade' );
+
+	/*
+	 * And repair the schedule from the same requests, for a sharper reason
+	 * than the settings rewrite has. A missing event is repaired on an admin
+	 * load, which assumes somebody opens wp-admin. This plugin's own site is a
+	 * private P2 that can go a fortnight without one, and the event being
+	 * repaired is the one that fills the queue, so waiting on a human visit to
+	 * restore unattended syncing is circular.
+	 */
+	add_action( 'init', 'wcac_maybe_schedule' );
 }
 
 register_activation_hook(
@@ -146,6 +196,7 @@ register_deactivation_hook(
 	__FILE__,
 	function () {
 		wp_clear_scheduled_hook( WCAC_CRON_HOOK );
+		wp_clear_scheduled_hook( WCAC_ENQUEUE_HOOK );
 		wp_clear_scheduled_hook( WCAC_CONTINUE_HOOK );
 	}
 );
