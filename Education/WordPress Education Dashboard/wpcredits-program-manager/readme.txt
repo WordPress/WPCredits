@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.35
+Stable tag: 1.122.36
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,12 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.36 =
+
+* In wp-admin, the tables of the Student Duplicate Finder (each student's rows on the list and on the confirmation, the Deleted rows log, and View copy) and of the Emails tool's Templates tab (one for each area) still scroll sideways when they are wider than the screen. The box each one scrolls in can now be reached with the Tab key: it shows wp-admin's own focus ring, in the admin color scheme's color, and the arrow keys scroll it. Before, the confirmation's tables and View copy's table could not be reached with Safari's keyboard at all, since they hold no link or checkbox, and neither could the Deleted rows log once its copies were erased; their hidden columns could only be scrolled into view with a mouse or a finger. The list's tables and the Templates tables could be reached only through the links and checkboxes inside them, and now each has a named stop of its own that the arrow keys scroll.
+* A screen reader names each box by the words above its table: a student's name and email address in the Student Duplicate Finder, so no two boxes on a screen share a name, even for two students with the same name; "Deleted rows" for the log; "A deleted row" for a copy; and the area's heading on the Templates tab ("Mentor calls"). The boxes of the confirmation, the log, View copy and the Templates tab are regions. A student's box on the list is a group, so a list of many students does not fill the screen reader's list of landmarks. Nothing looks different, and each of these tables is one more stop for the Tab key, on a wide screen too.
+* For developers: `WPCPM_Duplicate_Finder_Screen::scroll_open()` prints `<div class="wpcpm-duplicates__scroll" tabindex="0" role="region" aria-labelledby="...">` before each of the finder's four tables, with `role="group"` for a student's table on the list, and the Emails tool prints `<div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-emails-area-<area>">` around each Templates table, the area's `h2` carrying that id. On the finder's list a student's name carries `wpcpm-dup-<key>-name` (on the `h3`, or on a span inside a Ready student's checkbox label) and the address `wpcpm-dup-<key>-email`; the confirmation's student heading carries `wpcpm-dup-<key>-title`, and the log's and View copy's headings `wpcpm-dup-log-title` and `wpcpm-dup-copy-title`. The boxes' focus ring, `.wpcpm-duplicates__scroll:focus-visible` and `.wpcpm-emails__scroll:focus-visible`, copies core's `a:focus` ring from wp-admin/css/common.css: `border-radius: 2px; box-shadow: 0 0 0 var( --wp-admin-border-width-focus, 1.5px ) var( --wp-admin-theme-color, #3858e9 ); outline: 2px solid transparent`.
 
 = 1.122.35 =
 

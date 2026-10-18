@@ -238,6 +238,7 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-p
 define( 'WPCPM_VERSION', 'test' );
 
 require_once __DIR__ . '/stubs/compiled-seeds.php';
+require_once __DIR__ . '/stubs/scroll-regions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 // What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
@@ -1407,7 +1408,8 @@ echo "\n=== The column tables scroll by keyboard on a phone (1.122.35) ===\n";
 /**
  * Every column table in a piece of the page, as the box around it reads: the box's tag, class,
  * tab stop and role, whether the table is the only thing in it, and the name its
- * aria-labelledby resolves to among the ids of the same markup.
+ * aria-labelledby resolves to among the ids of the same markup (`scroll_region_name()`, in
+ * bin/stubs/scroll-regions.php with the stylesheet reader, `scroll_css_rules()`).
  *
  * @param string $html Markup a card, or the page, printed.
  * @return array[]
@@ -1430,68 +1432,16 @@ function scroll_regions( $html ) {
 			$elements += XML_ELEMENT_NODE === $child->nodeType ? 1 : 0;
 		}
 
-		$name = array();
-
-		foreach ( preg_split( '/\s+/', trim( (string) $box->getAttribute( 'aria-labelledby' ) ), -1, PREG_SPLIT_NO_EMPTY ) as $id ) {
-			$named  = $xpath->query( '//*[@id="' . $id . '"]' );
-			$name[] = 1 === $named->length ? trim( preg_replace( '/\s+/', ' ', $named->item( 0 )->textContent ) ) : '(' . $named->length . ' elements with the id ' . $id . ')';
-		}
-
 		$regions[] = array(
 			'box'      => $box->nodeName . '.' . $box->getAttribute( 'class' ),
 			'tabindex' => $box->getAttribute( 'tabindex' ),
 			'role'     => $box->getAttribute( 'role' ),
 			'alone'    => 1 === $elements,
-			'name'     => implode( ' ', $name ),
+			'name'     => scroll_region_name( $xpath, $box ),
 		);
 	}
 
 	return $regions;
-}
-
-/**
- * A stylesheet's rules, each with the media query it sits in ('' for none), its selectors and
- * its declarations, read off the comment-stripped source. One level of `@media`, as the plugin's
- * sheets are written.
- *
- * @param string $css The stylesheet.
- * @return array[]
- */
-function scroll_css_rules( $css ) {
-	$read  = static function ( $source, $media ) {
-		preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $source, $found, PREG_SET_ORDER );
-		$rules = array();
-
-		foreach ( $found as $rule ) {
-			$decls = array();
-
-			foreach ( explode( ';', $rule[2] ) as $decl ) {
-				if ( false !== strpos( $decl, ':' ) ) {
-					list( $prop, $value )   = explode( ':', $decl, 2 );
-					$decls[ trim( $prop ) ] = trim( $value );
-				}
-			}
-
-			$rules[] = array(
-				'media'     => $media,
-				'selectors' => array_map( static function ( $s ) { return trim( preg_replace( '/\s+/', ' ', $s ) ); }, explode( ',', $rule[1] ) ),
-				'decls'     => $decls,
-			);
-		}
-
-		return $rules;
-	};
-	$rules = array();
-	$plain = preg_replace_callback(
-		'/@media\s*([^{]+)\{((?:[^{}]*\{[^{}]*\})*)\s*\}/',
-		static function ( $m ) use ( $read, &$rules ) {
-			$rules = array_merge( $rules, $read( $m[2], trim( preg_replace( '/\s+/', ' ', $m[1] ) ) ) );
-			return '';
-		},
-		(string) preg_replace( '#/\*.*?\*/#s', '', $css )
-	);
-
-	return array_merge( $read( (string) $plain, '' ), $rules );
 }
 
 $region = static function ( $name ) {

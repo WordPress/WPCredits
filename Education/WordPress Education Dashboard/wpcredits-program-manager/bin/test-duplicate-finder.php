@@ -23,6 +23,11 @@
  *   and a press refused as a whole says why nothing was deleted.
  * - The log holds no name and no address, and offers View copy behind a nonce keyed to the copy;
  *   a copy opens whole for a manager, and not at all once it is erased.
+ * - **Every table scrolls sideways in a box a keyboard reaches** (1.122.36): a tab stop named by
+ *   the words above the table, a student's by their name and address, so no two boxes of a screen
+ *   share a name, not even two students' of one name; a group on the list, which holds every
+ *   student, and a region elsewhere; the source opens no box another way, and the box's focus ring
+ *   is wp-admin's own.
  *
  * Fixtures are synthetic: example.test addresses and record IDs that spell what they are.
  *
@@ -193,6 +198,7 @@ function get_posts( $args ) {
 	return ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) ? array_keys( $posts ) : array_values( $posts );
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/scroll-regions.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -512,7 +518,7 @@ $ada_box           = '<input type="checkbox" name="wpcpm_students[]" value="' . 
 
 // The list's own boxes: the switch in the Settings section above it is ticked, deleting being on.
 ck( 'nothing in the list is ticked by itself', has( preg_match( '#<form method="post" action="[^"]*" class="wpcpm-duplicates__form" data-wpcpm-duplicates>.*?</form>#s', $html, $list_form ) ? $list_form[0] : $html, ' checked' ), false );
-ck( 'a Ready student has one checkbox, for their older row in each table, named for what it does', array( has( $html, $ada_box ), has( $html, 'Delete the 3 older rows of Ada Example' ) ), array( true, true ) );
+ck( 'a Ready student has one checkbox, for their older row in each table, named for what it does', array( has( $html, $ada_box ), has( $html, 'Delete the 3 older rows of <span id="wpcpm-dup-' . $ada . '-name">Ada Example</span>' ) ), array( true, true ) );
 ck( 'and no checkbox on a row of their own', has( $html, 'value="students:' . rid( 'stuold' ) . '"' ), false );
 ck( 'a student who needs a decision has a checkbox on each row that may go, named for screen readers', array( has( $html, 'name="wpcpm_rows[]" value="students:' . rid( 'othold' ) . '"' ), has( $html, 'name="wpcpm_rows[]" value="students:' . rid( 'othnew' ) . '"' ), has( $html, 'aria-label="Delete the Students row ' . rid( 'othold' ) . ' of Bo &lt;b&gt;Example&lt;/b&gt;"' ) ), array( true, true, true ) );
 ck( 'a row the site points at: a disabled checkbox that points at its reason', array( has( $html, '<input type="checkbox" disabled aria-describedby="wpcpm-dup-why-' . rid( 'lkold' ) . '"' ), has( $html, '<td id="wpcpm-dup-why-' . rid( 'lkold' ) . '">The site points at it: a site account. Delete the other one instead.</td>' ), has( $html, 'aria-label="The Students Reports row ' . rid( 'lkold' ) . ' of Cy Example cannot be deleted"' ) ), array( true, true, true ) );
@@ -693,7 +699,7 @@ WPCPM_Duplicate_Vault::confirm( array( $kept ) );
 WPCPM_Duplicate_Vault::keep( 'feedback', record( 'wait', '2026-01-06T10:00:00.000Z', array( 'Email' => 'wait@example.test', 'Name' => 'Wait Example' ) ), 7, time() );
 
 $html = page();
-$log  = substr( $html, (int) strpos( $html, '<h2>Deleted rows</h2>' ) );
+$log  = substr( $html, (int) strpos( $html, '<h2 id="wpcpm-dup-log-title">Deleted rows</h2>' ) );
 ck( 'the log: when, who, the table, the record, the created date and the status', has( $log, '<td>Pat Manager</td><td>Students</td><td><code>' . rid( 'gone' ) . '</code></td><td>2026-01-05</td><td>Not moving forward</td>' ), true );
 ck( 'View copy, behind a nonce keyed to the copy', has( $log, 'href="' . $url . '&wpcpm_copy=' . $kept . '&_wpnonce=n-wpcpm_duplicates_view_' . $kept . '"' ), true );
 ck( 'a delete Airtable did not confirm says so', has( $log, 'Airtable did not confirm this delete; the daily run checks it again.' ), true );
@@ -707,6 +713,106 @@ $html = page( array( 'wpcpm_copy' => (string) $kept ) );
 ck( 'and once erased, it opens no more', array( has( $html, 'This copy has been erased: copies are kept for 30 days.' ), has( $html, 'gone@example.test' ) ), array( true, false ) );
 ck( 'while the log keeps the entry', has( page(), 'Erased after 30 days.' ), true );
 ck( 'and the delete Airtable never confirmed is erased too, its entry saying so (DUPLICATES-6)', has( page(), '<td><code>' . rid( 'wait' ) . '</code></td><td>2026-01-06</td><td></td><td>Erased after 30 days. Airtable never confirmed this delete, so the row may still be there.</td>' ), true );
+
+/* ---- the tables' boxes ------------------------------------------------------------------------ */
+
+echo "\n=== The tables scroll by keyboard (1.122.36) ===\n";
+
+/*
+ * Every table of the finder is 960px wide at least and scrolls sideways in a box of its own, so
+ * the page never does. Until 1.122.36 the box took no focus: a box that scrolls but cannot be
+ * focused is out of a keyboard's reach in Safari when it holds no link or button, and a screen
+ * reader does not announce it. Each box is now a tab stop named by the words above its table, as
+ * the Administrator Dashboard's tables were made in 1.122.35: a student's by their name and
+ * address (two students may share a name, never an address), the log's and a copy's by their
+ * headings. A student's box on the list is a group rather than a region: the list holds every
+ * duplicated student, some sixty on the live site, and as many regions would bury the screen's
+ * landmarks; the confirmation's boxes, a copy's and the log's are regions. Read off the markup
+ * each screen draws, so a table drawn without the box, or a box whose name points at nothing or
+ * at an id printed twice, fails here.
+ */
+$box_of = static function ( $role, $name ) {
+	return array(
+		'box'      => 'div.wpcpm-duplicates__scroll',
+		'tabindex' => '0',
+		'role'     => $role,
+		'alone'    => true,
+		'name'     => $name,
+	);
+};
+$region = static function ( $name ) use ( $box_of ) {
+	return $box_of( 'region', $name );
+};
+$group  = static function ( $name ) use ( $box_of ) {
+	return $box_of( 'group', $name );
+};
+$bo     = WPCPM_Duplicate_Rules::key( 'bo@example.test' );
+$cy     = WPCPM_Duplicate_Rules::key( 'cy@example.test' );
+$twin   = WPCPM_Duplicate_Rules::key( 'ada.twin@example.test' );
+
+// A second Ada Example at another address, with an older Students row that is a clean delete
+// candidate: the list's names tell the two apart by the address, or two boxes share a name.
+$GLOBALS['base']['tblSTUDENTS'][] = record( 'twinold', '2026-01-28T10:00:00.000Z', array( 'Email' => 'ada.twin@example.test', 'Full Name' => 'Ada Example', 'Status' => 'Not moving forward' ) );
+$GLOBALS['base']['tblSTUDENTS'][] = record( 'twinnew', '2026-09-10T10:00:00.000Z', array( 'Email' => 'ada.twin@example.test', 'Full Name' => 'Ada Example', 'Status' => 'In Sensei' ) );
+door( array( $finder, 'handle_scan' ) );
+door( array( $finder, 'handle_tick' ) );
+ck( 'with a second Ada Example at another address scanned, the list holds four students, both Adas Ready', array( WPCPM_Duplicates_Scan::report()['counts']['addresses'], WPCPM_Duplicates_Scan::report()['counts']['ready'], WPCPM_Duplicates_Scan::is_running() ), array( 4, 2, false ) );
+
+$list_on           = page();
+$GLOBALS['switch'] = false;
+$list_off          = page();
+$GLOBALS['switch'] = true;
+$confirm           = page( array(), $chosen );
+$shown             = WPCPM_Duplicate_Vault::keep( 'students', record( 'shown', '2026-01-07T10:00:00.000Z', array( 'Email' => 'shown@example.test', 'Full Name' => 'Shown Example' ) ), 7, time() );
+WPCPM_Duplicate_Vault::confirm( array( $shown ) );
+$copy = page( array( 'wpcpm_copy' => (string) $shown ) );
+
+$students = array( $group( 'Ada Example ada.twin@example.test' ), $group( 'Ada Example ada@example.test' ), $group( 'Bo <b>Example</b> bo@example.test' ), $group( 'Cy Example cy@example.test' ) );
+ck( 'the list: each student\'s table sits alone in a box that is a tab stop and a group named by their name and address, the two Adas by their own, and the log\'s in a region named by its heading; the one table outside a box is the Settings section\'s, which core stacks on a phone', scroll_boxes( $list_on, 'wpcpm-duplicates__scroll' ), array( 'boxes' => array_merge( $students, array( $region( 'Deleted rows' ) ) ), 'loose' => array( 'form-table' ) ) );
+ck( 'and the same with deleting switched off, when a Ready student\'s name is a heading rather than the words of a checkbox', scroll_boxes( $list_off, 'wpcpm-duplicates__scroll' ), array( 'boxes' => array_merge( $students, array( $region( 'Deleted rows' ) ) ), 'loose' => array( 'form-table' ) ) );
+ck( 'the confirmation: each student\'s rows in a box named by the heading above them, their name and address', scroll_boxes( $confirm, 'wpcpm-duplicates__scroll' ), array( 'boxes' => array( $region( 'Ada Example ada@example.test' ), $region( 'Bo <b>Example</b> bo@example.test' ) ), 'loose' => array() ) );
+ck( 'View copy: the row in a box named by the screen\'s heading', scroll_boxes( $copy, 'wpcpm-duplicates__scroll' ), array( 'boxes' => array( $region( 'A deleted row' ) ), 'loose' => array() ) );
+
+$names_of = static function ( $html ) {
+	return array_column( scroll_boxes( $html, 'wpcpm-duplicates__scroll' )['boxes'], 'name' );
+};
+ck( 'no two boxes of a screen share a name, and no element of a screen shares an id', array( array_map( static function ( $html ) use ( $names_of ) { return count( $names_of( $html ) ) === count( array_unique( $names_of( $html ) ) ); }, array( $list_on, $list_off, $confirm, $copy ) ), array_map( 'ids_twice', array( $list_on, $list_off, $confirm, $copy ) ) ), array( array( true, true, true, true ), array( array(), array(), array(), array() ) ) );
+
+ck( 'the names are the words already on the screen, each given an id of its own and drawn as before', array(
+	has( $list_on, '<label class="wpcpm-duplicates__pick"><input type="checkbox" name="wpcpm_students[]" value="' . $ada . '" data-rows="students reports feedback" data-ready /> Delete the 3 older rows of <span id="wpcpm-dup-' . $ada . '-name">Ada Example</span></label> <span class="wpcpm-duplicates__email" id="wpcpm-dup-' . $ada . '-email">ada@example.test</span>' ),
+	has( $list_on, '<h3 id="wpcpm-dup-' . $bo . '-name">Bo &lt;b&gt;Example&lt;/b&gt;</h3> <span class="wpcpm-duplicates__email" id="wpcpm-dup-' . $bo . '-email">bo@example.test</span>' ),
+	has( $list_off, '<h3 id="wpcpm-dup-' . $ada . '-name">Ada Example</h3> <span class="wpcpm-duplicates__email" id="wpcpm-dup-' . $ada . '-email">ada@example.test</span>' ),
+	has( $list_on, '<div class="wpcpm-duplicates__scroll" tabindex="0" role="group" aria-labelledby="wpcpm-dup-' . $cy . '-name wpcpm-dup-' . $cy . '-email"><table class="widefat striped"><thead>' ),
+	has( $list_on, '<div class="wpcpm-duplicates__scroll" tabindex="0" role="group" aria-labelledby="wpcpm-dup-' . $twin . '-name wpcpm-dup-' . $twin . '-email"><table class="widefat striped"><thead>' ),
+	has( $list_on, '<h2 id="wpcpm-dup-log-title">Deleted rows</h2><div class="wpcpm-duplicates__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-dup-log-title"><table class="widefat striped"><thead>' ),
+	has( $confirm, '<h3 id="wpcpm-dup-' . $ada . '-title">Ada Example <span class="wpcpm-duplicates__email">ada@example.test</span></h3><div class="wpcpm-duplicates__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-dup-' . $ada . '-title"><table class="widefat striped"><thead>' ),
+	has( $copy, '<h2 id="wpcpm-dup-copy-title">A deleted row</h2>' ),
+	has( $copy, '<div class="wpcpm-duplicates__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-dup-copy-title"><table class="widefat striped"><tbody>' ),
+), array( true, true, true, true, true, true, true, true, true ) );
+ck( 'a Ready student\'s checkbox still reads as before: the id is on a span inside its words, which keep their order', preg_match( '#<label class="wpcpm-duplicates__pick">(<input [^>]*value="' . $ada . '"[^>]*>.*?)</label>#s', $list_on, $pick ) ? trim( preg_replace( '/\s+/', ' ', strip_tags( $pick[1] ) ) ) : null, 'Delete the 3 older rows of Ada Example' );
+
+// Read off the source too, for a table no screen above reaches: the finder's four tables each open
+// right after their box, which one helper prints, and no box is printed any other way, so a fifth
+// table drawn without the box, or a box drawn without its tab stop or its name, fails here.
+$screen_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder-screen.php' );
+ck( 'in the source, the four tables each open right after their box, which scroll_open() alone prints, a tab stop named by the words above it, a group for a student on the list and a region elsewhere', array(
+	substr_count( $screen_source, '<table' ),
+	preg_match_all( '/self::scroll_open\( [^;]+ \);\s*echo \'<table class="widefat striped">/', $screen_source ),
+	substr_count( $screen_source, 'self::scroll_open(' ),
+	substr_count( $screen_source, 'class="wpcpm-duplicates__scroll"' ),
+	has( $screen_source, 'printf( \'<div class="wpcpm-duplicates__scroll" tabindex="0" role="%1$s" aria-labelledby="%2$s">\', esc_attr( \'group\' === $role ? \'group\' : \'region\' ), esc_attr( implode( \' \', $labels ) ) );' ),
+	preg_match_all( '/self::scroll_open\( array\( \$name_id, \$email_id \), \'group\' \);/', $screen_source ),
+	preg_match_all( '/self::scroll_open\( array\( [^)]+ \) \);/', $screen_source ),
+), array( 4, 4, 4, 1, true, 1, 3 ) );
+
+// The box scrolls as it did, and its focus ring is wp-admin's own: the three declarations
+// WordPress's own admin stylesheet gives a focused link's ring, `a:focus` in
+// wp-admin/css/common.css (WordPress 7.1), its 2px rounding, the admin color scheme's ring at the
+// scheme's focus width, and the outline Windows High Contrast mode draws instead. A box-shadow,
+// outside the box, so the box's own overflow never clips it.
+$dup_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/duplicate-finder.css' );
+ck( 'the box scrolls sideways, positioned, as before', scroll_css_decls( $dup_css, '.wpcpm-duplicates__scroll' ), array( 'overflow-x' => 'auto', 'position' => 'relative' ) );
+ck( 'and draws wp-admin\'s focus ring when the keyboard reaches it, outside the box', scroll_css_decls( $dup_css, '.wpcpm-duplicates__scroll:focus-visible' ), array( 'border-radius' => '2px', 'box-shadow' => '0 0 0 var( --wp-admin-border-width-focus, 1.5px ) var( --wp-admin-theme-color, #3858e9 )', 'outline' => '2px solid transparent' ) );
 
 echo "\n=== Uninstall ===\n";
 

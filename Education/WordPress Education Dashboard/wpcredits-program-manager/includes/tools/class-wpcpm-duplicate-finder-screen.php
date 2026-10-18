@@ -249,9 +249,12 @@ final class WPCPM_Duplicate_Finder_Screen {
 		foreach ( $by_student as $key => $picks ) {
 			$group = $report['groups'][ $key ];
 
+			$title = 'wpcpm-dup-' . $key . '-title';
+
 			echo '<section class="wpcpm-duplicates__group">';
-			printf( '<h3>%1$s <span class="wpcpm-duplicates__email">%2$s</span></h3>', esc_html( '' !== $group['name'] ? $group['name'] : __( '(no name)', 'wpcredits-program-manager' ) ), esc_html( $group['email'] ) );
-			echo '<div class="wpcpm-duplicates__scroll"><table class="widefat striped"><thead><tr>';
+			printf( '<h3 id="%1$s">%2$s <span class="wpcpm-duplicates__email">%3$s</span></h3>', esc_attr( $title ), esc_html( '' !== $group['name'] ? $group['name'] : __( '(no name)', 'wpcredits-program-manager' ) ), esc_html( $group['email'] ) );
+			self::scroll_open( array( $title ) );
+			echo '<table class="widefat striped"><thead><tr>';
 			foreach ( array( __( 'Table', 'wpcredits-program-manager' ), __( 'Record', 'wpcredits-program-manager' ), __( 'Created', 'wpcredits-program-manager' ), __( 'Status or Course', 'wpcredits-program-manager' ), __( 'Why', 'wpcredits-program-manager' ) ) as $heading ) {
 				printf( '<th scope="col">%s</th>', esc_html( $heading ) );
 			}
@@ -325,7 +328,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 	public static function render_copy( $copy_id, $record, $url ) {
 		echo '<div class="wrap wpcpm-wrap wpcpm-duplicates">';
 		printf( '<h1>%s</h1>', esc_html__( 'Student Duplicate Finder', 'wpcredits-program-manager' ) );
-		printf( '<h2>%s</h2>', esc_html__( 'A deleted row', 'wpcredits-program-manager' ) );
+		printf( '<h2 id="wpcpm-dup-copy-title">%s</h2>', esc_html__( 'A deleted row', 'wpcredits-program-manager' ) );
 
 		if ( is_wp_error( $record ) ) {
 			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html( $record->get_error_message() ) );
@@ -341,7 +344,8 @@ final class WPCPM_Duplicate_Finder_Screen {
 					)
 				)
 			);
-			echo '<div class="wpcpm-duplicates__scroll"><table class="widefat striped"><tbody>';
+			self::scroll_open( array( 'wpcpm-dup-copy-title' ) );
+			echo '<table class="widefat striped"><tbody>';
 
 			foreach ( (array) $record['fields'] as $column => $value ) {
 				printf( '<tr><th scope="row">%1$s</th><td>%2$s</td></tr>', esc_html( (string) $column ), esc_html( self::cell( $value ) ) );
@@ -678,6 +682,11 @@ final class WPCPM_Duplicate_Finder_Screen {
 		$keys   = isset( $checked['keys'] ) ? (array) $checked['keys'] : array();
 		$pairs  = isset( $checked['pairs'] ) ? (array) $checked['pairs'] : array();
 
+		// The student's name and address carry an id each, which together name the table's box, a
+		// group (`scroll_open()`): two students may share a name, never an address.
+		$name_id  = 'wpcpm-dup-' . $key . '-name';
+		$email_id = 'wpcpm-dup-' . $key . '-email';
+
 		foreach ( $group['rows'] as $table => $rows ) {
 			foreach ( $rows as $row ) {
 				if ( WPCPM_Duplicate_Rules::DELETE === $row['proposal'] ) {
@@ -696,20 +705,18 @@ final class WPCPM_Duplicate_Finder_Screen {
 				esc_attr( $key ),
 				esc_attr( implode( ' ', $tables ) ),
 				in_array( $key, $keys, true ) ? ' checked' : '',
-				esc_html(
-					sprintf(
-						/* translators: 1: number of rows, 2: student name. */
-						_n( 'Delete the %1$s older row of %2$s', 'Delete the %1$s older rows of %2$s', $going, 'wpcredits-program-manager' ),
-						number_format_i18n( $going ),
-						$name
-					)
+				sprintf(
+					/* translators: 1: number of rows, 2: student name. */
+					esc_html( _n( 'Delete the %1$s older row of %2$s', 'Delete the %1$s older rows of %2$s', $going, 'wpcredits-program-manager' ) ),
+					esc_html( number_format_i18n( $going ) ),
+					'<span id="' . esc_attr( $name_id ) . '">' . esc_html( $name ) . '</span>'
 				)
 			);
 		} else {
-			printf( '<h3>%s</h3>', esc_html( $name ) );
+			printf( '<h3 id="%1$s">%2$s</h3>', esc_attr( $name_id ), esc_html( $name ) );
 		}
 
-		printf( ' <span class="wpcpm-duplicates__email">%s</span>', esc_html( (string) $group['email'] ) );
+		printf( ' <span class="wpcpm-duplicates__email" id="%1$s">%2$s</span>', esc_attr( $email_id ), esc_html( (string) $group['email'] ) );
 		printf(
 			' <span class="wpcpm-duplicates__counts">%s</span>',
 			esc_html(
@@ -729,7 +736,8 @@ final class WPCPM_Duplicate_Finder_Screen {
 			printf( '<p class="wpcpm-duplicates__flag">%s</p>', esc_html( self::flag( (string) $flag, $group['counts'] ) ) );
 		}
 
-		echo '<div class="wpcpm-duplicates__scroll"><table class="widefat striped"><thead><tr>';
+		self::scroll_open( array( $name_id, $email_id ), 'group' );
+		echo '<table class="widefat striped"><thead><tr>';
 		$headings = array( __( 'Delete', 'wpcredits-program-manager' ), __( 'Table', 'wpcredits-program-manager' ), __( 'Proposal', 'wpcredits-program-manager' ), __( 'Why', 'wpcredits-program-manager' ), __( 'Created', 'wpcredits-program-manager' ), __( 'Status or Course', 'wpcredits-program-manager' ), __( 'Institution', 'wpcredits-program-manager' ), __( 'Mentor', 'wpcredits-program-manager' ), __( 'Dates', 'wpcredits-program-manager' ), __( 'Hours', 'wpcredits-program-manager' ), __( 'Work or answers', 'wpcredits-program-manager' ), __( 'On the site', 'wpcredits-program-manager' ), __( 'Record', 'wpcredits-program-manager' ) );
 		foreach ( $headings as $heading ) {
 			printf( '<th scope="col">%s</th>', esc_html( $heading ) );
@@ -800,14 +808,15 @@ final class WPCPM_Duplicate_Finder_Screen {
 		$names = self::table_names();
 
 		echo '<div class="wpcpm-card">';
-		printf( '<h2>%s</h2>', esc_html__( 'Deleted rows', 'wpcredits-program-manager' ) );
+		printf( '<h2 id="wpcpm-dup-log-title">%s</h2>', esc_html__( 'Deleted rows', 'wpcredits-program-manager' ) );
 
 		if ( empty( $entries ) ) {
 			echo '<p>' . esc_html__( 'Nothing has been deleted yet.', 'wpcredits-program-manager' ) . '</p></div>';
 			return;
 		}
 
-		echo '<div class="wpcpm-duplicates__scroll"><table class="widefat striped"><thead><tr>';
+		self::scroll_open( array( 'wpcpm-dup-log-title' ) );
+		echo '<table class="widefat striped"><thead><tr>';
 		foreach ( array( __( 'When', 'wpcredits-program-manager' ), __( 'Who', 'wpcredits-program-manager' ), __( 'Table', 'wpcredits-program-manager' ), __( 'Record', 'wpcredits-program-manager' ), __( 'Created', 'wpcredits-program-manager' ), __( 'Status or Course', 'wpcredits-program-manager' ), __( 'Copy', 'wpcredits-program-manager' ) ) as $heading ) {
 			printf( '<th scope="col">%s</th>', esc_html( $heading ) );
 		}
@@ -875,6 +884,30 @@ final class WPCPM_Duplicate_Finder_Screen {
 		}
 
 		echo '</ul></div>';
+	}
+
+	/**
+	 * Open the box a table scrolls sideways in (1.122.36); the table's own closing tag is followed
+	 * by the box's.
+	 *
+	 * The finder's stylesheet, duplicate-finder.css, lets this box, not the page, scroll when the
+	 * table is wider than the screen, which on a phone it always is. The box is a tab stop, so a
+	 * keyboard reaches it and its arrow keys scroll it (Safari reaches no scroll box that holds no
+	 * link or button), and it is named by the words above the table, so a screen reader says what
+	 * scrolls, as the Administrator Dashboard's tables were made in 1.122.35. A tab stop at every
+	 * width, as those are: an attribute cannot follow the screen's width without a script, and the
+	 * finder works without one, so where the table fits it is one stop more.
+	 *
+	 * A region, a landmark a screen reader lists and jumps between, except for a student's table
+	 * on the list, which is a group: the list holds every duplicated student, some sixty on the
+	 * live site, and as many landmarks would bury the screen's own. A group keeps the stop and the
+	 * name.
+	 *
+	 * @param string[] $labels The ids of the words that name the table, in the order they are read.
+	 * @param string   $role   `group` for a student's table on the list, `region` for the others.
+	 */
+	private static function scroll_open( array $labels, $role = 'region' ) {
+		printf( '<div class="wpcpm-duplicates__scroll" tabindex="0" role="%1$s" aria-labelledby="%2$s">', esc_attr( 'group' === $role ? 'group' : 'region' ), esc_attr( implode( ' ', $labels ) ) );
 	}
 
 	/**

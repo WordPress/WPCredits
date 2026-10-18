@@ -131,10 +131,22 @@
 }
 
 /* The Templates tab's tables scroll inside their own box on a screen narrower than their columns,
-   never the page. Positioned, so anything absolutely placed inside stays inside the box. */
+   never the page. Positioned, so anything absolutely placed inside stays inside the box. The box is
+   a tab stop and a region named by its area's heading, so a keyboard reaches it and its arrow keys
+   scroll it. */
 .wpcpm-emails__scroll {
 	overflow-x: auto;
 	position: relative;
+}
+
+/* The box's focus ring is wp-admin's own: the three declarations core's common.css gives a focused
+   link's ring (`a:focus`), its 2px rounding, the admin color scheme's ring at the scheme's focus
+   width and the outline Windows High Contrast mode draws instead. A box-shadow is drawn outside
+   the box, so the box's own overflow never clips it. */
+.wpcpm-emails__scroll:focus-visible {
+	border-radius: 2px;
+	box-shadow: 0 0 0 var( --wp-admin-border-width-focus, 1.5px ) var( --wp-admin-theme-color, #3858e9 );
+	outline: 2px solid transparent;
 }
 
 /* The Templates tab: each email's state as a chip. The words say the state; the color repeats them. */

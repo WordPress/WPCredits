@@ -349,8 +349,17 @@ class WPCPM_Emails extends WPCPM_Tool {
 				continue;
 			}
 
-			printf( '<h2>%s</h2>', esc_html( $area ) );
-			echo '<div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates"><thead><tr>';
+			// The area's table scrolls sideways in a box of its own on a screen narrower than its
+			// columns (emails.css). The box is a tab stop, so a keyboard reaches it and its arrow keys
+			// scroll it (Safari reaches no scroll box that holds no link or button), and a region named
+			// by the area's heading, so a screen reader says what scrolls, as the Administrator
+			// Dashboard's tables were made in 1.122.35. A tab stop at every width, as those are: an
+			// attribute cannot follow the screen's width without a script, and the tab works without
+			// one, so where the table fits it is one stop more (1.122.36).
+			$title = 'wpcpm-emails-area-' . $module;
+
+			printf( '<h2 id="%1$s">%2$s</h2>', esc_attr( $title ), esc_html( $area ) );
+			printf( '<div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="%s"><table class="widefat striped wpcpm-emails__templates"><thead><tr>', esc_attr( $title ) );
 
 			foreach ( array( __( 'Email', 'wpcredits-program-manager' ), __( 'Who receives it', 'wpcredits-program-manager' ), __( 'What sends it', 'wpcredits-program-manager' ), __( 'State', 'wpcredits-program-manager' ), __( 'Last edited', 'wpcredits-program-manager' ) ) as $column ) {
 				printf( '<th scope="col">%s</th>', esc_html( $column ) );

@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.35\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.36\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-18T14:26:06+00:00\n"
+"POT-Creation-Date: 2026-10-18T17:13:46+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -167,8 +167,8 @@ msgstr ""
 
 #: includes/class-wpcpm-accounts-table.php:1213
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:267
-#: includes/tools/class-wpcpm-emails.php:359
-#: includes/tools/class-wpcpm-emails.php:372
+#: includes/tools/class-wpcpm-emails.php:368
+#: includes/tools/class-wpcpm-emails.php:381
 #: includes/tools/class-wpcpm-track-builder-screen.php:116
 #: includes/tools/class-wpcpm-track-editor-screen.php:620
 msgid "Edit"
@@ -235,7 +235,7 @@ msgstr ""
 #: includes/tools/class-wpcpm-duplicate-finder.php:264
 #: includes/tools/class-wpcpm-duplicate-finder.php:383
 #: includes/tools/class-wpcpm-emails.php:298
-#: includes/tools/class-wpcpm-emails.php:742
+#: includes/tools/class-wpcpm-emails.php:751
 #: includes/tools/class-wpcpm-handbook.php:418
 #: includes/tools/class-wpcpm-header-notices.php:107
 #: includes/tools/class-wpcpm-header-notices.php:131
@@ -1159,7 +1159,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-table.php:98
 #: includes/modules/class-wpcpm-sponsors-table.php:159
 #: includes/modules/class-wpcpm-sponsors.php:2270
-#: includes/tools/class-wpcpm-emails.php:979
+#: includes/tools/class-wpcpm-emails.php:988
 #: includes/tools/class-wpcpm-mentor-checker.php:953
 #: includes/tools/class-wpcpm-track-builder-screen.php:55
 msgid "Status"
@@ -1168,7 +1168,7 @@ msgstr ""
 #: includes/class-wpcpm-overview.php:267
 #: includes/modules/class-wpcpm-institutions-table.php:634
 #: includes/modules/class-wpcpm-sponsors-table.php:666
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:725
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:732
 msgid "Ready"
 msgstr ""
 
@@ -1299,7 +1299,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:92
 #: includes/modules/class-wpcpm-mentors-table.php:94
 #: includes/modules/class-wpcpm-students-table.php:83
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 #: includes/tools/class-wpcpm-mentor-checker.php:950
 msgid "Mentor"
 msgstr ""
@@ -1315,7 +1315,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:5271
 #: includes/modules/class-wpcpm-institutions.php:5351
 #: includes/modules/class-wpcpm-students-table.php:82
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Institution"
 msgstr ""
 
@@ -2402,7 +2402,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-offers.php:1759
 #: includes/modules/class-wpcpm-sponsors.php:2610
 #: includes/modules/class-wpcpm-student-report-form.php:1042
-#: includes/tools/class-wpcpm-emails.php:646
+#: includes/tools/class-wpcpm-emails.php:655
 msgid "Required"
 msgstr ""
 
@@ -3096,23 +3096,23 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-log-table.php:54
 #: includes/mail/class-wpcpm-mail-log.php:508
 #: includes/modules/class-wpcpm-sponsors.php:2336
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
-#: includes/tools/class-wpcpm-emails.php:1010
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
+#: includes/tools/class-wpcpm-emails.php:1019
 msgid "When"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:55
-#: includes/tools/class-wpcpm-emails.php:1023
+#: includes/tools/class-wpcpm-emails.php:1032
 msgid "To"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:56
-#: includes/tools/class-wpcpm-emails.php:976
+#: includes/tools/class-wpcpm-emails.php:985
 msgid "Recipient type"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:57
-#: includes/tools/class-wpcpm-emails.php:975
+#: includes/tools/class-wpcpm-emails.php:984
 msgid "Area"
 msgstr ""
 
@@ -3122,15 +3122,15 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1166
 #: includes/modules/class-wpcpm-students-dashboard.php:740
 #: includes/modules/class-wpcpm-students-dashboard.php:992
-#: includes/tools/class-wpcpm-emails.php:355
-#: includes/tools/class-wpcpm-emails.php:1000
+#: includes/tools/class-wpcpm-emails.php:364
+#: includes/tools/class-wpcpm-emails.php:1009
 msgid "Email"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:59
 #: includes/mail/class-wpcpm-mail-log.php:516
 #: includes/mail/class-wpcpm-mail-templates.php:743
-#: includes/tools/class-wpcpm-emails.php:579
+#: includes/tools/class-wpcpm-emails.php:588
 msgid "Subject"
 msgstr ""
 
@@ -3147,7 +3147,7 @@ msgid "Not recorded"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:172
-#: includes/tools/class-wpcpm-emails.php:984
+#: includes/tools/class-wpcpm-emails.php:993
 msgid "Test"
 msgstr ""
 
@@ -3207,13 +3207,13 @@ msgstr[1] ""
 #: includes/mail/class-wpcpm-mail-templates.php:747
 #: includes/mail/class-wpcpm-mail-templates.php:983
 #: includes/tools/class-wpcpm-emails.php:256
-#: includes/tools/class-wpcpm-emails.php:502
-#: includes/tools/class-wpcpm-emails.php:587
+#: includes/tools/class-wpcpm-emails.php:511
+#: includes/tools/class-wpcpm-emails.php:596
 msgid "Signature and footer"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-templates.php:747
-#: includes/tools/class-wpcpm-emails.php:587
+#: includes/tools/class-wpcpm-emails.php:596
 msgid "Body"
 msgstr ""
 
@@ -3236,7 +3236,7 @@ msgid "Nothing was saved: the body is longer than %s characters."
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-templates.php:791
-#: includes/tools/class-wpcpm-emails.php:782
+#: includes/tools/class-wpcpm-emails.php:791
 msgid "Nothing was saved: the site has no such email."
 msgstr ""
 
@@ -4761,7 +4761,7 @@ msgstr ""
 #: includes/mail/templates/mentor-applications.php:258
 #: includes/mail/templates/sponsors.php:314
 #: includes/modules/class-wpcpm-institution-panel.php:1474
-#: includes/tools/class-wpcpm-emails.php:479
+#: includes/tools/class-wpcpm-emails.php:488
 #: includes/tools/class-wpcpm-track-history-screen.php:202
 #, php-format
 msgid "%1$s, %2$s"
@@ -5570,8 +5570,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-application.php:3859
 #: includes/modules/class-wpcpm-sponsor-application.php:3991
 #: includes/modules/class-wpcpm-sponsor-application.php:4202
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:253
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:675
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:679
 msgid "(no name)"
 msgstr ""
 
@@ -5669,7 +5669,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1663
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:922
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:955
 msgid "Review"
 msgstr ""
 
@@ -5848,7 +5848,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-offers.php:1902
 #: includes/modules/class-wpcpm-sponsor-usage.php:70
 #: includes/modules/class-wpcpm-sponsors.php:1250
-#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:364
 #: includes/tools/class-wpcpm-track-builder-screen.php:56
 msgid "State"
 msgstr ""
@@ -5968,7 +5968,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-table.php:169
 #: includes/modules/class-wpcpm-mentor-application-form.php:1157
 #: includes/modules/class-wpcpm-student-report-form.php:1328
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1013
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "Yes"
 msgstr ""
 
@@ -7085,7 +7085,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-export.php:169
 #: includes/modules/class-wpcpm-institution-roster-view.php:265
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1134
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Hours"
 msgstr ""
 
@@ -7720,7 +7720,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-notes.php:366
 #: includes/modules/class-wpcpm-mentor-notes.php:743
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 #: includes/tools/class-wpcpm-track-builder-screen.php:189
 msgid "Delete"
 msgstr ""
@@ -8814,7 +8814,7 @@ msgid "Did not start"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:257
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Dates"
 msgstr ""
 
@@ -10035,7 +10035,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors.php:737
 #: includes/modules/class-wpcpm-sponsors.php:2176
 #: includes/modules/class-wpcpm-students.php:381
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:505
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:509
 #, php-format
 msgid "running for %s"
 msgstr ""
@@ -10480,7 +10480,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:3789
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1742
 #: includes/modules/class-wpcpm-sponsor-application.php:3566
-#: includes/tools/class-wpcpm-emails.php:570
+#: includes/tools/class-wpcpm-emails.php:579
 msgid "Working"
 msgstr ""
 
@@ -10520,9 +10520,9 @@ msgid "Consent"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3906
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:258
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Created"
 msgstr ""
 
@@ -10883,7 +10883,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5148
 #: includes/modules/class-wpcpm-sponsors.php:2290
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "On the site"
 msgstr ""
 
@@ -10922,7 +10922,7 @@ msgid "Asking writes one short message to each student in that semester who wrot
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5275
-#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:364
 msgid "Last edited"
 msgstr ""
 
@@ -11622,7 +11622,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:1158
 #: includes/modules/class-wpcpm-student-report-form.php:1328
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1013
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "No"
 msgstr ""
 
@@ -12370,7 +12370,7 @@ msgid "to"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-availability.php:974
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Copy"
 msgstr ""
 
@@ -12773,7 +12773,7 @@ msgid "%1$s of %2$s noted"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-engagement.php:293
-#: includes/tools/class-wpcpm-emails.php:1065
+#: includes/tools/class-wpcpm-emails.php:1074
 msgid "All"
 msgstr ""
 
@@ -15769,7 +15769,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1059
 #: includes/modules/class-wpcpm-sponsors.php:1903
-#: includes/tools/class-wpcpm-emails.php:675
+#: includes/tools/class-wpcpm-emails.php:684
 #: includes/tools/class-wpcpm-track-builder-screen.php:118
 #: includes/tools/class-wpcpm-track-builder-screen.php:735
 msgid "Preview"
@@ -16695,7 +16695,7 @@ msgid "What sponsors said they would like to support, from the Sponsor Dashboard
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsors.php:2336
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Who"
 msgstr ""
 
@@ -17466,7 +17466,7 @@ msgid "All institutions"
 msgstr ""
 
 #: includes/modules/class-wpcpm-students-table.php:438
-#: includes/tools/class-wpcpm-emails.php:1033
+#: includes/tools/class-wpcpm-emails.php:1042
 msgid "Filter"
 msgstr ""
 
@@ -17581,7 +17581,7 @@ msgid "Sync canceled."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sync-module.php:140
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:385
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:389
 msgid "That action could not be completed. See the error below."
 msgstr ""
 
@@ -17753,7 +17753,7 @@ msgstr ""
 
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:157
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:221
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:327
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:330
 #: includes/tools/class-wpcpm-duplicate-finder.php:65
 msgid "Student Duplicate Finder"
 msgstr ""
@@ -17788,110 +17788,110 @@ msgid_plural "%1$s rows will be deleted from Airtable: Students %2$s, Students R
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:258
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Table"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:258
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Record"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:258
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Status or Course"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:258
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Why"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:277
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:280
 msgid "Deleting is switched off: an Administrator turns it on in the Settings section above the list."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:279
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:282
 msgid "A scan is running and is about to write a new list. Wait for it to finish, then review the selection again."
 msgstr ""
 
 #. translators: %s: number of rows.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:299
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:302
 #, php-format
 msgid "Delete %s row from Airtable"
 msgid_plural "Delete %s rows from Airtable"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:312
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:353
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:315
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:357
 msgid "Back to the list"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:328
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:331
 msgid "A deleted row"
 msgstr ""
 
 #. translators: 1: record ID, 2: when the row was created.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:338
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:341
 #, php-format
 msgid "Record %1$s, created %2$s, as it was when it was deleted. There is no automatic restore: re-creating a Students row can make the Airtable automation build a new report and feedback pair, so type back only what is needed."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:373
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:377
 msgid "Scan started. Progress is shown below and updates as it runs."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:377
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:381
 msgid "A scan is already running; its progress is shown below."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:381
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:385
 msgid "Scan canceled. The last list stays."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:389
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:393
 msgid "Nothing was deleted: deleting is switched off, and an Administrator turns it on in the Settings section above the list."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:393
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:397
 msgid "Nothing was deleted: a scan is running and is about to write a new list. Review the selection again when it finishes."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:397
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:401
 msgid "Nothing was deleted: this site cannot encrypt, so it cannot keep the copy a delete needs."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:401
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:405
 msgid "Nothing was deleted: another delete was running. Review the selection again once it has finished."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:405
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:409
 msgid "Nothing in that selection could be deleted."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:409
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:413
 msgid "Nothing was deleted: the site could not read which of its records point at these rows, so they could not be checked again."
 msgstr ""
 
 #. translators: %s: the error Airtable returned.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:414
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:418
 #, php-format
 msgid "Nothing was deleted: Airtable could not be read to check the rows again (%s)."
 msgstr ""
 
 #. translators: %s: the error.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:419
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:423
 #, php-format
 msgid "Nothing was deleted: a copy could not be kept (%s)."
 msgstr ""
 
 #. translators: 1: rows in total, 2: Students rows, 3: Students Reports rows, 4: Feedback rows, 5: date the copies are kept until.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:428
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:432
 #, php-format
 msgid "Deleted %1$s row: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each is kept until %5$s."
 msgid_plural "Deleted %1$s rows: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each is kept until %5$s."
@@ -17899,58 +17899,58 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: what was deleted, 2: what Airtable said, which after a rate limit is when to try again.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:439
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:443
 #, php-format
 msgid "Airtable stopped the delete part of the way through: %2$s %1$s Rows it did not confirm are checked again by the daily run."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:449
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:453
 msgid "Left out, and not deleted:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:482
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:486
 msgid "Scan"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:483
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:487
 msgid "Reads Students, Students Reports and Feedback every three hours and lists every student with more than one row in any of them. A scan writes nothing to Airtable."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:499
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:503
 msgid "Scan progress"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:515
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:519
 msgid "No progress for over two minutes. The scan may have been interrupted: cancel it and start again."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:522
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:526
 msgid "Cancel scan"
 msgstr ""
 
 #. translators: 1: date and time, 2: human-readable time difference.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:531
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:535
 #, php-format
 msgid "Last scan finished %1$s (%2$s ago)."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:538
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:542
 #: includes/tools/class-wpcpm-duplicate-finder.php:91
 msgid "No scan has run yet."
 msgstr ""
 
 #. translators: %s: date and time of the next scan.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:543
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:547
 #, php-format
 msgid "Next scan: %s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:549
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:553
 msgid "Scan now"
 msgstr ""
 
 #. translators: %s: number.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:584
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:588
 #, php-format
 msgid "%s duplicated student"
 msgid_plural "%s duplicated students"
@@ -17958,7 +17958,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:586
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:590
 #, php-format
 msgid "%s ready: every older row is a clean delete candidate"
 msgid_plural "%s ready: every older row is a clean delete candidate"
@@ -17966,7 +17966,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:588
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:592
 #, php-format
 msgid "%s needs a decision"
 msgid_plural "%s need a decision"
@@ -17974,55 +17974,55 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: table name, 2: rows proposed for deletion, 3: rows held for a decision.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:594
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:598
 #, php-format
 msgid "%1$s: %2$s proposed for deletion, %3$s held"
 msgstr ""
 
 #. translators: %s: number of students.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:634
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:638
 #, php-format
 msgid "Ready: every older row is a clean delete candidate (%s)"
 msgstr ""
 
 #. translators: %s: number of students.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:640
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:644
 #, php-format
 msgid "Needs a decision (%s)"
 msgstr ""
 
 #. translators: 1: rows in total, 2: Students rows, 3: Students Reports rows, 4: Feedback rows.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:651
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:655
 #, php-format
 msgid "%1$s rows selected: Students %2$s, Students Reports %3$s, Feedback %4$s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:652
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:656
 msgid "Tick the students and rows to delete, then press Review selection."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:652
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:656
 msgid "A scan is running. Review selection comes back when it finishes."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:652
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:656
 msgid "Deleting is switched off, so nothing can be selected."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:656
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:660
 msgid "Select all ready"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:657
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:661
 msgid "Clear"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:660
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:664
 msgid "Review selection"
 msgstr ""
 
 #. translators: 1: number of rows, 2: student name.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:702
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:710
 #, php-format
 msgid "Delete the %1$s older row of %2$s"
 msgid_plural "Delete the %1$s older rows of %2$s"
@@ -18030,114 +18030,114 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: Students rows, 2: Students Reports rows, 3: Feedback rows.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:718
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:725
 #, php-format
 msgid "Students %1$s · Students Reports %2$s · Feedback %3$s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:725
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:732
 msgid "Needs a decision"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Proposal"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Work or answers"
 msgstr ""
 
 #. translators: 1: table name, 2: record ID, 3: student name.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:754
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:762
 #, php-format
 msgid "Delete the %1$s row %2$s of %3$s"
 msgstr ""
 
 #. translators: 1: table name, 2: record ID, 3: student name.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:761
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:769
 #, php-format
 msgid "The %1$s row %2$s of %3$s cannot be deleted"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:785
 msgid "Linked"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:803
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:811
 msgid "Deleted rows"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:806
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:814
 msgid "Nothing has been deleted yet."
 msgstr ""
 
 #. translators: %s: date.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:825
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:834
 #, php-format
 msgid "Kept until %s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:830
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:839
 msgid "View copy"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:833
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:842
 msgid "Airtable did not confirm this delete; the daily run checks it again."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:835
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:844
 msgid "Erased after 30 days. Airtable never confirmed this delete, so the row may still be there."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:837
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:846
 msgid "Erased after 30 days."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:868
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:877
 msgid "Left out of this delete:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:920
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:953
 msgid "Keep"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:921
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:954
 msgid "Delete candidate"
 msgstr ""
 
 #. translators: 1: Students Reports rows, 2: Students rows.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:939
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:972
 #, php-format
 msgid "More Students Reports rows (%1$s) than Students rows (%2$s): either the automation fired more than once for one Students row, or an older Students row has already been deleted by hand."
 msgstr ""
 
 #. translators: 1: Students rows, 2: Students Reports rows.
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:942
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:975
 #, php-format
 msgid "More Students rows (%1$s) than Students Reports rows (%2$s): a newer Students row has no report yet, and gets a report and a Feedback row as soon as it matches the automation's conditions."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:944
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:977
 msgid "The address is spelled more than one way (case or spaces), so a lookup that compares it exactly finds only some of these rows."
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:959
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:992
 msgid "a site account"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:962
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:995
 msgid "a student's surveys"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:966
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:999
 msgid "a mentor call note"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:967
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1000
 msgid "a booked call"
 msgstr ""
 
-#: includes/tools/class-wpcpm-duplicate-finder-screen.php:968
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:1001
 msgid "an audit log entry"
 msgstr ""
 
@@ -18281,242 +18281,242 @@ msgstr ""
 msgid "The plugin's emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and footer."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:364
 msgid "Who receives it"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:355
+#: includes/tools/class-wpcpm-emails.php:364
 msgid "What sends it"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:387
+#: includes/tools/class-wpcpm-emails.php:396
 msgid "Contact address in emails was not saved: what was typed is not an email address. The one saved before is kept."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:419
+#: includes/tools/class-wpcpm-emails.php:428
 msgid "The address every email names for questions, in its signature and footer."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:430
+#: includes/tools/class-wpcpm-emails.php:439
 msgid "Contact address in emails"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:432
+#: includes/tools/class-wpcpm-emails.php:441
 msgid "A mailbox the Administrators read; left empty, the footer leaves out the sentence that names it."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:446
+#: includes/tools/class-wpcpm-emails.php:455
 msgid "The people it concerns"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:471
+#: includes/tools/class-wpcpm-emails.php:480
 msgid "Not edited"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:475
+#: includes/tools/class-wpcpm-emails.php:484
 msgid "An account since removed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:526
+#: includes/tools/class-wpcpm-emails.php:535
 msgid "All templates"
 msgstr ""
 
 #. translators: %s: the separator line, two hyphens and a space, shown as code.
-#: includes/tools/class-wpcpm-emails.php:537
+#: includes/tools/class-wpcpm-emails.php:546
 #, php-format
 msgid "Every email the plugin sends ends with this block, after a line holding %s. It is not added to the emails WordPress and the Two Factor plugin send themselves."
 msgstr ""
 
 #. translators: 1: who receives the email, such as Student, 2: what sends it, a sentence.
-#: includes/tools/class-wpcpm-emails.php:547
+#: includes/tools/class-wpcpm-emails.php:556
 #, php-format
 msgid "To: %1$s. %2$s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:557
+#: includes/tools/class-wpcpm-emails.php:566
 msgid "State:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:562
+#: includes/tools/class-wpcpm-emails.php:571
 msgid "The shipped text is sent until the edit is saved again in a form this email can use."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:564
+#: includes/tools/class-wpcpm-emails.php:573
 msgid "An update changed the shipped text since this edit was saved. Your edit is still the one sent; the new shipped text is under the buttons, to compare. Saving your edit again clears this."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:596
+#: includes/tools/class-wpcpm-emails.php:605
 msgid "Save"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:598
+#: includes/tools/class-wpcpm-emails.php:607
 msgid "Send me a test"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:600
+#: includes/tools/class-wpcpm-emails.php:609
 msgid "Send me a test sends the email as it is saved, filled with the example values and marked [Test], to your own address and to nobody else. Save what you typed first: pressed with typing not saved yet, it sends nothing."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:608
+#: includes/tools/class-wpcpm-emails.php:617
 msgid "Restore the original"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:608
+#: includes/tools/class-wpcpm-emails.php:617
 msgid "Restoring"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:608
+#: includes/tools/class-wpcpm-emails.php:617
 msgid "Restore the original? Your edit is dropped, and the shipped text is sent from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:611
+#: includes/tools/class-wpcpm-emails.php:620
 msgid "The shipped text"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:614
-#: includes/tools/class-wpcpm-emails.php:680
+#: includes/tools/class-wpcpm-emails.php:623
+#: includes/tools/class-wpcpm-emails.php:689
 msgid "Subject:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:630
+#: includes/tools/class-wpcpm-emails.php:639
 msgid "Placeholders"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:631
+#: includes/tools/class-wpcpm-emails.php:640
 msgid "Each one is replaced by its value as the email is sent. A sentence whose placeholders are all empty is left out, and so is a line left with nothing on it, together with a line ending in a colon directly above it that holds no placeholder. A sentence ends at a full stop followed by a space; a question or exclamation mark does not end one."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:634
+#: includes/tools/class-wpcpm-emails.php:643
 msgid "Placeholder"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:634
+#: includes/tools/class-wpcpm-emails.php:643
 msgid "What it means"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:634
+#: includes/tools/class-wpcpm-emails.php:643
 msgid "Example"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:648
+#: includes/tools/class-wpcpm-emails.php:657
 msgid "Empty here"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:666
+#: includes/tools/class-wpcpm-emails.php:675
 msgid "The text of the email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:676
+#: includes/tools/class-wpcpm-emails.php:685
 msgid "As it is sent now, with the example values and the signature and footer."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:782
+#: includes/tools/class-wpcpm-emails.php:791
 msgid "Nothing was sent: the site has no such email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:804
+#: includes/tools/class-wpcpm-emails.php:813
 msgid "Saved. It reads as the shipped text, so it is sent as shipped."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:807
+#: includes/tools/class-wpcpm-emails.php:816
 msgid "Saved. Every email ends with the signature and footer as you wrote it from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:807
+#: includes/tools/class-wpcpm-emails.php:816
 msgid "Saved. The email is sent as you wrote it from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:819
+#: includes/tools/class-wpcpm-emails.php:828
 msgid "Nothing was restored: the site has no such email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:823
+#: includes/tools/class-wpcpm-emails.php:832
 msgid "The original is back: the shipped text is sent from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:826
+#: includes/tools/class-wpcpm-emails.php:835
 msgid "There was no edit to restore: the shipped text is already the one sent."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:844
+#: includes/tools/class-wpcpm-emails.php:853
 msgid "Nothing was sent: what you typed is not saved yet. Save it first, then send the test."
 msgstr ""
 
 #. translators: %s: the Administrator's own email address.
-#: includes/tools/class-wpcpm-emails.php:855
+#: includes/tools/class-wpcpm-emails.php:864
 #, php-format
 msgid "The test is on its way to your own address, %s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:861
+#: includes/tools/class-wpcpm-emails.php:870
 msgid "The test could not be sent: whatever handles mail on this site refused it, so the real email would not arrive either."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:941
+#: includes/tools/class-wpcpm-emails.php:950
 msgid "The email log is not ready yet. It is created the next time a page of the site loads; if this stays, tell whoever looks after the site."
 msgstr ""
 
 #. translators: %d: days kept.
-#: includes/tools/class-wpcpm-emails.php:959
+#: includes/tools/class-wpcpm-emails.php:968
 #, php-format
 msgid "Every email the site sent in the last %d days, newest first."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:971
+#: includes/tools/class-wpcpm-emails.php:980
 msgid "Search address, name or subject"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:975
+#: includes/tools/class-wpcpm-emails.php:984
 msgid "Every area"
 msgstr ""
 
 #. translators: %s: how many emails the Email filter's list shows, as a number.
-#: includes/tools/class-wpcpm-emails.php:991
+#: includes/tools/class-wpcpm-emails.php:1000
 #, php-format
 msgid "Emails in the list: %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1001
+#: includes/tools/class-wpcpm-emails.php:1010
 msgid "Type to find an email"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1002
+#: includes/tools/class-wpcpm-emails.php:1011
 msgid "No email has that name."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1012
+#: includes/tools/class-wpcpm-emails.php:1021
 msgid "Today"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1013
+#: includes/tools/class-wpcpm-emails.php:1022
 msgid "The last 7 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1014
+#: includes/tools/class-wpcpm-emails.php:1023
 msgid "The last 30 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1015
+#: includes/tools/class-wpcpm-emails.php:1024
 msgid "From and to dates"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1018
+#: includes/tools/class-wpcpm-emails.php:1027
 msgid "Any time"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1022
+#: includes/tools/class-wpcpm-emails.php:1031
 msgid "From"
 msgstr ""
 
 #. translators: %s: number of emails.
-#: includes/tools/class-wpcpm-emails.php:1043
+#: includes/tools/class-wpcpm-emails.php:1052
 #, php-format
 msgid "%s email matches."
 msgid_plural "%s emails match."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-emails.php:1052
+#: includes/tools/class-wpcpm-emails.php:1061
 msgid "\"Handed to the mail server\" means the site passed the email on, not that it reached the inbox."
 msgstr ""
 

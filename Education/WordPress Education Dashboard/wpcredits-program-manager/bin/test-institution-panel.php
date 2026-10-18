@@ -2383,6 +2383,61 @@ foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
 ck( 'the check finds the scroll boxes the stylesheets draw: the box each admin table sits in on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'administrator.css: .wpcpm-administrator__scroll', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
 ck( 'and each of them is positioned, so what is drawn inside it stays inside it', $unheld, array() );
 
+// A box that scrolls sideways around a table is out of a keyboard's reach in Safari when it holds
+// no link or button, unless it takes focus, and a screen reader does not announce it unless it is
+// named. So wherever the plugin prints the class of a box a stylesheet lets scroll sideways, it
+// prints it as a tab stop with a role and a name, as the Administrator Dashboard's tables were made
+// in 1.122.35 and the Student Duplicate Finder's and the Emails tool's in 1.122.36. The role is a
+// region, or what the Student Duplicate Finder's helper fills in, a group for a student on its list
+// and a region elsewhere, which bin/test-duplicate-finder.php reads off the screens.
+// The sideways boxes are pinned by name, so a new one is decided here rather than shipped unseen;
+// the two boxes that scroll up and down are a combobox's list, which its field drives with the
+// arrow keys, and the Need help? panel's answers.
+$sideways = array();
+
+foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
+	preg_match_all( '/([^{}]+)\{([^{}]*)\}/', (string) preg_replace( '#/\*.*?\*/#s', '', (string) file_get_contents( $sheet ) ), $found, PREG_SET_ORDER );
+
+	foreach ( $found as $rule ) {
+		if ( preg_match( '/(^|;)\s*overflow(-x)?\s*:[^;]*\b(auto|scroll|overlay)\b/i', $rule[2] ) ) {
+			$sideways[] = trim( preg_replace( '/\s+/', ' ', $rule[1] ) );
+		}
+	}
+}
+
+$printed = array();
+$unnamed = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $source_file ) {
+	if ( 'php' !== $source_file->getExtension() ) {
+		continue;
+	}
+
+	$source = (string) file_get_contents( $source_file->getPathname() );
+
+	foreach ( $sideways as $box ) {
+		if ( 1 !== preg_match( '/^\.([a-z0-9_-]+)$/', $box, $class ) ) {
+			continue;
+		}
+
+		$at = preg_match_all( '/class="' . preg_quote( $class[1], '/' ) . '"([^>]*)>/', $source, $tags );
+
+		if ( $at ) {
+			$printed[ basename( $source_file->getPathname() ) . ': ' . $box ] = $at;
+		}
+
+		foreach ( $tags[1] as $rest ) {
+			if ( 1 !== preg_match( '/^ tabindex="0" role="(region|%1\$s)" aria-labelledby="/', $rest ) ) {
+				$unnamed[] = basename( $source_file->getPathname() ) . ': ' . $box . $rest;
+			}
+		}
+	}
+}
+
+ksort( $printed );
+ck( 'the boxes the stylesheets let scroll sideways are the three that hold the wide tables: the Administrator Dashboard\'s, the Student Duplicate Finder\'s and the Emails tool\'s', $sideways, array( '.wpcpm-administrator__scroll', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll' ) );
+ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1 ), array() ) );
+
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the
 // steps list, because the same form is drawn on five surfaces and only one of them is a step;
 // the tighter margin is, because the step is what it is about - and it is the step's alone,

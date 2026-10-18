@@ -11,7 +11,9 @@
  * - **The Templates tab** lists the templates by area, in the catalog's order, each area in a table
  *   of its own, each row with who receives it, what sends it, where it stands and who edited it last,
  *   and an Edit link to its editor: the Invitations, the Mentor calls, the Institutions, the Semester
- *   reports and the Sponsors, every area of the plugin's emails, since 1.122.22.
+ *   reports and the Sponsors, every area of the plugin's emails, since 1.122.22. Each table scrolls
+ *   sideways in a box a keyboard reaches (1.122.36): a tab stop and a region named by its area's
+ *   heading, the source opening no box another way, and the box's focus ring is wp-admin's own.
  * - **The editor**: the boxes hold the shipped text, then the edit read back as it was typed; the
  *   placeholders say what they mean, the required one marked; the preview is filled with the
  *   examples and ends with the footer; Restore asks first, and is there only for an edit.
@@ -150,6 +152,7 @@ function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array
 }
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/scroll-regions.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
@@ -303,7 +306,7 @@ ck( 'and a tab the screen does not have opens Templates too', 1 === preg_match( 
 
 echo "\n=== The Templates tab ===\n";
 
-preg_match_all( '#<h2>([^<]*)</h2>#', $home, $areas );
+preg_match_all( '#<h2 id="wpcpm-emails-area-[a-z-]+">([^<]*)</h2>#', $home, $areas );
 preg_match_all( '#<tr><td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td><span class="wpcpm-emails__state wpcpm-emails__state--([a-z-]+)">([^<]*)</span></td><td>([^<]*)</td><td><a href="([^"]*)">Edit<span class="screen-reader-text"> ([^<]*)</span></a></td></tr>#', $home, $rows, PREG_SET_ORDER );
 ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports, the Sponsors and the Mentor applications', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications' ) );
 ck(
@@ -386,9 +389,47 @@ ck(
 ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[44][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[59][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
-ck( 'each of the six areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2>[^<]*</h2><div class="wpcpm-emails__scroll"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 6, 6, true, true ) );
+ck( 'each of the six areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 6, 6, true, true ) );
+// The six tables are wider than a phone and scroll sideways in a box each. Until 1.122.36 the box
+// took no focus: a box that scrolls but cannot be focused is out of a keyboard's reach in Safari
+// when it holds no link or button, and a screen reader does not announce it. Each box is now a tab
+// stop and a region named by its area's heading, which carries an id of its own, as the
+// Administrator Dashboard's tables were made in 1.122.35. Read off the tab as drawn, so a table
+// drawn without the box, or a box whose name points at nothing, fails here.
+$area_box = static function ( $name ) {
+	return array(
+		'box'      => 'div.wpcpm-emails__scroll',
+		'tabindex' => '0',
+		'role'     => 'region',
+		'alone'    => true,
+		'name'     => $name,
+	);
+};
+ck( 'each area\'s table sits alone in a box that is a tab stop and a region named by the area\'s heading, every name its own, and no table sits outside a box', scroll_boxes( $home, 'wpcpm-emails__scroll' ), array( 'boxes' => array_map( $area_box, array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications' ) ), 'loose' => array() ) );
+preg_match_all( '#\sid="([^"]*)"#', $home, $home_ids );
+ck( 'each heading carries the id its box names, drawn as before, and no id of the tab is printed twice', array( false !== strpos( $home, '<h2 id="wpcpm-emails-area-mentor-applications">Mentor applications</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-emails-area-mentor-applications"><table class="widefat striped wpcpm-emails__templates"><thead>' ), array_keys( array_filter( array_count_values( $home_ids[1] ), static function ( $n ) { return 1 !== $n; } ) ) ), array( true, array() ) );
+ck( 'the editor\'s placeholders table is in no box: its cells wrap, so it never scrolls', array( scroll_boxes( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) ), 'wpcpm-emails__scroll' ), scroll_css_decls( $templates_css, '.wpcpm-emails__placeholders td' ) ), array( array( 'boxes' => array(), 'loose' => array( 'widefat striped wpcpm-emails__placeholders' ) ), array( 'overflow-wrap' => 'anywhere' ) ) );
+
+// Read off the source too, for an area no screen above draws: the tool prints one box, right
+// before the one table that scrolls, with its tab stop and its name, and no box another way.
+$emails_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php' );
+ck( 'in the source, the tool\'s one box opens right before the templates table, a tab stop and a region named by the area\'s heading, and its other table is the placeholders\'', array(
+	substr_count( $emails_source, 'wpcpm-emails__scroll' ),
+	substr_count( $emails_source, '<table' ),
+	false !== strpos( $emails_source, 'printf( \'<div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="%s"><table class="widefat striped wpcpm-emails__templates"><thead><tr>\', esc_attr( $title ) );' ),
+	false !== strpos( $emails_source, 'printf( \'<h2 id="%1$s">%2$s</h2>\', esc_attr( $title ), esc_html( $area ) );' ),
+	false !== strpos( $emails_source, 'echo \'<table class="widefat striped wpcpm-emails__placeholders"><thead><tr>\';' ),
+), array( 1, 2, true, true, true ) );
+
+// The box scrolls as it did, and its focus ring is wp-admin's own: the three declarations
+// WordPress's own admin stylesheet gives a focused link's ring, `a:focus` in
+// wp-admin/css/common.css (WordPress 7.1), its 2px rounding, the admin color scheme's ring at the
+// scheme's focus width, and the outline Windows High Contrast mode draws instead. A box-shadow,
+// outside the box, so the box's own overflow never clips it.
+ck( 'the box scrolls sideways, positioned, as before', scroll_css_decls( $templates_css, '.wpcpm-emails__scroll' ), array( 'overflow-x' => 'auto', 'position' => 'relative' ) );
+ck( 'and draws wp-admin\'s focus ring when the keyboard reaches it, outside the box', scroll_css_decls( $templates_css, '.wpcpm-emails__scroll:focus-visible' ), array( 'border-radius' => '2px', 'box-shadow' => '0 0 0 var( --wp-admin-border-width-focus, 1.5px ) var( --wp-admin-theme-color, #3858e9 )', 'outline' => '2px solid transparent' ) );
 ck( 'no word on the tab says module, and no em or en dash', array( preg_match_all( '/\bmodules?\b/i', words_of( $home ) ), preg_match( '/\x{2013}|\x{2014}/u', $home ) ), array( 0, 0 ) );
-ck( 'an Edit link naming an email the registry does not hold opens the list', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked' ) ), '<h2>Invitations</h2>' ), true );
+ck( 'an Edit link naming an email the registry does not hold opens the list', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'call-booked' ) ), '<h2 id="wpcpm-emails-area-invitations">Invitations</h2>' ), true );
 
 echo "\n=== The editor ===\n";
 
