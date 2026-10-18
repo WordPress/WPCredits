@@ -602,6 +602,7 @@ final class WPCPM_Administrators_Cards {
 			return;
 		}
 
+		self::scroll_open( array( self::title_id( 'offers-low' ) ) );
 		echo '<table class="wpcpm-admin-table wpcpm-offers-low"><thead><tr>';
 
 		foreach ( array( __( 'Offer', 'wpcredits-program-manager' ), __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Codes left', 'wpcredits-program-manager' ), __( 'Warns at', 'wpcredits-program-manager' ) ) as $head ) {
@@ -626,7 +627,7 @@ final class WPCPM_Administrators_Cards {
 			);
 		}
 
-		echo '</tbody></table>';
+		echo '</tbody></table></div>';
 		self::render_sponsors_line( 'offers' );
 		self::card_close();
 	}
@@ -1630,13 +1631,18 @@ final class WPCPM_Administrators_Cards {
 		$due      = isset( $data['due'] ) ? (array) $data['due'] : array();
 		$approved = isset( $data['approved'] ) ? (array) $data['approved'] : array();
 
+		// Each table's box is named by the card's heading and the subheading above the table.
+		$review_title = 'wpcpm-reports-review-title';
+		$due_title    = 'wpcpm-reports-due-title';
+
 		self::card_open( 'reports', __( 'Semester reports', 'wpcredits-program-manager' ), count( $queue ) + count( $due ) );
 
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'To review', 'wpcredits-program-manager' ) );
+		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $review_title ), esc_html__( 'To review', 'wpcredits-program-manager' ) );
 
 		if ( empty( $queue ) ) {
 			self::empty_line( __( 'No draft is waiting for review.', 'wpcredits-program-manager' ) );
 		} else {
+			self::scroll_open( array( self::title_id( 'reports' ), $review_title ) );
 			echo '<table class="wpcpm-admin-table"><thead><tr>';
 			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
 			printf( '<th scope="col">%s</th>', esc_html__( 'Semester', 'wpcredits-program-manager' ) );
@@ -1658,14 +1664,15 @@ final class WPCPM_Administrators_Cards {
 				);
 			}
 
-			echo '</tbody></table>';
+			echo '</tbody></table></div>';
 		}
 
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Due for drafting', 'wpcredits-program-manager' ) );
+		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $due_title ), esc_html__( 'Due for drafting', 'wpcredits-program-manager' ) );
 
 		if ( empty( $due ) ) {
 			self::empty_line( __( 'Nothing is waiting: every finished semester has a report, or is not finished yet.', 'wpcredits-program-manager' ) );
 		} else {
+			self::scroll_open( array( self::title_id( 'reports' ), $due_title ) );
 			echo '<table class="wpcpm-admin-table"><thead><tr>';
 			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
 			printf( '<th scope="col">%s</th>', esc_html__( 'Semester', 'wpcredits-program-manager' ) );
@@ -1689,7 +1696,7 @@ final class WPCPM_Administrators_Cards {
 				echo '</td></tr>';
 			}
 
-			echo '</tbody></table>';
+			echo '</tbody></table></div>';
 		}
 
 		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Approved this semester', 'wpcredits-program-manager' ) );
@@ -1826,6 +1833,7 @@ final class WPCPM_Administrators_Cards {
 		if ( empty( $rows ) ) {
 			self::empty_line( __( 'No institution has a student in progress.', 'wpcredits-program-manager' ) );
 		} else {
+			self::scroll_open( array( self::title_id( 'programs' ) ) );
 			echo '<table class="wpcpm-admin-table wpcpm-programs__table"><thead><tr>';
 			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
 			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'In progress', 'wpcredits-program-manager' ) );
@@ -1864,7 +1872,7 @@ final class WPCPM_Administrators_Cards {
 				);
 			}
 
-			echo '</tbody></table>';
+			echo '</tbody></table></div>';
 		}
 
 		if ( ! empty( $programs['quiet'] ) ) {
@@ -1935,6 +1943,7 @@ final class WPCPM_Administrators_Cards {
 
 		self::card_open( 'health', __( 'Syncs and health', 'wpcredits-program-manager' ), count( $locked ) );
 
+		self::scroll_open( array( self::title_id( 'health' ) ) );
 		echo '<table class="wpcpm-admin-table"><thead><tr>';
 		printf( '<th scope="col">%s</th>', esc_html__( 'Sync', 'wpcredits-program-manager' ) );
 		printf( '<th scope="col">%s</th>', esc_html__( 'State', 'wpcredits-program-manager' ) );
@@ -1961,7 +1970,7 @@ final class WPCPM_Administrators_Cards {
 			);
 		}
 
-		echo '</tbody></table>';
+		echo '</tbody></table></div>';
 
 		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Locked accounts', 'wpcredits-program-manager' ) );
 
@@ -2069,6 +2078,10 @@ final class WPCPM_Administrators_Cards {
 	 * The extra class comes before the two shared ones so the attribute still ends in
 	 * `wpcpm-group__disclosure`, which is what the suites and the theme's rules key on.
 	 *
+	 * The heading's words carry an id of their own, `title_id()`, which names the scroll box of
+	 * a table in the card (`scroll_open()`). The words and not the whole heading, which holds the
+	 * count too: named by the heading, the health card's table would read as "Syncs and health 0".
+	 *
 	 * @param string $id    The anchor, one of WPCPM_Return::ANCHORS.
 	 * @param string $title The heading.
 	 * @param int    $count How many the card counts: the badge prints it, and the card is open when
@@ -2082,7 +2095,8 @@ final class WPCPM_Administrators_Cards {
 		printf( '<section class="wpcpm-administrator__card" id="wpcpm-%s">', esc_attr( $id ) );
 		printf( '<details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"%s>', (int) $count > 0 ? ' open' : '' );
 		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title"><span id="%1$s">%2$s</span> <span class="wpcpm-group__count">%3$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			esc_attr( self::title_id( $id ) ),
 			esc_html( $title ),
 			esc_html( '' !== (string) $shown ? (string) $shown : number_format_i18n( (int) $count ) )
 		);
@@ -2092,6 +2106,34 @@ final class WPCPM_Administrators_Cards {
 	/** Close the card `card_open()` opened. */
 	private static function card_close() {
 		echo '</div></details></section>';
+	}
+
+	/**
+	 * The id `card_open()` gives a card's heading words.
+	 *
+	 * @param string $id The card's anchor, one of WPCPM_Return::ANCHORS.
+	 * @return string
+	 */
+	private static function title_id( $id ) {
+		return 'wpcpm-' . $id . '-title';
+	}
+
+	/**
+	 * Open the box a table with column headers scrolls in on a phone (1.122.35); the table's own
+	 * closing tag is followed by the box's.
+	 *
+	 * Below 782px administrator.css lets this box, not the table, scroll sideways, since a table
+	 * cannot be a region without losing what makes it a table. The box is a tab stop, so a keyboard
+	 * reaches it and its arrow keys scroll it (Safari reaches no scroll box that holds no link or
+	 * button), and a region named by the headings above the table, so a screen reader says what
+	 * scrolls, as the Education Hub's table was made in theme 1.24.15. A tab stop at every width,
+	 * as that one is: an attribute cannot follow a media query without a script, and the dashboards
+	 * work without one, so on a wide screen it is one stop more, around a table that fits.
+	 *
+	 * @param string[] $labels The ids of the headings that name the table, the card's first.
+	 */
+	private static function scroll_open( array $labels ) {
+		printf( '<div class="wpcpm-administrator__scroll" tabindex="0" role="region" aria-labelledby="%s">', esc_attr( implode( ' ', $labels ) ) );
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.34
+Stable tag: 1.122.35
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.35 =
+
+* On a phone or a window 782px wide or narrower, each table with column headers on the Administrator Dashboard (Offers running low, the two tables of Semester reports, Programs running, and Syncs and health) still scrolls sideways inside its card, and the box it scrolls in can now be reached with the Tab key: it shows a focus ring, and the arrow keys scroll it. A screen reader announces the box as a region named by the card's heading, with the heading above the table in Semester reports ("Semester reports To review"). Before, Safari's keyboard could not reach such a table when it held no link or button, so its hidden columns could only be scrolled into view with a mouse or a finger. On a wider screen nothing scrolls and nothing looks different, and each of these tables is one more stop for the Tab key.
+* For developers: `WPCPM_Administrators_Cards` prints each `wpcpm-admin-table` inside `<div class="wpcpm-administrator__scroll" tabindex="0" role="region" aria-labelledby="...">` (`scroll_open()`), and administrator.css's rule under 782px (`display: block; overflow-x: auto; position: relative`) moves from the table to that box, so the table is a table again on a phone. A card's heading words carry the id `wpcpm-<card>-title` (`title_id()`), in a span inside the `h3`, and Semester reports' two subheadings carry `wpcpm-reports-review-title` and `wpcpm-reports-due-title`. The box's focus ring is `:where( .wpcpm-administrator__scroll:focus-visible )`, the card heading row's 2px ring, weightless so a theme's own ring wins.
 
 = 1.122.34 =
 

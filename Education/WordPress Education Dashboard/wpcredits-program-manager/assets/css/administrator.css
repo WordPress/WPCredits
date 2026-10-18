@@ -196,11 +196,23 @@
 	padding-left: 1.25em;
 }
 
-/* Positioned, so a screen-reader label inside a scrolled row stays in the table rather than widening the page. */
+/* Below 782px a table with column headers scrolls sideways inside the box the cards print around
+   it, a tab stop and a named region, so the page never widens. The box is positioned so that a
+   screen-reader label inside a scrolled row stays in it. */
 @media ( max-width: 782px ) {
-	.wpcpm-admin-table {
+	.wpcpm-administrator__scroll {
 		display: block;
 		overflow-x: auto;
 		position: relative;
 	}
+}
+
+/* The box's focus ring is the plugin's own, the one the card's heading row draws
+   (`.wpcpm-group__summary:focus-visible` in dashboard.css), outside the box, so the box's own
+   overflow never clips it. Weightless inside `:where()`, so a theme's ring for a tab stop wins:
+   the WPCredits theme draws its 2px brand ring on every `[tabindex]`, as on the Education Hub's
+   table. */
+:where( .wpcpm-administrator__scroll:focus-visible ) {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
 }

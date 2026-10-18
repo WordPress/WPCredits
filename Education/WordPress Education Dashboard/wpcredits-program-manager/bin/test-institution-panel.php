@@ -2380,7 +2380,7 @@ foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
 	}
 }
 
-ck( 'the check finds the scroll boxes the stylesheets draw: the admin tables on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'administrator.css: .wpcpm-admin-table', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
+ck( 'the check finds the scroll boxes the stylesheets draw: the box each admin table sits in on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'administrator.css: .wpcpm-administrator__scroll', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
 ck( 'and each of them is positioned, so what is drawn inside it stays inside it', $unheld, array() );
 
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the

@@ -1391,6 +1391,193 @@ ck( 'the numeric column carries tabular figures and no alignment of its own', ar
 	1 === preg_match( '/\.wpcpm-admin-table__n \{[^}]*text-align:/s', $css ),
 ), array( true, false ) );
 
+echo "\n=== The column tables scroll by keyboard on a phone (1.122.35) ===\n";
+
+/*
+ * Below 782px the five tables with column headers are wider than a phone and scroll sideways in a
+ * box of their own. Until 1.122.35 the box was the table itself, given `display: block`: a box
+ * that scrolls but takes no focus, which a keyboard cannot reach in Safari when it holds no link
+ * or button, and whose content a screen reader does not announce as a region. The table cannot be
+ * the region without stopping being a table, so each one now sits in a div that is the scroll box,
+ * a tab stop and a region named by the heading words above it, as the Education Hub's table was
+ * made in theme 1.24.15. Read off the markup each card draws, so a sixth table drawn without the
+ * box, or a box whose name points at nothing, fails here.
+ */
+
+/**
+ * Every column table in a piece of the page, as the box around it reads: the box's tag, class,
+ * tab stop and role, whether the table is the only thing in it, and the name its
+ * aria-labelledby resolves to among the ids of the same markup.
+ *
+ * @param string $html Markup a card, or the page, printed.
+ * @return array[]
+ */
+function scroll_regions( $html ) {
+	$doc      = new DOMDocument();
+	$previous = libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	libxml_use_internal_errors( $previous );
+
+	$xpath   = new DOMXPath( $doc );
+	$regions = array();
+
+	foreach ( $xpath->query( '//table[contains(concat(" ", normalize-space(@class), " "), " wpcpm-admin-table ")]' ) as $table ) {
+		$box      = $table->parentNode;
+		$elements = 0;
+
+		foreach ( $box->childNodes as $child ) {
+			$elements += XML_ELEMENT_NODE === $child->nodeType ? 1 : 0;
+		}
+
+		$name = array();
+
+		foreach ( preg_split( '/\s+/', trim( (string) $box->getAttribute( 'aria-labelledby' ) ), -1, PREG_SPLIT_NO_EMPTY ) as $id ) {
+			$named  = $xpath->query( '//*[@id="' . $id . '"]' );
+			$name[] = 1 === $named->length ? trim( preg_replace( '/\s+/', ' ', $named->item( 0 )->textContent ) ) : '(' . $named->length . ' elements with the id ' . $id . ')';
+		}
+
+		$regions[] = array(
+			'box'      => $box->nodeName . '.' . $box->getAttribute( 'class' ),
+			'tabindex' => $box->getAttribute( 'tabindex' ),
+			'role'     => $box->getAttribute( 'role' ),
+			'alone'    => 1 === $elements,
+			'name'     => implode( ' ', $name ),
+		);
+	}
+
+	return $regions;
+}
+
+/**
+ * A stylesheet's rules, each with the media query it sits in ('' for none), its selectors and
+ * its declarations, read off the comment-stripped source. One level of `@media`, as the plugin's
+ * sheets are written.
+ *
+ * @param string $css The stylesheet.
+ * @return array[]
+ */
+function scroll_css_rules( $css ) {
+	$read  = static function ( $source, $media ) {
+		preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $source, $found, PREG_SET_ORDER );
+		$rules = array();
+
+		foreach ( $found as $rule ) {
+			$decls = array();
+
+			foreach ( explode( ';', $rule[2] ) as $decl ) {
+				if ( false !== strpos( $decl, ':' ) ) {
+					list( $prop, $value )   = explode( ':', $decl, 2 );
+					$decls[ trim( $prop ) ] = trim( $value );
+				}
+			}
+
+			$rules[] = array(
+				'media'     => $media,
+				'selectors' => array_map( static function ( $s ) { return trim( preg_replace( '/\s+/', ' ', $s ) ); }, explode( ',', $rule[1] ) ),
+				'decls'     => $decls,
+			);
+		}
+
+		return $rules;
+	};
+	$rules = array();
+	$plain = preg_replace_callback(
+		'/@media\s*([^{]+)\{((?:[^{}]*\{[^{}]*\})*)\s*\}/',
+		static function ( $m ) use ( $read, &$rules ) {
+			$rules = array_merge( $rules, $read( $m[2], trim( preg_replace( '/\s+/', ' ', $m[1] ) ) ) );
+			return '';
+		},
+		(string) preg_replace( '#/\*.*?\*/#s', '', $css )
+	);
+
+	return array_merge( $read( (string) $plain, '' ), $rules );
+}
+
+$region = static function ( $name ) {
+	return array(
+		'box'      => 'div.wpcpm-administrator__scroll',
+		'tabindex' => '0',
+		'role'     => 'region',
+		'alone'    => true,
+		'name'     => $name,
+	);
+};
+
+ck( 'Offers running low\'s table sits alone in a box that is a tab stop and a region named by the card\'s heading words, not its count', scroll_regions( $low ), array( $region( 'Offers running low' ) ) );
+ck( 'Semester reports\' two tables each sit in one, named by the card\'s heading and the heading above the table', scroll_regions( $rep ), array( $region( 'Semester reports To review' ), $region( 'Semester reports Due for drafting' ) ) );
+ck( 'and so do Programs running\'s and Syncs and health\'s', array( scroll_regions( $prog ), scroll_regions( $health ) ), array( array( $region( 'Programs running' ) ), array( $region( 'Syncs and health' ) ) ) );
+ck( 'the box is printed as the table\'s parent and closed after it, the heading words carrying the id it names', array(
+	has( $low, '<div class="wpcpm-administrator__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-offers-low-title"><table class="wpcpm-admin-table wpcpm-offers-low">' ),
+	has( $low, '</tbody></table></div>' ),
+	has( $low, '<h3 class="wpcpm-group__title"><span id="wpcpm-offers-low-title">Offers running low</span> <span class="wpcpm-group__count">1</span></h3>' ),
+	has( $rep, '<h4 class="wpcpm-administrator__subtitle" id="wpcpm-reports-review-title">To review</h4>' ),
+	has( $rep, '<h4 class="wpcpm-administrator__subtitle" id="wpcpm-reports-due-title">Due for drafting</h4>' ),
+), array( true, true, true, true, true ) );
+
+// The whole page, drawn here for the manager rather than read from whatever an earlier block
+// last drew: every column table it draws is in a box, every box names itself, and no id a name
+// points at is printed twice, or a name could read another card's heading.
+$GLOBALS['uid']    = 3;
+$GLOBALS['manage'] = array( 3 );
+$GLOBALS['flash']  = array();
+$scroll_page       = WPCPM_Administrators_Dashboard::render( array() );
+$page_regions      = scroll_regions( $scroll_page );
+$page_ids          = preg_match_all( '/\bid="(wpcpm-[a-z0-9-]+-title)"/', $scroll_page, $page_id_found ) ? array_count_values( $page_id_found[1] ) : array();
+ck( 'on the whole page every column table is in a named box, and every id a name reads is printed once', array(
+	count( $page_regions ),
+	array_values( array_unique( array_map( static function ( $r ) { return $r['box'] . ' ' . $r['tabindex'] . ' ' . $r['role'] . ' ' . ( $r['alone'] ? 'alone' : 'shared' ); }, $page_regions ) ) ),
+	array_values( array_filter( array_column( $page_regions, 'name' ), static function ( $name ) { return '' === $name || false !== strpos( $name, ' elements with the id ' ); } ) ),
+	array_keys( array_filter( $page_ids, static function ( $n ) { return 1 !== $n; } ) ),
+), array( 5, array( 'div.wpcpm-administrator__scroll 0 region alone' ), array(), array() ) );
+
+// Read off the source too, for a table no fixture above reaches: every column table any file of
+// the plugin prints opens right after the box does, and the cards open no box around anything
+// else, so a region wrapped around a list or a paragraph fails here too.
+$table_sites = array();
+$boxed_sites = 0;
+$box_calls   = substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ), 'self::scroll_open(' );
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $source_file ) {
+	if ( 'php' !== $source_file->getExtension() ) {
+		continue;
+	}
+	$source = (string) file_get_contents( $source_file->getPathname() );
+	if ( substr_count( $source, '<table class="wpcpm-admin-table' ) ) {
+		$table_sites[ basename( $source_file->getPathname() ) ] = substr_count( $source, '<table class="wpcpm-admin-table' );
+		$boxed_sites += preg_match_all( '/self::scroll_open\( [^;]+ \);\s*echo \'<table class="wpcpm-admin-table/', $source );
+	}
+}
+ck( 'in the source, the five column tables are all in the cards, each opens right after its box, and the cards open no other box', array( $table_sites, $boxed_sites, $box_calls ), array( array( 'class-wpcpm-administrators-cards.php' => 5 ), 5, 5 ) );
+
+$admin_rules = scroll_css_rules( $css );
+$phone_box   = array();
+$table_box   = array();
+$ring        = array();
+foreach ( $admin_rules as $rule ) {
+	if ( '( max-width: 782px )' === $rule['media'] && in_array( '.wpcpm-administrator__scroll', $rule['selectors'], true ) ) {
+		$phone_box = array_merge( $phone_box, $rule['decls'] );
+	}
+	if ( in_array( '.wpcpm-admin-table', $rule['selectors'], true ) ) {
+		$table_box = array_merge( $table_box, array_intersect_key( $rule['decls'], array_flip( array( 'display', 'overflow', 'overflow-x', 'overflow-y', 'position' ) ) ) );
+	}
+	if ( in_array( ':where( .wpcpm-administrator__scroll:focus-visible )', $rule['selectors'], true ) ) {
+		$ring = array_merge( $ring, $rule['decls'] );
+	}
+}
+ck( 'under 782px the box scrolls, positioned, with the three declarations the table carried before', $phone_box, array( 'display' => 'block', 'overflow-x' => 'auto', 'position' => 'relative' ) );
+ck( 'and the table gives its own box no display, overflow or position at any width, so it is a table again inside the box', $table_box, array() );
+
+// The ring is the plugin's own, the one the card's heading row draws, not a new one; and it is
+// weightless, so a theme's own ring for a tab stop wins (the WPCredits theme draws its 2px brand
+// ring on every `[tabindex]`, as on the Education Hub's table).
+$summary_ring = array();
+foreach ( scroll_css_rules( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' ) ) as $rule ) {
+	if ( '' === $rule['media'] && in_array( '.wpcpm-group__summary:focus-visible', $rule['selectors'], true ) ) {
+		$summary_ring = array_merge( $summary_ring, $rule['decls'] );
+	}
+}
+ck( 'the box draws the card\'s heading row\'s focus ring, outside the box, inside :where() so a theme\'s ring outweighs it', array( $ring, $summary_ring === $ring ), array( array( 'outline' => '2px solid currentColor', 'outline-offset' => '2px' ), true ) );
+
 echo "\n=== The Sponsor Collaboration Agreements card (1.96.1) ===\n";
 ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array( $GLOBALS['agr_facts'][913] ), 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) );
