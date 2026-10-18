@@ -4,6 +4,8 @@
 **Component:** `wpcredits-program-manager` 1.65.0 (companion theme `wpcredits-theme`)
 **Status:** approved design, not yet implemented
 **Supersedes:** the Institutions module spec of 2 September 2026 (spec v1) and the four extension notes of the same date (Collaboration Agreement, student import and cohorts, semester report, members and policy), together with the review of all five. Those documents disagreed about the fence, the cohort calculation, where the roster lives, how a PDF is made and what a program manager may do at an unsettled institution. This document is the one that gets built. Where it changes something an earlier document settled, it says so in the sentence that changes it.
+**Amended:** 18 October 2026, section 16, for the four requests carried out of the institution requirement list (#244, #245, #246, #247). It states once the rule already implied by open question 14 and section 7.9, so each of those designs does not settle it again. Section 16 says "Administrator" where this document's older text says "program manager", on the same principle as the em dash note in section 13: new text follows the current rule, existing text is left alone.
+
 
 Today the module registers a `wpcpm_institution` role and nothing else: `includes/modules/class-wpcpm-institutions.php` is 55 lines, `is_implemented()` returns false, and the admin page falls through to `render_placeholder()`.
 
@@ -1185,3 +1187,63 @@ All sixteen are now answered: six by the product owner (1, 3, 4, 5, 11, 13), two
 - Signed files survive uninstall in a directory the next site owner may not know about; the mailed list is the mitigation.
 - Every member is mailed at every agreement transition; for an institution with six accounts a return note reaches six inboxes, with reply-to the manager who wrote it.
 - The undeployed `New partnership confirmed` Slack automation will post this site's acceptances if a manager deploys it later. Intended, and named here so it is not a surprise.
+
+---
+
+## 16. What an institution may see about one student
+
+Amended 18 October 2026, for the four requests carried out of the institution requirement list: #244 Learn course completions, #245 WordPress contributions, #246 a struggling or inactive flag, #247 a per-student completion document. None of them is a new kind of question. Each needs the same rule applied, and the rule is already in this document in two places: open question 14, and the exclusion list in section 7.9. This section states it once so the next four designs do not each rediscover it.
+
+### 16.1 Three surfaces, not one audience
+
+"What the institution sees" has never been a single answer here, and the existing decisions already divide it three ways. Every new disclosure declares which surface it lands on, and the default is the narrowest one that answers the request.
+
+| Surface | What it is | Default |
+| --- | --- | --- |
+| Single student | the student's own card and the single-student export, read by a member who already holds that student's record | the widest surface. Course grades live here by open question 14, and the credit-bearing document belongs here |
+| Roster list | every column, filter and bulk export across the institution's students | narrower. A fact that is unremarkable about one student becomes a ranking when it is a column, so a value lands here only when the institution acts on it across students |
+| Semester report | the snapshot document the institution prints and circulates outside the program | narrowest, and already specified in 7.9: no email, no status beside a name, no hours, no grade, no accessibility disclosure, enforced by a test |
+
+A request that names no surface is answered at the single-student one.
+
+### 16.2 Purpose limitation, generalised from the accessibility decision
+
+Open question 14 excluded `Accessibility needs` with a reason that is not about accessibility: it was disclosed to the program to be accommodated, not to the school. That reason generalises and is the rule this module applies to anything new.
+
+**A value a student gave the program for one purpose is not passed to the institution for another, whoever asks and however convenient it would be.** The test is what the student was told when they gave it, not what the field contains. Where the original purpose is unrecorded or ambiguous, the value stays with the program until a student releases it under 16.3.
+
+This is what separates the two halves of the new requests. A student's Learn completions and their WordPress.org contributions are records of what the student did in public, under their own WordPress.org profile, which is the program's stated source of truth for who they are. A student's grades, hours, feedback answers and accessibility needs were given to the program in confidence. The first group may be shown; the second group moves only under 16.3.
+
+### 16.3 Where a student's own consent lifts a default
+
+Phase 0 added two select fields the student alone may write, and `WPCPM_Student_Feedback::handle_save()` refuses the write from anybody else, an Administrator included. That pattern, not an institution-side permission, is how any default in 16.1 is lifted:
+
+- the consent is per purpose and per document, never a blanket release;
+- it is written only on the student's own save, and is re-read on every render rather than cached into the artifact;
+- a withdrawal reaches a document already generated, as `ACTION_REFRESH_CONSENT` does for the semester report;
+- the institution sees that consent is outstanding and may ask an Administrator to request it, never request it itself.
+
+The last point restates open question 2 and its reason: the institution is the party that benefits from a yes, which is the wrong party to do the asking. That holds for every new consent this module adds.
+
+### 16.4 Reporting a fact, and making a judgement
+
+The Institution Dashboard offers "Mark as dropped out" and, since 1.118.1, does not offer "Mark as graduated". The line between them is not how severe the action is, it is who holds the fact. A school knows when its own student has left, and nobody else does until it says so. Whether a student has completed the program is the program's finding, and an institution recording it would be the beneficiary certifying its own outcome.
+
+**A new institution-side action is admissible when the institution holds the fact, and is refused when it states a conclusion about the student that the program owns.** A struggling or inactive flag (#246) sits on the line and is admissible only in the first form: a school reporting that its student has stopped attending, stopped responding or asked for help, which is something only the school observes. A flag that means the student is failing, at risk, or unlikely to finish is a judgement the program owns and is refused.
+
+A flag admitted under this rule carries three further requirements, each of which exists because the value is about a person: the student is told it was set and by whom, it clears by the same route it was set and expires on its own, and it never enters the roster list as a sortable column under 16.1, because a column of struggling students is a ranking of an institution's own cohort.
+
+### 16.5 The four requests, placed
+
+| Request | Surface | Rule | What is still open |
+| --- | --- | --- | --- |
+| #244 Learn completions | single student | public record under the student's own profile, admissible under 16.2 once the connector supplies it | nothing in this policy. The connector's own scope excludes this dashboard for its first term |
+| #245 WordPress contributions | single student | the same, read from the WordPress.org profile | what counts as a contribution and over what window. The post-graduation metric work has had to answer this already and should be reused rather than redecided |
+| #246 Struggling or inactive flag | single student, never the roster list | admissible only in the reporting form of 16.4, with the three requirements attached | the exact wording the school is offered, which decides which of the two forms it is |
+| #247 Completion document | single student | already sanctioned: open question 14 puts grades on the single-student surfaces, and 7.9 defers the credit-bearing document as a different document on purpose | what it states and who signs it. Signature is the program's, not the institution's, by 16.4 |
+
+Each still gets its own design, as #243 did. What this section removes is the need for each to settle the policy first.
+
+### 16.6 What this section does not change
+
+Section 7.9 stands unaltered, including its test. The semester report remains the narrowest surface, and nothing here widens it. Decision 23 stands: a track may carry no hours target, and a document that prints hours prints what the student logged, never a target the track does not set. The shipping rule in section 11 stands: nothing an institution can see ships before the policy, the gate and the on-file route exist together.
