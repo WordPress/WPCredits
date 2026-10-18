@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.26
+Stable tag: 1.24.27
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.27 =
+* Administrator Dashboard on a phone: each table with column headers keeps its frame around the visible window when you scroll it sideways. Since plugin 1.122.35 the box around the table is what scrolls, but the table's 1px line was still drawn on the table, so its left and right edges slid out of view along with the columns. From 782px down the line is now on the box and the table inside has none, so Administrators see the same frame they saw before, standing still, with the columns moving inside it. On a wider screen nothing changes, and the other dashboards' tables are drawn as before.
+* The box's keyboard focus ring (2px, in the brand blue, 2px outside the line) is the same as before and stays whole with the line on the box. No spacing changes.
+* For developers: two rules in `assets/css/dashboard.css`, in the plugin's own `@media ( max-width: 782px )` query, next to the shared dashboard-table rule: `.wpc-dashboard-page .wpcpm-administrator__scroll` draws the line and `.wpc-dashboard-page .wpcpm-administrator__scroll .wpcpm-admin-table` has none. `bin/test-dashboard-table.php` pins both, the query, the rules' weight and the focus ring. No translatable string changed, so the translation template is as it was.
 
 = 1.24.26 =
 * Education Hub homepage: "Find where you fit in WordPress Credits" shows the way from a field of study to a WordPress team and on to real work, where it was a three-column table. Each field of study is one row, read left to right: the field, an arrow, each team it joins as a blue tag, an arrow, and what you'll have to show behind a green check mark. One line above the rows names the three steps: "Your field of study", "The team you join" and "What you'll have to show". Every field and every piece of work is worded as before; the teams are separate tags now, each named as the team is (Core, Plugins, Testing, Accessibility, and so on).

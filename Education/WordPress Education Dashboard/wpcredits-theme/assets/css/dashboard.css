@@ -1121,6 +1121,28 @@
 	border-bottom: 0;
 }
 
+/* The Administrator Dashboard's queues, on a phone (1.24.27). From 782px down the plugin makes the
+   box printed around each queue, `.wpcpm-administrator__scroll`, the thing that scrolls sideways,
+   not the table in it (plugin 1.122.35). The frame above is on the table, so it scrolled with the
+   table and its side edges slid out of view. Here the frame is on the box, which stays put around
+   the visible window, and the table inside has none, so the one line is drawn once. The surface
+   stays on the table, which is never narrower than the box. The query is the plugin's own, so the
+   box and its frame switch at the same width; above it nothing here applies and the frame is the
+   table's, as it is on the other dashboards. The box's focus ring is the theme's one ring on every
+   `[tabindex]` (style.css), offset 2px, which is outside the box's border, so the border does not
+   hide it; and the box says nothing here about its outline or its overflow. The second rule has
+   three classes against the shared rule's two, so it wins wherever the sheet puts it.
+   `bin/test-dashboard-table.php` pins both rules and the query. */
+@media ( max-width: 782px ) {
+	.wpc-dashboard-page .wpcpm-administrator__scroll {
+		border: 1px solid var( --wpc-line-card );
+	}
+
+	.wpc-dashboard-page .wpcpm-administrator__scroll .wpcpm-admin-table {
+		border: 0;
+	}
+}
+
 /* Layout, and only layout: the label column is fixed so the values line up down the table. */
 .wpc-dashboard-page .wpcpm-student__table tbody th {
 	width: 170px;
