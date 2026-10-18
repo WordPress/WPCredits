@@ -1,8 +1,7 @@
 <?php
 /**
  * The Education Hub homepage: its stylesheet, the rule that lets the front page be drawn by its
- * template, the rule that keeps a page merely named after it from being drawn by it, and the
- * field-of-study table's scroll box.
+ * template, and the rule that keeps a page merely named after it from being drawn by it.
  *
  * The hub is a page template of its own, "Education Hub home" (`templates/page-education-hub.html`,
  * registered in theme.json), made of five patterns and three blocks. It prints no post content: the
@@ -121,42 +120,3 @@ function wpcredits_hub_page_hierarchy( $templates ) {
 	return array_values( array_diff( $templates, array( WPCREDITS_HUB_TEMPLATE . '.php' ) ) );
 }
 add_filter( 'page_template_hierarchy', 'wpcredits_hub_page_hierarchy' );
-
-/**
- * Make the field-of-study table's scroll box reachable by keyboard.
- *
- * Below 640px the table is wider than its box and scrolls inside it (core's Table block makes its
- * `<figure>` the scroll container, and hub.css gives the table its minimum width), and a scroll
- * container with nothing focusable in it cannot be reached by keyboard in every browser. So the
- * figure of a table block carrying `wpc-hub-fields`, and of no other, is given a tab stop and the
- * region role, named by the heading above it (`wpc-hub-fit`), and the theme's focus ring. Done on
- * the server, so it holds without JavaScript and after the table's words are edited. The region's
- * name is the heading `#wpc-hub-fit`, so a table whose heading is removed or re-anchored keeps the
- * region, without a name.
- *
- * @param string $content The table block's markup.
- * @return string
- */
-function wpcredits_hub_fields_region( $content ) {
-	if ( false === strpos( $content, 'wpc-hub-fields' ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
-		return $content;
-	}
-
-	$table = new WP_HTML_Tag_Processor( $content );
-
-	if ( ! $table->next_tag(
-		array(
-			'tag_name'   => 'FIGURE',
-			'class_name' => 'wpc-hub-fields',
-		)
-	) ) {
-		return $content;
-	}
-
-	$table->set_attribute( 'tabindex', '0' );
-	$table->set_attribute( 'role', 'region' );
-	$table->set_attribute( 'aria-labelledby', 'wpc-hub-fit' );
-
-	return $table->get_updated_html();
-}
-add_filter( 'render_block_core/table', 'wpcredits_hub_fields_region' );

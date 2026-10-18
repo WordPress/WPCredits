@@ -405,8 +405,7 @@ function wpcredits_test_block( $name, array $attributes = array() ) {
 /**
  * The hub page, as WordPress draws it from the template: each pattern's content and each block the
  * template places on its own, in the template's order, each dynamic block in them rendered by its
- * render.php, and each table block handed to the filters core runs on a rendered table. The template
- * parts of the chrome are left out.
+ * render.php. The template parts of the chrome are left out.
  *
  * @return string
  */
@@ -422,18 +421,10 @@ function wpcredits_test_page() {
 		$page .= '' !== $part[1] ? wpcredits_test_pattern( $part[1] . '.php' ) : $part[0];
 	}
 
-	$page = preg_replace_callback(
+	return preg_replace_callback(
 		'#<!-- wp:(wpcredits/[a-z-]+)( (\{[^}]*\}))? /-->#',
 		static function ( $block ) {
 			return wpcredits_test_block( $block[1], isset( $block[3] ) ? (array) json_decode( $block[3], true ) : array() );
-		},
-		$page
-	);
-
-	return preg_replace_callback(
-		'#(<!-- wp:table [^>]*-->)(.*?)(<!-- /wp:table -->)#s',
-		static function ( $table ) {
-			return $table[1] . apply_filters( 'render_block_core/table', trim( $table[2] ), array( 'blockName' => 'core/table' ) ) . $table[3];
 		},
 		$page
 	);

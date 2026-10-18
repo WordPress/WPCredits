@@ -1029,7 +1029,7 @@ ck( 'what you get is a list, one item to a line, the three planned ones marked o
 ck( 'the mark is kept on its item\'s line by a no-break space',
 	false !== strpos( $index, '<li>Hours transcript&nbsp;<span class="wpc-hub-planned">(planned)</span></li>' ), true );
 
-ck( 'the band sits 56px under the cards, as the field-of-study table sits under it, and lands below the sticky header; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and four from 900px; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
+ck( 'the band sits 56px under the cards, as the field-of-study flow sits under it, and lands below the sticky header; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and four from 900px; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
 	array(
 		rules_for( '.wpc-hub-index .wpc-hub-courses' ),
 		rules_placed( '.wpc-hub-courses .wpc-hub-courses__grid' ),
@@ -2481,8 +2481,8 @@ WPCPM_Outcome_Figures::$published = $monday;
 $page_html                        = wpcredits_test_page();
 $page                             = dom_of( $page_html );
 
-ck( 'without JavaScript the page holds every part: the three figures and their source, the four sign-in cards, the doors, six programs, the field-of-study table, both ladders with all eleven details, and the band',
-	array( count( $page->query( '//div[contains(@class,"wpc-figure")]' ) ), count( $page->query( '//p[contains(@class,"wpc-figure-source")]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-sign-in__card")]' ) ), count( $page->query( '//div[contains(concat(" ", @class, " ")," wpc-hub-doors ")]//div[contains(concat(" ", @class, " ")," wpc-hub-door ")]' ) ), count( $page->query( '//article[@class="wpc-hub-program"]' ) ), count( $page->query( '//figure[contains(@class,"wpc-hub-fields")]//tbody/tr' ) ), count( $page->query( '//section[@class="wpc-hub-ladder"]' ) ), count( $page->query( '//article[@class="wpc-hub-detail"]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-cta__card")]' ) ) ),
+ck( 'without JavaScript the page holds every part: the three figures and their source, the four sign-in cards, the doors, six programs, the seven rows of the field-of-study flow, both ladders with all eleven details, and the band',
+	array( count( $page->query( '//div[contains(@class,"wpc-figure")]' ) ), count( $page->query( '//p[contains(@class,"wpc-figure-source")]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-sign-in__card")]' ) ), count( $page->query( '//div[contains(concat(" ", @class, " ")," wpc-hub-doors ")]//div[contains(concat(" ", @class, " ")," wpc-hub-door ")]' ) ), count( $page->query( '//article[@class="wpc-hub-program"]' ) ), count( $page->query( '//ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]' ) ), count( $page->query( '//section[@class="wpc-hub-ladder"]' ) ), count( $page->query( '//article[@class="wpc-hub-detail"]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-cta__card")]' ) ) ),
 	array( 3, 1, 4, 3, 6, 7, 2, 11, 2 ) );
 
 ck( 'the sections in the page\'s order: the hero, the sign-in section right under it, the doors, the programs, the pathway and the band',
@@ -2595,57 +2595,314 @@ ck( 'with either application\'s page not published, its five links go to the Wor
 		'Partner as an institution > https://make.wordpress.org/community/handbook/education/credits/',
 	) );
 
-echo "\n=== The field-of-study table ===\n";
+echo "\n=== Find where you fit: the flow from the field of study ===\n";
 
-ck( 'seven fields, three columns, a header section, no fixed layout',
-	array( found( $page, '//figure[contains(@class,"wpc-hub-fields")]//th' ), array_chunk( found( $page, '//figure[contains(@class,"wpc-hub-fields")]//tbody/tr/td' ), 3 ), found( $page, '//figure[contains(@class,"wpc-hub-fields")]/table', 'class' ) ),
+// The owner (18 October 2026): the three-column table read as a wall of text; "it needs to visually
+// show the flow between the field of study, through the contribution team, finishing on a proper real
+// world skill". Option A, approved: one row per field, read left to right, the field, an arrow, the
+// teams as tags, an arrow, what you'll have to show behind a check mark.
+
+/**
+ * An XPath test that an element carries a class, as a whole word of its class attribute.
+ *
+ * @param string $name The class.
+ * @return string
+ */
+function flow_class( $name ) {
+	return 'contains(concat(" ", normalize-space(@class), " "), " ' . $name . ' ")';
+}
+
+/**
+ * What a screen reader hears of an element: its text with every part hidden by `aria-hidden="true"`
+ * left out, each element's text apart from its neighbor's, whitespace run together.
+ *
+ * @param DOMNode $node The element.
+ * @return string
+ */
+function heard( DOMNode $node ) {
+	if ( XML_TEXT_NODE === $node->nodeType ) {
+		return $node->nodeValue;
+	}
+
+	if ( XML_ELEMENT_NODE !== $node->nodeType || 'true' === $node->getAttribute( 'aria-hidden' ) ) {
+		return '';
+	}
+
+	$said = '';
+
+	foreach ( $node->childNodes as $child ) {
+		$said .= ( XML_ELEMENT_NODE === $child->nodeType ? ' ' : '' ) . heard( $child );
+	}
+
+	return trim( preg_replace( '/\s+/u', ' ', $said ) );
+}
+
+/**
+ * What an XPath query finds below one element, as found() says it: each node's text, whitespace run
+ * together, or one attribute of each.
+ *
+ * @param DOMNode $node      The element the query starts from.
+ * @param string  $query     The query, relative to it.
+ * @param string  $attribute An attribute's name, or '' for the text.
+ * @return string[]
+ */
+function found_in( DOMNode $node, $query, $attribute = '' ) {
+	$said = array();
+
+	foreach ( ( new DOMXPath( $node->ownerDocument ) )->query( $query, $node ) as $hit ) {
+		$said[] = '' === $attribute ? trim( preg_replace( '/\s+/u', ' ', $hit->textContent ) ) : (string) $hit->getAttribute( $attribute );
+	}
+
+	return $said;
+}
+
+$flow_section = '//div[' . flow_class( 'wpc-hub-fit' ) . ']';
+$flow         = $flow_section . '/div[@class="wpc-hub-flow"]';
+$flow_rows    = $flow . '/ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]';
+$flow_row_els = $page->query( $flow_rows );
+$flow_pattern = theme_file( 'patterns/hub-programs.php' );
+$flow_drawn   = wpcredits_test_pattern( 'hub-programs.php' );
+$look_flow    = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) );
+
+ck( 'the section keeps its head as it was: the eyebrow, the heading "Find where you fit in WordPress Credits" anchored at #wpc-hub-fit, so a link to it lands under the sticky header, and the lede',
+	array( found( $page, $flow_section . '/div[' . flow_class( 'wpc-hub-head' ) . ']/*' ), found( $page, $flow_section . '//h3', 'id' ), found( $page, $flow_section . '//h3', 'class' ) ),
 	array(
-		array( 'Field of study', 'Where you\'ll work', 'What you\'ll have to show' ),
-		array(
-			array( 'Computer science, engineering', 'Core, plugins, testing, accessibility', 'Merged code and reviewed patches' ),
-			array( 'Design, arts, UX', 'Design, block patterns, themes', 'Visual work in use on real sites' ),
-			array( 'Communications, journalism, marketing', 'Documentation, Learn WordPress, Marketing', 'Published work with a byline' ),
-			array( 'Translation, languages', 'Polyglots', 'Published translations' ),
-			array( 'Business, events, tourism', 'Community, WordCamps', 'An event you ran, with attendance numbers' ),
-			array( 'Education', 'Learn WordPress lesson plans, Training', 'Course material in public use' ),
-			array( 'Accessibility, social work', 'Accessibility, testing', 'Audit work on a global platform' ),
-		),
-		array( '' ),
+		array( 'Matched to your field of study', 'Find where you fit in WordPress Credits', 'You work in the area of WordPress that fits your degree, so a design student shows design work and a CS student shows reviewed code.' ),
+		array( 'wpc-hub-fit' ),
+		array( 'wp-block-heading wpc-hub-anchored' ),
 	) );
 
-// "Education" is two strings: the field of study in this table, and the accent word picked out of the
+ck( 'the table is gone, and the flow follows the head in its place, in a Custom HTML block: the section holds the head and the flow and nothing else, no table and no element of the old table\'s class',
+	array(
+		array_map( static function ( $node ) { return $node->getAttribute( 'class' ); }, iterator_to_array( $page->query( $flow_section . '/*' ) ) ),
+		count( $page->query( $flow_section . '//table | //*[' . flow_class( 'wpc-hub-fields' ) . ']' ) ),
+		(bool) preg_match( '#<!-- /wp:group -->\s*<!-- wp:html -->\s*<div class="wpc-hub-flow">.*</div>\s*<!-- /wp:html --></div>\s*<!-- /wp:group --></div>\s*<!-- /wp:group -->\s*$#s', $flow_drawn ),
+		substr_count( $flow_pattern, 'wp:table' ),
+	),
+	array( array( 'wp-block-group wpc-hub-head', 'wpc-hub-flow' ), 0, true, 0 ) );
+
+ck( 'one header line above the rows names the three steps in the order a row reads them, and is hidden from screen readers, since each row\'s own labels say the same',
+	array( found( $page, $flow . '/*[1]', 'class' ), found( $page, $flow . '/div[@class="wpc-hub-flow__head"]', 'aria-hidden' ), found( $page, $flow . '/div[@class="wpc-hub-flow__head"]/span' ), found( $page, $flow . '/div[@class="wpc-hub-flow__head"]/span', 'class' ) ),
+	array(
+		array( 'wpc-hub-flow__head' ),
+		array( 'true' ),
+		array( 'Your field of study', 'The team you join', 'What you\'ll have to show' ),
+		array( 'wpc-hub-flow__step wpc-hub-flow__step--field', 'wpc-hub-flow__step wpc-hub-flow__step--teams', 'wpc-hub-flow__step wpc-hub-flow__step--proof' ),
+	) );
+
+$flow_read = array();
+
+foreach ( $flow_row_els as $flow_row ) {
+	$flow_read[] = array(
+		found_in( $flow_row, 'p[@class="wpc-hub-flow__field"]' ),
+		found_in( $flow_row, 'div[@class="wpc-hub-flow__teams"]/ul[@class="wpc-hub-flow__tags"]/li[@class="wpc-hub-flow__tag"]' ),
+		found_in( $flow_row, 'p[@class="wpc-hub-flow__proof"]/span[@class="wpc-hub-flow__shown"]/text()' ),
+	);
+}
+
+ck( 'seven rows in the table\'s order, each the field, its teams one tag each, and what you\'ll have to show: every field and every proof word for word as before, each team a name of its own, capitalized as one',
+	$flow_read,
+	array(
+		array( array( 'Computer science, engineering' ), array( 'Core', 'Plugins', 'Testing', 'Accessibility' ), array( 'Merged code and reviewed patches' ) ),
+		array( array( 'Design, arts, UX' ), array( 'Design', 'Block patterns', 'Themes' ), array( 'Visual work in use on real sites' ) ),
+		array( array( 'Communications, journalism, marketing' ), array( 'Documentation', 'Learn WordPress', 'Marketing' ), array( 'Published work with a byline' ) ),
+		array( array( 'Translation, languages' ), array( 'Polyglots' ), array( 'Published translations' ) ),
+		array( array( 'Business, events, tourism' ), array( 'Community', 'WordCamps' ), array( 'An event you ran, with attendance numbers' ) ),
+		array( array( 'Education' ), array( 'Learn WordPress lesson plans', 'Training' ), array( 'Course material in public use' ) ),
+		array( array( 'Accessibility, social work' ), array( 'Accessibility', 'Testing' ), array( 'Audit work on a global platform' ) ),
+	) );
+
+ck( 'every row reads the same way, left to right: the field, an arrow, the teams, an arrow, the proof, and nothing else',
+	array_map( static function ( $row ) { return implode( ' ', found_in( $row, '*', 'class' ) ); }, iterator_to_array( $flow_row_els ) ),
+	array_fill( 0, 7, 'wpc-hub-flow__field wpc-hub-flow__arrow wpc-hub-flow__teams wpc-hub-flow__arrow wpc-hub-flow__proof' ) );
+
+ck( 'a screen reader hears each row as one item, in order: the field, "The team you join:" and the teams, "What you\'ll have to show:" and the proof, the arrows and the check left out; the list of rows is named by the section\'s heading',
+	array( array_map( 'heard', iterator_to_array( $flow_row_els ) ), found( $page, $flow . '/ul[@class="wpc-hub-flow__rows"]', 'aria-labelledby' ) ),
+	array(
+		array(
+			'Computer science, engineering The team you join: Core Plugins Testing Accessibility What you\'ll have to show: Merged code and reviewed patches',
+			'Design, arts, UX The team you join: Design Block patterns Themes What you\'ll have to show: Visual work in use on real sites',
+			'Communications, journalism, marketing The team you join: Documentation Learn WordPress Marketing What you\'ll have to show: Published work with a byline',
+			'Translation, languages The team you join: Polyglots What you\'ll have to show: Published translations',
+			'Business, events, tourism The team you join: Community WordCamps What you\'ll have to show: An event you ran, with attendance numbers',
+			'Education The team you join: Learn WordPress lesson plans Training What you\'ll have to show: Course material in public use',
+			'Accessibility, social work The team you join: Accessibility Testing What you\'ll have to show: Audit work on a global platform',
+		),
+		array( 'wpc-hub-fit' ),
+	) );
+
+ck( 'both of the flow\'s lists say they are lists, the rows\' and each row\'s teams\', since WebKit stops announcing a list whose bullets the sheet takes away',
+	array( found( $page, $flow . '/ul', 'role' ), found( $page, $flow_rows . '/div[@class="wpc-hub-flow__teams"]/ul', 'role' ), count( $page->query( $flow . '//ul[not(@role="list")]' ) ) ),
+	array( array( 'list' ), array_fill( 0, 7, 'list' ), 0 ) );
+
+ck( 'each row\'s two step labels are core\'s visually hidden text, each right before what it names: the teams\' before their list, the proof\'s first in its words',
+	array(
+		count( $page->query( $flow_rows . '//*[' . flow_class( 'screen-reader-text' ) . ']' ) ),
+		array_unique( array_map( static function ( $row ) { return implode( ' | ', found_in( $row, 'div[@class="wpc-hub-flow__teams"]/*[1][@class="screen-reader-text"] | div[@class="wpc-hub-flow__teams"]/*[2][@class="wpc-hub-flow__tags"]/@class | p[@class="wpc-hub-flow__proof"]/span[@class="wpc-hub-flow__shown"]/node()[1][@class="screen-reader-text"]' ) ); }, iterator_to_array( $flow_row_els ) ) ),
+	),
+	array( 14, array( 'The team you join: | wpc-hub-flow__tags | What you\'ll have to show:' ) ) );
+
+ck( 'the decoration is silent and drawn inline: in each row two arrows and a check, each an svg hidden from screen readers and not focusable, with no words in it, drawn in currentColor; no icon font, no image and no character stands for them',
+	array(
+		count( $page->query( $flow_rows . '/*[@class="wpc-hub-flow__arrow"][local-name()="svg"][@aria-hidden="true"][@focusable="false"]' ) ),
+		count( $page->query( $flow_rows . '/p[@class="wpc-hub-flow__proof"]/*[1][@class="wpc-hub-flow__check"][local-name()="svg"][@aria-hidden="true"][@focusable="false"]' ) ),
+		count( $page->query( $flow . '//*[local-name()="svg"]' ) ),
+		count( $page->query( $flow . '//*[local-name()="svg"][normalize-space()]' ) ),
+		array( array_values( array_unique( found( $page, $flow . '//*[local-name()="svg"]', 'stroke' ) ) ), array_values( array_unique( found( $page, $flow . '//*[local-name()="svg"]', 'fill' ) ) ) ),
+		count( $page->query( $flow . '//img | ' . $flow . '//i | ' . $flow . '//*[contains(@class,"dashicons")]' ) ),
+		preg_match( '/[→↓✓✔]/u', implode( ' ', found( $page, $flow ) ) ),
+	),
+	array( 14, 7, 21, 0, array( array( 'currentColor' ), array( 'none' ) ), 0, 0 ) );
+
+ck( 'every class the flow prints is the hub\'s own, named for the flow, or core\'s visually hidden text',
+	array_values( array_unique( array_merge( ...array_map( static function ( $node ) { return explode( ' ', $node->getAttribute( 'class' ) ); }, iterator_to_array( $page->query( $flow . '/descendant-or-self::*[@class]' ) ) ) ) ) ),
+	array( 'wpc-hub-flow', 'wpc-hub-flow__head', 'wpc-hub-flow__step', 'wpc-hub-flow__step--field', 'wpc-hub-flow__step--teams', 'wpc-hub-flow__step--proof', 'wpc-hub-flow__rows', 'wpc-hub-flow__row', 'wpc-hub-flow__field', 'wpc-hub-flow__arrow', 'wpc-hub-flow__teams', 'screen-reader-text', 'wpc-hub-flow__tags', 'wpc-hub-flow__tag', 'wpc-hub-flow__proof', 'wpc-hub-flow__check', 'wpc-hub-flow__shown' ) );
+
+// "Education" is two strings: the field of study in this flow, and the accent word picked out of the
 // site title, which must match the word in the translated title. One msgid would allow one translation
 // for both; a language that names them differently (Polish: "Pedagogika" and "Edukacja") needs two.
 $GLOBALS['translated'] = array(
 	'Education'                       => 'Edukacja',
 	"a field of study\4Education"      => 'Pedagogika',
 );
-$fields_translated = found( dom_of( wpcredits_test_pattern( 'hub-programs.php' ) ), '//tbody/tr/td[1]' );
+$fields_translated = found( dom_of( wpcredits_test_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__row"]/p[@class="wpc-hub-flow__field"]' );
 $accent_translated = wpcredits_accent_word( 'WordPress Edukacja Initiatives' );
 $GLOBALS['translated'] = array();
 
-ck( 'the field of study "Education" and the site title\'s accent word "Education" are translated apart: the table reads the field\'s own translation, the accent word the plain one',
+ck( 'the field of study "Education" and the site title\'s accent word "Education" are translated apart: the flow reads the field\'s own translation, the accent word the plain one',
 	array( in_array( 'Pedagogika', $fields_translated, true ), in_array( 'Edukacja', $fields_translated, true ), $accent_translated ),
 	array( true, false, 'WordPress <em>Edukacja</em> <i>Initiatives</i>' ) );
 
-ck( 'its box is a region named by the heading above it, with a tab stop, so the scroll box is reached by keyboard',
-	array( found( $page, '//figure[contains(@class,"wpc-hub-fields")]', 'tabindex' ), found( $page, '//figure[contains(@class,"wpc-hub-fields")]', 'role' ), found( $page, '//figure[contains(@class,"wpc-hub-fields")]', 'aria-labelledby' ), found( $page, '//*[@id="wpc-hub-fit"]' ) ),
-	array( array( '0' ), array( 'region' ), array( 'wpc-hub-fit' ), array( 'Find where you fit in WordPress Credits' ) ) );
+// A team's name is a word a translator meets alone ("Core", "Design", "Training"), so each is said
+// with the context that tells what it names, and translated apart from the same word elsewhere.
+$GLOBALS['translated'] = array(
+	'Design'                                  => 'Wzornictwo',
+	"a WordPress team a student joins\4Design" => 'Projektowanie',
+	"a WordPress team a student joins\4Core"   => 'Rdzeń',
+);
+$teams_translated      = found( dom_of( wpcredits_test_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__tag"]' );
+$GLOBALS['translated'] = array();
 
-ck( 'the filter: a table edited in the Site Editor, its words, its classes and an anchor changed, is still the region, a tab stop it already had replaced where it stands, as core does; another table is left as it is',
+preg_match_all( "/_x\( '([^']+)', 'a WordPress team a student joins', 'wpcredits-theme' \)/", $flow_pattern, $team_strings );
+
+ck( 'each team is a string of its own, said with the context "a WordPress team a student joins": seventeen tags from fifteen names, a team translated in that context reads its translation, and the same word elsewhere does not',
+	array( count( $team_strings[1] ), count( array_unique( $team_strings[1] ) ), array_slice( $teams_translated, 0, 5 ), substr_count( $flow_pattern, "'Core, plugins, testing, accessibility'" ) ),
+	array( 17, 15, array( 'Rdzeń', 'Plugins', 'Testing', 'Accessibility', 'Projektowanie' ), 0 ) );
+
+// Each of a row's three values is escaped where the row prints it: a translation holding an ampersand
+// and a tag reads as those characters, not as markup.
+$GLOBALS['translated'] = array(
+	'Computer science, engineering'                       => 'R&D <i>field',
+	"a WordPress team a student joins\4Core"               => 'R&D <i>team',
+	'Merged code and reviewed patches'                    => 'R&D <i>proof',
+);
+$escaped_row           = dom_of( wpcredits_test_pattern( 'hub-programs.php' ) )->query( '//li[@class="wpc-hub-flow__row"]' )->item( 0 );
+$GLOBALS['translated'] = array();
+
+ck( 'a row\'s field, team and proof are escaped: translated to "R&D <i>" and a word, each reads exactly that, and the row holds no <i> element',
 	array(
-		apply_filters( 'render_block_core/table', '<figure class="wp-block-table is-style-stripes wpc-hub-fields alignwide" tabindex="-1" id="fields"><table><tbody><tr><td>Law</td></tr></tbody></table></figure>' ),
-		apply_filters( 'render_block_core/table', '<figure class="wp-block-table"><table><tbody><tr><td>wpc-hub-fields-like text</td></tr></tbody></table></figure>' ),
-		apply_filters( 'render_block_core/table', '<figure class="wp-block-table wpc-hub-fieldset"><table></table></figure>' ),
+		found_in( $escaped_row, 'p[@class="wpc-hub-flow__field"]' ),
+		found_in( $escaped_row, 'div[@class="wpc-hub-flow__teams"]/ul/li[1]' ),
+		found_in( $escaped_row, 'p[@class="wpc-hub-flow__proof"]/span[@class="wpc-hub-flow__shown"]/text()' ),
+		count( found_in( $escaped_row, './/i' ) ),
 	),
+	array( array( 'R&D <i>field' ), array( 'R&D <i>team' ), array( 'R&D <i>proof' ), 0 ) );
+
+ck( 'the two step labels a screen reader hears are strings of their own, each with a note for translators that says where it is read; the header line\'s three are the steps\' names, "What you\'ll have to show" as the table said it',
 	array(
-		'<figure class="wp-block-table is-style-stripes wpc-hub-fields alignwide" tabindex="0" id="fields" role="region" aria-labelledby="wpc-hub-fit"><table><tbody><tr><td>Law</td></tr></tbody></table></figure>',
-		'<figure class="wp-block-table"><table><tbody><tr><td>wpc-hub-fields-like text</td></tr></tbody></table></figure>',
-		'<figure class="wp-block-table wpc-hub-fieldset"><table></table></figure>',
+		preg_match_all( "#/\* translators: [^*]+\*/\s*esc_html_e\( '(The team you join:|What you\\\\'ll have to show:)', 'wpcredits-theme' \)#", $flow_pattern ),
+		preg_match_all( "#esc_html_e\( '(Your field of study|The team you join|What you\\\\'ll have to show)', 'wpcredits-theme' \)#", $flow_pattern ),
+		substr_count( $flow_pattern, "'Field of study'" ) + substr_count( $flow_pattern, "'Where you\\'ll work'" ),
+	),
+	array( 2, 3, 0 ) );
+
+echo "\n=== Find where you fit: the flow's look ===\n";
+
+ck( 'the flow sits 22px under the section\'s head, as every section\'s content does: the head keeps its 22px, the flow\'s block gap is taken away two classes deep, and the section stays 56px under the courses band',
+	array( rules_for( '.wp-block-group.wpc-hub-head' ), rules_for( '.wpc-hub-fit .wpc-hub-flow' ), rules_for( '.wp-block-group.wpc-hub-fit' ) ),
+	array( array( 'margin-bottom: 22px;' ), array( 'margin: 0;' ), array( 'margin-top: 56px;' ) ) );
+
+ck( 'the rows are a list without bullets or indent, each row a hairline below it in the theme\'s line color but the last, which ends the section, 96px above the pathway\'s eyebrow as every section ends; the teams\' list the same, its tags 6px apart and wrapping onto more lines when needed',
+	array( rules_for( '.wpc-hub-flow .wpc-hub-flow__rows' ), rules_placed( '.wpc-hub-flow .wpc-hub-flow__row' )[0], rules_for( '.wpc-hub-flow .wpc-hub-flow__row:last-child' ), rules_for( '.wpc-hub-flow .wpc-hub-flow__tags' ) ),
+	array(
+		array( 'list-style: none; margin: 0; padding: 0;' ),
+		array( '', 'border-bottom: 1px solid var( --wpc-line ); display: grid; gap: 4px; grid-template-columns: minmax( 0, 1fr ); justify-items: start; margin: 0; padding: 16px 0;' ),
+		array( 'border-bottom: 0; padding-bottom: 0;' ),
+		array( 'display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0;' ),
 	) );
 
-ck( 'below 640px the table keeps its columns and scrolls inside its box',
-	(bool) preg_match( '/@media \( max-width: 640px \) \{\s*\.wp-block-table\.wpc-hub-fields table \{\s*min-width: 520px;/', theme_file( 'assets/css/hub.css' ) ), true );
+ck( 'on a phone a row stacks the field, a down arrow, the teams, a down arrow and the proof at the section\'s left edge, 4px apart, the rows 16px from their hairlines and the first right under the head; the header line is not shown, and each arrow is the right arrow turned down, pulled 2px left so its drawn head, 2px inside its box, starts at the text\'s edge',
+	array( rules_placed( '.wpc-hub-flow .wpc-hub-flow__head' )[0], rules_placed( '.wpc-hub-flow .wpc-hub-flow__row:first-child' )[0], rules_placed( '.wpc-hub-flow .wpc-hub-flow__arrow' )[0] ),
+	array(
+		array( '', 'display: none;' ),
+		array( '', 'padding-top: 0;' ),
+		array( '', 'color: var( --wpc-brand ); height: 18px; margin-left: -2px; transform: rotate( 90deg ); width: 18px;' ),
+	) );
+
+ck( 'from 768px a row is the approved sketch\'s grid, and the header line is shown on the same grid, one rule for both, so each name sits over its column: the field, a 28px column for the arrow, the teams at 1.1 parts, another arrow column and the proof, 8px apart and vertically centered',
+	rules_placed( '.wpc-hub-flow .wpc-hub-flow__head, .wpc-hub-flow .wpc-hub-flow__row' ),
+	array( array( '@media ( min-width: 768px )', 'align-items: center; column-gap: 8px; display: grid; grid-template-columns: minmax( 0, 1fr ) 28px minmax( 0, 1.1fr ) 28px minmax( 0, 1fr );' ) ) );
+
+ck( 'and there each row is padded 12px, the first too, each column as wide as its track; the header line has a hairline under it, its names standing over the field, the teams and the proof and sitting on its foot, so a name that wraps onto two lines at 768px keeps the others 10px above the hairline as it is; the arrows point right, 20px, centered in their column with no margin',
+	array(
+		rules_placed( '.wpc-hub-flow .wpc-hub-flow__row' )[1],
+		rules_placed( '.wpc-hub-flow .wpc-hub-flow__row:first-child' )[1],
+		rules_placed( '.wpc-hub-flow .wpc-hub-flow__head' )[1],
+		array( rules_for( '.wpc-hub-flow .wpc-hub-flow__step--field' ), rules_for( '.wpc-hub-flow .wpc-hub-flow__step--teams' ), rules_for( '.wpc-hub-flow .wpc-hub-flow__step--proof' ) ),
+		rules_placed( '.wpc-hub-flow .wpc-hub-flow__arrow' )[1],
+	),
+	array(
+		array( '@media ( min-width: 768px )', 'justify-items: stretch; padding: 12px 0;' ),
+		array( '@media ( min-width: 768px )', 'padding-top: 12px;' ),
+		array( '@media ( min-width: 768px )', 'align-items: end; border-bottom: 1px solid var( --wpc-line ); padding-bottom: 10px;' ),
+		array( array( 'grid-column: 1;' ), array( 'grid-column: 3;' ), array( 'grid-column: 5;' ) ),
+		array( '@media ( min-width: 768px )', 'height: 20px; justify-self: center; margin-left: 0; transform: none; width: 20px;' ),
+	) );
+
+ck( 'the step names are eyebrows, as the table\'s column heads were: 12px Inter capitals spaced out, in the theme\'s secondary ink',
+	rules_for( '.wpc-hub-flow .wpc-hub-flow__step' ),
+	array( 'color: var( --wpc-ink-60 ); font: 500 12px/18px var( --wpc-font ); letter-spacing: .06em; text-transform: uppercase;' ) );
+
+ck( 'the field in the hub\'s serif, as the hub\'s other names are, 18px in ink; the arrows in the brand blue',
+	array( rules_for( '.wpc-hub-flow .wpc-hub-flow__field' ), rules_placed( '.wpc-hub-flow .wpc-hub-flow__arrow' )[0][1] ),
+	array( array( 'color: var( --wpc-ink ); font-family: var( --wpc-hub-serif ); font-size: 18px; font-weight: 400; line-height: 1.3; margin: 0;' ), 'color: var( --wpc-brand ); height: 18px; margin-left: -2px; transform: rotate( 90deg ); width: 18px;' ) );
+
+ck( 'each team a tag: 13px Inter in the brand blue on the brand tint, a 1px brand-blue hairline, the hub\'s 2px corners; in forced colors only its border changes',
+	rules_placed( '.wpc-hub-flow .wpc-hub-flow__tag' ),
+	array(
+		array( '', 'background: var( --wpc-brand-tint ); border: 1px solid var( --wpc-brand ); border-radius: var( --wpc-radius-control ); color: var( --wpc-brand ); font: 500 13px/18px var( --wpc-font ); margin: 0; padding: 2px 8px;' ),
+		array( '@media ( forced-colors: active )', 'border-color: CanvasText;' ),
+	) );
+
+ck( 'what you\'ll have to show: 15px Inter in ink, led by a 16px check mark in the success green, set on its first line',
+	array( rules_for( '.wpc-hub-flow .wpc-hub-flow__proof' ), rules_for( '.wpc-hub-flow .wpc-hub-flow__check' ) ),
+	array(
+		array( 'align-items: flex-start; color: var( --wpc-ink ); display: flex; font-size: 15px; gap: 8px; line-height: 1.45; margin: 0;' ),
+		array( 'color: var( --wpc-green ); flex: none; height: 16px; margin-top: 3px; width: 16px;' ),
+	) );
+
+ck( 'the tags\' blue on the tint clears AA for their 13px text, and the field, the proof and the check read on the page\'s white',
+	array( contrast( color_of( 'brand' ), color_of( 'brand-tint' ) ), contrast( color_of( 'ink' ), color_of( 'base' ) ), contrast( color_of( 'status.green' ), color_of( 'base' ) ) ),
+	array( '5.03', '16.67', '5.08' ) );
+
+ck( 'in forced colors, which drop the tint, the tags keep a border in the text color, and the arrows and the check, drawn in currentColor, take it too',
+	array_values( preg_grep( '/wpc-hub-flow/', rules_in_media( '( forced-colors: active )' ) ) ),
+	array(
+		'.wpc-hub-flow .wpc-hub-flow__tag { border-color: CanvasText; }',
+		'.wpc-hub-flow .wpc-hub-flow__arrow, .wpc-hub-flow .wpc-hub-flow__check { color: CanvasText; }',
+	) );
+
+ck( 'the table\'s rules and the filter that made its scroll box a region are gone: hub.css names no wpc-hub-fields, the theme hooks nothing to a rendered table, the pattern\'s note and the content file\'s no longer speak of a table, and the suites\' stand-in page hands no table block to a filter',
+	array(
+		substr_count( $look_flow, 'wpc-hub-fields' ),
+		function_exists( 'wpcredits_hub_fields_region' ),
+		isset( $GLOBALS['hooks']['render_block_core/table'] ),
+		substr_count( theme_file( 'inc/hub.php' ), 'wpc-hub-fields' ),
+		substr_count( $flow_pattern, 'Table block' ),
+		substr_count( theme_file( 'inc/hub-content.php' ), 'field-of-study table' ),
+		substr_count( theme_file( 'bin/stubs/hub-wp.php' ), 'wp:table' ),
+	),
+	array( 0, false, false, 0, 0, 0, 0 ) );
 
 echo "\n=== The words ===\n";
 
@@ -2744,8 +3001,8 @@ preg_match_all( '/@media \( (?:max|min)-width: \d+px \)/', theme_file( 'assets/c
 $breakpoints = array_values( array_unique( $breakpoints[0] ) );
 sort( $breakpoints );
 
-ck( 'the hub\'s widths: the hero title\'s 38px up to 360px, the phone gutter up to 640px, the sign-in cards\' second column from 640px, and one breakpoint at 900px, below it stacked and from it side by side, so at a 900px window nothing is both; the hero panel\'s 1099px went with the panel, and the picture\'s steps follow its column, not the window',
-	$breakpoints, array( '@media ( max-width: 360px )', '@media ( max-width: 640px )', '@media ( max-width: 899px )', '@media ( min-width: 640px )', '@media ( min-width: 900px )' ) );
+ck( 'the hub\'s widths: the hero title\'s 38px up to 360px, the phone gutter up to 640px, the sign-in cards\' second column from 640px, the field-of-study flow\'s three steps side by side from 768px, where its longest team fits its column, and one breakpoint at 900px for the hero, the doors and the band, below it stacked and from it side by side, so at a 900px window nothing is both; the hero panel\'s 1099px went with the panel, and the picture\'s steps follow its column, not the window',
+	$breakpoints, array( '@media ( max-width: 360px )', '@media ( max-width: 640px )', '@media ( max-width: 899px )', '@media ( min-width: 640px )', '@media ( min-width: 768px )', '@media ( min-width: 900px )' ) );
 
 ck( 'anchored sections land below the sticky header',
 	array( rules_for( '.wpc-hub-anchored' ), count( $page->query( '//*[contains(@class,"wpc-hub-anchored")][@id]' ) ) ),
@@ -3179,6 +3436,38 @@ $make_pot = theme_file( 'bin/make-pot.sh' );
 ck( 'the translation template takes nothing from bin/: the WP-CLI run leaves it out, as the gettext run does',
 	array( (bool) preg_match( '#^\s*wp i18n make-pot \. "\$OUT" .*--exclude=bin$#m', $make_pot ), (bool) preg_match( "#^find \. -name '\*\.php' .*-not -path '\./bin/\*'#m", $make_pot ) ),
 	array( true, true ) );
+
+$pot = theme_file( 'languages/wpcredits-theme.pot' );
+
+/**
+ * Whether the translation template holds a string, with its context when it has one.
+ *
+ * @param string $pot     The template.
+ * @param string $msgid   The string.
+ * @param string $context Its context, or '' for none.
+ * @return bool
+ */
+function pot_has( $pot, $msgid, $context = '' ) {
+	foreach ( preg_split( '/\n\s*\n/', $pot ) as $entry ) {
+		$has_context = preg_match( '/^msgctxt "(.*)"$/m', $entry, $said_context ) ? stripcslashes( $said_context[1] ) : '';
+
+		if ( preg_match( '/^msgid "(.*)"$/m', $entry, $said ) && stripcslashes( $said[1] ) === $msgid && $has_context === $context ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+ck( 'the translation template holds the flow\'s strings: the three steps\' names and the two labels a screen reader hears, the latter with their notes for translators, and the fifteen team names in their context; the table\'s two other headers and its comma-separated teams are gone',
+	array(
+		array_map( static function ( $msgid ) use ( $pot ) { return pot_has( $pot, $msgid ); }, array( 'Your field of study', 'The team you join', 'What you\'ll have to show', 'The team you join:', 'What you\'ll have to show:' ) ),
+		substr_count( $pot, '#. translators: Read by screen readers before' ),
+		count( array_filter( array( 'Core', 'Plugins', 'Testing', 'Accessibility', 'Design', 'Block patterns', 'Themes', 'Documentation', 'Learn WordPress', 'Marketing', 'Polyglots', 'Community', 'WordCamps', 'Learn WordPress lesson plans', 'Training' ), static function ( $msgid ) use ( $pot ) { return pot_has( $pot, $msgid, 'a WordPress team a student joins' ); } ) ),
+		array_map( static function ( $msgid ) use ( $pot ) { return pot_has( $pot, $msgid ); }, array( 'Field of study', 'Where you\'ll work', 'Core, plugins, testing, accessibility', 'Design, block patterns, themes', 'Documentation, Learn WordPress, Marketing', 'Community, WordCamps', 'Learn WordPress lesson plans, Training', 'Accessibility, testing' ) ),
+		pot_has( $pot, 'Education', 'a field of study' ),
+	),
+	array( array( true, true, true, true, true ), 2, 15, array_fill( 0, 8, false ), true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

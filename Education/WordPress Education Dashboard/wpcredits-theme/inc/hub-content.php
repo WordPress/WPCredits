@@ -5,7 +5,7 @@
  *
  * In code rather than in the editor, as the design note's 7.4 decides: the two blocks print the same
  * texts with and without JavaScript, and a translator sees each one whole. The texts the patterns'
- * core blocks hold (the section heads, the doors, the field-of-study table, the closing band) are the
+ * core blocks hold (the section heads, the doors, the field-of-study flow, the closing band) are the
  * patterns' own and editable in the Site Editor.
  *
  * **A benefit no public page confirms is marked planned** (the design note's 6.11): its `planned` is

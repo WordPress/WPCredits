@@ -1485,7 +1485,7 @@
    The band of WordPress Credits' courses
    ========================================================================== */
 
-/* Under the cards, 56px down, as the field-of-study table sits under it; an address its card links to,
+/* Under the cards, 56px down, as the field-of-study flow sits under it; an address its card links to,
    so it lands below the sticky header. Its head is the programs section's own. Its cards are the
    program cards' white boxes, one column, two from 640px and four from 900px, as the sign-in cards
    are. Two classes deep, over core's layout styles and the theme's list and paragraph rules. */
@@ -1564,66 +1564,182 @@
 }
 
 /* ==========================================================================
-   The field-of-study table
+   Find where you fit: the field of study, the team, the proof
    ========================================================================== */
 
+/* 56px under the courses band, as the table it replaces sat. */
 .wp-block-group.wpc-hub-fit {
 	margin-top: 56px;
 }
 
-/* A white box, its header cells eyebrows, its body cells 14px ink, the first column bold, the rows
-   divided by the rule. Core's Table block makes the figure the scroll container. */
-.wp-block-table.wpc-hub-fields {
-	background: var( --wpc-surface );
-	border: 1px solid var( --wpc-line-card );
-	border-radius: var( --wpc-radius-control );
+/* The flow follows the section's head, whose 22px is the gap above it: the flow layout's block gap is
+   taken away two classes deep, over core's `:root :where( .is-layout-flow ) > *`. */
+.wpc-hub-fit .wpc-hub-flow {
 	margin: 0;
 }
 
-.wp-block-table.wpc-hub-fields thead {
-	border-bottom: 0;
+/* Phones first. The header line names the steps to the eye from 768px, where the rows stand side by
+   side under it; below that each row says its steps by their order and their arrows. */
+.wpc-hub-flow .wpc-hub-flow__head {
+	display: none;
 }
 
-.wp-block-table.wpc-hub-fields th,
-.wp-block-table.wpc-hub-fields td {
-	border: 0;
-	border-bottom: 1px solid var( --wpc-line );
-	padding: 14px 18px;
-	text-align: left;
-	vertical-align: top;
-}
-
-.wp-block-table.wpc-hub-fields tbody tr:last-child td {
-	border-bottom: 0;
-}
-
-.wp-block-table.wpc-hub-fields th {
+.wpc-hub-flow .wpc-hub-flow__step {
 	color: var( --wpc-ink-60 );
 	font: 500 12px/18px var( --wpc-font );
 	letter-spacing: .06em;
 	text-transform: uppercase;
 }
 
-.wp-block-table.wpc-hub-fields td {
+.wpc-hub-flow .wpc-hub-flow__step--field {
+	grid-column: 1;
+}
+
+.wpc-hub-flow .wpc-hub-flow__step--teams {
+	grid-column: 3;
+}
+
+.wpc-hub-flow .wpc-hub-flow__step--proof {
+	grid-column: 5;
+}
+
+.wpc-hub-flow .wpc-hub-flow__rows {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* A row stacks the field, a down arrow, the teams, a down arrow and the proof, 4px apart, at the
+   section's left edge, 16px from the hairlines between rows. The first row starts right under the
+   head, and the last draws no hairline and keeps no padding below, so the section ends at its last
+   proof and the pathway's eyebrow is 96px below it, as every section's is. */
+.wpc-hub-flow .wpc-hub-flow__row {
+	border-bottom: 1px solid var( --wpc-line );
+	display: grid;
+	gap: 4px;
+	grid-template-columns: minmax( 0, 1fr );
+	justify-items: start;
+	margin: 0;
+	padding: 16px 0;
+}
+
+.wpc-hub-flow .wpc-hub-flow__row:first-child {
+	padding-top: 0;
+}
+
+.wpc-hub-flow .wpc-hub-flow__row:last-child {
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+
+/* The field in the hub's serif, as the hub's other names are. */
+.wpc-hub-flow .wpc-hub-flow__field {
 	color: var( --wpc-ink );
-	font-size: 14px;
-	line-height: 1.5;
+	font-family: var( --wpc-hub-serif );
+	font-size: 18px;
+	font-weight: 400;
+	line-height: 1.3;
+	margin: 0;
 }
 
-.wp-block-table.wpc-hub-fields td:first-child {
-	font-weight: 600;
+/* The arrow is drawn pointing right and turned down while the steps stack. Turned, its head is drawn
+   2px inside its box, so the box is pulled 2px left and the head starts at the text's edge. */
+.wpc-hub-flow .wpc-hub-flow__arrow {
+	color: var( --wpc-brand );
+	height: 18px;
+	margin-left: -2px;
+	transform: rotate( 90deg );
+	width: 18px;
 }
 
-/* At 375px the table scrolls inside its box: each column keeps about 170px, the 335px box shows the
-   first column and most of the second, and the page itself never widens. */
-@media ( max-width: 640px ) {
-	.wp-block-table.wpc-hub-fields table {
-		min-width: 520px;
+.wpc-hub-flow .wpc-hub-flow__tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* A team: brand text on the brand tint (5.03:1), a brand hairline, the hub's 2px corners. */
+.wpc-hub-flow .wpc-hub-flow__tag {
+	background: var( --wpc-brand-tint );
+	border: 1px solid var( --wpc-brand );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand );
+	font: 500 13px/18px var( --wpc-font );
+	margin: 0;
+	padding: 2px 8px;
+}
+
+/* What you'll have to show, behind a check mark in the success green, set on the first line. */
+.wpc-hub-flow .wpc-hub-flow__proof {
+	align-items: flex-start;
+	color: var( --wpc-ink );
+	display: flex;
+	font-size: 15px;
+	gap: 8px;
+	line-height: 1.45;
+	margin: 0;
+}
+
+.wpc-hub-flow .wpc-hub-flow__check {
+	color: var( --wpc-green );
+	flex: none;
+	height: 16px;
+	margin-top: 3px;
+	width: 16px;
+}
+
+/* From 768px, where the longest team keeps its tag on one line in its column (it wraps inside its
+   tag below 748px), a row reads left to right on the approved sketch's grid, and the header line
+   stands on the same grid above the rows, so each name sits over its column. The names sit on the
+   header line's foot, 10px above its hairline, also when "What you'll have to show" takes two lines
+   at 768px. Each row is padded 12px, the first too; the arrows point right, centered in their 28px
+   columns. */
+@media ( min-width: 768px ) {
+	.wpc-hub-flow .wpc-hub-flow__head,
+	.wpc-hub-flow .wpc-hub-flow__row {
+		align-items: center;
+		column-gap: 8px;
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr ) 28px minmax( 0, 1.1fr ) 28px minmax( 0, 1fr );
 	}
 
-	.wp-block-table.wpc-hub-fields th,
-	.wp-block-table.wpc-hub-fields td {
-		padding: 10px 12px;
+	.wpc-hub-flow .wpc-hub-flow__head {
+		align-items: end;
+		border-bottom: 1px solid var( --wpc-line );
+		padding-bottom: 10px;
+	}
+
+	.wpc-hub-flow .wpc-hub-flow__row {
+		justify-items: stretch;
+		padding: 12px 0;
+	}
+
+	.wpc-hub-flow .wpc-hub-flow__row:first-child {
+		padding-top: 12px;
+	}
+
+	.wpc-hub-flow .wpc-hub-flow__arrow {
+		height: 20px;
+		justify-self: center;
+		margin-left: 0;
+		transform: none;
+		width: 20px;
+	}
+}
+
+/* Forced colors drop the tags' tint: each keeps a border in the text color. The arrows and the check
+   are drawn in currentColor and take it too. */
+@media ( forced-colors: active ) {
+	.wpc-hub-flow .wpc-hub-flow__tag {
+		border-color: CanvasText;
+	}
+
+	.wpc-hub-flow .wpc-hub-flow__arrow,
+	.wpc-hub-flow .wpc-hub-flow__check {
+		color: CanvasText;
 	}
 }
 

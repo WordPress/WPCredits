@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.25\n"
+"Project-Id-Version: WPCredits 1.24.26\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-17T22:03:53+00:00\n"
+"POT-Creation-Date: 2026-10-18T11:46:26+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -1357,125 +1357,184 @@ msgctxt "Pattern description"
 msgid "Every education program in one list, filtered by audience, and the fields of study WordPress Credits matches students to."
 msgstr ""
 
-#: patterns/hub-programs.php:18
+#: patterns/hub-programs.php:24
 msgid "Computer science, engineering"
 msgstr ""
 
-#: patterns/hub-programs.php:18
-msgid "Core, plugins, testing, accessibility"
+#: patterns/hub-programs.php:26
+msgctxt "a WordPress team a student joins"
+msgid "Core"
 msgstr ""
 
-#: patterns/hub-programs.php:18
+#: patterns/hub-programs.php:27
+msgctxt "a WordPress team a student joins"
+msgid "Plugins"
+msgstr ""
+
+#: patterns/hub-programs.php:28
+#: patterns/hub-programs.php:78
+msgctxt "a WordPress team a student joins"
+msgid "Testing"
+msgstr ""
+
+#: patterns/hub-programs.php:29
+#: patterns/hub-programs.php:77
+msgctxt "a WordPress team a student joins"
+msgid "Accessibility"
+msgstr ""
+
+#: patterns/hub-programs.php:31
 msgid "Merged code and reviewed patches"
 msgstr ""
 
-#: patterns/hub-programs.php:19
+#: patterns/hub-programs.php:34
 msgid "Design, arts, UX"
 msgstr ""
 
-#: patterns/hub-programs.php:19
-msgid "Design, block patterns, themes"
+#: patterns/hub-programs.php:36
+msgctxt "a WordPress team a student joins"
+msgid "Design"
 msgstr ""
 
-#: patterns/hub-programs.php:19
+#: patterns/hub-programs.php:37
+msgctxt "a WordPress team a student joins"
+msgid "Block patterns"
+msgstr ""
+
+#: patterns/hub-programs.php:38
+msgctxt "a WordPress team a student joins"
+msgid "Themes"
+msgstr ""
+
+#: patterns/hub-programs.php:40
 msgid "Visual work in use on real sites"
 msgstr ""
 
-#: patterns/hub-programs.php:20
+#: patterns/hub-programs.php:43
 msgid "Communications, journalism, marketing"
 msgstr ""
 
-#: patterns/hub-programs.php:20
-msgid "Documentation, Learn WordPress, Marketing"
+#: patterns/hub-programs.php:45
+msgctxt "a WordPress team a student joins"
+msgid "Documentation"
 msgstr ""
 
-#: patterns/hub-programs.php:20
+#: patterns/hub-programs.php:46
+msgctxt "a WordPress team a student joins"
+msgid "Learn WordPress"
+msgstr ""
+
+#: patterns/hub-programs.php:47
+msgctxt "a WordPress team a student joins"
+msgid "Marketing"
+msgstr ""
+
+#: patterns/hub-programs.php:49
 msgid "Published work with a byline"
 msgstr ""
 
-#: patterns/hub-programs.php:21
+#: patterns/hub-programs.php:52
 msgid "Translation, languages"
 msgstr ""
 
-#: patterns/hub-programs.php:21
+#: patterns/hub-programs.php:54
+msgctxt "a WordPress team a student joins"
 msgid "Polyglots"
 msgstr ""
 
-#: patterns/hub-programs.php:21
+#: patterns/hub-programs.php:56
 msgid "Published translations"
 msgstr ""
 
-#: patterns/hub-programs.php:22
+#: patterns/hub-programs.php:59
 msgid "Business, events, tourism"
 msgstr ""
 
-#: patterns/hub-programs.php:22
-msgid "Community, WordCamps"
+#: patterns/hub-programs.php:61
+msgctxt "a WordPress team a student joins"
+msgid "Community"
 msgstr ""
 
-#: patterns/hub-programs.php:22
+#: patterns/hub-programs.php:62
+msgctxt "a WordPress team a student joins"
+msgid "WordCamps"
+msgstr ""
+
+#: patterns/hub-programs.php:64
 msgid "An event you ran, with attendance numbers"
 msgstr ""
 
-#: patterns/hub-programs.php:23
+#: patterns/hub-programs.php:67
 msgctxt "a field of study"
 msgid "Education"
 msgstr ""
 
-#: patterns/hub-programs.php:23
-msgid "Learn WordPress lesson plans, Training"
+#: patterns/hub-programs.php:69
+msgctxt "a WordPress team a student joins"
+msgid "Learn WordPress lesson plans"
 msgstr ""
 
-#: patterns/hub-programs.php:23
+#: patterns/hub-programs.php:70
+msgctxt "a WordPress team a student joins"
+msgid "Training"
+msgstr ""
+
+#: patterns/hub-programs.php:72
 msgid "Course material in public use"
 msgstr ""
 
-#: patterns/hub-programs.php:24
+#: patterns/hub-programs.php:75
 msgid "Accessibility, social work"
 msgstr ""
 
-#: patterns/hub-programs.php:24
-msgid "Accessibility, testing"
-msgstr ""
-
-#: patterns/hub-programs.php:24
+#: patterns/hub-programs.php:80
 msgid "Audit work on a global platform"
 msgstr ""
 
-#: patterns/hub-programs.php:31
+#: patterns/hub-programs.php:93
 msgid "All programs"
 msgstr ""
 
-#: patterns/hub-programs.php:35
+#: patterns/hub-programs.php:97
 msgid "Every education program, in one list"
 msgstr ""
 
-#: patterns/hub-programs.php:39
+#: patterns/hub-programs.php:101
 msgid "Programs are free unless noted. You don't need to take them in order, but each one is designed to lead into the next."
 msgstr ""
 
-#: patterns/hub-programs.php:48
+#: patterns/hub-programs.php:110
 msgid "Matched to your field of study"
 msgstr ""
 
-#: patterns/hub-programs.php:52
+#: patterns/hub-programs.php:114
 msgid "Find where you fit in WordPress Credits"
 msgstr ""
 
-#: patterns/hub-programs.php:56
+#: patterns/hub-programs.php:118
 msgid "You work in the area of WordPress that fits your degree, so a design student shows design work and a CS student shows reviewed code."
 msgstr ""
 
-#: patterns/hub-programs.php:61
-msgid "Field of study"
+#: patterns/hub-programs.php:124
+msgid "Your field of study"
 msgstr ""
 
-#: patterns/hub-programs.php:61
-msgid "Where you'll work"
+#: patterns/hub-programs.php:124
+msgid "The team you join"
 msgstr ""
 
-#: patterns/hub-programs.php:61
+#: patterns/hub-programs.php:124
 msgid "What you'll have to show"
+msgstr ""
+
+#. translators: Read by screen readers before the teams a field of study joins; the header line above the rows shows "The team you join" to the eye.
+#: patterns/hub-programs.php:127
+msgid "The team you join:"
+msgstr ""
+
+#. translators: Read by screen readers before what a student will have to show for a field of study; the header line above the rows shows "What you'll have to show" to the eye.
+#: patterns/hub-programs.php:131
+msgid "What you'll have to show:"
 msgstr ""
 
 #: patterns/steps.php

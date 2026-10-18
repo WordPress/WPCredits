@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.25
+Stable tag: 1.24.26
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -109,7 +109,8 @@ A page template, "Education Hub home", draws an alternative homepage built from 
 program team's hub: a hero with the program's three outcome figures, a sign-in section
 with a card each for students, mentors, institutions and sponsors, three doors for
 students, institutions and companies, every education program as a card with filter
-chips, a field-of-study table, the pathway from a first workshop to a first job beside
+chips, a flow from each field of study through the teams it joins to what a student
+will have to show, the pathway from a first workshop to a first job beside
 an institution's four partner levels, and a closing band. It prints no post content,
 so the page it is set on is only its address. Without JavaScript every part of it is
 shown and no control is; with it the chips, the switch and the steps show one part at
@@ -186,6 +187,13 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.26 =
+* Education Hub homepage: "Find where you fit in WordPress Credits" shows the way from a field of study to a WordPress team and on to real work, where it was a three-column table. Each field of study is one row, read left to right: the field, an arrow, each team it joins as a blue tag, an arrow, and what you'll have to show behind a green check mark. One line above the rows names the three steps: "Your field of study", "The team you join" and "What you'll have to show". Every field and every piece of work is worded as before; the teams are separate tags now, each named as the team is (Core, Plugins, Testing, Accessibility, and so on).
+* On a phone, and on any window under 768px wide, each row stacks: the field, a down arrow, the teams, a down arrow and what you'll have to show, at the section's left edge. Nothing on the page scrolls sideways, at any width from 320px.
+* A screen reader hears each row as one item of a list named by the section's heading: the field, then "The team you join:" and the teams, then "What you'll have to show:" and the work. The arrows, the check mark and the line of step names are decoration and are not read. In high-contrast (forced colors) mode the tags keep their border and the arrows their color.
+* Translators: each team is its own string, with the context "a WordPress team a student joins", and the two labels a screen reader hears carry notes. The table's two other column headers and its comma-separated lists of teams are no longer in the translation template.
+* For developers: the section is a Custom HTML block in the programs pattern (`patterns/hub-programs.php`), its rules under "Find where you fit" in `assets/css/hub.css`. The table's rules and `wpcredits_hub_fields_region()`, which made the table's scroll box reachable by keyboard, are gone with the table. `bin/test-hub.php` checks the rows in order, what a screen reader hears, the hidden labels, the silent decoration, the strings and the rules at each width.
 
 = 1.24.25 =
 * Site header: the site's name is twice the size it showed, 30px where it was 15px, on a 1.2 line. On a phone it is 30px from 375px wide and a little smaller under that, down to 24px, so the bar keeps its one row. The 15px came from the Site Title style in theme.json, which outranked the 20px and the phone's 17px the stylesheet asked for; the size is now said in theme.json, and the phone's at a rule that outranks it.
