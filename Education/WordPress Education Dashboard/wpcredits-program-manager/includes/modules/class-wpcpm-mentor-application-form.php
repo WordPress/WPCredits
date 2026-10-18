@@ -1654,9 +1654,10 @@ final class WPCPM_Mentor_Application_Form {
 
 	/**
 	 * Acknowledge the application, with the link that confirms the address. Public, as the one way
-	 * it is sent: the submit path sends it (step 13), and so does Put back in the queue on the
-	 * Mentors screen, once, to a row the form's checks filed as spam, one past the day's limit or one
-	 * whose hand-off failed, which never had it.
+	 * it is sent: the submit path sends it (step 13), and so do two presses on the Mentors screen's
+	 * Waiting for review tab, each once, to a row that never had it: Put back in the queue, on a row
+	 * the form's checks filed as spam, one past the day's limit or one whose hand-off failed, and Send
+	 * the acknowledgement (1.122.33), on an open row past the day's limit or whose hand-off failed.
 	 *
 	 * @param int $post_id The application.
 	 * @return bool Whether the email was handed off.

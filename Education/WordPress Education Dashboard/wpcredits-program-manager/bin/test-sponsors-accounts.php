@@ -280,6 +280,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-members.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
+// The key an activation of a mentor application holds an invitation by (1.122.33), which the mail
+// layer reads where the class is loaded, as it is on the site: an account that also mentors can hold it.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 // The Administrator Dashboard's page, which the queue tab, the one the screen opens on, links into.
 require_once __DIR__ . '/stubs/administrators-dashboard.php';
 
@@ -2330,6 +2333,38 @@ ck( 'with one left, the button says so in the singular',
 ck( 'and the card asks about the one, in the singular',
 	has( $one_page, 'data-wpcpm-confirm="Send an invitation to 1 of the sponsor accounts? It cannot be recalled once sent."' ),
 	true );
+
+// An sponsor account that also mentors, made a mentor from an application whose account was linked by
+// its WordPress.org username alone, was never invited, and its invitation carries the mentor's welcome
+// with its private links: it waits for an Administrator to confirm the account is the person's. The
+// card leaves it out and says so, and with nobody else left it never says every one has been invited.
+the_site();
+manager( 901 );
+$GLOBALS['umeta'][26][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+$held_page = html_of( page_for( screen() ) );
+$held_card = forms_by_action( $held_page );
+
+ck( 'an account whose invitation an activation held is left out of the card\'s count and button, and the card says so',
+	array(
+		has( isset( $held_card['wpcpm_sponsors_bulk_invite'] ) ? $held_card['wpcpm_sponsors_bulk_invite'] : '', '>Invite 2 sponsor accounts that have never been invited</button>' ),
+		has( $held_page, '<p class="description">1 of the sponsor accounts is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+	),
+	array( true, true ) );
+
+the_site();
+manager( 902 );
+$GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] = 1780000000;
+$GLOBALS['umeta'][24]['wpcpm_sponsor_invited'] = 1780000000;
+$GLOBALS['umeta'][26][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'record';
+$all_held = html_of( page_for( screen() ) );
+
+ck( 'with only the held one left, the card offers no button and says it is left out, not that every one was invited',
+	array(
+		isset( forms_by_action( $all_held )['wpcpm_sponsors_bulk_invite'] ),
+		has( $all_held, '<p class="description">1 of the sponsor accounts is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+		has( $all_held, 'Every one of the sponsor accounts has been invited.' ),
+	),
+	array( false, true, false ) );
 
 echo "\n=== Manage accounts: one sponsor's accounts, a view of the Accounts tab ===\n";
 

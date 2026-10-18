@@ -1834,6 +1834,17 @@ ck( 'a run that sent every one keeps the sentence it always had',
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
 
+// With no words of its own from the audience, the button names people, the noun and the verb agreeing
+// with the count: the audience's noun is a plural, which a count of one would not agree with.
+$default_label = array();
+foreach ( array( 1 => array( 850 ), 2 => array( 850, 851 ) ) as $count => $pending ) {
+	ob_start();
+	WPCPM_Mail::render_invite_card( array( 'action' => 'wpcpm_students_bulk_invite', 'pending' => $pending, 'noun' => 'students' ) );
+	preg_match( '/<button type="submit" class="button button-primary">([^<]*)<\/button>/', (string) ob_get_clean(), $found );
+	$default_label[ $count ] = isset( $found[1] ) ? $found[1] : '';
+}
+ck( 'the card\'s own button words agree with the count, one or more', $default_label, array( 1 => 'Invite 1 person who has never been invited', 2 => 'Invite 2 people who have never been invited' ) );
+
 // Every route that sends one person their invitation at once goes through the one rule that takes
 // the lock: the Students, Mentors and Institutions syncs' send_invite() and the sponsor members',
 // which a row's Resend invite on each accounts screen and the Institution Dashboard's press reach.

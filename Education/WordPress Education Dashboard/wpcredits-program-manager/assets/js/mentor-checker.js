@@ -182,7 +182,7 @@
 	 * @return {Object} Tallies keyed by outcome.
 	 */
 	function tally() {
-		var counts = { queued: 0, checked: 0, completed: 0, eligible: 0, promoted: 0, activated: 0, problems: 0 };
+		var counts = { queued: 0, checked: 0, completed: 0, eligible: 0, waiting: 0, promoted: 0, activated: 0, problems: 0 };
 
 		allRows().forEach( function ( row ) {
 			if ( row.querySelector( '.wpcpm-checker-pill--pending' ) ) {
@@ -202,6 +202,9 @@
 			var action = row.getAttribute( 'data-action' );
 			if ( 'eligible' === action ) {
 				counts.eligible++;
+			} else if ( 'waiting' === action ) {
+				// An application that waits for Make mentors from applications: no Promote reaches it.
+				counts.waiting++;
 			} else if ( 'promoted' === action ) {
 				counts.promoted++;
 			} else if ( 'activated' === action ) {

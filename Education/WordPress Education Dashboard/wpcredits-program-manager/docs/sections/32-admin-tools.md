@@ -280,11 +280,17 @@ An application's row in the results reads *Made a mentor* once it is, with what 
 written on the way (an invitation held, an Airtable row refused), and the tally counts **made a
 mentor** beside **promoted**. A run that only reports, and any run while **Make mentors from
 applications** is off, makes nobody a mentor: an application whose course shows reads *Awaiting
-promotion*, "Ready to be made a mentor", with "it waits until Make mentors from applications is
-switched on" while the switch is off. A report keeps on each application the day of its last check,
-which the Selected view shows. **Run check and promote** and **Promote all eligible** promote and
-make mentors from both sources, and **Promote** on one row re-checks that mentor or application
-first, never from the cache, and refuses an application that has left Selected (course pending).
+promotion*, "Ready to be made a mentor", or, while the switch is off, *Waiting*, with "it waits
+until Make mentors from applications is switched on". A report keeps on each application the day of
+its last check, which the Selected view shows. **Run check and promote** and **Promote all
+eligible** promote and make mentors from both sources, and **Promote** on one row re-checks that
+mentor or application first, never from the cache, and refuses an application that has left Selected
+(course pending). A row that reads *Waiting* offers no **Promote**, since it says it waits; the
+summary above the results counts those rows as waiting for Make mentors from applications, apart
+from those awaiting promotion, as the tool's status line does, and **Promote all eligible** leaves
+them out. Once the switch is on, the same rows await promotion again. One that **Promote all
+eligible** finds has left Selected (course pending) since the run comes back as failed under the
+applicant's name, with the reason.
 
 #### Settings
 

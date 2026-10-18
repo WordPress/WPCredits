@@ -446,13 +446,11 @@ class WPCPM_Mentor_Checker_Runner {
 	 * @return array The result row.
 	 */
 	private function make_mentor( array $row, $application, $apply ) {
-		$enabled = WPCPM_Mentor_Activation::enabled();
-
-		if ( ! $apply || ! $enabled ) {
+		// Whether it waits for the switch is said when the row is read (`note_of()`), never kept on it:
+		// the row outlives the moment, and the switch may be on by the time it is drawn.
+		if ( ! $apply || ! WPCPM_Mentor_Activation::enabled() ) {
 			$row['action']      = 'eligible';
-			$row['action_note'] = $enabled
-				? __( 'Ready to be made a mentor.', 'wpcredits-program-manager' )
-				: __( 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.', 'wpcredits-program-manager' );
+			$row['action_note'] = self::ready_note();
 
 			return $row;
 		}
@@ -669,7 +667,56 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Summarise a run's rows into counts.
+	 * Whether a result row is an application of this site that waits for Make mentors from
+	 * applications: its course shows, so the run left it `eligible`, and the switch is off now. It is
+	 * read now rather than kept on the row, so the rows of a run made while the switch was off can be
+	 * promoted as soon as it is on.
+	 *
+	 * @param array $row A result row.
+	 * @return bool
+	 */
+	public static function waits_for_switch( array $row ) {
+		return isset( $row['action'], $row['record_id'] )
+			&& 'eligible' === $row['action']
+			&& self::application_of( $row['record_id'] ) > 0
+			&& ! WPCPM_Mentor_Activation::enabled();
+	}
+
+	/**
+	 * What a result row says beside its outcome. An application whose course shows says it is ready
+	 * to be made a mentor and, while it waits for Make mentors from applications
+	 * (`waits_for_switch()`), that it waits until the switch is on: worded now, from the switch as it
+	 * is, whatever the row kept, so a row kept while the switch was off, an earlier release's
+	 * included, reads as ready once it is on. Any other row says what it kept.
+	 *
+	 * @param array $row A result row.
+	 * @return string
+	 */
+	public static function note_of( array $row ) {
+		if ( self::waits_for_switch( $row ) ) {
+			return __( 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.', 'wpcredits-program-manager' );
+		}
+
+		if ( isset( $row['action'], $row['record_id'] ) && 'eligible' === $row['action'] && self::application_of( $row['record_id'] ) > 0 ) {
+			return self::ready_note();
+		}
+
+		return isset( $row['action_note'] ) ? (string) $row['action_note'] : '';
+	}
+
+	/**
+	 * The note of an application whose course shows, kept on its row.
+	 *
+	 * @return string
+	 */
+	private static function ready_note() {
+		return __( 'Ready to be made a mentor.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Summarise a run's rows into counts: an application that waits for Make mentors from
+	 * applications (`waits_for_switch()`) is counted as `waiting`, never as `eligible`, since nothing
+	 * can promote it until the switch is on.
 	 *
 	 * @param array $rows Result rows.
 	 * @return array
@@ -679,6 +726,7 @@ class WPCPM_Mentor_Checker_Runner {
 			'checked'   => count( $rows ),
 			'completed' => 0,
 			'eligible'  => 0,
+			'waiting'   => 0,
 			'promoted'  => 0,
 			'activated' => 0,
 			'skipped'   => 0,
@@ -697,7 +745,7 @@ class WPCPM_Mentor_Checker_Runner {
 
 			switch ( isset( $row['action'] ) ? $row['action'] : 'none' ) {
 				case 'eligible':
-					++$summary['eligible'];
+					++$summary[ self::waits_for_switch( $row ) ? 'waiting' : 'eligible' ];
 					break;
 				case 'promoted':
 					++$summary['promoted'];

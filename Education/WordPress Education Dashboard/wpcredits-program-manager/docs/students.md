@@ -2,7 +2,7 @@
 
 *Everything on your Student Report Card, and how to book a call with your mentor.*
 
-Welcome to the WordPress Education Dashboard. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.
+Welcome to the Education Hub. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.
 
 This guide is written for students. Your mentor and the Administrators have their own.
 

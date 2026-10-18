@@ -1249,10 +1249,14 @@ class WPCPM_Mail {
 	 *                           only the module knows which role it is inviting.
 	 *     @type int[]  $pending Users who have never been invited.
 	 *     @type string $noun    Plural noun for the people, already translated.
-	 *     @type array  $button  Optional: the button's words, as `_n_noop()` holds them, with one
-	 *                           `%s` where the count goes, for an audience the people's words do
-	 *                           not fit, such as accounts. By default the button says "Invite %1$d
-	 *                           %2$s who has never been invited", with the noun.
+	 *     @type array  $button  Optional: the button's words, as `_n_noop()` holds them, with the
+	 *                           count first (`%s`, or `%1$s` beside more), each audience's own, so its
+	 *                           noun and verb agree with the count. By default the button says
+	 *                           "Invite %s person who has never been invited", or "people who have",
+	 *                           since the plural noun the card's other sentences take would not agree
+	 *                           with a count of one.
+	 *     @type array  $button_args Optional: the values the button's words take after the count, in
+	 *                           order, such as the institution a list is narrowed to.
 	 *     @type array  $hidden  Fields the sending form posts besides its action, name => value.
 	 *     @type string $flash   The flash channel the screen reads its outcomes from, which the
 	 *                           Stop form names, so the screen says sending stopped.
@@ -1422,13 +1426,13 @@ class WPCPM_Mail {
 			);
 		}
 		if ( isset( $args['button'] ) && is_array( $args['button'] ) ) {
-			$label = sprintf( translate_nooped_plural( $args['button'], $count, 'wpcredits-program-manager' ), number_format_i18n( $count ) );
+			$extra = isset( $args['button_args'] ) ? array_map( 'strval', array_values( (array) $args['button_args'] ) ) : array();
+			$label = vsprintf( translate_nooped_plural( $args['button'], $count, 'wpcredits-program-manager' ), array_merge( array( number_format_i18n( $count ) ), $extra ) );
 		} else {
 			$label = sprintf(
-				/* translators: 1: how many people, 2: the people, e.g. "students". */
-				_n( 'Invite %1$d %2$s who has never been invited', 'Invite %1$d %2$s who have never been invited', $count, 'wpcredits-program-manager' ),
-				$count,
-				$noun
+				/* translators: %s: how many people. */
+				_n( 'Invite %s person who has never been invited', 'Invite %s people who have never been invited', $count, 'wpcredits-program-manager' ),
+				number_format_i18n( $count )
 			);
 		}
 

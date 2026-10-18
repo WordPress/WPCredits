@@ -2,7 +2,7 @@
 
 *Your Sponsor Dashboard, your offers and codes, what your company can see, and how posts are approved.*
 
-Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the WordPress Education Dashboard, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.
+Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the Education Hub, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.
 
 ## Signing in
 
@@ -83,7 +83,7 @@ attached to the company sees the same page.
 
 ## Your Sponsor Dashboard
 
-Your company's page on the WordPress Education Dashboard is the Sponsor Dashboard, at /sponsor-dashboard/. You reach it after signing in with the account the program created for your company; every person the program attached to your company sees the same page. It has three groups of cards: **Your company**, **What you offer** and **Mentors**. A card folds and unfolds with one press on its title, and the number beside a title is how many things it holds.
+Your company's page on the Education Hub is the Sponsor Dashboard, at /sponsor-dashboard/. You reach it after signing in with the account the program created for your company; every person the program attached to your company sees the same page. It has three groups of cards: **Your company**, **What you offer** and **Mentors**. A card folds and unfolds with one press on its title, and the number beside a title is how many things it holds.
 
 **Your company.** *Your company profile and logo* is your company as the program records it: the details on the left, your logo on the right. What you save here is written to the program's records, so keep it current; a logo in color and one in white for a dark background are shown wherever the program names you. *People* lists everyone who can sign in for your company; ask your program contact to add or remove a person. *Collaboration Agreement* is where the agreement between your company and the program lives: download the text, upload the signed copy, and read where it stands (waiting for review, accepted, returned with a note, or out of force).
 

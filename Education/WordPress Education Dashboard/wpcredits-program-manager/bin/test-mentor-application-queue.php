@@ -616,12 +616,12 @@ $long = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note
 ck( 'a note longer than the box holds is refused, nothing sent', array( $long['flash'], $long['state'], $long['mail'] ), array( 'mapp-note-long', 'new', array() ) );
 $loss = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note' => 'Kids <12 free, adults >18 pay' ) );
 ck( 'and so is one the cleaner would take words from, its typing kept', array( $loss['flash'], $loss['state'], kept( $id, 'decline' ) ), array( 'mapp-note-loss', 'new', 'Kids <12 free, adults >18 pay' ) );
-ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss', 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-acknowledged' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
+ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss', 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-airtable-gone', 'mapp-acknowledged' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
 
 $words = WPCPM_Mentor_Application_Queue::messages();
 ck(
 	'and the activation\'s, the retry\'s and the acknowledgement\'s are worded as the design gives them, each with its kind of notice',
-	array_intersect_key( $words, array_flip( array( 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-acknowledged' ) ) ),
+	array_intersect_key( $words, array_flip( array( 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-airtable-gone', 'mapp-acknowledged' ) ) ),
 	array(
 		'mapp-activated'           => array( 'success', 'The applicant is a mentor now: their account is made, the Airtable row written, and the invitation with the welcome is on its way.' ),
 		'mapp-activated-refused'   => array( 'warning', 'The applicant is a mentor now: their account is made and the invitation with the welcome is on its way. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
@@ -635,6 +635,7 @@ ck(
 		'mapp-airtable-written'    => array( 'success', 'The Airtable row is written, and the mentor\'s account holds its record.' ),
 		'mapp-airtable-refused'    => array( 'error', 'Airtable refused the row again. The reason is on the application; nothing else changed.' ),
 		'mapp-airtable-not-needed' => array( 'success', 'Nothing was written: the mentor\'s account holds its Airtable record already.' ),
+		'mapp-airtable-gone'       => array( 'warning', 'The account made for this mentor no longer exists; nothing more is written for it.' ),
 		'mapp-acknowledged'        => array( 'success', 'The acknowledgement is sent, with the link that confirms the address. The application stays where it was.' ),
 	)
 );
@@ -642,10 +643,10 @@ ck(
 	'and an invitation held, or not sent to an Administrator, never reads as on its way: the reason, what to do, and the Airtable row\'s fate after it',
 	array_intersect_key( $words, array_flip( array( 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused' ) ) ),
 	array(
-		'mapp-activated-login'          => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
-		'mapp-activated-login-refused'  => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
-		'mapp-activated-record'         => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
-		'mapp-activated-record-refused' => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-activated-login'          => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
+		'mapp-activated-login-refused'  => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
+		'mapp-activated-record'         => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab. The Airtable row is written.' ),
+		'mapp-activated-record-refused' => array( 'warning', 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
 		'mapp-activated-admin'          => array( 'success', 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already. The Airtable row is written.' ),
 		'mapp-activated-admin-refused'  => array( 'warning', 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
 	)
@@ -660,7 +661,7 @@ ck( 'the Selected view shows the last check and the press, which asks first',
 	array( false !== strpos( $selected_tab, 'Checked on October 16, 2026: the course does not show on the profile yet.' ), false !== strpos( $selected_tab, 'data-wpcpm-confirm="Make Ada Okonjo a mentor now?' ), count_forms( $selected_tab, WPCPM_Mentor_Application_Queue::ACTION_COMPLETE ) ),
 	array( true, true, 1 ) );
 ck( 'the press carries its question whole and its note box, and comes before Withdraw',
-	array( false !== strpos( $selected_tab, 'data-wpcpm-confirm="Make Ada Okonjo a mentor now? Their account is made, the Airtable row written and the invitation with the welcome sent."' ), false !== strpos( $selected_tab, 'How you know, for the next Administrator, optional. It is never sent.' ), strpos( $selected_tab, 'value="wpcpm_mapp_complete"' ) < strpos( $selected_tab, 'value="wpcpm_mapp_withdraw"' ) ),
+	array( false !== strpos( $selected_tab, 'data-wpcpm-confirm="Make Ada Okonjo a mentor now? It makes or links their account, writes or reactivates their Airtable row, and queues the invitation with the welcome unless the account must be confirmed first or is an Administrator&#039;s. If Airtable refuses the row, they are a mentor all the same. An applicant who is a mentor already is only filed as one."' ), false !== strpos( $selected_tab, 'How you know, for the next Administrator, optional. It is never sent.' ), strpos( $selected_tab, 'value="wpcpm_mapp_complete"' ) < strpos( $selected_tab, 'value="wpcpm_mapp_withdraw"' ) ),
 	array( true, true, true ) );
 $checked = array();
 foreach ( array(
@@ -794,18 +795,18 @@ ck( 'the retry is the refused row\'s, asks nothing and has no note box', array( 
 $GLOBALS['log_rows'] = array( array( 'status' => 'failed', 'error' => 'Could not instantiate mail function.', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] + 60 ) ) );
 ck( 'a refused welcome reads as refused, with what to do',
 	WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ),
-	'The invitation with the welcome went to the mail host on October 16, 2026. ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' Resend invite is on the Mentors screen\'s Accounts tab.' );
+	'The invitation with the welcome went to the mail host on October 16, 2026. ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.' );
 ck( 'the mail log is asked for the newest mentor invitation to the account\'s own address', end( WPCPM_Mail_Log::$asked ), array( array( 'exact_email' => 'ada@example.test', 'template' => 'invite-mentor' ), 1, 1 ) );
 an_account( 73, 'Bo Example', '', array( 'wpcpm_mentor' ) );
 update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 73 );
 WPCPM_Mail_Log::$asked = array();
-ck( 'an account with no address asks the log nothing, which would read an empty address as anybody\'s', array( WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), WPCPM_Mail_Log::$asked ), array( 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.', array() ) );
+ck( 'an account with no address asks the log nothing, which would read an empty address as anybody\'s', array( WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), WPCPM_Mail_Log::$asked ), array( 'No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.', array() ) );
 update_post_meta( $made, WPCPM_Mentor_Application::META_USER, 70 );
 $GLOBALS['log_rows']       = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] - 30 * DAY_IN_SECONDS ) ) );
 $GLOBALS['invited_at'][70] = $GLOBALS['now'] - 30 * DAY_IN_SECONDS;
 ck( 'an invitation older than the activation is never read as the welcome: a sent row and a stamp from before it say nothing went since',
 	WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ),
-	'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.' );
+	'No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.' );
 $GLOBALS['log_rows'] = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] ) ) );
 ck( 'one sent at the activation\'s own second is the welcome', WPCPM_Mentor_Application_Queue::invitation_line( get_post( $made ) ), 'The invitation with the welcome was sent on October 16, 2026.' );
 $GLOBALS['log_rows']       = array();
@@ -826,10 +827,10 @@ foreach ( array( 'login', 'record', 'row', 'email' ) as $how ) {
 ck( 'an invitation the activation held, for an account linked by username alone or while another account also answered, says why and what to do, and an account found any other way reads as one nothing has gone to since',
 	$linked,
 	array(
-		'login'  => 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.',
-		'record' => 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.',
-		'row'    => 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.',
-		'email'  => 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.',
+		'login'  => 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.',
+		'record' => 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.',
+		'row'    => 'No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.',
+		'email'  => 'No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.',
 	) );
 update_post_meta( $made, WPCPM_Mentor_Application::META_LINKED_BY, 'login' );
 $GLOBALS['log_rows'] = array( array( 'status' => 'sent', 'error' => '', 'sent_at' => gmdate( 'Y-m-d H:i:s', $GLOBALS['now'] + DAY_IN_SECONDS ) ) );
@@ -900,7 +901,8 @@ ck( 'and is refused on a row that is not active', press( WPCPM_Mentor_Applicatio
 $retry_flashes = array();
 foreach ( array(
 	'refused'    => array( 'refused', 'The Airtable row was not written: Airtable refused the write.', 'mapp-airtable-refused' ),
-	'not-needed' => array( 'not-needed', 'The account made for this mentor no longer exists; nothing more is written for it.', 'mapp-airtable-not-needed' ),
+	'not-needed' => array( 'not-needed', 'Nothing was written: the mentor\'s account holds its Airtable record already.', 'mapp-airtable-not-needed' ),
+	'gone'       => array( 'gone', 'The account made for this mentor no longer exists; nothing more is written for it.', 'mapp-airtable-gone' ),
 	'busy'       => array( 'busy', 'Another request is working on this application at this moment, so nothing was done.', 'mapp-busy' ),
 	'not-active' => array( 'not-active', 'Only an application that was made a mentor has an Airtable row to write, and this one was not.', 'mapp-state' ),
 	'unknown'    => array( 'unknown', 'There is no such mentor application.', 'mapp-unknown' ),
@@ -913,7 +915,9 @@ ck( 'each other outcome of the retry leaves its notice, with the step\'s own sen
 	$retry_flashes,
 	array(
 		'refused'    => array( 'mapp-airtable-refused', array( 'status' => 'mapp-airtable-refused', 'message' => 'The Airtable row was not written: Airtable refused the write.' ) ),
-		'not-needed' => array( 'mapp-airtable-not-needed', array( 'status' => 'mapp-airtable-not-needed', 'message' => 'The account made for this mentor no longer exists; nothing more is written for it.' ) ),
+		// Read from the user meta as the flash wrote it, slashed for core's user meta, which unslashes it.
+		'not-needed' => array( 'mapp-airtable-not-needed', array( 'status' => 'mapp-airtable-not-needed', 'message' => wp_slash( 'Nothing was written: the mentor\'s account holds its Airtable record already.' ) ) ),
+		'gone'       => array( 'mapp-airtable-gone', array( 'status' => 'mapp-airtable-gone', 'message' => 'The account made for this mentor no longer exists; nothing more is written for it.' ) ),
 		'busy'       => array( 'mapp-busy', array( 'status' => 'mapp-busy', 'message' => 'Another request is working on this application at this moment, so nothing was done.' ) ),
 		'not-active' => array( 'mapp-state', array( 'status' => 'mapp-state', 'message' => 'Only an application that was made a mentor has an Airtable row to write, and this one was not.' ) ),
 		'unknown'    => array( 'mapp-unknown', array( 'status' => 'mapp-unknown', 'message' => 'There is no such mentor application.' ) ),

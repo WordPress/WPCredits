@@ -551,13 +551,13 @@ ck( 'an account holding the record id of the Mentors row with the address, and a
 	array( 'activated', 71, 'reactivated', '', array( 'wpcpm_student' ), array(), array( array( 'id' => 'recHOLDER00000001', 'fields' => array( 'Status' => 'Active' ) ) ), 2, array() ) );
 ck( 'two accounts answering for one applicant hold the invitation, as a match by username alone does: nothing queued, the answer says it is held and why, and the application says how the account was found',
 	array( $GLOBALS['queue'], $r['invited'], $r['held'], WPCPM_Mentor_Application::linked_by_of( get_post( $ho ) ), $r['message'] ),
-	array( array(), false, 'record', 'record', 'Made a mentor, but the invitation is held: another account holds the applicant\'s address. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.' ) );
+	array( array(), false, 'record', 'record', 'Made a mentor, but the invitation is held: another account holds the applicant\'s address. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.' ) );
 ck( 'and the record holder\'s account is marked held, with the reason, so the bulk invite passes it over until it is sent from its row',
 	array( get_user_meta( 71, WPCPM_Mentor_Provision::USER_INVITE_HELD, true ), isset( $GLOBALS['umeta'][ 72 ][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] ) ),
 	array( 'record', false ) );
 ck( 'and the history says another account holds the applicant\'s address, so an Administrator confirms which account is the person\'s before pressing Resend invite',
 	event_back( $ho, 2 )['note'],
-	'Another account, "adaexample", holds the applicant\'s address. The account linked to the Mentors row with the applicant\'s address, "old-example", was made a mentor. Added the Mentor role to the existing account "old-example" (Ada Example). No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Resend invite on the Mentors screen\'s Accounts tab.' );
+	'Another account, "adaexample", holds the applicant\'s address. The account linked to the Mentors row with the applicant\'s address, "old-example", was made a mentor. Added the Mentor role to the existing account "old-example" (Ada Example). No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.' );
 
 fresh();
 an_account( 74, 'Login Example', 'other@example.test', array( 'subscriber' ) );
@@ -569,7 +569,7 @@ $by_name                          = selected_app();
 $r                                = WPCPM_Mentor_Activation::activate( $by_name, 0 );
 ck( 'another account named after the applicant\'s username, not holding the address, is said to be that, in the history and in the answer, and the invitation is held all the same',
 	array( $r['user_id'], $GLOBALS['queue'], $r['held'], event_back( $by_name, 2 )['note'], $r['message'] ),
-	array( 75, array(), 'record', 'Another account, "ada-example", is named after the applicant\'s WordPress.org username. The account linked to the Mentors row with the applicant\'s address, "old-example", was made a mentor. Added the Mentor role to the existing account "old-example" (Ada Example). No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Resend invite on the Mentors screen\'s Accounts tab.', 'Made a mentor, but the invitation is held: another account is named after the applicant\'s WordPress.org username. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.' ) );
+	array( 75, array(), 'record', 'Another account, "ada-example", is named after the applicant\'s WordPress.org username. The account linked to the Mentors row with the applicant\'s address, "old-example", was made a mentor. Added the Mentor role to the existing account "old-example" (Ada Example). No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'Made a mentor, but the invitation is held: another account is named after the applicant\'s WordPress.org username. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.' ) );
 
 fresh();
 an_account( 76, 'Ada Example', 'ada@example.test', array( 'wpcpm_student' ) );
@@ -630,13 +630,13 @@ $gus                              = selected_app();
 $r                                = WPCPM_Mentor_Activation::activate( $gus, 7, 'Wrote in on Monday.' );
 ck( 'the press\'s note and what the provisioning noticed are kept in the history, by who pressed, and why no invitation went',
 	array( event_back( $gus, 2 )['actor'], event_back( $gus, 2 )['note'] ),
-	array( 7, 'Wrote in on Monday. Added the Mentor role to the existing account "ada-example" (Ada Example). Linked mentor record to the pre-existing account "ada-example" (Ada Example) by username. Confirm it is the same person. No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Resend invite on the Mentors screen\'s Accounts tab.' ) );
+	array( 7, 'Wrote in on Monday. Added the Mentor role to the existing account "ada-example" (Ada Example). Linked mentor record to the pre-existing account "ada-example" (Ada Example) by username. Confirm it is the same person. No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.' ) );
 ck( 'an account found by its username alone is made a mentor and sent no invitation until a person confirms it is the same person',
 	array( $r['outcome'], $r['user_id'], $GLOBALS['queue'], $r['invited'], WPCPM_Mentor_Application::linked_by_of( get_post( $gus ) ) ),
 	array( 'activated', 65, array(), false, 'login' ) );
 ck( 'and the answer says the invitation is held, and why',
 	array( $r['held'], $r['message'] ),
-	array( 'login', 'Made a mentor, but the invitation is held: the account was matched by its username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.' ) );
+	array( 'login', 'Made a mentor, but the invitation is held: the account was matched by its username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.' ) );
 ck( 'and the account is marked held, with the reason, so the bulk invite passes it over until it is sent from its row', get_user_meta( 65, WPCPM_Mentor_Provision::USER_INVITE_HELD, true ), 'login' );
 
 // An account an earlier activation held, found by the address this time, is the person's: the
@@ -794,7 +794,7 @@ $GLOBALS['refuse_create'] = null;
 $gone_press               = WPCPM_Mentor_Activation::retry_airtable( $gone_retry, 7 );
 ck( 'Write the Airtable row again for an account that is gone writes nothing, and settles the row as gone',
 	array( $gone_press['outcome'], $gone_press['message'], $GLOBALS['created'], WPCPM_Mentor_Application::airtable_of( get_post( $gone_retry ) )['state'] ),
-	array( 'not-needed', 'The account made for this mentor no longer exists; nothing more is written for it.', array(), 'gone' ) );
+	array( 'gone', 'The account made for this mentor no longer exists; nothing more is written for it.', array(), 'gone' ) );
 
 fresh();
 $GLOBALS['connected'] = false;

@@ -209,7 +209,8 @@ tr.is-checking {
 	background: #d5f2e0;
 }
 
-.wpcpm-checker-action--skipped {
+.wpcpm-checker-action--skipped,
+.wpcpm-checker-action--waiting {
 	color: #50575e;
 	background: #f0f0f1;
 }

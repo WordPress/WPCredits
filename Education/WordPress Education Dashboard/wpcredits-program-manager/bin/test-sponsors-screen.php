@@ -489,6 +489,10 @@ class WPCPM_Mail {
 	public static function invite_failed_message() {
 		return 'The invitation could not be sent.';
 	}
+	/** Nobody's invitation held here: bin/test-sponsors-accounts.php plays the held account. */
+	public static function held_back( $role, $meta ) {
+		return array();
+	}
 	public static function never_invited( $role, $meta ) {
 		$GLOBALS['never_invited_asked'][] = array( $role, $meta );
 		$never                            = array();

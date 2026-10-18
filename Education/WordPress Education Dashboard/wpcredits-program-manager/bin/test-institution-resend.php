@@ -15,7 +15,7 @@
  *   institution stamp even for an Administrator), an account that is not a student, a student
  *   who has signed in, an account with no address, an account whose invitation an activation of a
  *   mentor application held (it would carry the mentor's welcome, and the hold is the program's
- *   Administrators' to lift), the fifteen minutes, and the day's twenty.
+ *   Administrators' to lift, which its own outcome says), the fifteen minutes, and the day's twenty.
  *   The day's place is claimed only after all of them, so none of them costs the school one.
  * - **A send that answers an error gives the place back.** The two ways it can, another route
  *   inviting the student in the same instant and the account losing the Student role, are
@@ -38,7 +38,9 @@
  *   policy refuses, or while the site keeps no sign-in record;
  *   the two sentences, naming the record's first day and the last invitation in the site's date
  *   format; the two button labels; a one-press form whose nonce is keyed to the student on
- *   screen; and the stylesheet's rules for all of it.
+ *   screen; for a student whose invitation an activation held, the sentence saying the program's
+ *   Administrators send it in the button's place, and no form; and the stylesheet's rules for all
+ *   of it.
  *
  * Run from the plugin root:  php bin/test-institution-resend.php
  */
@@ -574,9 +576,9 @@ ck( 'nor one whose address is not an address', refused( 20, 17 ), nothing( 'invi
 // press sends nothing, spends no place, and leaves the hold where it is.
 $GLOBALS['users'][12]->roles[]                                    = WPCPM_Roles::ROLE_MENTOR;
 $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
-ck( 'a student whose invitation an activation held is not sent one, and the hold stays',
+ck( 'a student whose invitation an activation held is not sent one, is told the program\'s Administrators send it, and the hold stays',
 	array( refused( 20, 12 ), $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] ?? null ),
-	array( nothing( 'invite-error' ), 'login' ) );
+	array( nothing( 'invite-held' ), 'login' ) );
 $GLOBALS['users'][12]->roles = array( WPCPM_Roles::ROLE_STUDENT );
 unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
 
@@ -879,6 +881,7 @@ $expected = array(
 	'invite-ceiling'      => array( 'error', 'Your institution has sent 20 invitations today, the most a day allows, so nothing was sent. Try again tomorrow, or write to the program team.' ),
 	'invite-signed-in'    => array( 'info', 'This student has signed in since the page was drawn, so nothing was sent.' ),
 	'invite-error'        => array( 'error', 'The invitation could not be sent.' ),
+	'invite-held'         => array( 'info', 'Nothing was sent: the program\'s Administrators send this invitation once they have confirmed the account belongs to this student.' ),
 	'invite-mail-refused' => array( 'error', 'The invitation could not be sent, and the link in any earlier invitation no longer works. Try again in a few minutes; if it fails again, write to your program contact.' ),
 	'invite-refused'      => array( 'error', 'That record is not on your roster.' ),
 	'invite-unlogged'     => array( 'error', 'The invitation is on its way to a***@example.test, but the entry saying who sent it could not be written, so it is not in this institution\'s history. Tell your program contact.' ),
@@ -932,6 +935,23 @@ $first = draw( 20, 12 );
 ck( 'a student never invited reads that none was sent', has( $first, '<p class="wpcpm-institution__invite-note">No sign-in on record since ' . $since . '. No invitation sent yet.</p>' ), true );
 ck( 'and the button sends the first', has( $first, '>Send invitation</button>' ), true );
 ck( 'keyed to that student', has( $first, 'value="nonce-wpcpm_institution_resend_invite_12"' ), true );
+
+// Bruno studies and mentors, and an activation of a mentor application held his invitation: only the
+// program's Administrators send it, once they have confirmed the account, so the card says so in the
+// button's place and offers none.
+$GLOBALS['users'][12]->roles[]                                    = WPCPM_Roles::ROLE_MENTOR;
+$GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'record';
+$held_line                                                        = draw( 20, 12 );
+$GLOBALS['users'][12]->roles                                      = array( WPCPM_Roles::ROLE_STUDENT );
+unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
+
+ck( 'a student whose invitation an activation held reads the sign-in line and, in the button\'s place, that the program\'s Administrators send it, with no form to press',
+	array(
+		has( $held_line, '<p class="wpcpm-institution__invite-note">No sign-in on record since ' . $since . '. No invitation sent yet.</p><p class="wpcpm-institution__invite-note">The program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p></div>' ),
+		has( $held_line, '<form' ),
+		has( $held_line, '<button' ),
+	),
+	array( true, false, false ) );
 
 ck( 'a student who has signed in has no line and no button', draw( 20, 11 ), '' );
 ck( 'nor does an account on the roster that is not a student', draw( 20, 14 ), '' );
@@ -1010,6 +1030,24 @@ WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-e
 ck( 'an account with no address to send to gets the notice and no line',
 	draw( $reader, 15 ),
 	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-error" role="status">The invitation could not be sent.</p></div>' );
+
+// A press from a page drawn before the hold: the notice says who sends the invitation, so the line
+// under it does not say it a second time, and still offers no button.
+$GLOBALS['users'][12]->roles[]                                    = WPCPM_Roles::ROLE_MENTOR;
+$GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+$reader                                                           = fresh_reader( $A );
+WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-held', 'user' => 12, 'detail' => '' ), $reader );
+$held_notice                                                      = draw( $reader, 12 );
+$GLOBALS['users'][12]->roles                                      = array( WPCPM_Roles::ROLE_STUDENT );
+unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
+
+ck( 'after a press refused for a held invitation, the card says who sends it once, in the notice, above the sign-in line, and offers no button',
+	array(
+		substr_count( $held_notice, 'program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.' ),
+		has( $held_notice, '<p class="wpcpm-institution__invite-message is-info" role="status">Nothing was sent: the program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p><p class="wpcpm-institution__invite-note">No sign-in on record since October 15, 2026. No invitation sent yet.</p></div>' ),
+		has( $held_notice, '<form' ),
+	),
+	array( 1, true, false ) );
 
 $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-resent', 'user' => 10, 'detail' => '<b>x</b>@example.test' ), $reader );

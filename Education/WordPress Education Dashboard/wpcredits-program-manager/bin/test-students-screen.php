@@ -147,6 +147,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 
+// The key an activation of a mentor application holds an invitation by (1.122.33), which the mail
+// layer reads where the class is loaded, as it is on the site: a student who also mentors can hold it.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
+
 // The tab bar's printer, required once it exists, so a copy of the plugin without it fails its
 // checks rather than ending this run.
 if ( file_exists( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php' ) ) {
@@ -954,6 +958,65 @@ ck( 'the card asks before it sends, of the two, in the plural',
 ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
 	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),
 	array( array( 11, 17 ), array( 12, 13 ) ) );
+
+echo "\n=== An invitation an activation held waits for its own row ===\n";
+
+// A student who also mentors, made a mentor from an application whose account was linked by its
+// WordPress.org username alone, was never invited, and their invitation carries the mentor's welcome
+// with its private links: it waits for an Administrator to confirm the account is the person's
+// (rulings R5 and P9b). Hal is such a student at Bruno's school: the card leaves him out and says
+// so, at the school too, and with nobody else left it never says every one has been invited.
+three_students();
+person( 18, 'Hal Held', 'hheld', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ), 'Academia Sur' );
+$GLOBALS['umeta'][18][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+manager( 901 );
+$held_page = html_of( page_for( screen() ) );
+$held_card = forms_by_action( $held_page );
+manager( 902 );
+$held_south = html_of( page_for( screen( array( 'wpcpm_institution' => 'Academia Sur' ) ) ) );
+
+ck( 'the invitations card counts the two never sent one and leaves out the one held, saying so, on the whole list and at his school, and his row still offers Send invite',
+	array(
+		has( isset( $held_card[ WPCPM_Students::ACTION_BULK ] ) ? $held_card[ WPCPM_Students::ACTION_BULK ] : '', '>Invite 2 students who have never been invited</button>' ),
+		has( $held_page, '<p class="description">1 of the students is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+		array_keys( actions_in( row_for( $held_page, 18 ) ) ),
+		has( $held_south, 'data-wpcpm-confirm="Send an invitation to 1 of the students at Academia Sur? It cannot be recalled once sent."' ),
+		has( $held_south, '<p class="description">1 of the students at Academia Sur is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+	),
+	array( true, true, array( 'edit', 'view', 'invite' ), true, true ) );
+
+manager( 903 );
+$held_north = html_of( page_for( screen( array( 'wpcpm_institution' => 'Escuela Norte' ) ) ) );
+ck( 'narrowed to a school he is not at, the card says nothing of him', has( $held_north, 'is left out' ), false );
+
+// One student to invite: the button's noun and verb agree with the count, on the whole list and at a
+// school, as they do for two.
+manager( 905 );
+$one_south = forms_by_action( $held_south );
+reset_site();
+person( 11, 'Ada Lovelace', 'alovelace', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', 'Developer Track', 'Mentor Uno', 1700000000 );
+person( 12, 'Bruno Diaz', 'bdiaz', array( WPCPM_Roles::ROLE_STUDENT ), 'Academia Sur', 'Contributor Track', 'Mentor Dos' );
+$one_left = forms_by_action( html_of( page_for( screen() ) ) );
+ck( 'with one student to invite, the button says so in the singular, at a school too',
+	array(
+		has( isset( $one_left[ WPCPM_Students::ACTION_BULK ] ) ? $one_left[ WPCPM_Students::ACTION_BULK ] : '', '>Invite 1 student who has never been invited</button>' ),
+		has( isset( $one_south[ WPCPM_Students::ACTION_BULK ] ) ? $one_south[ WPCPM_Students::ACTION_BULK ] : '', '>Invite 1 student at Academia Sur who has never been invited</button>' ),
+	),
+	array( true, true ) );
+
+reset_site();
+person( 11, 'Ada Lovelace', 'alovelace', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', 'Developer Track', 'Mentor Uno', 1700000000 );
+person( 18, 'Hal Held', 'hheld', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ), 'Academia Sur' );
+$GLOBALS['umeta'][18][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+manager( 904 );
+$all_held = html_of( page_for( screen() ) );
+ck( 'with only a held one left, the card offers no button and says he is left out, not that every one was invited',
+	array(
+		isset( forms_by_action( $all_held )[ WPCPM_Students::ACTION_BULK ] ),
+		has( $all_held, '<p class="description">1 of the students is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.</p>' ),
+		has( $all_held, 'Every one of the students has been invited.' ),
+	),
+	array( false, true, false ) );
 
 echo "\n=== The institution filter: exact, as the invitations card narrows ===\n";
 

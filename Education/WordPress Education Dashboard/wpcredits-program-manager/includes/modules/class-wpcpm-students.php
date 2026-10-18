@@ -303,7 +303,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 	/**
 	 * The invitations card, on the Accounts tab: everybody never invited, narrowed to the
-	 * institution the list is showing.
+	 * institution the list is showing, and how many of them there are left out because an activation
+	 * held their invitation (1.122.33), a student who also mentors, which only their own row sends.
 	 *
 	 * Its button posts the institution and the tab, so the press queues whom the card counted and
 	 * comes back to the list at that institution. Its Stop and Dismiss are the mail layer's own
@@ -318,17 +319,25 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 		WPCPM_Mail::render_invite_card(
 			array(
-				'action'  => self::ACTION_BULK,
-				'pending' => $pending,
-				'noun'    => '' === $filter
+				'action'      => self::ACTION_BULK,
+				'pending'     => $pending,
+				'held'        => count( WPCPM_Mail::only_institution( self::held_back(), $filter ) ),
+				'noun'        => '' === $filter
 					? __( 'students', 'wpcredits-program-manager' )
 					/* translators: %s: institution name. */
 					: sprintf( __( 'students at %s', 'wpcredits-program-manager' ), $filter ),
-				'hidden'  => array(
+				// The button's own words, so its noun and verb agree with the count, one or more.
+				'button'      => '' === $filter
+					/* translators: %s: how many students. */
+					? _n_noop( 'Invite %s student who has never been invited', 'Invite %s students who have never been invited', 'wpcredits-program-manager' )
+					/* translators: 1: how many students, 2: institution name. */
+					: _n_noop( 'Invite %1$s student at %2$s who has never been invited', 'Invite %1$s students at %2$s who have never been invited', 'wpcredits-program-manager' ),
+				'button_args' => '' === $filter ? array() : array( $filter ),
+				'hidden'      => array(
 					'wpcpm_institution' => $filter,
 					self::TAB_FIELD     => self::TAB_ACCOUNTS,
 				),
-				'flash'   => $this->flash_key(),
+				'flash'       => $this->flash_key(),
 			)
 		);
 	}

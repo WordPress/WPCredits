@@ -178,6 +178,17 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		$summary = WPCPM_Mentor_Checker_Runner::summarize( isset( $run['rows'] ) ? $run['rows'] : array() );
 
+		if ( $summary['waiting'] > 0 ) {
+			return sprintf(
+				/* translators: 1: human-readable time difference, 2: number checked, 3: number awaiting promotion, 4: number of applications waiting for Make mentors from applications to be switched on. */
+				__( 'Last run %1$s ago - %2$s checked, %3$s awaiting promotion, %4$s waiting for Make mentors from applications.', 'wpcredits-program-manager' ),
+				human_time_diff( (int) $run['started'], time() ),
+				number_format_i18n( $summary['checked'] ),
+				number_format_i18n( $summary['eligible'] ),
+				number_format_i18n( $summary['waiting'] )
+			);
+		}
+
 		return sprintf(
 			/* translators: 1: human-readable time difference, 2: number checked, 3: number awaiting promotion. */
 			__( 'Last run %1$s ago - %2$s checked, %3$s awaiting promotion.', 'wpcredits-program-manager' ),
@@ -455,6 +466,13 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 	/**
 	 * AJAX: promote every mentor, and make a mentor of every application, the last run marked eligible.
+	 *
+	 * An application that waits for Make mentors from applications (`waits_for_switch()`) is left
+	 * out, since a re-check would only answer that it waits; with nothing else to promote, the
+	 * answer says the applications wait for the switch. A row that cannot be re-checked any more,
+	 * an application that has left the selected state since the run or a record Airtable will not
+	 * give back, comes back failed with the reason, drawn as the run drew it: its name, which for
+	 * a site row the run read from the application, and its profile.
 	 */
 	public function ajax_promote_all() {
 		$this->verify_ajax();
@@ -462,11 +480,25 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		$run  = WPCPM_Mentor_Checker_Runner::get_last_run();
 		$rows = isset( $run['rows'] ) ? $run['rows'] : array();
 		$ids  = array();
+		$last = array();
+		$wait = 0;
 
 		foreach ( $rows as $row ) {
-			if ( isset( $row['action'] ) && 'eligible' === $row['action'] && ! empty( $row['record_id'] ) ) {
-				$ids[] = $row['record_id'];
+			if ( ! isset( $row['action'] ) || 'eligible' !== $row['action'] || empty( $row['record_id'] ) ) {
+				continue;
 			}
+
+			if ( WPCPM_Mentor_Checker_Runner::waits_for_switch( $row ) ) {
+				++$wait;
+				continue;
+			}
+
+			$ids[]                     = $row['record_id'];
+			$last[ $row['record_id'] ] = $row;
+		}
+
+		if ( empty( $ids ) && $wait > 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Nobody is waiting to be promoted: the applications whose course shows wait until Make mentors from applications is switched on.', 'wpcredits-program-manager' ) ) );
 		}
 
 		if ( empty( $ids ) ) {
@@ -482,11 +514,9 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			if ( is_wp_error( $result ) ) {
 				$updated[] = $this->prepare_row_for_js(
 					array(
-						'record_id'   => $record_id,
-						'name'        => '',
 						'action'      => 'failed',
 						'action_note' => $result->get_error_message(),
-					)
+					) + $last[ $record_id ]
 				);
 				continue;
 			}
@@ -612,6 +642,10 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				'label' => __( 'Awaiting promotion', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--eligible',
 			),
+			'waiting'   => array(
+				'label' => __( 'Waiting', 'wpcredits-program-manager' ),
+				'class' => 'wpcpm-checker-action wpcpm-checker-action--waiting',
+			),
 			'promoted'  => array(
 				'label' => __( 'Promoted', 'wpcredits-program-manager' ),
 				'class' => 'wpcpm-checker-action wpcpm-checker-action--promoted',
@@ -630,12 +664,17 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			),
 		);
 
+		// An application that waits for Make mentors from applications is drawn as waiting, which the
+		// screen's count reads, and offered no Promote: a re-check would only answer that it waits, as
+		// its note says.
+		$shown  = WPCPM_Mentor_Checker_Runner::waits_for_switch( $row ) ? 'waiting' : $row['action'];
+		$note   = WPCPM_Mentor_Checker_Runner::note_of( $row );
 		$state  = isset( $states[ $row['state'] ] ) ? $states[ $row['state'] ] : $states['error'];
-		$action = isset( $actions[ $row['action'] ] ) ? $actions[ $row['action'] ] : $actions['none'];
+		$action = isset( $actions[ $shown ] ) ? $actions[ $shown ] : $actions['none'];
 
 		ob_start();
 		?>
-		<tr data-record-id="<?php echo esc_attr( $row['record_id'] ); ?>" data-action="<?php echo esc_attr( $row['action'] ); ?>">
+		<tr data-record-id="<?php echo esc_attr( $row['record_id'] ); ?>" data-action="<?php echo esc_attr( $shown ); ?>">
 			<td class="wpcpm-checker-col-name">
 				<strong><?php echo esc_html( '' !== $row['name'] ? $row['name'] : __( '(unnamed)', 'wpcredits-program-manager' ) ); ?></strong>
 			</td>
@@ -672,10 +711,10 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<?php else : ?>
 					<span class="wpcpm-checker-muted"><?php echo esc_html( $action['label'] ); ?></span>
 				<?php endif; ?>
-				<?php if ( '' !== $row['action_note'] ) : ?>
-					<span class="wpcpm-checker-note"><?php echo esc_html( $row['action_note'] ); ?></span>
+				<?php if ( '' !== $note ) : ?>
+					<span class="wpcpm-checker-note"><?php echo esc_html( $note ); ?></span>
 				<?php endif; ?>
-				<?php if ( 'eligible' === $row['action'] && '' !== $row['record_id'] ) : ?>
+				<?php if ( 'eligible' === $shown && '' !== $row['record_id'] ) : ?>
 					<button type="button" class="button button-small wpcpm-checker-promote" data-record-id="<?php echo esc_attr( $row['record_id'] ); ?>">
 						<?php esc_html_e( 'Promote', 'wpcredits-program-manager' ); ?>
 					</button>
@@ -684,6 +723,45 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		</tr>
 		<?php
 		return trim( ob_get_clean() );
+	}
+
+	/**
+	 * The summary line above the results: what the last run checked and found, each figure under the
+	 * name the screen's script recounts it by (`data-stat`). While Make mentors from applications is
+	 * off it also says how many applications wait for it, which are not awaiting promotion.
+	 *
+	 * @param array $summary What `WPCPM_Mentor_Checker_Runner::summarize()` answered.
+	 * @param bool  $hidden  Whether the line starts hidden, as it does with no results.
+	 */
+	private function render_summary( array $summary, $hidden ) {
+		$tiles = array(
+			'checked'   => __( 'checked', 'wpcredits-program-manager' ),
+			'completed' => __( 'completed the course', 'wpcredits-program-manager' ),
+			'eligible'  => __( 'awaiting promotion', 'wpcredits-program-manager' ),
+		);
+
+		if ( ! WPCPM_Mentor_Activation::enabled() ) {
+			$tiles['waiting'] = __( 'waiting for Make mentors from applications', 'wpcredits-program-manager' );
+		}
+
+		$tiles += array(
+			'promoted'  => __( 'promoted', 'wpcredits-program-manager' ),
+			'activated' => __( 'made a mentor', 'wpcredits-program-manager' ),
+			'problems'  => __( 'need attention', 'wpcredits-program-manager' ),
+		);
+
+		printf( '<div class="wpcpm-checker-summary" id="wpcpm-checker-summary"%s>', $hidden ? ' hidden' : '' );
+
+		foreach ( $tiles as $stat => $words ) {
+			printf(
+				'<span class="wpcpm-checker-stat"><b data-stat="%1$s">%2$s</b> %3$s</span>',
+				esc_attr( $stat ),
+				esc_html( number_format_i18n( isset( $summary[ $stat ] ) ? (int) $summary[ $stat ] : 0 ) ),
+				esc_html( $words )
+			);
+		}
+
+		echo '</div>';
 	}
 
 	/**
@@ -864,14 +942,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				</div>
 			</div>
 
-			<div class="wpcpm-checker-summary" id="wpcpm-checker-summary" <?php echo empty( $rows ) ? 'hidden' : ''; ?>>
-				<span class="wpcpm-checker-stat"><b data-stat="checked"><?php echo esc_html( number_format_i18n( $summary['checked'] ) ); ?></b> <?php esc_html_e( 'checked', 'wpcredits-program-manager' ); ?></span>
-				<span class="wpcpm-checker-stat"><b data-stat="completed"><?php echo esc_html( number_format_i18n( $summary['completed'] ) ); ?></b> <?php esc_html_e( 'completed the course', 'wpcredits-program-manager' ); ?></span>
-				<span class="wpcpm-checker-stat"><b data-stat="eligible"><?php echo esc_html( number_format_i18n( $summary['eligible'] ) ); ?></b> <?php esc_html_e( 'awaiting promotion', 'wpcredits-program-manager' ); ?></span>
-				<span class="wpcpm-checker-stat"><b data-stat="promoted"><?php echo esc_html( number_format_i18n( $summary['promoted'] ) ); ?></b> <?php esc_html_e( 'promoted', 'wpcredits-program-manager' ); ?></span>
-				<span class="wpcpm-checker-stat"><b data-stat="activated"><?php echo esc_html( number_format_i18n( $summary['activated'] ) ); ?></b> <?php esc_html_e( 'made a mentor', 'wpcredits-program-manager' ); ?></span>
-				<span class="wpcpm-checker-stat"><b data-stat="problems"><?php echo esc_html( number_format_i18n( $summary['problems'] ) ); ?></b> <?php esc_html_e( 'need attention', 'wpcredits-program-manager' ); ?></span>
-			</div>
+			<?php $this->render_summary( $summary, empty( $rows ) ); ?>
 
 			<table class="wp-list-table widefat striped wpcpm-checker-results">
 				<thead>

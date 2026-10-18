@@ -1022,6 +1022,16 @@ manager( 902 );
 post_to( 'handle_bulk_invite', WPCPM_Mentors::ACTION_BULK, array( 'wpcpm_tab' => 'accounts' ) );
 ck( 'and its button queues the two, and not the one held', WPCPM_Mail::queue(), array( 12, 13 ) );
 
+// One mentor to invite: the button's noun and verb agree with the count, as they do for two.
+reset_site();
+mentor( 11, 'Ada Kowalski', 'akowalski', array( WPCPM_Roles::ROLE_MENTOR ), 4, 2, 1, 1700000000 );
+mentor( 12, 'Bruno Diaz', 'bdiaz', array( WPCPM_Roles::ROLE_MENTOR ), 0, 0, 1 );
+manager( 904 );
+$one_card = forms_by_action( html_of( page_for( screen() ) ) );
+ck( 'with one mentor to invite, the button says so in the singular',
+	has( isset( $one_card[ WPCPM_Mentors::ACTION_BULK ] ) ? $one_card[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 1 mentor who has never been invited</button>' ),
+	true );
+
 // With nobody else left to invite, the card does not say that every one has been invited.
 reset_site();
 mentor( 11, 'Ada Kowalski', 'akowalski', array( WPCPM_Roles::ROLE_MENTOR ), 4, 2, 1, 1700000000 );

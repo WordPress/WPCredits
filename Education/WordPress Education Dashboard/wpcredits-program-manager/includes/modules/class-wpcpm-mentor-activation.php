@@ -30,10 +30,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * unless the Mentors row that holds the address is linked to another account by its record id: that
  * account is the person's, and the one holding the address gains nothing. Two cases leave a doubt
  * about whose address the welcome, which carries the private links, would reach, so the invitation
- * is held until an Administrator confirms the account and presses Resend invite: an account found by
- * its username alone, which may be somebody else's (ruling R5), and a record holder made a mentor
- * while another account answered for the applicant (ruling P9b). An Administrator's roles are never
- * touched, nor is an Administrator sent an invitation.
+ * is held until an Administrator confirms the account and presses Send invite or Resend invite on
+ * its row: an account found by its username alone, which may be somebody else's (ruling R5), and a
+ * record holder made a mentor while another account answered for the applicant (ruling P9b). An
+ * Administrator's roles are never touched, nor is an Administrator sent an invitation.
  *
  * **The defaults it takes**, each the owner's: nothing activates while Make mentors from
  * applications is off, its default, until the launch (owner item 1); a Mentors row that already
@@ -254,9 +254,9 @@ final class WPCPM_Mentor_Activation {
 		if ( $is_admin ) {
 			$notes[] = __( 'The account is an Administrator\'s, which signs in already: no invitation was sent.', 'wpcredits-program-manager' );
 		} elseif ( 'login' === $held ) {
-			$notes[] = __( 'No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$notes[] = __( 'No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		} elseif ( 'record' === $held ) {
-			$notes[] = __( 'No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$notes[] = __( 'No invitation was sent: once it is confirmed which of the two accounts is the person\'s, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		}
 
 		WPCPM_Mentor_Application::decide( $post_id, WPCPM_Mentor_Application::STATE_ACTIVE, WPCPM_Mentor_Application::EVENT_ACTIVATED, $actor, self::joined( $notes ) );
@@ -311,13 +311,13 @@ final class WPCPM_Mentor_Activation {
 		$sentences = array();
 
 		if ( 'login' === $held ) {
-			$sentences[] = __( 'Made a mentor, but the invitation is held: the account was matched by its username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$sentences[] = __( 'Made a mentor, but the invitation is held: the account was matched by its username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		} elseif ( 'record' === $held && 'login' === $other_by ) {
-			$sentences[] = __( 'Made a mentor, but the invitation is held: another account is named after the applicant\'s WordPress.org username. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$sentences[] = __( 'Made a mentor, but the invitation is held: another account is named after the applicant\'s WordPress.org username. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		} elseif ( 'record' === $held && 'profile' === $other_by ) {
-			$sentences[] = __( 'Made a mentor, but the invitation is held: another account holds the applicant\'s WordPress.org profile. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$sentences[] = __( 'Made a mentor, but the invitation is held: another account holds the applicant\'s WordPress.org profile. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		} elseif ( 'record' === $held ) {
-			$sentences[] = __( 'Made a mentor, but the invitation is held: another account holds the applicant\'s address. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			$sentences[] = __( 'Made a mentor, but the invitation is held: another account holds the applicant\'s address. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		}
 
 		if ( '' !== $error && array() === $sentences ) {
@@ -445,8 +445,9 @@ final class WPCPM_Mentor_Activation {
 	 *
 	 * @param int $post_id The application.
 	 * @param int $actor   Who pressed.
-	 * @return array `outcome` (`written`, `refused`, `not-needed`, `busy`, `not-active` or `unknown`)
-	 *               and `message`, a sentence for an Administrator.
+	 * @return array `outcome` (`written`, `refused`, `not-needed`, `gone` for an account that no
+	 *               longer exists, `busy`, `not-active` or `unknown`) and `message`, a sentence for an
+	 *               Administrator.
 	 */
 	public static function retry_airtable( $post_id, $actor ) {
 		$post = WPCPM_Mentor_Application::application( $post_id );
@@ -497,7 +498,7 @@ final class WPCPM_Mentor_Activation {
 		if ( ! get_userdata( $user_id ) instanceof WP_User ) {
 			self::settle_as( $post_id, 'gone', '', $actor );
 
-			return self::retry_answer( 'not-needed', self::gone_note() );
+			return self::retry_answer( 'gone', self::gone_note() );
 		}
 
 		$record = trim( (string) get_user_meta( $user_id, WPCPM_Mentors_Sync::META_RECORD_ID, true ) );
@@ -964,6 +965,10 @@ final class WPCPM_Mentor_Activation {
 
 				case 'not-needed':
 					$message = __( 'Nothing was written: the mentor\'s Airtable row needs nothing more.', 'wpcredits-program-manager' );
+					break;
+
+				case 'gone':
+					$message = self::gone_note();
 					break;
 
 				case 'written':

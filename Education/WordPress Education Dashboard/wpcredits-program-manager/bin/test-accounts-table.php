@@ -737,11 +737,11 @@ if ( ! function_exists( 'wpcpm_load_accounts_tables' ) ) {
 // loads the plugin as a site does requires the plugin's own WPCPM_Mail.
 if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 	/**
-	 * Who is waiting, the queue's two ways in and the fifteen-minute guard, answered as WPCPM_Mail
-	 * answers them, the queue kept in the option it keeps it in. Each way in notes the accounts it
-	 * was handed, so a check can tell a first invitation's path from a re-invitation's. The run the
-	 * card reports and the cron event the queue asks for are the mail layer's own, and nothing the
-	 * bulk invitation reads, so neither is modeled.
+	 * Who is waiting, the queue's two ways in, the fifteen-minute guard and the hold an activation of
+	 * a mentor application leaves, answered as WPCPM_Mail answers them, the queue kept in the option
+	 * it keeps it in. Each way in notes the accounts it was handed, so a check can tell a first
+	 * invitation's path from a re-invitation's. The run the card reports and the cron event the queue
+	 * asks for are the mail layer's own, and nothing the bulk invitation reads, so neither is modeled.
 	 */
 	class WPCPM_Mail {
 		const QUEUE_OPTION = 'wpcpm_invite_queue';
@@ -782,8 +782,20 @@ if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 		}
 
 		/**
-		 * Accounts into the queue for a first invitation: a repeat once, and anybody waiting or
-		 * carrying any of the four stamps dropped, as the mail layer drops them.
+		 * Whether an activation held the account's invitation: the key
+		 * `WPCPM_Mentor_Provision::USER_INVITE_HELD` names, there whatever it holds.
+		 *
+		 * @param int $user_id User ID.
+		 * @return bool
+		 */
+		public static function is_held( $user_id ) {
+			return isset( $GLOBALS['umeta'][ (int) $user_id ]['wpcpm_mentor_invite_held'] );
+		}
+
+		/**
+		 * Accounts into the queue for a first invitation: a repeat once, and anybody waiting,
+		 * carrying any of the four stamps or holding a held invitation dropped, as the mail layer
+		 * drops them.
 		 *
 		 * @param int[] $user_ids User IDs.
 		 * @return int How many went in.
@@ -799,6 +811,10 @@ if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 					if ( ! empty( $GLOBALS['umeta'][ $id ][ $stamp ] ) ) {
 						continue 2;
 					}
+				}
+
+				if ( self::is_held( $id ) ) {
+					continue;
 				}
 
 				$fresh[] = $id;
@@ -2284,6 +2300,53 @@ ck( 'Resend invite leaves out anybody sent an invitation in the last fifteen min
 		'Cleo, and Bruno waiting' => array( array( 'invites-none', array( 'resend' => true, 'recent' => 1, 'why' => 'queued-already' ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ),
 	) );
 
+// An activation of a mentor application held these invitations (1.122.33): Hal's account was linked
+// by its WordPress.org username alone and was never invited; Ivy's, invited long ago as a mentor, by
+// a record another account also answered for. Jo is a mentor never invited, and Kim studies and
+// mentors, never invited, held too. A held invitation waits for an Administrator to confirm the
+// account, and only its own row sends it: the queue drops it, so a ticked press that queued it would
+// say it was queued and nothing would go.
+$GLOBALS['users'][21]                             = new WP_User( 21, 'shal', 'Hal Held', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][22]                             = new WP_User( 22, 'rivy', 'Ivy Held', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][23]                             = new WP_User( 23, 'qjo', 'Jo Mentor', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][24]                             = new WP_User( 24, 'pkim', 'Kim Both', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['umeta'][21]['wpcpm_mentor_invite_held'] = 'login';
+$GLOBALS['umeta'][22]['wpcpm_mentor_invite_held'] = 'record';
+$GLOBALS['umeta'][22]['wpcpm_mentor_invited']     = 1790000000;
+$GLOBALS['umeta'][24]['wpcpm_mentor_invite_held'] = 'login';
+$held_presses                                     = array();
+
+foreach ( array(
+	'Resend invite on Ivy'                => array( 'WPCPM_Test_Mentors_Table', array( '22' ), true ),
+	'Resend invite on Dana and Ivy'       => array( 'WPCPM_Test_Mentors_Table', array( '14', '22' ), true ),
+	'Send invite on Hal'                  => array( 'WPCPM_Test_Mentors_Table', array( '21' ), false ),
+	'Send invite on Hal and Jo'           => array( 'WPCPM_Test_Mentors_Table', array( '21', '23' ), false ),
+	'Send invite on Hal and Dana'         => array( 'WPCPM_Test_Mentors_Table', array( '21', '14' ), false ),
+	'Send invite on Kim, students\' list' => array( 'WPCPM_Test_Accounts_Table', array( '24' ), false ),
+) as $case => $press ) {
+	$held_presses[ $case ] = queue_press( $press[0], $press[1], $press[2] );
+}
+
+// Dana was sent one five minutes ago: with Ivy held, nobody Resend invite found invited before is
+// left to queue, for one reason or the other.
+$GLOBALS['umeta'][14]['wpcpm_mentor_invited']        = time() - 5 * 60;
+$held_presses['Resend invite on Ivy, Dana too soon'] = queue_press( 'WPCPM_Test_Mentors_Table', array( '14', '22' ), true );
+$GLOBALS['umeta'][14]['wpcpm_mentor_invited']        = 1790000000;
+
+ck( 'a ticked press leaves out an account whose invitation an activation held, queues it nothing, and says why: held when it was everybody the press would have sent to, and how many it left out otherwise, on any audience\'s list',
+	$held_presses,
+	array(
+		'Resend invite on Ivy'                => array( array( 'invites-none', array( 'resend' => true, 'why' => 'held' ) ), array(), array() ),
+		'Resend invite on Dana and Ivy'       => array( array( 'invites-queued', array( 'resend' => true, 'held' => 1, 'queued' => 1 ) ), array( 14 ), array( array( 'queue_invite', 14 ) ) ),
+		'Send invite on Hal'                  => array( array( 'invites-none', array( 'resend' => false, 'why' => 'held' ) ), array(), array() ),
+		'Send invite on Hal and Jo'           => array( array( 'invites-queued', array( 'resend' => false, 'held' => 1, 'queued' => 1 ) ), array( 23 ), array( array( 'queue_invites', array( 23 ) ) ) ),
+		'Send invite on Hal and Dana'         => array( array( 'invites-none', array( 'resend' => false, 'why' => 'held' ) ), array(), array() ),
+		'Send invite on Kim, students\' list' => array( array( 'invites-none', array( 'resend' => false, 'why' => 'held' ) ), array(), array() ),
+		'Resend invite on Ivy, Dana too soon' => array( array( 'invites-none', array( 'resend' => true, 'recent' => 1, 'held' => 1, 'why' => 'left-out' ) ), array(), array() ),
+	) );
+
+unset( $GLOBALS['users'][21], $GLOBALS['users'][22], $GLOBALS['users'][23], $GLOBALS['users'][24], $GLOBALS['umeta'][21], $GLOBALS['umeta'][22], $GLOBALS['umeta'][24] );
+
 ck( 'each audience queues by its own role and its own stamp: on the mentors\' list, Resend invite queues Dana, invited as a mentor, and leaves out Bruno, a student',
 	queue_press( 'WPCPM_Test_Mentors_Table', array( '14', '11' ), true ),
 	array( array( 'invites-queued', array( 'resend' => true, 'queued' => 1 ) ), array( 14 ), array( array( 'queue_invite', 14 ) ) ) );
@@ -2363,6 +2426,23 @@ ck( 'and a Resend invite that left anybody out for the fifteen minutes says how 
 	array(
 		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 1 selected account was left out: it was sent an invitation less than 15 minutes ago, and another one now would cancel the link in it.',
 		'Nothing to send: the selected accounts are already waiting in the queue. 2 selected accounts were left out: each was sent an invitation less than 15 minutes ago, and another one now would cancel the link in it.',
+	) );
+ck( 'an invitation an activation held is said to wait for an Administrator to confirm the account on the Mentors screen: as the reason nothing went, for a first invitation or another, and as how many were left out, one or more, after what the press did, and, with some left out for the fifteen minutes too, each reason said once in one sentence',
+	array(
+		worded( array( 'resend' => false, 'why' => 'held' ) ),
+		worded( array( 'resend' => true, 'why' => 'held' ) ),
+		worded( array( 'resend' => false, 'held' => 1, 'queued' => 1 ) ),
+		worded( array( 'resend' => true, 'held' => 2, 'queued' => 1 ) ),
+		worded( array( 'resend' => true, 'recent' => 1, 'held' => 1, 'why' => 'left-out' ) ),
+		worded( array( 'resend' => true, 'recent' => 2, 'held' => 3, 'queued' => 1 ) ),
+	),
+	array(
+		'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
+		'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
+		'1 invitation queued. It goes out in the background - the progress is shown below. 1 selected account was left out: its invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
+		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 2 selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
+		'Nothing to send. 2 selected accounts were left out: 1 that was sent an invitation less than 15 minutes ago, whose link another one now would cancel, and 1 whose invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
+		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 5 selected accounts were left out: 2 that were each sent an invitation less than 15 minutes ago, whose links another one now would cancel, and 3 whose invitations wait for an Administrator to confirm each account on the Mentors screen, where each account\'s own row sends it.',
 	) );
 
 // Each module's code with its comments left out, as above, and the method that prints a press on

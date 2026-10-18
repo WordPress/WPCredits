@@ -1511,7 +1511,25 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	public static function summarize( array $rows ) {
-		return array( 'checked' => count( $rows ), 'completed' => 0, 'eligible' => 0, 'promoted' => 0, 'activated' => 0, 'skipped' => 0, 'failed' => 0, 'problems' => 0 );
+		return array( 'checked' => count( $rows ), 'completed' => 0, 'eligible' => 0, 'waiting' => 0, 'promoted' => 0, 'activated' => 0, 'skipped' => 0, 'failed' => 0, 'problems' => 0 );
+	}
+
+	public static function waits_for_switch( array $row ) {
+		return false;
+	}
+
+	public static function note_of( array $row ) {
+		return isset( $row['action_note'] ) ? (string) $row['action_note'] : '';
+	}
+}
+
+/**
+ * Make mentors from applications as it ships, off, which the checker's screen reads to say how many
+ * applications wait for it.
+ */
+class WPCPM_Mentor_Activation {
+	public static function enabled() {
+		return false;
 	}
 }
 

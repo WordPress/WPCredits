@@ -86,7 +86,11 @@ final class WPCPM_Mentor_Application_Queue {
 	/** The query argument the tab's views travel in. */
 	const VIEW_ARG = 'mapp_view';
 
-	/** Most rows a view draws: the oldest ones, whose turn it is. */
+	/**
+	 * Most rows a view draws, and Recently decided under it: the first in the list's own order, the
+	 * oldest first in the views of applications still open, whose turn it is, and in Activated and
+	 * Recently decided the order each gives (`render()`, `render_decided()`).
+	 */
 	const QUEUE_MAX = 50;
 
 	/** The flash channel the Mentors screen reads its outcomes from. */
@@ -241,7 +245,8 @@ final class WPCPM_Mentor_Application_Queue {
 	 * one shorter than a sentence.
 	 *
 	 * @param WP_Post $post   The row.
-	 * @param string  $key    The decision's own box (`select`, `info`, `second`, `decline`, `withdraw`).
+	 * @param string  $key    The decision's own box (`select`, `info`, `second`, `decline`,
+	 *                        `withdraw`, `complete`).
 	 * @param bool    $needed Whether the decision needs a note.
 	 * @return string
 	 */
@@ -566,6 +571,7 @@ final class WPCPM_Mentor_Application_Queue {
 			'written'    => 'mapp-airtable-written',
 			'refused'    => 'mapp-airtable-refused',
 			'not-needed' => 'mapp-airtable-not-needed',
+			'gone'       => 'mapp-airtable-gone',
 			'busy'       => 'mapp-busy',
 			'not-active' => 'mapp-state',
 		);
@@ -754,8 +760,8 @@ final class WPCPM_Mentor_Application_Queue {
 	private static function activation_messages() {
 		$written = __( 'The Airtable row is written.', 'wpcredits-program-manager' );
 		$refused = __( 'Airtable refused the row, so Write the Airtable row again waits on it under Activated.', 'wpcredits-program-manager' );
-		$login   = __( 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
-		$record  = __( 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		$login   = __( 'The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		$record  = __( 'The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		$admin   = __( 'The applicant is a mentor now. No invitation was sent: the account is an Administrator\'s, which signs in already.', 'wpcredits-program-manager' );
 
 		return array(
@@ -777,6 +783,7 @@ final class WPCPM_Mentor_Application_Queue {
 			'mapp-airtable-written'         => array( 'success', __( 'The Airtable row is written, and the mentor\'s account holds its record.', 'wpcredits-program-manager' ) ),
 			'mapp-airtable-refused'         => array( 'error', __( 'Airtable refused the row again. The reason is on the application; nothing else changed.', 'wpcredits-program-manager' ) ),
 			'mapp-airtable-not-needed'      => array( 'success', __( 'Nothing was written: the mentor\'s account holds its Airtable record already.', 'wpcredits-program-manager' ) ),
+			'mapp-airtable-gone'            => array( 'warning', __( 'The account made for this mentor no longer exists; nothing more is written for it.', 'wpcredits-program-manager' ) ),
 			'mapp-acknowledged'             => array( 'success', __( 'The acknowledgement is sent, with the link that confirms the address. The application stays where it was.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -1282,7 +1289,7 @@ final class WPCPM_Mentor_Application_Queue {
 					/* translators: %s: the day the invitation was handed to the mail host. */
 					__( 'The invitation with the welcome went to the mail host on %s.', 'wpcredits-program-manager' ),
 					wp_date( $format, $at )
-				) . ' ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' ' . __( 'Resend invite is on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+				) . ' ' . WPCPM_Mail::invite_refused_message( 'administrator' ) . ' ' . __( 'Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 			}
 
 			if ( WPCPM_Mail_Log::STATUS_UNCONFIRMED === $status ) {
@@ -1309,14 +1316,14 @@ final class WPCPM_Mentor_Application_Queue {
 		$linked_by = WPCPM_Mentor_Application::linked_by_of( $post );
 
 		if ( 'login' === $linked_by ) {
-			return __( 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			return __( 'No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		}
 
 		if ( 'record' === $linked_by ) {
-			return __( 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Resend invite on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+			return __( 'No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person\'s, then press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 		}
 
-		return __( 'No invitation has gone since this applicant was made a mentor. Resend invite is on the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+		return __( 'No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -1667,7 +1674,7 @@ final class WPCPM_Mentor_Application_Queue {
 					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'complete' ),
 					'confirm' => sprintf(
 						/* translators: %s: the applicant's name. */
-						__( 'Make %s a mentor now? Their account is made, the Airtable row written and the invitation with the welcome sent.', 'wpcredits-program-manager' ),
+						__( 'Make %s a mentor now? It makes or links their account, writes or reactivates their Airtable row, and queues the invitation with the welcome unless the account must be confirmed first or is an Administrator\'s. If Airtable refuses the row, they are a mentor all the same. An applicant who is a mentor already is only filed as one.', 'wpcredits-program-manager' ),
 						$name
 					),
 				)

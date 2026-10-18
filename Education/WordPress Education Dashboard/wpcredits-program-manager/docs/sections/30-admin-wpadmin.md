@@ -103,9 +103,9 @@ Since 1.97.0 the Sponsors screen also holds the queue of companies that applied 
 
 Since 1.118.0 the Students screen is two tabs, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Students** opens on, holds the **Invitations** card and the **Student accounts** list. **Sync** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync students now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
-The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Student** heading turns it Z to A; a press on **Username** or **Institution** sorts the list by it, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. The picker, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
+The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Student** heading turns it Z to A; a press on **Username** or **Institution** sorts the list by it, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. A student who also mentors and whose invitation was held when an application made them a mentor is left out of the button, and the card says how many it left out: only that student's own row sends it (see *Becoming a mentor*). The picker, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that student's Student Report Card, and **Send invite** or **Resend invite**, which emails that one student at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. On WordPress 6.7 or later, on this list and on every other accounts list, the action chosen under **Bulk actions** runs only when **Apply** is pressed: a search sent with rows ticked and an action chosen comes back to the list with nothing done to them, and Enter pressed in the menu does not apply it. Below 6.7, WordPress's own behavior stands. **Send invite** queues a first invitation for each ticked account that has never had one, as the card's button does, and the card shows the progress. **Resend invite** queues a fresh invitation for each ticked account invited before, which goes out with the next batch: the card's progress bar and its stop button follow a run of first invitations, and a re-invitation starts no run, so on its own it shows on neither. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, institution, sort and page. However it is asked for, nobody is sent a second invitation within fifteen minutes of the last one: **Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes, and its notice says how many it left out.
+Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that student's Student Report Card, and **Send invite** or **Resend invite**, which emails that one student at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. On WordPress 6.7 or later, on this list and on every other accounts list, the action chosen under **Bulk actions** runs only when **Apply** is pressed: a search sent with rows ticked and an action chosen comes back to the list with nothing done to them, and Enter pressed in the menu does not apply it. Below 6.7, WordPress's own behavior stands. **Send invite** queues a first invitation for each ticked account that has never had one, as the card's button does, and the card shows the progress. **Resend invite** queues a fresh invitation for each ticked account invited before, which goes out with the next batch: the card's progress bar and its stop button follow a run of first invitations, and a re-invitation starts no run, so on its own it shows on neither. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, institution, sort and page. However it is asked for, nobody is sent a second invitation within fifteen minutes of the last one: **Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes, and its notice says how many it left out. **Send invite** and **Resend invite** on ticked accounts both leave out an account whose invitation was held when an application made it a mentor, and the notice says how many they left out: only that account's own row sends it, once an Administrator has confirmed the account is the person's.
 
 In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds, since 1.122.33, a warning while mentors made from applications have no Airtable row yet, with the way to where each is written, the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
@@ -113,7 +113,7 @@ Since 1.122.26 the Mentors screen has a third tab between them, **Engagement**. 
 
 The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **No students**, the fourth view, with its count too, lists the mentors whose **Students** column shows 0: no current student, whether every student they had has finished or they never had one. The search, the sorts and the pages work in it as in the other views, and when every mentor has a current student it says so. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited, except one whose invitation was held when an application made them a mentor: the card says how many it left out, and only that mentor's own row sends it (see *Becoming a mentor*).
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
+Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out; both bulk actions leave out a mentor whose invitation was held, and say how many.
 
 Since 1.119.0 the Administrators screen is two tabs too, **Accounts** and **Capabilities**, under the **Open the Administrator Dashboard** button, which stays above them whichever tab is shown. The button is there while that page exists; while it is missing, the **Administrator accounts** list says so. **Accounts**, the tab **WPCredits Program > Administrators** opens on, holds the **Administrator accounts** list: every account with WordPress's Administrator role, a page at a time. **Search administrators** finds an account by name, username or email address. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; a press on **Username** sorts it by username, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's **Edit**, which opens the account in wp-admin, sits under it. **Can manage program** says whether each account holds the program's capability.
 
@@ -176,9 +176,9 @@ applications most recently declined or filed as spam, newest first, until they a
 application shows the name and reference, how long it has waited (for a selected one, the day it was
 selected and the day it lapses; for an activated one, the day it was made a mentor; for a decided
 one, the day it was declined or filed as spam), its marks (**held**, **possible duplicate**,
-**already a mentor**, **address not confirmed** and **acknowledgement not sent**), every answer, its history (each decision with its day, who took it and their note) and the
-decisions its state allows. The Administrator Dashboard's strip counts the applications waiting, and
-its tile opens this tab.
+**already a mentor**, **address not confirmed** and **acknowledgement not sent**), every answer, its
+history (each decision with its day, who took it and their note) and the decisions its state allows.
+The Administrator Dashboard's strip counts the applications waiting, and its tile opens this tab.
 
 A selected application also shows what the Mentor Status Checker last found on the applicant's
 WordPress.org profile: *Not checked yet*, or the day of the last check and whether the course shows,
@@ -263,12 +263,12 @@ It is one step either way, and the mentors sync makes a mentor the same way. It 
 so that a mentor is never kept waiting on Airtable:
 
 1. **The account.** The applicant's account is the one that has their email address, else the one
-   named after their WordPress.org username, else the one that holds their profile; where the Mentors
-   row that holds their address is already linked to an account, that account is theirs. With none,
-   an account is made, named after the username, with the Mentor role. An account that exists is
-   linked and given the Mentor role besides its own: no role is taken away, and an Administrator's
-   roles are never touched. A former mentor is a mentor again on their own account. If the account
-   cannot be made, the application stays selected, with the reason on it.
+   named after their WordPress.org username, else the one that holds their profile; where the
+   Mentors row that holds their address is already linked to an account, that account is theirs.
+   With none, an account is made, named after the username, with the Mentor role. An account that
+   exists is linked and given the Mentor role besides its own: no role is taken away, and an
+   Administrator's roles are never touched. A former mentor is a mentor again on their own account.
+   If the account cannot be made, the application stays selected, with the reason on it.
 2. **The application** moves to **Activated**, with a line in its history, and the Mentor Status
    Checker's Slack message names the new mentor.
 3. **The invitation.** One invitation, which carries the welcome, is queued whatever **Invitation
@@ -279,9 +279,10 @@ so that a mentor is never kept waiting on Airtable:
    to one account while another account also answered for the applicant. The mentor is made all the
    same. The notice after the press, the application's history and its row under Activated say the
    invitation is held and why, and once an Administrator has confirmed which account is the
-   person's, **Resend invite** on the Mentors screen's **Accounts** tab sends it. Until then the
-   **Invitations** card's button and the email queue pass the account over, and the card says how
-   many it left out.
+   person's, **Send invite** or **Resend invite** on its row in the Mentors screen's **Accounts**
+   tab sends it. Until then the **Invitations** card's button, **Send invite** and **Resend invite**
+   on ticked accounts and the email queue pass the account over, and the card and the notice after a
+   press say how many they left out.
 4. **The Airtable row**, last. An account that holds its own Mentors row already, a former
    mentor's, has that row's Status set back to Active, the status the mentors sync reads, and no
    search is made; only if Airtable says that row is gone is the table searched, as for anyone
@@ -301,32 +302,32 @@ is active and linked to its Mentors row, is filed under **Activated** as already
 note in the history: nothing is sent, nothing is written to Airtable, and the public figures do not
 count them as made a mentor. An Administrator who applied keeps their roles and is sent no
 invitation. Two presses, or a press and the daily check, on one application at the same moment do
-the step once: the second is told it is in hand. While **Make mentors from applications** is off nothing is made, and an
-applicant whose course shows waits under Selected (course pending).
+the step once: the second is told it is in hand. While **Make mentors from applications** is off
+nothing is made, and an applicant whose course shows waits under Selected (course pending).
 
 **Activated** lists the mentors made from applications. The applications still waiting for their
 Airtable row come first, oldest first; the others follow, the newest mentor first. Fifty are drawn,
 and a line says how many there are when there are more. Each row shows the account, linked to its
-profile screen, and the invitation's fate and the Airtable row's. The invitation line counts from the
-moment the applicant was made a mentor, never from an older invitation to the same address: it says
-the invitation waits in the email queue; or was sent on a day; or was handed over on a day and the
-mail log does not say whether it went; or that the site's mail host refused it, so that nothing was
-sent and the link in any earlier invitation no longer works, with where Resend invite is; or that
-none has gone since, because it was held for a person to confirm the account or was passed over,
-with where Resend invite is. For an Administrator's account it says none is
-sent, for an account that is gone that none can reach it, and for an applicant filed as already a
-mentor it says nothing. The Airtable line says whether the row was written, set back to Active or
-linked, and what was left out of it.
+profile screen, and the invitation's fate and the Airtable row's. The invitation line counts from
+the moment the applicant was made a mentor, never from an older invitation to the same address: it
+says the invitation waits in the email queue; or was sent on a day; or was handed over on a day and
+the mail log does not say whether it went; or that the site's mail host refused it, so that nothing
+was sent and the link in any earlier invitation no longer works, with where Send invite or Resend
+invite is; or that none has gone since, because it was held for a person to confirm the account or
+was passed over, with where Send invite or Resend invite is. For an Administrator's account it says
+none is sent, for an account that is gone that none can reach it, and for an applicant filed as
+already a mentor it says nothing. The Airtable line says whether the row was written, set back to
+Active or linked, and what was left out of it.
 
 If Airtable refuses the row (a token without write access, a column that refuses a value, a table
 that cannot be read, the network, or no Airtable connection at all), the mentor is made and invited
-all the same. The application says Airtable's words, and **Write the Airtable row again** waits on it
-under Activated. It searches the table by the address before it writes anything, so a row that a
+all the same. The application says Airtable's words, and **Write the Airtable row again** waits on
+it under Activated. It searches the table by the address before it writes anything, so a row that a
 request which died had made is found and never made twice. Meanwhile the mentors sync does not
 unmake the mentor. If it links the account to an Active row itself, that ends the wait, and the
 application then reads as linked by the mentors sync or by hand, with nothing more to write. An
-account that is gone has nothing to write for, and the application says so. The Mentors screen's **Sync** tab says how many
-mentors are waiting for their row.
+account that is gone has nothing to write for, and the application says so. The Mentors screen's
+**Sync** tab says how many mentors are waiting for their row.
 
 #### Switching it on
 
@@ -338,23 +339,25 @@ order:
    welcome, so they add the welcome after the invitation's own lines, copied from the release's
    shipped text of that email, which shows it with one bracketed line where the private links go.
    They type the courses' invitation links and the mentor resource folder's link in where that line
-   stands, and save. The edit just saved is the one that will be sent, since a saved edit is sent in
-   place of the shipped text, welcome or none, so they check that no other, older saved edit is what
-   is in place. **Contact address in emails** is set as well, since the welcome asks mentors to reply
-   and a reply reaches that address. From the deploy on, every invitation the mentor's template
-   sends carries the welcome: an activation's, one sent from the Mentors screen, and one the mentors
-   sync queues while **Invitation emails** is on.
+   stands, and save. A saved edit is sent in place of the shipped text, welcome or none, so they
+   check that the edit in place is the one they just saved, not an older one. **Contact address in
+   emails** is set as well, since the welcome asks mentors to reply and a reply reaches that
+   address. From the deploy on, every invitation the mentor's template sends carries the welcome: an
+   activation's, one sent from the Mentors screen, and one the mentors sync queues while
+   **Invitation emails** is on.
 2. The person running the launch reads the Airtable base's automations, which the site cannot see,
    so that none fires on the check row of the next step.
-3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by hand,
-   once. It writes one synthetic row to the Mentors table, with that address and a Status that
+3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by
+   hand, once. It writes one synthetic row to the Mentors table, with that address and a Status that
    neither the mentors sync nor the Mentor Status Checker reads, reads it back, deletes it, and says
    which columns the base kept and which names it would leave out. It may be run against the live
    base because it only ever deletes the row it just wrote. It changes nothing on the site, and it
-   ends in an error while a row may be left behind, which then has to be deleted in
-   Airtable by hand, and while a column did not take what the site sends. `wp wpcredits
-   mentor_airtable_row <reference>` prints the row an application would write and writes nothing; it
-   prints the applicant's answers, so use it on a test application.
+   ends in an error while a row may be left behind, which then has to be deleted in Airtable by
+   hand, and while a column did not take what the site sends. A create that failed on its way to
+   Airtable is said to have failed, never to have been refused, since it may still have reached the
+   base. `wp wpcredits mentor_airtable_row <reference>` prints the row an application would write,
+   with why the base's columns could not be read when they could not, and writes nothing; it prints
+   the applicant's answers, so use it on a test application.
 4. They switch **Make mentors from applications** on, and switch off the Airtable automation that
    emails the welcome, so that a new mentor is not welcomed twice.
 
@@ -368,7 +371,7 @@ The Institutions screen is six tabs, and a press on any of them comes back to it
 
 **Pipeline** lists every institution record by stage, as the last institutions sync read it, and says when that was. Each row gives the institution's country and city, whether Airtable holds a contact address for it, never the address itself, whether it carries the consent tick, when the record was created and the state of its agreement. **Confirmed with no agreement recorded** narrows the list to those institutions, and **Show every stage** brings the rest back. Above the stages, **Institutions with no live member** counts the institutions nobody can act for on this site, with the way to give one an account on the **Accounts** tab, and a line lists the countries named by institutions that have no Administrator contact in the Countries table. Under the list, **Consent** counts the records collected before the form asked for consent, and the ones created without the tick since, which is how a record entered by hand in Airtable looks.
 
-**Accounts** holds the **Invitations** card, whose button invites every institution account never invited, and the **Institution accounts** list, under a warning naming any institution account locked out of roster changes for the rest of the day, a lock that lifts by itself the next day. The list works as the **Student accounts** list does: every institution account, a page at a time, with no email address printed, though the search finds one. **Search institutions** finds an account by name, username, email address or the name of the institution it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Institution** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
+**Accounts** holds the **Invitations** card, whose button invites every institution account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the **Institution accounts** list, under a warning naming any institution account locked out of roster changes for the rest of the day, a lock that lifts by itself the next day. The list works as the **Student accounts** list does: every institution account, a page at a time, with no email address printed, though the search finds one. **Search institutions** finds an account by name, username, email address or the name of the institution it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Institution** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Institution Dashboard as the institution the account acts for, while that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage members**. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
 
@@ -396,7 +399,7 @@ The Sponsors screen is six tabs, and a press on any of them comes back to it, wi
 
 **Sponsors** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync sponsors now**, or the run's progress and **Cancel sync** while one is going, and the **Sponsors** table: every sponsor the last sync read, with its status, its product, its program contact, how many accounts act for it and whether its logo is on the site, not copied yet or missing from the base. A sponsor's name opens the Sponsor Dashboard as that sponsor, while that page exists, and **Manage accounts**, in the last column, opens its accounts on the **Accounts** tab. The sync reads the Team Members table and every sponsor's columns, copies each Approved sponsor's logo into the Media Library and reviews the accounts of sponsors that are no longer Approved; it never creates an account.
 
-**Accounts** holds the **Invitations** card, whose button invites every sponsor account never invited, and the **Sponsor accounts** list, under a warning naming any sponsor account locked out of changes for the rest of the day, a lock that lifts by itself the next day. The card and the list's **Send invite** and **Resend invite** are new for sponsor accounts in 1.122.0: before, a sponsor account was sent only the invitation queued when it was created or attached. The list works as the **Student accounts** list does: every sponsor account, a page at a time, with no email address printed, though the search finds one. **Search sponsor accounts** finds an account by name, username, email address or the name of the sponsor it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **Sponsor** names the sponsor each account acts for, with the sponsor's status after it in parentheses when it is not Approved, since such a sponsor keeps its accounts until they are removed. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Sponsor** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
+**Accounts** holds the **Invitations** card, whose button invites every sponsor account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the **Sponsor accounts** list, under a warning naming any sponsor account locked out of changes for the rest of the day, a lock that lifts by itself the next day. The card and the list's **Send invite** and **Resend invite** are new for sponsor accounts in 1.122.0: before, a sponsor account was sent only the invitation queued when it was created or attached. The list works as the **Student accounts** list does: every sponsor account, a page at a time, with no email address printed, though the search finds one. **Search sponsor accounts** finds an account by name, username, email address or the name of the sponsor it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **Sponsor** names the sponsor each account acts for, with the sponsor's status after it in parentheses when it is not Approved, since such a sponsor keeps its accounts until they are removed. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Sponsor** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Sponsor Dashboard as the sponsor the account acts for, while its membership lasts and that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage accounts**, for an account whose **Sponsor** names one. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
 

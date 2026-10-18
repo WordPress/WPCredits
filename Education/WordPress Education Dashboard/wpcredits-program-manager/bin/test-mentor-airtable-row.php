@@ -609,6 +609,16 @@ $GLOBALS['schema']       = array( 'tblOTHER000000001' => array( 'name' => 'Other
 ck( 'and a base without the Mentors table, a wrong table setting, is unread too, with the client\'s own words', WPCPM_Mentor_Airtable_Row::preview( $ada, new WPCPM_Airtable() )['left_out'], array( '*' => array( 'why' => 'unread', 'values' => array( 'The base has no table tblMENTORS0000001.' ) ) ) );
 $GLOBALS['schema'] = schema();
 ck( 'the sentence for columns that could not be read', WPCPM_Mentor_Airtable_Row::left_out_sentence( array( '*' => array( 'why' => 'unread', 'values' => array( 'Operation timed out.' ) ) ) ), 'The base\'s columns could not be read.' );
+// The preview on the command line asks for the reason too, since nothing else there says it; the
+// Activated view does not, since the refusal it prints beside the sentence says it already.
+ck( 'and, asked for the reasons, the sentence for what could not be read says why, in the words Airtable or the site gave, closed with a full stop',
+	array(
+		WPCPM_Mentor_Airtable_Row::left_out_sentence( array( '*' => array( 'why' => 'unread', 'values' => array( 'Operation timed out.' ) ) ), true ),
+		WPCPM_Mentor_Airtable_Row::left_out_sentence( array( 'Languages' => array( 'why' => 'unread', 'values' => array( 'Airtable is out of reach' ) ) ), true ),
+		WPCPM_Mentor_Airtable_Row::left_out_sentence( array( '*' => array( 'why' => 'unread', 'values' => array() ) ), true ),
+		WPCPM_Mentor_Airtable_Row::left_out_sentence( array( 'Languages' => array( 'why' => 'unmatched', 'values' => array( 'Klingon' ) ) ), true ),
+	),
+	array( 'The base\'s columns could not be read: Operation timed out.', 'Languages: its linked table could not be read: Airtable is out of reach.', 'The base\'s columns could not be read.', 'Languages: not in the base: Klingon.' ) );
 $unread = WPCPM_Mentor_Airtable_Row::cells( $ada, schema(), function ( $table, $primary ) { return 'tblLANGUAGES00001' === $table ? new WP_Error( 'airtable', 'Airtable is out of reach.' ) : WPCPM_Mentor_Airtable_Row::link_names( new WPCPM_Airtable(), $table, $primary ); } );
 ck( 'a linked table that cannot be read leaves its answers out with the error, and the other link is made',
 	array( $unread['left_out'], $unread['cells']['Country'], WPCPM_Mentor_Airtable_Row::left_out_sentence( $unread['left_out'] ) ),
@@ -875,9 +885,9 @@ ck( 'a row that is not the check row, alone, is named and never deleted, and the
 fresh_client();
 $GLOBALS['refuse_create'] = new WP_Error( 'http_request_failed', 'Operation timed out after 20000 milliseconds.' );
 $maybe                    = WPCPM_Mentor_Airtable_Row::check_row( 'owner+check@example.test', new WPCPM_Airtable() );
-ck( 'after a transport error a search that finds nothing does not say nothing was stored: Airtable may still store the row',
-	array( $maybe['cleaned'], $GLOBALS['deleted'], $maybe['error'], count( $GLOBALS['searched'] ) ),
-	array( array(), array(), 'Operation timed out after 20000 milliseconds. The search found no row yet, but Airtable may still store it: look for owner+check@example.test in the Mentors table in a minute and delete it by hand.', 2 ) );
+ck( 'after a transport error a search that finds nothing does not say nothing was stored: Airtable may still store the row, and the answer says the create failed in transport',
+	array( $maybe['cleaned'], $GLOBALS['deleted'], $maybe['error'], count( $GLOBALS['searched'] ), $maybe['transport'] ?? null ),
+	array( array(), array(), 'Operation timed out after 20000 milliseconds. The search found no row yet, but Airtable may still store it: look for owner+check@example.test in the Mentors table in a minute and delete it by hand.', 2, true ) );
 fresh_client();
 $GLOBALS['refuse_create']  = new WP_Error( 'http_request_failed', 'Operation timed out after 20000 milliseconds.' );
 $GLOBALS['by_email_after'] = array( array( 'id' => 'recREALMENTOR0001', 'fields' => array( 'Email' => 'owner+check@example.test', 'Full Name' => 'Real Mentor', 'Status' => 'Active' ) ) );
@@ -888,7 +898,7 @@ ck( 'and neither does a search that finds only a row that is not the check row',
 fresh_client();
 $GLOBALS['refuse_create'] = new WP_Error( 'airtable', 'Airtable refused the write.' );
 $refused                  = WPCPM_Mentor_Airtable_Row::check_row( 'owner+check@example.test', new WPCPM_Airtable() );
-ck( 'a create error with nothing found deletes nothing and says so, only because a search succeeded and found nothing', array( $refused['cleaned'], $GLOBALS['deleted'], $refused['error'], $refused['record'], count( $GLOBALS['searched'] ) ), array( array(), array(), 'Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.', '', 2 ) );
+ck( 'a create error with nothing found deletes nothing and says so, only because a search succeeded and found nothing, and a refusal is no transport error', array( $refused['cleaned'], $GLOBALS['deleted'], $refused['error'], $refused['record'], count( $GLOBALS['searched'] ), $refused['transport'] ?? null ), array( array(), array(), 'Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.', '', 2, false ) );
 fresh_client();
 $GLOBALS['refuse_create']       = new WP_Error( 'http_request_failed', 'Operation timed out after 20000 milliseconds.' );
 $GLOBALS['refuse_search_after'] = new WP_Error( 'airtable', 'Airtable is out of reach.' );
@@ -908,7 +918,7 @@ fresh_client();
 $GLOBALS['created_ids']    = array();
 $GLOBALS['by_email_after'] = array( 'recLOSTCHECK00001' );
 $no_id                     = WPCPM_Mentor_Airtable_Row::check_row( 'owner+check@example.test', new WPCPM_Airtable() );
-ck( 'an answer with no record id may hide a stored row too: it is searched for and deleted', array( $no_id['record'], $no_id['cleaned'], $no_id['error'] ), array( '', array( 'recLOSTCHECK00001' ), 'Airtable did not answer with a record ID. The search after it found recLOSTCHECK00001 and deleted it.' ) );
+ck( 'an answer with no record id may hide a stored row too: it is searched for and deleted', array( $no_id['record'], $no_id['cleaned'], $no_id['error'], $no_id['transport'] ?? null ), array( '', array( 'recLOSTCHECK00001' ), 'Airtable did not answer with a record ID. The search after it found recLOSTCHECK00001 and deleted it.', false ) );
 fresh_client();
 $GLOBALS['refuse_read'] = new WP_Error( 'airtable', 'Airtable is out of reach.' );
 $unread_back            = WPCPM_Mentor_Airtable_Row::check_row( 'owner+check@example.test', new WPCPM_Airtable() );

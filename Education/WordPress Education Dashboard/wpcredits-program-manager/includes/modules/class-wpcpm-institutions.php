@@ -2562,13 +2562,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * layer's own forms, which name no tab: they come back to the address they were pressed on, this
 	 * tab, and Stop's outcome waits on the flash channel this screen reads, which the card names in
 	 * its form, so "Sending stopped." prints here. Its button counts accounts, not people, in words
-	 * of its own.
+	 * of its own. An account that also mentors and whose invitation an activation held (1.122.33) is
+	 * left out of the button, and the card says how many, since only the account's own row sends it.
 	 */
 	private function render_invitations() {
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'  => self::ACTION_BULK,
 				'pending' => self::never_invited(),
+				'held'    => count( self::held_back() ),
 				'noun'    => __( 'institution accounts', 'wpcredits-program-manager' ),
 				/* translators: %s: how many accounts. */
 				'button'  => _n_noop( 'Invite %s institution account that has never been invited', 'Invite %s institution accounts that have never been invited', 'wpcredits-program-manager' ),

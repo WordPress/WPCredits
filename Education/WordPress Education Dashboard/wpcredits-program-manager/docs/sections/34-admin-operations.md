@@ -96,14 +96,14 @@ that template is sent in place of the shipped text, welcome or none, so an edit 
 welcome existed has to be replaced. A reply to the invitation reaches the address under **Contact
 address in emails**, as the program's Reply-To, which no other invitation carries.
 
-The mentor's invitation is queued on every activation of a mentor application, whatever
-**Invitation emails** says, and goes out a few at a time like the others, under the same rules: the
-fifteen minutes, the lock, and a refused email writes no stamp. It is not queued for an
-Administrator, and it is held when the account is not yet confirmed as the person's, linked by
-WordPress.org username alone or with another account also answering for the applicant: **Resend
-invite** on the Mentors screen's **Accounts** tab sends it once an Administrator has confirmed which
-account is the person's. The **Activated** view of the Mentors screen's Waiting for review tab says
-what became of it since the person was made a mentor.
+The mentor's invitation is queued on every activation of a mentor application, whatever **Invitation
+emails** says, and goes out a few at a time like the others, under the same rules: the fifteen
+minutes, the lock, and a refused email writes no stamp. It is not queued for an Administrator, and
+it is held when the account is not yet confirmed as the person's, linked by WordPress.org username
+alone or with another account also answering for the applicant: **Send invite** or **Resend invite**
+on its row in the Mentors screen's **Accounts** tab sends it once an Administrator has confirmed
+which account is the person's. The **Activated** view of the Mentors screen's Waiting for review tab
+says what became of it since the person was made a mentor.
 
 Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
 on the Institution Dashboard, a student with no sign-in on record since the site began recording
@@ -112,8 +112,12 @@ that none has been, and a **Resend invitation** button (**Send invitation** when
 member of the student's own institution can press it, and so can an Administrator who opens that
 institution's dashboard through the switcher. It sends the same invitation as **Resend invite**
 here, with a new link that replaces the one before, and no Administrator is emailed. A student with
-a sign-in on record shows no line and no button: a lost password has WordPress's own reset. The
-institution learns only whether a sign-in is on record, never when.
+a sign-in on record shows no line and no button: a lost password has WordPress's own reset. A
+student who also mentors, whose invitation was held when an application made them a mentor, shows
+the line with no button: in its place the card says the program's Administrators send this
+invitation once they have confirmed the account belongs to the student, and a press from a page
+drawn before is told the same and sends nothing, taking none of the day's twenty. The institution
+learns only whether a sign-in is on record, never when.
 
 The fifteen minutes hold here too, and each institution can send twenty a day, the presses of an
 Administrator through the switcher included. Two presses for one student at the same moment send one

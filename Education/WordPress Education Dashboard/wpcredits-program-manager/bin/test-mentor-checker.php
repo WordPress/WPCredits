@@ -1115,16 +1115,16 @@ WPCPM_Settings::$connected = false;
 $result                    = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
 ck( 'without the Airtable connection the site\'s applications are checked, and the one whose course shows is made a mentor by whoever ran the check',
 	array( count( $result['rows'] ), WPCPM_Mentor_Activation::$calls, $result['summary']['activated'], array_keys( $result['summary'] ) ),
-	array( 3, array( array( 502, 7 ) ), 1, array( 'checked', 'completed', 'eligible', 'promoted', 'activated', 'skipped', 'failed', 'problems' ) ) );
+	array( 3, array( array( 502, 7 ) ), 1, array( 'checked', 'completed', 'eligible', 'waiting', 'promoted', 'activated', 'skipped', 'failed', 'problems' ) ) );
 ck( 'every site row\'s check is kept on its application', WPCPM_Mentor_Application::$checked, array( array( 503, 'not_completed' ), array( 502, 'completed' ), array( 501, 'not_completed' ) ) );
 ck( 'and the row reads what happened', array( $result['rows'][1]['action'], $result['rows'][1]['action_note'], $result['rows'][1]['status'] ), array( 'activated', 'Made a mentor on this site.', 'Made a mentor' ) );
 WPCPM_Settings::$connected        = true;
 WPCPM_Mentor_Activation::$calls   = array();
 WPCPM_Mentor_Activation::$enabled = false;
 $waits                            = ( new WPCPM_Mentor_Checker_Runner() )->run_all( true );
-ck( 'an application whose course shows waits while Make mentors from applications is off, and nobody is made a mentor',
-	array( $waits['rows'][1]['action'], $waits['rows'][1]['action_note'], WPCPM_Mentor_Activation::$calls ),
-	array( 'eligible', 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.', array() ) );
+ck( 'an application whose course shows waits while Make mentors from applications is off, and nobody is made a mentor: the row keeps only that it is ready, and the waiting is said when the row is drawn, while the switch is off',
+	array( $waits['rows'][1]['action'], $waits['rows'][1]['action_note'], WPCPM_Mentor_Activation::$calls, method_exists( 'WPCPM_Mentor_Checker_Runner', 'note_of' ) ? WPCPM_Mentor_Checker_Runner::note_of( $waits['rows'][1] ) : 'no note_of()' ),
+	array( 'eligible', 'Ready to be made a mentor.', array(), 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.' ) );
 WPCPM_Mentor_Activation::$enabled = true;
 $dry                              = ( new WPCPM_Mentor_Checker_Runner() )->run_all( false );
 ck( 'report only, a site row whose course shows is ready, and nobody is made a mentor', array( $dry['rows'][1]['action'], $dry['rows'][1]['action_note'], WPCPM_Mentor_Activation::$calls ), array( 'eligible', 'Ready to be made a mentor.', array() ) );
@@ -1236,6 +1236,139 @@ $eligible = $tool->prepare_row_for_js( array( 'record_id' => 'app-502', 'name' =
 
 ck( 'an eligible site row keeps its Promote button, keyed by the application, and its status is drawn as it is',
 	array( false !== strpos( $eligible['html'], 'class="button button-small wpcpm-checker-promote" data-record-id="app-502"' ), false !== strpos( $eligible['html'], 'Selected on this site' ) ), array( true, true ) );
+
+// While Make mentors from applications is off, a site row whose course shows waits, and says so: a
+// Promote would check it again and answer that it waits, so none is offered. An Airtable row is
+// promoted whatever the switch says, and keeps its button.
+WPCPM_Mentor_Activation::$enabled = false;
+$waiting = $tool->prepare_row_for_js( array( 'record_id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'https://profiles.wordpress.org/bo-example/', 'username' => 'bo-example', 'status' => 'Selected on this site', 'completed' => true, 'state' => 'completed', 'action' => 'eligible', 'action_note' => 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.' ) );
+$airtable_row = $tool->prepare_row_for_js( array( 'record_id' => 'recVETTED00000001', 'name' => 'Di Example', 'profile' => 'https://profiles.wordpress.org/di-example/', 'username' => 'di-example', 'status' => 'Vetted', 'completed' => true, 'state' => 'completed', 'action' => 'eligible', 'action_note' => 'Ready to move to Active.' ) );
+WPCPM_Mentor_Activation::$enabled = true;
+
+ck( 'a site row that waits for Make mentors from applications offers no Promote, and says it waits; an Airtable row keeps its Promote with the switch off',
+	array( false !== strpos( $waiting['html'], 'wpcpm-checker-promote' ), false !== strpos( $waiting['html'], 'it waits until Make mentors from applications is switched on.' ), false !== strpos( $airtable_row['html'], 'class="button button-small wpcpm-checker-promote" data-record-id="recVETTED00000001"' ) ),
+	array( false, true, true ) );
+
+// A site row the last run found eligible, whose application has left the selected state since, comes
+// back from Promote all as a failed row named as the run named it, from the application, never as
+// "(unnamed)", with its profile and the reason.
+reset_world();
+WPCPM_Mentor_Application::$selected      = array(
+	502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ),
+	503 => array( 'name' => 'Cy Example', 'handle' => 'cy-example', 'selected_at' => 200 ),
+);
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example', 'cy-example' );
+( new WPCPM_Mentor_Checker_Runner() )->run_all( false );
+unset( WPCPM_Mentor_Application::$selected[503] );
+$_POST = array( 'nonce' => 'n' );
+$moved = ajax( 'ajax_promote_all' );
+$left  = array_values( array_filter( isset( $moved->data['rows'] ) ? $moved->data['rows'] : array(), function ( $row ) { return 'app-503' === $row['record_id']; } ) );
+
+ck( 'Promote all names a site row that has left the selected state since the run from its application, and says why it failed',
+	array( $moved->ok, isset( $left[0] ) ? array( $left[0]['action'], $left[0]['name'], $left[0]['action_note'], false !== strpos( $left[0]['html'], '<strong>Cy Example</strong>' ), false !== strpos( $left[0]['html'], '(unnamed)' ) ) : 'no row', WPCPM_Mentor_Activation::$calls ),
+	array( true, array( 'failed', 'Cy Example', 'That application is no longer waiting for the course.', true, false ), array( array( 502, 7 ) ) ) );
+
+// While Make mentors from applications is off, an application whose course shows waits: it is not
+// awaiting promotion, so it is counted apart, drawn as waiting, and left out of Promote all, which
+// promotes the Airtable mentors as before. Once the switch is on, the same rows are eligible again.
+reset_world();
+WPCPM_Mentor_Application::$selected      = array( 502 => array( 'name' => 'Bo Example', 'handle' => 'bo-example', 'selected_at' => 300 ) );
+WPCPM_Airtable::mentor( 'recVETTED00000001', 'Di Example', 'https://profiles.wordpress.org/di-example/' );
+WPCPM_Mentor_Checker_Profile::$completed = array( 'bo-example', 'di-example' );
+WPCPM_Mentor_Activation::$enabled        = false;
+$off_rows                                = ( new WPCPM_Mentor_Checker_Runner() )->run_all( false )['rows'];
+$off_sum                                 = WPCPM_Mentor_Checker_Runner::summarize( $off_rows );
+$off_html                                = array_column( array_map( array( new WPCPM_Mentor_Checker(), 'prepare_row_for_js' ), $off_rows ), 'html', 'record_id' );
+$off_line                                = ( new WPCPM_Mentor_Checker() )->status_line();
+WPCPM_Mentor_Activation::$enabled        = true;
+$on_sum                                  = WPCPM_Mentor_Checker_Runner::summarize( $off_rows );
+WPCPM_Mentor_Activation::$enabled        = false;
+
+ck( 'while the switch is off, an application whose course shows is counted as waiting, not as awaiting promotion, and an Airtable mentor as before; with the switch on, both await promotion',
+	array( array( $off_sum['eligible'], $off_sum['waiting'] ), array( $on_sum['eligible'], $on_sum['waiting'] ) ),
+	array( array( 1, 1 ), array( 2, 0 ) ) );
+ck( 'the waiting row is drawn as waiting, which the screen\'s count reads, with no Promote, and the Airtable row as awaiting promotion',
+	array(
+		false !== strpos( $off_html['app-502'], '<tr data-record-id="app-502" data-action="waiting">' ),
+		false !== strpos( $off_html['app-502'], '<span class="wpcpm-checker-action wpcpm-checker-action--waiting">Waiting</span>' ),
+		false !== strpos( $off_html['app-502'], 'wpcpm-checker-promote' ),
+		false !== strpos( $off_html['recVETTED00000001'], '<tr data-record-id="recVETTED00000001" data-action="eligible">' ),
+	),
+	array( true, true, false, true ) );
+ck( 'and the tool\'s status line says how many wait for the switch beside how many await promotion',
+	$off_line,
+	'Last run 5 mins ago - 2 checked, 1 awaiting promotion, 1 waiting for Make mentors from applications.' );
+
+$_POST     = array( 'nonce' => 'n' );
+$off_press = ajax( 'ajax_promote_all' );
+
+ck( 'Promote all leaves the waiting application out and promotes the Airtable mentor as before',
+	array( $off_press->ok, array_column( isset( $off_press->data['rows'] ) ? $off_press->data['rows'] : array(), 'record_id' ), WPCPM_Mentor_Activation::$calls, WPCPM_Airtable::$records['recVETTED00000001']['fields']['Status'] ),
+	array( true, array( 'recVETTED00000001' ), array(), 'Active' ) );
+
+$_POST      = array( 'nonce' => 'n' );
+$only_press = ajax( 'ajax_promote_all' );
+
+ck( 'with only waiting applications left, Promote all says they wait for the switch, and makes nobody a mentor',
+	array( $only_press->ok, isset( $only_press->data['message'] ) ? $only_press->data['message'] : '', WPCPM_Mentor_Activation::$calls ),
+	array( false, 'Nobody is waiting to be promoted: the applications whose course shows wait until Make mentors from applications is switched on.', array() ) );
+
+/** The screen's summary line for a summary, or what threw, so a missing seam fails as a check. */
+function summary_line( array $summary ) {
+	ob_start();
+
+	try {
+		$line = new ReflectionMethod( 'WPCPM_Mentor_Checker', 'render_summary' );
+
+		// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+		if ( PHP_VERSION_ID < 80100 ) {
+			$line->setAccessible( true );
+		}
+
+		$line->invoke( new WPCPM_Mentor_Checker(), $summary, true );
+	} catch ( Throwable $thrown ) {
+		echo 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+	}
+
+	return (string) ob_get_clean();
+}
+$off_tiles                        = summary_line( $off_sum );
+WPCPM_Mentor_Activation::$enabled = true;
+$on_tiles                         = summary_line( $on_sum );
+
+ck( 'the screen\'s summary line says how many wait for the switch while it is off, and says nothing of it once it is on',
+	array(
+		false !== strpos( $off_tiles, '<span class="wpcpm-checker-stat"><b data-stat="waiting">1</b> waiting for Make mentors from applications</span>' ),
+		false !== strpos( $off_tiles, '<b data-stat="eligible">1</b> awaiting promotion' ),
+		false !== strpos( $on_tiles, 'data-stat="waiting"' ),
+		false !== strpos( $on_tiles, '<b data-stat="eligible">2</b> awaiting promotion' ),
+	),
+	array( true, true, false, true ) );
+
+// A row the run kept while the switch was off reads that it waits only while the switch is off: once
+// it is on, the same row reads as ready, beside Awaiting promotion and its Promote. A row an earlier
+// release kept with the waiting words in its note reads the same way.
+WPCPM_Mentor_Activation::$enabled = false;
+$kept_row                         = array( 'record_id' => 'app-502', 'name' => 'Bo Example', 'profile' => 'https://profiles.wordpress.org/bo-example/', 'username' => 'bo-example', 'status' => 'Selected on this site', 'completed' => true, 'state' => 'completed', 'action' => 'eligible', 'action_note' => 'Ready to be made a mentor.' );
+$kept_off                         = ( new WPCPM_Mentor_Checker() )->prepare_row_for_js( $kept_row )['html'];
+WPCPM_Mentor_Activation::$enabled = true;
+$kept_on                          = ( new WPCPM_Mentor_Checker() )->prepare_row_for_js( $kept_row )['html'];
+$legacy_on                        = ( new WPCPM_Mentor_Checker() )->prepare_row_for_js( array( 'action_note' => 'Ready to be made a mentor; it waits until Make mentors from applications is switched on.' ) + $kept_row )['html'];
+WPCPM_Mentor_Activation::$enabled = false;
+
+ck( 'a kept row says it waits for the switch only while the switch is off, and once it is on reads as ready, with its Promote, an earlier release\'s note included',
+	array(
+		array( false !== strpos( $kept_off, '<span class="wpcpm-checker-note">Ready to be made a mentor; it waits until Make mentors from applications is switched on.</span>' ), false !== strpos( $kept_off, 'wpcpm-checker-promote' ) ),
+		array( false !== strpos( $kept_on, '<span class="wpcpm-checker-note">Ready to be made a mentor.</span>' ), false !== strpos( $kept_on, 'it waits until' ), false !== strpos( $kept_on, 'wpcpm-checker-action--eligible">Awaiting promotion</span>' ), false !== strpos( $kept_on, 'wpcpm-checker-promote' ) ),
+		array( false !== strpos( $legacy_on, '<span class="wpcpm-checker-note">Ready to be made a mentor.</span>' ), false !== strpos( $legacy_on, 'it waits until' ) ),
+	),
+	array( array( true, false ), array( true, false, true, true ), array( true, false ) ) );
+
+// The screen's own count, in the browser: a row drawn as waiting is counted as such, not as eligible.
+$checker_js = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/mentor-checker.js' );
+ck( 'the screen\'s script counts a waiting row apart from the eligible ones, into the summary line\'s own figure',
+	array( false !== strpos( $checker_js, "} else if ( 'waiting' === action ) {" ), false !== strpos( $checker_js, 'waiting: 0' ) ),
+	array( true, true ) );
 
 echo "\n=== Where the mentors come from ===\n";
 

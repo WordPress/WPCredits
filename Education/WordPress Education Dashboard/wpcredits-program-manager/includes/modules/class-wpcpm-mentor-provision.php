@@ -26,9 +26,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   recognizes a mentor, and an account the caller already found, linked as given, so two lookups
  *   cannot make two accounts.
  * - The three keys an activation leaves on an account: while its row is not written
- *   (`USER_ROW_PENDING`), when it last made the account a mentor or wrote its row
- *   (`USER_ACTIVATED_AT`), and why it held the invitation (`USER_INVITE_HELD`). Linking the account
- *   to a row clears the first; the invitation sent from the account's row clears the third.
+ *   (`USER_ROW_PENDING`); when it last made the account a mentor or last wrote or found its Mentors
+ *   row (`USER_ACTIVATED_AT`), a time each of those moves on again, Write the Airtable row again
+ *   included; and why it held the invitation (`USER_INVITE_HELD`). Linking the account to a row
+ *   clears the first; the invitation sent from the account's row clears the third.
  */
 class WPCPM_Mentor_Provision {
 

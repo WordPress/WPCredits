@@ -218,7 +218,7 @@ class WPCPM_CLI {
 						$seen,
 						mb_substr( isset( $row['name'] ) ? $row['name'] : '', 0, 28 ),
 						isset( $row['state'] ) ? $row['state'] : '',
-						isset( $row['action_note'] ) && '' !== $row['action_note'] ? $row['action_note'] : ( isset( $row['message'] ) ? $row['message'] : '' )
+						'' !== WPCPM_Mentor_Checker_Runner::note_of( $row ) ? WPCPM_Mentor_Checker_Runner::note_of( $row ) : ( isset( $row['message'] ) ? $row['message'] : '' )
 					)
 				);
 			}
@@ -566,13 +566,15 @@ class WPCPM_CLI {
 	 * Print the Mentors row an application would write, or check that the base takes a whole row.
 	 *
 	 * With a reference, prints each cell the application would write to the Mentors table, as the
-	 * base's columns take it, and what would be left out. It reads Airtable and writes nothing. It
-	 * prints the applicant's answers, so use it on a test application, not on a real person's.
+	 * base's columns take it, and what would be left out, with why when the base's columns could not
+	 * be read. It reads Airtable and writes nothing. It prints the applicant's answers, so use it on a
+	 * test application, not on a real person's.
 	 *
 	 * With --check, writes one synthetic row with the test mailbox's address and a Status that the
 	 * mentors sync and the Mentor Status Checker do not read, reads it back, deletes it and says which
-	 * columns the base kept. Run it before switching Make mentors from applications on. Nothing on
-	 * this site changes.
+	 * columns the base kept. A create that failed in transport says it failed, never that Airtable
+	 * refused it, since it may have reached the base. Run it before switching Make mentors from
+	 * applications on. Nothing on this site changes.
 	 *
 	 * ## OPTIONS
 	 *
@@ -628,7 +630,8 @@ class WPCPM_CLI {
 			WP_CLI::log( sprintf( '%s: %s', $column, $value ) );
 		}
 
-		$left_out = WPCPM_Mentor_Airtable_Row::left_out_sentence( $row['left_out'] );
+		// With the reasons: nothing else the preview prints says why the columns could not be read.
+		$left_out = WPCPM_Mentor_Airtable_Row::left_out_sentence( $row['left_out'], true );
 
 		if ( '' !== $left_out ) {
 			WP_CLI::log( $left_out );
@@ -659,10 +662,15 @@ class WPCPM_CLI {
 
 		if ( '' === $record ) {
 			// Nothing sent (an address, the columns, a row already holding the address) says why as it is;
-			// a create that was sent and refused, or answered no record, says it was Airtable's.
-			$refused = array() === $check['found_before'] && array() !== $check['written'];
+			// a create that was sent and refused, or answered no record, says it was Airtable's; and one
+			// that failed in transport, which may have reached Airtable, says only that it failed.
+			$sent = array() === $check['found_before'] && array() !== $check['written'];
 
-			WP_CLI::error( $refused ? sprintf( 'Airtable refused the check row: %s', $check['error'] ) : $check['error'] );
+			if ( $sent && ! empty( $check['transport'] ) ) {
+				WP_CLI::error( sprintf( 'The check row\'s create failed: %s', $check['error'] ) );
+			}
+
+			WP_CLI::error( $sent ? sprintf( 'Airtable refused the check row: %s', $check['error'] ) : $check['error'] );
 		}
 
 		WP_CLI::log( sprintf( 'Written: %s', implode( ', ', $check['written'] ) ) );

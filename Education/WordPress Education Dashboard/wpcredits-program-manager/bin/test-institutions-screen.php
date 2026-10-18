@@ -1184,6 +1184,10 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 			$GLOBALS['never_invited_asked'][] = array( $role, $meta );
 			return $GLOBALS['never_invited'] ?? array();
 		}
+		/** Nobody's invitation held here: bin/test-institutions-accounts.php plays the held account. */
+		public static function held_back( $role, $meta ) {
+			return array();
+		}
 		public static function render_invite_card( array $args ) {
 			echo '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>';
 			if ( ! empty( $args['pending'] ) ) {

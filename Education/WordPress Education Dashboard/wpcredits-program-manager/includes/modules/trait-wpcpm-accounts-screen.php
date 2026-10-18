@@ -405,6 +405,22 @@ trait WPCPM_Accounts_Screen {
 	}
 
 	/**
+	 * Every account of the audience never invited whose invitation an activation of a mentor
+	 * application held (`WPCPM_Mail::held_back()`, 1.122.33), by its accounts table's own role and
+	 * stamp, as `never_invited()` reads them: the accounts that leaves out, which the invitations card
+	 * names, since only an account's own row sends that invitation.
+	 *
+	 * @return int[]
+	 */
+	private static function held_back() {
+		wpcpm_load_accounts_tables();
+
+		$table_class = static::table_class();
+
+		return WPCPM_Mail::held_back( $table_class::role(), $table_class::invite_meta() );
+	}
+
+	/**
 	 * The screen's Accounts tab.
 	 *
 	 * @return string

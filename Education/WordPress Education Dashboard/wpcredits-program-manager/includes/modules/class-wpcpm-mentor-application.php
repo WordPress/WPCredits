@@ -1251,8 +1251,7 @@ final class WPCPM_Mentor_Application {
 	 * one, so is no activation), not `EVENT_AIRTABLE_WRITTEN`, `EVENT_AIRTABLE_REFUSED` or
 	 * `EVENT_AIRTABLE_SETTLED` (what became of the Mentors row, which settling closes without a
 	 * write from here), not the acknowledgements, and not the confirming of an address, a question, a
-	 * second opinion or a reopening. Counts already kept from deleted rows (`OPT_KEPT`) are added as
-	 * they were kept.
+	 * second opinion or a reopening.
 	 *
 	 * @param WP_Post $post The row.
 	 * @return array<string, array{received: int, selected: int, activated: int, declined: int, lapsed: int}> Each figure 0 or 1.
@@ -1293,7 +1292,9 @@ final class WPCPM_Mentor_Application {
 	}
 
 	/**
-	 * What deleted rows counted for the feed, by month.
+	 * What deleted rows counted for the feed, by month (`OPT_KEPT`): each deletion (`forget()`) adds
+	 * the row's `month_counts_of()` to them, and the feed adds them, as they were kept, to what the
+	 * rows the site still holds count, so retention never rewrites a month the feed has shown.
 	 *
 	 * @return array
 	 */

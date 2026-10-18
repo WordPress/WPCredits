@@ -457,10 +457,16 @@ final class WPCPM_Mentor_Airtable_Row {
 	/**
 	 * What was left out of a row, one sentence for each entry, joined by a space; '' for none.
 	 *
+	 * With `$reasons`, what could not be read (`unread`) says why, in the words Airtable or the site
+	 * gave: the command line's preview asks for that, since nothing else it prints says it. The
+	 * Activated view and the history do not, since a row that could not be read is a refused write,
+	 * whose refusal, printed beside it, says it already (`unread_error()`).
+	 *
 	 * @param array $left_out Column name to `why` and `values`, as `cells()` answers it.
+	 * @param bool  $reasons  Whether what could not be read says why.
 	 * @return string
 	 */
-	public static function left_out_sentence( array $left_out ) {
+	public static function left_out_sentence( array $left_out, $reasons = false ) {
 		$sentences = array();
 
 		foreach ( $left_out as $column => $entry ) {
@@ -488,8 +494,22 @@ final class WPCPM_Mentor_Airtable_Row {
 					break;
 
 				case 'unread':
+					$why = $reasons && isset( $values[0] ) ? self::sentence( $values[0] ) : '';
+
+					if ( '*' === $column && '' !== $why ) {
+						/* translators: %s: the error Airtable or the site gave, a sentence. */
+						$sentences[] = sprintf( __( 'The base\'s columns could not be read: %s', 'wpcredits-program-manager' ), $why );
+						break;
+					}
+
 					if ( '*' === $column ) {
 						$sentences[] = __( 'The base\'s columns could not be read.', 'wpcredits-program-manager' );
+						break;
+					}
+
+					if ( '' !== $why ) {
+						/* translators: 1: the name of a column of the Mentors table, 2: the error Airtable or the site gave, a sentence. */
+						$sentences[] = sprintf( __( '%1$s: its linked table could not be read: %2$s', 'wpcredits-program-manager' ), $column, $why );
 						break;
 					}
 
@@ -1012,6 +1032,9 @@ final class WPCPM_Mentor_Airtable_Row {
 	 *     @type string   $error        The base's answer to the create or the site's reason, '' when it wrote.
 	 *     @type string   $read_error   Why the read-back failed, or ''.
 	 *     @type string   $delete_error Why the delete failed, or ''.
+	 *     @type bool     $transport    Whether the create failed in transport
+	 *                                  (`http_request_failed`), when it may have reached Airtable and
+	 *                                  is no refusal of Airtable's.
 	 * }
 	 */
 	public static function check_row( $email, WPCPM_Airtable $airtable ) {
@@ -1028,6 +1051,7 @@ final class WPCPM_Mentor_Airtable_Row {
 			'error'        => '',
 			'read_error'   => '',
 			'delete_error' => '',
+			'transport'    => false,
 		);
 		$email  = trim( (string) $email );
 
@@ -1118,8 +1142,9 @@ final class WPCPM_Mentor_Airtable_Row {
 			$transport = is_wp_error( $created ) && 'http_request_failed' === $created->get_error_code();
 			$after     = self::after_create_error( $airtable, $email, $message, $transport );
 
-			$result['error']   = $after['error'];
-			$result['cleaned'] = $after['cleaned'];
+			$result['error']     = $after['error'];
+			$result['cleaned']   = $after['cleaned'];
+			$result['transport'] = $transport;
 
 			return $result;
 		}

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.33
+Stable tag: 1.122.34
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,18 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.34 =
+
+* Send invite and Resend invite on ticked accounts leave out an account whose invitation was held when an application made it a mentor, and the notice says how many they left out: their invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it. When that is everybody the press would have sent to, the notice says so as the reason nothing went. Before, Resend invite said such an account's invitation was queued, and the queue then dropped it without a word, and Send invite said the account had been invited already.
+* The Students, Institutions and Sponsors screens' Invitations cards say how many accounts they left out because their invitation is held, an account that also mentors (on the Students screen at the institution the list shows too), as the Mentors card does; with nobody else left they no longer say that every one has been invited.
+* The Invitations card's button agrees with its count on the Students and Mentors screens: "Invite 1 student who has never been invited" (with the institution after "student" on a list narrowed to one) and "Invite 1 mentor who has never been invited", where it read "Invite 1 students who has never been invited"; the plurals read as before.
+* Every sentence about a held invitation (the notice after The course is completed, the application's history and its invitation line under Activated) says to press Send invite or Resend invite on the account's row in the Mentors screen's Accounts tab, since an account never invited shows Send invite there. The question before The course is completed says what the press does: it makes or links the account, writes or reactivates the Airtable row, and queues the invitation with the welcome unless the account must be confirmed first or is an Administrator's, the applicant is a mentor all the same if Airtable refuses the row, and an applicant who is a mentor already is only filed as one.
+* On the Institution Dashboard, a student whose invitation is held shows, in the Resend invitation button's place, that the program's Administrators send this invitation once they have confirmed the account belongs to the student, and a press from a page drawn before says the same and sends nothing, rather than that the invitation could not be sent. It takes none of the day's twenty.
+* Write the Airtable row again on an application whose account no longer exists says so in a warning, not in the green notice.
+* While Make mentors from applications is off, the Mentor Status Checker draws an application whose course shows as Waiting, with no Promote, since the row says it waits, and counts it apart from those awaiting promotion: the summary above the results and the tool's status line say how many wait for the switch, and Promote all eligible leaves them out and promotes Airtable's mentors as before. Once the switch is on, the same rows await promotion again, and no longer say they wait. An Airtable mentor's row keeps its Promote. An application that leaves Selected (course pending) between a run and Promote all eligible comes back as failed under the applicant's name, with the reason, rather than as "(unnamed)".
+* `wp wpcredits mentor_airtable_row <reference>` says why the base's columns could not be read when they could not. `wp wpcredits mentor_airtable_row --check` says "The check row's create failed:" before a create that failed on its way to Airtable, which may still have reached the base, and keeps "Airtable refused the check row:" for a create Airtable answered.
+* For developers: `WPCPM_Accounts_Table::queue_ticked()` reads `WPCPM_Mentor_Provision::USER_INVITE_HELD` through `WPCPM_Mail::is_held()` before it queues, answers the reason `held` or `left-out`, and carries how many it left out as `held`, which `selected_sentence()` words; the accounts screens' shared code has `held_back()`, which the Students and Mentors cards pass to `WPCPM_Mail::render_invite_card()`; `WPCPM_Institution_Resend` gains `OUT_HELD` (`invite-held`); `WPCPM_Mail::render_invite_card()` takes `button_args`, the values the button's own words take after the count, and its default button names people; `WPCPM_Mentor_Checker_Runner::waits_for_switch()` says whether a result row waits for Make mentors from applications, `note_of()` words a row's note from the switch as it is, and `summarize()` counts those rows as `waiting`; `WPCPM_Mentor_Activation::retry_airtable()` answers `gone`, which the queue flashes as `mapp-airtable-gone`; `WPCPM_Mentor_Airtable_Row::left_out_sentence()` takes `$reasons`, and `check_row()` answers `transport`.
 
 = 1.122.33 =
 

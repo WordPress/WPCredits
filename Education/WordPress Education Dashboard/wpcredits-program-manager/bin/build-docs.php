@@ -70,7 +70,7 @@ $guides = array(
 	'students'       => array(
 		'title' => 'Student guide',
 		'lede'  => 'Everything on your Student Report Card, and how to book a call with your mentor.',
-		'intro' => "Welcome to the WordPress Education Dashboard. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the Administrators have their own.",
+		'intro' => "Welcome to the Education Hub. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the Administrators have their own.",
 		'parts' => array( '00-signing-in', '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help' ),
 	),
 	'mentors'        => array(
@@ -114,7 +114,7 @@ $guides = array(
 	'sponsors'       => array(
 		'title' => 'Sponsor guide',
 		'lede'  => 'Your Sponsor Dashboard, your offers and codes, what your company can see, and how posts are approved.',
-		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the WordPress Education Dashboard, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.",
+		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the Education Hub, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.",
 		'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' ),
 	),
 );

@@ -81,6 +81,8 @@ class WPCPM_Mentor_Checker_Runner {
 		call_user_func( $progress, $row );
 		return array( 'rows' => array( $row ), 'summary' => array( 'checked' => 1, 'promoted' => 1 ), 'airtable_error' => self::$airtable_error );
 	}
+	/** The note a row is printed with: here, the one it kept, as for every row but an application's. */
+	public static function note_of( array $row ) { return isset( $row['action_note'] ) ? $row['action_note'] : ''; }
 }
 class WPCPM_Mentor_Checker_Slack {
 	public static $sentence = '';
@@ -137,13 +139,21 @@ class WPCPM_Mentor_Airtable_Row {
 	public static $preview = array();
 	public static $checks  = array();
 	public static $asked   = array();
+	public static $reasons = array();
 	public static $lines_when_asked = array();
 	public static function preview( WP_Post $post, WPCPM_Airtable $airtable ) { self::$asked[] = array( 'preview', $post->ID ); return self::$preview; }
 	public static function check_row( $email, WPCPM_Airtable $airtable ) { self::$asked[] = array( 'check', $email ); self::$lines_when_asked = WP_CLI::$lines; return array_shift( self::$checks ); }
-	public static function left_out_sentence( array $left_out ) {
-		$sentences = array();
+	/** The real one's sentences for a name the base lacks and for columns that could not be read, with the reason when it is asked for, which is kept. */
+	public static function left_out_sentence( array $left_out, $reasons = false ) {
+		self::$reasons[] = $reasons;
+		$sentences       = array();
 
 		foreach ( $left_out as $column => $entry ) {
+			if ( 'unread' === $entry['why'] ) {
+				$sentences[] = 'The base\'s columns could not be read' . ( $reasons ? ': ' . implode( ', ', $entry['values'] ) : '.' );
+				continue;
+			}
+
 			$sentences[] = sprintf( '%1$s: not in the base: %2$s.', $column, implode( ', ', $entry['values'] ) );
 		}
 
@@ -754,6 +764,17 @@ ck( 'mentor_airtable_row prints each cell an application would write, lists valu
 	array( 'log: Full Name: Ada Example', 'log: Languages: recLANGENGLISH001, recLANGPOLISH0001', 'log: Available hours per week: 2.5', 'log: Languages: not in the base: Wu Chinese (Shanghainese).', 'success: Nothing was written to Airtable.' ) );
 ck( 'and asked the row class about that application alone', WPCPM_Mentor_Airtable_Row::$asked, array( array( 'preview', 503 ) ) );
 WPCPM_Mentor_Airtable_Row::$preview = array(
+	'cells'    => array( 'Full Name' => 'Ada Example', 'WordPress profile' => 'https://profiles.wordpress.org/ada-example/', 'Email' => 'ada@example.test', 'Status' => 'Active' ),
+	'left_out' => array( '*' => array( 'why' => 'unread', 'values' => array( 'Operation timed out after 20000 milliseconds.' ) ) ),
+);
+WPCPM_Mentor_Airtable_Row::$reasons = array();
+ck( 'columns that could not be read are said with the reason, which nothing else in the preview says: the command asks the row class for the reasons',
+	array( cli_lines( 'mentor_airtable_row', array( 'MAPP-2026-0503' ) ), WPCPM_Mentor_Airtable_Row::$reasons ),
+	array(
+		array( 'log: Full Name: Ada Example', 'log: WordPress profile: https://profiles.wordpress.org/ada-example/', 'log: Email: ada@example.test', 'log: Status: Active', 'log: The base\'s columns could not be read: Operation timed out after 20000 milliseconds.', 'success: Nothing was written to Airtable.' ),
+		array( true ),
+	) );
+WPCPM_Mentor_Airtable_Row::$preview = array(
 	'cells'    => array( 'Teacher from a participating institution?' => false, 'Sponsored' => true ),
 	'left_out' => array(),
 );
@@ -781,6 +802,7 @@ function check_result( array $over = array() ) {
 			'error'        => '',
 			'read_error'   => '',
 			'delete_error' => '',
+			'transport'    => false,
 		),
 		$over
 	);
@@ -822,14 +844,17 @@ ck( 'a refused create is printed in the base\'s words with what the search after
 	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.' ) ) ),
 	array( 'error: Airtable refused the check row: Airtable refused the write. The search after it found nothing, so nothing was stored and nothing was deleted.' ) );
 ck( 'a create whose row the search after it found and deleted says so in the same line',
-	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'cleaned' => array( 'recLOSTCHECK00001' ), 'error' => 'Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.' ) ) ),
-	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.' ) );
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'cleaned' => array( 'recLOSTCHECK00001' ), 'error' => 'Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.', 'transport' => true ) ) ),
+	array( 'error: The check row\'s create failed: Operation timed out after 20000 milliseconds. The search after it found recLOSTCHECK00001 and deleted it.' ) );
 ck( 'a search after the create that failed too names the address to look for by hand',
-	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.' ) ) ),
-	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.' ) );
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.', 'transport' => true ) ) ),
+	array( 'error: The check row\'s create failed: Operation timed out after 20000 milliseconds. Could not search the Mentors table after the create failed, so a row may have been stored: look for owner+check@example.test in the Mentors table and delete it by hand.' ) );
 ck( 'and a row the search found that could not be deleted names the row to delete by hand',
-	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.' ) ) ),
-	array( 'error: Airtable refused the check row: Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.' ) );
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.', 'transport' => true ) ) ),
+	array( 'error: The check row\'s create failed: Operation timed out after 20000 milliseconds. The row recLOSTCHECK00001 could not be deleted: delete it by hand in the Mentors table.' ) );
+ck( 'and a transport error whose search found no row says Airtable may still store it, after the neutral prefix, never as a refusal',
+	check_lines( check_result( array( 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'Operation timed out after 20000 milliseconds. The search found no row yet, but Airtable may still store it: look for owner+check@example.test in the Mentors table in a minute and delete it by hand.', 'transport' => true ) ) ),
+	array( 'error: The check row\'s create failed: Operation timed out after 20000 milliseconds. The search found no row yet, but Airtable may still store it: look for owner+check@example.test in the Mentors table in a minute and delete it by hand.' ) );
 ck( 'a check stopped before anything was sent prints the reason as it is',
 	check_lines( check_result( array( 'written' => array(), 'record' => '', 'kept' => array(), 'deleted' => false, 'error' => 'The activation\'s status, Active, is not a choice of the Status column.' ) ) ),
 	array( 'error: The activation\'s status, Active, is not a choice of the Status column.' ) );

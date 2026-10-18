@@ -621,24 +621,12 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 				'pending' => self::never_invited(),
 				'held'    => count( self::held_back() ),
 				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
+				/* translators: %s: how many mentors. */
+				'button'  => _n_noop( 'Invite %s mentor who has never been invited', 'Invite %s mentors who have never been invited', 'wpcredits-program-manager' ),
 				'hidden'  => array( self::TAB_FIELD => self::TAB_ACCOUNTS ),
 				'flash'   => $this->flash_key(),
 			)
 		);
-	}
-
-	/**
-	 * The mentors never invited whose invitation an activation held (`WPCPM_Mail::held_back()`), by
-	 * the Mentors table's role and stamp, as `never_invited()` reads them.
-	 *
-	 * @return int[]
-	 */
-	private static function held_back() {
-		wpcpm_load_accounts_tables();
-
-		$table_class = static::table_class();
-
-		return WPCPM_Mail::held_back( $table_class::role(), $table_class::invite_meta() );
 	}
 
 	/**

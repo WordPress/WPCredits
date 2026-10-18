@@ -838,18 +838,25 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * run for the card to count. The drain passes over anybody sent an invitation in the last fifteen
 	 * minutes, the guard against canceling the link in it (`WPCPM_Mail::may_invite()`), so Resend
 	 * invite leaves them out and counts them, and the outcome says so rather than calling them
-	 * queued. Every ID is checked against the audience's role first, an account outside it left out
+	 * queued. Both leave out, and count, an account whose invitation an activation of a mentor
+	 * application held (`WPCPM_Mail::is_held()`, 1.122.33): the queue drops it, since only the
+	 * account's own row sends that invitation, once an Administrator has confirmed the account is the
+	 * person's. Every ID is checked against the audience's role first, an account outside it left out
 	 * and a repeat counted once, and invited means any of the stamps is there (`holds_stamp()`), the
 	 * reading its views and row actions use.
 	 *
 	 * The outcome is `invites-queued`, with how many were queued as `queued`, or `invites-none`, with
 	 * why as `why`: `none-selected` when nothing was ticked, or nothing that is an account's ID,
 	 * `never-invited` when a Resend invite found nobody invited before, `too-soon` when everybody it
-	 * found invited before was sent an invitation inside the fifteen minutes, `queued-already` when
+	 * found invited before was sent an invitation inside the fifteen minutes, `held` when the
+	 * invitation of everybody the press would have sent to (never invited for Send invite, invited
+	 * before for Resend invite) is held, `left-out` when a Resend invite left out everybody it found
+	 * invited before, some for the fifteen minutes and the others held, `queued-already` when
 	 * everybody left to queue is waiting already, and `invited-already` when a Send invite found
-	 * nobody left to invite for the first time. Every detail carries `resend`, and a Resend invite
-	 * that left anybody out for the fifteen minutes carries how many as `recent`, unless that is why
-	 * none was queued.
+	 * nobody left to invite for the first time. Every detail carries `resend`; a Resend invite that
+	 * left anybody out for the fifteen minutes carries how many as `recent`, unless that is why none
+	 * was queued, and a press that left out anybody held carries how many as `held`, unless that is
+	 * why none was queued.
 	 *
 	 * Static, called on the audience's own table (`WPCPM_Students_Table::queue_ticked()`,
 	 * `WPCPM_Mentors_Table::queue_ticked()`), which gives the role and the stamps read here. It checks
@@ -865,6 +872,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 		$role    = static::role();
 		$invited = array();
 		$never   = array();
+		$held    = 0;
 
 		$ids = array_values(
 			array_unique(
@@ -905,8 +913,14 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			$recent  = 0;
 
 			foreach ( $invited as $id ) {
-				// Queued for somebody sent one inside the gap, an invitation could be passed over by the
-				// drain, which says nothing when it does: left out here and counted instead.
+				// Queued, a held invitation, or one to somebody sent one inside the gap, could be passed
+				// over by the drain, which says nothing when it does: each left out here and counted
+				// instead, the hold first, since it outlasts the fifteen minutes.
+				if ( WPCPM_Mail::is_held( $id ) ) {
+					++$held;
+					continue;
+				}
+
 				if ( is_wp_error( WPCPM_Mail::may_invite( $id ) ) ) {
 					++$recent;
 					continue;
@@ -921,6 +935,10 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				$why = 'never-invited';
 			} elseif ( count( $invited ) === $recent ) {
 				$why = 'too-soon';
+			} elseif ( count( $invited ) === $held ) {
+				$why = 'held';
+			} elseif ( count( $invited ) === $recent + $held ) {
+				$why = 'left-out';
 			} else {
 				$why = 'queued-already';
 			}
@@ -929,10 +947,32 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				$detail['recent'] = $recent;
 			}
 		} else {
-			$queued = empty( $never ) ? 0 : WPCPM_Mail::queue_invites( $never );
+			$fresh = array();
+
+			// The queue drops a held invitation without a word, so it is left out here and counted.
+			foreach ( $never as $id ) {
+				if ( WPCPM_Mail::is_held( $id ) ) {
+					++$held;
+				} else {
+					$fresh[] = $id;
+				}
+			}
+
+			$queued = empty( $fresh ) ? 0 : WPCPM_Mail::queue_invites( $fresh );
+
 			// Accounts never invited can be waiting already: the card's run sends ten a batch, and the
 			// Never invited view lists each until its invitation goes and stamps it.
-			$why = ( ! empty( $never ) && ! array_diff( $never, WPCPM_Mail::queue() ) ) ? 'queued-already' : 'invited-already';
+			if ( ! empty( $fresh ) && ! array_diff( $fresh, WPCPM_Mail::queue() ) ) {
+				$why = 'queued-already';
+			} elseif ( empty( $fresh ) && $held > 0 ) {
+				$why = 'held';
+			} else {
+				$why = 'invited-already';
+			}
+		}
+
+		if ( $held > 0 && 'held' !== $why ) {
+			$detail['held'] = $held;
 		}
 
 		if ( 0 === $queued ) {
@@ -943,26 +983,58 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * What a press on the ticked accounts says it did, and how many a Resend invite left out for the
-	 * fifteen minutes when it left any out.
+	 * What a press on the ticked accounts says it did, how many a Resend invite left out for the
+	 * fifteen minutes when it left any out, and how many it left out because an activation held
+	 * their invitation: one sentence for each reason, or one for both, which says each reason once.
 	 *
 	 * One wording for every audience's list, beside the arithmetic whose outcome it words
 	 * (`queue_ticked()`): the audience's module prints it for the press the list's form made, from
 	 * the detail the press carried back.
 	 *
-	 * @param array $detail `resend`, `queued` or `why`, and `recent`, as `queue_ticked()` returns them.
+	 * @param array $detail `resend`, `queued` or `why`, `recent` and `held`, as `queue_ticked()`
+	 *                      returns them.
 	 * @return string
 	 */
 	public static function selected_sentence( array $detail ) {
 		$sentence = self::queued_sentence( $detail );
 		$recent   = isset( $detail['recent'] ) ? (int) $detail['recent'] : 0;
+		$held     = isset( $detail['held'] ) ? (int) $detail['held'] : 0;
+		$minutes  = (int) ( WPCPM_Mail::INVITE_GAP / MINUTE_IN_SECONDS );
+
+		// Both reasons: one sentence that says how many were left out, and each reason once.
+		if ( $recent > 0 && $held > 0 ) {
+			return $sentence . ' ' . sprintf(
+				/* translators: 1: how many selected accounts were left out in all, 2: how many of them for the fifteen minutes, as the clause that says so, 3: how many of them because their invitation is held, as the clause that says so. */
+				_n( '%1$s selected account was left out: %2$s, and %3$s.', '%1$s selected accounts were left out: %2$s, and %3$s.', $recent + $held, 'wpcredits-program-manager' ),
+				number_format_i18n( $recent + $held ),
+				sprintf(
+					/* translators: 1: how many selected accounts were left out for the fifteen minutes, 2: a number of minutes. */
+					_n( '%1$s that was sent an invitation less than %2$d minutes ago, whose link another one now would cancel', '%1$s that were each sent an invitation less than %2$d minutes ago, whose links another one now would cancel', $recent, 'wpcredits-program-manager' ),
+					number_format_i18n( $recent ),
+					$minutes
+				),
+				sprintf(
+					/* translators: %s: how many selected accounts were left out because their invitation is held. */
+					_n( '%s whose invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it', '%s whose invitations wait for an Administrator to confirm each account on the Mentors screen, where each account\'s own row sends it', $held, 'wpcredits-program-manager' ),
+					number_format_i18n( $held )
+				)
+			);
+		}
 
 		if ( $recent > 0 ) {
 			$sentence .= ' ' . sprintf(
 				/* translators: 1: how many selected accounts were left out, 2: a number of minutes. */
 				_n( '%1$s selected account was left out: it was sent an invitation less than %2$d minutes ago, and another one now would cancel the link in it.', '%1$s selected accounts were left out: each was sent an invitation less than %2$d minutes ago, and another one now would cancel the link in it.', $recent, 'wpcredits-program-manager' ),
 				number_format_i18n( $recent ),
-				(int) ( WPCPM_Mail::INVITE_GAP / MINUTE_IN_SECONDS )
+				$minutes
+			);
+		}
+
+		if ( $held > 0 ) {
+			$sentence .= ' ' . sprintf(
+				/* translators: %s: how many selected accounts were left out because their invitation is held. */
+				_n( '%s selected account was left out: its invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', '%s selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', $held, 'wpcredits-program-manager' ),
+				number_format_i18n( $held )
 			);
 		}
 
@@ -1010,6 +1082,17 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				__( 'Nothing to send: the selected accounts were each sent an invitation less than %d minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later.', 'wpcredits-program-manager' ),
 				(int) ( WPCPM_Mail::INVITE_GAP / MINUTE_IN_SECONDS )
 			);
+		}
+
+		if ( 'held' === $why ) {
+			return empty( $detail['resend'] )
+				? __( 'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', 'wpcredits-program-manager' )
+				: __( 'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', 'wpcredits-program-manager' );
+		}
+
+		// The sentence after it says who was left out, and why.
+		if ( 'left-out' === $why ) {
+			return __( 'Nothing to send.', 'wpcredits-program-manager' );
 		}
 
 		return __( 'Nothing to send: none of the selected accounts needs a first invitation.', 'wpcredits-program-manager' );

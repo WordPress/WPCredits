@@ -49,9 +49,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * institution, the student's account, who pressed and on which ground.
  *
  * **The line.** On the student's card, under the name, for a student with no sign-in on record:
- * the day the site began recording sign-ins, when the last invitation went, and one button. The
- * sign-in record is read for one question here, whether a sign-in is on record for the student,
- * and no date of a sign-in is shown.
+ * the day the site began recording sign-ins, when the last invitation went, and one button. A
+ * student whose invitation an activation of a mentor application held (`WPCPM_Mail::is_held()`)
+ * has, in the button's place, the sentence saying the program's Administrators send it once they
+ * have confirmed the account, since the press refuses it. The sign-in record is read for one
+ * question here, whether a sign-in is on record for the student, and no date of a sign-in is shown.
  */
 final class WPCPM_Institution_Resend {
 
@@ -93,6 +95,12 @@ final class WPCPM_Institution_Resend {
 
 	/** Outcome: the account cannot be sent an invitation, or the send answered an error. */
 	const OUT_ERROR = 'invite-error';
+
+	/**
+	 * Outcome: an activation of a mentor application held the invitation (1.122.33), which the
+	 * program's Administrators send once they have confirmed the account, so nothing was sent.
+	 */
+	const OUT_HELD = 'invite-held';
 
 	/** Outcome: the mail host refused the invitation, so nothing was sent and the earlier link is gone. */
 	const OUT_MAIL_REFUSED = 'invite-mail-refused';
@@ -157,15 +165,19 @@ final class WPCPM_Institution_Resend {
 			);
 		}
 
+		// After a press refused for a held invitation the notice says who sends it, so the line does not
+		// say it a second time.
 		if ( $line ) {
-			self::render_line( $user_id );
+			self::render_line( $user_id, isset( $flash['outcome'] ) && self::OUT_HELD === $flash['outcome'] );
 		}
 
 		echo '</div>';
 	}
 
 	/**
-	 * The sentence and the button.
+	 * The sentence and the button, or, for a student whose invitation an activation held, the
+	 * sentence and the line that says who sends it (`held_line()`), with no form; that line is left
+	 * out when the notice above it, after a press, says it already.
 	 *
 	 * Two dates, both in the site's date format: the day the site began recording sign-ins
 	 * (`WPCPM_Sign_Ins::since()`), since the site can speak of no sign-in before it, and the last
@@ -173,9 +185,10 @@ final class WPCPM_Institution_Resend {
 	 * and says it is sending, as the plugin's other one-press forms do, and its nonce is keyed to
 	 * the student's account, so a form drawn for one student is no use for another.
 	 *
-	 * @param int $user_id The student's account.
+	 * @param int  $user_id The student's account.
+	 * @param bool $said    Whether the notice above says who sends a held invitation already.
 	 */
-	private static function render_line( $user_id ) {
+	private static function render_line( $user_id, $said = false ) {
 		$user_id = (int) $user_id;
 		$last    = WPCPM_Mail::last_invited( $user_id );
 		$format  = (string) get_option( 'date_format' );
@@ -198,6 +211,15 @@ final class WPCPM_Institution_Resend {
 
 		printf( '<p class="wpcpm-institution__invite-note">%s</p>', esc_html( $note ) );
 
+		// The press refuses a held invitation, so the card offers none and says who sends it.
+		if ( WPCPM_Mail::is_held( $user_id ) ) {
+			if ( ! $said ) {
+				printf( '<p class="wpcpm-institution__invite-note">%s</p>', esc_html( self::held_line() ) );
+			}
+
+			return;
+		}
+
 		printf(
 			'<form class="wpcpm-institution__invite-form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -218,10 +240,10 @@ final class WPCPM_Institution_Resend {
 	}
 
 	/**
-	 * The last press's outcome when it is about this student, as its tone and its sentence.
+	 * The last press's outcome when it is about this student, with its tone and its sentence.
 	 *
 	 * @param int $user_id The student whose card is being drawn.
-	 * @return array{tone?: string, text?: string} Empty when there is nothing to print here.
+	 * @return array{outcome?: string, tone?: string, text?: string} Empty for nothing to print.
 	 */
 	private static function flash_for( $user_id ) {
 		$flash   = WPCPM_Flash::take( self::FLASH );
@@ -241,8 +263,9 @@ final class WPCPM_Institution_Resend {
 		}
 
 		return array(
-			'tone' => $messages[ $outcome ][0],
-			'text' => $messages[ $outcome ][1],
+			'outcome' => $outcome,
+			'tone'    => $messages[ $outcome ][0],
+			'text'    => $messages[ $outcome ][1],
 		);
 	}
 
@@ -250,6 +273,16 @@ final class WPCPM_Institution_Resend {
 	 * What the card says
 	 * --------------------------------------------------------------------
 	 */
+
+	/**
+	 * Who sends a held invitation, for the card's line in the button's place: the program's
+	 * Administrators, who confirm the account first.
+	 *
+	 * @return string
+	 */
+	private static function held_line() {
+		return __( 'The program\'s Administrators send this invitation once they have confirmed the account belongs to this student.', 'wpcredits-program-manager' );
+	}
 
 	/**
 	 * What each outcome says, with the student's masked address where a sentence names it.
@@ -299,6 +332,7 @@ final class WPCPM_Institution_Resend {
 			),
 			self::OUT_SIGNED_IN    => array( 'info', __( 'This student has signed in since the page was drawn, so nothing was sent.', 'wpcredits-program-manager' ) ),
 			self::OUT_ERROR        => array( 'error', WPCPM_Mail::invite_failed_message() ),
+			self::OUT_HELD         => array( 'info', __( 'Nothing was sent: the program\'s Administrators send this invitation once they have confirmed the account belongs to this student.', 'wpcredits-program-manager' ) ),
 			self::OUT_MAIL_REFUSED => array( 'error', WPCPM_Mail::invite_refused_message( 'member' ) ),
 			self::OUT_REFUSED      => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
 			self::OUT_UNLOGGED     => array(
@@ -360,9 +394,10 @@ final class WPCPM_Institution_Resend {
 
 		// An account an activation of a mentor application held the invitation of (1.122.33) would be
 		// sent the mentor's, with the welcome's private links, before an Administrator has confirmed
-		// it is the person's: refused here, so no place is spent and the hold stays for them to lift.
+		// it is the person's: refused here, so no place is spent and the hold stays for them to lift,
+		// with its own outcome, which says who sends it.
 		if ( WPCPM_Mail::is_held( $user_id ) ) {
-			self::bounce( self::OUT_ERROR, $user_id );
+			self::bounce( self::OUT_HELD, $user_id );
 		}
 
 		if ( is_wp_error( WPCPM_Mail::may_invite( $user_id ) ) ) {

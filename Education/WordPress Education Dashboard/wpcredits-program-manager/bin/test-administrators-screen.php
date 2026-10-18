@@ -1025,7 +1025,7 @@ ck( 'every method of the shared screen the module keeps finds what it calls and 
 		}
 	),
 	array(
-		array( 'accounts_messages', 'accounts_url', 'apply_pressed', 'boot_screen', 'handle_invite', 'handle_list_form', 'hook_screen', 'invite_one', 'invite_selected', 'leave', 'list_url', 'load_screen', 'never_invited', 'notice_sentence', 'render_accounts_list', 'render_not_connected', 'save_per_page', 'tab', 'tab_field', 'table' ),
+		array( 'accounts_messages', 'accounts_url', 'apply_pressed', 'boot_screen', 'handle_invite', 'handle_list_form', 'held_back', 'hook_screen', 'invite_one', 'invite_selected', 'leave', 'list_url', 'load_screen', 'never_invited', 'notice_sentence', 'render_accounts_list', 'render_not_connected', 'save_per_page', 'tab', 'tab_field', 'table' ),
 		array(),
 	) );
 
