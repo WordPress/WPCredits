@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.37\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.38\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-19T13:50:31+00:00\n"
+"POT-Creation-Date: 2026-10-19T15:01:36+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -3638,7 +3638,7 @@ msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
 #: includes/mail/templates/calls.php:431
-#: includes/mail/templates/invitations.php:190
+#: includes/mail/templates/invitations.php:195
 msgid "Your Student Report Card:"
 msgstr ""
 
@@ -4450,136 +4450,142 @@ msgstr ""
 #. translators: %s: the address of the course on learn.wordpress.org. Keep it as it is.
 #: includes/mail/templates/invitations.php:160
 #, php-format
+msgid "WordPress Credits Translation Track: %s"
+msgstr ""
+
+#. translators: %s: the address of the course on learn.wordpress.org. Keep it as it is.
+#: includes/mail/templates/invitations.php:165
+#, php-format
 msgid "WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): %s"
 msgstr ""
 
 #. translators: A note to the people who run the program, not to the mentor: it stands where the private invitation links go, and is replaced on the site (Tools > Emails) before mentors are sent this email. Keep the square brackets.
-#: includes/mail/templates/invitations.php:164
+#: includes/mail/templates/invitations.php:169
 msgid "[Each course's invitation link and the mentor resource folder's link are added here in Tools > Emails before this email is sent to mentors.]"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:166
+#: includes/mail/templates/invitations.php:171
 msgid "Private Slack channel: we will invite you to the program's private Slack channel for mentors, where you can report updates or ask any questions that come up during your mentorship."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:168
+#: includes/mail/templates/invitations.php:173
 msgid "Discount codes for students' tools: you will find them in the canvas inside that channel. Please share them only with your students, and only when they ask for each one. Thank you!"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:170
+#: includes/mail/templates/invitations.php:175
 msgid "We have shared the mentor resource folder with you. Feel free to create your own subfolder to organize your notes on your students and any related resources."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:172
+#: includes/mail/templates/invitations.php:177
 msgid "If you have any questions, please reply to this email or write in the private Slack channel."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:174
+#: includes/mail/templates/invitations.php:179
 msgid "Thanks so much for your help, and a big hug."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:180
+#: includes/mail/templates/invitations.php:185
 msgid "When a student is sent the invitation to their account: from the Students screen, or as the sync creates the account with invitation emails on."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:183
+#: includes/mail/templates/invitations.php:188
 #, php-format
 msgid "[%s] Welcome to the WordPress Credits Program"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:187
+#: includes/mail/templates/invitations.php:192
 msgid "You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:188
+#: includes/mail/templates/invitations.php:193
 msgid "Set your password using the link below, then check your details and book your first call with your mentor."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:196
+#: includes/mail/templates/invitations.php:201
 msgid "When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account with invitation emails on."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:199
+#: includes/mail/templates/invitations.php:204
 #, php-format
 msgid "[%s] Your mentor account is ready"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:205
+#: includes/mail/templates/invitations.php:210
 msgid "You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:206
+#: includes/mail/templates/invitations.php:211
 msgid "Set your password using the link below, then publish the hours you are free so your students can book calls with you."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:208
+#: includes/mail/templates/invitations.php:213
 msgid "Your students:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:214
+#: includes/mail/templates/invitations.php:219
 msgid "When an institution's member is sent the invitation to its account before the institution's Collaboration Agreement is on file."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:217
-#: includes/mail/templates/invitations.php:233
+#: includes/mail/templates/invitations.php:222
+#: includes/mail/templates/invitations.php:238
 #, php-format
 msgid "[%s] Your institution account is ready"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:221
+#: includes/mail/templates/invitations.php:226
 msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:222
+#: includes/mail/templates/invitations.php:227
 msgid "Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program's or upload your own, sign it, and upload the signed copy. An Administrator then accepts it and the rest of the site opens."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:224
+#: includes/mail/templates/invitations.php:229
 msgid "Where the agreement is uploaded:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:230
+#: includes/mail/templates/invitations.php:235
 msgid "When an institution's member is sent the invitation to its account once the institution's Collaboration Agreement is on file."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:237
+#: includes/mail/templates/invitations.php:242
 msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:238
+#: includes/mail/templates/invitations.php:243
 msgid "Set your password using the link below. Your Collaboration Agreement is on file, so your account is open."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:240
+#: includes/mail/templates/invitations.php:245
 msgid "Your Institution Dashboard:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:246
+#: includes/mail/templates/invitations.php:251
 msgid "When a sponsor's member is sent the invitation to its account, from the Sponsors screen."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:249
+#: includes/mail/templates/invitations.php:254
 #, php-format
 msgid "[%s] Your sponsor account is ready"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:253
+#: includes/mail/templates/invitations.php:258
 msgid "Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:254
+#: includes/mail/templates/invitations.php:259
 msgid "Set your password using the link below, then check your company profile and tell us how you would like to support the program."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:256
+#: includes/mail/templates/invitations.php:261
 msgid "Your Sponsor Dashboard:"
 msgstr ""
 

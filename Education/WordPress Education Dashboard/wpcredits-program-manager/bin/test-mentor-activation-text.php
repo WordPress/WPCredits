@@ -44,6 +44,12 @@
  * The recording is made once: `--record` refuses when the file is there, and the suite pins the
  * file's sha256, so a recording made again from later code can never stand in for 1.122.33's.
  *
+ * One line has been added to the welcome since, on purpose, in 1.122.38: it lists the WordPress
+ * Credits Translation Track among the student courses, after the Design Track. The recording stays
+ * as 1.122.33 wrote it, file and pin; the suite puts that one line into the welcome of each recorded
+ * invitation before comparing, as bin/test-invitation-text.php does for the changes made to its own
+ * recording, and checks it fell once on each of the three invitations and nowhere else.
+ *
  * Run from the plugin root:  php bin/test-mentor-activation-text.php
  * Record (once, against 1.122.33):  php bin/test-mentor-activation-text.php --record
  */
@@ -813,6 +819,40 @@ function recorded_form( array $mail ) {
 	return $mail;
 }
 
+/** The line before the one 1.122.38 added to the welcome, as the recording of 1.122.33 holds it. */
+const WELCOME_DESIGN_LINE = '- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/';
+
+/** The line 1.122.38 added to the welcome, after the Design Track's: this suite's own copy. */
+const WELCOME_TRANSLATION_LINE = '- WordPress Credits Translation Track: https://learn.wordpress.org/course/wordpress-credits-translation-track/';
+
+/**
+ * The recording of 1.122.33 with the one line 1.122.38 added to the welcome put in: the Translation
+ * Track's, after the Design Track's, in the welcome of each recorded mentor's invitation. Nothing
+ * else is touched, and the recording itself is never written.
+ *
+ * @param array $cases The recording's cases.
+ * @param int   $done  How many invitations the line was put into.
+ * @return array
+ */
+function with_translation_line( array $cases, &$done = 0 ) {
+	$done = 0;
+
+	foreach ( $cases as $name => $mails ) {
+		foreach ( $mails as $n => $mail ) {
+			if ( 'invite-mentor' !== $mail['context'] ) {
+				continue;
+			}
+
+			$count = 0;
+
+			$cases[ $name ][ $n ]['body'] = str_replace( WELCOME_DESIGN_LINE . "\r\n", WELCOME_DESIGN_LINE . "\r\n" . WELCOME_TRANSLATION_LINE . "\r\n", $mail['body'], $count );
+			$done                        += $count;
+		}
+	}
+
+	return $cases;
+}
+
 $fixture = __DIR__ . '/fixtures/mentor-activation-1-122-33.json';
 
 if ( in_array( '--record', $argv, true ) ) {
@@ -845,6 +885,16 @@ $recorded = is_file( $fixture ) ? json_decode( (string) file_get_contents( $fixt
 
 ck( 'the recording is there, and holds every case', is_array( $recorded ) && isset( $recorded['cases'] ) ? array_keys( $recorded['cases'] ) : null, array_keys( cases() ) );
 ck( 'the recording is the one made from 1.122.33', is_file( $fixture ) ? hash_file( 'sha256', $fixture ) : null, '22fa480d6885820b70ce487de541e98867ba48a6f5dacb43a54faf638ba932ba' );
+
+// What 1.122.38 changed on purpose, put into the recording: the Translation Track's line, once in each
+// of the three mentor invitations.
+$translation_lines = 0;
+
+if ( is_array( $recorded ) && isset( $recorded['cases'] ) ) {
+	$recorded['cases'] = with_translation_line( $recorded['cases'], $translation_lines );
+}
+
+ck( 'and 1.122.38\'s one line, the Translation Track\'s after the Design Track\'s, is put into the welcome of each of its three mentor invitations, and into nothing else', $translation_lines, 3 );
 
 echo "\n=== Every email of every case, as recorded ===\n";
 
@@ -906,18 +956,19 @@ const WELCOME_FIRST = 'Thank you, and congratulations on completing the WordPres
 /** The one bracketed line where the private links go, which the mentor coordinator replaces on the site. */
 const WELCOME_BRACKETED = '[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]';
 
-/** The six public links the welcome holds, and no other. */
+/** The seven public links the welcome holds, and no other. */
 const WELCOME_LINKS = array(
 	'https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
 	'https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/',
 	'https://learn.wordpress.org/course/wordpress-credits-foundations/',
 	'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
 	'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+	'https://learn.wordpress.org/course/wordpress-credits-translation-track/',
 	'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
 );
 
 /**
- * The links an invitation to a mentor may hold besides the welcome's six: the link that sets the
+ * The links an invitation to a mentor may hold besides the welcome's seven: the link that sets the
  * password (with the fake key), the login page, and the Mentor Report Card, the invitation's own
  * lines that are no part of the welcome.
  *
@@ -929,7 +980,7 @@ function own_link( $link ) {
 }
 
 // Across the invitations: the welcome's first line, its bracketed line, the program's Reply-To, and
-// any link that is none of the welcome's six, the password link, the login page or the Report Card.
+// any link that is none of the welcome's seven, the password link, the login page or the Report Card.
 $welcome_checks = array( 0, 0, 0, 0 );
 $invitations    = 0;
 

@@ -116,7 +116,7 @@ $wpcpm_body = static function ( $opening, $next, $label ) {
 
 // The welcome a new mentor is sent, after the mentor's invitation's own lines: each paragraph, each
 // line of a list and the bracketed line is a string of its own, and a line holding a link takes it as
-// "%s". The list's hyphens are layout, outside the strings. No placeholder, and no link but the six
+// "%s". The list's hyphens are layout, outside the strings. No placeholder, and no link but the seven
 // public ones.
 $wpcpm_welcome = implode(
 	"\n",
@@ -154,6 +154,11 @@ $wpcpm_welcome = implode(
 			/* translators: %s: the address of the course on learn.wordpress.org. Keep it as it is. */
 			__( 'WordPress Credits Design Track: %s', 'wpcredits-program-manager' ),
 			'https://learn.wordpress.org/course/wordpress-credits-designer-track/'
+		),
+		'- ' . sprintf(
+			/* translators: %s: the address of the course on learn.wordpress.org. Keep it as it is. */
+			__( 'WordPress Credits Translation Track: %s', 'wpcredits-program-manager' ),
+			'https://learn.wordpress.org/course/wordpress-credits-translation-track/'
 		),
 		'- ' . sprintf(
 			/* translators: %s: the address of the course on learn.wordpress.org. Keep it as it is. */

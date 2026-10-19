@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.37
+Stable tag: 1.122.38
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.38 =
+
+* The welcome a new mentor is sent, which the mentor's invitation carries (Invitation: mentor in Tools > Emails), now lists the WordPress Credits Translation Track among the student courses, after the Design Track, with the course's page on learn.wordpress.org, so a mentor sees every course their mentees may be asked to take. The shipped text of the email has the new line, and the mentor's invitation holds one more public link than before: seven in all.
+* An Invitation: mentor that an Administrator has already saved keeps its own text, since a saved edit is sent in place of the shipped text. It has no line for the Translation Track until the mentor coordinator adds one to the course list in that edit, copied from the shipped text of the email, and types the track's invitation link in where the edit holds the courses' private links. An email still on the shipped text is sent with the line from this release on. Nothing else in any email changed.
 
 = 1.122.37 =
 

@@ -516,12 +516,13 @@ $shipped = WPCPM_Mail_Templates::get( 'invite-mentor' );
 preg_match_all( '#https?://[^\s]+#', $shipped['body'], $links );
 $found = WPCPM_Mail_Templates::placeholders_in( $shipped['body'] );
 sort( $found );
-ck( 'the mentor\'s invitation holds the six public links of its welcome and no other link', $links[0], array(
+ck( 'the mentor\'s invitation holds the seven public links of its welcome and no other link', $links[0], array(
 	'https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
 	'https://wordpresseducation.org/2026/08/03/welcome-to-your-student-report-card/',
 	'https://learn.wordpress.org/course/wordpress-credits-foundations/',
 	'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
 	'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+	'https://learn.wordpress.org/course/wordpress-credits-translation-track/',
 	'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
 ) );
 ck( 'and says once, in brackets, where the private links go', substr_count( $shipped['body'], '[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]' ), 1 );

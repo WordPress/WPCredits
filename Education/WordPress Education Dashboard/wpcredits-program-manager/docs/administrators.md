@@ -1893,16 +1893,19 @@ once the site's email is working.
 
 Since 1.122.33 the mentor's invitation carries the welcome a new mentor is sent, after the
 invitation's own lines: the two **Start here** posts, one welcoming mentors to their Mentor Report
-Card and one welcoming students to their Student Report Card; the four student courses on
-learn.wordpress.org, which a mentor joins through each course's invitation link to see what is asked
-of their mentees; the program's private Slack channel for mentors; the discount codes for students'
-tools, which are in that channel; the mentor resource folder; and the sign-off. The courses'
-invitation links and the folder's link are private, and are not in the plugin or in this guide: the
-shipped text holds one bracketed line where they go, and the mentor coordinator types them into the
-template, **Invitation: mentor** in **Tools > Emails**, before any mentor is sent it. A saved edit of
-that template is sent in place of the shipped text, welcome or none, so an edit saved before the
-welcome existed has to be replaced. A reply to the invitation reaches the address under **Contact
-address in emails**, as the program's Reply-To, which no other invitation carries.
+Card and one welcoming students to their Student Report Card; the five student courses on
+learn.wordpress.org (the WordPress Credits Translation Track since 1.122.38), which a mentor joins
+through each course's invitation link to see what is asked of their mentees; the program's private
+Slack channel for mentors; the discount codes for students' tools, which are in that channel; the
+mentor resource folder; and the sign-off. The courses' invitation links and the folder's link are
+private, and are not in the plugin or in this guide: the shipped text holds one bracketed line where
+they go, and the mentor coordinator types them into the template, **Invitation: mentor** in
+**Tools > Emails**, before any mentor is sent it. A saved edit of that template is sent in place of
+the shipped text, welcome or none, so an edit saved before the welcome existed has to be replaced,
+and an edit saved before 1.122.38 keeps its own course list: the mentor coordinator adds the line
+for the WordPress Credits Translation Track, and the track's invitation link, to that edit. A reply
+to the invitation reaches the address under **Contact address in emails**, as the program's
+Reply-To, which no other invitation carries.
 
 The mentor's invitation is queued on every activation of a mentor application, whatever **Invitation
 emails** says, and goes out a few at a time like the others, under the same rules: the fifteen

@@ -33,6 +33,10 @@
  * else it holds), keeps its own copy of the welcome's lines so a drift in the template is caught, and
  * checks the other invitations still match the recording byte for byte.
  *
+ * The welcome has gained one line since, on purpose, in 1.122.38: the WordPress Credits Translation
+ * Track, among the student courses, after the Design Track. `welcome_lines()` is the suite's copy of
+ * the welcome as the template ships it now.
+ *
  * Run from the plugin root:  php bin/test-invitation-text.php
  * Record (once, against 1.122.18, before the move):  php bin/test-invitation-text.php --record
  */
@@ -301,8 +305,8 @@ function reworded( $message, &$count = 0 ) {
 
 /**
  * The welcome a new mentor is sent after the mentor's invitation, line by line, as the template
- * ships it in 1.122.33: the suite's own copy, so a change to the template that was not meant is
- * caught. It holds the six public links a mentor needs and the one bracketed line where the mentor
+ * ships it in 1.122.38: the suite's own copy, so a change to the template that was not meant is
+ * caught. It holds the seven public links a mentor needs and the one bracketed line where the mentor
  * coordinator types the private ones on the site; nothing private is here.
  *
  * @return string[]
@@ -323,6 +327,7 @@ function welcome_lines() {
 		'- WordPress Credits Foundations (the base course, for 150 hours or more): https://learn.wordpress.org/course/wordpress-credits-foundations/',
 		'- WordPress Credits Dev Track: https://learn.wordpress.org/course/wordpress-credits-developer-track/',
 		'- WordPress Credits Design Track: https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+		'- WordPress Credits Translation Track: https://learn.wordpress.org/course/wordpress-credits-translation-track/',
 		'- WordPress Credits: Intro to Contribution (short contributions that are easy to start with, for 50 hours): https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
 		'[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]',
 		'',
@@ -443,8 +448,8 @@ $GLOBALS['contact'] = '';
 ck( 'and with none set, the mentor\'s invitation keeps core\'s headers as they came', headers_of( $cases['mentor-7-1'] ), '' );
 ck( 'and what a filter before this one handed over comes back as it came', array( headers_of( $cases['mentor-7-1'], 'Bcc: copy@example.test' ), headers_of( $cases['mentor-7-1'], array( 'Bcc: copy@example.test' ) ) ), array( 'Bcc: copy@example.test', array( 'Bcc: copy@example.test' ) ) );
 
-// The welcome holds no link but the six public ones, and none that is private.
-ck( 'the welcome holds the six public links and no other',
+// The welcome holds no link but the seven public ones, and none that is private.
+ck( 'the welcome holds the seven public links and no other',
     preg_match_all( '#https?://[^\s]+#', implode( "\n", welcome_lines() ), $welcome_links ) ? $welcome_links[0] : array(),
     array(
         'https://wordpresseducation.org/2026/08/03/welcome-to-your-mentor-report-card/',
@@ -452,6 +457,7 @@ ck( 'the welcome holds the six public links and no other',
         'https://learn.wordpress.org/course/wordpress-credits-foundations/',
         'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
         'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+        'https://learn.wordpress.org/course/wordpress-credits-translation-track/',
         'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
     ) );
 
