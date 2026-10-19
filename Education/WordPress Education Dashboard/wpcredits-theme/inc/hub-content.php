@@ -139,11 +139,13 @@ function wpcredits_hub_programs() {
 				wpcredits_hub_item( __( 'Hours transcript', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( _x( 'Credit', 'academic credit a program gives, a noun, as in credit toward a degree', 'wpcredits-theme' ) ),
 			),
-			// The band of its courses under the index (Isotta Peira and Alana Warner, 15 Oct 2026; the owner,
-			// 16 Oct 2026): each says what the course's public Learn page says. The hours are Intro to
-			// Contribution's page's, and Foundations' are the owner's (16 Oct 2026: the base course, 150 hours or
-			// more), what that format suits being the program page's; the two tracks' pages give no hours, so
-			// they say who they are for.
+			// The band of its courses under the index (a program lead and a program team member, 15 Oct 2026;
+			// the owner, 16 Oct 2026): each says what the course's public Learn page says. The hours are Intro
+			// to Contribution's page's, and Foundations' are the owner's (16 Oct 2026: the base course, 150
+			// hours or more), what that format suits being the program page's; the tracks' pages give no
+			// hours, so they say who they are for. The Translation track was added on 19 Oct 2026, from a
+			// program lead's comment in the hub's content review: its page is the course's own, and its line
+			// is that page's description in the band's short style.
 			'courses'   => array(
 				wpcredits_hub_course(
 					/* translators: The name of a WordPress Credits course on Learn WordPress. */
@@ -177,9 +179,17 @@ function wpcredits_hub_programs() {
 					__( 'A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.', 'wpcredits-theme' ),
 					'https://learn.wordpress.org/course/wordpress-credits-designer-track/'
 				),
+				wpcredits_hub_course(
+					/* translators: The name of a WordPress Credits course on Learn WordPress. */
+					__( 'Translation track', 'wpcredits-theme' ),
+					/* translators: The line above a course's name: who it is for. */
+					__( 'For translators', 'wpcredits-theme' ),
+					__( 'Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons.', 'wpcredits-theme' ),
+					'https://learn.wordpress.org/course/wordpress-credits-translation-track/'
+				),
 			),
 			'links'     => array(
-				wpcredits_hub_link( __( 'Compare the four courses', 'wpcredits-theme' ), '#wordpress-credits-courses' ),
+				wpcredits_hub_link( __( 'Compare the five courses', 'wpcredits-theme' ), '#wordpress-credits-courses' ),
 				wpcredits_hub_link( __( 'About the program', 'wpcredits-theme' ), 'https://wordpress.org/education/credits/' ),
 				wpcredits_hub_link( __( 'Impact dashboard', 'wpcredits-theme' ), 'https://wordpress.github.io/WPCredits/' ),
 			),

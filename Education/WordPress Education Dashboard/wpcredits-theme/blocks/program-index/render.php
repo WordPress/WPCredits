@@ -10,7 +10,7 @@
  * sentence, as two of them show the same number of programs.
  *
  * A program with courses, WordPress Credits alone, has a band of them under the cards, its ID the
- * program's slug and `-courses`, the address its card's "Compare the four courses" links to: the
+ * program's slug and `-courses`, the address its card's "Compare the five courses" links to: the
  * programs section's head (an eyebrow, a heading, a lede that says access to a course comes through
  * the institution) and a card each: its name linked to its public page, then the line the stylesheet
  * draws above the name (its hours, or who it is for), so a screen reader that jumps to the heading hears

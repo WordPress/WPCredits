@@ -1487,8 +1487,9 @@
 
 /* Under the cards, 56px down, as the field-of-study flow sits under it; an address its card links to,
    so it lands below the sticky header. Its head is the programs section's own. Its cards are the
-   program cards' white boxes, one column, two from 640px and four from 900px, as the sign-in cards
-   are. Two classes deep, over core's layout styles and the theme's list and paragraph rules. */
+   program cards' white boxes: one column, two from 640px and six from 900px, laid out so that no card
+   sits alone on a row (below). Two classes deep, over core's layout styles and the theme's list and
+   paragraph rules. */
 .wpc-hub-index .wpc-hub-courses {
 	margin-top: 56px;
 	scroll-margin-top: var( --wpc-landing-offset );
@@ -1511,7 +1512,29 @@
 
 @media ( min-width: 900px ) {
 	.wpc-hub-courses .wpc-hub-courses__grid {
-		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+		grid-template-columns: repeat( 6, minmax( 0, 1fr ) );
+	}
+}
+
+/* Five cards: Intro to Contribution and Foundations, the courses by length, then the Developer,
+   Designer and Translation tracks. From 900px the six columns give the first two three each, on the
+   first row, and the three tracks two each, on the second. From 640px to 899px, in two columns, the
+   odd card out, the last, spans both, so no row has an empty cell; a phone's one column needs no
+   rule. The gap is the grid's, 16px between rows and between columns at every width. A sixth card
+   would leave one alone on a third row from 900px. */
+@media ( min-width: 900px ) {
+	.wpc-hub-courses .wpc-hub-course:nth-child( -n+2 ) {
+		grid-column: span 3;
+	}
+
+	.wpc-hub-courses .wpc-hub-course:nth-child( n+3 ) {
+		grid-column: span 2;
+	}
+}
+
+@media ( min-width: 640px ) and ( max-width: 899px ) {
+	.wpc-hub-courses .wpc-hub-course:last-child:nth-child( odd ) {
+		grid-column: 1 / -1;
 	}
 }
 

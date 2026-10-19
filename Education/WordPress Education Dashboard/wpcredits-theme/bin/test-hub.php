@@ -319,6 +319,174 @@ function rules_placed( $selector ) {
 	return $rules;
 }
 
+/**
+ * Whether a media query of hub.css applies at a window width: every `( min-width: Npx )` and
+ * `( max-width: Npx )` in it holds, and it asks nothing else.
+ *
+ * @param string $at    The at-rule, as `rules_placed()` gives it, or '' for none.
+ * @param int    $width The window's width in pixels.
+ * @return bool
+ */
+function media_applies( $at, $width ) {
+	if ( '' === $at ) {
+		return true;
+	}
+
+	$rest = preg_replace( '/\(\s*(min|max)-width:\s*\d+px\s*\)/', '', $at );
+
+	if ( ! preg_match( '/^@media(?:\s+and)*\s*$/', $rest ) ) {
+		return false;
+	}
+
+	preg_match_all( '/\(\s*(min|max)-width:\s*(\d+)px\s*\)/', $at, $limits, PREG_SET_ORDER );
+
+	foreach ( $limits as $limit ) {
+		if ( 'min' === $limit[1] ? $width < (int) $limit[2] : $width > (int) $limit[2] ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * Whether the n-th child of a list is picked by a pseudo-class of the band's stylesheet: `:first-child`,
+ * `:last-child` or `:nth-child( odd | even | An+B | N )`.
+ *
+ * @param string $pseudo The pseudo-class, such as `:nth-child(-n+2)`.
+ * @param int    $place  The child's place, counting from 1.
+ * @param int    $total  How many children there are.
+ * @return bool
+ */
+function pseudo_picks( $pseudo, $place, $total ) {
+	if ( ':first-child' === $pseudo ) {
+		return 1 === $place;
+	}
+
+	if ( ':last-child' === $pseudo ) {
+		return $total === $place;
+	}
+
+	if ( ! preg_match( '/^:nth-child\(\s*([^)]+?)\s*\)$/', $pseudo, $nth ) ) {
+		return false;
+	}
+
+	$expression = str_replace( ' ', '', $nth[1] );
+
+	if ( 'odd' === $expression ) {
+		return 1 === $place % 2;
+	}
+
+	if ( 'even' === $expression ) {
+		return 0 === $place % 2;
+	}
+
+	if ( preg_match( '/^([+-]?\d*)n([+-]\d+)?$/', $expression, $part ) ) {
+		$step   = in_array( $part[1], array( '', '+' ), true ) ? 1 : ( '-' === $part[1] ? -1 : (int) $part[1] );
+		$offset = isset( $part[2] ) ? (int) $part[2] : 0;
+
+		if ( 0 === $step ) {
+			return $place === $offset;
+		}
+
+		return 0 === ( $place - $offset ) % $step && ( $place - $offset ) / $step >= 0;
+	}
+
+	return (string) $place === $expression;
+}
+
+/**
+ * The band of courses laid out by hub.css at a window width, worked out from the sheet's own rules: the
+ * grid's columns, then each card's span from the rules that pick it (`.wpc-hub-courses .wpc-hub-course`
+ * with a pseudo-class), the heavier rule winning and, at equal weight, the later one; the cards placed
+ * in order, a new row when one does not fit.
+ *
+ * @param int $width The window's width in pixels.
+ * @param int $count How many cards the band holds.
+ * @return array{columns: int, rows: int[][]} The columns, and each row as the spans of its cards.
+ */
+function band_layout( $width, $count ) {
+	$css = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) );
+
+	preg_match_all( '/(@[^{}]+)\{|([^{}]+)\{([^{}]*)\}|\}/', $css, $tokens, PREG_SET_ORDER );
+
+	$at      = '';
+	$columns = 1;
+	$spans   = array_fill( 1, $count, array( -1, -1, 1 ) );
+	$order   = 0;
+
+	foreach ( $tokens as $token ) {
+		if ( '}' === $token[0] ) {
+			$at = '';
+			continue;
+		}
+
+		if ( '' !== $token[1] ) {
+			$at = trim( preg_replace( '/\s+/', ' ', $token[1] ) );
+			continue;
+		}
+
+		++$order;
+
+		$selector = trim( preg_replace( '/\s+/', ' ', $token[2] ) );
+		$body     = trim( preg_replace( '/\s+/', ' ', $token[3] ) );
+
+		if ( ! media_applies( $at, $width ) ) {
+			continue;
+		}
+
+		if ( '.wpc-hub-courses .wpc-hub-courses__grid' === $selector && preg_match( '/grid-template-columns: (?:repeat\( (\d+), |minmax\()/', $body, $grid ) ) {
+			$columns = isset( $grid[1] ) && '' !== $grid[1] ? (int) $grid[1] : 1;
+			continue;
+		}
+
+		if ( ! preg_match( '/^\.wpc-hub-courses \.wpc-hub-course((?::[a-z-]+(?:\([^)]*\))?)+)$/', $selector, $card ) || ! preg_match( '/grid-column: ([^;]+);/', $body, $column ) ) {
+			continue;
+		}
+
+		preg_match_all( '/:[a-z-]+(?:\([^)]*\))?/', $card[1], $pseudos );
+
+		$weight = 2 * 10 + count( $pseudos[0] );
+		$span   = 'span ' === substr( $column[1], 0, 5 ) ? (int) substr( $column[1], 5 ) : ( '1 / -1' === $column[1] ? PHP_INT_MAX : 1 );
+
+		for ( $place = 1; $place <= $count; $place++ ) {
+			foreach ( $pseudos[0] as $pseudo ) {
+				if ( ! pseudo_picks( $pseudo, $place, $count ) ) {
+					continue 2;
+				}
+			}
+
+			if ( array( $weight, $order ) >= array( $spans[ $place ][0], $spans[ $place ][1] ) ) {
+				$spans[ $place ] = array( $weight, $order, $span );
+			}
+		}
+	}
+
+	$rows = array();
+	$row  = array();
+	$used = 0;
+
+	foreach ( $spans as $span ) {
+		$size = min( $span[2], $columns );
+
+		if ( $used + $size > $columns ) {
+			$rows[] = $row;
+			$row    = array();
+			$used   = 0;
+		}
+
+		$row[]  = $size;
+		$used  += $size;
+	}
+
+	$rows[] = $row;
+
+	return array(
+		'columns' => $columns,
+		'rows'    => $rows,
+	);
+}
+
 echo "=== The template, and the front page ===\n";
 
 $theme_json = json_decode( theme_file( 'theme.json' ), true );
@@ -587,7 +755,7 @@ $programs = wpcredits_hub_programs();
 $steps    = wpcredits_hub_steps();
 $levels   = wpcredits_hub_levels();
 
-ck( 'six programs in Alana\'s order, each with the anchor its card is linked by',
+ck( 'six programs in the program team\'s order, each with the anchor its card is linked by',
 	array_column( $programs, 'name', 'slug' ),
 	array(
 		'campus-connect'                  => 'Campus Connect',
@@ -704,8 +872,8 @@ ck( 'forty-nine benefits, 26 on the steps, 12 on the levels, 11 on the cards: 28
 	array( count( $all ), count( $on_steps ), count( $on_levels ), count( $on_cards ), count( $planned ), count( $all ) - count( $planned ) ),
 	array( 49, 26, 12, 11, 28, 21 ) );
 
-// The Builder step lists only what a Builder earns: Alana Warner (16 October 2026), "should just be:
-// showcase eligibility, badge on .org profile"; Isotta Peira: the domain and hosting are a WordPress.com
+// The Builder step lists only what a Builder earns: a program team member (16 October 2026), "should just be:
+// showcase eligibility, badge on .org profile"; a program lead: the domain and hosting are a WordPress.com
 // perk, and the page names no host. The theme and plugin library goes with them.
 ck( 'every benefit, as the design note\'s 6.11 checked it on 14 October 2026, the Builder step\'s since 16 October',
 	$all,
@@ -785,11 +953,11 @@ function links_said( array $links ) {
 	return array_map( static function ( $link ) { return $link['label'] . ' > ' . wpcredits_hub_url( $link['target'] ); }, $links );
 }
 
-ck( 'the nine links of the program cards, each where the design note\'s 6.5 says, WordPress Credits\' two track links giving way, since 16 October 2026, to the band of its four courses and the program page',
+ck( 'the nine links of the program cards, each where the design note\'s 6.5 says, WordPress Credits\' two track links giving way, since 16 October 2026, to the band of its five courses and the program page',
 	links_said( array_merge( ...array_column( $programs, 'links' ) ) ),
 	array(
 		'Find or host an event > https://events.wordpress.org/campusconnect/',
-		'Compare the four courses > #wordpress-credits-courses',
+		'Compare the five courses > #wordpress-credits-courses',
 		'About the program > https://wordpress.org/education/credits/',
 		'Impact dashboard > https://wordpress.github.io/WPCredits/',
 		'Facilitation guides > https://make.wordpress.org/community/handbook/education/wordpress-facilitator-training-program/',
@@ -799,23 +967,25 @@ ck( 'the nine links of the program cards, each where the design note\'s 6.5 says
 		'Learn more > https://wordpresscertifications.com/wordpress-builder-certification/',
 	) );
 
-// Isotta Peira (15 Oct 2026, #wpcredits-admins on WordPress Slack), Alana Warner agreeing: the site should
-// list the WordPress Credits courses, so schools and students can pick one; the owner (16 Oct 2026): as a
-// band of four cards under the index. Each says what its public Learn page says; the hours are Intro to
-// Contribution's page's and, for Foundations, the owner's (16 Oct 2026), and the two tracks, whose pages
-// give none, say who they are for.
-ck( 'WordPress Credits alone has courses: four, each its Learn page, its line above the name and its line on what it asks',
+// A program lead (15 Oct 2026, #wpcredits-admins on WordPress Slack), a program team member agreeing: the
+// site should list the WordPress Credits courses, so schools and students can pick one; the owner (16 Oct
+// 2026): as a band of cards under the index. Each says what its public Learn page says; the hours are Intro
+// to Contribution's page's and, for Foundations, the owner's (16 Oct 2026), and the tracks, whose pages
+// give none, say who they are for. The Translation track joined them on 19 Oct 2026, a program lead's
+// review comment on the section: a fifth card, last, after the Designer track.
+ck( 'WordPress Credits alone has courses: five, each its Learn page, its line above the name and its line on what it asks, the Translation track last',
 	array(
 		array_map( static function ( $program ) { return count( isset( $program['courses'] ) ? $program['courses'] : array() ); }, $programs ),
 		array_map( static function ( $course ) { return $course['name'] . ' > ' . $course['url'] . ' : ' . $course['eyebrow'] . ' / ' . $course['line']; }, $programs[1]['courses'] ),
 	),
 	array(
-		array( 0, 4, 0, 0, 0, 0 ),
+		array( 0, 5, 0, 0, 0, 0 ),
 		array(
 			'Intro to Contribution > https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/ : 50 hours / One guided contribution project: a first look at open source, for a shorter course or an elective.',
 			'Foundations > https://learn.wordpress.org/course/wordpress-credits-foundations/ : 150 hours or more / Your own site and a contribution that ships, for an internship, a capstone, or a full semester.',
 			'Developer track > https://learn.wordpress.org/course/wordpress-credits-developer-track/ : For developers / WordPress developer training and patch testing practice, toward a contribution that ships.',
 			'Designer track > https://learn.wordpress.org/course/wordpress-credits-designer-track/ : For designers / A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.',
+			'Translation track > https://learn.wordpress.org/course/wordpress-credits-translation-track/ : For translators / Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons.',
 		),
 	) );
 
@@ -895,9 +1065,9 @@ $mark         = wpcredits_hub_items_html( array( wpcredits_hub_item( 'X', true )
 
 $GLOBALS['marked'] = false;
 
-ck( 'every text is one translated string, seen whole by a translator: 145 of them, 56 on the cards and the band of courses (the band\'s twelve among them), 61 on the steps and 28 on the levels, and "(planned)" among them',
+ck( 'every text is one translated string, seen whole by a translator: 148 of them, 59 on the cards and the band of courses (the band\'s fifteen among them), 61 on the steps and 28 on the levels, and "(planned)" among them',
 	array( count( $texts ), array_values( $untranslated ), false !== strpos( $mark, '<span class="wpc-hub-planned">[(planned)]</span>' ) ),
-	array( 145, array(), true ) );
+	array( 148, array(), true ) );
 
 // The one-word strings, which a translator meets with nothing around them. Credit, Graduate and Partner
 // are words that mean something else as a verb or in another place, so each has a context of its own;
@@ -912,7 +1082,7 @@ ck( 'the course band\'s names and the lines above them each carry a translators 
 		preg_match_all( "#/\* translators: The line above a course's name: [^*]+\*/\n\s*__\( '([^']+)', 'wpcredits-theme' \)#", $hub_source, $above ) ? $above[1] : null,
 		(bool) preg_match( "#/\* translators: [^*]*not foundations as organizations[^*]*\*/\n\s*__\( 'Foundations', 'wpcredits-theme' \)#", $hub_source ),
 	),
-	array( array( 'Intro to Contribution', 'Foundations', 'Developer track', 'Designer track' ), array( '50 hours', '150 hours or more', 'For developers', 'For designers' ), true ) );
+	array( array( 'Intro to Contribution', 'Foundations', 'Developer track', 'Designer track', 'Translation track' ), array( '50 hours', '150 hours or more', 'For developers', 'For designers', 'For translators' ), true ) );
 
 ck( 'the one-word strings tell a translator what they are: Credit, Graduate and Partner each a context saying which sense, Badge and Exam a translators note above them, and "$1,000 for completers" a note that the sum is in US dollars',
 	array(
@@ -996,7 +1166,7 @@ ck( 'each card: its status tag, its step line, its name, what it is, its time an
 		array_merge( ...array_fill( 0, 6, array( 'Time', 'You get' ) ) ),
 	) );
 
-ck( 'under the cards, the band of the four courses: a section named by its heading, the programs section\'s head (eyebrow, heading, lede), and a card each, its name a link to its Learn page with a decorative arrow, then its line (drawn above the name), and what it asks',
+ck( 'under the cards, the band of the five courses: a section named by its heading, the programs section\'s head (eyebrow, heading, lede), and a card each, its name a link to its Learn page with a decorative arrow, then its line (drawn above the name), and what it asks',
 	array(
 		found( $xp, '//div[contains(@class,"wpc-hub-programs")]/following-sibling::section', 'id' ),
 		found( $xp, '//section[@id="wordpress-credits-courses"]', 'aria-labelledby' ),
@@ -1014,11 +1184,11 @@ ck( 'under the cards, the band of the four courses: a section named by its headi
 		array( 'wordpress-credits-courses-title' ),
 		array( 'Choosing a course', 'Which WordPress Credits course?', 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student\'s institution.' ),
 		array( 'wordpress-credits-courses-title' ),
-		array( '50 hours', '150 hours or more', 'For developers', 'For designers' ),
-		array( 'Intro to Contribution →', 'Foundations →', 'Developer track →', 'Designer track →' ),
-		array( 'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/', 'https://learn.wordpress.org/course/wordpress-credits-foundations/', 'https://learn.wordpress.org/course/wordpress-credits-developer-track/', 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' ),
-		array( 'One guided contribution project: a first look at open source, for a shorter course or an elective.', 'Your own site and a contribution that ships, for an internship, a capstone, or a full semester.', 'WordPress developer training and patch testing practice, toward a contribution that ships.', 'A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.' ),
-		4,
+		array( '50 hours', '150 hours or more', 'For developers', 'For designers', 'For translators' ),
+		array( 'Intro to Contribution →', 'Foundations →', 'Developer track →', 'Designer track →', 'Translation track →' ),
+		array( 'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/', 'https://learn.wordpress.org/course/wordpress-credits-foundations/', 'https://learn.wordpress.org/course/wordpress-credits-developer-track/', 'https://learn.wordpress.org/course/wordpress-credits-designer-track/', 'https://learn.wordpress.org/course/wordpress-credits-translation-track/' ),
+		array( 'One guided contribution project: a first look at open source, for a shorter course or an elective.', 'Your own site and a contribution that ships, for an internship, a capstone, or a full semester.', 'WordPress developer training and patch testing practice, toward a contribution that ships.', 'A portfolio, Figma and the Site Editor\'s design tools, and a block pattern of your own.', 'Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons.' ),
+		5,
 		0,
 	) );
 
@@ -1029,7 +1199,7 @@ ck( 'what you get is a list, one item to a line, the three planned ones marked o
 ck( 'the mark is kept on its item\'s line by a no-break space',
 	false !== strpos( $index, '<li>Hours transcript&nbsp;<span class="wpc-hub-planned">(planned)</span></li>' ), true );
 
-ck( 'the band sits 56px under the cards, as the field-of-study flow sits under it, and lands below the sticky header; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and four from 900px; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
+ck( 'the band sits 56px under the cards, as the field-of-study flow sits under it, and lands below the sticky header; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and six from 900px, the five cards\' layout; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
 	array(
 		rules_for( '.wpc-hub-index .wpc-hub-courses' ),
 		rules_placed( '.wpc-hub-courses .wpc-hub-courses__grid' ),
@@ -1044,7 +1214,7 @@ ck( 'the band sits 56px under the cards, as the field-of-study flow sits under i
 		array(
 			array( '', 'display: grid; gap: 16px; grid-template-columns: minmax( 0, 1fr ); list-style: none; margin: 0; padding: 0;' ),
 			array( '@media ( min-width: 640px )', 'grid-template-columns: repeat( 2, minmax( 0, 1fr ) );' ),
-			array( '@media ( min-width: 900px )', 'grid-template-columns: repeat( 4, minmax( 0, 1fr ) );' ),
+			array( '@media ( min-width: 900px )', 'grid-template-columns: repeat( 6, minmax( 0, 1fr ) );' ),
 		),
 		array( 'background: var( --wpc-surface ); border: 1px solid var( --wpc-line-card ); border-radius: var( --wpc-radius-control ); display: flex; flex-direction: column; gap: 8px; margin: 0; min-width: 0; padding: 24px;' ),
 		array( 'color: var( --wpc-ink-60 ); font: 500 12px/18px var( --wpc-font ); letter-spacing: .06em; margin: 0; order: -1; text-transform: uppercase;' ),
@@ -1052,6 +1222,117 @@ ck( 'the band sits 56px under the cards, as the field-of-study flow sits under i
 		array( 'color: var( --wpc-brand ); text-decoration: none;' ),
 		array( 'color: var( --wpc-ink-70 ); font-size: 14px; line-height: 1.55; margin: 0;' ),
 	) );
+
+// Five cards in a grid of four or two columns leave one alone on a row (the owner, 19 Oct 2026, adding the
+// Translation track). From 900px the grid has six columns: the two courses by length, Intro to Contribution
+// and Foundations, span three each on the first row, and the three tracks, Developer, Designer and
+// Translation, two each on the second. From 640px to 899px it keeps two columns and the odd card out, the
+// last, spans both. On a phone it is one column. The gaps are the band's 16px at every width, rows and columns.
+ck( 'the five cards\' layout is in the sheet: from 900px the first two cards span three of six columns and the rest two, and from 640px to 899px the odd card out, the last, spans both of two; two classes deep, declaring nothing but the column, so the grid\'s one 16px gap stays the only gap',
+	array(
+		rules_placed( '.wpc-hub-courses .wpc-hub-course:nth-child( -n+2 )' ),
+		rules_placed( '.wpc-hub-courses .wpc-hub-course:nth-child( n+3 )' ),
+		rules_placed( '.wpc-hub-courses .wpc-hub-course:last-child:nth-child( odd )' ),
+	),
+	array(
+		array( array( '@media ( min-width: 900px )', 'grid-column: span 3;' ) ),
+		array( array( '@media ( min-width: 900px )', 'grid-column: span 2;' ) ),
+		array( array( '@media ( min-width: 640px ) and ( max-width: 899px )', 'grid-column: 1 / -1;' ) ),
+	) );
+
+// What the sheet lays out, worked out from its rules at each width the band changes at and beside it: the
+// columns and each row's cards by their spans. No row is left short: every row's spans fill the columns, so
+// no card sits alone with an empty cell beside it; a card alone in a row fills it (a phone's one column, the
+// last card across two).
+$band_widths = array( 320, 390, 639, 640, 768, 899, 900, 1024, 1280 );
+$band_seen   = array();
+$band_short  = array();
+
+foreach ( $band_widths as $band_width ) {
+	$layout                  = band_layout( $band_width, 5 );
+	$band_seen[ $band_width ] = $layout['columns'] . ' col: ' . implode( ' | ', array_map( static function ( $row ) { return implode( '+', $row ); }, $layout['rows'] ) );
+
+	foreach ( $layout['rows'] as $band_row ) {
+		if ( array_sum( $band_row ) !== $layout['columns'] ) {
+			$band_short[] = $band_width . 'px: ' . implode( '+', $band_row ) . ' of ' . $layout['columns'];
+		}
+	}
+}
+
+ck( 'the five cards fill every row at every width: one column up to 639px, two from 640px to 899px with the last card across both, six from 900px as three-three over two-two-two; no row has an empty cell',
+	array( $band_seen, $band_short ),
+	array(
+		array(
+			320  => '1 col: 1 | 1 | 1 | 1 | 1',
+			390  => '1 col: 1 | 1 | 1 | 1 | 1',
+			639  => '1 col: 1 | 1 | 1 | 1 | 1',
+			640  => '2 col: 1+1 | 1+1 | 2',
+			768  => '2 col: 1+1 | 1+1 | 2',
+			899  => '2 col: 1+1 | 1+1 | 2',
+			900  => '6 col: 3+3 | 2+2+2',
+			1024 => '6 col: 3+3 | 2+2+2',
+			1280 => '6 col: 3+3 | 2+2+2',
+		),
+		array(),
+	) );
+
+// The layout check would pass a layout it cannot read, so it is shown to see a lone card: four cards in the
+// six-column grid, the old grid's four across in a sheet that has not changed it, and six cards under 900px.
+ck( 'and the layout check does see a card left alone: a sixth card in the six columns leaves one alone on a third row, four cards leave the second row short',
+	array( band_layout( 1280, 6 )['rows'], band_layout( 1280, 4 )['rows'] ),
+	array( array( array( 3, 3 ), array( 2, 2, 2 ), array( 2 ) ), array( array( 3, 3 ), array( 2, 2 ) ) ) );
+
+// The theme is mirrored publicly, so its comments and texts name roles, never people: the comment above the
+// band's list in hub-content.php says who asked, a program lead and a program team member and the owner.
+// The names that have turned up are held below as the md5 of the lower-cased word, so that this file names
+// no one either. Every text file of the theme is read, word by word; the author's name in style.css's
+// Author line, and the template that copies it, are the two places an author is named on purpose.
+$courses_comment = preg_match( '#((?:\t+//[^\n]*\n)+)\t+\'courses\'\s+=> array\(#', $hub_source, $above_courses ) ? $above_courses[1] : '';
+$people_hashes   = array( '049feab0422c24c75765d182b269f646', 'cc74decfb3ae7964064594151cc0be99', '440635083d08df58d672201e89e44fc6', '1660885848050e9ca9746ddd54e2de25', 'cf9cd8b146b0ff81b8c46765cb503063', '6643f6beb8608653c73cdad8221dce45', 'c37976221ab2fefc5578fb38f7003ef9', '5c812c86ad88774c7be87c93191a562f' );
+$people_found    = array();
+$people_scanned  = 0;
+$people_files    = new RecursiveIteratorIterator(
+	new RecursiveCallbackFilterIterator(
+		new RecursiveDirectoryIterator( rtrim( WPCREDITS_THEME_DIR, '/' ), FilesystemIterator::SKIP_DOTS ),
+		static function ( $file ) {
+			return ! in_array( $file->getFilename(), array( '.git', '.superpowers', '.worktrees', 'node_modules', 'fonts', 'languages' ), true );
+		}
+	)
+);
+
+foreach ( $people_files as $people_file ) {
+	if ( ! $people_file->isFile() || ! preg_match( '/\.(?:php|js|css|html|json|txt|sh|xml|dist|md)$/', $people_file->getFilename() ) ) {
+		continue;
+	}
+
+	++$people_scanned;
+
+	$people_path = substr( $people_file->getPathname(), strlen( rtrim( WPCREDITS_THEME_DIR, '/' ) ) + 1 );
+
+	foreach ( file( $people_file->getPathname() ) as $people_line_no => $people_line ) {
+		if ( 'style.css' === $people_path && 0 === strpos( $people_line, 'Author:' ) ) {
+			continue;
+		}
+
+		preg_match_all( '/\b[A-Z][a-z]+\b/', $people_line, $people_words );
+
+		foreach ( $people_words[0] as $people_word ) {
+			if ( in_array( md5( strtolower( $people_word ) ), $people_hashes, true ) ) {
+				$people_found[] = $people_path . ':' . ( $people_line_no + 1 );
+			}
+		}
+	}
+}
+
+ck( 'the comment above the band\'s courses names roles, a program lead, a program team member and the owner; and no file of the theme names a person (the author line of style.css and the template that copies it apart): the files read include this one and the readme',
+	array(
+		(bool) preg_match( '/a program lead/', $courses_comment ),
+		(bool) preg_match( '/a program team member/', $courses_comment ),
+		(bool) preg_match( '/the owner/', $courses_comment ),
+		$people_found,
+		$people_scanned > 60 && file_exists( WPCREDITS_THEME_DIR . 'readme.txt' ),
+	),
+	array( true, true, true, array(), true ) );
 
 ck( 'the nine links, each its label and a decorative arrow a screen reader skips, opening in the same tab',
 	array( found( $xp, '//article//p[@class="wpc-hub-program__links"]/a', 'href' ), found( $xp, '//article//a/span', 'aria-hidden' ), count( $xp->query( '//a[@target]' ) ) ),
@@ -1229,7 +1510,7 @@ ck( 'the staircases: seven steps and four levels, named, each a link to its deta
 		true,
 	) );
 
-// The owner (15 Oct 2026, with Alana Warner): make it plain that a step opens more. Every step ends with a
+// The owner (15 Oct 2026, with a program team member): make it plain that a step opens more. Every step ends with a
 // cue, outside its link so the link (a button once the script has run) keeps its name, and hidden from
 // screen readers, which hear the link and the line it is described by.
 ck( 'every step and level ends with a cue that it opens its detail, outside its link and kept from screen readers: what it unlocks or brings, and "Shown below" for the one pressed',
@@ -2530,7 +2811,7 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Become a partner → > ' . $apply,
 			'Hire from WordPress → > https://jobs.wordpress.net/',
 			'Find or host an event → > https://events.wordpress.org/campusconnect/',
-			'Compare the four courses → > #wordpress-credits-courses',
+			'Compare the five courses → > #wordpress-credits-courses',
 			'About the program → > https://wordpress.org/education/credits/',
 			'Impact dashboard → > https://wordpress.github.io/WPCredits/',
 			'Facilitation guides → > https://make.wordpress.org/community/handbook/education/wordpress-facilitator-training-program/',
@@ -2542,6 +2823,7 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Foundations → > https://learn.wordpress.org/course/wordpress-credits-foundations/',
 			'Developer track → > https://learn.wordpress.org/course/wordpress-credits-developer-track/',
 			'Designer track → > https://learn.wordpress.org/course/wordpress-credits-designer-track/',
+			'Translation track → > https://learn.wordpress.org/course/wordpress-credits-translation-track/',
 			'Step 1 Attendee > #wpc-hub-step-students-1',
 			'Step 2 Builder > #wpc-hub-step-students-2',
 			'Step 3 Contributor > #wpc-hub-step-students-3',
@@ -2577,7 +2859,7 @@ ck( 'every in-page link lands on something on the page',
 
 ck( 'and every arrow is decorative, read by no screen reader',
 	array( count( $page->query( '//a/span[@aria-hidden="true"]' ) ), substr_count( $page_html, '→' ) ),
-	array( 20, 20 ) );
+	array( 21, 21 ) );
 
 WPCPM_Institution_Application::$url = '';
 WPCPM_Sponsor_Application::$url     = '';

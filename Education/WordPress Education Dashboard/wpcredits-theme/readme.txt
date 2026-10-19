@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.27
+Stable tag: 1.24.28
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.28 =
+* Education Hub homepage, "Which WordPress Credits course?": the Translation track is the band's fifth course, after the Designer track. Its card reads "Translation track" (linked to its Learn WordPress page), "For translators" above the name, and "Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons." The program card's link above the band now reads "Compare the five courses". It was asked for in the hub's content review.
+* The five cards are laid out so none sits alone on a row. From 900px wide, the two courses by length, Intro to Contribution and Foundations, share the first row, and the three tracks, the Developer track, the Designer track and the Translation track, share the second. From 640px to 899px there are two columns, and the last card, the Translation track, spans both. On a phone the cards are one column, as before. The space between cards is 16px, between rows and between columns, at every width, and the band's distance from the cards above (56px) and from what follows is unchanged.
+* For developers: `inc/hub-content.php` gains the fifth `wpcredits_hub_course()` and the new link text; `assets/css/hub.css` gives the grid six columns from 900px (it had four) and adds three rules next to it, `.wpc-hub-courses .wpc-hub-course:nth-child( -n+2 )` and `:nth-child( n+3 )` from 900px and `:last-child:nth-child( odd )` from 640px to 899px. `bin/test-hub.php` pins the card, the link, the rules, and lays the sheet out from its own rules at nine widths to show that no row is left short. Three translatable strings are new ("Translation track", "For translators" and the description) and "Compare the four courses" is replaced by "Compare the five courses", so the translation template is regenerated.
 
 = 1.24.27 =
 * Administrator Dashboard on a phone: each table with column headers keeps its frame around the visible window when you scroll it sideways. Since plugin 1.122.35 the box around the table is what scrolls, but the table's 1px line was still drawn on the table, so its left and right edges slid out of view along with the columns. From 782px down the line is now on the box and the table inside has none, so Administrators see the same frame they saw before, standing still, with the columns moving inside it. On a wider screen nothing changes, and the other dashboards' tables are drawn as before.
@@ -533,7 +538,7 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Puts the lone menu item back in the header rather than across the top of the page. Core positions the collapsed menu over the whole viewport, so showing it without returning it to the normal flow painted the link under the wordpress.org header.
 
 = 1.14.2 =
-* **A menu holding one item no longer hides behind a hamburger.** On a phone the header collapsed its navigation into a toggle whatever was in it, so tapping the hamburger revealed a single link. Reported by Celi Garoe on rechecking the phone layout. A lone item now sits inline beside the logo; add a second and the toggle comes back on its own.
+* **A menu holding one item no longer hides behind a hamburger.** On a phone the header collapsed its navigation into a toggle whatever was in it, so tapping the hamburger revealed a single link. Reported by the mentor coordinator on rechecking the phone layout. A lone item now sits inline beside the logo; add a second and the toggle comes back on its own.
 
 = 1.14.1 =
 * Translation template regenerated: 96 strings, against 1.14.0. It had not been rebuilt since 5 August.
@@ -1095,7 +1100,7 @@ Cross-check against the plugin. Three findings, all at the boundary between the 
   ID, so nothing matched and every row lost its end date and note count. It now calls
   `WPCPM_Mentors_Dashboard::current_mentor()` (plugin 1.13.0), with the old logic kept
   only as an older-plugin fallback. This is the same defect that was reported as
-  "administrator Isotta Peira sees no mentors or students".
+  "an administrator, a program lead, sees no mentors or students".
 * **Removed the dead Slack code.** The plugin renders the handle as a link itself now,
   so the script's `linkSlack()` was unreachable from both sides - it bailed when the
   cell already held a link, and bailed again when the cell was "Not set". It was kept
