@@ -51,8 +51,8 @@ $wpcredits_gap      = '<path d="' . $wpcredits_trail . '" fill="none" stroke="#0
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-hero","layout":{"type":"default"}} -->
 <div class="wp-block-group alignwide wpc-hub-hero"><!-- wp:columns {"className":"wpc-hub-hero__cols wpc-hub-stack","style":{"spacing":{"padding":{"top":"0","bottom":"52px","left":"0","right":"0"}}}} -->
-<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0"><!-- wp:column {"width":"52%","className":"wpc-hub-hero__copy"} -->
-<div class="wp-block-column wpc-hub-hero__copy" style="flex-basis:52%"><!-- wp:paragraph {"className":"wpc-pill","style":{"spacing":{"margin":{"top":"0","bottom":"20px"}}}} -->
+<div class="wp-block-columns wpc-hub-hero__cols wpc-hub-stack" style="padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0"><!-- wp:column {"width":"47%","className":"wpc-hub-hero__copy"} -->
+<div class="wp-block-column wpc-hub-hero__copy" style="flex-basis:47%"><!-- wp:paragraph {"className":"wpc-pill","style":{"spacing":{"margin":{"top":"0","bottom":"20px"}}}} -->
 <p class="wpc-pill" style="margin-top:0;margin-bottom:20px"><?php esc_html_e( 'Education programs from the WordPress project', 'wpcredits-theme' ); ?></p>
 <!-- /wp:paragraph -->
 
@@ -75,8 +75,8 @@ $wpcredits_gap      = '<path d="' . $wpcredits_trail . '" fill="none" stroke="#0
 <!-- /wp:buttons --></div>
 <!-- /wp:column -->
 
-<!-- wp:column {"verticalAlignment":"center","width":"44%","className":"wpc-hub-hero__art"} -->
-<div class="wp-block-column is-vertically-aligned-center wpc-hub-hero__art" style="flex-basis:44%"><!-- wp:html -->
+<!-- wp:column {"verticalAlignment":"bottom","width":"49%","className":"wpc-hub-hero__art"} -->
+<div class="wp-block-column is-vertically-aligned-bottom wpc-hub-hero__art" style="flex-basis:49%"><!-- wp:html -->
 <div class="wpc-hub-art" aria-hidden="true">
 	<svg class="wpc-hub-art__mountain" viewBox="-10 -104 540 494" focusable="false"><defs><g id="wpc-hub-mountain-words"><?php echo $wpcredits_rows; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- each row's words are escaped where the row is built. ?></g><mask id="wpc-hub-mountain-body" <?php echo $wpcredits_area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?>><path d="<?php echo esc_attr( $wpcredits_mountain ); ?>" fill="#fff"/><path d="<?php echo esc_attr( $wpcredits_cap ); ?>" fill="#000"/><?php echo $wpcredits_gap; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?></mask><mask id="wpc-hub-mountain-cap" <?php echo $wpcredits_area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?>><path d="<?php echo esc_attr( $wpcredits_mountain ); ?>" fill="#fff"/><path d="M-10 -104 H530 V390 H-10 Z <?php echo esc_attr( $wpcredits_cap ); ?>" fill="#000" fill-rule="evenodd"/><?php echo $wpcredits_gap; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a literal of this file. ?></mask></defs><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-mountain-body)"/><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-mountain-cap)"/><path class="wpc-hub-art__route" d="<?php echo esc_attr( $wpcredits_trail ); ?>"/><path class="wpc-hub-art__pole" d="M390 -70 V-98"/><path class="wpc-hub-art__pennant" d="M390 -98 L414 -90 L390 -82 Z"/></svg>
 	<div class="wpc-hub-art__frame"></div>

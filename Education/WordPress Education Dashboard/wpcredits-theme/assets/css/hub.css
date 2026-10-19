@@ -184,7 +184,7 @@
 }
 
 /* The hero sits on the page's white, no panel: the copy and the picture side by side from 900px, 40px
-   apart, the picture centered on the copy (the pattern sets its column's vertical alignment), nothing
+   apart, the picture standing on the copy's foot (the pattern sets its column's vertical alignment), nothing
    above them (the eyebrow sits 44px under the header: the main's 20px block gap and the hero's 24px,
    the owner's "remove this gap, its too big" of 17 October 2026) and 52px below, as the pattern stores on the columns (an inline style, so the Site
    Editor's padding control shows what is drawn; these stand as the fallback for a copy of the block
@@ -260,8 +260,14 @@
 /* Pieces of the WordPress editor, drawn at 520 by 380px and set against the column's right edge: a
    block toolbar, the third step as a selected block in a dotted frame, a rising chart, the step's
    badge, a type card and the inserter's plus. Decoration only (the markup hides it from screen
-   readers). Below 900px it is not shown; from 900px it keeps its composition and is zoomed down in
-   steps with the column, so at every width it shows whole and no piece covers another's words. */
+   readers). Below 900px it is not shown; from 900px it keeps its composition and is zoomed in steps
+   with the column, up from a 560px column and down from 519px, each step no wider than the narrowest
+   column it is drawn in, so at every width it shows whole and no piece covers another's words. The
+   picture's column is 49% to the copy's 47% (the owner, 19 October 2026: the picture from the
+   columns' line to the right edge and down to the buttons' line), and it stands on the copy's foot:
+   it keeps the mountain's room in the column, 98px above it for the flag's top and 4px below it for
+   the mountain's foot, so the drawing's foot is the buttons' line and its flag can never reach above
+   the copy's top into the header. */
 .wp-block-column.wpc-hub-hero__art {
 	container-name: wpc-hub-art;
 	container-type: inline-size;
@@ -279,6 +285,26 @@
 	margin-left: auto;
 	position: relative;
 	width: 520px;
+}
+
+/* The mountain's room above and below the picture. Three classes deep: the picture is its column's
+   only child, and the flow layout's `:root :where( .is-layout-flow ) > :first-child` and
+   `> :last-child`, two deep, would take both margins away. */
+.wp-block-column.wpc-hub-hero__art > .wpc-hub-art {
+	margin-bottom: 4px;
+	margin-top: 98px;
+}
+
+@container wpc-hub-art ( min-width: 560px ) {
+	.wpc-hub-art {
+		zoom: 1.077;
+	}
+}
+
+@container wpc-hub-art ( min-width: 600px ) {
+	.wpc-hub-art {
+		zoom: 1.154;
+	}
 }
 
 @container wpc-hub-art ( max-width: 519px ) {
@@ -322,8 +348,8 @@
 
 /* The mountain behind the pieces: rows of the step names in the monospace, cut to two peaks, drawn in
    the picture's own space so it zooms with it. It is the picture's first element, so every piece
-   covers it, and it rises 104px above the picture for the peaks and the flag, inside the room the
-   hero keeps above the picture at every width the picture shows. The higher peak's snow cap is in the
+   covers it, and its box rises 104px above the picture for the peaks and the flag (the flag's top is
+   98px above it), inside the room the picture keeps above itself. The higher peak's snow cap is in the
    brand blue; the trail is a gap in the words with a dashed route in the blue down its middle. */
 .wpc-hub-art__mountain {
 	font-family: var( --wp--preset--font-family--mono );

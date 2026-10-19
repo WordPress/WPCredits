@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.28
+Stable tag: 1.24.29
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.29 =
+* Education Hub homepage, the hero: the picture beside the title is bigger. On a wide screen it fills the space from the line between the two columns to the right edge, and from the top of the text down to the bottom of the two buttons, about 1.15 times its old size, every piece in its old place. The text's column is a little narrower (47% of the row, it was 52%) and the picture's wider (49%, it was 44%), so the paragraph under the title may take one more line. The picture now stands on the text's foot: the mountain's foot is level with the bottom of the buttons, and the flag stays below the top of the text at every width. Below 900px the picture is still not shown.
+* For developers: `patterns/hub-hero.php` sets the columns to 47% and 49% and the picture's column to bottom alignment; `assets/css/hub.css` gives the picture 98px of room above it (the flag's top) and 4px below it (the mountain's foot) in a rule three classes deep, `.wp-block-column.wpc-hub-hero__art > .wpc-hub-art`, because the flow layout's first-child and last-child rules would take a lone child's margins away, and two steps up, `zoom: 1.077` from a 560px column and `zoom: 1.154` from 600px, each no wider than the narrowest column it is drawn in, beside the five steps down. `bin/test-hub.php` pins the split, the alignment, the room (read from the drawing's own paths) and the steps. No string changes.
 
 = 1.24.28 =
 * Education Hub homepage, "Which WordPress Credits course?": the Translation track is the band's fifth course, after the Designer track. Its card reads "Translation track" (linked to its Learn WordPress page), "For translators" above the name, and "Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons." The program card's link above the band now reads "Compare the five courses". It was asked for in the hub's content review.

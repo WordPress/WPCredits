@@ -2557,17 +2557,22 @@ function markup_of( $html, $query ) {
 
 // The picture's steps, each the zoom it is drawn at and the widest column it is drawn in, and whether
 // it fits the narrowest one, the next step's widest plus a pixel, or 320px for the last, to the pixel
-// the browser paints, so no step is wider than the narrowest column it is drawn in.
+// the browser paints, so no step is wider than the narrowest column it is drawn in. The steps up, from
+// the narrowest column each is drawn in, the same way: each no wider than that column.
 $art_rules = rules_placed( '.wpc-hub-art' );
 $art_zoom  = array();
+$art_grow  = array();
 
 foreach ( $art_rules as $art_rule ) {
 	if ( preg_match( '/^@container wpc-hub-art \( max-width: (\d+)px \)$/', $art_rule[0], $art_width ) && preg_match( '/^zoom: ([\d.]+);$/', $art_rule[1], $art_by ) ) {
 		$art_zoom[ (int) $art_width[1] ] = (float) $art_by[1];
+	} elseif ( preg_match( '/^@container wpc-hub-art \( min-width: (\d+)px \)$/', $art_rule[0], $art_width ) && preg_match( '/^zoom: ([\d.]+);$/', $art_rule[1], $art_by ) ) {
+		$art_grow[ (int) $art_width[1] ] = (float) $art_by[1];
 	}
 }
 
 krsort( $art_zoom );
+ksort( $art_grow );
 
 $art_drawn = isset( $art_rules[0] ) && preg_match( '/(?:^|; )width: (\d+)px;/', $art_rules[0][1], $art_wide ) ? (int) $art_wide[1] : 0;
 $art_steps = array_keys( $art_zoom );
@@ -2577,23 +2582,53 @@ foreach ( $art_steps as $art_at => $art_widest ) {
 	$art_fits[ $art_widest ] = round( $art_drawn * $art_zoom[ $art_widest ] ) <= ( isset( $art_steps[ $art_at + 1 ] ) ? $art_steps[ $art_at + 1 ] + 1 : 320 );
 }
 
-ck( 'beside the copy, the picture is decoration: a column of its own, 44% to the copy\'s 52% and centered on it, one Custom HTML block whose one element is hidden from screen readers and holds no link, button, field or tab stop, its two drawings, the mountain and the chart, taking no focus; not shown below 900px, and from 900px drawn at 520 by 380px against the column\'s right edge and zoomed down in steps with its column, each step small enough for the narrowest column it is drawn in, down to 320px, so no piece is cut',
+$art_grows = array();
+
+foreach ( $art_grow as $art_narrowest => $art_by ) {
+	$art_grows[ $art_narrowest ] = $art_by > 1 && round( $art_drawn * $art_by ) <= $art_narrowest;
+}
+
+// The room the picture keeps in the column for the mountain, from what the pattern draws: above the
+// picture as far as the flag's top, the highest point of its pole and pennant, below it as far as the
+// mountain's foot runs past its 380px, so the column holds the whole drawing, the flag's top is its
+// top and the mountain's foot is its foot.
+$art_flag = preg_match_all( '/class="wpc-hub-art__(?:pole|pennant)" d="([^"]+)"/', $hero, $art_paths ) ? $art_paths[1] : array();
+$art_foot = preg_match( '/<mask id="wpc-hub-mountain-body"[^>]*><path d="([^"]+)"/', $hero, $art_body ) ? $art_body[1] : '';
+$art_ys   = static function ( $path ) {
+	preg_match_all( '/(?:[MLHVZ]\s*)?(-?\d+)(?:\s+(-?\d+))?/', $path, $pairs, PREG_SET_ORDER );
+	$ys = array();
+	foreach ( $pairs as $pair ) {
+		if ( 'V' === substr( ltrim( $pair[0] ), 0, 1 ) ) {
+			$ys[] = (int) $pair[1];
+		} elseif ( isset( $pair[2] ) && '' !== $pair[2] ) {
+			$ys[] = (int) $pair[2];
+		}
+	}
+	return $ys;
+};
+$art_box  = $art_flag && '' !== $art_foot ? array( -min( array_merge( ...array_map( $art_ys, $art_flag ) ) ), max( $art_ys( $art_foot ) ) - 380 ) : array();
+
+ck( 'beside the copy, the picture is decoration: a column of its own, 49% to the copy\'s 47% and set on the copy\'s foot, one Custom HTML block whose one element is hidden from screen readers and holds no link, button, field or tab stop, its two drawings, the mountain and the chart, taking no focus; not shown below 900px, and from 900px drawn at 520 by 380px against the column\'s right edge, keeping the mountain\'s room above and below it, three classes deep so the flow layout\'s first- and last-child rules leave it, zoomed down in steps with its column, each step small enough for the narrowest column it is drawn in, down to 320px, so no piece is cut, and up in two steps, from 560px and from 600px, each no wider than the narrowest column it is drawn in',
 	array(
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__cols ")]/div', 'class' ),
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__cols ")]/div', 'style' ),
-		preg_match_all( '#<!-- wp:column \{"verticalAlignment":"center","width":"44%","className":"wpc-hub-hero__art"\} -->\s*<div class="wp-block-column is-vertically-aligned-center wpc-hub-hero__art" style="flex-basis:44%"><!-- wp:html -->\s*<div class="wpc-hub-art" aria-hidden="true">#', $hero ),
+		preg_match_all( '#<!-- wp:column \{"verticalAlignment":"bottom","width":"49%","className":"wpc-hub-hero__art"\} -->\s*<div class="wp-block-column is-vertically-aligned-bottom wpc-hub-hero__art" style="flex-basis:49%"><!-- wp:html -->\s*<div class="wpc-hub-art" aria-hidden="true">#', $hero ),
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__art ")]/*', 'class' ),
 		found( $hx, '//div[contains(concat(" ", @class, " "), " wpc-hub-hero__art ")]/*', 'aria-hidden' ),
 		count( $hx->query( '//div[@class="wpc-hub-art"]//*[' . $focusable . ']' ) ),
 		found( $hx, '//div[@class="wpc-hub-art"]//svg', 'focusable' ),
 		rules_placed( '.wp-block-column.wpc-hub-hero__art' ),
 		$art_rules[0] ?? null,
+		rules_placed( '.wp-block-column.wpc-hub-hero__art > .wpc-hub-art' ),
+		$art_box,
 		$art_zoom,
 		$art_fits,
+		$art_grow,
+		$art_grows,
 	),
 	array(
-		array( 'wp-block-column wpc-hub-hero__copy', 'wp-block-column is-vertically-aligned-center wpc-hub-hero__art' ),
-		array( 'flex-basis:52%', 'flex-basis:44%' ),
+		array( 'wp-block-column wpc-hub-hero__copy', 'wp-block-column is-vertically-aligned-bottom wpc-hub-hero__art' ),
+		array( 'flex-basis:47%', 'flex-basis:49%' ),
 		1,
 		array( 'wpc-hub-art' ),
 		array( 'true' ),
@@ -2604,8 +2639,12 @@ ck( 'beside the copy, the picture is decoration: a column of its own, 44% to the
 			array( '@media ( max-width: 899px )', 'display: none;' ),
 		),
 		array( '', 'height: 380px; margin-left: auto; position: relative; width: 520px;' ),
+		array( array( '', 'margin-bottom: 4px; margin-top: 98px;' ) ),
+		array( 98, 4 ),
 		array( 519 => 0.92, 479 => 0.845, 439 => 0.765, 399 => 0.69, 359 => 0.615 ),
 		array( 519 => true, 479 => true, 439 => true, 399 => true, 359 => true ),
+		array( 560 => 1.077, 600 => 1.154 ),
+		array( 560 => true, 600 => true ),
 	) );
 
 // The glyphs the sheet draws inside the pictures, in its order: the content of every rule that names a
