@@ -197,3 +197,26 @@
 	overflow-wrap: anywhere;
 	white-space: pre-wrap;
 }
+
+/* The note under the footer's preview: what {dashboard_link} links to for each kind of person. It
+   sits 1em under the preview's box, as the description under the editor's buttons sits under them,
+   rather than the 2px a description's own margin leaves. Its first sentence introduces the list, so
+   it sits closer to the list than to the preview above; the list reads in the description's gray,
+   and a long address wraps on a phone. */
+.wpcpm-emails__note {
+	margin-top: 1em;
+}
+
+.wpcpm-emails__note > .description:first-child {
+	margin-bottom: 0.5em;
+}
+
+.wpcpm-emails__dashboards {
+	color: #646970;
+	list-style: disc;
+	margin: 0 0 0 2em;
+}
+
+.wpcpm-emails__dashboards li {
+	overflow-wrap: anywhere;
+}

@@ -992,7 +992,9 @@ final class WPCPM_Mail_Templates {
 	}
 
 	/**
-	 * The signature and footer's placeholders, none of them required.
+	 * The signature and footer's placeholders, none of them required. `{site_link}`, the site's public
+	 * home page, the same for everybody, joined in 1.122.37, for a footer written to people who cannot
+	 * open a dashboard; the shipped footer does not use it.
 	 *
 	 * @return array Name to what `all()` holds for each.
 	 */
@@ -1002,6 +1004,13 @@ final class WPCPM_Mail_Templates {
 				'means'    => __( 'The site\'s name.', 'wpcredits-program-manager' ),
 				'example'  => static function () {
 					return WPCPM_Mail::site_name();
+				},
+				'required' => false,
+			),
+			'site_link'       => array(
+				'means'    => __( 'The site\'s public address, the same for everyone. Empty for an email that names it already, which leaves its line out.', 'wpcredits-program-manager' ),
+				'example'  => static function () {
+					return self::site_link();
 				},
 				'required' => false,
 			),
@@ -1033,6 +1042,49 @@ final class WPCPM_Mail_Templates {
 		$contact = class_exists( 'WPCPM_Settings' ) ? trim( (string) WPCPM_Settings::get_value( 'mail_contact', '' ) ) : '';
 
 		return '' !== $contact && is_email( $contact ) ? $contact : '';
+	}
+
+	/**
+	 * The site's public address, which `{site_link}` names: its home page, the same for everybody.
+	 *
+	 * @return string
+	 */
+	public static function site_link() {
+		return (string) home_url( '/' );
+	}
+
+	/**
+	 * What `{dashboard_link}` becomes for each kind of person with an account: the people of that
+	 * kind, the full name of their page and its address, in the order of the plugin's five
+	 * audiences. A kind whose page is not published is left out, since its people's footer has no
+	 * dashboard line. The Signature and footer tab and the footer's test list them, so the
+	 * Administrator who reads the Administrator Dashboard there knows everybody else gets their own.
+	 *
+	 * @return array<string,array{who:string,page:string,url:string}> By recipient type.
+	 */
+	public static function dashboard_pages() {
+		$named = array(
+			WPCPM_Mail_Catalog::TYPE_STUDENT     => array( __( 'Students', 'wpcredits-program-manager' ), __( 'Student Report Card', 'wpcredits-program-manager' ) ),
+			WPCPM_Mail_Catalog::TYPE_MENTOR      => array( __( 'Mentors', 'wpcredits-program-manager' ), __( 'Mentor Report Card', 'wpcredits-program-manager' ) ),
+			WPCPM_Mail_Catalog::TYPE_INSTITUTION => array( __( 'Institution members', 'wpcredits-program-manager' ), __( 'Institution Dashboard', 'wpcredits-program-manager' ) ),
+			WPCPM_Mail_Catalog::TYPE_SPONSOR     => array( __( 'Sponsor members', 'wpcredits-program-manager' ), __( 'Sponsor Dashboard', 'wpcredits-program-manager' ) ),
+			WPCPM_Mail_Catalog::TYPE_ADMIN       => array( __( 'Administrators', 'wpcredits-program-manager' ), __( 'Administrator Dashboard', 'wpcredits-program-manager' ) ),
+		);
+		$out   = array();
+
+		foreach ( $named as $type => $words ) {
+			$url = self::page_of_type( $type );
+
+			if ( '' !== $url ) {
+				$out[ $type ] = array(
+					'who'  => $words[0],
+					'page' => $words[1],
+					'url'  => $url,
+				);
+			}
+		}
+
+		return $out;
 	}
 
 	/**
@@ -1069,6 +1121,10 @@ final class WPCPM_Mail_Templates {
 			$out['site_name'] = WPCPM_Mail::site_name();
 		}
 
+		if ( in_array( 'site_link', $used, true ) ) {
+			$out['site_link'] = self::site_link();
+		}
+
 		if ( in_array( 'dashboard_link', $used, true ) ) {
 			$out['dashboard_link'] = self::dashboard_of( $recipient, null === $named ? '' : $named['audience'] );
 		}
@@ -1081,12 +1137,12 @@ final class WPCPM_Mail_Templates {
 	}
 
 	/**
-	 * The signature and footer's values for a preview or a test of an email: the site's name, the
-	 * dashboard of the email's audience, and the contact address as set. An email to several kinds
-	 * of people shows the dashboard of the people it is written for first: a sponsor's in the
-	 * Sponsors area, whose one such email, the codes running low, goes to the sponsor's accounts
-	 * and to an Administrator, and a student's elsewhere, as a group session's goes to its
-	 * students and their mentor.
+	 * The signature and footer's values for a preview or a test of an email: the site's name and its
+	 * public address, the dashboard of the email's audience, and the contact address as set. An email
+	 * to several kinds of people shows the dashboard of the people it is written for first: a
+	 * sponsor's in the Sponsors area, whose one such email, the codes running low, goes to the
+	 * sponsor's accounts and to an Administrator, and a student's elsewhere, as a group session's
+	 * goes to its students and their mentor.
 	 *
 	 * @param string $context The email's id in the catalog.
 	 * @return array<string,string>
@@ -1101,6 +1157,7 @@ final class WPCPM_Mail_Templates {
 
 		return array(
 			'site_name'       => WPCPM_Mail::site_name(),
+			'site_link'       => self::site_link(),
 			'dashboard_link'  => self::page_of_type( $audience ),
 			'program_contact' => self::program_contact(),
 		);
@@ -1112,9 +1169,12 @@ final class WPCPM_Mail_Templates {
 	 * byte for byte, and so is the way it ended: one that ended with a line break ends with one
 	 * after the footer too. A body that already names the recipient's dashboard, as an invitation
 	 * does under its last label, gets no second copy of it: `{dashboard_link}` is empty there, so its
-	 * line is left out, by the plugin's rule that no address appears twice. A footer that comes out
-	 * empty, every line of it left out, adds nothing, the "-- " line included; an empty footer is
-	 * never saved (`refusal()`).
+	 * line is left out, by the plugin's rule that no address appears twice. The same holds for the
+	 * site's home page, `{site_link}` (since 1.122.37), with one difference: every address of the
+	 * site starts with the home page's, so a body names the home page only where its address
+	 * stands whole (`names_address()`), and a body that names a dashboard or the sign-in page keeps
+	 * it. A footer that comes out empty, every line of it left out, adds nothing, the "-- " line
+	 * included; an empty footer is never saved (`refusal()`).
 	 *
 	 * @param string       $body      The email's body.
 	 * @param WP_User|null $recipient The account it goes to, or null for an address with none.
@@ -1133,6 +1193,10 @@ final class WPCPM_Mail_Templates {
 			$values['dashboard_link'] = '';
 		}
 
+		if ( ! empty( $values['site_link'] ) && self::names_address( $body, (string) $values['site_link'] ) ) {
+			$values['site_link'] = '';
+		}
+
 		$footer = rtrim( self::fill( $text['body'], $values, self::footer_placeholders(), $eol ), "\r\n\t " );
 
 		if ( '' === $footer ) {
@@ -1144,6 +1208,22 @@ final class WPCPM_Mail_Templates {
 		}
 
 		return $body . $eol . $eol . '-- ' . $eol . $footer;
+	}
+
+	/**
+	 * Whether a body names an address standing whole, with its last slash or without it: followed by
+	 * the end, a space, a closing bracket, an angle bracket or a quote, or by a mark that ends a
+	 * sentence and then the end or a space. So "https://example.test/." names the site's home page, and
+	 * "https://example.test/student-report-card/" does not.
+	 *
+	 * @param string $body    The email's body.
+	 * @param string $address An address, such as the site's home page.
+	 * @return bool
+	 */
+	private static function names_address( $body, $address ) {
+		$bare = rtrim( $address, '/' );
+
+		return '' !== $bare && 1 === preg_match( '~' . preg_quote( $bare, '~' ) . '/?(?=$|[\s<>"\')\]]|[.,;:!?](?:$|\s))~', $body );
 	}
 
 	/*
@@ -1179,7 +1259,7 @@ final class WPCPM_Mail_Templates {
 							__( '[%s] The signature and footer', 'wpcredits-program-manager' ),
 							wp_specialchars_decode( WPCPM_Mail::site_name(), ENT_QUOTES )
 						),
-						'body'    => __( 'This is how every email the plugin sends ends, filled as an Administrator\'s own would be.', 'wpcredits-program-manager' ),
+						'body'    => self::footer_test_body(),
 					)
 				)
 			);
@@ -1190,6 +1270,52 @@ final class WPCPM_Mail_Templates {
 		}
 
 		return WPCPM_Mail::send( $to, $id, self::test_of( $id, null ) );
+	}
+
+	/**
+	 * What the footer's test says above the footer (since 1.122.37, after WordPress/WPCredits#255):
+	 * what it is and, while the footer names a dashboard and the Administrator Dashboard is
+	 * published, that its link is that page because the test went to an Administrator, what
+	 * everybody else's emails link to in its place (`dashboard_pages()`), unless an email names that
+	 * page already, as every invitation does, and that somebody with no account gets none. The list leaves the Administrators out: the test's own link names their
+	 * page, and a body naming it would leave the footer's dashboard line out (`add_footer()`). A
+	 * footer with no `{dashboard_link}` has no dashboard to explain, so its test says what it is
+	 * and nothing more.
+	 *
+	 * @return string
+	 */
+	private static function footer_test_body() {
+		$opening = __( 'This is how every email the plugin sends ends.', 'wpcredits-program-manager' );
+		$pages   = self::dashboard_pages();
+		$text    = self::text_of( self::FOOTER );
+
+		if ( ! isset( $pages[ WPCPM_Mail_Catalog::TYPE_ADMIN ] ) || ! in_array( 'dashboard_link', self::placeholders_in( $text['body'] ), true ) ) {
+			return $opening;
+		}
+
+		unset( $pages[ WPCPM_Mail_Catalog::TYPE_ADMIN ] );
+
+		$paragraphs = array( $opening . ' ' . __( 'This test went to you, an Administrator, so the dashboard link below is the Administrator Dashboard.', 'wpcredits-program-manager' ) );
+
+		if ( array() !== $pages ) {
+			$lines = array( __( 'In everybody else\'s emails, that line links to their own page, unless the email names that page already:', 'wpcredits-program-manager' ) );
+
+			foreach ( $pages as $page ) {
+				$lines[] = sprintf(
+					/* translators: 1: a kind of person, such as Students, 2: the full name of their page, such as Student Report Card, 3: the page's address. */
+					__( '%1$s: %2$s, %3$s', 'wpcredits-program-manager' ),
+					$page['who'],
+					$page['page'],
+					$page['url']
+				);
+			}
+
+			$paragraphs[] = implode( "\n", $lines );
+		}
+
+		$paragraphs[] = __( 'Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out.', 'wpcredits-program-manager' );
+
+		return implode( "\n\n", $paragraphs );
 	}
 
 	/**

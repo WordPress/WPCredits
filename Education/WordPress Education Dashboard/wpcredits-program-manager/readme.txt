@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.122.36
+Stable tag: 1.122.37
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,12 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.122.37 =
+
+* In wp-admin, on Tools > Emails > Signature and footer, a note under the preview now says that the preview and Send me a test show the footer as an Administrator gets it, and lists what `{dashboard_link}` links to for each kind of person, with the page's address: students their Student Report Card, mentors their Mentor Report Card, institution members the Institution Dashboard, sponsor members the Sponsor Dashboard and Administrators the Administrator Dashboard (a page that is not published is left out). Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out. The footer's test email says the same: it went to you, an Administrator, so its link is the Administrator Dashboard, and everybody else's emails link to their own page. What everybody else receives has not changed: the link in their footer was always their own page (WordPress/WPCredits#255).
+* The footer has a new placeholder, `{site_link}`: the site's public address, its home page, the same for everyone. Add it to the footer on the same tab to give every email a link to the public site, for the many people the program writes to who cannot open a dashboard. Like the dashboard link, it is left out of an email that already names the home page. The footer as shipped is unchanged.
+* For developers: `WPCPM_Mail_Templates::footer_placeholders()` holds `site_link`, filled with `WPCPM_Mail_Templates::site_link()` (`home_url( '/' )`) by `footer_values()`, while the footer uses it, and by `footer_examples()`; `add_footer()` leaves it out where the body names that address standing whole, with or without its last slash, and keeps it where the body names a page under it. `WPCPM_Mail_Templates::dashboard_pages()` returns each recipient type whose page is published, with `who`, `page` and `url`, which the tab's note and the footer's test list.
 
 = 1.122.36 =
 

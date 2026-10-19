@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.122.36\n"
+"Project-Id-Version: WPCredits Program Manager 1.122.37\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-18T17:13:46+00:00\n"
+"POT-Creation-Date: 2026-10-19T13:50:31+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -235,7 +235,7 @@ msgstr ""
 #: includes/tools/class-wpcpm-duplicate-finder.php:264
 #: includes/tools/class-wpcpm-duplicate-finder.php:383
 #: includes/tools/class-wpcpm-emails.php:298
-#: includes/tools/class-wpcpm-emails.php:751
+#: includes/tools/class-wpcpm-emails.php:801
 #: includes/tools/class-wpcpm-handbook.php:418
 #: includes/tools/class-wpcpm-header-notices.php:107
 #: includes/tools/class-wpcpm-header-notices.php:131
@@ -535,6 +535,7 @@ msgid "Public means everyone. Administrators can always read every level."
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:57
+#: includes/mail/class-wpcpm-mail-templates.php:1067
 #: includes/modules/class-wpcpm-institution-student-view.php:667
 #: includes/modules/class-wpcpm-students-dashboard.php:120
 #: includes/modules/class-wpcpm-students-dashboard.php:1246
@@ -544,6 +545,7 @@ msgid "Student Report Card"
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:69
+#: includes/mail/class-wpcpm-mail-templates.php:1068
 #: includes/modules/class-wpcpm-mentors-dashboard.php:104
 #: includes/modules/class-wpcpm-mentors-dashboard.php:263
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1665
@@ -552,6 +554,7 @@ msgid "Mentor Report Card"
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:88
+#: includes/mail/class-wpcpm-mail-templates.php:1069
 #: includes/modules/class-wpcpm-institutions-dashboard.php:127
 #: includes/modules/class-wpcpm-institutions-dashboard.php:1355
 #: blocks/institution-dashboard/editor.js:48
@@ -559,12 +562,14 @@ msgid "Institution Dashboard"
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:104
+#: includes/mail/class-wpcpm-mail-templates.php:1070
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:115
 #: blocks/sponsor-dashboard/editor.js:48
 msgid "Sponsor Dashboard"
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:119
+#: includes/mail/class-wpcpm-mail-templates.php:1071
 #: includes/modules/class-wpcpm-administrators-dashboard.php:92
 #: blocks/administrator-dashboard/editor.js:48
 msgid "Administrator Dashboard"
@@ -883,6 +888,7 @@ msgid "%s moved down."
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:75
+#: includes/mail/class-wpcpm-mail-templates.php:1067
 #: includes/modules/class-wpcpm-administrators-cards.php:1206
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
 #: includes/modules/class-wpcpm-institutions-dashboard.php:525
@@ -897,6 +903,7 @@ msgid "Students"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:76
+#: includes/mail/class-wpcpm-mail-templates.php:1068
 #: includes/modules/class-wpcpm-administrators-cards.php:1215
 #: includes/modules/class-wpcpm-administrators-cards.php:1840
 #: includes/modules/class-wpcpm-mentors.php:98
@@ -928,6 +935,7 @@ msgstr ""
 #: includes/class-wpcpm-notices.php:79
 #: includes/class-wpcpm-settings-choices.php:584
 #: includes/class-wpcpm-settings-screen.php:1556
+#: includes/mail/class-wpcpm-mail-templates.php:1071
 #: includes/modules/class-wpcpm-administrators.php:82
 #: includes/modules/class-wpcpm-mentor-engagement.php:300
 msgid "Administrators"
@@ -1159,7 +1167,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-table.php:98
 #: includes/modules/class-wpcpm-sponsors-table.php:159
 #: includes/modules/class-wpcpm-sponsors.php:2270
-#: includes/tools/class-wpcpm-emails.php:988
+#: includes/tools/class-wpcpm-emails.php:1038
 #: includes/tools/class-wpcpm-mentor-checker.php:953
 #: includes/tools/class-wpcpm-track-builder-screen.php:55
 msgid "Status"
@@ -3097,22 +3105,22 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-log.php:508
 #: includes/modules/class-wpcpm-sponsors.php:2336
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
-#: includes/tools/class-wpcpm-emails.php:1019
+#: includes/tools/class-wpcpm-emails.php:1069
 msgid "When"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:55
-#: includes/tools/class-wpcpm-emails.php:1032
+#: includes/tools/class-wpcpm-emails.php:1082
 msgid "To"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:56
-#: includes/tools/class-wpcpm-emails.php:985
+#: includes/tools/class-wpcpm-emails.php:1035
 msgid "Recipient type"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:57
-#: includes/tools/class-wpcpm-emails.php:984
+#: includes/tools/class-wpcpm-emails.php:1034
 msgid "Area"
 msgstr ""
 
@@ -3123,7 +3131,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-students-dashboard.php:740
 #: includes/modules/class-wpcpm-students-dashboard.php:992
 #: includes/tools/class-wpcpm-emails.php:364
-#: includes/tools/class-wpcpm-emails.php:1009
+#: includes/tools/class-wpcpm-emails.php:1059
 msgid "Email"
 msgstr ""
 
@@ -3147,7 +3155,7 @@ msgid "Not recorded"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:172
-#: includes/tools/class-wpcpm-emails.php:993
+#: includes/tools/class-wpcpm-emails.php:1043
 msgid "Test"
 msgstr ""
 
@@ -3236,7 +3244,7 @@ msgid "Nothing was saved: the body is longer than %s characters."
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-templates.php:791
-#: includes/tools/class-wpcpm-emails.php:791
+#: includes/tools/class-wpcpm-emails.php:841
 msgid "Nothing was saved: the site has no such email."
 msgstr ""
 
@@ -3284,7 +3292,7 @@ msgstr ""
 msgid "Added to the end of every email the plugin sends."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:1002
+#: includes/mail/class-wpcpm-mail-templates.php:1004
 #: includes/mail/templates/calls.php:48
 #: includes/mail/templates/institutions.php:50
 #: includes/mail/templates/invitations.php:35
@@ -3293,26 +3301,58 @@ msgstr ""
 msgid "The site's name."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:1009
+#: includes/mail/class-wpcpm-mail-templates.php:1011
+msgid "The site's public address, the same for everyone. Empty for an email that names it already, which leaves its line out."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1018
 msgid "The recipient's dashboard. Empty for somebody with no account, and for an email that names it already, which leaves its line out."
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:1017
+#: includes/mail/class-wpcpm-mail-templates.php:1026
 msgid "The address in Contact address in emails. Empty leaves its sentence out."
 msgstr ""
 
+#: includes/mail/class-wpcpm-mail-templates.php:1069
+msgid "Institution members"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1070
+msgid "Sponsor members"
+msgstr ""
+
 #. translators: %s: site name.
-#: includes/mail/class-wpcpm-mail-templates.php:1179
+#: includes/mail/class-wpcpm-mail-templates.php:1259
 #, php-format
 msgid "[%s] The signature and footer"
 msgstr ""
 
-#: includes/mail/class-wpcpm-mail-templates.php:1182
-msgid "This is how every email the plugin sends ends, filled as an Administrator's own would be."
+#: includes/mail/class-wpcpm-mail-templates.php:1288
+msgid "This is how every email the plugin sends ends."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1298
+msgid "This test went to you, an Administrator, so the dashboard link below is the Administrator Dashboard."
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1301
+msgid "In everybody else's emails, that line links to their own page, unless the email names that page already:"
+msgstr ""
+
+#. translators: 1: a kind of person, such as Students, 2: the full name of their page, such as Student Report Card, 3: the page's address.
+#: includes/mail/class-wpcpm-mail-templates.php:1306
+#: includes/tools/class-wpcpm-emails.php:728
+#, php-format
+msgid "%1$s: %2$s, %3$s"
+msgstr ""
+
+#: includes/mail/class-wpcpm-mail-templates.php:1316
+#: includes/tools/class-wpcpm-emails.php:741
+msgid "Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out."
 msgstr ""
 
 #. translators: %s: the email's subject.
-#: includes/mail/class-wpcpm-mail-templates.php:1211
+#: includes/mail/class-wpcpm-mail-templates.php:1337
 #, php-format
 msgid "[Test] %s"
 msgstr ""
@@ -12773,7 +12813,7 @@ msgid "%1$s of %2$s noted"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-engagement.php:293
-#: includes/tools/class-wpcpm-emails.php:1074
+#: includes/tools/class-wpcpm-emails.php:1124
 msgid "All"
 msgstr ""
 
@@ -15769,7 +15809,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1059
 #: includes/modules/class-wpcpm-sponsors.php:1903
-#: includes/tools/class-wpcpm-emails.php:684
+#: includes/tools/class-wpcpm-emails.php:685
 #: includes/tools/class-wpcpm-track-builder-screen.php:118
 #: includes/tools/class-wpcpm-track-builder-screen.php:735
 msgid "Preview"
@@ -17466,7 +17506,7 @@ msgid "All institutions"
 msgstr ""
 
 #: includes/modules/class-wpcpm-students-table.php:438
-#: includes/tools/class-wpcpm-emails.php:1042
+#: includes/tools/class-wpcpm-emails.php:1092
 msgid "Filter"
 msgstr ""
 
@@ -18374,7 +18414,7 @@ msgid "The shipped text"
 msgstr ""
 
 #: includes/tools/class-wpcpm-emails.php:623
-#: includes/tools/class-wpcpm-emails.php:689
+#: includes/tools/class-wpcpm-emails.php:690
 msgid "Subject:"
 msgstr ""
 
@@ -18402,121 +18442,131 @@ msgstr ""
 msgid "Empty here"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:675
+#: includes/tools/class-wpcpm-emails.php:676
 msgid "The text of the email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:685
+#: includes/tools/class-wpcpm-emails.php:686
 msgid "As it is sent now, with the example values and the signature and footer."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:791
+#: includes/tools/class-wpcpm-emails.php:712
+msgid "The preview and Send me a test show the footer as an Administrator gets it."
+msgstr ""
+
+#. translators: %s: the placeholder {dashboard_link}, shown as code.
+#: includes/tools/class-wpcpm-emails.php:718
+#, php-format
+msgid "In each email, %s links to the recipient's own page, unless the email names that page already:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-emails.php:841
 msgid "Nothing was sent: the site has no such email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:813
+#: includes/tools/class-wpcpm-emails.php:863
 msgid "Saved. It reads as the shipped text, so it is sent as shipped."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:816
+#: includes/tools/class-wpcpm-emails.php:866
 msgid "Saved. Every email ends with the signature and footer as you wrote it from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:816
+#: includes/tools/class-wpcpm-emails.php:866
 msgid "Saved. The email is sent as you wrote it from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:828
+#: includes/tools/class-wpcpm-emails.php:878
 msgid "Nothing was restored: the site has no such email."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:832
+#: includes/tools/class-wpcpm-emails.php:882
 msgid "The original is back: the shipped text is sent from now on."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:835
+#: includes/tools/class-wpcpm-emails.php:885
 msgid "There was no edit to restore: the shipped text is already the one sent."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:853
+#: includes/tools/class-wpcpm-emails.php:903
 msgid "Nothing was sent: what you typed is not saved yet. Save it first, then send the test."
 msgstr ""
 
 #. translators: %s: the Administrator's own email address.
-#: includes/tools/class-wpcpm-emails.php:864
+#: includes/tools/class-wpcpm-emails.php:914
 #, php-format
 msgid "The test is on its way to your own address, %s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:870
+#: includes/tools/class-wpcpm-emails.php:920
 msgid "The test could not be sent: whatever handles mail on this site refused it, so the real email would not arrive either."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:950
+#: includes/tools/class-wpcpm-emails.php:1000
 msgid "The email log is not ready yet. It is created the next time a page of the site loads; if this stays, tell whoever looks after the site."
 msgstr ""
 
 #. translators: %d: days kept.
-#: includes/tools/class-wpcpm-emails.php:968
+#: includes/tools/class-wpcpm-emails.php:1018
 #, php-format
 msgid "Every email the site sent in the last %d days, newest first."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:980
+#: includes/tools/class-wpcpm-emails.php:1030
 msgid "Search address, name or subject"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:984
+#: includes/tools/class-wpcpm-emails.php:1034
 msgid "Every area"
 msgstr ""
 
 #. translators: %s: how many emails the Email filter's list shows, as a number.
-#: includes/tools/class-wpcpm-emails.php:1000
+#: includes/tools/class-wpcpm-emails.php:1050
 #, php-format
 msgid "Emails in the list: %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1010
+#: includes/tools/class-wpcpm-emails.php:1060
 msgid "Type to find an email"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1011
+#: includes/tools/class-wpcpm-emails.php:1061
 msgid "No email has that name."
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1021
+#: includes/tools/class-wpcpm-emails.php:1071
 msgid "Today"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1022
+#: includes/tools/class-wpcpm-emails.php:1072
 msgid "The last 7 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1023
+#: includes/tools/class-wpcpm-emails.php:1073
 msgid "The last 30 days"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1024
+#: includes/tools/class-wpcpm-emails.php:1074
 msgid "From and to dates"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1027
+#: includes/tools/class-wpcpm-emails.php:1077
 msgid "Any time"
 msgstr ""
 
-#: includes/tools/class-wpcpm-emails.php:1031
+#: includes/tools/class-wpcpm-emails.php:1081
 msgid "From"
 msgstr ""
 
 #. translators: %s: number of emails.
-#: includes/tools/class-wpcpm-emails.php:1052
+#: includes/tools/class-wpcpm-emails.php:1102
 #, php-format
 msgid "%s email matches."
 msgid_plural "%s emails match."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-emails.php:1061
+#: includes/tools/class-wpcpm-emails.php:1111
 msgid "\"Handed to the mail server\" means the site passed the email on, not that it reached the inbox."
 msgstr ""
 

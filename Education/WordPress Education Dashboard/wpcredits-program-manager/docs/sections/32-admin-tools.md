@@ -190,15 +190,24 @@ not sent.
 
 The one block every email the plugin sends ends with, after a blank line and a line holding `-- `.
 It is not added to the emails WordPress and the Two Factor plugin send themselves. Its placeholders
-are `{site_name}`; `{dashboard_link}`, the recipient's dashboard, which is empty for somebody with
-no account, such as an applicant, and for an email that names the dashboard already, as every
-invitation does, so its line is left out and no email names the address twice; and
-`{program_contact}`, the address in **Contact address in emails**, which is empty until it is set,
-so its sentence is left out. It ships as three lines:
+are `{site_name}`; `{site_link}`, the site's public address, its home page, the same for everyone
+(since 1.122.37), which is left out of an email that names the home page already; `{dashboard_link}`,
+the recipient's dashboard, which is empty for somebody with no account, such as an applicant, and
+for an email that names the dashboard already, as every invitation does, so its line is left out
+and no email names the address twice; and `{program_contact}`, the address in **Contact address in
+emails**, which is empty until it is set, so its sentence is left out. It ships as three lines:
 
 - `WordPress Credits, WordPress Education`
 - `{dashboard_link}`
 - `This email comes from the WordPress Credits program. Questions? Write to {program_contact}.`
+
+`{dashboard_link}` is each person's own page: a student's Student Report Card, a mentor's Mentor
+Report Card, an institution member's Institution Dashboard, a sponsor member's Sponsor Dashboard and
+an Administrator's Administrator Dashboard. A page that is not published gives no link. The tab's
+preview and **Send me a test** show the footer as an Administrator gets it, since the test goes to
+you, so both show the Administrator Dashboard; a note under the preview, and the test itself, list
+what everybody else gets. To give every email a link to the public site as well, which everybody
+can open, add `{site_link}` to the footer.
 
 The tab edits it with the editor every template has, without a subject, with **Save**, **Send me a
 test** (a short email that ends with the block) and **Restore the original**. An empty block is not

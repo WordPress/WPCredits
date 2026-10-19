@@ -663,7 +663,8 @@ class WPCPM_Emails extends WPCPM_Tool {
 
 	/**
 	 * The email as a recipient of its audience would read it: the text that goes out, filled with
-	 * the example values, and the footer. For the footer, a short line above it.
+	 * the example values, and the footer. For the footer, a short line above it, and under the
+	 * preview the note on whose footer it shows (`render_dashboards_note()`).
 	 *
 	 * @param string $id A template's id, or `WPCPM_Mail_Templates::FOOTER`.
 	 */
@@ -690,6 +691,55 @@ class WPCPM_Emails extends WPCPM_Tool {
 		}
 
 		printf( '<pre class="wpcpm-emails__text">%s</pre></div>', esc_html( $body ) );
+
+		if ( WPCPM_Mail_Templates::FOOTER === $id ) {
+			$this->render_dashboards_note();
+		}
+	}
+
+	/**
+	 * Under the footer's preview: that the preview and the test show the footer as an Administrator
+	 * gets it, what `{dashboard_link}` links to for each kind of person whose page is published, by
+	 * the page's full name and address, unless an email names that page already, as every
+	 * invitation does, and that somebody with no account gets none (since 1.122.37, after
+	 * WordPress/WPCredits#255, where an Administrator Dashboard in a footer test read as the address
+	 * everybody gets).
+	 */
+	private function render_dashboards_note() {
+		$pages = WPCPM_Mail_Templates::dashboard_pages();
+
+		echo '<div class="wpcpm-emails__note"><p class="description">';
+		echo esc_html__( 'The preview and Send me a test show the footer as an Administrator gets it.', 'wpcredits-program-manager' );
+
+		if ( array() !== $pages ) {
+			echo ' ';
+			printf(
+				/* translators: %s: the placeholder {dashboard_link}, shown as code. */
+				esc_html__( 'In each email, %s links to the recipient\'s own page, unless the email names that page already:', 'wpcredits-program-manager' ),
+				'<code>{dashboard_link}</code>'
+			);
+			echo '</p><ul class="wpcpm-emails__dashboards">';
+
+			foreach ( $pages as $page ) {
+				printf(
+					'<li>%s</li>',
+					sprintf(
+						/* translators: 1: a kind of person, such as Students, 2: the full name of their page, such as Student Report Card, 3: the page's address. */
+						esc_html__( '%1$s: %2$s, %3$s', 'wpcredits-program-manager' ),
+						esc_html( $page['who'] ),
+						esc_html( $page['page'] ),
+						'<a href="' . esc_url( $page['url'] ) . '">' . esc_html( $page['url'] ) . '</a>'
+					)
+				);
+			}
+
+			echo '</ul><p class="description">';
+		} else {
+			echo ' ';
+		}
+
+		echo esc_html__( 'Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out.', 'wpcredits-program-manager' );
+		echo '</p></div>';
 	}
 
 	/**

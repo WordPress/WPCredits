@@ -32,6 +32,10 @@
  *   characters) in the subject, is refused, whichever email of the Institutions or the Sponsors it
  *   is; and an edit is saved, tested and restored, a subject that holds a title as plain text
  *   included.
+ * - **The Signature and footer tab** lists the footer's four placeholders, `{site_link}` among them
+ *   since 1.122.37, and under its preview a note says the preview and the test show the footer as
+ *   an Administrator gets it, what `{dashboard_link}` links to for each kind of person whose page is
+ *   published, and that somebody with no account gets none; the footer's test says the same.
  *
  * Run from the plugin root:  php bin/test-emails-templates.php
  */
@@ -99,6 +103,8 @@ function current_user_can( $cap ) { return 'unfiltered_html' !== $cap && (bool) 
 function get_bloginfo( $k = 'name' ) { return 'WordPress Credits'; }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+// The site's public home page, which the footer's `{site_link}` names.
+function home_url( $p = '' ) { return 'https://example.test' . $p; }
 // Core's two forms: `add_query_arg( $key, $value, $url )` and `add_query_arg( $args, $url )`.
 function add_query_arg( ...$args ) {
 	$pairs = is_array( $args[0] ) ? $args[0] : array( $args[0] => $args[1] );
@@ -200,9 +206,10 @@ class WPCPM_Mentors_Dashboard {
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
-/** As above. */
+/** As above, its page unpublished in a check that says so. */
 class WPCPM_Sponsors_Dashboard {
-	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
+	public static $url = 'https://example.test/sponsor-dashboard/';
+	public static function page_url() { return self::$url; }
 }
 
 $fails = 0;
@@ -943,11 +950,51 @@ new_administrator();
 $footer_tab = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) );
 preg_match_all( '#<tr><td><code>\{([a-z_]+)\}</code>#', $footer_tab, $footer_placeholders );
 ck( 'it is the editor without a Subject, its box holding the shipped footer', array( false !== strpos( $footer_tab, '<h2>Signature and footer</h2>' ), box( $footer_tab, 'wpcpm-email-subject' ), box( $footer_tab, 'wpcpm-email-body' ), false !== strpos( $footer_tab, 'All templates' ) ), array( true, null, WPCPM_Mail_Templates::footer_shipped(), false ) );
-ck( 'it says where the block goes, the separator line shown as code, and lists its three placeholders', array( false !== strpos( $footer_tab, '<p class="description">Every email the plugin sends ends with this block, after a line holding <code>-- </code>. It is not added to the emails WordPress and the Two Factor plugin send themselves.</p>' ), $footer_placeholders[1] ), array( true, array( 'site_name', 'dashboard_link', 'program_contact' ) ) );
+ck( 'it says where the block goes, the separator line shown as code, and lists its four placeholders, the site\'s public address among them since 1.122.37', array( false !== strpos( $footer_tab, '<p class="description">Every email the plugin sends ends with this block, after a line holding <code>-- </code>. It is not added to the emails WordPress and the Two Factor plugin send themselves.</p>' ), $footer_placeholders[1] ), array( true, array( 'site_name', 'site_link', 'dashboard_link', 'program_contact' ) ) );
 ck( 'its preview ends a line of text with the footer', false !== strpos( $footer_tab, "The text of the email.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.</pre>" ), true );
 preg_match( '#<tr><td><code>\{dashboard_link\}</code>.*?</td><td>.*?</td><td>(.*?)</td></tr>#s', $footer_tab, $footer_dashboard_row );
 $footer_table_address = $footer_dashboard_row[1] ?? null;
 ck( 'and the address its table gives as the example of {dashboard_link} is the one its preview fills in: the Administrator Dashboard\'s', array( $footer_table_address, null !== $footer_table_address && false !== strpos( $footer_tab, "-- \nWordPress Credits, WordPress Education\n" . $footer_table_address . "\nThis email comes from" ) ), array( 'https://example.test/administrator-dashboard/', true ) );
+preg_match( '#<tr><td><code>\{site_link\}</code></td><td>(.*?)</td><td>(.*?)</td></tr>#s', $footer_tab, $site_row );
+ck( 'its {site_link} row says what it is, plainly, and that an email naming it already leaves its line out, as the {dashboard_link} row says for its own, and gives the home page as its example', array( html_entity_decode( $site_row[1] ?? '', ENT_QUOTES ), $site_row[2] ?? null ), array( 'The site\'s public address, the same for everyone. Empty for an email that names it already, which leaves its line out.', 'https://example.test/' ) );
+
+// A footer test showed a program lead the Administrator Dashboard, which most people the program
+// writes to cannot open (WordPress/WPCredits#255): the address was right, the tab did not say why.
+// Since 1.122.37 a note right under the preview says it, and what every other kind of person gets.
+$footer_note = '<div class="wpcpm-emails__note"><p class="description">The preview and Send me a test show the footer as an Administrator gets it. In each email, <code>{dashboard_link}</code> links to the recipient&#039;s own page, unless the email names that page already:</p><ul class="wpcpm-emails__dashboards">'
+	. '<li>Students: Student Report Card, <a href="https://example.test/student-report-card/">https://example.test/student-report-card/</a></li>'
+	. '<li>Mentors: Mentor Report Card, <a href="https://example.test/mentor-report-card/">https://example.test/mentor-report-card/</a></li>'
+	. '<li>Institution members: Institution Dashboard, <a href="https://example.test/institution-dashboard/">https://example.test/institution-dashboard/</a></li>'
+	. '<li>Sponsor members: Sponsor Dashboard, <a href="https://example.test/sponsor-dashboard/">https://example.test/sponsor-dashboard/</a></li>'
+	. '<li>Administrators: Administrator Dashboard, <a href="https://example.test/administrator-dashboard/">https://example.test/administrator-dashboard/</a></li>'
+	. '</ul><p class="description">Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out.</p></div>';
+ck( 'right under its preview, a note says the preview and the test show an Administrator\'s footer, what {dashboard_link} links to for each kind of person, by the full name and the address of their page, and that somebody with no account gets none', false !== strpos( $footer_tab, "This email comes from the WordPress Credits program.</pre></div>" . $footer_note ), true );
+ck(
+	'as a person reads it',
+	words_of( $footer_note ),
+	'The preview and Send me a test show the footer as an Administrator gets it. In each email, {dashboard_link} links to the recipient\'s own page, unless the email names that page already: Students: Student Report Card, https://example.test/student-report-card/ Mentors: Mentor Report Card, https://example.test/mentor-report-card/ Institution members: Institution Dashboard, https://example.test/institution-dashboard/ Sponsor members: Sponsor Dashboard, https://example.test/sponsor-dashboard/ Administrators: Administrator Dashboard, https://example.test/administrator-dashboard/ Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out.'
+);
+new_administrator();
+WPCPM_Sponsors_Dashboard::$url = '';
+$unpublished_note              = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) );
+WPCPM_Sponsors_Dashboard::$url = 'https://example.test/sponsor-dashboard/';
+preg_match_all( '#<li>([^:<]*):#', preg_match( '#<ul class="wpcpm-emails__dashboards">(.*?)</ul>#s', $unpublished_note, $note_list ) ? $note_list[1] : '', $note_kinds );
+ck( 'a kind whose page is not published is left out of the note', $note_kinds[1], array( 'Students', 'Mentors', 'Institution members', 'Administrators' ) );
+new_administrator();
+ck( 'the note is the footer\'s alone: a template\'s editor, whose preview is its audience\'s, has none', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) ), 'wpcpm-emails__note' ), false );
+ck( 'the note sits 1em under the preview\'s box, its lead sentence closer to the list it introduces, the list a list a reader sees as one, in the description\'s gray, a long address wrapping on a phone', array( scroll_css_decls( $templates_css, '.wpcpm-emails__note' ), scroll_css_decls( $templates_css, '.wpcpm-emails__note > .description:first-child' ), scroll_css_decls( $templates_css, '.wpcpm-emails__dashboards' ), scroll_css_decls( $templates_css, '.wpcpm-emails__dashboards li' ) ), array( array( 'margin-top' => '1em' ), array( 'margin-bottom' => '0.5em' ), array( 'color' => '#646970', 'list-style' => 'disc', 'margin' => '0 0 0 2em' ), array( 'overflow-wrap' => 'anywhere' ) ) );
+
+new_administrator();
+$GLOBALS['mail'] = array();
+press( 'handle_save', array( 'wpcpm_email' => 'footer', 'wpcpm_then' => 'test', 'body' => WPCPM_Mail_Templates::footer_shipped() ) );
+ck( 'its test, of the shipped footer, says the same in plain words: it went to an Administrator, so its link is the Administrator Dashboard, and everybody else gets their own page', array( count( $GLOBALS['mail'] ), 0 === strpos( $GLOBALS['mail'][0]['body'] ?? '', "This is how every email the plugin sends ends. This test went to you, an Administrator, so the dashboard link below is the Administrator Dashboard.\n\nIn everybody else's emails, that line links to their own page, unless the email names that page already:\nStudents: Student Report Card, https://example.test/student-report-card/\n" ), substr( $GLOBALS['mail'][0]['body'] ?? '', -strlen( "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) ) ), array( 1, true, "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) );
+
+new_administrator();
+ck( 'a footer that uses {site_link} is saved from the tab', press( 'handle_save', array( 'wpcpm_email' => 'footer', 'body' => "WordPress Credits, WordPress Education\r\n{site_link}\r\n{dashboard_link}" ) ), 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=footer' );
+$site_saved = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) );
+ck( 'and the tab says so, and its preview ends with the home page above the Administrator Dashboard', array( false !== strpos( $site_saved, 'Saved. Every email ends with the signature and footer as you wrote it from now on.' ), false !== strpos( $site_saved, "The text of the email.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/administrator-dashboard/</pre>" ) ), array( true, true ) );
+new_administrator();
+press( 'handle_restore', array( 'wpcpm_email' => 'footer' ) );
 
 new_administrator();
 ck( 'a save of the footer goes back to its tab, and every email ends with it', array( press( 'handle_save', array( 'wpcpm_email' => 'footer', 'body' => "Kind regards,\r\n{site_name}" ) ), WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked' ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=footer', "Hi.\n\n-- \nKind regards,\nWordPress Credits" ) );

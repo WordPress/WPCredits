@@ -1074,7 +1074,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The one block every email the plugin sends ends with, after a blank line and a line holding <code>-- </code>. It is not added to the emails WordPress and the Two Factor plugin send themselves. Its placeholders are <code>{site_name}</code>; <code>{dashboard_link}</code>, the recipient's dashboard, which is empty for somebody with no account, such as an applicant, and for an email that names the dashboard already, as every invitation does, so its line is left out and no email names the address twice; and <code>{program_contact}</code>, the address in <strong>Contact address in emails</strong>, which is empty until it is set, so its sentence is left out. It ships as three lines:</p>
+<p>The one block every email the plugin sends ends with, after a blank line and a line holding <code>-- </code>. It is not added to the emails WordPress and the Two Factor plugin send themselves. Its placeholders are <code>{site_name}</code>; <code>{site_link}</code>, the site's public address, its home page, the same for everyone (since 1.122.37), which is left out of an email that names the home page already; <code>{dashboard_link}</code>, the recipient's dashboard, which is empty for somebody with no account, such as an applicant, and for an email that names the dashboard already, as every invitation does, so its line is left out and no email names the address twice; and <code>{program_contact}</code>, the address in <strong>Contact address in emails</strong>, which is empty until it is set, so its sentence is left out. It ships as three lines:</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
@@ -1090,6 +1090,10 @@
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><code>{dashboard_link}</code> is each person's own page: a student's Student Report Card, a mentor's Mentor Report Card, an institution member's Institution Dashboard, a sponsor member's Sponsor Dashboard and an Administrator's Administrator Dashboard. A page that is not published gives no link. The tab's preview and <strong>Send me a test</strong> show the footer as an Administrator gets it, since the test goes to you, so both show the Administrator Dashboard; a note under the preview, and the test itself, list what everybody else gets. To give every email a link to the public site as well, which everybody can open, add <code>{site_link}</code> to the footer.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
 <p>The tab edits it with the editor every template has, without a subject, with <strong>Save</strong>, <strong>Send me a test</strong> (a short email that ends with the block) and <strong>Restore the original</strong>. An empty block is not saved, since every email ends with it.</p>
