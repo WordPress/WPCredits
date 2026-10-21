@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$wpcredits_programs = wpcredits_hub_programs();
+$wpcredits_programs = wpcredits_hub_programs_shown();
 $wpcredits_total    = count( $wpcredits_programs );
 $wpcredits_filters  = array(
 	'all'     => __( 'All', 'wpcredits-theme' ),
@@ -82,13 +82,15 @@ $wpcredits_announcements = array(
 					<?php else : ?>
 						<span class="wpc-hub-tag wpc-hub-tag--development"><?php echo esc_html_x( 'In development', 'a program not offered yet', 'wpcredits-theme' ); ?></span>
 					<?php endif; ?>
-					<span class="wpc-hub-program__step"><?php echo esc_html( $wpcredits_program['step'] ); ?></span>
 				</p>
 				<h3 class="wpc-hub-program__name"><?php echo esc_html( $wpcredits_program['name'] ); ?></h3>
 				<p class="wpc-hub-program__what"><?php echo esc_html( $wpcredits_program['what'] ); ?></p>
 				<dl class="wpc-hub-program__facts">
 					<div><dt><?php esc_html_e( 'Time', 'wpcredits-theme' ); ?></dt><dd><?php echo esc_html( $wpcredits_program['time'] ); ?></dd></div>
-					<div><dt><?php esc_html_e( 'You get', 'wpcredits-theme' ); ?></dt><dd><?php echo wpcredits_hub_items_html( $wpcredits_program['gets'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped as it is built. ?></dd></div>
+					<?php $wpcredits_gets = wpcredits_hub_items_html( $wpcredits_program['gets'] ); ?>
+					<?php if ( '' !== $wpcredits_gets ) : ?>
+						<div><dt><?php esc_html_e( 'You get', 'wpcredits-theme' ); ?></dt><dd><?php echo $wpcredits_gets; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped as it is built. ?></dd></div>
+					<?php endif; ?>
 				</dl>
 				<p class="wpc-hub-program__links">
 					<?php foreach ( $wpcredits_program['links'] as $wpcredits_link ) : ?>

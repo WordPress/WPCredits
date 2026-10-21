@@ -442,3 +442,12 @@ function wpcredits_test_pattern( $file ) {
 
 	return (string) ob_get_clean();
 }
+
+/**
+ * A filter callback that answers true, as core's __return_true().
+ *
+ * @return bool
+ */
+function wpcredits_test_true() {
+	return true;
+}

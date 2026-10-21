@@ -9,8 +9,13 @@
  * patterns' own and editable in the Site Editor.
  *
  * **A benefit no public page confirms is marked planned** (the design note's 6.11): its `planned` is
- * true, and the blocks print "(planned)" after it. The mark comes off here, in a theme release, the
- * day a public page confirms the item.
+ * true. The flag comes off here, in a theme release, the day a public page confirms the item.
+ *
+ * **The page shows only what is offered today** (two program leads, 21 October 2026: publish only
+ * what is fully available now, and keep the rest for when it is): a planned benefit, a planned line
+ * of academic recognition and a program in development are kept here and not printed. They come back,
+ * each planned one marked "(planned)", when `wpcredits_hub_shows_planned()` answers true: one filter,
+ * `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`, brings the whole future version back.
  *
  * A link's target is an outside address, an in-page anchor, or one of the site's own pages, named by
  * `institution_application` or `sponsor_application` and read when the block renders
@@ -37,6 +42,66 @@ function wpcredits_hub_item( $text, $planned = false ) {
 	return array(
 		'text'    => (string) $text,
 		'planned' => (bool) $planned,
+	);
+}
+
+/**
+ * Whether the hub prints what is only planned: the planned benefits and lines, each marked, and the
+ * programs in development. False unless a filter says otherwise, so the page shows what is offered
+ * today.
+ *
+ * @return bool
+ */
+function wpcredits_hub_shows_planned() {
+	/**
+	 * Whether the Education Hub prints its planned content, each item marked "(planned)", and the
+	 * programs in development.
+	 *
+	 * @param bool $show False: only what is offered today.
+	 */
+	return (bool) apply_filters( 'wpcredits_hub_show_planned', false );
+}
+
+/**
+ * The items the hub prints: every one when it shows what is planned, else the offered ones alone.
+ *
+ * @param array[] $items Items, as `wpcredits_hub_item()` makes them.
+ * @return array[]
+ */
+function wpcredits_hub_shown( array $items ) {
+	if ( wpcredits_hub_shows_planned() ) {
+		return array_values( $items );
+	}
+
+	return array_values(
+		array_filter(
+			$items,
+			static function ( $item ) {
+				return empty( $item['planned'] );
+			}
+		)
+	);
+}
+
+/**
+ * The programs the index prints: every one when the hub shows what is planned, else those running now.
+ *
+ * @return array[] As `wpcredits_hub_programs()` gives them, in its order.
+ */
+function wpcredits_hub_programs_shown() {
+	$programs = wpcredits_hub_programs();
+
+	if ( wpcredits_hub_shows_planned() ) {
+		return $programs;
+	}
+
+	return array_values(
+		array_filter(
+			$programs,
+			static function ( $program ) {
+				return 'live' === $program['status'];
+			}
+		)
 	);
 }
 
@@ -102,8 +167,10 @@ function wpcredits_hub_url( $target ) {
  * The six programs, in the order the index lists them.
  *
  * @return array[] Each: `slug`, `name`, `audiences` (`student`, `faculty`, `career`), `status`
- *                 (`live` or `development`), `step`, `what`, `time`, `gets` (items), `courses` (the
- *                 band of its courses under the index, WordPress Credits' alone) and `links`.
+ *                 (`live` or `development`), `what`, `time`, `gets` (items), `courses` (the band of
+ *                 its courses under the index, WordPress Credits' alone) and `links`. A card names
+ *                 no step of the pathway (a program lead, 20 October 2026: a reader meets the steps
+ *                 only further down the page).
  */
 function wpcredits_hub_programs() {
 	return array(
@@ -112,8 +179,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'Campus Connect', 'wpcredits-theme' ),
 			'audiences' => array( 'student' ),
 			'status'    => 'live',
-			/* translators: Where a program sits on the pathway: its step and the step's name. */
-			'step'      => __( 'Step 1 · Attendee', 'wpcredits-theme' ),
 			'what'      => __( 'A half or full-day hands-on WordPress workshop on campus. No experience needed, and anyone connected to the institution can organize one.', 'wpcredits-theme' ),
 			'time'      => __( 'Half or full day', 'wpcredits-theme' ),
 			'gets'      => array(
@@ -128,8 +193,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'WordPress Credits', 'wpcredits-theme' ),
 			'audiences' => array( 'student', 'career' ),
 			'status'    => 'live',
-			/* translators: Where a program sits on the pathway: its two steps and their names. */
-			'step'      => __( 'Steps 3 and 4 · Contributor, Graduate', 'wpcredits-theme' ),
 			'what'      => __( 'Mentored work on the WordPress open source project, matched to your field of study. Ends with a presentation and a Foundation certificate.', 'wpcredits-theme' ),
 			'time'      => __( '50h or 150h+, about a semester', 'wpcredits-theme' ),
 			'gets'      => array(
@@ -199,8 +262,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'Facilitator Training', 'wpcredits-theme' ),
 			'audiences' => array( 'faculty' ),
 			'status'    => 'live',
-			/* translators: Where a program sits on the pathway: its step and the step's name. */
-			'step'      => __( 'Step 6 · Community Leader', 'wpcredits-theme' ),
 			'what'      => __( 'Free, self-guided courses plus step-by-step facilitation guides with timed agendas and activity sheets, so faculty can teach WordPress themselves.', 'wpcredits-theme' ),
 			'time'      => __( 'Self-paced', 'wpcredits-theme' ),
 			'gets'      => array(
@@ -217,8 +278,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'Learn WordPress', 'wpcredits-theme' ),
 			'audiences' => array( 'student', 'faculty' ),
 			'status'    => 'live',
-			/* translators: Where a program sits on the pathway: anywhere along it. */
-			'step'      => __( 'Any step', 'wpcredits-theme' ),
 			'what'      => __( 'Free courses, lessons, and online workshops for every skill level, from building a first site to developing blocks.', 'wpcredits-theme' ),
 			'time'      => __( 'Self-paced', 'wpcredits-theme' ),
 			'gets'      => array(
@@ -233,8 +292,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'AI Leaders', 'wpcredits-theme' ),
 			'audiences' => array( 'career' ),
 			'status'    => 'live',
-			/* translators: Where a program sits on the pathway: its step and the step's name. */
-			'step'      => __( 'Step 7 · Credentialed', 'wpcredits-theme' ),
 			'what'      => __( 'The first Foundation-backed micro-credential. Piloted in 2026 with students from Illinois and Louisiana.', 'wpcredits-theme' ),
 			'time'      => __( 'Cohort-based', 'wpcredits-theme' ),
 			'gets'      => array(
@@ -251,8 +308,6 @@ function wpcredits_hub_programs() {
 			'name'      => __( 'WordPress Builder Certification', 'wpcredits-theme' ),
 			'audiences' => array( 'career' ),
 			'status'    => 'development',
-			/* translators: Where a program sits on the pathway: its step and the step's name. */
-			'step'      => __( 'Step 7 · Credentialed', 'wpcredits-theme' ),
 			'what'      => __( 'A certification exam validating the skills to build and run a personal or company website on WordPress.', 'wpcredits-theme' ),
 			/* translators: A program's time on its card, a noun: an exam to sit, not a course to attend. */
 			'time'      => __( 'Exam', 'wpcredits-theme' ),
@@ -271,7 +326,9 @@ function wpcredits_hub_programs() {
  * The seven student steps, from the first workshop to the first job.
  *
  * @return array[] Each: `name`, `by` (the staircase's line), `earned` (the detail's sentence),
- *                 `items` (what it unlocks), `recognition` and `next`, a link.
+ *                 `items` (what it unlocks), `recognition` (an item: the line the program lead found
+ *                 not offered today, on 21 October 2026, at Builder, Community Leader and
+ *                 Credentialed, is planned) and `next`, a link.
  */
 function wpcredits_hub_steps() {
 	return array(
@@ -285,7 +342,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'A seeded WordPress.org profile', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'A profile badge', 'wpcredits-theme' ) ),
 			),
-			'recognition' => __( 'Recognized co-curricular activity or event credit, where the school offers it.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'Recognized co-curricular activity or event credit, where the school offers it.', 'wpcredits-theme' ) ),
 			'next'        => wpcredits_hub_link( __( 'Find a Campus Connect event', 'wpcredits-theme' ), 'https://events.wordpress.org/campusconnect/' ),
 		),
 		array(
@@ -297,7 +354,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Showcase eligibility', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'A profile badge', 'wpcredits-theme' ), true ),
 			),
-			'recognition' => __( 'A portfolio piece that can be assessed within an existing course.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'A portfolio piece that can be assessed within an existing course.', 'wpcredits-theme' ), true ),
 			'next'        => wpcredits_hub_link( __( 'Learn to build a site', 'wpcredits-theme' ), 'https://learn.wordpress.org/' ),
 		),
 		array(
@@ -311,7 +368,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Mentor matching', 'wpcredits-theme' ) ),
 				wpcredits_hub_item( __( 'Retention support starts here', 'wpcredits-theme' ), true ),
 			),
-			'recognition' => __( 'Open source work logged toward course or program requirements.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'Open source work logged toward course or program requirements.', 'wpcredits-theme' ) ),
 			'next'        => wpcredits_hub_link( __( 'Start WordPress Credits', 'wpcredits-theme' ), '#program-wordpress-credits' ),
 		),
 		array(
@@ -326,7 +383,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Alumni directory listing', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'WordCamp ticket support', 'wpcredits-theme' ), true ),
 			),
-			'recognition' => __( 'Credit-bearing.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'Credit-bearing.', 'wpcredits-theme' ) ),
 			'next'        => wpcredits_hub_link( __( 'See the courses', 'wpcredits-theme' ), '#wordpress-credits-courses' ),
 		),
 		array(
@@ -340,7 +397,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Priority mentor matching', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'A specialist badge', 'wpcredits-theme' ), true ),
 			),
-			'recognition' => __( 'Credit-bearing as an advanced elective, independent study, practicum, or capstone.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'Credit-bearing as an advanced elective, independent study, practicum, or capstone.', 'wpcredits-theme' ) ),
 			'next'        => wpcredits_hub_link( __( 'Explore programs', 'wpcredits-theme' ), '#programs' ),
 		),
 		array(
@@ -355,7 +412,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Organizing support', 'wpcredits-theme' ) ),
 				wpcredits_hub_item( __( 'A profile badge', 'wpcredits-theme' ) ),
 			),
-			'recognition' => __( 'A role the school already records: teaching assistant, peer mentor, or student organization leader.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'A role the school already records: teaching assistant, peer mentor, or student organization leader.', 'wpcredits-theme' ), true ),
 			'next'        => wpcredits_hub_link( __( 'Try Facilitator Training', 'wpcredits-theme' ), '#program-facilitator-training' ),
 		),
 		array(
@@ -368,7 +425,7 @@ function wpcredits_hub_steps() {
 				wpcredits_hub_item( __( 'Credentials shown on your profile', 'wpcredits-theme' ), true ),
 				wpcredits_hub_item( __( 'Showcase eligibility', 'wpcredits-theme' ), true ),
 			),
-			'recognition' => __( 'A stackable credential accepted toward a degree, certificate, or transcript notation.', 'wpcredits-theme' ),
+			'recognition' => wpcredits_hub_item( __( 'A stackable credential accepted toward a degree, certificate, or transcript notation.', 'wpcredits-theme' ), true ),
 			'next'        => wpcredits_hub_link( __( 'Where this leads: WordPress Jobs', 'wpcredits-theme' ), 'https://jobs.wordpress.net/' ),
 		),
 	);
@@ -434,13 +491,20 @@ function wpcredits_hub_levels() {
 }
 
 /**
- * A list of benefits, one to a line, each planned one followed by "(planned)" in its own span, kept
- * on the item's line by a no-break space so it never wraps alone.
+ * A list of the benefits the hub prints (`wpcredits_hub_shown()`), one to a line, each planned one
+ * followed by "(planned)" in its own span, kept on the item's line by a no-break space so it never
+ * wraps alone.
  *
  * @param array[] $items Items, as `wpcredits_hub_item()` makes them.
- * @return string Escaped markup.
+ * @return string Escaped markup, or '' when none of them is printed.
  */
 function wpcredits_hub_items_html( array $items ) {
+	$items = wpcredits_hub_shown( $items );
+
+	if ( ! $items ) {
+		return '';
+	}
+
 	$html = '<ul class="wpc-hub-items">';
 
 	foreach ( $items as $item ) {
@@ -454,4 +518,25 @@ function wpcredits_hub_items_html( array $items ) {
 	}
 
 	return $html . '</ul>';
+}
+
+/**
+ * One line the hub prints on its own, such as a step's academic recognition: its text, and
+ * "(planned)" after it when it is planned and the hub shows what is planned.
+ *
+ * @param array $item An item, as `wpcredits_hub_item()` makes it.
+ * @return string Escaped markup, or '' when the line is not printed.
+ */
+function wpcredits_hub_line_html( array $item ) {
+	if ( ! wpcredits_hub_shown( array( $item ) ) ) {
+		return '';
+	}
+
+	$html = esc_html( $item['text'] );
+
+	if ( ! empty( $item['planned'] ) ) {
+		$html .= '&nbsp;<span class="wpc-hub-planned">' . esc_html_x( '(planned)', 'a benefit not offered yet', 'wpcredits-theme' ) . '</span>';
+	}
+
+	return $html;
 }

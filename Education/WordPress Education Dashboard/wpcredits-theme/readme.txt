@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.29
+Stable tag: 1.24.30
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.30 =
+* Education Hub homepage: the page now shows only what the programs offer today, as two program leads asked before it is published. Every benefit marked "(planned)" is no longer shown, nor are three lines of academic recognition that are not offered yet (under Builder, Community Leader and Credentialed), nor the WordPress Builder Certification card, which is still in development. Where a step or a partner level has nothing offered today under "Unlocks" or "Gets", that heading is left out and the step or level shows what earns it and where it leads. The program list counts five programs, and its filters count them the same way.
+* The program cards no longer say which step of the pathway a program belongs to ("Step 1 · Attendee" and the like): a reader meets the steps only further down the page, as a program lead pointed out in the page's content review.
+* Nothing is deleted: the planned benefits, the three lines and the card are kept in the theme and come back, each planned one marked "(planned)" as before, when the planned content is turned back on (for developers: `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`).
+* For developers: `inc/hub-content.php` gains `wpcredits_hub_shows_planned()` (the filter `wpcredits_hub_show_planned`, false by default), `wpcredits_hub_shown()`, `wpcredits_hub_programs_shown()` and `wpcredits_hub_line_html()`; each step's `recognition` is now an item (`wpcredits_hub_item()`), the three named lines planned; the programs lose their `step` key and the cards their `wpc-hub-program__step` line and rule. `bin/test-hub.php` checks the page as offered today and, with the filter on, the whole of it as before. The six step labels leave the translation template.
 
 = 1.24.29 =
 * Education Hub homepage, the hero: the picture beside the title is bigger. On a wide screen it fills the space from the line between the two columns to the right edge, and from the top of the text down to the bottom of the two buttons, about 1.15 times its old size, every piece in its old place. The text's column is a little narrower (47% of the row, it was 52%) and the picture's wider (49%, it was 44%), so the paragraph under the title may take one more line. The picture now stands on the text's foot: the mountain's foot is level with the bottom of the buttons, and the flag stays below the top of the text at every width. Below 900px the picture is still not shown.

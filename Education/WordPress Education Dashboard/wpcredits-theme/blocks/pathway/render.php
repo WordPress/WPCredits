@@ -122,8 +122,23 @@ $wpcredits_ladders = array(
 						<p class="wpc-hub-detail__count"><?php echo esc_html( sprintf( $wpcredits_ladder['count'], number_format_i18n( $wpcredits_n ), number_format_i18n( $wpcredits_total ) ) ); ?></p>
 						<h3 class="wpc-hub-detail__name"><?php echo esc_html( $wpcredits_rung['name'] ); ?></h3>
 						<dl class="wpc-hub-detail__cols">
-							<?php foreach ( $wpcredits_ladder['columns'] as $wpcredits_column => $wpcredits_heading ) : ?>
-								<div><dt><?php echo esc_html( $wpcredits_heading ); ?></dt><dd><?php echo 'items' === $wpcredits_column ? wpcredits_hub_items_html( $wpcredits_rung['items'] ) : esc_html( $wpcredits_rung[ $wpcredits_column ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The list is escaped as it is built. ?></dd></div>
+							<?php
+							foreach ( $wpcredits_ladder['columns'] as $wpcredits_column => $wpcredits_heading ) :
+								if ( 'items' === $wpcredits_column ) {
+									$wpcredits_said = wpcredits_hub_items_html( $wpcredits_rung['items'] );
+								} elseif ( is_array( $wpcredits_rung[ $wpcredits_column ] ) ) {
+									$wpcredits_said = wpcredits_hub_line_html( $wpcredits_rung[ $wpcredits_column ] );
+								} else {
+									$wpcredits_said = esc_html( $wpcredits_rung[ $wpcredits_column ] );
+								}
+
+								// A column with nothing the hub prints today (every benefit planned, or a planned
+								// line) is left out whole, its heading with it.
+								if ( '' === $wpcredits_said ) {
+									continue;
+								}
+								?>
+								<div><dt><?php echo esc_html( $wpcredits_heading ); ?></dt><dd><?php echo $wpcredits_said; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Each is escaped as it is built. ?></dd></div>
 							<?php endforeach; ?>
 						</dl>
 						<p class="wpc-hub-detail__next"><span class="wpc-hub-detail__leads"><?php echo esc_html( null === $wpcredits_next ? $wpcredits_ladder['end'] : sprintf( $wpcredits_ladder['leads'], number_format_i18n( $wpcredits_n + 1 ), $wpcredits_next['name'] ) ); ?></span>

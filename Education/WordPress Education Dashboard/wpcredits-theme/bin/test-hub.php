@@ -780,15 +780,23 @@ function shown_for( array $programs, $audience ) {
 ck( 'the filters\' counts: all 6, for students 3, for faculty 2, career and credentials 3',
 	array( shown_for( $programs, 'all' ), shown_for( $programs, 'student' ), shown_for( $programs, 'faculty' ), shown_for( $programs, 'career' ) ), array( 6, 3, 2, 3 ) );
 
-ck( 'each program\'s audiences, status, step line and time',
-	array_map( static function ( $p ) { return implode( ' ', $p['audiences'] ) . ' | ' . $p['status'] . ' | ' . $p['step'] . ' | ' . $p['time']; }, $programs ),
+// A program lead (20 October 2026): a card names no step of the pathway, which a reader meets only further
+// down the page.
+ck( 'each program\'s audiences, status and time, and no program names a step',
 	array(
-		'student | live | Step 1 · Attendee | Half or full day',
-		'student career | live | Steps 3 and 4 · Contributor, Graduate | 50h or 150h+, about a semester',
-		'faculty | live | Step 6 · Community Leader | Self-paced',
-		'student faculty | live | Any step | Self-paced',
-		'career | live | Step 7 · Credentialed | Cohort-based',
-		'career | development | Step 7 · Credentialed | Exam',
+		array_map( static function ( $p ) { return implode( ' ', $p['audiences'] ) . ' | ' . $p['status'] . ' | ' . $p['time']; }, $programs ),
+		array_values( array_filter( array_map( static function ( $p ) { return isset( $p['step'] ); }, $programs ) ) ),
+	),
+	array(
+		array(
+			'student | live | Half or full day',
+			'student career | live | 50h or 150h+, about a semester',
+			'faculty | live | Self-paced',
+			'student faculty | live | Self-paced',
+			'career | live | Cohort-based',
+			'career | development | Exam',
+		),
+		array(),
 	) );
 
 ck( 'the seven steps and the four levels, in order',
@@ -929,16 +937,18 @@ ck( 'every benefit, as the design note\'s 6.11 checked it on 14 October 2026, th
 		'WordPress Builder Certification: Industry certification',
 	) );
 
-ck( 'each step\'s academic recognition',
-	array_column( $steps, 'recognition' ),
+// A program lead (21 October 2026) found three of these not offered today: Builder's, Community Leader's and
+// Credentialed's, so they are planned.
+ck( 'each step\'s academic recognition, an item, the three not offered today planned',
+	array_map( static function ( $step ) { return $step['recognition']['text'] . ( $step['recognition']['planned'] ? ' (planned)' : '' ); }, $steps ),
 	array(
 		'Recognized co-curricular activity or event credit, where the school offers it.',
-		'A portfolio piece that can be assessed within an existing course.',
+		'A portfolio piece that can be assessed within an existing course. (planned)',
 		'Open source work logged toward course or program requirements.',
 		'Credit-bearing.',
 		'Credit-bearing as an advanced elective, independent study, practicum, or capstone.',
-		'A role the school already records: teaching assistant, peer mentor, or student organization leader.',
-		'A stackable credential accepted toward a degree, certificate, or transcript notation.',
+		'A role the school already records: teaching assistant, peer mentor, or student organization leader. (planned)',
+		'A stackable credential accepted toward a degree, certificate, or transcript notation. (planned)',
 	) );
 
 echo "\n=== The links ===\n";
@@ -1041,9 +1051,33 @@ ck( 'with the plugin, the site\'s own pages are read when a block renders: the p
 
 echo "\n=== The benefit lists ===\n";
 
-ck( 'a list prints its items one to a line, a planned one followed by "(planned)" in its own span after a no-break space, every text escaped',
+// Two program leads (21 October 2026): the page shows only what is offered today; the planned content
+// comes back, marked, behind one filter.
+$list_today = array(
+	wpcredits_hub_shows_planned(),
 	wpcredits_hub_items_html( array( wpcredits_hub_item( 'Certificate' ), wpcredits_hub_item( 'Hours <transcript>', true ) ) ),
-	'<ul class="wpc-hub-items"><li>Certificate</li><li>Hours &lt;transcript&gt;&nbsp;<span class="wpc-hub-planned">(planned)</span></li></ul>' );
+	wpcredits_hub_items_html( array( wpcredits_hub_item( 'Hours', true ) ) ),
+	wpcredits_hub_line_html( wpcredits_hub_item( 'Credit <bearing>.' ) ),
+	wpcredits_hub_line_html( wpcredits_hub_item( 'A portfolio piece.', true ) ),
+);
+
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+
+$list_planned = array(
+	wpcredits_hub_shows_planned(),
+	wpcredits_hub_items_html( array( wpcredits_hub_item( 'Certificate' ), wpcredits_hub_item( 'Hours <transcript>', true ) ) ),
+	wpcredits_hub_line_html( wpcredits_hub_item( 'A portfolio piece.', true ) ),
+);
+
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+ck( 'today a list prints only its offered items, one to a line, every text escaped, and nothing at all when every item is planned; a line on its own (a step\'s academic recognition) is printed escaped, or not at all when it is planned',
+	$list_today,
+	array( false, '<ul class="wpc-hub-items"><li>Certificate</li></ul>', '', 'Credit &lt;bearing&gt;.', '' ) );
+
+ck( 'with the one filter on, the planned ones come back, each followed by "(planned)" in its own span after a no-break space',
+	$list_planned,
+	array( true, '<ul class="wpc-hub-items"><li>Certificate</li><li>Hours &lt;transcript&gt;&nbsp;<span class="wpc-hub-planned">(planned)</span></li></ul>', 'A portfolio piece.&nbsp;<span class="wpc-hub-planned">(planned)</span>' ) );
 
 $GLOBALS['marked'] = true;
 
@@ -1053,7 +1087,7 @@ foreach ( array( wpcredits_hub_programs(), wpcredits_hub_steps(), wpcredits_hub_
 	array_walk_recursive(
 		$places,
 		static function ( $value, $key ) use ( &$texts ) {
-			if ( in_array( $key, array( 'name', 'step', 'what', 'time', 'text', 'label', 'eyebrow', 'line', 'by', 'earned', 'reached', 'recognition' ), true ) ) {
+			if ( in_array( $key, array( 'name', 'what', 'time', 'text', 'label', 'eyebrow', 'line', 'by', 'earned', 'reached' ), true ) ) {
 				$texts[] = $value;
 			}
 		}
@@ -1061,13 +1095,17 @@ foreach ( array( wpcredits_hub_programs(), wpcredits_hub_steps(), wpcredits_hub_
 }
 
 $untranslated = preg_grep( '/^\[[^\[\]]+\]$/', $texts, PREG_GREP_INVERT );
-$mark         = wpcredits_hub_items_html( array( wpcredits_hub_item( 'X', true ) ) );
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+
+$mark = wpcredits_hub_items_html( array( wpcredits_hub_item( 'X', true ) ) );
+
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
 
 $GLOBALS['marked'] = false;
 
-ck( 'every text is one translated string, seen whole by a translator: 148 of them, 59 on the cards and the band of courses (the band\'s fifteen among them), 61 on the steps and 28 on the levels, and "(planned)" among them',
+ck( 'every text is one translated string, seen whole by a translator: 142 of them, 53 on the cards and the band of courses (the band\'s fifteen among them), 61 on the steps and 28 on the levels, and "(planned)" among them',
 	array( count( $texts ), array_values( $untranslated ), false !== strpos( $mark, '<span class="wpc-hub-planned">[(planned)]</span>' ) ),
-	array( 148, array(), true ) );
+	array( 142, array(), true ) );
 
 // The one-word strings, which a translator meets with nothing around them. Credit, Graduate and Partner
 // are words that mean something else as a verb or in another place, so each has a context of its own;
@@ -1107,6 +1145,11 @@ ck( 'its view script needs nothing and carries the theme\'s version; its editor 
 
 ck( 'the theme registers the block with its others',
 	false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/program-index' ) );" ), true );
+
+// From here on the blocks and the page are checked whole, the planned content and the program in
+// development among it, as the hub prints them with the filter on; what the page prints today, with
+// the filter off, is checked in "The page as offered today" at the end.
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
 
 $index = wpcredits_test_block( 'wpcredits/program-index' );
 $xp    = dom_of( $index );
@@ -1152,7 +1195,7 @@ ck( 'six cards, every one shown: nothing but the chips carries hidden',
 		1,
 	) );
 
-ck( 'each card: its status tag, its step line, its name, what it is, its time and what you get',
+ck( 'each card: its status tag, its name, what it is, its time and what you get, and no step line',
 	array(
 		found( $xp, '//article//span[contains(@class,"wpc-hub-tag")]', 'class' ),
 		found( $xp, '//article//span[contains(@class,"wpc-hub-tag")]' ),
@@ -1549,9 +1592,9 @@ ck( 'a detail: what earns the step, what it unlocks as a list with its planned i
 	array( array( 'Attend a Campus Connect event.', 'Recognized co-curricular activity or event credit, where the school offers it.' ), array( 'Certificate of participation', 'A seeded WordPress.org profile (planned)', 'A profile badge' ) ) );
 
 // The owner (17 October 2026): the footnote under each ladder goes; each mark says it itself.
-ck( 'every planned item of the steps and the levels is marked, 25 of them, each mark saying it itself: no line under a ladder explains the mark any more',
-	array( count( $px->query( '//article//span[@class="wpc-hub-planned"]' ) ), found( $px, '//p[@class="wpc-hub-ladder__key"]' ), found( $px, '//section[@class="wpc-hub-ladder"]/*[last()]', 'class' ) ),
-	array( 25, array(), array( 'wpc-hub-details', 'wpc-hub-details' ) ) );
+ck( 'every planned item of the steps and the levels is marked, 25 of them, and the three planned lines of academic recognition, each mark saying it itself: no line under a ladder explains the mark any more',
+	array( count( $px->query( '//article//dd/ul/li/span[@class="wpc-hub-planned"]' ) ), found( $px, '//article//dd[not(ul)][span[@class="wpc-hub-planned"]]' ), found( $px, '//p[@class="wpc-hub-ladder__key"]' ), found( $px, '//section[@class="wpc-hub-ladder"]/*[last()]', 'class' ) ),
+	array( 25, array( 'A portfolio piece that can be assessed within an existing course. (planned)', 'A role the school already records: teaching assistant, peer mentor, or student organization leader. (planned)', 'A stackable credential accepted toward a degree, certificate, or transcript notation. (planned)' ), array(), array( 'wpc-hub-details', 'wpc-hub-details' ) ) );
 
 ck( 'what each leads to, the last of each ladder saying where it ends',
 	found( $px, '//article//span[@class="wpc-hub-detail__leads"]' ),
@@ -3236,13 +3279,13 @@ ck( 'every word on the page, and every label and announcement, is a translated s
 
 // The owner (17 October 2026): "Items marked planned are not offered yet." goes; the mark beside each
 // item stays and says it itself.
-ck( 'the pathway\'s footnote is gone: "Items marked planned are not offered yet." is not on the page nor in the pathway\'s render, no element carries its line\'s class, and the sheet has no rule for it; the 28 planned items on the page still say "(planned)" each',
+ck( 'the pathway\'s footnote is gone: "Items marked planned are not offered yet." is not on the page nor in the pathway\'s render, no element carries its line\'s class, and the sheet has no rule for it; with the filter on, the 28 planned items and the three planned lines of academic recognition on the page still say "(planned)" each',
 	array(
 		substr_count( $page_html, 'Items marked planned' ),
 		count( $page->query( '//*[contains(@class,"wpc-hub-ladder__key")]' ) ),
 		substr_count( theme_file( 'blocks/pathway/render.php' ), 'Items marked planned' ),
 		substr_count( preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) ), 'wpc-hub-ladder__key' ),
-		found( $page, '//span[@class="wpc-hub-planned"]' ) === array_fill( 0, 28, '(planned)' ),
+		found( $page, '//span[@class="wpc-hub-planned"]' ) === array_fill( 0, 31, '(planned)' ),
 	),
 	array( 0, 0, 0, 0, true ) );
 
@@ -3789,6 +3832,86 @@ ck( 'the translation template holds the flow\'s strings: the three steps\' names
 		pot_has( $pot, 'Education', 'a field of study' ),
 	),
 	array( array( true, true, true, true, true ), 2, 15, array_fill( 0, 8, false ), true ) );
+
+echo "\n=== The page as offered today ===\n";
+
+// Two program leads (21 October 2026): publish only what is fully available today, and keep the rest for
+// when it is. With the filter off, as the site runs, the hub prints no planned benefit, none of the three
+// planned lines of academic recognition and no program in development; a column left with nothing to
+// print goes, its heading with it.
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+$today_index   = wpcredits_test_block( 'wpcredits/program-index' );
+$today_pathway = wpcredits_test_block( 'wpcredits/pathway' );
+$today_page    = wpcredits_test_page();
+$tx            = dom_of( $today_index );
+$tpx           = dom_of( $today_pathway );
+
+ck( 'today the index shows the five programs running now, the one in development left out, and the chips count them',
+	array( found( $tx, '//article', 'id' ), found( $tx, '//button[@class="wpc-hub-chip"]', 'data-announce' ), count( $tx->query( '//span[contains(@class,"wpc-hub-tag--development")]' ) ) ),
+	array(
+		array( 'program-campus-connect', 'program-wordpress-credits', 'program-facilitator-training', 'program-learn-wordpress', 'program-ai-leaders' ),
+		array( 'Showing all 5 programs', 'Showing 3 of 5 programs for students', 'Showing 2 of 5 programs for faculty', 'Showing 2 of 5 programs in Career and credentials' ),
+		0,
+	) );
+
+ck( 'today each card lists only what it gives now, and names no step',
+	array(
+		array_map( static function ( $card ) { return found_in( $card, './/dd/ul/li' ); }, iterator_to_array( $tx->query( '//article' ) ) ),
+		substr_count( $today_index . $index, 'wpc-hub-program__step' ),
+	),
+	array(
+		array( array( 'Certificate of participation' ), array( 'Certificate', 'Badge', 'Credit' ), array( 'Ready-to-run sessions' ), array( 'Course completions on your profile' ), array( 'Micro-credential' ) ),
+		0,
+	) );
+
+ck( 'today each detail prints only the columns with something offered: Builder only what earns it, Specialist no list, Community Leader and Credentialed no academic recognition, and the three levels with nothing offered only what reaches them',
+	array_map( static function ( $detail ) { return implode( ' + ', found_in( $detail, './/dt' ) ); }, iterator_to_array( $tpx->query( '//article' ) ) ),
+	array(
+		'Earned by + Unlocks + Academic recognition',
+		'Earned by',
+		'Earned by + Unlocks + Academic recognition',
+		'Earned by + Unlocks + Academic recognition',
+		'Earned by + Academic recognition',
+		'Earned by + Unlocks',
+		'Earned by + Unlocks',
+		'Reached by',
+		'Reached by + Gets',
+		'Reached by',
+		'Reached by',
+	) );
+
+ck( 'today the steps and the level list what they unlock now, and the academic recognition left is the four lines not found wanting',
+	array(
+		array_map( static function ( $detail ) { return found_in( $detail, './/dd/ul/li' ); }, iterator_to_array( $tpx->query( '//article' ) ) ),
+		found( $tpx, '//section[@id="wpc-hub-ladder-students"]//dt[.="Academic recognition"]/following-sibling::dd' ),
+	),
+	array(
+		array(
+			array( 'Certificate of participation', 'A profile badge' ),
+			array(),
+			array( 'Contribution badge', 'Make team channels', 'Mentor matching' ),
+			array( 'Foundation certificate', 'Digital badge' ),
+			array(),
+			array( 'Organizing support', 'A profile badge' ),
+			array( 'An Open to Work listing on jobs.wordpress.net' ),
+			array(),
+			array( 'A partner badge for your site', 'An Institution Dashboard', 'An auto-generated impact report each semester' ),
+			array(),
+			array(),
+		),
+		array( 'Recognized co-curricular activity or event credit, where the school offers it.', 'Open source work logged toward course or program requirements.', 'Credit-bearing.', 'Credit-bearing as an advanced elective, independent study, practicum, or capstone.' ),
+	) );
+
+ck( 'today the whole page holds no "(planned)", no planned line of academic recognition and no word of the program in development, and the seven steps and four levels are all still there',
+	array(
+		substr_count( $today_page, '(planned)' ),
+		substr_count( $today_page, 'wpc-hub-planned' ),
+		substr_count( $today_page, 'A portfolio piece that can be assessed' ) + substr_count( $today_page, 'A role the school already records' ) + substr_count( $today_page, 'A stackable credential accepted' ),
+		substr_count( $today_page, 'Builder Certification' ) + substr_count( $today_page, 'wordpresscertifications.com' ),
+		count( $tpx->query( '//article' ) ),
+	),
+	array( 0, 0, 0, 0, 11 ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

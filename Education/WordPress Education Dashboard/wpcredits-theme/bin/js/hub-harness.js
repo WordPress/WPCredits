@@ -87,23 +87,23 @@ const pressed = ( where ) => where.document.querySelectorAll( '.wpc-hub-chip' ).
 const chip = ( where, filter ) => where.document.querySelector( '.wpc-hub-chip[data-filter="' + filter + '"]' );
 const said = ( where, root ) => where.document.querySelector( root + ' [role="status"]' ).textContent;
 
-scenario( 'without the script the chips stay hidden and every card is shown', [ true, 6 ], () => {
+scenario( 'without the script the chips stay hidden and every card is shown', [ true, 5 ], () => {
 	const where = open( 'index', [] );
 
 	return [ where.document.querySelector( '.wpc-hub-chips' ).hidden, shown( where ).length ];
 } );
 
-scenario( 'the script shows the chips, All pressed, every card shown and nothing said', [ false, [ 'true', 'false', 'false', 'false' ], 6, '' ], () => {
+scenario( 'the script shows the chips, All pressed, every card shown and nothing said', [ false, [ 'true', 'false', 'false', 'false' ], 5, '' ], () => {
 	const where = open( 'index', [ 'index' ] );
 
 	return [ where.document.querySelector( '.wpc-hub-chips' ).hidden, pressed( where ), shown( where ).length, said( where, '.wpc-hub-index' ) ];
 } );
 
 scenario( 'each chip pressed shows its programs, is the one pressed, says what it shows, and keeps the focus where it was', [
-	[ 'student', [ 'false', 'true', 'false', 'false' ], [ 'campus-connect', 'wordpress-credits', 'learn-wordpress' ], 'Showing 3 of 6 programs for students', true ],
-	[ 'faculty', [ 'false', 'false', 'true', 'false' ], [ 'facilitator-training', 'learn-wordpress' ], 'Showing 2 of 6 programs for faculty', true ],
-	[ 'career', [ 'false', 'false', 'false', 'true' ], [ 'wordpress-credits', 'ai-leaders', 'wordpress-builder-certification' ], 'Showing 3 of 6 programs in Career and credentials', true ],
-	[ 'all', [ 'true', 'false', 'false', 'false' ], [ 'campus-connect', 'wordpress-credits', 'facilitator-training', 'learn-wordpress', 'ai-leaders', 'wordpress-builder-certification' ], 'Showing all 6 programs', true ],
+	[ 'student', [ 'false', 'true', 'false', 'false' ], [ 'campus-connect', 'wordpress-credits', 'learn-wordpress' ], 'Showing 3 of 5 programs for students', true ],
+	[ 'faculty', [ 'false', 'false', 'true', 'false' ], [ 'facilitator-training', 'learn-wordpress' ], 'Showing 2 of 5 programs for faculty', true ],
+	[ 'career', [ 'false', 'false', 'false', 'true' ], [ 'wordpress-credits', 'ai-leaders' ], 'Showing 2 of 5 programs in Career and credentials', true ],
+	[ 'all', [ 'true', 'false', 'false', 'false' ], [ 'campus-connect', 'wordpress-credits', 'facilitator-training', 'learn-wordpress', 'ai-leaders' ], 'Showing all 5 programs', true ],
 ], () => {
 	const where = open( 'index', [ 'index' ] );
 
@@ -144,7 +144,7 @@ scenario( 'by keyboard: Enter and Space on the chip that has the focus press it'
 	return states;
 } );
 
-scenario( 'a link followed to a card the filter hides presses All first, so the card it opens is shown, and says so', [ true, [ 'true', 'false', 'false', 'false' ], 'Showing all 6 programs', '#program-wordpress-credits', [ 'program-wordpress-credits' ] ], () => {
+scenario( 'a link followed to a card the filter hides presses All first, so the card it opens is shown, and says so', [ true, [ 'true', 'false', 'false', 'false' ], 'Showing all 5 programs', '#program-wordpress-credits', [ 'program-wordpress-credits' ] ], () => {
 	const where = open( 'index', [ 'index' ] );
 
 	tap( where, chip( where, 'faculty' ) );
@@ -156,7 +156,7 @@ scenario( 'a link followed to a card the filter hides presses All first, so the 
 	return [ ! where.document.getElementById( 'program-wordpress-credits' ).hidden, pressed( where ), said( where, '.wpc-hub-index' ), where.window.location.hash, where.document.scrolledTo ];
 } );
 
-scenario( 'a link to a card the filter shows leaves the filter as it is', [ [ 'false', 'true', 'false', 'false' ], 'Showing 3 of 6 programs for students' ], () => {
+scenario( 'a link to a card the filter shows leaves the filter as it is', [ [ 'false', 'true', 'false', 'false' ], 'Showing 3 of 5 programs for students' ], () => {
 	const where = open( 'index', [ 'index' ] );
 
 	tap( where, chip( where, 'student' ) );
@@ -197,7 +197,7 @@ scenario( 'a click on the arrow inside a link, not on the link itself, is follow
 	return [ pressed( where ), ! where.document.getElementById( 'program-wordpress-credits' ).hidden, where.document.scrolledTo ];
 } );
 
-scenario( 'a page opened at a card\'s address, or at one no card has, or at #program- alone, opens with All pressed and every card shown', [ [ 6, 'true' ], [ 6, 'true' ], [ 6, 'true' ] ], () => [ '#program-ai-leaders', '#program-nothing', '#program-' ].map( ( hash ) => {
+scenario( 'a page opened at a card\'s address, or at one no card has, or at #program- alone, opens with All pressed and every card shown', [ [ 5, 'true' ], [ 5, 'true' ], [ 5, 'true' ] ], () => [ '#program-ai-leaders', '#program-nothing', '#program-' ].map( ( hash ) => {
 	const where = open( 'index', [ 'index' ], hash );
 
 	return [ shown( where ).length, chip( where, 'all' ).getAttribute( 'aria-pressed' ) ];
@@ -528,7 +528,7 @@ scenario( 'on the page, a step\'s link to a program the filter hides presses All
 	return [ pressed( where ), ! where.document.getElementById( 'program-wordpress-credits' ).hidden, where.document.scrolledTo ];
 } );
 
-scenario( 'and each block\'s presses are its own: a step pressed leaves the filter, a chip pressed leaves the step', [ [ 'false', 'false', 'true', 'false' ], [ 'students-6', 'institutions-2' ], 'Showing 2 of 6 programs for faculty', 'Step 6 of 7: Community Leader' ], () => {
+scenario( 'and each block\'s presses are its own: a step pressed leaves the filter, a chip pressed leaves the step', [ [ 'false', 'false', 'true', 'false' ], [ 'students-6', 'institutions-2' ], 'Showing 2 of 5 programs for faculty', 'Step 6 of 7: Community Leader' ], () => {
 	const where = open( 'page', [ 'index', 'pathway' ] );
 
 	tap( where, step( where, 'students', 6 ) );
