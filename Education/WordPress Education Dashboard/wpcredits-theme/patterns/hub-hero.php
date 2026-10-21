@@ -67,11 +67,12 @@ $wpcredits_gap      = '<path d="' . $wpcredits_trail . '" fill="none" stroke="#0
 <!-- wp:buttons {"className":"wpc-hero__actions","style":{"spacing":{"blockGap":"12px"}}} -->
 <div class="wp-block-buttons wpc-hero__actions"><!-- wp:button {"className":"wpc-button--large"} -->
 <div class="wp-block-button wpc-button--large"><a class="wp-block-button__link wp-element-button" href="#programs"><?php esc_html_e( 'Find where to start', 'wpcredits-theme' ); ?></a></div>
-<!-- /wp:button -->
+<!-- /wp:button --><?php if ( wpcredits_hub_shows_planned() ) : // The pathway is parked with the planned content (pattern hub-pathway.php). ?>
 
 <!-- wp:button {"className":"is-style-outline wpc-button--large"} -->
 <div class="wp-block-button is-style-outline wpc-button--large"><a class="wp-block-button__link wp-element-button" href="#pathway"><?php esc_html_e( 'Explore the pathway', 'wpcredits-theme' ); ?></a></div>
-<!-- /wp:button --></div>
+<!-- /wp:button -->
+<?php endif; ?></div>
 <!-- /wp:buttons --></div>
 <!-- /wp:column -->
 

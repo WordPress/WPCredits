@@ -9,8 +9,17 @@
  *
  * The switch, the staircases and the details are the pathway block's.
  *
+ * Parked for now (a program lead, 21 October 2026: "remove the pathway section for now", while its
+ * details and badges are settled): the section is printed only when the hub shows its planned
+ * content (`wpcredits_hub_shows_planned()`), with the hero's "Explore the pathway" button that leads
+ * to it.
+ *
  * @package WPCredits_Theme
  */
+
+if ( ! wpcredits_hub_shows_planned() ) {
+	return;
+}
 
 ?>
 <!-- wp:group {"anchor":"pathway","align":"wide","className":"wpc-hub-anchored","style":{"spacing":{"padding":{"top":"48px","bottom":"48px"}}},"layout":{"type":"default"}} -->

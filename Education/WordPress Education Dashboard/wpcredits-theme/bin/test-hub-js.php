@@ -31,12 +31,32 @@ if ( '' === wpcredits_node() ) {
 	exit( 0 );
 }
 
+/**
+ * The whole hub page as the template draws it: with its planned content (the pathway among it, and
+ * the six programs), as the hub prints it with the filter on, or as it is offered today.
+ *
+ * @param bool $planned Whether the hub shows its planned content.
+ * @return string
+ */
+function wpcredits_test_hub_page( $planned ) {
+	if ( $planned ) {
+		add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+	}
+
+	$html = '<main>' . wpcredits_test_page() . '</main>';
+
+	unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+	return $html;
+}
+
 // The pages the scenarios open: each block on its own, with links of the kind the rest of the page
 // holds pointing at it, and the whole hub page, as the template draws it.
 $pages = array(
 	'index'   => '<main>' . wpcredits_test_block( 'wpcredits/program-index' ) . '<nav><a href="#program-wordpress-credits">Start WordPress Credits</a> <a href="#program-nothing">Nowhere</a> <a href="#program-wordpress-credits">WordPress Credits<span aria-hidden="true"> →</span></a></nav></main>',
 	'pathway' => '<main>' . wpcredits_test_block( 'wpcredits/pathway' ) . '<nav><a href="#wpc-hub-step-students-6">Community Leader<span aria-hidden="true"> →</span></a></nav></main>',
-	'page'    => '<main>' . wpcredits_test_page() . '</main>',
+	'page'    => wpcredits_test_hub_page( true ),
+	'today'   => wpcredits_test_hub_page( false ),
 );
 
 exit( wpcredits_run_node_suite( __DIR__ . '/js/hub-harness.js', $pages ) );

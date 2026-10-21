@@ -8,7 +8,8 @@
  * Viewport Width: 1400
  *
  * The sponsorship and institution applications are the site's own pages, read when the pattern
- * renders.
+ * renders. The Companies card, which leads to the jobs site, is parked with the hub's planned content
+ * (a program lead, 21 October 2026).
  *
  * @package WPCredits_Theme
  */
@@ -16,7 +17,7 @@
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-cta","style":{"spacing":{"padding":{"top":"48px","bottom":"48px"}}},"layout":{"type":"default"}} -->
 <div class="wp-block-group alignwide wpc-hub-cta" style="padding-top:48px;padding-bottom:48px"><!-- wp:columns {"className":"wpc-hub-cta__grid wpc-hub-stack"} -->
-<div class="wp-block-columns wpc-hub-cta__grid wpc-hub-stack"><!-- wp:column -->
+<div class="wp-block-columns wpc-hub-cta__grid wpc-hub-stack"><?php if ( wpcredits_hub_shows_planned() ) : // Parked: the jobs site's card (a program lead, 21 October 2026), back with the planned content. ?><!-- wp:column -->
 <div class="wp-block-column"><!-- wp:group {"className":"is-style-card wpc-hub-cta__card","layout":{"type":"default"}} -->
 <div class="wp-block-group is-style-card wpc-hub-cta__card"><!-- wp:paragraph {"className":"is-style-eyebrow"} -->
 <p class="is-style-eyebrow"><?php esc_html_e( 'Companies', 'wpcredits-theme' ); ?></p>
@@ -38,7 +39,7 @@
 <!-- /wp:group --></div>
 <!-- /wp:column -->
 
-<!-- wp:column -->
+<?php endif; ?><!-- wp:column -->
 <div class="wp-block-column"><!-- wp:group {"className":"is-style-card wpc-hub-cta__card","layout":{"type":"default"}} -->
 <div class="wp-block-group is-style-card wpc-hub-cta__card"><!-- wp:paragraph {"className":"is-style-eyebrow"} -->
 <p class="is-style-eyebrow"><?php esc_html_e( 'Sponsors and schools', 'wpcredits-theme' ); ?></p>

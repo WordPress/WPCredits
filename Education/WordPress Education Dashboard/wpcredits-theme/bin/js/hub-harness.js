@@ -504,7 +504,7 @@ scenario( 'the pathway with no program index on the page: a step\'s link to the 
 	return [ stepsPressed( where ), where.window.location.hash ];
 } );
 
-/* ---- the page: the template's five patterns and both blocks ------------------------ */
+/* ---- the page: the template's five patterns and both blocks, with the planned content - */
 
 scenario( 'on the page, the hero\'s two buttons and the students\' door jump to their sections', [ 'programs', 'pathway', 'programs' ], () => {
 	const where = open( 'page', [ 'index', 'pathway' ] );
@@ -528,13 +528,28 @@ scenario( 'on the page, a step\'s link to a program the filter hides presses All
 	return [ pressed( where ), ! where.document.getElementById( 'program-wordpress-credits' ).hidden, where.document.scrolledTo ];
 } );
 
-scenario( 'and each block\'s presses are its own: a step pressed leaves the filter, a chip pressed leaves the step', [ [ 'false', 'false', 'true', 'false' ], [ 'students-6', 'institutions-2' ], 'Showing 2 of 5 programs for faculty', 'Step 6 of 7: Community Leader' ], () => {
+scenario( 'and each block\'s presses are its own: a step pressed leaves the filter, a chip pressed leaves the step', [ [ 'false', 'false', 'true', 'false' ], [ 'students-6', 'institutions-2' ], 'Showing 2 of 6 programs for faculty', 'Step 6 of 7: Community Leader' ], () => {
 	const where = open( 'page', [ 'index', 'pathway' ] );
 
 	tap( where, step( where, 'students', 6 ) );
 	tap( where, chip( where, 'faculty' ) );
 
 	return [ pressed( where ), stepsPressed( where ), said( where, '.wpc-hub-index' ), said( where, '.wpc-hub-pathway' ) ];
+} );
+
+/* ---- the page as offered today: no pathway (a program lead, 21 October 2026) ------------- */
+
+scenario( 'on the page as offered today, the hero\'s one button and the students\' door jump to the programs, nothing links to a pathway, and the index\'s chips count the five programs', [ [ 'programs', 'programs' ], 0, 0, 'Showing 3 of 5 programs for students' ], () => {
+	const where = open( 'today', [ 'index', 'pathway' ] );
+
+	where.document.querySelector( '.wpc-hub-hero a[href="#programs"]' ).click();
+	where.document.querySelector( '.wpc-hub-door__go a[href="#programs"]' ).click();
+
+	const scrolled = where.document.scrolledTo;
+
+	tap( where, chip( where, 'student' ) );
+
+	return [ scrolled, where.document.querySelectorAll( 'a[href="#pathway"]' ).length, where.document.querySelectorAll( '.wpc-hub-pathway' ).length, said( where, '.wpc-hub-index' ) ];
 } );
 
 console.log( ran + ' scenarios, ' + failed + ' differ' );

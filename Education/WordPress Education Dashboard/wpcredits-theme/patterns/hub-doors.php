@@ -38,9 +38,23 @@ $wpcredits_doors = array(
 		'text'    => __( 'Browse graduates open to work, or post internships and entry-level roles.', 'wpcredits-theme' ),
 		'link'    => __( 'Hire from WordPress', 'wpcredits-theme' ),
 		'href'    => 'https://jobs.wordpress.net/',
+		// Parked: it leads to the jobs site, which a program lead asked to leave off for now (21 October
+		// 2026); it comes back with the planned content (`wpcredits_hub_shows_planned()`).
+		'parked'  => true,
 		'picture' => '<div class="wpc-hub-pic__piece wpc-hub-pic__profile"><span class="wpc-hub-pic__person"></span><span><span class="wpc-hub-art__strong">' . esc_html__( 'Verified WordPress experience', 'wpcredits-theme' ) . '</span><span class="wpc-hub-art__small">' . esc_html__( 'Graduates open to work', 'wpcredits-theme' ) . '</span></span></div>',
 	),
 );
+
+if ( ! wpcredits_hub_shows_planned() ) {
+	$wpcredits_doors = array_values(
+		array_filter(
+			$wpcredits_doors,
+			static function ( $door ) {
+				return empty( $door['parked'] );
+			}
+		)
+	);
+}
 
 ?>
 <!-- wp:group {"align":"wide","className":"wpc-hub-doors","style":{"spacing":{"padding":{"top":"48px","bottom":"48px"}}},"layout":{"type":"default"}} -->

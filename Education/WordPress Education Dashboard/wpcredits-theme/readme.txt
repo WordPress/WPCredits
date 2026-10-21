@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.30
+Stable tag: 1.24.31
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.24.31 =
+* Education Hub homepage: the pathway section is set aside for now, with the hero's "Explore the pathway" button that led to it, while its details and badges are settled, as a program lead asked. The hero keeps one button, "Find where to start".
+* The Companies door and the closing band's Companies card are set aside too, as the program lead suggested and the site owner agreed: both led to the WordPress jobs site, which the page leaves out for now. The doors are now the students' and the institutions', and the closing band holds the sponsors' and schools' card.
+* Nothing is deleted: the pathway, its button and the two Companies cards come back with the rest of the planned content when it is turned back on (for developers: `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`).
+* For developers: `patterns/hub-pathway.php` prints nothing unless `wpcredits_hub_shows_planned()`; the hero's second button and the Companies column of `patterns/hub-cta.php` print under the same test; the Companies door in `patterns/hub-doors.php` is marked `parked` and left out the same way. `bin/test-hub.php` checks the page without them and, with the filter on, with them; `bin/test-hub-js.php` opens both pages.
 
 = 1.24.30 =
 * Education Hub homepage: the page now shows only what the programs offer today, as two program leads asked before it is published. Every benefit marked "(planned)" is no longer shown, nor are three lines of academic recognition that are not offered yet (under Builder, Community Leader and Credentialed), nor the WordPress Builder Certification card, which is still in development. Where a step or a partner level has nothing offered today under "Unlocks" or "Gets", that heading is left out and the step or level shows what earns it and where it leads. The program list counts five programs, and its filters count them the same way.

@@ -3913,6 +3913,34 @@ ck( 'today the whole page holds no "(planned)", no planned line of academic reco
 	),
 	array( 0, 0, 0, 0, 11 ) );
 
+// A program lead (21 October 2026): "remove the pathway section for now, and the 'explore the pathway'
+// link", to come back once its details and badges are settled. Parked behind the same filter.
+$today_px = dom_of( $today_page );
+
+ck( 'today the page has no pathway: no section anchored #pathway, no pathway block, no link to it, and the hero\'s one button is Find where to start; with the filter on both come back',
+	array(
+		count( $today_px->query( '//*[@id="pathway"]' ) ),
+		substr_count( $today_page, 'wpc-hub-ladder' ),
+		count( $today_px->query( '//a[@href="#pathway"]' ) ),
+		found( $today_px, '//div[contains(@class,"wpc-hero__actions")]//a' ),
+		count( $page->query( '//*[@id="pathway"]' ) ),
+		found( $page, '//div[contains(@class,"wpc-hero__actions")]//a' ),
+	),
+	array( 0, 0, 0, array( 'Find where to start' ), 1, array( 'Find where to start', 'Explore the pathway' ) ) );
+
+// The program lead's "we may also want to remove the links to the jobs site" (21 October 2026), the
+// owner's "do it": the Companies door and the closing band's Companies card exist to link there, so
+// both are parked with the planned content.
+ck( 'today nothing links to the jobs site: the doors are the students\' and the institutions\', the closing band holds the sponsors\' and schools\' card alone; with the filter on, the Companies door and card come back',
+	array(
+		substr_count( $today_page, 'jobs.wordpress.net' ),
+		found( $today_px, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]//div[contains(concat(" ", @class, " "), " wpc-hub-door ")]/p[contains(@class,"is-style-eyebrow")]' ),
+		found( $today_px, '//div[contains(@class,"wpc-hub-cta__card")]/p[contains(@class,"is-style-eyebrow")]' ),
+		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]//div[contains(concat(" ", @class, " "), " wpc-hub-door ")]/p[contains(@class,"is-style-eyebrow")]' ),
+		found( $page, '//div[contains(@class,"wpc-hub-cta__card")]/p[contains(@class,"is-style-eyebrow")]' ),
+	),
+	array( 0, array( 'Students', 'Institutions' ), array( 'Sponsors and schools' ), array( 'Students', 'Institutions', 'Companies' ), array( 'Companies', 'Sponsors and schools' ) ) );
+
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 
 exit( $fail ? 1 : 0 );
