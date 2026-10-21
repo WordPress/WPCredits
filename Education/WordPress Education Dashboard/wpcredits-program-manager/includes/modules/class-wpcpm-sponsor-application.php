@@ -3441,6 +3441,11 @@ class WPCPM_Sponsor_Application {
 				'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
 			);
 
+			// What the test box beside Approve does when ticked (1.123.20), in the words of the box's
+			// own description on the Sponsors screen. One sentence for either state of the box: the
+			// question is fixed when the form is drawn, and forms.js reads it off the form as it is.
+			$confirm .= ' ' . __( 'If Test sponsor is ticked, the sponsor is approved as a test sponsor: it is left out of the Partners page, the logo strip, the handbook listing and the public feed, its offers, posts and events are shown to no student or mentor, and its own accounts still see its Sponsor Dashboard.', 'wpcredits-program-manager' );
+
 			// The in-base flag, said again where it matters most: approving a company the site
 			// already holds creates a second record.
 			if ( in_array( self::SIGNAL_IN_BASE, self::signals_of( $post ), true ) ) {

@@ -197,6 +197,13 @@
 	white-space: pre-wrap;
 }
 
+/* The codes a sponsor offer's review lists under Codes added (1.123.20): a code can be a whole
+   checkout link of two hundred characters with no space in it, which would push the card past the
+   width of a phone. */
+.wpcpm-sponsor-offer__codes code {
+	overflow-wrap: anywhere;
+}
+
 .wpcpm-administrator__actions .wpcpm-app-action,
 .wpcpm-administrator__actions .wpcpm-request__decide {
 	display: inline-block;

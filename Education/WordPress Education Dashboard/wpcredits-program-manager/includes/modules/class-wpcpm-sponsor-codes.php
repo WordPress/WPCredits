@@ -14,7 +14,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * `array( 'v' => 1, 'shared' => sealed or '', 'codes' => array( array( 's' => sealed, 'h' =>
  * fingerprint, 'st' => available|claimed|void, 'by' => user_id, 'at' => time ) ), 'claims' =>
- * array( array( 'u' => user_id, 'i' => index or -1, 'at' => time, 'v' => time or 0 ) ) )`.
+ * array( array( 'u' => user_id, 'i' => index or -1, 'at' => time, 'v' => time or 0 ) ), 'held' =>
+ * array( array( 's' => sealed, 'h' => fingerprint ) ) )`.
+ *
+ * **Held codes (1.123.20).** The codes a sponsor's member adds to an offer students can see wait
+ * for an Administrator's review (`WPCPM_Sponsor_Offers::codes_wait()`), in `held` rather than in
+ * `codes`: sealed and fingerprinted like the rest, refused as duplicates and counted toward
+ * CODES_MAX, but no row of `codes`, so take(), counts() and void_unclaimed() never see them.
+ * release_held() moves them to the end of `codes` as available, and drop_held() lets them go
+ * entirely. A list of their own rather than a fourth state in `codes` because a claim's ledger row
+ * names its code by index: a returned code taken out of `codes` would leave a gap, or move every
+ * claimed code after it under another person's ledger row.
+ *
+ * The version stays 1. `held` is a key added beside the others, which read() fills with an empty
+ * list for a pool written by 1.123.19, so that pool reads as it did. And a pool written now is
+ * one 1.123.19 still reads and rewrites safely: its read() keeps every stored key and its writes
+ * hand them back, so held codes ride through a rollback untouched, claimable by nobody. A raised
+ * version would do the harm the version exists to prevent: 1.123.19 reads any other version as an
+ * empty pool, and its next add() would write that empty pool, and the codes added to it, over
+ * every code and every claim the row held.
  *
  * Sealed means WPCPM_Secret::seal_for_option(): the site key, base64 for the option row. The
  * fingerprint finds duplicates without unsealing, and is keyed because a bare hash of a short
@@ -26,8 +44,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Nothing here decides who may claim. The pool's lock (lock(), unlock(), LOCK_PREFIX,
  * LOCK_TIMEOUT) guards every rewrite of the pool: add(), set_shared(), void_unclaimed(),
- * void_index() and void_shared_claim() all take it before self::read() and release it on
- * every path out. take() and record_shared() are the two rewrites WPCPM_Sponsor_Claims::claim()
+ * void_index(), void_shared_claim(), release_held() and drop_held() all take it before
+ * self::read() and release it on every path out. take() and record_shared() are the two rewrites WPCPM_Sponsor_Claims::claim()
  * makes with that lock already held, so they never take it themselves.
  *
  * What sealing the codes buys, so that a later reader does not over-trust it: protection
@@ -82,12 +100,14 @@ final class WPCPM_Sponsor_Codes {
 			'shared' => '',
 			'codes'  => array(),
 			'claims' => array(),
+			'held'   => array(),
 		);
 	}
 
 	/**
 	 * The pool, or an empty one for an offer that has none yet or one written by a version
-	 * this code does not read.
+	 * this code does not read. A pool written before 1.123.20 has no `held` list and reads with
+	 * an empty one.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return array
@@ -102,6 +122,7 @@ final class WPCPM_Sponsor_Codes {
 		$pool           = array_merge( self::empty_pool(), $stored );
 		$pool['codes']  = is_array( $pool['codes'] ) ? $pool['codes'] : array();
 		$pool['claims'] = is_array( $pool['claims'] ) ? $pool['claims'] : array();
+		$pool['held']   = is_array( $pool['held'] ) ? $pool['held'] : array();
 		$pool['shared'] = is_string( $pool['shared'] ) ? $pool['shared'] : '';
 
 		return $pool;
@@ -353,11 +374,17 @@ final class WPCPM_Sponsor_Codes {
 	 * Add codes to an offer. All or nothing: a paste with one fault adds nothing and names the
 	 * lines, so the sponsor fixes the paste rather than hunting for what went in.
 	 *
+	 * Every code is checked against both lists, the pool and the codes held for review (1.123.20),
+	 * so one code never waits for review and sits in the pool at once, and both lists count toward
+	 * CODES_MAX: an approval only moves codes, and must never take a pool over the ceiling.
+	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $text     The paste.
+	 * @param bool   $hold     Whether the codes wait for an Administrator's review, in `held`,
+	 *                         rather than going into the pool as available.
 	 * @return int|WP_Error How many were added.
 	 */
-	public static function add( $offer_id, $text ) {
+	public static function add( $offer_id, $text, $hold = false ) {
 		// Parsing and fingerprinting touch no pool, so they happen before the lock is taken;
 		// the lock is held for the read-check-write alone.
 		$parsed = self::parse( $text );
@@ -385,6 +412,11 @@ final class WPCPM_Sponsor_Codes {
 			// told a line "is already in this offer" while the card reads 0 available reads as a
 			// bug rather than as the rule it is (deep check FOFFR-4).
 			$known[ (string) $entry['h'] ] = isset( $entry['st'] ) ? (string) $entry['st'] : '';
+		}
+
+		// A code waiting for review is in this offer too: refused as one already in it, never as void.
+		foreach ( $pool['held'] as $entry ) {
+			$known[ (string) $entry['h'] ] = '';
 		}
 
 		foreach ( $prints as $k => $print ) {
@@ -420,7 +452,7 @@ final class WPCPM_Sponsor_Codes {
 			return new WP_Error( 'wpcpm_codes_none', __( 'No codes were found in what you pasted.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( count( $pool['codes'] ) + count( $parsed['codes'] ) > self::CODES_MAX ) {
+		if ( count( $pool['codes'] ) + count( $pool['held'] ) + count( $parsed['codes'] ) > self::CODES_MAX ) {
 			self::unlock( $offer_id );
 
 			/* translators: %d: the most codes an offer holds. */
@@ -436,19 +468,160 @@ final class WPCPM_Sponsor_Codes {
 				return $sealed;
 			}
 
-			$pool['codes'][] = array(
-				's'  => $sealed,
-				'h'  => $prints[ $k ],
-				'st' => self::ST_AVAILABLE,
-				'by' => 0,
-				'at' => 0,
-			);
+			if ( $hold ) {
+				$pool['held'][] = array(
+					's' => $sealed,
+					'h' => $prints[ $k ],
+				);
+
+				continue;
+			}
+
+			$pool['codes'][] = self::available_row( $sealed, $prints[ $k ] );
 		}
 
 		self::write( $offer_id, $pool );
 		self::unlock( $offer_id );
 
 		return count( $parsed['codes'] );
+	}
+
+	/**
+	 * A row of the pool nobody holds yet.
+	 *
+	 * @param string $sealed      The code, sealed.
+	 * @param string $fingerprint Its fingerprint.
+	 * @return array
+	 */
+	private static function available_row( $sealed, $fingerprint ) {
+		return array(
+			's'  => (string) $sealed,
+			'h'  => (string) $fingerprint,
+			'st' => self::ST_AVAILABLE,
+			'by' => 0,
+			'at' => 0,
+		);
+	}
+
+	/**
+	 * How many codes wait for an Administrator's review.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return int
+	 */
+	public static function held_count( $offer_id ) {
+		return count( self::read( $offer_id )['held'] );
+	}
+
+	/**
+	 * The codes that wait for review, unsealed, in the order they were added, for the review an
+	 * Administrator reads; a code that will not open is left out, as code_at() gives it as ''.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return string[]
+	 */
+	public static function held_codes( $offer_id ) {
+		return self::unsealed( self::read( $offer_id )['held'] );
+	}
+
+	/**
+	 * The codes of the pool nobody holds yet, unsealed, in pool order: what a new offer's review
+	 * shows an Administrator of its pool.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return string[]
+	 */
+	public static function available_codes( $offer_id ) {
+		$rows = array();
+
+		foreach ( self::read( $offer_id )['codes'] as $entry ) {
+			// Guarded as take() is, and for the same reason.
+			if ( isset( $entry['st'] ) && self::ST_AVAILABLE === $entry['st'] ) {
+				$rows[] = $entry;
+			}
+		}
+
+		return self::unsealed( $rows );
+	}
+
+	/**
+	 * Rows unsealed to their codes, one that will not open left out.
+	 *
+	 * @param array $rows Rows with a sealed `s`.
+	 * @return string[]
+	 */
+	private static function unsealed( array $rows ) {
+		$codes = array();
+
+		foreach ( $rows as $entry ) {
+			if ( ! isset( $entry['s'] ) ) {
+				continue;
+			}
+
+			$plain = WPCPM_Secret::unseal_from_option( $entry['s'] );
+
+			if ( ! is_wp_error( $plain ) && '' !== (string) $plain ) {
+				$codes[] = (string) $plain;
+			}
+		}
+
+		return $codes;
+	}
+
+	/**
+	 * An Administrator's approval: every held code joins the pool as available, at its end, in the
+	 * order they were added, so no claimed code moves from the index its ledger row names. One
+	 * already approved or returned by another Administrator's press finds nothing, writes nothing
+	 * and answers 0.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return int|WP_Error How many joined the pool.
+	 */
+	public static function release_held( $offer_id ) {
+		if ( ! self::lock( $offer_id ) ) {
+			return self::busy();
+		}
+
+		$pool = self::read( $offer_id );
+		$n    = count( $pool['held'] );
+
+		foreach ( $pool['held'] as $entry ) {
+			$pool['codes'][] = self::available_row( isset( $entry['s'] ) ? $entry['s'] : '', isset( $entry['h'] ) ? $entry['h'] : '' );
+		}
+
+		if ( $n > 0 ) {
+			$pool['held'] = array();
+			self::write( $offer_id, $pool );
+		}
+
+		self::unlock( $offer_id );
+
+		return $n;
+	}
+
+	/**
+	 * A return, or the member's discard: every held code leaves the offer entirely, not as void, so
+	 * the same code can be added again and wait once more. Nothing held is nothing written, and 0.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return int|WP_Error How many left.
+	 */
+	public static function drop_held( $offer_id ) {
+		if ( ! self::lock( $offer_id ) ) {
+			return self::busy();
+		}
+
+		$pool = self::read( $offer_id );
+		$n    = count( $pool['held'] );
+
+		if ( $n > 0 ) {
+			$pool['held'] = array();
+			self::write( $offer_id, $pool );
+		}
+
+		self::unlock( $offer_id );
+
+		return $n;
 	}
 
 	/**
@@ -609,7 +782,10 @@ final class WPCPM_Sponsor_Codes {
 	}
 
 	/**
-	 * A sponsor voids what nobody holds.
+	 * A sponsor voids what nobody holds. Codes waiting for review are not in the pool yet and stay
+	 * held (1.123.20): a sponsor replacing a batch voids the old one and adds the new, in either
+	 * order, and a void that took the new batch with it would make those codes unusable in the
+	 * offer for good. The member's discard is what takes held codes away.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return int|WP_Error How many.

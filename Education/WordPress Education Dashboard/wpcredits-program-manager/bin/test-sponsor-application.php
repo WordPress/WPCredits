@@ -2603,6 +2603,17 @@ ob_start();
 WPCPM_Sponsor_Application::render_actions( $t_test, 'new' );
 $t_test_html = (string) ob_get_clean();
 ck( 'the Approve form carries the test box before its button, clear for a real company and ticked for one named TEST, and no other form carries it', array( false !== strpos( $t_real_html, $t_box( false ) ), false !== strpos( $t_test_html, $t_box( true ) ), substr_count( $t_real_html, 'name="wpcpm_test"' ) ), array( true, true, 1 ) );
+// The question Approve asks (1.123.20) is a fixed sentence forms.js reads off the form, so it says
+// what a ticked box does whichever way the box is drawn, in the words of the box's own description
+// on the Sponsors screen.
+/** The question one Approve form asks, as the browser reads it. */
+$t_confirm = static function ( $html ) { return preg_match( '#<form class="wpcpm-app-action"[^>]*data-wpcpm-confirm="([^"]*)"[^>]*>(?:(?!</form>).)*name="action" value="' . WPCPM_Sponsor_Application::ACTION_APPROVE . '"#s', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : ''; };
+$t_said    = 'If Test sponsor is ticked, the sponsor is approved as a test sponsor: it is left out of the Partners page, the logo strip, the handbook listing and the public feed, its offers, posts and events are shown to no student or mentor, and its own accounts still see its Sponsor Dashboard.';
+ck( 'Approve\'s question says what a ticked Test sponsor box does, after what Approve creates, for a real company and for one named TEST alike', array(
+	substr( $t_confirm( $t_real_html ), -strlen( ' ' . $t_said ) ),
+	substr( $t_confirm( $t_test_html ), -strlen( ' ' . $t_said ) ),
+	0 === strpos( $t_confirm( $t_real_html ), 'Create a sponsor record with Status Approved and a site account for Gadgetry Real, and email a password-set link to ' ),
+), array( ' ' . $t_said, ' ' . $t_said, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

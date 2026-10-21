@@ -28,10 +28,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the shared code of an offer students can see, live, paused or dormant, is held beside it
  * (`propose()`) while students keep seeing the offer as it was approved. An Administrator approves
  * or returns either with a note (`WPCPM_Sponsor_Offer_Review`). Pausing, ending, a new last day, the
- * audience, the warning and the codes added to a pool take effect at once, and what the program's
- * own staff make or change needs no review. An offer carries whether its words have that OK
+ * audience, the warning and voiding codes take effect at once, and what the program's own staff
+ * make or change needs no review. An offer carries whether its words have that OK
  * (`META_APPROVED`); one from before this release carries no such mark, and reads as approved when
  * students could already see it (`approved()`), so nothing live at the update changes.
+ *
+ * **Codes added (1.123.20).** A code can be a whole checkout link, so the codes a member adds to a
+ * visible offer wait too (`codes_wait()`): held in the pool beside its codes
+ * (`WPCPM_Sponsor_Codes::add()` with `$hold`), given to nobody, and marked on the offer
+ * (`META_CODES_HELD`) so the queue finds it as it finds a held change. Codes and a change held on one
+ * offer are one item and one decision: an approval releases the codes with the change, a return or
+ * the member's discard drops them, and a return keeps how many it took out (`META_CODES_RETURNED`) to
+ * say so on the card. Codes added to a draft or to an offer waiting for review are read with the
+ * offer, and the program's own staff's apply at once. Nothing at the update is held: a pool keeps the
+ * codes it has.
  */
 final class WPCPM_Sponsor_Offers {
 
@@ -54,6 +64,12 @@ final class WPCPM_Sponsor_Offers {
 	const META_SUBMITTED    = '_wpcpm_offer_submitted';
 	const META_RETURN_NOTE  = '_wpcpm_offer_return_note';
 	const META_RETURNED     = '_wpcpm_offer_returned';
+
+	/** How many codes a member added wait for review in the pool (1.123.20): the queue's mark, not the count it prints. */
+	const META_CODES_HELD = '_wpcpm_offer_codes_held';
+
+	/** How many held codes the last return took out of the offer, for the card to say so beside the note. */
+	const META_CODES_RETURNED = '_wpcpm_offer_codes_returned';
 
 	/** The fields of what students see that a member's change to a visible offer holds for review, the shared code beside them. */
 	const REVIEWED = array( 'title', 'text', 'instructions', 'url' );
@@ -192,25 +208,27 @@ final class WPCPM_Sponsor_Offers {
 	 */
 	public static function empty_offer() {
 		return array(
-			'id'           => 0,
-			'sponsor'      => '',
-			'title'        => '',
-			'kind'         => self::KIND_CODES,
-			'state'        => self::STATE_DRAFT,
-			'audience'     => array(),
-			'primary'      => false,
-			'text'         => '',
-			'instructions' => '',
-			'url'          => '',
-			'low'          => max( 1, (int) WPCPM_Settings::get_value( 'offer_low_stock', 10 ) ),
-			'low_sent'     => 0,
-			'expires'      => '',
-			'event'        => array(),
-			'approved'     => false,
-			'proposed'     => array(),
-			'submitted'    => array(),
-			'note'         => '',
-			'returned'     => 0,
+			'id'             => 0,
+			'sponsor'        => '',
+			'title'          => '',
+			'kind'           => self::KIND_CODES,
+			'state'          => self::STATE_DRAFT,
+			'audience'       => array(),
+			'primary'        => false,
+			'text'           => '',
+			'instructions'   => '',
+			'url'            => '',
+			'low'            => max( 1, (int) WPCPM_Settings::get_value( 'offer_low_stock', 10 ) ),
+			'low_sent'       => 0,
+			'expires'        => '',
+			'event'          => array(),
+			'approved'       => false,
+			'proposed'       => array(),
+			'submitted'      => array(),
+			'note'           => '',
+			'returned'       => 0,
+			'codes_held'     => 0,
+			'codes_returned' => 0,
 		);
 	}
 
@@ -278,9 +296,11 @@ final class WPCPM_Sponsor_Offers {
 			'at' => (int) $submitted['at'],
 		) : array();
 
-		$offer['note']     = (string) get_post_meta( $id, self::META_RETURN_NOTE, true );
-		$offer['returned'] = (int) get_post_meta( $id, self::META_RETURNED, true );
-		$offer['approved'] = self::approved( $id, $offer['state'] );
+		$offer['note']           = (string) get_post_meta( $id, self::META_RETURN_NOTE, true );
+		$offer['returned']       = (int) get_post_meta( $id, self::META_RETURNED, true );
+		$offer['codes_held']     = max( 0, (int) get_post_meta( $id, self::META_CODES_HELD, true ) );
+		$offer['codes_returned'] = max( 0, (int) get_post_meta( $id, self::META_CODES_RETURNED, true ) );
+		$offer['approved']       = self::approved( $id, $offer['state'] );
 
 		return $offer;
 	}
@@ -321,13 +341,38 @@ final class WPCPM_Sponsor_Offers {
 
 	/**
 	 * Whether an offer, or a change to one, waits for an Administrator: an offer sent for review, or a
-	 * change held beside a visible offer that has not been returned.
+	 * change held beside a visible offer that has not been returned, or codes a member added to a
+	 * visible offer (1.123.20). Codes held are never returned ones: holding codes stamps the offer as
+	 * sent again (`stamp_submitted()`), which clears a return, and a return drops the codes.
 	 *
 	 * @param array $offer An offer.
 	 * @return bool
 	 */
 	public static function is_waiting( array $offer ) {
-		return self::STATE_REVIEW === $offer['state'] || ( ! empty( $offer['proposed'] ) && 0 === (int) $offer['returned'] && in_array( $offer['state'], self::visible_states(), true ) );
+		if ( self::STATE_REVIEW === $offer['state'] ) {
+			return true;
+		}
+
+		if ( ! in_array( $offer['state'], self::visible_states(), true ) ) {
+			return false;
+		}
+
+		return ( ! empty( $offer['proposed'] ) && 0 === (int) $offer['returned'] ) || ( isset( $offer['codes_held'] ) && (int) $offer['codes_held'] > 0 );
+	}
+
+	/**
+	 * Whether codes a person adds to an offer wait for an Administrator's review (1.123.20): a sponsor
+	 * member's, to a pool students can see or could see again, live, paused or dormant, one approved
+	 * before 1.123.18 among them, since `approved()` reads it so. Codes added to a draft or to an offer
+	 * waiting for review are read with the offer itself, and what the program's own staff add applies
+	 * at once, as everything they change on a sponsor's dashboard does.
+	 *
+	 * @param array $offer An offer.
+	 * @param bool  $staff Whether the program's own staff are adding them.
+	 * @return bool
+	 */
+	public static function codes_wait( array $offer, $staff ) {
+		return ! $staff && self::KIND_CODES === $offer['kind'] && in_array( $offer['state'], self::visible_states(), true );
 	}
 
 	/**
@@ -348,7 +393,8 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Every offer and every change waiting for an Administrator, the oldest sent first.
+	 * Every offer and every change waiting for an Administrator, codes held for review among them,
+	 * the oldest sent first.
 	 *
 	 * @return array Offers keyed by ID.
 	 */
@@ -364,6 +410,13 @@ final class WPCPM_Sponsor_Offers {
 			array(
 				array(
 					'key'     => self::META_PROPOSED,
+					'compare' => 'EXISTS',
+				),
+			)
+		) + self::query(
+			array(
+				array(
+					'key'     => self::META_CODES_HELD,
 					'compare' => 'EXISTS',
 				),
 			)
@@ -449,12 +502,21 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Drop a held change, its note and who sent it: the offer is as it was approved.
+	 * Drop a held change, its note and who sent it: the offer is as it was approved. Codes a member
+	 * added that still wait (1.123.20) are not touched, and who sent them stays with them: a save
+	 * that types the words back, or an Administrator's save of the form, decides the words alone.
+	 * `drop_codes()` and `release_codes()` decide the codes.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 */
 	public static function discard( $offer_id ) {
-		foreach ( array( self::META_PROPOSED, self::META_SUBMITTED, self::META_RETURN_NOTE, self::META_RETURNED ) as $key ) {
+		$keys = array( self::META_PROPOSED, self::META_RETURN_NOTE, self::META_RETURNED, self::META_CODES_RETURNED );
+
+		if ( (int) get_post_meta( (int) $offer_id, self::META_CODES_HELD, true ) < 1 ) {
+			$keys[] = self::META_SUBMITTED;
+		}
+
+		foreach ( $keys as $key ) {
 			delete_post_meta( (int) $offer_id, $key );
 		}
 
@@ -462,8 +524,76 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
+	 * An Administrator's approval of the codes a member added: they join the pool as available, and
+	 * the low-stock warning is re-armed as an addition re-arms it (spec 6.6), only once they can be
+	 * claimed. The mark goes whatever the pool held, so one left by a request that died between its
+	 * two writes cannot keep the offer in the queue.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return int|WP_Error How many joined the pool, or `wpcpm_codes_busy` with nothing moved.
+	 */
+	private static function release_codes( $offer_id ) {
+		$released = WPCPM_Sponsor_Codes::release_held( (int) $offer_id );
+
+		if ( is_wp_error( $released ) ) {
+			return $released;
+		}
+
+		if ( $released > 0 ) {
+			delete_post_meta( (int) $offer_id, self::META_LOW_SENT );
+		}
+
+		self::unmark_codes( $offer_id );
+
+		return $released;
+	}
+
+	/**
+	 * A return or the member's discard of the codes a member added: they leave the pool entirely,
+	 * and the mark goes with them.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return int|WP_Error How many left, or `wpcpm_codes_busy` with nothing moved.
+	 */
+	private static function drop_codes( $offer_id ) {
+		$dropped = WPCPM_Sponsor_Codes::drop_held( (int) $offer_id );
+
+		if ( is_wp_error( $dropped ) ) {
+			return $dropped;
+		}
+
+		self::unmark_codes( $offer_id );
+
+		return $dropped;
+	}
+
+	/**
+	 * Clear the queue's mark after a release or a drop, then mark again what the pool holds for
+	 * review by then. The lock is let go before the mark is written, so a member's codes held in
+	 * between, with their own mark and their sender's stamp, would otherwise be left held with no
+	 * mark, in no queue, and `discard()` would take their sender's stamp too.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 */
+	private static function unmark_codes( $offer_id ) {
+		delete_post_meta( (int) $offer_id, self::META_CODES_HELD );
+
+		$left = WPCPM_Sponsor_Codes::held_count( (int) $offer_id );
+
+		if ( $left > 0 ) {
+			update_post_meta( (int) $offer_id, self::META_CODES_HELD, $left );
+		}
+
+		self::forget_queue();
+	}
+
+	/**
 	 * An Administrator approves what waits: an offer sent for review goes live, and a held change
-	 * becomes what students see. Either way the offer's words carry the program's OK.
+	 * becomes what students see. Either way the offer's words carry the program's OK. Codes a member
+	 * added (1.123.20) join the pool with the change, first, since the pool's lock is the one step
+	 * that can refuse, so a refusal leaves the change and the codes waiting as they were. A press
+	 * that finds no code held and no change, because another Administrator's press decided them a
+	 * moment before, approves nothing and says so.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_not_waiting`, `wpcpm_offer_empty`,
@@ -477,7 +607,7 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		if ( ! self::is_waiting( $offer ) ) {
-			return new WP_Error( 'wpcpm_offer_not_waiting', __( 'Nothing of this offer waits for review.', 'wpcredits-program-manager' ) );
+			return self::not_waiting();
 		}
 
 		if ( self::STATE_REVIEW === $offer['state'] ) {
@@ -489,7 +619,22 @@ final class WPCPM_Sponsor_Offers {
 
 			update_post_meta( $offer['id'], self::META_STATE, self::STATE_LIVE );
 		} else {
-			$values = $offer['proposed'];
+			$values   = $offer['proposed'];
+			$released = 0;
+
+			if ( self::KIND_CODES === $offer['kind'] ) {
+				$released = self::release_codes( $offer['id'] );
+
+				if ( is_wp_error( $released ) ) {
+					return $released;
+				}
+			}
+
+			// Nothing found held and no change: decided a moment before. The mark went with the
+			// release, and what another press wrote, a return's note among it, is left as it is.
+			if ( 0 === $released && empty( $values ) ) {
+				return self::not_waiting();
+			}
 
 			if ( array_key_exists( 'shared', $values ) && self::KIND_SHARED === $offer['kind'] ) {
 				$stored = WPCPM_Sponsor_Codes::set_shared( $offer['id'], (string) $values['shared'] );
@@ -499,7 +644,9 @@ final class WPCPM_Sponsor_Offers {
 				}
 			}
 
-			self::save( $offer['id'], array_intersect_key( $values, array_flip( self::REVIEWED ) ), 'changes-approved' );
+			if ( ! empty( $values ) ) {
+				self::save( $offer['id'], array_intersect_key( $values, array_flip( self::REVIEWED ) ), 'changes-approved' );
+			}
 		}
 
 		update_post_meta( $offer['id'], self::META_APPROVED, '1' );
@@ -514,10 +661,14 @@ final class WPCPM_Sponsor_Offers {
 	 * the member's draft again, and a held change stays held, out of the queue, for the member to mend
 	 * and send again or to discard, while students keep seeing the offer as it was approved.
 	 *
+	 * Codes a member added to a visible offer (1.123.20) are not kept with the change: they leave the
+	 * offer, and how many did is kept beside the note for the card to say so.
+	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $note     The note, as the cleaner left it.
-	 * @return array|WP_Error `change` (`new` or `changes`) and `by`, the member who sent it (0 when
-	 *                        unknown); `wpcpm_offer_missing` or `wpcpm_offer_not_waiting`.
+	 * @return array|WP_Error `change` (`new` or `changes`), `by`, the member who sent it (0 when
+	 *                        unknown), and `codes`, how many held codes it took out;
+	 *                        `wpcpm_offer_missing`, `wpcpm_offer_not_waiting` or `wpcpm_codes_busy`.
 	 */
 	public static function return_with_note( $offer_id, $note ) {
 		$offer = self::read( (int) $offer_id );
@@ -527,14 +678,32 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		if ( ! self::is_waiting( $offer ) ) {
-			return new WP_Error( 'wpcpm_offer_not_waiting', __( 'Nothing of this offer waits for review.', 'wpcredits-program-manager' ) );
+			return self::not_waiting();
 		}
 
-		$change = self::STATE_REVIEW === $offer['state'] ? 'new' : 'changes';
+		$change  = self::STATE_REVIEW === $offer['state'] ? 'new' : 'changes';
+		$dropped = 0;
 
 		if ( 'new' === $change ) {
 			update_post_meta( $offer['id'], self::META_STATE, self::STATE_DRAFT );
 			update_post_meta( $offer['id'], self::META_APPROVED, '0' );
+		} elseif ( self::KIND_CODES === $offer['kind'] ) {
+			// The codes a member added leave the offer (1.123.20), before anything is written, so a
+			// pool another request holds leaves the return undone rather than half done; and a press
+			// that finds neither codes nor a change, decided a moment before, returns nothing.
+			$dropped = self::drop_codes( $offer['id'] );
+
+			if ( is_wp_error( $dropped ) ) {
+				return $dropped;
+			}
+
+			if ( 0 === $dropped && empty( $offer['proposed'] ) ) {
+				return self::not_waiting();
+			}
+		}
+
+		if ( $dropped > 0 ) {
+			update_post_meta( $offer['id'], self::META_CODES_RETURNED, $dropped );
 		}
 
 		// Slashed, because post meta unslashes what it is handed and the note is not.
@@ -546,11 +715,22 @@ final class WPCPM_Sponsor_Offers {
 		return array(
 			'change' => $change,
 			'by'     => isset( $offer['submitted']['by'] ) ? (int) $offer['submitted']['by'] : 0,
+			'codes'  => $dropped,
 		);
 	}
 
 	/**
-	 * Who sent what waits, and when; an earlier return's note and stamp go, since what waits now is new.
+	 * The answer for a press that finds nothing of the offer waiting.
+	 *
+	 * @return WP_Error
+	 */
+	private static function not_waiting() {
+		return new WP_Error( 'wpcpm_offer_not_waiting', __( 'Nothing of this offer waits for review.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
+	 * Who sent what waits, and when; an earlier return's note and stamps go, since what waits now is
+	 * new: a change, codes added, or both, sent again as one.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @param int $by       The member.
@@ -566,6 +746,7 @@ final class WPCPM_Sponsor_Offers {
 		);
 		delete_post_meta( (int) $offer_id, self::META_RETURN_NOTE );
 		delete_post_meta( (int) $offer_id, self::META_RETURNED );
+		delete_post_meta( (int) $offer_id, self::META_CODES_RETURNED );
 		self::forget_queue();
 	}
 
@@ -952,7 +1133,8 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Whether the pool holds anything, after which the kind cannot change.
+	 * Whether the pool holds anything, codes waiting for review among it, after which the kind
+	 * cannot change.
 	 *
 	 * @param array $offer An offer.
 	 * @return bool
@@ -960,7 +1142,7 @@ final class WPCPM_Sponsor_Offers {
 	public static function kind_is_fixed( array $offer ) {
 		$pool = WPCPM_Sponsor_Codes::read( $offer['id'] );
 
-		return ! empty( $pool['codes'] ) || ! empty( $pool['claims'] ) || '' !== $pool['shared'];
+		return ! empty( $pool['codes'] ) || ! empty( $pool['held'] ) || ! empty( $pool['claims'] ) || '' !== $pool['shared'];
 	}
 
 	/**
@@ -1098,7 +1280,11 @@ final class WPCPM_Sponsor_Offers {
 	 */
 	public static function cannot_go_live( array $offer ) {
 		if ( self::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Codes::counts( $offer['id'] )['available'] < 1 ) {
-			return __( 'Add at least one code before switching this offer on.', 'wpcredits-program-manager' );
+			// A pool whose only codes wait for review has codes, so "add at least one" would read as
+			// a fault (1.123.20).
+			return WPCPM_Sponsor_Codes::held_count( $offer['id'] ) > 0
+				? __( 'The codes you added wait for an Administrator\'s review: switch the offer on once they are approved.', 'wpcredits-program-manager' )
+				: __( 'Add at least one code before switching this offer on.', 'wpcredits-program-manager' );
 		}
 
 		if ( self::KIND_SHARED === $offer['kind'] && '' === WPCPM_Sponsor_Codes::shared( $offer['id'] ) ) {
@@ -1135,7 +1321,8 @@ final class WPCPM_Sponsor_Offers {
 	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $state    A state.
-	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_state`, `wpcpm_offer_transition`, `wpcpm_offer_empty`.
+	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_state`, `wpcpm_offer_transition`, `wpcpm_offer_empty`,
+	 *                       `wpcpm_codes_busy` (an end that would drop held codes, refused by the pool's lock).
 	 */
 	public static function set_state( $offer_id, $state ) {
 		$offer = self::read( (int) $offer_id );
@@ -1159,6 +1346,18 @@ final class WPCPM_Sponsor_Offers {
 
 			if ( '' !== $why ) {
 				return new WP_Error( 'wpcpm_offer_empty', $why );
+			}
+		}
+
+		// An offer that ends takes the codes waiting on it along (1.123.20): an ended offer is never
+		// claimed from, approved or shown its Discard the changes again, and its mark would keep it
+		// in what the queue reads for good. First, so a pool another request holds leaves the offer
+		// as it was.
+		if ( self::STATE_ENDED === $state && self::KIND_CODES === $offer['kind'] && ( $offer['codes_held'] > 0 || WPCPM_Sponsor_Codes::held_count( $offer['id'] ) > 0 ) ) {
+			$dropped = self::drop_codes( $offer['id'] );
+
+			if ( is_wp_error( $dropped ) ) {
+				return $dropped;
 			}
 		}
 
@@ -1236,14 +1435,31 @@ final class WPCPM_Sponsor_Offers {
 	 * Add codes through the offer rather than the pool, so the low-stock warning re-arms
 	 * (spec 6.6: adding codes clears the stamp) and the change is on the offer's record.
 	 *
+	 * Codes a member adds to a visible offer wait for review instead (1.123.20, `codes_wait()`): held
+	 * in the pool, the offer marked with how many the pool holds for review and stamped as sent by
+	 * the member, as a held change is (`propose()`), and the warning left as it stands, since nothing
+	 * anybody can claim was added. The mark is the pool's own count after the write, not a sum, so a
+	 * mark another press left behind is corrected here.
+	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $text     The paste.
+	 * @param int    $held_by  The sponsor member whose codes wait for review, or 0 for codes that
+	 *                         apply at once.
 	 * @return int|WP_Error How many were added.
 	 */
-	public static function add_codes( $offer_id, $text ) {
-		$added = WPCPM_Sponsor_Codes::add( (int) $offer_id, $text );
+	public static function add_codes( $offer_id, $text, $held_by = 0 ) {
+		$held_by = (int) $held_by;
+		$added   = WPCPM_Sponsor_Codes::add( (int) $offer_id, $text, $held_by > 0 );
 
 		if ( is_wp_error( $added ) ) {
+			return $added;
+		}
+
+		if ( $held_by > 0 ) {
+			update_post_meta( (int) $offer_id, self::META_CODES_HELD, WPCPM_Sponsor_Codes::held_count( (int) $offer_id ) );
+			self::stamp_submitted( (int) $offer_id, $held_by );
+			self::touch( (int) $offer_id, 'codes-held' );
+
 			return $added;
 		}
 
@@ -1419,6 +1635,8 @@ final class WPCPM_Sponsor_Offers {
 			// handle_codes_void()).
 			'offer-busy'              => array( 'info', __( 'Another change to this offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'codes-added'             => array( 'success', __( 'Codes added.', 'wpcredits-program-manager' ) ),
+			// A member's codes added to a visible offer (1.123.20): saved, and given to nobody yet.
+			'codes-waiting'           => array( 'success', __( 'Your codes were saved and wait for an Administrator\'s review. Until they are approved, nobody can claim them.', 'wpcredits-program-manager' ) ),
 			'codes-refused'           => array( 'error', __( 'Nothing was added.', 'wpcredits-program-manager' ) ),
 			'codes-none'              => array( 'error', __( 'No codes were found in what you pasted or uploaded.', 'wpcredits-program-manager' ) ),
 			'codes-max'               => array( 'error', __( 'An offer holds at most 5000 codes. Talk to the program about a larger pool.', 'wpcredits-program-manager' ) ),
@@ -1908,6 +2126,7 @@ final class WPCPM_Sponsor_Offers {
 			$statuses = array(
 				'wpcpm_offer_empty'      => 'offer-empty',
 				'wpcpm_offer_transition' => 'offer-transition',
+				'wpcpm_codes_busy'       => 'offer-busy',
 			);
 			$code     = $moved->get_error_code();
 			$detail   = 'wpcpm_offer_empty' === $code ? $moved->get_error_message() : '';
@@ -1937,20 +2156,43 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Discard a change held for review, waiting or returned: the offer stays as it was approved. It
-	 * shows students nothing new, so it takes effect at once.
+	 * Discard a change held for review, waiting or returned, and the codes a member added that wait
+	 * (1.123.20): the offer stays as it was approved, and the codes leave the pool. It shows students
+	 * nothing new, so it takes effect at once.
 	 */
 	public static function handle_discard() {
 		$claim  = self::begin( self::ACTION_DISCARD, WPCPM_Sponsor_Policy::ACT_MANAGE_OFFERS );
 		$record = $claim['record'];
 		$offer  = $claim['offer'];
+		// The pool's own count as well as the mark, so codes held without the mark, by a request that
+		// died between its two writes, are still the member's to take away.
+		$held = self::KIND_CODES === $offer['kind'] ? max( (int) $offer['codes_held'], WPCPM_Sponsor_Codes::held_count( $offer['id'] ) ) : 0;
 
-		if ( empty( $offer['proposed'] ) ) {
+		if ( empty( $offer['proposed'] ) && $held < 1 ) {
 			self::leave( 'offer-no-changes', $record );
+		}
+
+		$dropped = 0;
+
+		if ( $held > 0 ) {
+			$dropped = self::drop_codes( $offer['id'] );
+
+			if ( is_wp_error( $dropped ) ) {
+				self::leave( 'offer-busy', $record );
+			}
 		}
 
 		self::discard( $offer['id'] );
 		self::touch( $offer['id'], 'changes-discarded' );
+
+		$data = array(
+			'offer'     => $offer['id'],
+			'discarded' => true,
+		);
+
+		if ( $dropped > 0 ) {
+			$data['codes'] = (int) $dropped;
+		}
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -1961,10 +2203,7 @@ final class WPCPM_Sponsor_Offers {
 				'ground'   => $claim['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => __( 'The changes waiting on an offer were discarded.', 'wpcredits-program-manager' ),
-				'data'     => array(
-					'offer'     => $offer['id'],
-					'discarded' => true,
-				),
+				'data'     => $data,
 			)
 		);
 
@@ -1972,20 +2211,29 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Paste codes into a pool.
+	 * Paste codes into a pool. A member's codes for an offer students can see wait for an
+	 * Administrator's review (1.123.20, `codes_wait()`), and the press says so.
+	 *
+	 * A member's codes added to a draft go in with it, to be read when the offer is reviewed; and a
+	 * draft that carries the program's OK already, the seeded first offer of a sponsor or one an
+	 * Administrator drafted for it, loses that OK, as it does when a member changes its words
+	 * (`handle_save()`), so it is sent for review with its codes rather than switched on.
 	 */
 	public static function handle_codes_add() {
 		$claim  = self::begin( self::ACTION_CODES_ADD, WPCPM_Sponsor_Policy::ACT_MANAGE_OFFERS );
 		$record = $claim['record'];
 		$offer  = $claim['offer'];
+		$staff  = self::by_staff( $claim );
 
 		if ( self::KIND_CODES !== $offer['kind'] ) {
 			self::leave( 'offer-rejected', $record, __( 'This offer has one shared code; there is no pool to add to.', 'wpcredits-program-manager' ) );
 		}
 
+		$held_by = self::codes_wait( $offer, $staff ) ? get_current_user_id() : 0;
+
 		// The paste box, the uploaded file or both, read verbatim (see codes_text()).
 		$text  = self::codes_text();
-		$added = is_wp_error( $text ) ? $text : self::add_codes( $offer['id'], $text );
+		$added = is_wp_error( $text ) ? $text : self::add_codes( $offer['id'], $text, $held_by );
 
 		if ( is_wp_error( $added ) ) {
 			$statuses = array(
@@ -2001,6 +2249,10 @@ final class WPCPM_Sponsor_Offers {
 			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, $detail );
 		}
 
+		if ( ! $staff && self::STATE_DRAFT === $offer['state'] && $offer['approved'] ) {
+			update_post_meta( $offer['id'], self::META_APPROVED, '0' );
+		}
+
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
 				'kind'     => self::LOG_CODES,
@@ -2009,14 +2261,23 @@ final class WPCPM_Sponsor_Offers {
 				'actor'    => get_current_user_id(),
 				'ground'   => $claim['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				/* translators: %d: how many codes. */
-				'message'  => sprintf( __( '%d codes were added to an offer.', 'wpcredits-program-manager' ), $added ),
+				'message'  => $held_by > 0
+					/* translators: %d: how many codes. */
+					? sprintf( __( '%d codes were added to an offer and wait for review.', 'wpcredits-program-manager' ), $added )
+					/* translators: %d: how many codes. */
+					: sprintf( __( '%d codes were added to an offer.', 'wpcredits-program-manager' ), $added ),
 				'data'     => array(
-					'offer' => $offer['id'],
-					'added' => (int) $added,
+					'offer'   => $offer['id'],
+					'added'   => (int) $added,
+					'waiting' => $held_by > 0,
 				),
 			)
 		);
+
+		if ( $held_by > 0 ) {
+			/* translators: %d: how many codes. */
+			self::leave( 'codes-waiting', $record, sprintf( _n( '%d code waits for review.', '%d codes wait for review.', $added, 'wpcredits-program-manager' ), $added ) );
+		}
 
 		/* translators: %d: how many codes. */
 		self::leave( 'codes-added', $record, sprintf( _n( '%d code added.', '%d codes added.', $added, 'wpcredits-program-manager' ), $added ) );
@@ -2257,7 +2518,7 @@ final class WPCPM_Sponsor_Offers {
 		// Open, an offer reads as text first (owner, 1.97.4): its details, then Edit this offer, which
 		// reveals the form; the state moves under a title of their own; the codes last.
 		self::render_details( $offer );
-		self::render_changes( $offer, $record );
+		self::render_changes( $offer, $record, self::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::held_count( $offer['id'] ) : 0 );
 		printf( '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-%1$d"%3$s><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offer__edit-toggle">%2$s</summary>', (int) $offer['id'], esc_html__( 'Edit this offer', 'wpcredits-program-manager' ), empty( $kept ) ? '' : ' open' );
 		self::render_edit_form( self::as_drawn( $offer ), $record, $fixed, $kept );
 		echo '</details>';
@@ -2436,28 +2697,61 @@ final class WPCPM_Sponsor_Offers {
 	 * Administrator's note, escaped, as a returned post shows its note; and the press that discards
 	 * it, which takes effect at once. Nothing for an offer with no change held.
 	 *
+	 * Codes a member added (1.123.20) say how many wait for review, in the same place, and the same
+	 * press drops them, its question naming them. Codes a return took out are said once beside the
+	 * note, and leave nothing to discard.
+	 *
 	 * @param array  $offer  The offer.
 	 * @param string $record Sponsor key.
+	 * @param int    $held   How many codes the pool holds for review, as its own count says.
 	 */
-	private static function render_changes( array $offer, $record ) {
-		if ( empty( $offer['proposed'] ) ) {
+	private static function render_changes( array $offer, $record, $held = 0 ) {
+		$held     = in_array( $offer['state'], self::visible_states(), true ) ? (int) $held : 0;
+		$returned = $offer['returned'] > 0 ? (int) $offer['codes_returned'] : 0;
+
+		if ( empty( $offer['proposed'] ) && $held < 1 && $returned < 1 ) {
 			return;
 		}
 
 		echo '<div class="wpcpm-offer__changes">';
 
 		if ( $offer['returned'] > 0 ) {
-			printf( '<p class="wpcpm-student__note">%s</p>', esc_html__( 'An Administrator returned your changes with a note. Students and mentors still see the offer as it reads above.', 'wpcredits-program-manager' ) );
+			printf(
+				'<p class="wpcpm-student__note">%s</p>',
+				empty( $offer['proposed'] )
+					? esc_html__( 'An Administrator returned the codes you added with a note. Students and mentors still see the offer as it reads above.', 'wpcredits-program-manager' )
+					: esc_html__( 'An Administrator returned your changes with a note. Students and mentors still see the offer as it reads above.', 'wpcredits-program-manager' )
+			);
+
+			if ( $returned > 0 ) {
+				/* translators: %s: how many codes. */
+				printf( '<p class="wpcpm-student__note">%s</p>', esc_html( sprintf( _n( '%s code you added was taken out of the offer.', '%s codes you added were taken out of the offer.', $returned, 'wpcredits-program-manager' ), number_format_i18n( $returned ) ) ) );
+			}
+
 			printf( '<p class="wpcpm-offer__note">%s</p>', esc_html( $offer['note'] ) );
-		} else {
+		} elseif ( ! empty( $offer['proposed'] ) ) {
 			printf( '<p class="wpcpm-student__note">%s</p>', esc_html__( 'Your changes wait for an Administrator\'s review. Until they are approved, students and mentors see the offer as it reads above.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( $held > 0 ) {
+			/* translators: %s: how many codes. */
+			printf( '<p class="wpcpm-student__note">%s</p>', esc_html( sprintf( _n( '%s code you added waits for an Administrator\'s review. Until it is approved, nobody can claim it.', '%s codes you added wait for an Administrator\'s review. Until they are approved, nobody can claim them.', $held, 'wpcredits-program-manager' ), number_format_i18n( $held ) ) ) );
+		}
+
+		// A return that took codes out and held no change leaves nothing to discard.
+		if ( empty( $offer['proposed'] ) && $held < 1 ) {
+			echo '</div>';
+
+			return;
 		}
 
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-inline-form wpcpm-offer__discard-form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Discarding', 'wpcredits-program-manager' ),
-			esc_attr__( 'Discard your changes? The offer stays as it reads above.', 'wpcredits-program-manager' )
+			$held > 0
+				? esc_attr__( 'Discard your changes and the codes that wait for review? The offer stays as it reads above.', 'wpcredits-program-manager' )
+				: esc_attr__( 'Discard your changes? The offer stays as it reads above.', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( self::ACTION_DISCARD . '_' . $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DISCARD ) );

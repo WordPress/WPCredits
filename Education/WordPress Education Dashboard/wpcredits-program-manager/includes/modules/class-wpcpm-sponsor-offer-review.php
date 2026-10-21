@@ -23,6 +23,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The review is not a tier's: it applies whatever the tiers switch says, and nothing it prints
  * names a tier.
+ *
+ * **Codes added (1.123.20).** A code can be a whole checkout link, so an item shows the codes it
+ * would put in front of students under "Codes added": the codes a member added to a visible offer,
+ * held for review, or, for a new pool, the codes it holds. How many, how many are web addresses, and
+ * the codes themselves, web addresses first, at most `CODES_SHOWN`, each printed as text and never
+ * as a link. They are unsealed when the item is drawn, not in `waiting_all()`, which the menu
+ * bubble and the counts read too and which must not open five thousand codes to count one item.
  */
 final class WPCPM_Sponsor_Offer_Review {
 
@@ -43,6 +50,9 @@ final class WPCPM_Sponsor_Offer_Review {
 
 	/** The longest note, counted as typed, as the posts' own. */
 	const MAX_NOTE = 2000;
+
+	/** The most codes an item prints under Codes added; a line counts the rest. */
+	const CODES_SHOWN = 20;
 
 	/**
 	 * The two handlers.
@@ -162,9 +172,64 @@ final class WPCPM_Sponsor_Offer_Review {
 	}
 
 	/**
+	 * What an item shows under Codes added (1.123.20): for changes, the codes a member added that wait
+	 * for review; for a new pool, the codes it holds that a person could be handed. Null for a shared
+	 * offer and for nothing to show.
+	 *
+	 * @param int    $offer_id The offer.
+	 * @param string $change   `new` or `changes`, as `waiting_all()` names it.
+	 * @return array|null `count`, `links` (how many are web addresses), `shown` (the codes, web
+	 *                    addresses first, then the rest, each in the order they were added, at most
+	 *                    `CODES_SHOWN`) and `more` (how many are not shown).
+	 */
+	public static function codes_added( $offer_id, $change ) {
+		$offer = WPCPM_Sponsor_Offers::read( (int) $offer_id );
+
+		if ( null === $offer || WPCPM_Sponsor_Offers::KIND_CODES !== $offer['kind'] ) {
+			return null;
+		}
+
+		$codes = 'new' === $change ? WPCPM_Sponsor_Codes::available_codes( $offer['id'] ) : WPCPM_Sponsor_Codes::held_codes( $offer['id'] );
+
+		if ( empty( $codes ) ) {
+			return null;
+		}
+
+		$links = array();
+		$plain = array();
+
+		foreach ( $codes as $code ) {
+			if ( self::is_web_address( $code ) ) {
+				$links[] = $code;
+			} else {
+				$plain[] = $code;
+			}
+		}
+
+		return array(
+			'count' => count( $codes ),
+			'links' => count( $links ),
+			'shown' => array_slice( array_merge( $links, $plain ), 0, self::CODES_SHOWN ),
+			'more'  => max( 0, count( $codes ) - self::CODES_SHOWN ),
+		);
+	}
+
+	/**
+	 * Whether a code is a web address: a line that starts with `http://`, `https://` or `www.`,
+	 * whatever its case.
+	 *
+	 * @param string $code A code.
+	 * @return bool
+	 */
+	public static function is_web_address( $code ) {
+		return 1 === preg_match( '#^(?:https?://|www\.)#i', (string) $code );
+	}
+
+	/**
 	 * One item of the queue, as the Administrator Dashboard's card draws it: the title and the company,
 	 * whether it is a new offer or changes to a live one, who sent it and when, what students would
-	 * read, and the decision. Every value is the sponsor's or the member's and is escaped.
+	 * read, the codes it adds (1.123.20), and the decision. Every value is the sponsor's or the
+	 * member's and is escaped; a code is printed as text in `code`, never as a link.
 	 *
 	 * @param array  $row    One row of `waiting_all()`.
 	 * @param string $back   `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -207,9 +272,48 @@ final class WPCPM_Sponsor_Offer_Review {
 			);
 		}
 
+		self::render_codes_added( self::codes_added( (int) $row['id'], (string) $row['change'] ) );
 		echo '</dl>';
 		self::render_decision( (int) $row['id'], $back );
 		echo '</article>';
+	}
+
+	/**
+	 * The Codes added line of an item: how many in all and how many are web addresses, then the codes
+	 * themselves, escaped, then how many more there are. Nothing for null.
+	 *
+	 * @param array|null $codes What `codes_added()` answered.
+	 */
+	private static function render_codes_added( $codes ) {
+		if ( ! is_array( $codes ) ) {
+			return;
+		}
+
+		printf( '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>%s</dt><dd>', esc_html__( 'Codes added', 'wpcredits-program-manager' ) );
+
+		$said = array(
+			/* translators: %s: how many codes. */
+			sprintf( _n( '%s code in all.', '%s codes in all.', (int) $codes['count'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['count'] ) ),
+			0 < (int) $codes['links']
+				/* translators: %s: how many of the codes are web addresses. */
+				? sprintf( _n( 'Of these, %s is a web address, listed first.', 'Of these, %s are web addresses, listed first.', (int) $codes['links'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['links'] ) )
+				: __( 'None of these is a web address.', 'wpcredits-program-manager' ),
+		);
+
+		printf( '<p>%s</p><ul class="wpcpm-sponsor-offer__codes">', esc_html( implode( ' ', $said ) ) );
+
+		foreach ( (array) $codes['shown'] as $code ) {
+			printf( '<li><code>%s</code></li>', esc_html( (string) $code ) );
+		}
+
+		echo '</ul>';
+
+		if ( 0 < (int) $codes['more'] ) {
+			/* translators: %s: how many codes the list leaves out. */
+			printf( '<p>%s</p>', esc_html( sprintf( _n( '%s more code is not shown.', '%s more codes are not shown.', (int) $codes['more'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['more'] ) ) ) );
+		}
+
+		echo '</dd></div>';
 	}
 
 	/**
@@ -246,14 +350,16 @@ final class WPCPM_Sponsor_Offer_Review {
 
 		echo null === $note ? '<details class="wpcpm-sponsor-offer__return">' : '<details class="wpcpm-sponsor-offer__return" open>';
 		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
-		printf(
-			'<p class="wpcpm-administrator__note">%s</p>',
-			esc_html(
-				$new
-					? __( 'The offer goes back to the sponsor\'s account as a draft, and your note is sent by email to the person who sent it for review.', 'wpcredits-program-manager' )
-					: __( 'The changes go back to the sponsor\'s account, students still seeing the offer as it reads, and your note is sent by email to the person who sent them.', 'wpcredits-program-manager' )
-			)
-		);
+		$said = $new
+			? __( 'The offer goes back to the sponsor\'s account as a draft, and your note is sent by email to the person who sent it for review.', 'wpcredits-program-manager' )
+			: __( 'The changes go back to the sponsor\'s account, students still seeing the offer as it reads, and your note is sent by email to the person who sent them.', 'wpcredits-program-manager' );
+
+		// Codes a member added are not kept with a returned change (1.123.20).
+		if ( ! $new && (int) $offer['codes_held'] > 0 ) {
+			$said .= ' ' . __( 'The codes added are taken out of the offer.', 'wpcredits-program-manager' );
+		}
+
+		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html( $said ) );
 		printf( '<form class="wpcpm-sponsor-offer__form wpcpm-sponsor-offer__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( self::ACTION_RETURN . '_' . (int) $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RETURN ) );
@@ -371,13 +477,32 @@ final class WPCPM_Sponsor_Offer_Review {
 	}
 
 	/**
-	 * An Administrator approves: an offer sent for review goes live, a change becomes what students see.
+	 * A decision's audit data, with how many held codes it released or took out when it moved any
+	 * (1.123.20): the count, never a code.
+	 *
+	 * @param array $data  The data.
+	 * @param int   $codes How many codes.
+	 * @return array
+	 */
+	private static function with_codes( array $data, $codes ) {
+		if ( (int) $codes > 0 ) {
+			$data['codes'] = (int) $codes;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * An Administrator approves: an offer sent for review goes live, a change becomes what students
+	 * see, and codes a member added join the pool (1.123.20).
 	 */
 	public static function handle_approve() {
 		$opened = self::begin( self::ACTION_APPROVE );
 		$offer  = $opened['offer'];
 		$change = WPCPM_Sponsor_Offers::STATE_REVIEW === $offer['state'] ? 'new' : 'changes';
-		$done   = WPCPM_Sponsor_Offers::approve( $offer['id'] );
+		// Read before the approval moves them, for the trail: how many held codes it releases.
+		$codes = 'changes' === $change && WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::held_count( $offer['id'] ) : 0;
+		$done  = WPCPM_Sponsor_Offers::approve( $offer['id'] );
 
 		if ( is_wp_error( $done ) ) {
 			$statuses = array(
@@ -398,9 +523,12 @@ final class WPCPM_Sponsor_Offer_Review {
 				'ground'   => $opened['claim']['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => __( 'An offer was approved.', 'wpcredits-program-manager' ),
-				'data'     => array(
-					'offer'  => (int) $offer['id'],
-					'change' => $change,
+				'data'     => self::with_codes(
+					array(
+						'offer'  => (int) $offer['id'],
+						'change' => $change,
+					),
+					$codes
 				),
 			)
 		);
@@ -445,7 +573,14 @@ final class WPCPM_Sponsor_Offer_Review {
 		$returned = WPCPM_Sponsor_Offers::return_with_note( $offer['id'], $note );
 
 		if ( is_wp_error( $returned ) ) {
-			self::leave( 'wpcpm_offer_not_waiting' === $returned->get_error_code() ? 'offer-not-waiting' : 'offer-review-failed', $opened['record'] );
+			if ( 'wpcpm_offer_not_waiting' === $returned->get_error_code() ) {
+				self::leave( 'offer-not-waiting', $opened['record'] );
+			}
+
+			// The pool another request holds (1.123.20) refuses the return for a moment, not the note:
+			// the fold opens on it as it was typed, for the press to be made again.
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+			self::leave( 'offer-review-failed', $opened['record'] );
 		}
 
 		// A mail is plain text: the title and the note are handed over as stored and read back to what
@@ -487,10 +622,13 @@ final class WPCPM_Sponsor_Offer_Review {
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => __( 'An offer was returned to its sponsor with a note.', 'wpcredits-program-manager' ),
 				// The note's length as the limit counted it, never the note: the audit is about the act.
-				'data'     => array(
-					'offer'       => (int) $offer['id'],
-					'change'      => $returned['change'],
-					'note_length' => $length,
+				'data'     => self::with_codes(
+					array(
+						'offer'       => (int) $offer['id'],
+						'change'      => $returned['change'],
+						'note_length' => $length,
+					),
+					isset( $returned['codes'] ) ? (int) $returned['codes'] : 0
 				),
 			)
 		);

@@ -104,6 +104,16 @@ class WPCPM_Sponsor_Posts {
 		add_action( 'pre_get_posts', array( __CLASS__, 'scope_admin_list' ) );
 		// A test sponsor's posts are in no front-end listing anybody but an Administrator reads (1.123.18).
 		add_action( 'pre_get_posts', array( __CLASS__, 'hide_test_posts' ) );
+		// Nor are they found by their own link (1.123.20): the post's page and its REST route answer as
+		// not found for every reader but an Administrator, its sponsor's members and its author, and so
+		// does its oEmbed, in filter_oembed() below.
+		add_filter( 'posts_results', array( __CLASS__, 'hide_test_post_page' ), 10, 2 );
+		add_filter( 'rest_request_before_callbacks', array( __CLASS__, 'hide_test_post_rest' ), 10, 3 );
+		// And a 404 for one is no redirect to it: core's canonical redirect, its guess from part of a
+		// slug and its old-slug redirect would each hand over the post's address.
+		add_filter( 'redirect_canonical', array( __CLASS__, 'hide_test_post_redirect' ), 10, 2 );
+		add_filter( 'pre_redirect_guess_404_permalink', array( __CLASS__, 'hide_test_post_guess' ) );
+		add_filter( 'old_slug_redirect_post_id', array( __CLASS__, 'hide_test_post_old_slug' ) );
 		add_filter( 'ajax_query_attachments_args', array( __CLASS__, 'scope_media' ) );
 		add_filter( 'rest_attachment_query', array( __CLASS__, 'scope_media' ) );
 		add_filter( 'wp_prepare_attachment_for_js', array( __CLASS__, 'scope_attachment_details' ), 10, 2 );
@@ -133,9 +143,11 @@ class WPCPM_Sponsor_Posts {
 	 * the site, which the blog, its archives, its feeds and its search list to every reader the
 	 * access gate admits. On the front end, for anybody but an Administrator, a listing leaves out
 	 * every post stamped with a test sponsor's key. The same queries the gate stands aside from are
-	 * left alone: wp-admin, a single post's own page, which the gate answers, a query that names
-	 * none of the post types a sponsor post can be, and the plugin's own queries that stand outside
-	 * the gate by name (`QUERY_UNGATED`), so the test sponsor's own members keep their Posts card.
+	 * left alone: wp-admin, a single post's own page, which the gate answers and
+	 * `hide_test_post_page()` answers as not found for a test sponsor's post (1.123.20), a query that
+	 * names none of the post types a sponsor post can be, and the plugin's own queries that stand
+	 * outside the gate by name (`QUERY_UNGATED`), so the test sponsor's own members keep their Posts
+	 * card.
 	 * The store is read only for a query that can list a post, so reading it, itself a query of
 	 * the sponsors' own post type, never comes back here.
 	 *
@@ -182,6 +194,187 @@ class WPCPM_Sponsor_Posts {
 		);
 
 		$query->set( 'meta_query', $meta_query );
+	}
+
+	/**
+	 * Whether a post is a test sponsor's that this reader may not reach by its own link (1.123.20): a
+	 * post stamped with the key of a sponsor that is a test sponsor today, read by anybody but an
+	 * Administrator, a member of that same sponsor, or the post's author. The one answer for the
+	 * post's page (`hide_test_post_page()`), its REST route (`hide_test_post_rest()`) and its oEmbed
+	 * (`filter_oembed()`), so the three cannot drift apart. Nothing remembers it: the sponsor's row
+	 * is read for each request, so a sponsor that stops being a test sponsor is reachable at once.
+	 *
+	 * @param WP_Post|int $post    The post.
+	 * @param int|null    $user_id The reader; null for the current user, 0 for a visitor.
+	 * @return bool
+	 */
+	public static function is_hidden_test_post( $post, $user_id = null ) {
+		$post = get_post( $post );
+
+		if ( ! $post instanceof WP_Post ) {
+			return false;
+		}
+
+		$record = trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) );
+
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) || ! WPCPM_Sponsors_Index::is_test( $record ) ) {
+			return false;
+		}
+
+		$user_id = null === $user_id ? get_current_user_id() : (int) $user_id;
+
+		if ( $user_id < 1 ) {
+			return true;
+		}
+
+		return ! user_can( $user_id, WPCPM_Roles::CAP_MANAGE )
+			&& (int) $post->post_author !== $user_id
+			&& ! WPCPM_Sponsor_Members::is_member( $user_id, $record );
+	}
+
+	/**
+	 * `posts_results`: the request for a test sponsor's post, its page or its embed, finds no post for
+	 * a reader `is_hidden_test_post()` keeps it from (1.123.20). The main query alone, and only a
+	 * single post's: WordPress then answers as it does for a post that does not exist, through its
+	 * own 404, with the 404 status, no caching, and the theme's 404 template. Before the access gate's
+	 * own guard on `template_redirect`, which would send a visitor to the login form for it, and so
+	 * say the post is there. Nothing in wp-admin.
+	 *
+	 * @param array    $posts The posts the query found.
+	 * @param WP_Query $query The query.
+	 * @return array
+	 */
+	public static function hide_test_post_page( $posts, $query ) {
+		if ( is_admin() || ! is_array( $posts ) || ! $query instanceof WP_Query || ! $query->is_main_query() || ! $query->is_singular() ) {
+			return $posts;
+		}
+
+		return array_values(
+			array_filter(
+				$posts,
+				static function ( $post ) {
+					return ! ( $post instanceof WP_Post && self::is_hidden_test_post( $post ) );
+				}
+			)
+		);
+	}
+
+	/**
+	 * `rest_request_before_callbacks`: a read of a test sponsor's post through the REST API's single-post
+	 * route answers as core answers for a post that is not there, `rest_post_invalid_id` with a 404,
+	 * for a reader `is_hidden_test_post()` keeps it from (1.123.20).
+	 *
+	 * The route is known by the handler core matched it to, a posts controller's `get_item()`, and
+	 * the post by the id that handler reads, `(int) $request['id']`, never by the path as spelled:
+	 * core matches routes whatever their case and reads `/posts/0123` as post 123, so a comparison
+	 * of paths let `/POSTS/<id>`, a leading zero and the same through `?rest_route=` through.
+	 *
+	 * A read alone: every write is wp-admin's, and so is the block editor's own read of a post it
+	 * edits (`context=edit`), for a person who may edit that post. For anybody else the edit context
+	 * answers as not found too, since core's own answer to it, a forbidden context, would say the
+	 * post is there. An answer another filter already gave goes through.
+	 *
+	 * @param mixed           $response Null, or the answer already decided.
+	 * @param array           $handler  The handler the route matched.
+	 * @param WP_REST_Request $request  The request.
+	 * @return mixed
+	 */
+	public static function hide_test_post_rest( $response, $handler, $request ) {
+		if ( null !== $response || ! $request instanceof WP_REST_Request ) {
+			return $response;
+		}
+
+		$callback = is_array( $handler ) && isset( $handler['callback'] ) ? $handler['callback'] : null;
+
+		if ( ! is_array( $callback ) || ! isset( $callback[0], $callback[1] ) || ! $callback[0] instanceof WP_REST_Posts_Controller || 'get_item' !== $callback[1] ) {
+			return $response;
+		}
+
+		if ( ! in_array( strtoupper( (string) $request->get_method() ), array( 'GET', 'HEAD' ), true ) ) {
+			return $response;
+		}
+
+		$post = get_post( (int) $request->get_param( 'id' ) );
+
+		if ( ! $post instanceof WP_Post || ! self::is_hidden_test_post( $post ) ) {
+			return $response;
+		}
+
+		if ( 'edit' === $request->get_param( 'context' ) && current_user_can( 'edit_post', $post->ID ) ) {
+			return $response;
+		}
+
+		return new WP_Error( 'rest_post_invalid_id', __( 'Invalid post ID.', 'wpcredits-program-manager' ), array( 'status' => 404 ) );
+	}
+
+	/**
+	 * `redirect_canonical`: a 404 for a test sponsor's post, for a reader `is_hidden_test_post()` keeps
+	 * it from (1.123.20), redirects nowhere. Core sends `?p=` and `?page_id=` on a 404 to the post's
+	 * permalink without asking who may read it, so a visitor counting through `/?p=N` would learn the
+	 * slug of every such post, and its guess from part of a slug lands here as the URL to redirect to.
+	 * The post is the one the query vars name, or the one the URL names (`url_to_postid()`).
+	 *
+	 * @param string|false $redirect_url  Where core would redirect.
+	 * @param string       $requested_url What was asked for.
+	 * @return string|false
+	 */
+	public static function hide_test_post_redirect( $redirect_url, $requested_url = '' ) {
+		unset( $requested_url );
+
+		if ( ! is_string( $redirect_url ) || '' === $redirect_url || ! is_404() ) {
+			return $redirect_url;
+		}
+
+		foreach ( array( (int) get_query_var( 'p' ), (int) get_query_var( 'page_id' ), (int) url_to_postid( $redirect_url ) ) as $post_id ) {
+			if ( $post_id > 0 && self::is_hidden_test_post( $post_id ) ) {
+				return false;
+			}
+		}
+
+		return $redirect_url;
+	}
+
+	/**
+	 * `pre_redirect_guess_404_permalink`: core's guess of a permalink from part of a slug is never a
+	 * test sponsor's post, for a reader `is_hidden_test_post()` keeps it from (1.123.20). Core offers
+	 * no filter on what it guessed, so the guess is made here, once, with this filter standing aside
+	 * while core makes it, and handed back as core's own answer, or no guess at all for such a post.
+	 * A guess another filter already made goes through.
+	 *
+	 * @param mixed $pre Null, or the guess already made.
+	 * @return mixed
+	 */
+	public static function hide_test_post_guess( $pre ) {
+		static $guessing = false;
+
+		if ( null !== $pre || $guessing ) {
+			return $pre;
+		}
+
+		$guessing = true;
+		$guess    = redirect_guess_404_permalink();
+		$guessing = false;
+
+		if ( is_string( $guess ) && '' !== $guess ) {
+			$post_id = (int) url_to_postid( $guess );
+
+			if ( $post_id > 0 && self::is_hidden_test_post( $post_id ) ) {
+				return false;
+			}
+		}
+
+		return $guess;
+	}
+
+	/**
+	 * `old_slug_redirect_post_id`: an old slug of a test sponsor's post leads nowhere, for a reader
+	 * `is_hidden_test_post()` keeps it from (1.123.20), rather than to the post's new address.
+	 *
+	 * @param int $post_id The post the old slug belonged to, or 0.
+	 * @return int
+	 */
+	public static function hide_test_post_old_slug( $post_id ) {
+		return (int) $post_id > 0 && self::is_hidden_test_post( (int) $post_id ) ? 0 : $post_id;
 	}
 
 	/**
@@ -2028,6 +2221,8 @@ class WPCPM_Sponsor_Posts {
 	/**
 	 * The oEmbed response's author fields read the account directly, past the_author: for a sponsor
 	 * post they carry the company and its site, never the person and the author archive (spec 7.5).
+	 * A test sponsor's post answers as not found, for a reader `is_hidden_test_post()` keeps it from
+	 * (1.123.20), as its page and its REST route do.
 	 *
 	 * @param array|false $data The response, or false when the gate refused.
 	 * @param WP_Post     $post The post.
@@ -2042,6 +2237,10 @@ class WPCPM_Sponsor_Posts {
 
 		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return $data;
+		}
+
+		if ( self::is_hidden_test_post( $post ) ) {
+			return false;
 		}
 
 		$row  = WPCPM_Sponsors_Index::row( $record );

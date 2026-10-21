@@ -226,7 +226,10 @@ function another_request( $when, $id, $k ) {
 }
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
-function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ], $GLOBALS['meta_cache'][ (int) $id ] ); return true; }
+// $GLOBALS['before_delete'], `array( offer ID, meta key, step )`, is another request's step run once
+// just before this one deletes that key of the named offer (1.123.20): a member's press landing
+// between an Administrator's release of the pool's lock and the mark that release clears.
+function delete_post_meta( $id, $k ) { another_request( 'before_delete', $id, $k ); unset( $GLOBALS['pmeta'][ (int) $id ][ $k ], $GLOBALS['meta_cache'][ (int) $id ] ); return true; }
 function get_posts( array $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
@@ -2017,6 +2020,299 @@ ck( 'an item reads the offer as students would, then Approve and the folded Retu
 ), array( true, true, true, true, true, true, true, true ) );
 WPCPM_Sponsor_Codes::delete( $rv4 );
 wp_delete_post( $rv4, true );
+$GLOBALS['uid'] = 5;
+
+echo "\n=== Codes a member adds to an approved offer wait for review (1.123.20) ===\n";
+// A code can be a whole checkout link, so the codes a sponsor's member adds to an offer students can
+// see, live, paused or dormant, wait for an Administrator's review, as a change to its words does:
+// sealed and fingerprinted beside the pool and counted toward its ceiling, but handed to nobody,
+// counted in nothing students see as left, and re-arming no low-stock warning until approved. Codes
+// added to a draft or to an offer sent for review are read with the offer, and an Administrator's
+// apply at once. The pool's shape gains a list of its own for them and keeps its version: a pool
+// written by 1.123.19 reads as it did.
+$k_codes = array( 'WPCPM_Sponsor_Offers', 'handle_codes_add' );
+/** One offer's own block of the Offers card, from its disclosure to the next offer's. */
+function hc_block( $html, $offer_id ) {
+	$start = strpos( $html, 'id="wpcpm-offer-' . (int) $offer_id . '"' );
+	if ( false === $start ) { return ''; }
+	$next = strpos( $html, '<details class="wpcpm-offer wpcpm-offer--', $start + 10 );
+	return false === $next ? substr( $html, $start ) : substr( $html, $start, $next - $start );
+}
+/** The review item an Administrator reads for one offer, drawn as the Administrator Dashboard draws it. */
+function hc_item( $offer_id ) {
+	foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
+		if ( (int) $row['id'] === (int) $offer_id ) {
+			ob_start();
+			WPCPM_Sponsor_Offer_Review::render_item( $row, 'dashboard' );
+			return (string) ob_get_clean();
+		}
+	}
+	return '';
+}
+/** The Codes added block of an item, or '' when it has none. */
+function hc_codes_block( $item ) { return preg_match( '#<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added">.*?</dd></div>#s', $item, $m ) ? $m[0] : ''; }
+
+// The pool's own rules first.
+ck( 'the pool keeps its version: held codes are a list beside the others, which a pool written by 1.123.19 reads as empty', array( WPCPM_Sponsor_Codes::VERSION, WPCPM_Sponsor_Codes::empty_pool()['held'] ), array( 1, array() ) );
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( 778 ) ] = array( 'v' => 1, 'shared' => '', 'codes' => array( array( 's' => WPCPM_Secret::seal_for_option( 'OLD-1' ), 'h' => WPCPM_Secret::fingerprint( 'OLD-1' ), 'st' => 'available', 'by' => 0, 'at' => 0 ) ), 'claims' => array() );
+$old_pool = WPCPM_Sponsor_Codes::read( 778 );
+ck( 'a pool written by 1.123.19, with no held list, reads whole: its code, its counts and nothing held', array( WPCPM_Sponsor_Codes::code_at( 778, 0 ), WPCPM_Sponsor_Codes::counts( 778 ), $old_pool['held'], WPCPM_Sponsor_Codes::held_count( 778 ) ), array( 'OLD-1', array( 'available' => 1, 'claimed' => 0, 'void' => 0, 'total' => 1 ), array(), 0 ) );
+ck( 'codes held for review go in beside it, sealed and fingerprinted: nothing in the clear, the pool still version 1, and the old code still the only one available', array( WPCPM_Sponsor_Codes::add( 778, "HOLD-1\nhttps://shop.example/hold?c=2", true ), strpos( serialize( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( 778 ) ] ), 'HOLD-1' ), $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( 778 ) ]['v'], WPCPM_Sponsor_Codes::counts( 778 ), WPCPM_Sponsor_Codes::held_count( 778 ), WPCPM_Sponsor_Codes::held_codes( 778 ), WPCPM_Sponsor_Codes::available_codes( 778 ) ), array( 2, false, 1, array( 'available' => 1, 'claimed' => 0, 'void' => 0, 'total' => 1 ), 2, array( 'HOLD-1', 'https://shop.example/hold?c=2' ), array( 'OLD-1' ) ) );
+ck( 'a held code is in the offer for the duplicate check, held or not, by line', array( WPCPM_Sponsor_Codes::add( 778, "NEW-1\nHOLD-1" )->get_error_data(), WPCPM_Sponsor_Codes::add( 778, 'OLD-1', true )->get_error_data() ), array( array( 'Line 2 is already in this offer.' ), array( 'Line 1 is already in this offer.' ) ) );
+ck( 'take() hands out the available code and never a held one, and then the pool is empty', array( WPCPM_Sponsor_Codes::take( 778, 20 ), WPCPM_Sponsor_Codes::take( 778, 23 )->get_error_code(), WPCPM_Sponsor_Codes::held_count( 778 ) ), array( 0, 'wpcpm_codes_empty', 2 ) );
+ck( 'and Void unclaimed codes voids nothing held: a held code is not in the pool yet', array( WPCPM_Sponsor_Codes::void_unclaimed( 778 ), WPCPM_Sponsor_Codes::held_count( 778 ) ), array( 0, 2 ) );
+$big = WPCPM_Sponsor_Codes::read( 778 );
+$big['codes'] = array_fill( 0, 4997, array( 's' => 'x', 'h' => 'h', 'st' => 'void', 'by' => 0, 'at' => 0 ) );
+WPCPM_Sponsor_Codes::write( 779, $big );
+ck( 'held codes count toward the five thousand an offer holds', array( WPCPM_Sponsor_Codes::add( 779, "ONE\nTWO" )->get_error_code(), WPCPM_Sponsor_Codes::add( 779, 'ONE', true ) ), array( 'wpcpm_codes_max', 1 ) );
+WPCPM_Sponsor_Codes::delete( 779 );
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . 778 ] = time();
+ck( 'releasing, dropping and holding wait for the pool\'s lock like every rewrite, and move nothing while it is held', array( WPCPM_Sponsor_Codes::release_held( 778 )->get_error_code(), WPCPM_Sponsor_Codes::drop_held( 778 )->get_error_code(), WPCPM_Sponsor_Codes::add( 778, 'LOCKED-1', true )->get_error_code(), WPCPM_Sponsor_Codes::held_count( 778 ) ), array( 'wpcpm_codes_busy', 'wpcpm_codes_busy', 'wpcpm_codes_busy', 2 ) );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . 778 ] );
+ck( 'released, the held codes join the pool as available, in the order they were added, and the lock is let go', array( WPCPM_Sponsor_Codes::release_held( 778 ), WPCPM_Sponsor_Codes::counts( 778 ), WPCPM_Sponsor_Codes::code_at( 778, 1 ), WPCPM_Sponsor_Codes::code_at( 778, 2 ), WPCPM_Sponsor_Codes::held_count( 778 ), isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . 778 ] ) ), array( 2, array( 'available' => 2, 'claimed' => 1, 'void' => 0, 'total' => 3 ), 'HOLD-1', 'https://shop.example/hold?c=2', 0, false ) );
+ck( 'a second release finds nothing held, says so with a 0 and writes nothing', array( WPCPM_Sponsor_Codes::release_held( 778 ), WPCPM_Sponsor_Codes::counts( 778 )['total'] ), array( 0, 3 ) );
+WPCPM_Sponsor_Codes::add( 778, "DROP-1\nDROP-2", true );
+ck( 'dropped, held codes leave the pool entirely, not as void, so the same codes can be added again', array( WPCPM_Sponsor_Codes::drop_held( 778 ), WPCPM_Sponsor_Codes::counts( 778 ), WPCPM_Sponsor_Codes::held_count( 778 ), WPCPM_Sponsor_Codes::drop_held( 778 ), WPCPM_Sponsor_Codes::add( 778, 'DROP-1', true ) ), array( 2, array( 'available' => 2, 'claimed' => 1, 'void' => 0, 'total' => 3 ), 0, 0, 1 ) );
+WPCPM_Sponsor_Codes::delete( 778 );
+
+// Through the Offers card: an approved pool, live, with its low-stock warning already sent.
+$GLOBALS['uid'] = 1; $GLOBALS['audit'] = array(); $GLOBALS['sent'] = array();
+$hc_fields = array( 'title' => 'Held codes pool', 'kind' => 'codes', 'text' => 'A seat in the course.', 'instructions' => 'Use the code at checkout.', 'url' => '', 'audience' => array(), 'low' => 3, 'expires' => '' );
+$hc        = WPCPM_Sponsor_Offers::create( $A, $hc_fields, false, true );
+WPCPM_Sponsor_Codes::add( $hc, "HC-1\nHC-2" );
+WPCPM_Sponsor_Offers::set_state( $hc, 'live' );
+update_post_meta( $hc, WPCPM_Sponsor_Offers::META_LOW_SENT, 12345 );
+$GLOBALS['uid'] = 5;
+ck( 'who waits: a member\'s codes added to an offer students see or could see again, live, paused or dormant, and nobody else\'s', array(
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'live' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'paused' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'dormant' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'draft' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'review' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( array_merge( WPCPM_Sponsor_Offers::read( $hc ), array( 'state' => 'ended' ) ), false ),
+	WPCPM_Sponsor_Offers::codes_wait( WPCPM_Sponsor_Offers::read( $hc ), true ),
+), array( true, true, true, false, false, false, false ) );
+$r    = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => "https://shop.example/checkout?c=HELD1\nHC-3" ), $k_codes );
+$hc_o = WPCPM_Sponsor_Offers::read( $hc );
+ck( 'a member adds codes to the live offer: the press says they wait and how many, and the pool hands out what it had before', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $hc ), WPCPM_Sponsor_Codes::held_count( $hc ), $hc_o['codes_held'], $hc_o['submitted']['by'] ), array( 'codes-waiting', '2 codes wait for review.', array( 'available' => 2, 'claimed' => 0, 'void' => 0, 'total' => 2 ), 2, 2, 5 ) );
+ck( 'the message says they wait for an Administrator\'s review instead of saying they were added', WPCPM_Sponsor_Offers::messages()['codes-waiting'], array( 'success', 'Your codes were saved and wait for an Administrator\'s review. Until they are approved, nobody can claim them.' ) );
+ck( 'the low-stock stamp stays until they are approved, and the offer is in the queue, as changes', array( $hc_o['low_sent'], in_array( array( $hc, 'changes' ), rv_waiting(), true ), WPCPM_Sponsor_Offers::is_waiting( $hc_o ) ), array( 12345, true, true ) );
+ck( 'the press is on the trail as codes that wait, naming no code', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data'], end( $GLOBALS['audit'] )['message'], strpos( serialize( $GLOBALS['audit'] ), 'HELD1' ) ), array( 'offer_codes', array( 'offer' => $hc, 'added' => 2, 'waiting' => true ), '2 codes were added to an offer and wait for review.', false ) );
+$html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+$block = hc_block( $html, $hc );
+ck( 'the offer on the card says how many codes wait for review, the counts keep to what can be claimed, and Discard the changes is offered with a question that names the codes', array(
+	false !== strpos( $block, '<div class="wpcpm-offer__changes"><p class="wpcpm-student__note">2 codes you added wait for an Administrator&#039;s review. Until they are approved, nobody can claim them.</p>' ),
+	false !== strpos( $block, '<span class="wpcpm-offer__counts">2 available, 0 claimed, 0 void</span>' ),
+	false !== strpos( $block, 'data-wpcpm-confirm="Discard your changes and the codes that wait for review? The offer stays as it reads above."' ),
+	false !== strpos( $block, '>Discard the changes</button>' ),
+	strpos( $block, 'HELD1' ),
+), array( true, true, true, true, false ) );
+
+// Nobody is handed a held code, and nothing counts them as left.
+$hc_first  = WPCPM_Sponsor_Claims::claim( $hc, $GLOBALS['users'][20] );
+$hc_second = WPCPM_Sponsor_Claims::claim( $hc, $GLOBALS['users'][23] );
+ck( 'students claim the two codes the pool had, and the third claimant meets an empty pool while two wait for review', array( $hc_first['code'], $hc_second['code'], WPCPM_Sponsor_Claims::claim( $hc, $GLOBALS['users'][24] )->get_error_code(), WPCPM_Sponsor_Codes::counts( $hc )['available'], WPCPM_Sponsor_Codes::held_count( $hc ), WPCPM_Sponsor_Offers::read( $hc )['low_sent'] ), array( 'HC-1', 'HC-2', 'wpcpm_claim_empty', 0, 2, 12345 ) );
+
+// What the Administrator reads: the codes themselves, web addresses first, as text.
+$GLOBALS['uid'] = 1;
+$item = hc_item( $hc );
+ck( 'the review item says it is changes to a live offer and lists the codes added under Codes added: how many, how many are web addresses, and the codes, web addresses first, as text and never as a link', array(
+	false !== strpos( $item, 'Changes to a live offer' ),
+	hc_codes_block( $item ),
+), array( true, '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>2 codes in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>https://shop.example/checkout?c=HELD1</code></li><li><code>HC-3</code></li></ul></dd></div>' ) );
+ck( 'the fold for a return says the codes added are taken out of the offer', false !== strpos( $item, 'The codes added are taken out of the offer.' ), true );
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $hc ] = time();
+$r = post( array( 'wpcpm_offer' => $hc ), $k_approve );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $hc ] );
+ck( 'an Approve that meets the pool\'s lock is told to try again, and the codes still wait', array( $r[0], WPCPM_Sponsor_Codes::held_count( $hc ), WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $hc ) ) ), array( 'offer-review-failed', 2, true ) );
+$r    = post( array( 'wpcpm_offer' => $hc ), $k_approve );
+$hc_o = WPCPM_Sponsor_Offers::read( $hc );
+ck( 'approved: the codes join the pool as available, the low-stock stamp is cleared as an addition clears it, and nothing waits', array( $r[0], WPCPM_Sponsor_Codes::counts( $hc ), WPCPM_Sponsor_Codes::held_count( $hc ), $hc_o['codes_held'], $hc_o['low_sent'], $hc_o['submitted'], WPCPM_Sponsor_Offers::is_waiting( $hc_o ), in_array( array( $hc, 'changes' ), rv_waiting(), true ) ), array( 'offer-approved', array( 'available' => 2, 'claimed' => 2, 'void' => 0, 'total' => 4 ), 0, 0, 0, array(), false, false ) );
+ck( 'the approval is on the trail with how many codes it released', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data'] ), array( 'offer_approved', array( 'offer' => $hc, 'change' => 'changes', 'codes' => 2 ) ) );
+ck( 'and the next claimant is handed one of them', WPCPM_Sponsor_Claims::claim( $hc, $GLOBALS['users'][24] )['code'], 'https://shop.example/checkout?c=HELD1' );
+$r = post( array( 'wpcpm_offer' => $hc ), $k_approve );
+ck( 'a second Approve, another Administrator\'s that found it already approved, does nothing and says so', array( $r[0], WPCPM_Sponsor_Codes::counts( $hc )['total'] ), array( 'offer-not-waiting', 4 ) );
+
+// Returned with a note: the codes leave the pool entirely, and the email goes as for any return.
+$GLOBALS['uid'] = 5;
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => "RET-1\nRET-2\nRET-3" ), $k_codes );
+$GLOBALS['uid'] = 1; $GLOBALS['sent'] = array();
+$r    = post( array( 'wpcpm_offer' => $hc, 'wpcpm_note' => 'Use single-use codes, not the shop link.' ), $k_return );
+$hc_o = WPCPM_Sponsor_Offers::read( $hc );
+$mail = end( $GLOBALS['sent'] );
+ck( 'returned: the held codes are dropped, not kept as void, the offer is live as it was and out of the queue, and the member is mailed the note', array( $r[0], WPCPM_Sponsor_Codes::counts( $hc ), WPCPM_Sponsor_Codes::held_count( $hc ), $hc_o['state'], $hc_o['codes_held'], $hc_o['codes_returned'], WPCPM_Sponsor_Offers::is_waiting( $hc_o ), $mail[1], $mail[2], false !== strpos( $mail[3]['body'], 'Use single-use codes, not the shop link.' ) ), array( 'offer-returned', array( 'available' => 1, 'claimed' => 3, 'void' => 0, 'total' => 4 ), 0, 'live', 0, 3, false, 5, 'sponsor-offer-returned', true ) );
+ck( 'the return is on the trail with how many codes it took out', end( $GLOBALS['audit'] )['data'], array( 'offer' => $hc, 'change' => 'changes', 'note_length' => 40, 'codes' => 3 ) );
+$GLOBALS['uid'] = 5;
+$block = hc_block( card( 'WPCPM_Sponsor_Offers', $A, $ctx_m ), $hc );
+ck( 'the card says the codes were returned and taken out, with the note, escaped, and offers nothing to discard', array(
+	false !== strpos( $block, '<p class="wpcpm-student__note">An Administrator returned the codes you added with a note. Students and mentors still see the offer as it reads above.</p><p class="wpcpm-student__note">3 codes you added were taken out of the offer.</p><p class="wpcpm-offer__note">Use single-use codes, not the shop link.</p>' ),
+	strpos( $block, 'Discard the changes' ),
+), array( true, false ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => 'RET-1' ), $k_codes );
+ck( 'a returned code can be added again, and it waits once more, the old note gone', array( $r[0], WPCPM_Sponsor_Codes::held_count( $hc ), WPCPM_Sponsor_Offers::read( $hc )['note'], WPCPM_Sponsor_Offers::read( $hc )['codes_returned'], WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $hc ) ) ), array( 'codes-waiting', 1, '', 0, true ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc ), $k_discard );
+ck( 'the member\'s Discard the changes drops the held codes too, at once', array( $r[0], WPCPM_Sponsor_Codes::held_count( $hc ), WPCPM_Sponsor_Codes::counts( $hc )['total'], WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $hc ) ), WPCPM_Sponsor_Offers::read( $hc )['submitted'] ), array( 'offer-changes-discarded', 0, 4, false, array() ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc ), $k_discard );
+ck( 'and with nothing held there is nothing to discard', $r[0], 'offer-no-changes' );
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_offer' => $hc, 'wpcpm_note' => 'Too late.' ), $k_return );
+ck( 'a return that finds nothing waiting does nothing and says so', array( $r[0], WPCPM_Sponsor_Offers::read( $hc )['note'] ), array( 'offer-not-waiting', '' ) );
+
+// A change to the words and codes added are one item, and one decision.
+$GLOBALS['uid'] = 5;
+post( wpcpm_test_unedited( $A, $hc, array( 'wpcpm_text' => 'Two seats in the course.' ) ), $k_save );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => "BOTH-1\nBOTH-2" ), $k_codes );
+$GLOBALS['uid'] = 1;
+$item = hc_item( $hc );
+ck( 'an offer with a held change and held codes is one item in the queue, showing both', array( count( array_filter( rv_waiting(), static function ( $w ) use ( $hc ) { return $w[0] === $hc; } ) ), false !== strpos( $item, '<dt>What you get</dt>' ), false !== strpos( $item, '<li><code>BOTH-1</code></li><li><code>BOTH-2</code></li>' ) ), array( 1, true, true ) );
+$r    = post( array( 'wpcpm_offer' => $hc ), $k_approve );
+$hc_o = WPCPM_Sponsor_Offers::read( $hc );
+ck( 'one Approve puts both in place: the words students see and the codes they can claim', array( $r[0], $hc_o['text'], $hc_o['proposed'], WPCPM_Sponsor_Codes::counts( $hc )['available'], WPCPM_Sponsor_Codes::held_count( $hc ), rv_student_sees( $hc )[1] ), array( 'offer-approved', 'Two seats in the course.', array(), 3, 0, 'Two seats in the course.' ) );
+
+// What waits, and what does not: an Administrator's codes, and codes for a draft or a new offer.
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => 'STAFF-1' ), $k_codes );
+ck( 'an Administrator\'s codes added on the Sponsor Dashboard apply at once, as everything an Administrator changes there does', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $hc )['available'], WPCPM_Sponsor_Codes::held_count( $hc ), WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $hc ) ), end( $GLOBALS['audit'] )['data']['waiting'] ), array( 'codes-added', '1 code added.', 4, 0, false, false ) );
+$GLOBALS['uid'] = 5;
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => '0', 'wpcpm_title' => 'New pool, reviewed whole', 'wpcpm_text' => 'A plugin license.', 'wpcpm_instructions' => 'Paste it in.', 'wpcpm_url' => '', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "NEW-A\nNEW-B", 'wpcpm_low' => '1', 'wpcpm_expires' => '' ), $k_save );
+$hc_new = wpcpm_test_newest( $A );
+$r      = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_new, 'wpcpm_codes' => 'NEW-C' ), $k_codes );
+ck( 'a member\'s codes added to a draft apply at once: they are read with the offer', array( $r[0], WPCPM_Sponsor_Codes::counts( $hc_new )['available'], WPCPM_Sponsor_Codes::held_count( $hc_new ) ), array( 'codes-added', 3, 0 ) );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_new, 'wpcpm_state' => 'live' ), $k_state );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_new, 'wpcpm_codes' => 'www.shop.example/new-d' ), $k_codes );
+ck( 'and so do codes added while the new offer waits for review', array( $r[0], WPCPM_Sponsor_Offers::read( $hc_new )['state'], WPCPM_Sponsor_Codes::counts( $hc_new )['available'], WPCPM_Sponsor_Codes::held_count( $hc_new ) ), array( 'codes-added', 'review', 4, 0 ) );
+$GLOBALS['uid'] = 1;
+ck( 'a new pool\'s review shows its codes under the same Codes added', hc_codes_block( hc_item( $hc_new ) ), '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>4 codes in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>www.shop.example/new-d</code></li><li><code>NEW-A</code></li><li><code>NEW-B</code></li><li><code>NEW-C</code></li></ul></dd></div>' );
+WPCPM_Sponsor_Offers::set_state( $hc_new, 'ended' );
+
+// Twenty at most, web addresses first, every code escaped.
+$GLOBALS['uid'] = 5;
+$many = array();
+for ( $i = 1; $i <= 21; $i++ ) {
+	$many[] = sprintf( 'MANY-%02d', $i );
+}
+$many[] = 'HTTP://SHOP.EXAMPLE/UPPER';
+$many[] = 'B<b>"&1';
+$many[] = 'WWW.shop.example/w';
+$many[] = 'https://shop.example/<script>';
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => implode( "\n", $many ) ), $k_codes );
+$GLOBALS['uid'] = 1;
+$block = hc_codes_block( hc_item( $hc ) );
+ck( 'of twenty-five codes twenty are shown, the three web addresses first, whatever their case, and a line counts the five more', array(
+	false !== strpos( $block, '<p>25 codes in all. Of these, 3 are web addresses, listed first.</p>' ),
+	substr_count( $block, '<li>' ),
+	0 === strpos( substr( $block, (int) strpos( $block, '<ul' ) ), '<ul class="wpcpm-sponsor-offer__codes"><li><code>HTTP://SHOP.EXAMPLE/UPPER</code></li><li><code>WWW.shop.example/w</code></li><li><code>https://shop.example/&lt;script&gt;</code></li><li><code>MANY-01</code></li>' ),
+	false !== strpos( $block, '</ul><p>5 more codes are not shown.</p></dd></div>' ),
+	strpos( $block, '<a ' ),
+	strpos( $block, '<script>' ),
+), array( true, 20, true, true, false, false ) );
+$GLOBALS['uid'] = 5;
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc ), $k_discard );
+
+// Paused, dormant, and from before the review: all approved, so a member's codes wait.
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_state' => 'paused' ), $k_state );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => 'PAUSED-1' ), $k_codes );
+ck( 'a paused offer\'s codes wait too, and one code is one on the card and in the press', array( $r[0], $r[3], WPCPM_Sponsor_Codes::held_count( $hc ), false !== strpos( hc_block( card( 'WPCPM_Sponsor_Offers', $A, $ctx_m ), $hc ), '<p class="wpcpm-student__note">1 code you added waits for an Administrator&#039;s review. Until it is approved, nobody can claim it.</p>' ) ), array( 'codes-waiting', '1 code waits for review.', 1, true ) );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc ), $k_discard );
+$hc_legacy = WPCPM_Sponsor_Offers::create( $A, array_merge( $hc_fields, array( 'title' => 'Pool from before the review' ) ) );
+WPCPM_Sponsor_Codes::add( $hc_legacy, 'LEG-1' );
+update_post_meta( $hc_legacy, WPCPM_Sponsor_Offers::META_STATE, WPCPM_Sponsor_Offers::STATE_DORMANT );
+delete_post_meta( $hc_legacy, WPCPM_Sponsor_Offers::META_APPROVED );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_legacy, 'wpcpm_codes' => 'LEG-2' ), $k_codes );
+ck( 'and so do a dormant offer\'s from before 1.123.18, which carries no mark and reads as approved', array( WPCPM_Sponsor_Offers::read( $hc_legacy )['approved'], $r[0], WPCPM_Sponsor_Codes::held_count( $hc_legacy ), in_array( array( $hc_legacy, 'changes' ), rv_waiting(), true ) ), array( true, 'codes-waiting', 1, true ) );
+// A paused pool that ran out, with codes waiting, is told why it cannot be resumed yet.
+$hc_dry = WPCPM_Sponsor_Offers::create( $A, array_merge( $hc_fields, array( 'title' => 'Dry pool' ) ), false, true );
+WPCPM_Sponsor_Codes::add( $hc_dry, 'DRY-1' );
+WPCPM_Sponsor_Offers::set_state( $hc_dry, 'live' );
+WPCPM_Sponsor_Claims::claim( $hc_dry, $GLOBALS['users'][20] );
+WPCPM_Sponsor_Offers::set_state( $hc_dry, 'paused' );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_dry, 'wpcpm_codes' => 'DRY-2' ), $k_codes );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_dry, 'wpcpm_state' => 'live' ), $k_state );
+ck( 'a paused pool with nothing to give but codes waiting is not resumed, and is told they wait for review', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $hc_dry )['state'] ), array( 'offer-empty', 'The codes you added wait for an Administrator\'s review: switch the offer on once they are approved.', 'paused' ) );
+
+// The mark an offer carries is only where the queue finds it: one left with nothing behind it is
+// cleared by the press that finds nothing, which says so.
+$GLOBALS['uid'] = 1;
+post( array( 'wpcpm_offer' => $hc_dry ), $k_approve );
+update_post_meta( $hc_dry, WPCPM_Sponsor_Offers::META_CODES_HELD, 2 );
+$r = post( array( 'wpcpm_offer' => $hc_dry ), $k_approve );
+ck( 'an offer marked as holding codes the pool no longer holds is not approved, the press says nothing waits, and the mark goes', array( $r[0], WPCPM_Sponsor_Offers::read( $hc_dry )['codes_held'], WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $hc_dry ) ) ), array( 'offer-not-waiting', 0, false ) );
+foreach ( array( $hc, $hc_new, $hc_legacy, $hc_dry ) as $hc_id ) {
+	WPCPM_Sponsor_Codes::delete( $hc_id );
+	wp_delete_post( $hc_id, true );
+}
+$codes_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php' ) . (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offer-review.php' );
+ck( 'no em or en dash in the codes and the review', preg_match( '/\x{2013}|\x{2014}/u', $codes_src ), 0 );
+$GLOBALS['uid'] = 5;
+
+echo "\n=== Codes added: the review's own reading (1.123.20, a second look) ===\n";
+// A draft that already carries the program's OK, the seeded first offer of every sponsor or one an
+// Administrator drafts for it, is switched on with no review: so a member's codes added to it take
+// that OK away, as a member's change to its words does, and the draft is sent for review with its
+// codes under Codes added.
+$GLOBALS['uid'] = 1;
+$K = 'recSPONSOR0000099';
+WPCPM_Sponsors_Index::insert( array( 'record_id' => $K, 'name' => 'Seeded Example', 'status' => 'Approved' ) );
+$GLOBALS['users'][9] = new WP_User( 9, array( 'wpcpm_sponsor' ), 'Rep Nine', 'rep.nine@example.test' );
+$GLOBALS['umeta'][9] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $K, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$ctx_9  = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][9] );
+/** What one person's claim of an offer gives them: the code, or the refusal's code. */
+function hc_claimed( $offer_id, $uid ) { $c = WPCPM_Sponsor_Claims::claim( $offer_id, $GLOBALS['users'][ $uid ] ); return is_wp_error( $c ) ? $c->get_error_code() : $c['code']; }
+$seeded = WPCPM_Sponsor_Offers::seed( $K );
+ck( 'the seeded first offer is a draft pool that carries the program\'s OK', array( WPCPM_Sponsor_Offers::read( $seeded )['state'], WPCPM_Sponsor_Offers::read( $seeded )['kind'], WPCPM_Sponsor_Offers::read( $seeded )['approved'] ), array( 'draft', 'codes', true ) );
+$GLOBALS['uid'] = 9;
+$r = post( array( 'wpcpm_sponsor' => $K, 'wpcpm_offer' => $seeded, 'wpcpm_codes' => 'https://evil.example/checkout' ), $k_codes );
+$seed_form = substr( (string) card( 'WPCPM_Sponsor_Offers', $K, $ctx_9 ), (int) strpos( (string) card( 'WPCPM_Sponsor_Offers', $K, $ctx_9 ), 'id="wpcpm-offer-state-' . $seeded . '"' ), 900 );
+ck( 'a member\'s codes added to it go in, read with the offer, and take its OK away: the card offers Send for review, not Switch on', array( $r[0], WPCPM_Sponsor_Codes::counts( $seeded )['available'], WPCPM_Sponsor_Offers::read( $seeded )['approved'], false !== strpos( $seed_form, 'value="live">Send for review</button>' ), strpos( $seed_form, 'Switch on' ) ), array( 'codes-added', 1, false, true, false ) );
+$r = post( array( 'wpcpm_sponsor' => $K, 'wpcpm_offer' => $seeded, 'wpcpm_state' => 'live' ), $k_state );
+ck( 'the press sends it for review, and nobody can claim the link meanwhile', array( $r[0], WPCPM_Sponsor_Offers::read( $seeded )['state'], hc_claimed( $seeded, 20 ), in_array( array( $seeded, 'new' ), rv_waiting(), true ) ), array( 'offer-sent', 'review', 'wpcpm_claim_refused', true ) );
+$GLOBALS['uid'] = 1;
+ck( 'the review lists the code under Codes added', hc_codes_block( hc_item( $seeded ) ), '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>1 code in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>https://evil.example/checkout</code></li></ul></dd></div>' );
+$r = post( array( 'wpcpm_offer' => $seeded ), $k_approve );
+ck( 'and only once it is approved can a student claim it', array( $r[0], WPCPM_Sponsor_Offers::read( $seeded )['state'], hc_claimed( $seeded, 20 ) ), array( 'offer-approved', 'live', 'https://evil.example/checkout' ) );
+$seed_staff = WPCPM_Sponsor_Offers::create( $K, array( 'title' => 'Drafted by the program', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
+$r = post( array( 'wpcpm_sponsor' => $K, 'wpcpm_offer' => $seed_staff, 'wpcpm_codes' => 'STAFF-DRAFT-1' ), $k_codes );
+ck( 'an Administrator\'s codes added to the program\'s own draft keep its OK', array( $r[0], WPCPM_Sponsor_Offers::read( $seed_staff )['approved'] ), array( 'codes-added', true ) );
+$GLOBALS['uid'] = 9;
+post( array( 'wpcpm_sponsor' => $K, 'wpcpm_offer' => $seed_staff, 'wpcpm_codes' => 'MEMBER-DRAFT-1' ), $k_codes );
+ck( 'and a member\'s take it away there too', WPCPM_Sponsor_Offers::read( $seed_staff )['approved'], false );
+
+// The queue's mark is the pool's own count after a release or a drop, so a member's codes held
+// while an Administrator's press lets go of the lock are never left out of the queue.
+$GLOBALS['uid'] = 1;
+$race = WPCPM_Sponsor_Offers::create( $A, array_merge( $hc_fields, array( 'title' => 'Raced pool' ) ), false, true );
+WPCPM_Sponsor_Codes::add( $race, 'RACE-0' );
+WPCPM_Sponsor_Offers::set_state( $race, 'live' );
+WPCPM_Sponsor_Offers::add_codes( $race, 'RACE-A', 5 );
+$GLOBALS['before_delete'] = array( $race, WPCPM_Sponsor_Offers::META_CODES_HELD, static function () use ( $race ) { WPCPM_Sponsor_Offers::add_codes( $race, 'RACE-B', 5 ); } );
+$approved_race = WPCPM_Sponsor_Offers::approve( $race );
+$race_o        = WPCPM_Sponsor_Offers::read( $race );
+ck( 'a member\'s codes held while an Approve lets go of the pool\'s lock stay marked and stamped: the queue still lists them', array( $approved_race, WPCPM_Sponsor_Codes::available_codes( $race ), WPCPM_Sponsor_Codes::held_codes( $race ), $race_o['codes_held'], isset( $race_o['submitted']['by'] ) ? $race_o['submitted']['by'] : 0, in_array( array( $race, 'changes' ), rv_waiting(), true ) ), array( true, array( 'RACE-0', 'RACE-A' ), array( 'RACE-B' ), 1, 5, true ) );
+$GLOBALS['before_delete'] = array( $race, WPCPM_Sponsor_Offers::META_CODES_HELD, static function () use ( $race ) { WPCPM_Sponsor_Offers::add_codes( $race, 'RACE-C', 5 ); } );
+$returned_race = WPCPM_Sponsor_Offers::return_with_note( $race, 'Not those.' );
+$race_o        = WPCPM_Sponsor_Offers::read( $race );
+ck( 'and so do codes held while a return lets go of it', array( is_array( $returned_race ) ? $returned_race['codes'] : $returned_race->get_error_code(), WPCPM_Sponsor_Codes::held_codes( $race ), $race_o['codes_held'], WPCPM_Sponsor_Offers::is_waiting( $race_o ) ), array( 1, array( 'RACE-C' ), 1, true ) );
+unset( $GLOBALS['before_delete'] );
+
+// A return the pool's lock refuses keeps the note as it was typed, as every other refusal does.
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] = time();
+$r = post( array( 'wpcpm_offer' => $race, 'wpcpm_note' => "Keep this\nnote." ), $k_return );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] );
+$race_item = hc_item( $race );
+ck( 'a return the pool\'s lock refuses is told to try again, nothing moves, and the fold opens on the note as it was typed', array( $r[0], WPCPM_Sponsor_Codes::held_count( $race ), false !== strpos( $race_item, '<details class="wpcpm-sponsor-offer__return" open>' ), false !== strpos( $race_item, ">\nKeep this\nnote.</textarea>" ) ), array( 'offer-review-failed', 1, true, true ) );
+
+// An offer that ends takes the codes waiting on it along: nothing can claim them again, nobody can
+// discard them from the card, and the queue would find the mark for ever.
+$GLOBALS['uid'] = 5;
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] = time();
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $race, 'wpcpm_state' => 'ended' ), $k_state );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] );
+ck( 'an End the pool\'s lock refuses is told to try again, and the offer is as it was', array( $r[0], WPCPM_Sponsor_Offers::read( $race )['state'], WPCPM_Sponsor_Codes::held_count( $race ) ), array( 'offer-busy', 'live', 1 ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $race, 'wpcpm_state' => 'ended' ), $k_state );
+ck( 'ended, the offer drops its held codes and the mark, and the queue no longer finds it', array( $r[0], WPCPM_Sponsor_Offers::read( $race )['state'], WPCPM_Sponsor_Codes::held_count( $race ), get_post_meta( $race, WPCPM_Sponsor_Offers::META_CODES_HELD, true ), array_key_exists( $race, WPCPM_Sponsor_Offers::waiting() ), WPCPM_Sponsor_Codes::counts( $race )['available'] ), array( 'offer-state-saved', 'ended', 0, '', false, 2 ) );
+foreach ( array( $seeded, $seed_staff, $race ) as $hc_id ) {
+	WPCPM_Sponsor_Codes::delete( $hc_id );
+	wp_delete_post( $hc_id, true );
+}
 $GLOBALS['uid'] = 5;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );

@@ -410,8 +410,8 @@ reset_calls();
 WPCPM_Sponsor_Posts::init();
 $hooked = array_map( static function ( $c ) { return $c[1]; }, array_merge( calls( 'add_filter' ), calls( 'add_action' ) ) );
 sort( $hooked );
-ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'disable_categories_dropdown', 'get_terms_args', 'get_the_author_display_name', 'init', 'jetpack_subscriptions_exclude_these_categories', 'oembed_response_data', 'pre_get_posts', 'pre_get_posts', 'rest_after_insert_post', 'rest_attachment_query', 'rest_category_query', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
-ck( 'the hooks that need two or more arguments ask for them', array( in_array( array( 'add_action', 'save_post_post', 20, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'wp_insert_post_data', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'get_the_author_display_name', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'the_content', 6, 1 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'oembed_response_data', 20, 2 ), $GLOBALS['calls'], true ) ), array( true, true, true, true, true ) );
+ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'disable_categories_dropdown', 'get_terms_args', 'get_the_author_display_name', 'init', 'jetpack_subscriptions_exclude_these_categories', 'oembed_response_data', 'old_slug_redirect_post_id', 'posts_results', 'pre_get_posts', 'pre_get_posts', 'pre_redirect_guess_404_permalink', 'redirect_canonical', 'rest_after_insert_post', 'rest_attachment_query', 'rest_category_query', 'rest_request_before_callbacks', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
+ck( 'the hooks that need two or more arguments ask for them', array( in_array( array( 'add_action', 'save_post_post', 20, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'wp_insert_post_data', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'get_the_author_display_name', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'the_content', 6, 1 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'oembed_response_data', 20, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'posts_results', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'rest_request_before_callbacks', 10, 3 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'redirect_canonical', 10, 2 ), $GLOBALS['calls'], true ) ), array( true, true, true, true, true, true, true, true ) );
 $GLOBALS['uid'] = 1;
 $untouched = array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_date' => '2030-01-01 00:00:00', 'post_date_gmt' => '2030-01-01 00:00:00' );
 reset_calls();
@@ -1275,14 +1275,16 @@ echo "\n=== A test sponsor's posts in the site's listings (1.123.18) ===\n";
 // access gate, so the test sponsor's own members keep their Posts card, and a single post's own
 // page is the gate's to answer.
 if ( ! class_exists( 'WP_Query' ) ) {
-	/** Enough of core's query for the listings' filter: its vars, and whether it is a single post's. */
+	/** Enough of core's query for the listings' filter: its vars, whether it is a single post's, and whether it is the request's own (1.123.20). */
 	class WP_Query {
 		public $vars = array();
 		public $singular = false;
-		public function __construct( array $vars = array(), $singular = false ) { $this->vars = $vars; $this->singular = $singular; }
+		public $main = false;
+		public function __construct( array $vars = array(), $singular = false, $main = false ) { $this->vars = $vars; $this->singular = $singular; $this->main = $main; }
 		public function get( $k ) { return isset( $this->vars[ $k ] ) ? $this->vars[ $k ] : ''; }
 		public function set( $k, $v ) { $this->vars[ $k ] = $v; }
 		public function is_singular() { return $this->singular; }
+		public function is_main_query() { return $this->main; }
 	}
 }
 $tp_test = 'spoTESTPOSTS00001';
@@ -1315,6 +1317,101 @@ ck( 'an Administrator\'s listing, wp-admin, a single post\'s page, a query that 
 ), array( '', '', '', '', '' ) );
 unset( $GLOBALS['index'][ $tp_test ] );
 ck( 'with no test sponsor on the site, nothing is added to any listing', tp_listed( new WP_Query(), 20 ), '' );
+$GLOBALS['uid'] = 20;
+
+echo "\n=== A test sponsor's post by its own link (1.123.20) ===\n";
+// The listings leave a test sponsor's posts out, and a post's own link is the other way in: its
+// page, its REST route and its oEmbed answer as not found for every reader but an Administrator, a
+// member of that same sponsor and the post's author. One predicate decides all three, read afresh on
+// every request, so a sponsor that stops being a test sponsor is reachable at once; wp-admin, and
+// the editor's own reads of a post it edits, are left as they were.
+/** Enough of core's REST request for the single-post route: its method, its route, its URL's id and its context. */
+class WP_REST_Request {
+	private $method, $route, $params;
+	public function __construct( $method, $route, array $params = array() ) { $this->method = $method; $this->route = $route; $this->params = $params; }
+	public function get_method() { return $this->method; }
+	public function get_route() { return $this->route; }
+	public function get_url_params() { return preg_match( '#/(\d+)/?$#', $this->route, $m ) ? array( 'id' => $m[1] ) : array(); }
+	public function get_param( $k ) { if ( 'id' === $k ) { $u = $this->get_url_params(); return isset( $u['id'] ) ? $u['id'] : null; } return isset( $this->params[ $k ] ) ? $this->params[ $k ] : null; }
+}
+/** Core's route for one post: the posts controller's base for a post, nothing for another type here. */
+function rest_get_route_for_post( $post ) { $post = get_post( $post ); return $post instanceof WP_Post && 'post' === $post->post_type ? '/wp/v2/posts/' . $post->ID : ''; }
+/** The controllers a route's handler can name: core's posts controller, whose get_item() answers one post, and another. */
+class WP_REST_Controller {}
+class WP_REST_Posts_Controller extends WP_REST_Controller { public function get_item( $request ) {} public function get_items( $request ) {} }
+class WP_REST_Terms_Controller extends WP_REST_Controller { public function get_item( $request ) {} }
+/** The canonical redirect's view of the request (1.123.20): whether it 404s, its query vars, the post a URL names, and core's guess. */
+function is_404() { return ! empty( $GLOBALS['is_404'] ); }
+function get_query_var( $k, $d = '' ) { return isset( $GLOBALS['qv'][ $k ] ) ? $GLOBALS['qv'][ $k ] : $d; }
+function url_to_postid( $url ) { if ( preg_match( '#[?&](?:p|page_id)=(\d+)#', (string) $url, $m ) ) { return (int) $m[1]; } return isset( $GLOBALS['url_ids'][ $url ] ) ? (int) $GLOBALS['url_ids'][ $url ] : 0; }
+/** Core's guess, with its own filter applied as core applies it, this plugin's callback the one hooked. */
+function redirect_guess_404_permalink() { $pre = WPCPM_Sponsor_Posts::hide_test_post_guess( null ); if ( null !== $pre ) { return $pre; } $GLOBALS['guessed'] = ( $GLOBALS['guessed'] ?? 0 ) + 1; return isset( $GLOBALS['guess'] ) ? $GLOBALS['guess'] : false; }
+$tl_test  = 'spoTESTLINK000001';
+$tl_other = 'spoREALLINK000001';
+$GLOBALS['index'][ $tl_test ]  = array( 'record_id' => $tl_test, 'name' => 'TEST - Linked', 'website' => '', 'status' => 'Approved', 'test' => true );
+$GLOBALS['index'][ $tl_other ] = array( 'record_id' => $tl_other, 'name' => 'Linked Real', 'website' => '', 'status' => 'Approved' );
+$GLOBALS['users'][40] = new WP_User( 40, array( 'wpcpm_sponsor' ), 'Test Member' );
+$GLOBALS['users'][41] = new WP_User( 41, array( 'wpcpm_sponsor' ), 'Other Member' );
+$GLOBALS['users'][42] = new WP_User( 42, array( 'subscriber' ), 'Former Member' );
+$GLOBALS['umeta'][40] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $tl_test, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$GLOBALS['umeta'][41] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $tl_other, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$tl_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 42, 'post_title' => 'A test guide' ) );
+$GLOBALS['pmeta'][ $tl_post ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $tl_test;
+$GLOBALS['pmeta'][ $tl_post ][ WPCPM_Content_Access::META_KEY ]          = 'public';
+$tl_real = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 41, 'post_title' => 'A real guide' ) );
+$GLOBALS['pmeta'][ $tl_real ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $tl_other;
+/** The predicate's answer for one reader. */
+function tl_hidden( $post_id, $uid ) { $GLOBALS['uid'] = $uid; return WPCPM_Sponsor_Posts::is_hidden_test_post( get_post( $post_id ) ); }
+/** What the main query of a request for one post is left with, for one reader. */
+function tl_page( $post_id, $uid, $singular = true, $main = true, $admin = false ) { $GLOBALS['uid'] = $uid; $GLOBALS['is_admin'] = $admin; $found = WPCPM_Sponsor_Posts::hide_test_post_page( array( get_post( $post_id ) ), new WP_Query( array(), $singular, $main ) ); $GLOBALS['is_admin'] = false; return array_map( static function ( $p ) { return $p->ID; }, $found ); }
+/** What the REST server is left to answer for one post's route, for one reader: null goes on to the controller. The route as spelled, and the handler core matched it to, the posts controller's get_item() unless named. */
+function tl_rest( $post_id, $uid, $method = 'GET', $params = array(), $response = null, $route = '', $callback = null ) { $GLOBALS['uid'] = $uid; $route = '' !== $route ? $route : '/wp/v2/posts/' . $post_id; $callback = null !== $callback ? $callback : array( new WP_REST_Posts_Controller(), 'get_item' ); $answer = WPCPM_Sponsor_Posts::hide_test_post_rest( $response, array( 'callback' => $callback ), new WP_REST_Request( $method, $route, $params ) ); return $answer instanceof WP_Error ? array( $answer->get_error_code(), $answer->get_error_data() ) : $answer; }
+ck( 'the one predicate: hidden from a visitor, a student, a member of another sponsor and a manager of nothing, and reachable by an Administrator, a member of that same sponsor and the post\'s author', array( tl_hidden( $tl_post, 0 ), tl_hidden( $tl_post, 30 ), tl_hidden( $tl_post, 41 ), tl_hidden( $tl_post, 21 ), tl_hidden( $tl_post, 1 ), tl_hidden( $tl_post, 40 ), tl_hidden( $tl_post, 42 ) ), array( true, true, true, true, false, false, false ) );
+ck( 'and never for a real sponsor\'s post or a post no sponsor wrote', array( tl_hidden( $tl_real, 0 ), tl_hidden( $stranger, 0 ) ), array( false, false ) );
+ck( 'its own page answers as not found: the main query of the request finds no post, so WordPress serves its 404, with the theme\'s 404 template and a 404 status', array( tl_page( $tl_post, 0 ), tl_page( $tl_post, 30 ), tl_page( $tl_post, 41 ) ), array( array(), array(), array() ) );
+ck( 'for an Administrator, a member of the sponsor and the author it is found as before', array( tl_page( $tl_post, 1 ), tl_page( $tl_post, 40 ), tl_page( $tl_post, 42 ) ), array( array( $tl_post ), array( $tl_post ), array( $tl_post ) ) );
+ck( 'and nothing else is touched: a real sponsor\'s page, a listing, a query that is not the request\'s own, and wp-admin', array( tl_page( $tl_real, 0 ), tl_page( $tl_post, 0, false ), tl_page( $tl_post, 0, true, false ), tl_page( $tl_post, 0, true, true, true ) ), array( array( $tl_real ), array( $tl_post ), array( $tl_post ), array( $tl_post ) ) );
+ck( 'its REST route answers as core answers for a post that is not there: rest_post_invalid_id, status 404', array( tl_rest( $tl_post, 0 ), tl_rest( $tl_post, 30, 'HEAD' ), tl_rest( $tl_post, 41, 'GET', array( 'context' => 'embed' ) ) ), array( array( 'rest_post_invalid_id', array( 'status' => 404 ) ), array( 'rest_post_invalid_id', array( 'status' => 404 ) ), array( 'rest_post_invalid_id', array( 'status' => 404 ) ) ) );
+$GLOBALS['users'][43] = new WP_User( 43, array( 'editor' ), 'Site Editor' );
+$GLOBALS['grants'][43] = array( 'edit_post' );
+ck( 'and goes on to the controller for an Administrator, a member of the sponsor and the author, for a real post, for the editor\'s own read by somebody who may edit the post, for a write, and for an answer already decided', array( tl_rest( $tl_post, 1 ), tl_rest( $tl_post, 40 ), tl_rest( $tl_post, 42 ), tl_rest( $tl_real, 0 ), tl_rest( $tl_post, 43, 'GET', array( 'context' => 'edit' ) ), tl_rest( $tl_post, 0, 'POST' ), tl_rest( $tl_post, 0, 'GET', array(), 'decided' ) ), array( null, null, null, null, null, null, 'decided' ) );
+ck( 'the route is decided by the handler core matched, not by how it was spelled: a leading zero, capitals, or the same through ?rest_route= answer as not found too', array( tl_rest( '0' . $tl_post, 0 ), tl_rest( $tl_post, 0, 'GET', array(), null, '/wp/v2/POSTS/' . $tl_post ), tl_rest( $tl_post, 0, 'GET', array(), null, '/WP/V2/posts/00' . $tl_post . '/' ) ), array( array( 'rest_post_invalid_id', array( 'status' => 404 ) ), array( 'rest_post_invalid_id', array( 'status' => 404 ) ), array( 'rest_post_invalid_id', array( 'status' => 404 ) ) ) );
+ck( 'and another controller, or the posts controller\'s list, goes on as it was', array( tl_rest( $tl_post, 0, 'GET', array(), null, '/wp/v2/categories/' . $tl_post, array( new WP_REST_Terms_Controller(), 'get_item' ) ), tl_rest( $tl_post, 0, 'GET', array(), null, '/wp/v2/posts', array( new WP_REST_Posts_Controller(), 'get_items' ) ) ), array( null, null ) );
+ck( 'the edit context is no way to learn the post is there: for somebody who may not edit it, it answers as not found too, never as a forbidden context', array( tl_rest( $tl_post, 0, 'GET', array( 'context' => 'edit' ) ), tl_rest( $tl_post, 30, 'GET', array( 'context' => 'edit' ) ) ), array( array( 'rest_post_invalid_id', array( 'status' => 404 ) ), array( 'rest_post_invalid_id', array( 'status' => 404 ) ) ) );
+// A 404 for the post is no redirect to it either: core's canonical redirect sends ?p= and ?page_id=
+// to the permalink on a 404, guesses a permalink from part of a slug, and follows an old slug.
+$tl_link = 'https://example.test/a-test-guide/';
+$GLOBALS['url_ids'] = array( $tl_link => $tl_post, 'https://example.test/a-real-guide/' => $tl_real );
+/** Where the canonical redirect sends one reader of a 404, for the query vars and the URL given. */
+function tl_redirect( $uid, array $qv, $url, $is_404 = true ) { $GLOBALS['uid'] = $uid; $GLOBALS['qv'] = $qv; $GLOBALS['is_404'] = $is_404; $to = WPCPM_Sponsor_Posts::hide_test_post_redirect( $url, 'https://example.test/?p=' . ( $qv['p'] ?? 0 ) ); $GLOBALS['qv'] = array(); $GLOBALS['is_404'] = false; return $to; }
+ck( 'a 404 for ?p= or ?page_id= of the post, or for a URL that names it, redirects nowhere, so no slug is learned from it', array( tl_redirect( 0, array( 'p' => $tl_post ), $tl_link ), tl_redirect( 30, array( 'page_id' => $tl_post ), $tl_link ), tl_redirect( 0, array(), $tl_link ), tl_redirect( 41, array( 'p' => (string) $tl_post ), $tl_link ) ), array( false, false, false, false ) );
+ck( 'and redirects as before for an Administrator, a member of the sponsor, the author, a real post, and a request that found its post', array( tl_redirect( 1, array( 'p' => $tl_post ), $tl_link ), tl_redirect( 40, array( 'p' => $tl_post ), $tl_link ), tl_redirect( 42, array(), $tl_link ), tl_redirect( 0, array( 'p' => $tl_real ), 'https://example.test/a-real-guide/' ), tl_redirect( 0, array(), $tl_link, false ) ), array( $tl_link, $tl_link, $tl_link, 'https://example.test/a-real-guide/', $tl_link ) );
+$GLOBALS['uid'] = 0;
+$GLOBALS['guess'] = $tl_link;
+$tl_guessed = array( redirect_guess_404_permalink(), WPCPM_Sponsor_Posts::hide_test_post_guess( 'decided' ) );
+$GLOBALS['uid'] = 1;
+$tl_guessed[] = redirect_guess_404_permalink();
+$GLOBALS['uid'] = 0;
+$GLOBALS['guess'] = 'https://example.test/a-real-guide/';
+$tl_guessed[] = redirect_guess_404_permalink();
+$GLOBALS['guess'] = false;
+$tl_guessed[] = redirect_guess_404_permalink();
+ck( 'core\'s guess from part of a slug is never the post, for a reader it is hidden from, and is the guess for anyone else and for any other post; a guess already made goes through', $tl_guessed, array( false, 'decided', $tl_link, 'https://example.test/a-real-guide/', false ) );
+$tl_old = array( WPCPM_Sponsor_Posts::hide_test_post_old_slug( $tl_post ), WPCPM_Sponsor_Posts::hide_test_post_old_slug( $tl_real ), WPCPM_Sponsor_Posts::hide_test_post_old_slug( 0 ) );
+$GLOBALS['uid'] = 40;
+$tl_old[] = WPCPM_Sponsor_Posts::hide_test_post_old_slug( $tl_post );
+ck( 'and an old slug of the post leads nowhere, but for the readers who may reach it', $tl_old, array( 0, $tl_real, 0, $tl_post ) );
+unset( $GLOBALS['url_ids'], $GLOBALS['guess'] );
+$GLOBALS['uid'] = 0;
+$tl_embed = array( 'author_name' => 'Former Member', 'title' => 'A test guide' );
+ck( 'its oEmbed answers as not found too, for the same readers, and an Administrator still gets the company', array( WPCPM_Sponsor_Posts::filter_oembed( $tl_embed, get_post( $tl_post ) ), tl_hidden( $tl_post, 1 ) ? 'hidden' : WPCPM_Sponsor_Posts::filter_oembed( $tl_embed, get_post( $tl_post ) )['author_name'] ), array( false, 'TEST - Linked' ) );
+$GLOBALS['index'][ $tl_test ]['test'] = false;
+ck( 'a sponsor that stops being a test sponsor is reachable at once, on every surface: nothing remembers the answer', array( tl_hidden( $tl_post, 0 ), tl_page( $tl_post, 0 ), tl_rest( $tl_post, 0 ), is_array( WPCPM_Sponsor_Posts::filter_oembed( $tl_embed, get_post( $tl_post ) ) ) ), array( false, array( $tl_post ), null, true ) );
+$GLOBALS['index'][ $tl_test ]['test'] = true;
+$tl_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
+$tl_body = static function ( $name ) use ( $tl_src ) { $at = strpos( $tl_src, 'public static function ' . $name . '(' ); return false === $at ? '' : substr( $tl_src, $at, strpos( $tl_src, "\n\t}\n", $at ) - $at ); };
+ck( 'the three surfaces and the three redirects ask the one predicate, and nothing caches its answer', array( false !== strpos( $tl_body( 'hide_test_post_page' ), 'self::is_hidden_test_post(' ), false !== strpos( $tl_body( 'hide_test_post_rest' ), 'self::is_hidden_test_post(' ), false !== strpos( $tl_body( 'filter_oembed' ), 'self::is_hidden_test_post(' ), false !== strpos( $tl_body( 'hide_test_post_redirect' ), 'self::is_hidden_test_post(' ), false !== strpos( $tl_body( 'hide_test_post_guess' ), 'self::is_hidden_test_post(' ), false !== strpos( $tl_body( 'hide_test_post_old_slug' ), 'self::is_hidden_test_post(' ), preg_match( '/static \$|set_transient|wp_cache_set/', $tl_body( 'is_hidden_test_post' ) ) ), array( true, true, true, true, true, true, 0 ) );
+unset( $GLOBALS['index'][ $tl_test ], $GLOBALS['index'][ $tl_other ], $GLOBALS['posts'][ $tl_post ], $GLOBALS['posts'][ $tl_real ] );
 $GLOBALS['uid'] = 20;
 
 echo "\n=== House rules ===\n";
