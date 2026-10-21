@@ -204,6 +204,55 @@
 	overflow-wrap: anywhere;
 }
 
+/* Its sentence starts on the label's line, as every other value of the card does, rather than the
+   browser's 1em lower; the list under it keeps a bullet per code but not the browser's 40px indent,
+   which on a phone took a fifth of the card's width from the codes (1.123.21, owner). */
+.wpcpm-sponsor-offer__codes-added dd > p {
+	margin: 0;
+}
+
+.wpcpm-sponsor-offer__codes {
+	margin: 0.5em 0 0;
+	padding-left: 1.25em;
+}
+
+/* A held change reads as two lines, what students see now and what the sponsor asks for, 4px
+   apart. Two spans in one paragraph since 1.123.18, they ran on as one sentence, "Now: ... Asked
+   for: ...", at every width (1.123.21). */
+.wpcpm-sponsor-offer .wpcpm-offer__was,
+.wpcpm-sponsor-offer .wpcpm-offer__now {
+	display: block;
+}
+
+.wpcpm-sponsor-offer .wpcpm-offer__now {
+	margin-top: 4px;
+}
+
+/* A sponsor offer's review on a narrow card (1.123.21, owner): each label over its value. Side by
+   side, the labels' column took 89px of a 215px card on a 375px phone, and Codes added was left
+   112px, so a checkout link broke into some twenty lines of a few characters. The card itself is
+   the container, so the details stack wherever the card is narrow, on a phone or in a narrow
+   column, and stay side by side wherever it is wide. A label sits 4px over its value and the next
+   label 12px under it, the rhythm of the card's other facts. */
+.wpcpm-sponsor-offer {
+	container-type: inline-size;
+}
+
+@container ( max-width: 480px ) {
+	.wpcpm-sponsor-offer .wpcpm-offer__details {
+		gap: 0;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-sponsor-offer .wpcpm-offer__details dt {
+		margin: 0 0 4px;
+	}
+
+	.wpcpm-sponsor-offer .wpcpm-offer__detail:not( :last-child ) > dd {
+		margin-bottom: 12px;
+	}
+}
+
 .wpcpm-administrator__actions .wpcpm-app-action,
 .wpcpm-administrator__actions .wpcpm-request__decide {
 	display: inline-block;

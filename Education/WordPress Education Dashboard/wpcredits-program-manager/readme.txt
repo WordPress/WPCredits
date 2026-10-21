@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.20
+Stable tag: 1.123.21
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.21 =
+
+* A sponsor offer's review card reads on a phone. Where the card is narrow, each label (Title, What you get, How to redeem it, Codes added) sits over its value instead of in a column beside it, so the value has the card's whole width: a 200-character checkout link under *Codes added* takes nine lines on a 375px phone where it took some twenty-five. Wider cards, on a tablet or a computer, keep the two columns. The *Codes added* sentence starts level with its label, and the list of codes keeps a bullet each with a smaller indent. In a change waiting for review, *Now* and *Asked for* are two lines instead of one sentence, at every width.
+* For developers: in `assets/css/administrator.css`, `article.wpcpm-sponsor-offer` is a size container (`container-type: inline-size`), and under 480px its `dl.wpcpm-offer__details` is one column with 4px under each `dt` and 12px under each `dd` but the last; `.wpcpm-sponsor-offer__codes-added dd > p` loses its margin, `ul.wpcpm-sponsor-offer__codes` has `margin: 0.5em 0 0` and `padding-left: 1.25em`, and `.wpcpm-offer__was` and `.wpcpm-offer__now` are blocks, 4px apart.
 
 = 1.123.20 =
 
