@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.24.31\n"
+"Project-Id-Version: WPCredits 1.31.9\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-21T18:34:09+00:00\n"
+"POT-Creation-Date: 2026-10-21T18:37:34+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -385,27 +385,27 @@ msgstr ""
 msgid "Profile photo of %s"
 msgstr ""
 
-#: functions.php:125
+#: functions.php:126
 msgid "WPCredits program"
 msgstr ""
 
-#: functions.php:126
+#: functions.php:127
 msgid "Sections for the program’s landing page."
 msgstr ""
 
-#: functions.php:141
+#: functions.php:142
 msgid "Card"
 msgstr ""
 
-#: functions.php:149
+#: functions.php:150
 msgid "Pale band"
 msgstr ""
 
-#: functions.php:157
+#: functions.php:158
 msgid "Eyebrow"
 msgstr ""
 
-#: functions.php:165
+#: functions.php:166
 msgid "Pill"
 msgstr ""
 
@@ -928,6 +928,7 @@ msgstr ""
 
 #: inc/hub-content.php:463
 #: patterns/hub-cta.php:62
+#: patterns/hub-doors.php:34
 msgid "Partner as an institution"
 msgstr ""
 
@@ -1011,6 +1012,11 @@ msgstr ""
 
 #: inc/login.php:150
 msgid "Code is poetry."
+msgstr ""
+
+#: inc/partners.php:108
+#: patterns/partners-apply.php:19
+msgid "Become a partner"
 msgstr ""
 
 #: inc/template-tags.php:290
@@ -1124,6 +1130,7 @@ msgid "Headline, standfirst and two calls to action beside a photo with a floati
 msgstr ""
 
 #: patterns/hero.php:24
+#: patterns/partners-hero.php:22
 msgid "WordPress Credits Program"
 msgstr ""
 
@@ -1166,7 +1173,7 @@ msgid "Two cards to close the page: companies looking for WordPress talent, and 
 msgstr ""
 
 #: patterns/hub-cta.php:23
-#: patterns/hub-doors.php:36
+#: patterns/hub-doors.php:39
 msgid "Companies"
 msgstr ""
 
@@ -1179,7 +1186,7 @@ msgid "See what graduates are trained to do and where to find them."
 msgstr ""
 
 #: patterns/hub-cta.php:36
-#: patterns/hub-doors.php:39
+#: patterns/hub-doors.php:42
 msgid "Hire from WordPress"
 msgstr ""
 
@@ -1237,39 +1244,35 @@ msgstr ""
 msgid "Start with a one-day workshop or a WordPress Credits pilot. Each new group of students builds a stronger partnership."
 msgstr ""
 
-#: patterns/hub-doors.php:31
-msgid "Become a partner"
-msgstr ""
-
-#: patterns/hub-doors.php:33
+#: patterns/hub-doors.php:36
 msgid "Ready-to-run program"
 msgstr ""
 
-#: patterns/hub-doors.php:33
+#: patterns/hub-doors.php:36
 msgid "One-day workshop"
 msgstr ""
 
-#: patterns/hub-doors.php:33
+#: patterns/hub-doors.php:36
 msgid "WordPress Credits pilot"
 msgstr ""
 
-#: patterns/hub-doors.php:37
+#: patterns/hub-doors.php:40
 msgid "Hire people with verified WordPress experience."
 msgstr ""
 
-#: patterns/hub-doors.php:38
+#: patterns/hub-doors.php:41
 msgid "Browse graduates open to work, or post internships and entry-level roles."
 msgstr ""
 
-#: patterns/hub-doors.php:44
+#: patterns/hub-doors.php:47
 msgid "Verified WordPress experience"
 msgstr ""
 
-#: patterns/hub-doors.php:44
+#: patterns/hub-doors.php:47
 msgid "Graduates open to work"
 msgstr ""
 
-#: patterns/hub-doors.php:62
+#: patterns/hub-doors.php:65
 msgid "Who this is for"
 msgstr ""
 
@@ -1524,6 +1527,420 @@ msgstr ""
 #. translators: Read by screen readers before what a student will have to show for a field of study; the header line above the rows shows "What you'll have to show" to the eye.
 #: patterns/hub-programs.php:131
 msgid "What you'll have to show:"
+msgstr ""
+
+#: patterns/partners-apply.php
+msgctxt "Pattern title"
+msgid "Partners page, become a partner"
+msgstr ""
+
+#: patterns/partners-apply.php
+msgctxt "Pattern description"
+msgid "The application form and the education team's address to close the page, and the note on tax deductibility."
+msgstr ""
+
+#: patterns/partners-apply.php:23
+msgid "Apply through the form, or write to us first if you would rather talk it through. If you have an idea for supporting the program that does not match any level here, we want to hear it."
+msgstr ""
+
+#: patterns/partners-apply.php:28
+msgid "Partner application form"
+msgstr ""
+
+#: patterns/partners-apply.php:37
+msgid "You can also find us in the #wpcredits channel in the Make WordPress Slack. Current sponsors will hear from a program manager directly, so there is nothing you need to do."
+msgstr ""
+
+#: patterns/partners-apply.php:42
+msgid "WordPress Credits is a program of the WordPress Foundation, a 501(c)(3) nonprofit organization. Donations may be tax deductible to the extent allowed by law, less the value of any benefits received, and we will note that value in your acknowledgment letter. Donated products and services are not tax deductible. Please check with your own tax advisor."
+msgstr ""
+
+#: patterns/partners-commons.php
+msgctxt "Pattern title"
+msgid "Partners page, products, student work and the founding partners"
+msgstr ""
+
+#: patterns/partners-commons.php
+msgctxt "Pattern description"
+msgid "How donated products are offered and how student work is used, then the program's founding partners."
+msgstr ""
+
+#: patterns/partners-commons.php:19
+msgid "Products donated for student use"
+msgstr ""
+
+#: patterns/partners-commons.php:23
+msgid "Separately from the levels above, partners at any level may offer free access to their products for students to use in the program, and the Foundation decides how those are shared. Donated products are offered at no cost to students, require no card details to use, and come with a way for students to export or move their work so nobody is locked in."
+msgstr ""
+
+#: patterns/partners-commons.php:31
+msgid "How student work is used"
+msgstr ""
+
+#: patterns/partners-commons.php:35
+msgid "Student work always serves the public commons or a nonprofit beneficiary, never a partner's commercial product. All partners are listed in the same format, with descriptions of the same length, in alphabetical order rather than by level. These levels cover the WordPress Credits program only."
+msgstr ""
+
+#: patterns/partners-commons.php:46
+msgid "Founding partners"
+msgstr ""
+
+#: patterns/partners-commons.php:50
+msgid "Automattic and Weglot"
+msgstr ""
+
+#: patterns/partners-commons.php:54
+msgid "Automattic and Weglot have supported WordPress Credits since it was an idea on a page, sponsoring the people who designed and built the program and the mentors who guide students cohort after cohort. None of the numbers on this page would exist without them, and the levels above are built on what they made possible."
+msgstr ""
+
+#: patterns/partners-funds.php
+msgctxt "Pattern title"
+msgid "Partners page, what support funds"
+msgstr ""
+
+#: patterns/partners-funds.php
+msgctxt "Pattern description"
+msgid "What partner support pays for, in three cards."
+msgstr ""
+
+#: patterns/partners-funds.php:14
+msgid "Curriculum and mentorship"
+msgstr ""
+
+#: patterns/partners-funds.php:14
+msgid "Course materials, mentor time, and the review work that keeps student contributions at project standard."
+msgstr ""
+
+#: patterns/partners-funds.php:15
+msgid "Translation and accessibility"
+msgstr ""
+
+#: patterns/partners-funds.php:15
+msgid "Bringing the program, and the work students produce, to languages and communities with thin coverage today."
+msgstr ""
+
+#: patterns/partners-funds.php:16
+msgid "Institutional onboarding"
+msgstr ""
+
+#: patterns/partners-funds.php:16
+msgid "Tooling, administration, and the support each new university or school needs to run a cohort well."
+msgstr ""
+
+#: patterns/partners-funds.php:23
+msgid "What your support funds"
+msgstr ""
+
+#: patterns/partners-funds.php:27
+msgid "The program has reached the size where curriculum, translation, tooling, and the work of bringing new institutions on board all need steady funding behind them. Partner contributions go into that work directly."
+msgstr ""
+
+#: patterns/partners-hero.php
+msgctxt "Pattern title"
+msgid "Partners page hero"
+msgstr ""
+
+#: patterns/partners-hero.php
+msgctxt "Pattern description"
+msgid "The Partners page's opening: what the program is and what partner support funds, the two ways to start, and two figures of the program's size."
+msgstr ""
+
+#: patterns/partners-hero.php:26
+msgid "Fund real student contributions to WordPress"
+msgstr ""
+
+#: patterns/partners-hero.php:30
+msgid "WordPress Credits is a program of the WordPress Foundation, a 501(c)(3) nonprofit organization. Students at partner institutions contribute to the WordPress project for academic credit, guided by mentors and recognized on their WordPress.org profiles. Partner support funds the curriculum, mentorship, translation and tooling behind those placements."
+msgstr ""
+
+#: patterns/partners-hero.php:35
+msgid "Apply to become a partner"
+msgstr ""
+
+#: patterns/partners-hero.php:39
+msgid "Talk to the education team"
+msgstr ""
+
+#: patterns/partners-hero.php:47
+msgctxt "a figure: more than five hundred students"
+msgid "500+"
+msgstr ""
+
+#: patterns/partners-hero.php:47
+msgid "students currently contributing through the program"
+msgstr ""
+
+#: patterns/partners-hero.php:48
+msgctxt "a figure: seventeen countries"
+msgid "17"
+msgstr ""
+
+#: patterns/partners-hero.php:48
+msgid "countries with participating institutions, from 8 institutions at the start of the year"
+msgstr ""
+
+#. translators: %s: a link to the WordPress Credits dashboard, its words "WordPress Credits dashboard".
+#: patterns/partners-hero.php:53
+#, php-format
+msgid "Progress is reported weekly on the %s, refreshed from program records and WordPress.org profiles."
+msgstr ""
+
+#. translators: %s: a link to the WordPress Credits dashboard, its words "WordPress Credits dashboard".
+#: patterns/partners-hero.php:53
+msgid "WordPress Credits dashboard"
+msgstr ""
+
+#: patterns/partners-levels.php
+msgctxt "Pattern title"
+msgid "Partners page, the partnership levels"
+msgstr ""
+
+#: patterns/partners-levels.php
+msgctxt "Pattern description"
+msgid "The pilot year, the five partnership levels with what each gives, and a table comparing them."
+msgstr ""
+
+#: patterns/partners-levels.php:20
+msgid "Friend"
+msgstr ""
+
+#: patterns/partners-levels.php:21
+msgid "In-kind, through Five for the Future"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid.
+#: patterns/partners-levels.php:23
+msgid "In-kind"
+msgstr ""
+
+#: patterns/partners-levels.php:24
+msgid "For companies sponsoring mentors through Five for the Future."
+msgstr ""
+
+#: patterns/partners-levels.php:26
+msgid "Company name on the partner page"
+msgstr ""
+
+#: patterns/partners-levels.php:27
+#: patterns/partners-levels.php:89
+msgid "Mention in the mentor feature"
+msgstr ""
+
+#: patterns/partners-levels.php:28
+msgid "Acknowledgement in the annual partner thank you post"
+msgstr ""
+
+#: patterns/partners-levels.php:32
+msgid "Supporter"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: patterns/partners-levels.php:34
+msgid "$5,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: patterns/partners-levels.php:36
+msgid "$5,000"
+msgstr ""
+
+#: patterns/partners-levels.php:37
+msgid "Everything in Friend, plus:"
+msgstr ""
+
+#: patterns/partners-levels.php:39
+#: patterns/partners-levels.php:91
+msgid "Logo and description on the partner page"
+msgstr ""
+
+#: patterns/partners-levels.php:40
+msgid "A badge for your own site"
+msgstr ""
+
+#: patterns/partners-levels.php:41
+msgid "The annual program report"
+msgstr ""
+
+#: patterns/partners-levels.php:45
+msgid "Backer"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: patterns/partners-levels.php:47
+msgid "$10,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: patterns/partners-levels.php:49
+msgid "$10,000"
+msgstr ""
+
+#: patterns/partners-levels.php:50
+msgid "Everything in Supporter, plus:"
+msgstr ""
+
+#: patterns/partners-levels.php:52
+msgid "Named for the part of the program you fund in program communications"
+msgstr ""
+
+#: patterns/partners-levels.php:53
+msgid "A report covering that cost line"
+msgstr ""
+
+#: patterns/partners-levels.php:54
+msgid "One self-written educational post about the sponsored product"
+msgstr ""
+
+#: patterns/partners-levels.php:58
+msgid "Champion"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: patterns/partners-levels.php:60
+msgid "$15,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: patterns/partners-levels.php:62
+msgid "$15,000"
+msgstr ""
+
+#: patterns/partners-levels.php:63
+msgid "Everything in Backer, plus:"
+msgstr ""
+
+#: patterns/partners-levels.php:65
+msgid "A second self-written post with factual, value-neutral information about additional products"
+msgstr ""
+
+#: patterns/partners-levels.php:66
+msgid "An invitation to the annual education partners session"
+msgstr ""
+
+#: patterns/partners-levels.php:67
+msgid "A webinar or event co-hosted with the education program"
+msgstr ""
+
+#: patterns/partners-levels.php:71
+msgctxt "the highest partnership level, a noun: a company that funds a named program"
+msgid "Partner"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year, the least it starts from.
+#: patterns/partners-levels.php:73
+msgid "From $30,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from.
+#: patterns/partners-levels.php:75
+msgid "From $30,000"
+msgstr ""
+
+#: patterns/partners-levels.php:76
+msgid "Funds a named program"
+msgstr ""
+
+#: patterns/partners-levels.php:77
+msgid "Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them."
+msgstr ""
+
+#: patterns/partners-levels.php:79
+msgid "Named as program partner on the program you fund, with the exclusive role in that program"
+msgstr ""
+
+#: patterns/partners-levels.php:80
+#: patterns/partners-levels.php:101
+msgid "Named in launch communications"
+msgstr ""
+
+#: patterns/partners-levels.php:81
+msgid "A report specific to that program"
+msgstr ""
+
+#: patterns/partners-levels.php:88
+msgid "Name on the partner page"
+msgstr ""
+
+#: patterns/partners-levels.php:90
+msgid "Acknowledged in the partner thank you post"
+msgstr ""
+
+#: patterns/partners-levels.php:92
+msgid "Badge for your own site"
+msgstr ""
+
+#: patterns/partners-levels.php:93
+msgid "Annual program report"
+msgstr ""
+
+#: patterns/partners-levels.php:94
+msgid "Named for what you fund in program communications"
+msgstr ""
+
+#: patterns/partners-levels.php:95
+msgid "Report covering that cost line"
+msgstr ""
+
+#: patterns/partners-levels.php:96
+msgid "A self-written educational post about the sponsored product"
+msgstr ""
+
+#: patterns/partners-levels.php:97
+msgid "A second self-written post about additional products"
+msgstr ""
+
+#: patterns/partners-levels.php:98
+msgid "Invitation to the annual education partners session"
+msgstr ""
+
+#: patterns/partners-levels.php:99
+msgid "Co-hosted webinar or event"
+msgstr ""
+
+#: patterns/partners-levels.php:100
+msgid "Named as program partner on the program you fund"
+msgstr ""
+
+#: patterns/partners-levels.php:102
+msgid "Program-specific report"
+msgstr ""
+
+#: patterns/partners-levels.php:105
+msgctxt "a partnership level has this recognition"
+msgid "Yes"
+msgstr ""
+
+#: patterns/partners-levels.php:106
+msgctxt "a partnership level does not have this recognition"
+msgid "No"
+msgstr ""
+
+#: patterns/partners-levels.php:112
+msgid "2027 is a pilot year"
+msgstr ""
+
+#: patterns/partners-levels.php:116
+msgid "This is the first time we have offered partnership levels, and we are treating it as a test. We will run it through 2027, publish what we learn, and adjust or retire whatever does not work. If none of the levels below fits what your company wants to do, write to us and we will shape something that does."
+msgstr ""
+
+#: patterns/partners-levels.php:124
+msgid "Partnership levels"
+msgstr ""
+
+#: patterns/partners-levels.php:128
+msgid "Five levels, from contributing mentor time through to funding a complete program. Recognition is consistent across all of them: partners are listed in the same format, with descriptions of the same length, in alphabetical order rather than by level."
+msgstr ""
+
+#: patterns/partners-levels.php:132
+msgid "Compare all levels"
+msgstr ""
+
+#: patterns/partners-levels.php:157
+msgid "Levels at a glance"
+msgstr ""
+
+#: patterns/partners-levels.php:166
+msgid "Recognition"
 msgstr ""
 
 #: patterns/steps.php

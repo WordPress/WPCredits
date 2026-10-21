@@ -21,6 +21,10 @@
  *     does (`bin/check-selectors.php` refuses a shared table rule without it);
  *   - the box's focus ring is the theme's one ring, 2px at an offset of 2px, which sits outside the
  *     box's border, so the border on the box does not hide it.
+ * The Sponsor Dashboard's Usage table is dressed the same way on this line (theme 1.31.8): plugin
+ * 1.123.17 wraps it in `div.wpcpm-usage__scroll`, a tab stop and a named region that scrolls from
+ * 782px down, so the frame is on that box and the table inside has none, in the same query, and the
+ * card's CSV form, which now follows the box and not the table, keeps its 16px above it.
  * The render itself is measured in a browser at 320, 375, 390 and 1280px.
  *
  * Run from the theme root:  php bin/test-dashboard-table.php
@@ -178,16 +182,17 @@ function dashboard_rules_of( $selector, $at = '' ) {
 }
 
 /**
- * Every rule of dashboard.css with a selector, in a list, that names the scroll box.
+ * Every rule of dashboard.css with a selector, in a list, that names a scroll box.
  *
+ * @param string $class The box's class, without the dot.
  * @return array[] The rules, as `sheet_rules()` gives them, with the one selector that names the box.
  */
-function box_rules() {
+function box_rules( $class ) {
 	$found = array();
 
 	foreach ( sheet_rules( 'assets/css/dashboard.css' ) as $rule ) {
 		foreach ( explode( ',', $rule['selector'] ) as $selector ) {
-			if ( preg_match( '/\.wpcpm-administrator__scroll\b/', $selector ) ) {
+			if ( preg_match( '/\.' . preg_quote( $class, '/' ) . '\b/', $selector ) ) {
 				$found[] = $rule + array( 'one' => trim( $selector ) );
 			}
 		}
@@ -210,6 +215,9 @@ $phone = '@media ( max-width: 782px )';
 $frame = '1px solid var( --wpc-line-card )';
 $box   = '.wpc-dashboard-page .wpcpm-administrator__scroll';
 $inner = '.wpc-dashboard-page .wpcpm-administrator__scroll .wpcpm-admin-table';
+$ubox  = '.wpc-dashboard-page .wpcpm-usage__scroll';
+$uin   = '.wpc-dashboard-page .wpcpm-usage__scroll .wpcpm-usage';
+$csv   = '.wpc-sponsor-page .wpcpm-usage__scroll + .wpcpm-inline-form';
 
 echo "=== Above 782px nothing changes ===\n";
 
@@ -241,11 +249,16 @@ ck( 'one shared rule, outside every at-rule, still draws the frame (border, surf
 		),
 	) );
 
-$named = box_rules();
+$named  = box_rules( 'wpcpm-administrator__scroll' );
+$unamed = array_values( array_filter( box_rules( 'wpcpm-usage__scroll' ), static function ( $rule ) use ( $csv ) { return $csv !== $rule['one']; } ) );
 
-ck( 'the box is named by two rules of dashboard.css and both sit in the phone query: nothing above 782px reaches it',
+ck( 'the Administrator Dashboard\'s box is named by two rules of dashboard.css and both sit in the phone query: nothing above 782px reaches it',
 	array( count( $named ), array_values( array_unique( array_column( $named, 'at' ) ) ) ),
 	array( 2, array( $phone ) ) );
+
+ck( 'the Usage card\'s box is named by two rules for its frame, both in the phone query, and by one more, the CSV form\'s top margin; nothing else above 782px reaches the box or the table in it',
+	array( count( $unamed ), array_values( array_unique( array_column( $unamed, 'at' ) ) ), count( box_rules( 'wpcpm-usage__scroll' ) ) ),
+	array( 2, array( $phone ), 3 ) );
 
 echo "\n=== From 782px down the frame is on the box ===\n";
 
@@ -273,6 +286,52 @@ ck( 'the box is not drawn a second time by the Administrator Dashboard\'s own bl
 	count( array_filter( $named, static function ( $rule ) { return false !== strpos( $rule['one'], 'wpc-administrator-page' ); } ) ),
 	0 );
 
+echo "\n=== The Sponsor Dashboard's Usage card, from 782px down ===\n";
+
+ck( 'the phone query is the plugin\'s own (sponsor.css lets the Usage card\'s box scroll in `max-width: 782px`), and each of the box\'s and the table\'s rules is written once in it',
+	array( count( dashboard_rules_of( $ubox, $phone ) ), count( dashboard_rules_of( $uin, $phone ) ) ),
+	array( 1, 1 ) );
+
+ck( 'the box takes the frame, said as the shared rule says it, and nothing else (no outline, no overflow, no offset: the box\'s ring and its scrolling are the plugin\'s)',
+	dashboard_rules_of( $ubox, $phone ),
+	array( array( 'border: ' . $frame . ';' ) ) );
+
+ck( 'the Usage table inside the box has none, and nothing else is said of it: its surface, its collapsed borders, its face and its width stay the shared rule\'s',
+	dashboard_rules_of( $uin, $phone ),
+	array( array( 'border: 0;' ) ) );
+
+ck( 'the table\'s rule is heavier than the shared one (three classes against two), so it wins wherever the sheet puts it, and every rule naming the box is under the dashboards\' body class or the sponsor page\'s, as the rest of the sheet is',
+	array(
+		classes_in( $uin ) > classes_in( '.wpc-dashboard-page .wpcpm-usage' ),
+		classes_in( $ubox ) > classes_in( '.wpcpm-usage__scroll' ),
+		array_values( array_unique( array_map( static function ( $rule ) { return 1 === preg_match( '/^\.wpc-(?:dashboard|sponsor)-page /', $rule['one'] ); }, box_rules( 'wpcpm-usage__scroll' ) ) ) ),
+	),
+	array( true, true, array( true ) ) );
+
+// The four rules are one block of the sheet, next to each other: the Administrator Dashboard's two
+// and the Usage card's two, in the one query.
+$sheet_text = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/dashboard.css' ) );
+$in_one     = 0;
+
+if ( preg_match_all( '/@media \( max-width: 782px \) \{((?:[^{}]|\{[^{}]*\})*)\}/', $sheet_text, $queries ) ) {
+	foreach ( $queries[1] as $inside ) {
+		if ( false !== strpos( $inside, $box . ' {' ) && false !== strpos( $inside, $inner . ' {' ) && false !== strpos( $inside, $ubox . ' {' ) && false !== strpos( $inside, $uin . ' {' ) ) {
+			++$in_one;
+		}
+	}
+}
+
+ck( 'the Usage card\'s two rules sit in the same `@media ( max-width: 782px )` block as the Administrator Dashboard\'s two, next to them, not in a query of their own',
+	$in_one,
+	1 );
+
+ck( 'the card\'s CSV form is now the box\'s next sibling and not the table\'s, so its 16px above is said of the box (`.wpcpm-usage__scroll + .wpcpm-inline-form`), once, under the sponsor page\'s body class, and no rule still looks for the form after the table',
+	array(
+		dashboard_rules_of( $csv ),
+		count( dashboard_rules_of( '.wpc-sponsor-page .wpcpm-usage + .wpcpm-inline-form' ) ),
+	),
+	array( array( array( 'margin-top: 16px;' ) ), 0 ) );
+
 echo "\n=== The box's focus ring ===\n";
 
 $ring = array();
@@ -283,7 +342,7 @@ foreach ( sheet_rules( 'style.css' ) as $rule ) {
 	}
 }
 
-ck( 'the box is a `[tabindex]`, so it takes the theme\'s one ring: 2px solid brand at an offset of 2px, which sits outside the border-box, so the frame on the box leaves it whole',
+ck( 'the boxes are `[tabindex]`s (the Administrator Dashboard\'s and the Usage card\'s), so each takes the theme\'s one ring: 2px solid brand at an offset of 2px, which sits outside the border-box, so the frame on the box leaves it whole',
 	$ring,
 	array( array( 'outline: 2px solid var( --wpc-brand );', 'outline-offset: 2px;' ) ) );
 

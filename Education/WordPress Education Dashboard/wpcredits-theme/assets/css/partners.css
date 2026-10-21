@@ -1,0 +1,351 @@
+/**
+ * The Partners page (`templates/page-partners.html`): the partnership levels in the Education Hub's
+ * look (the owner, 21 October 2026: "aligned with the education hub preview"). It loads after hub.css
+ * and builds on it: the page's main is a hub main (`.wpc-main.wpc-hub`), so its type, its section
+ * heads (`.wpc-hub-head`), its 96px rhythm, its buttons and its closing card are the hub's own; this
+ * sheet draws only what the hub has no part for: the figures beside the hero, the cards, the level
+ * cards, the comparison table, the listing's head and the closing note. Every value is a theme token
+ * or a measure the hub already uses: white cards on the card hairline with 2px corners, the serif for
+ * headings, names and numbers, the brand blue for amounts and for Yes.
+ *
+ * @package WPCredits_Theme
+ */
+
+/* ==========================================================================
+   The hero
+   ========================================================================== */
+
+/* The copy and the figures side by side from 900px, 40px apart, the figures centered on the copy;
+   stacked below (hub.css's `.wpc-hub-stack`). Two classes deep over the editor's 20px flex gap. */
+.wp-block-columns.wpc-partners-hero__cols {
+	align-items: center;
+	gap: 40px;
+}
+
+/* The title in the serif, a step below the hub's display title: this page opens a section of the
+   site, not the site. */
+.wpc-hub .wpc-partners-hero__title {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-serif );
+	font-size: clamp( 40px, 4.6vw, 60px );
+	font-weight: 400;
+	letter-spacing: -.01em;
+	line-height: 1.05;
+	margin: 12px 0 18px;
+}
+
+.wpc-partners-hero__copy .wpc-hub-lede {
+	margin: 0 0 26px;
+}
+
+/* The two figures, one above the other between card hairlines, as the hub's figures row draws them
+   side by side: the number in the serif at 56px, its label in Inter. */
+.wpc-partners-figures {
+	border-bottom: 1px solid var( --wpc-line-card );
+	border-top: 1px solid var( --wpc-line-card );
+	margin: 0;
+}
+
+.wpc-partners-figure {
+	padding: 24px 0 22px;
+}
+
+.wpc-partners-figure + .wpc-partners-figure {
+	border-top: 1px solid var( --wpc-line-card );
+}
+
+.wpc-partners-figure__number {
+	color: var( --wpc-ink );
+	font: 400 56px/1 var( --wpc-hub-serif );
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -.01em;
+	margin: 0 0 10px;
+}
+
+.wpc-partners-figure__label {
+	color: var( --wpc-ink-70 );
+	font-size: 14px;
+	line-height: 1.45;
+	margin: 0;
+}
+
+.wpc-hub p.wpc-partners-figures__source {
+	color: var( --wpc-ink-60 );
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 12px 0 0;
+}
+
+/* ==========================================================================
+   Cards: what support funds, the levels
+   ========================================================================== */
+
+/* The cards are lists: no bullets, no indent, 16px apart, as the hub's program cards. */
+.wpc-partners-funds__grid,
+.wpc-partners-levels__grid,
+.wpc-partners-level__items {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-partners-funds__grid,
+.wpc-partners-levels__grid {
+	display: grid;
+	gap: 16px;
+}
+
+@media ( min-width: 900px ) {
+	.wpc-partners-funds__grid {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpc-partners-levels__grid {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	/* The Partner level, a program of its own, across both columns. */
+	.wpc-partners-levels__grid .wpc-partners-level--program {
+		grid-column: 1 / -1;
+	}
+}
+
+.wpc-partners-card,
+.wpc-partners-level {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+	min-width: 0;
+	padding: 24px;
+}
+
+.wpc-hub .wpc-partners-card__title {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-sans );
+	font-size: 17px;
+	font-weight: 600;
+	line-height: 1.35;
+	margin: 0 0 8px;
+}
+
+.wpc-partners-card__text {
+	color: var( --wpc-ink-70 );
+	font-size: 15px;
+	line-height: 1.6;
+	margin: 0;
+}
+
+/* "2027 is a pilot year": a hairline box above the levels, no tint, as the hub draws no panel. */
+.wp-block-group.wpc-partners-pilot {
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+	padding: 24px 28px;
+}
+
+.wp-block-group.wpc-partners-pilot > * {
+	margin-bottom: 0;
+	margin-top: 0;
+}
+
+.wp-block-group.wpc-partners-pilot > * + * {
+	margin-top: 8px;
+}
+
+.wpc-hub .wpc-partners-pilot__title {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-serif );
+	font-size: 26px;
+	font-weight: 400;
+	line-height: 1.15;
+}
+
+.wpc-partners-pilot p {
+	color: var( --wpc-ink-70 );
+	font-size: 16px;
+	line-height: 1.65;
+}
+
+.wpc-hub p.wpc-partners-levels__compare a {
+	font-weight: 500;
+}
+
+/* A level: its name in the serif, as a program's on the hub, its amount in the brand blue, the line
+   that leads its list in grey, then what it adds. */
+.wpc-hub .wpc-partners-level__name {
+	align-items: center;
+	color: var( --wpc-ink );
+	display: flex;
+	flex-wrap: wrap;
+	font-family: var( --wpc-hub-serif );
+	font-size: 26px;
+	font-weight: 400;
+	gap: 6px 12px;
+	line-height: 1.15;
+	margin: 0;
+}
+
+.wpc-partners-level__amount {
+	color: var( --wpc-brand );
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.4;
+	margin: 8px 0 0;
+}
+
+.wpc-partners-level__lead {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	line-height: 1.6;
+	margin: 12px 0 0;
+}
+
+.wpc-partners-level__items {
+	margin-top: 10px;
+}
+
+.wpc-partners-level__items li {
+	border-top: 1px solid var( --wpc-line-card );
+	color: var( --wpc-ink );
+	font-size: 15px;
+	line-height: 1.5;
+	padding: 8px 0;
+}
+
+.wpc-partners-level__items li:last-child {
+	padding-bottom: 0;
+}
+
+/* The Partner level's tag, in the hub's tag shape, in the brand blue on its tint. */
+.wpc-partners-tag {
+	background: var( --wpc-brand-tint );
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand-dark );
+	font: 500 12px/18px var( --wpc-hub-sans );
+	letter-spacing: .06em;
+	padding: 1px 8px;
+	text-transform: uppercase;
+}
+
+/* ==========================================================================
+   The comparison table
+   ========================================================================== */
+
+/* The table scrolls sideways inside its box when the window is narrower than it, a tab stop and a
+   region named by its heading, so a keyboard can scroll it too (the dashboards' scroll boxes). */
+.wpc-partners-glance__scroll {
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+	overflow-x: auto;
+}
+
+.wpc-partners-glance__scroll:focus-visible {
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 2px;
+}
+
+.wpc-partners-glance__table {
+	border-collapse: collapse;
+	font-size: 14px;
+	min-width: 720px;
+	width: 100%;
+}
+
+.wpc-partners-glance__table th,
+.wpc-partners-glance__table td {
+	border-top: 1px solid var( --wpc-line-card );
+	line-height: 1.45;
+	padding: 12px 16px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpc-partners-glance__table thead th {
+	background: var( --wpc-surface-soft );
+	border-top: 0;
+	color: var( --wpc-ink );
+	font-weight: 600;
+	vertical-align: bottom;
+}
+
+.wpc-partners-glance__table tbody th {
+	color: var( --wpc-ink );
+	font-weight: 400;
+}
+
+.wpc-partners-glance__level,
+.wpc-partners-glance__amount {
+	display: block;
+}
+
+.wpc-partners-glance__amount {
+	color: var( --wpc-ink-60 );
+	font-weight: 400;
+}
+
+.wpc-partners-glance__yes {
+	color: var( --wpc-brand );
+	font-weight: 600;
+}
+
+.wpc-partners-glance__no {
+	color: var( --wpc-ink-60 );
+}
+
+/* ==========================================================================
+   Products and student work, the founding partners, the listing, the close
+   ========================================================================== */
+
+.wp-block-columns.wpc-partners-commons__cols {
+	gap: 40px;
+}
+
+.wpc-partners-commons .wpc-hub-head {
+	margin-bottom: 0;
+}
+
+/* The founding partners' card: the hub's card, its head inside. */
+.wpc-partners-founding__card .wpc-hub-head {
+	margin-bottom: 0;
+}
+
+.wp-block-group.wpc-partners-founding__card {
+	border-radius: var( --wpc-radius-control );
+	padding: 32px;
+}
+
+/* The page's own content, the plugin's listing of the partners, under a head in the hub's serif. */
+.wpc-hub .wpc-partners-listing h2 {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-serif );
+	font-size: clamp( 30px, 3.4vw, 44px );
+	font-weight: 400;
+	letter-spacing: -.01em;
+	line-height: 1.08;
+	margin: 0 0 8px;
+}
+
+.wpc-partners-listing .wp-block-post-content > p {
+	color: var( --wpc-ink-70 );
+	font-size: 17px;
+	line-height: 1.65;
+	margin: 0 0 22px;
+}
+
+.wpc-partners-apply__card .wp-block-buttons {
+	margin-top: 22px;
+}
+
+.wpc-hub p.wpc-partners-apply__more {
+	color: var( --wpc-ink-60 );
+	font-size: 14px;
+	line-height: 1.6;
+	margin: 18px 0 0;
+}
+
+.wpc-hub p.wpc-partners-note {
+	color: var( --wpc-ink-60 );
+	font-size: 12px;
+	line-height: 1.6;
+	margin: 22px 0 0;
+}

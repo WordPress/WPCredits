@@ -45,6 +45,7 @@ require_once get_theme_file_path( 'inc/guide.php' );
 require_once get_theme_file_path( 'inc/hub.php' );
 require_once get_theme_file_path( 'inc/hub-content.php' );
 require_once get_theme_file_path( 'inc/header.php' );
+require_once get_theme_file_path( 'inc/partners.php' );
 
 /**
  * Theme supports.

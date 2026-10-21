@@ -505,15 +505,21 @@ ck( 'the template holds the front page\'s chrome, line for line: the WordPress.o
 	array( array_slice( $hub, 0, 4 ), $hub[ count( $hub ) - 2 ] ),
 	array( array_slice( $front, 0, 4 ), $front[ count( $front ) - 2 ] ) );
 
-// The main's children in the page's order: each pattern by its slug, and the sign-in block, which the
-// template places on its own, by its name.
-preg_match_all( '#<!-- wp:(?:pattern \{"slug":"([a-z/-]+)"\}|(wpcredits/[a-z-]+)) /-->#', theme_file( 'templates/page-education-hub.html' ), $children, PREG_SET_ORDER );
+// The main's children in the page's order: each pattern by its slug, the sign-in block, which the
+// template places on its own, by its name, and the plugin's sponsor strip by its name.
+preg_match_all( '#<!-- wp:(?:pattern \{"slug":"([a-z/-]+)"\}|(wpcredits/[a-z-]+)|(wpcpm/sponsors) \{[^}]*\}) /-->#', theme_file( 'templates/page-education-hub.html' ), $children, PREG_SET_ORDER );
 
-$patterns = array_map( static function ( $child ) { return '' !== $child[1] ? $child[1] : $child[2]; }, $children );
+$patterns = array_map( static function ( $child ) { return '' !== $child[1] ? $child[1] : ( isset( $child[3] ) ? $child[3] : $child[2] ); }, $children );
 
-ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the sign-in block, then the doors, programs, pathway and band, in the page\'s order and no post content',
+ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the sign-in block, then the doors, programs, pathway, the sponsor strip and band, in the page\'s order and no post content',
 	array( $hub[4], $hub[5] === '<main class="wp-block-group wpc-main wpc-hub"><!-- wp:pattern {"slug":"wpcredits/hub-hero"} /-->', $patterns, false !== strpos( theme_file( 'templates/page-education-hub.html' ), 'post-content' ) ),
-	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/sign-in', 'wpcredits/hub-doors', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcredits/hub-cta' ), false ) );
+	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/sign-in', 'wpcredits/hub-doors', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcpm/sponsors', 'wpcredits/hub-cta' ), false ) );
+
+$strip_block = '<!-- wp:wpcpm/sponsors {"variant":"strip","align":"wide"} /-->';
+
+ck( 'the sponsor strip is the homepage\'s own block, written as front-page.html writes it, once on each template',
+	array( substr_count( theme_file( 'templates/page-education-hub.html' ), $strip_block ), substr_count( theme_file( 'templates/front-page.html' ), $strip_block ) ),
+	array( 1, 1 ) );
 
 ck( 'the sign-in section is the block itself, placed in the template, not a pattern: a pattern saved into a template in the Site Editor is written out as static blocks, which would freeze one visitor\'s links for everyone',
 	array( substr_count( theme_file( 'templates/page-education-hub.html' ), '<!-- wp:wpcredits/sign-in /-->' ), file_exists( WPCREDITS_THEME_DIR . 'patterns/hub-sign-in.php' ) ),
@@ -2890,7 +2896,7 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Sign in → > ' . $sign_login( $sign_pages['institutions'] ),
 			'Sign in → > ' . $sign_login( $sign_pages['sponsors'] ),
 			'Browse programs → > #programs',
-			'Become a partner → > ' . $apply,
+			'Partner as an institution → > ' . $apply,
 			'Hire from WordPress → > https://jobs.wordpress.net/',
 			'Find or host an event → > https://events.wordpress.org/campusconnect/',
 			'Compare the five courses → > #wordpress-credits-courses',
@@ -2952,7 +2958,7 @@ WPCPM_Sponsor_Application::$url     = 'https://wordpresseducation.org/sponsor-ap
 ck( 'with either application\'s page not published, its five links go to the WordPress Credits handbook',
 	array_values( preg_grep( '#community/handbook/education/credits/$#', $unpublished_page ) ),
 	array(
-		'Become a partner → > https://make.wordpress.org/community/handbook/education/credits/',
+		'Partner as an institution → > https://make.wordpress.org/community/handbook/education/credits/',
 		'Partner as an institution > https://make.wordpress.org/community/handbook/education/credits/',
 		'Talk to the program team > https://make.wordpress.org/community/handbook/education/credits/',
 		'Sponsor > https://make.wordpress.org/community/handbook/education/credits/',
@@ -3755,17 +3761,196 @@ $main_holds    = preg_match( '#<main[^>]*>(.*?)</main>#s', $template_file, $held
 
 // The hub's main is a constrained layout: its block gap, 20px, sits above every block after the
 // first, which put 116px between two sections. One rule takes it away between the sections.
-ck( 'the sections are 96px apart, their own paddings: one rule, two classes deep, removes the block gap above the hub\'s sections, on a main that holds the six sections, the five patterns and the sign-in block, one element each, and nothing else',
+ck( 'the sections are 96px apart, their own paddings: one rule, two classes deep, removes the block gap above the hub\'s sections, on a main that holds the seven sections, the five patterns, the sign-in block and the sponsor strip, one element each, and nothing else',
 	array(
 		rules_for( '.wpc-main.wpc-hub > *' ),
 		found( dom_of( $template_file ), '//main', 'class' ),
 		preg_match_all( '#<!-- wp:pattern \{"slug":"wpcredits/hub-[a-z]+"\} /-->#', $main_holds ),
 		preg_match_all( '#<!-- wp:wpcredits/sign-in /-->#', $main_holds ),
-		trim( preg_replace( '#<!-- wp:(?:pattern [^>]*|wpcredits/sign-in) /-->#', '', $main_holds ) ),
+		substr_count( $main_holds, $strip_block ),
+		trim( preg_replace( '#<!-- wp:(?:pattern [^>]*|wpcredits/sign-in|wpcpm/sponsors \{[^}]*\}) /-->#', '', $main_holds ) ),
 		array_map( static function ( $file ) { return count( dom_of( wpcredits_test_pattern( $file ) )->query( '/html/body/div' ) ); }, $pattern_files ),
 		count( dom_of( sign_in_block() )->query( '/html/body/*' ) ),
 	),
-	array( array( 'margin-block-start: 0;' ), array( 'wp-block-group wpc-main wpc-hub' ), 5, 1, '', array_fill( 0, 5, 1 ), 1 ) );
+	array( array( 'margin-block-start: 0;' ), array( 'wp-block-group wpc-main wpc-hub' ), 5, 1, 1, '', array_fill( 0, 5, 1 ), 1 ) );
+
+// The strip's homepage rule pads it 32px above and 8px below under a hairline. On the hub it is a
+// section like the others: 48px above and below, so its eyebrow is 96px under the pathway's last line
+// and the band's cards 96px under its own, and no hairline above it, as no section of the hub has
+// one; the front page keeps its hairline.
+// In the Site Editor the block sits inside the editor's own wrapper, not directly in the main, with the
+// server's strip a level or two below it: the same rule has a second selector for that, as the hub's
+// sheet writes its editor forms, through the wrapper class the front end never prints.
+$hub_strip = '.wpc-main.wpc-hub > .wpcpm-sponsors--strip, .wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip';
+
+ck( 'on the hub the sponsor strip is padded 48px above and below, as every section is, with no hairline above it, in style.css over its homepage rule, whose hairline the front page keeps and whose sides the hub keeps; for the strip directly in the main, and for the strip the Site Editor draws inside its block wrapper',
+	array( rules_for( $hub_strip, 'style.css' ), rules_for( '.wpcpm-sponsors--strip', 'style.css' ) ),
+	array( array( 'border-top: 0; padding-bottom: 48px; padding-top: 48px;' ), array( 'border-top: 1px solid var( --wpc-line ); padding: 32px 0 8px;' ) ) );
+
+// Each selector of that rule outranks the homepage rule's one class, whichever sheet comes last: the
+// front end's has three classes, the editor's four.
+ck( 'and each of its selectors outranks the homepage rule\'s one class: three classes for the strip in the main, four for the strip in the Site Editor\'s wrapper',
+	array_map( static function ( $part ) { return preg_match_all( '/\.[a-z][a-z0-9_-]*/i', $part ); }, explode( ',', $hub_strip ) ),
+	array( 3, 4 ) );
+
+// Theme 1.31.4: on the hub the strip is drawn in the hub's WordPress.org look (main's 1.24.18), as
+// hub.css draws the hub's own sections. Each rule names the strip as a child of the hub's main and
+// the strip inside the Site Editor's wrapper there, as the padding rule above does.
+$on_hub = static function ( $tail ) {
+	return '.wpc-main.wpc-hub > .wpcpm-sponsors--strip ' . $tail . ', .wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip ' . $tail;
+};
+
+// A rule's declarations as property => value, read off rules_for()'s run-together text.
+$declared = static function ( $text ) {
+	$out = array();
+
+	foreach ( array_filter( array_map( 'trim', explode( ';', $text ) ) ) as $declaration ) {
+		$pair = array_map( 'trim', explode( ':', $declaration, 2 ) );
+
+		$out[ $pair[0] ] = $pair[1];
+	}
+
+	return $out;
+};
+
+$strip_look = array(
+	'.wpcpm-sponsors__eyebrow'                                => array( 'font-weight: 500; letter-spacing: .12em; margin-bottom: 22px;' ),
+	'.wpcpm-sponsors__list'                                   => array( 'align-items: stretch; display: grid; gap: 16px; grid-template-columns: repeat( 2, minmax( 0, 1fr ) );', 'grid-template-columns: repeat( auto-fill, minmax( 200px, 1fr ) );' ),
+	'.wpcpm-sponsors__item'                                   => array( 'align-items: center; background: var( --wpc-surface ); border: 1px solid var( --wpc-line-card ); border-radius: var( --wpc-radius-control ); box-shadow: none; box-sizing: border-box; display: flex; justify-content: center; min-height: 90px; min-width: 0; padding: 24px; position: relative; text-align: center;' ),
+	'.wpcpm-sponsors__link::after'                            => array( 'content: ""; inset: 0; position: absolute;' ),
+	'.wpcpm-sponsors__item:has( > .wpcpm-sponsors__link ):hover' => array( 'border-color: var( --wpc-brand );' ),
+	'.wpcpm-sponsors__link'                                   => array( 'max-width: 100%; min-width: 0;' ),
+	'.wpcpm-sponsors__logo'                                   => array( 'max-width: min( 160px, 100% );' ),
+	'.wpcpm-sponsors__item--white .wpcpm-sponsors__logo'      => array( 'border-radius: var( --wpc-radius-control );' ),
+	'.wpcpm-sponsors__item--text .wpcpm-sponsors__name'       => array( 'font: 400 26px/1.15 var( --wpc-hub-serif );' ),
+	'.wpcpm-sponsors__more a'                                 => array( 'color: var( --wpc-brand ); font-weight: 500; text-decoration: underline; text-underline-offset: 3px;' ),
+	'.wpcpm-sponsors__more a:hover'                           => array( 'color: var( --wpc-brand-dark );' ),
+	'.wpcpm-sponsors__preview'                                => array( 'border-radius: var( --wpc-radius-control );' ),
+);
+
+ck( 'on the hub the strip takes the hub\'s look, each rule once for the strip in the main and in the Site Editor\'s wrapper: the eyebrow at weight 500, .12em apart and 22px above the cards; the cards in a grid 16px apart, a row\'s cards one height, two columns on a phone and columns of 200px or more from 640px; each sponsor a white card on a 1px hairline, 2px corners, no shadow, 24px inside and 90px tall at least, its link covering it and its hairline brand blue under the pointer; the mark at most 160px and never wider than the card; a white mark\'s ground at 2px; a name in the serif, regular, 26px; the link to the full list underlined at weight 500; the preview note at 2px',
+	array_map( static function ( $tail ) use ( $on_hub ) { return rules_for( $on_hub( $tail ), 'style.css' ); }, array_combine( array_keys( $strip_look ), array_keys( $strip_look ) ) ),
+	$strip_look );
+
+// The values are the hub's own, read off hub.css and the eyebrow's style, so a change there shows
+// here: the card is a program card's box, the eyebrow the hub's eyebrow, the link a door's, the
+// name a program's name, the grid's gap the hub's grids'.
+$card_look    = $declared( rules_for( $on_hub( '.wpcpm-sponsors__item' ), 'style.css' )[0] );
+$program_look = $declared( rules_for( '.wpc-hub-program' )[0] );
+$door_link    = $declared( rules_for( '.wpc-hub-door__go a' )[0] );
+$more_link    = $declared( rules_for( $on_hub( '.wpcpm-sponsors__more a' ), 'style.css' )[0] );
+$eyebrow_look = $declared( rules_for( $on_hub( '.wpcpm-sponsors__eyebrow' ), 'style.css' )[0] );
+$name_parts   = preg_split( '#[\s/]+#', $declared( rules_for( $on_hub( '.wpcpm-sponsors__item--text .wpcpm-sponsors__name' ), 'style.css' )[0] )['font'], 4 );
+$program_name = $declared( rules_for( '.wpc-hub-program__name' )[0] );
+
+ck( 'and those values are the hub\'s: the card\'s ground, hairline and corners a program card\'s, with no shadow as the hub\'s cards; the eyebrow\'s weight the theme\'s eyebrow\'s and its spacing the hub\'s; the link\'s color, weight, underline and offset a door\'s; the name\'s family, weight and size a program\'s name; the grid\'s gap the program index\'s',
+	array(
+		array_intersect_key( $card_look, array_flip( array( 'background', 'border', 'border-radius' ) ) ),
+		$card_look['box-shadow'],
+		array( $eyebrow_look['font-weight'], $eyebrow_look['letter-spacing'] ),
+		array_intersect_key( $more_link, array_flip( array( 'color', 'font-weight', 'text-decoration', 'text-underline-offset' ) ) ),
+		array( $name_parts[3], $name_parts[0], $name_parts[1] ),
+		$declared( rules_for( $on_hub( '.wpcpm-sponsors__list' ), 'style.css' )[0] )['gap'],
+	),
+	array(
+		array_intersect_key( $program_look, array_flip( array( 'background', 'border', 'border-radius' ) ) ),
+		$declared( rules_for( '.wpc-hub .wp-block-group.is-style-card' )[0] )['box-shadow'],
+		array( explode( ' ', $declared( rules_for( '.wpc-eyebrow, p.is-style-eyebrow', 'style.css' )[0] )['font'] )[0], $declared( rules_for( '.wpc-hub p.is-style-eyebrow' )[0] )['letter-spacing'] ),
+		array_intersect_key( $door_link, array_flip( array( 'color', 'font-weight', 'text-decoration', 'text-underline-offset' ) ) ),
+		array( $program_name['font-family'], $program_name['font-weight'], $program_name['font-size'] ),
+		$declared( rules_for( '.wpc-hub-programs' )[0] )['gap'],
+	) );
+
+// Every rule of the theme's sheets that names the strip on the hub starts at one of the two places
+// the padding rule names, in pairs, so none reaches the strip on the front page, the sponsors page's
+// listing or a dashboard; and only style.css holds them: hub.css stays main's.
+$sheets_scope = array();
+$hub_rules    = 0;
+
+foreach ( array_merge( array( 'style.css' ), array_map( static function ( $path ) { return substr( $path, strlen( WPCREDITS_THEME_DIR ) ); }, glob( WPCREDITS_THEME_DIR . 'assets/css/*.css' ) ) ) as $sheet ) {
+	preg_match_all( '/([^{}]+)\{[^{}]*\}/', preg_replace( array( '#/\*.*?\*/#s', '/@(?:media|supports)[^{]*\{/' ), '', theme_file( $sheet ) ), $sheet_rules );
+
+	foreach ( $sheet_rules[1] as $selectors ) {
+		$selectors = trim( preg_replace( '/\s+/', ' ', $selectors ) );
+
+		if ( false === strpos( $selectors, 'wpcpm-sponsors' ) || false === strpos( $selectors, 'wpc-hub' ) ) {
+			continue;
+		}
+
+		++$hub_rules;
+		$parts = array_map( 'trim', explode( ',', $selectors ) );
+		$front = array_values( preg_grep( '/^\.wpc-main\.wpc-hub > \.wpcpm-sponsors--strip(?: |$)/', $parts ) );
+		$edit  = array_values( preg_grep( '/^\.wpc-main\.wpc-hub > \.block-editor-block-list__block \.wpcpm-sponsors--strip(?: |$)/', $parts ) );
+		$tails = static function ( array $list, $prefix ) { return array_map( static function ( $part ) use ( $prefix ) { return substr( $part, strlen( $prefix ) ); }, $list ); };
+
+		if ( 'style.css' !== $sheet || count( $front ) + count( $edit ) !== count( $parts ) || $tails( $front, '.wpc-main.wpc-hub > .wpcpm-sponsors--strip' ) !== $tails( $edit, '.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip' ) ) {
+			$sheets_scope[] = $sheet . ': ' . $selectors;
+		}
+	}
+}
+
+ck( 'every rule naming the strip on the hub, fourteen of them with the padding rule and the phone grid\'s wider twin, is in style.css and starts at the strip in the hub\'s main and at the strip in the Site Editor\'s wrapper there, the same rule for each, and no other sheet names it',
+	array( $hub_rules, $sheets_scope ),
+	array( 14, array() ) );
+
+// Away from the hub nothing changes: every rule of style.css naming a sponsors class without the hub,
+// the front page's strip, the sponsors page's listing and the plugin's buttons and notes there, is as
+// theme 1.31.3 shipped it, read in order with its media query, comments left out. Each selector on
+// the hub has more classes than any selector away from it that ends on the same class, so the hub's
+// rules win on the hub in either print order and reach nothing else.
+$away    = array();
+$classes = array( 'hub' => array(), 'away' => array() );
+$at      = '';
+
+preg_match_all( '/(@[^{}]+)\{|([^{}]+)\{([^{}]*)\}|\}/', preg_replace( '#/\*.*?\*/#s', '', theme_file( 'style.css' ) ), $tokens, PREG_SET_ORDER );
+
+foreach ( $tokens as $token ) {
+	if ( '}' === $token[0] ) {
+		$at = '';
+		continue;
+	}
+
+	if ( '' !== $token[1] ) {
+		$at = trim( preg_replace( '/\s+/', ' ', $token[1] ) );
+		continue;
+	}
+
+	$selectors = trim( preg_replace( '/\s+/', ' ', $token[2] ) );
+
+	if ( false === strpos( $selectors, 'wpcpm-sponsors' ) ) {
+		continue;
+	}
+
+	$side = false === strpos( $selectors, 'wpc-hub' ) ? 'away' : 'hub';
+
+	// Each selector by the last class it names, its `:has()` and pseudo-classes left out, with how many
+	// classes it has.
+	foreach ( explode( ',', $selectors ) as $part ) {
+		$bare = preg_replace( '/:has\(.*\)/', '', $part );
+
+		preg_match_all( '/\.[a-z][a-z0-9_-]*/i', $bare, $named );
+
+		$classes[ $side ][] = array( end( $named[0] ), count( $named[0] ) );
+	}
+
+	if ( 'away' === $side ) {
+		$away[] = ( '' !== $at ? $at . ' ' : '' ) . $selectors . ' { ' . trim( preg_replace( '/\s+/', ' ', $token[3] ) ) . ' }';
+	}
+}
+
+$outranked = array();
+
+foreach ( $classes['hub'] as $hub_selector ) {
+	foreach ( $classes['away'] as $away_selector ) {
+		if ( $hub_selector[0] === $away_selector[0] && $hub_selector[1] <= $away_selector[1] ) {
+			$outranked[] = $hub_selector[0];
+		}
+	}
+}
+
+ck( 'away from the hub the sponsors\' rules are as theme 1.31.9 ships them, the 28 of them (1.31.3\'s 34 less the six for the tier groups the plugin no longer prints) in their order, byte for byte but whitespace; and each selector on the hub has more classes than every selector away from it that ends on the same class, so the hub\'s rules win on the hub in either print order',
+	array( count( $away ), sha1( implode( "\n", $away ) ), array_values( array_unique( $outranked ) ) ),
+	array( 28, '193668f4f2270e9f463950ee3cfb63af9a3e093b', array() ) );
 
 // The pathway's eyebrow is a paragraph with no margin below it, so the flow layout's 20px block gap
 // was all that sat between it and the block; a section's head sits 22px above its content.
@@ -3781,15 +3966,17 @@ ck( 'the band\'s buttons are 12px apart, as the hero\'s pair is, side by side an
 	array( rules_for( '.wpc-hub-cta__card .wp-block-buttons' ), count( $page->query( $band_buttons ) ), found( $page, $band_buttons . '//a' ), count( $page->query( '//div[contains(concat(" ", @class, " "), " wp-block-buttons ")]' ) ) ),
 	array( array( 'gap: 12px;' ), 2, array( 'Hire from WordPress', 'Sponsor', 'Partner as an institution' ), 3 ) );
 
+// The homepage's template holds the sponsor strip between the steps and the call to action (theme
+// 1.25.0), so its bytes are not 1.24.14's; the four patterns are.
 $homepage_files = array(
-	'templates/front-page.html' => 'c172f139736a8098a48a68684ff546344856d9a2',
+	'templates/front-page.html' => '98bd3126906c016c61491fed129033fb24e12302',
 	'patterns/hero.php'         => 'dfbfa1052b95995dcfe4be022f56ea4298aab534',
 	'patterns/audiences.php'    => '831a99841c03e31578a3f67a43e3fa05e5c6911b',
 	'patterns/steps.php'        => '44559443966fc01246f6f96941cfac6f6001458d',
 	'patterns/cta.php'          => '897bc5a00b08bbabcffec41935af3889c44dd539',
 );
 
-ck( 'the live homepage\'s template and patterns are as 1.24.14 shipped them, byte for byte',
+ck( 'the live homepage\'s template and patterns are as 1.24.14 shipped them, byte for byte, the template with the sponsor strip',
 	array_map( static function ( $file ) { return sha1( theme_file( $file ) ); }, array_combine( array_keys( $homepage_files ), array_keys( $homepage_files ) ) ),
 	$homepage_files );
 

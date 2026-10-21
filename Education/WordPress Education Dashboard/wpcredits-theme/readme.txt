@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.31
+Stable tag: 1.31.9
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,77 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.31.9 =
+* The theme line takes main's 1.24.28 to 1.24.31, whose entries are further down: the Translation track on the Education Hub, its bigger hero picture, the hub as offered today, and its pathway and Companies cards set aside.
+* The Partners page: the plugin's public page of the partnership levels, at /partners/ (plugin 1.123.18), is drawn by a template of its own in the Education Hub's look, with a program lead's words: what the program is and what partner support funds, with two figures of its size and the two ways to start; what support pays for, in three cards; "2027 is a pilot year"; the five levels, Friend, Supporter, Backer, Champion and Partner, each with its amount and what it adds; a table comparing them, which scrolls sideways in its own box on a narrow screen and by keyboard; how donated products are offered and how student work is used; the founding partners; the page's own content, the plugin's alphabetical listing of the partners; and the close, the application form and the education team's address, with the note on tax deductibility. The page stays a draft, and visitors are refused it, until the levels go public.
+* The menu: while the partnership levels are public, the header's menu ends with "Become a partner", an outline button in the brand blue that leads to the sponsorship application. Before that there is no such item.
+* Education Hub homepage: the Institutions door's button now reads "Partner as an institution", as the closing band's does, so the page's only "Become a partner" is the menu's, which leads to the sponsorship application.
+* For developers: `templates/page-partners.html`, five patterns (`partners-hero`, `partners-funds`, `partners-levels`, `partners-commons`, `partners-apply`), `inc/partners.php` (the stylesheets on the Partners page alone; the menu item hooked into the navigation as its last child while `WPCPM_Sponsor_Tiers::live()` is true) and `assets/css/partners.css`, which builds on the hub's sheet; the menu item's rule in `style.css`. `bin/test-partners.php` checks the template, the words, the table against the levels, the links, the stylesheets and the menu item.
+
+= 1.31.8 =
+* The theme line takes main's 1.24.27, whose entry is further down: on a phone, the Administrator Dashboard's tables with column headers keep their frame around the visible window when scrolled sideways, since the frame is on the box that scrolls and not on the table.
+* Sponsor Dashboard on a phone: the Usage card's table is in a box that scrolls sideways from 782px down (plugin 1.123.17), and its frame is treated the same way. The 1px line is on the box and the table inside has none, so the frame stands still while the columns move. Above 782px nothing changes. The Download as CSV button keeps its 16px above it: that gap is now said of the box the button follows, where it was said of the table. This release pairs with plugin 1.123.17; with an older plugin the box's rules dress nothing and the button loses the 16px.
+* For developers: `bin/test-dashboard-table.php` pins the Usage card's two rules beside main's two for the Administrator Dashboard, all four in one phone query, and the button's gap; `bin/check-selectors.php` compares the plugin's two box rules (`.wpcpm-administrator__scroll` and `.wpcpm-usage__scroll`) and refuses a display, an overflow or a position on a table's own box or on a scroll box.
+
+= 1.31.7 =
+* The theme line takes main's 1.24.26, whose entry is further down: on the Education Hub homepage, "Find where you fit in WordPress Credits" is a flow from a field of study through the teams it joins to what a student will have to show, one row per field with the teams as tags, stacked on a phone, where it was a three-column table. Nothing else a reader sees changes, and no sponsors rule is touched: the sponsor strip on the Education Hub homepage, the sponsors page and the dashboards look as they did.
+* For developers: `bin/test-hub.php` runs main's new checks (the flow's rows, what a screen reader hears, the strings and the rules at each width) beside this line's sponsor strip checks, and all of them pass; `bin/check-selectors.php` also holds the Sponsor Dashboard's Usage table and the Administrator Dashboard's queues to one phone rule, read off the plugin it is given.
+
+= 1.31.6 =
+* The theme line takes main's 1.24.22, 1.24.23, 1.24.24 and 1.24.25, whose entries are further down: on the Education Hub homepage, the mountain drawn in words behind the hero's picture; on the site header, the menu group ending at the content's right edge, the brand as the site's name alone without the WordPress mark (on the login screen too), and the site's name at twice the size, 30px from the Site Title style in theme.json. Nothing else a reader sees changes, and no sponsors rule is touched: the sponsor strip on the Education Hub homepage, the sponsors page and the dashboards look as they did.
+* For developers: `bin/test-hub.php` and `bin/test-header.php` run main's new checks (the mountain, the header part's brand, the Site Title size) beside this line's sponsor strip checks, and all of them pass.
+
+= 1.31.5 =
+* The theme line takes main's 1.24.21, whose entry is further down: on the site header, below 1200px wide, the closed menu stays closed for a submenu that opens on hover and has no toggle, as it already did for one with a toggle. Nothing else a reader sees changes, and no sponsors rule is touched.
+
+= 1.31.4 =
+* The theme line takes main's 1.24.18, 1.24.19 and 1.24.20, whose entries are further down: the Education Hub homepage in the WordPress.org look, with EB Garamond and Inter shipped with the theme; the hero's eyebrow under the header and the wider stroke behind "Keep climbing."; and the site header's Menu button below 1200px for a signed-in reader, with the brand and Log in on one row on a signed-out phone.
+* Education Hub homepage: the sponsor logo strip between the pathway and the closing band is drawn in the hub's new look. Its eyebrow is spaced as the hub's, 22px above the sponsors; each sponsor is a white card on a 1px hairline with 2px corners and no shadow, the cards in a grid 16px apart, two columns on a phone; a card whose sponsor has a website is the link, its hairline brand blue under the pointer; a sponsor without a logo is named in the serif, as a program is; and the link to the full list is underlined, as the doors' links are. The strip keeps its 48px above and below, so the page keeps its 96px between sections. The strip on the current homepage, the sponsors page and the dashboards look as before.
+* For developers: `bin/test-hub.php` checks the strip's rules on the hub against the hub's own values, that each one names the strip on the hub alone, and that every sponsors rule away from the hub is as 1.31.3 shipped it; `bin/check-selectors.php` keeps main's check of the plugin classes the theme's scripts read beside this line's placement checks.
+
+= 1.31.3 =
+* The theme line takes main's 1.24.17, whose entry is further down: on the Education Hub homepage, the pathway's prompt above the steps and the cue at the foot of each step, the Builder step's benefits, and the band of the four WordPress Credits courses under the program index, with Step 4's link to the courses.
+* Education Hub homepage: the sponsor logo strip is where 1.31.2 put it, between the pathway and the closing band, padded 48px above and below with no hairline above it; the pathway's new prompt and cues sit inside the pathway's own section, so the strip keeps its 96px to the pathway's last line and to the closing band.
+
+= 1.31.2 =
+* The theme line takes main's 1.24.15 and 1.24.16, whose entries are further down: the Education Hub homepage, its hero on a brand-tint panel, and the site header that wraps as designed above 640px.
+* Education Hub homepage: the sponsor logo strip, the plugin's Sponsors block that the current homepage carries between its steps and its call to action, sits on the hub too, between the pathway and the closing band. It is padded 48px above and below, as every section of the hub is, so the page keeps its 96px between sections, and has no hairline above it, as no section of the hub has one; the homepage keeps its hairline. As on the homepage, the block prints nothing for visitors until the program turns the listing on, so the hub looks as before until then. The live site's Site Editor copy of the hub's template, once there is one, needs the block added by hand, as the homepage's did.
+* The sponsors page's secondary button keeps the outline button's colors and edge, now in rules of its own, so the outline button's rule is one selector again, as the hub's checks read it; nothing on a page changes.
+* For developers: on this line `bin/test-hub.php` checks the hub's seven children in their order, the strip being the homepage's own block once on each template, its 48px with no hairline, and the homepage's template as this line ships it, with the strip.
+
+= 1.31.1 =
+* The theme line takes main's 1.24.12, 1.24.13 and 1.24.14, whose entries are further down. The "Viewing as" field that plugin 1.123.6 draws, one box you click to open the names, type into to narrow them and pick from, is dressed as the list was: white background, gray border, 2px corners and 14px type. Its open list has the theme's soft shadow, 32px rows, a tint on the highlighted name and a bold name for the one being viewed. The WordPress chevron sits 8px in from the edge of the field, and of the plain list a page shows without JavaScript, one arrow and not two. A student's name too long for its line wraps, at a space, on the Mentor Report Card and on the Institution Dashboard's roster, where it ran past the card's edge on a phone.
+* This release pairs with plugin 1.123.6, which takes the field from public plugin 1.122.15. With an older plugin the field's rules dress nothing, and the list's chevron and the names' wrap still apply.
+* For developers: `bin/check-selectors.php` lists a class the plugin no longer prints but the theme still dresses for an older plugin as kept, with the last plugin version that printed it, instead of flagging it. The one entry is the no-match line of public plugin 1.122.14's search box.
+
+= 1.31.0 =
+* The Upcoming events section on the sponsors page, and the program's own event forms on the Administrator Dashboard with the Sponsor Dashboard's fields (plugin 1.120.0).
+
+= 1.30.0 =
+* The Administrator Dashboard's groups, its closed rows with their state and action, and the At a glance strip that says when nothing is waiting (plugin 1.119.0).
+
+= 1.29.0 =
+* The Sponsor Dashboard's At a glance tiles, its closed rows with their state and action, and the resources in three columns below the cards (plugin 1.118.0).
+
+= 1.28.1 =
+* The events from sponsors on the Institution Dashboard take the modules' inset, and on the Sponsor Dashboard a sub-heading inside a card stands clear of the text above it and the Change the event form opens with the room the offers' own form has (plugin 1.117.1).
+
+= 1.28.0 =
+* The dashboards' events list and the Sponsor Dashboard's event planner (plugin 1.117.0), dressed like the group sessions and the interests form.
+
+= 1.27.1 =
+* The Sponsor Dashboard's header carries the badge from the Your badge card at its right, dressed to sit beside the company's details (plugin 1.115.1).
+
+= 1.27.0 =
+* The Sponsor Dashboard's Reports card (plugin 1.115.0) lists a sponsor's annual reports with Open and PDF buttons, dressed like the dashboard's other lists.
+
+= 1.26.0 =
+* The Student Report Card's course section can carry a row of the companies partnering with a track (plugin 1.114.0); the theme dresses it as a row of logo tiles, there or in the section of its own the plugin draws on a track with neither a course link nor an hours box.
+
+= 1.25.0 =
+* The landing page gains the plugin's Sponsors strip between the steps and the call to action, and the theme dresses it: one row of logos, a line under it. The block prints nothing for visitors until the program turns the listing on, so the page looks as before until then.
+* The sponsors page's listing, the Sponsor Dashboard's sponsorship card (plugin 1.112.0) and its badge card (plugin 1.113.0) are dressed by the rules the rest of the site follows.
 
 = 1.24.31 =
 * Education Hub homepage: the pathway section is set aside for now, with the hero's "Explore the pathway" button that led to it, while its details and badges are settled, as a program lead asked. The hero keeps one button, "Find where to start".

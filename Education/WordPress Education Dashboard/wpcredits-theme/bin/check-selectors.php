@@ -486,6 +486,270 @@ foreach ( $script_reads as $name => $where ) {
 
 printf( "%d plugin %s read by the theme's scripts, %d set by nothing.\n", count( $script_reads ), 1 === count( $script_reads ) ? 'class' : 'classes', $script_misses );
 
+// Placements the owner ruled, pinned where a later rule could undo them unseen: "dashboards look
+// alike", so a block takes the values its neighbors on the same page take. Each is read as the
+// rules naming the selector leave it, off the comment-stripped dashboard sheet in source order, at
+// a desktop width and at 900px, where the dashboards narrow their inset: a rule that matches later
+// wins, so a rule written after the 900px list, or a second rule for the same block, shows here.
+//
+//   - The Institution Dashboard's blocks each set their own inset, 32px and 20px under 900px (the
+//     shell's comment by the institution rules). The events from sponsors are drawn after the
+//     modules with no card of their own, and stood at the frame's edge while every module stood
+//     32px in: a page with two left edges.
+//   - The Sponsor Dashboard's Events card opens its Change the event fold with the room the
+//     offers' own fold opens with, and a sub-heading that follows something in a card stands
+//     24px under it, as the offers' own sub-headings do.
+//   - A card's row action shows only while its card is folded, on the Sponsor Dashboard (plugin
+//     1.118.0) and the Administrator Dashboard (plugin 1.119.0): the plugin prints it on every card
+//     that has one, open or folded, and one rule outside every query hides it once the card's
+//     disclosure is open, whatever opened it, each page's selector on that rule; the row keeps room
+//     for it only while the disclosure is folded, so an open card's row is as wide as any open
+//     card's.
+
+/**
+ * Every style rule of a stylesheet, in source order: its selectors, its declarations and the media
+ * query it sits in, '' for none. Comments are dropped first; at-rules other than the rules inside
+ * a media query are skipped.
+ *
+ * @param string $css The stylesheet.
+ * @return array[] Rows of `selectors` (string[]), `decls` (property => value) and `media`.
+ */
+function wpcredits_rules( $css ) {
+	$css   = (string) preg_replace( '#/\*.*?\*/#s', '', $css );
+	$rules = array();
+	$stack = array();
+	$buf   = '';
+	$len   = strlen( $css );
+
+	for ( $i = 0; $i < $len; $i++ ) {
+		$char = $css[ $i ];
+
+		if ( '{' === $char ) {
+			$stack[] = trim( $buf );
+			$buf     = '';
+			continue;
+		}
+
+		if ( '}' !== $char ) {
+			$buf .= $char;
+			continue;
+		}
+
+		$prelude = array_pop( $stack );
+
+		if ( is_string( $prelude ) && '' !== $prelude && '@' !== $prelude[0] ) {
+			$media = '';
+
+			foreach ( $stack as $outer ) {
+				if ( 0 === strpos( $outer, '@media' ) ) {
+					$media = $outer;
+				}
+			}
+
+			$decls = array();
+
+			foreach ( explode( ';', $buf ) as $decl ) {
+				$pair = explode( ':', $decl, 2 );
+
+				if ( 2 === count( $pair ) ) {
+					$decls[ strtolower( trim( $pair[0] ) ) ] = trim( $pair[1] );
+				}
+			}
+
+			$rules[] = array(
+				'selectors' => array_map( 'trim', explode( ',', (string) preg_replace( '/\s+/', ' ', $prelude ) ) ),
+				'decls'     => $decls,
+				'media'     => $media,
+			);
+		}
+
+		$buf = '';
+	}
+
+	return $rules;
+}
+
+/**
+ * One side of a box property, as the rules that name a selector leave it at a width: the last
+ * rule in source order that sets it wins, the shorthand read side by side and a longhand after
+ * it. A rule inside a `max-width` query counts at that width or narrower; other queries are not
+ * read.
+ *
+ * @param array[] $rules    As `wpcredits_rules()` answers.
+ * @param string  $selector One selector, spelled as the sheet spells it.
+ * @param string  $box      `padding` or `margin`.
+ * @param string  $side     `top`, `right`, `bottom` or `left`.
+ * @param int     $width    The viewport's width in pixels.
+ * @return string The value, or '' when no rule sets it.
+ */
+function wpcredits_side( array $rules, $selector, $box, $side, $width ) {
+	$sides = array( 'top', 'right', 'bottom', 'left' );
+	$value = '';
+
+	foreach ( $rules as $rule ) {
+		if ( ! in_array( $selector, $rule['selectors'], true ) ) {
+			continue;
+		}
+
+		if ( '' !== $rule['media'] ) {
+			if ( ! preg_match( '/^@media\s*\(\s*max-width:\s*(\d+)px\s*\)$/', $rule['media'], $max ) || $width > (int) $max[1] ) {
+				continue;
+			}
+		}
+
+		if ( isset( $rule['decls'][ $box ] ) ) {
+			$parts = preg_split( '/\s+/', $rule['decls'][ $box ] );
+			$four  = array( $parts[0], isset( $parts[1] ) ? $parts[1] : $parts[0], isset( $parts[2] ) ? $parts[2] : $parts[0] );
+			$four[] = isset( $parts[3] ) ? $parts[3] : $four[1];
+			$value  = $four[ array_search( $side, $sides, true ) ];
+		}
+
+		if ( isset( $rule['decls'][ $box . '-' . $side ] ) ) {
+			$value = $rule['decls'][ $box . '-' . $side ];
+		}
+	}
+
+	return $value;
+}
+
+$placed    = wpcredits_rules( (string) file_get_contents( $theme . '/assets/css/dashboard.css' ) );
+$misplaced = array();
+
+foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents' ) as $block ) {
+	foreach ( array( 1280 => '32px', 900 => '20px' ) as $width => $inset ) {
+		foreach ( array( 'left', 'right' ) as $side ) {
+			$got = wpcredits_side( $placed, $block, 'padding', $side, $width );
+
+			if ( $inset !== $got ) {
+				$misplaced[] = sprintf( '%s  padding-%s at %dpx is %s, not the Institution Dashboard\'s %s', $block, $side, $width, '' === $got ? 'unset' : $got, $inset );
+			}
+		}
+	}
+}
+
+foreach ( array( 1280, 900 ) as $width ) {
+	$fold = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-offer__edit[open] > summary', 'margin', 'bottom', $width );
+	$got  = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-sevent__change[open] > summary', 'margin', 'bottom', $width );
+
+	if ( '' === $fold || $fold !== $got ) {
+		$misplaced[] = sprintf( 'the Change the event fold opens %s under its toggle at %dpx, the offers\' fold %s', '' === $got ? 'unset' : $got, $width, '' === $fold ? 'unset' : $fold );
+	}
+
+	$lead = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-offers__col--list .wpcpm-offer + .wpcpm-sponsor__subheading', 'margin', 'top', $width );
+	$got  = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-group__body .wpcpm-sponsor__subheading:not(:first-child)', 'margin', 'top', $width );
+
+	if ( '' === $lead || $lead !== $got ) {
+		$misplaced[] = sprintf( 'a card\'s sub-heading after something stands %s under it at %dpx, the offers\' sub-headings %s', '' === $got ? 'unset' : $got, $width, '' === $lead ? 'unset' : $lead );
+	}
+}
+
+// Each page that draws a card's row action, by the selector of its open card's action.
+$hidden = array(
+	'.wpc-sponsor-page .wpcpm-sponsor__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-sponsor__row-action'               => false,
+	'.wpc-administrator-page .wpcpm-administrator__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-sponsor__row-action' => false,
+);
+
+foreach ( $placed as $rule ) {
+	foreach ( array_keys( $hidden ) as $open_action ) {
+		if ( in_array( $open_action, $rule['selectors'], true ) && '' === $rule['media'] && isset( $rule['decls']['display'] ) && 'none' === $rule['decls']['display'] ) {
+			$hidden[ $open_action ] = true;
+		}
+	}
+
+	foreach ( $rule['selectors'] as $selector ) {
+		if ( false !== strpos( $selector, '.wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure' ) && false === strpos( $selector, '.wpcpm-group__disclosure:not([open])' ) ) {
+			$misplaced[] = sprintf( 'a row keeps room for its action while its card is open: %s', $selector );
+		}
+	}
+}
+
+foreach ( $hidden as $open_action => $is_hidden ) {
+	if ( ! $is_hidden ) {
+		$misplaced[] = sprintf( 'an open card\'s row action is not hidden: no rule outside the queries sets display none on %s', $open_action );
+	}
+}
+
+// The dashboards' two tables with column headers, the Sponsor Dashboard's Usage card and the
+// Administrator Dashboard's queues, are wider than a phone. Each sits in a box the plugin prints
+// around it (`.wpcpm-administrator__scroll`, plugin 1.122.35; `.wpcpm-usage__scroll`, plugin
+// 1.123.17), a tab stop and a named region, and under 782px the plugin's sheets let that box, not the
+// table, scroll sideways, the Usage card's box by the queues' rule value for value (open at 390px the
+// Usage card took the page to 595px before either scrolled). This theme dresses the boxes and the
+// tables without saying their scroll again, so the plugin's two box rules have to read the same, no
+// rule of the plugin's may give either table's own box a display, an overflow or a position, which
+// would put the scroll back on the table, and no rule of this theme may give a table's own box or a
+// scroll box one, which would undo the scroll on one page and widen it again.
+$box_props = array( 'display', 'overflow', 'overflow-x', 'position' );
+$phone_box = array();
+$said      = array();
+$boxes     = array( 'administrator.css' => '.wpcpm-administrator__scroll', 'sponsor.css' => '.wpcpm-usage__scroll' );
+
+foreach ( $boxes as $sheet => $box ) {
+	$phone_box[ $box ] = array();
+	$file              = $plugin . '/assets/css/' . $sheet;
+
+	foreach ( wpcredits_rules( is_file( $file ) ? (string) file_get_contents( $file ) : '' ) as $rule ) {
+		if ( in_array( $box, $rule['selectors'], true ) && '@media ( max-width: 782px )' === $rule['media'] ) {
+			$phone_box[ $box ] = array_merge( $phone_box[ $box ], array_intersect_key( $rule['decls'], array_flip( $box_props ) ) );
+		}
+	}
+
+	ksort( $phone_box[ $box ] );
+	$said[ $box ] = $phone_box[ $box ] ? implode( '; ', array_map( static function ( $prop, $value ) { return $prop . ': ' . $value; }, array_keys( $phone_box[ $box ] ), $phone_box[ $box ] ) ) : 'unset';
+}
+
+$queues_box = array( 'display' => 'block', 'overflow-x' => 'auto', 'position' => 'relative' );
+
+if ( $queues_box !== $phone_box['.wpcpm-administrator__scroll'] || $phone_box['.wpcpm-administrator__scroll'] !== $phone_box['.wpcpm-usage__scroll'] ) {
+	$misplaced[] = sprintf( 'the Usage card\'s box under 782px is %s in the plugin\'s sponsor.css, the Administrator Dashboard\'s boxes\' %s in its administrator.css', $said['.wpcpm-usage__scroll'], $said['.wpcpm-administrator__scroll'] );
+}
+
+foreach ( array_keys( $boxes ) as $sheet ) {
+	$file = $plugin . '/assets/css/' . $sheet;
+
+	foreach ( wpcredits_rules( is_file( $file ) ? (string) file_get_contents( $file ) : '' ) as $rule ) {
+		$set = array_intersect_key( $rule['decls'], array_flip( $box_props ) );
+
+		if ( ! $set ) {
+			continue;
+		}
+
+		foreach ( $rule['selectors'] as $selector ) {
+			if ( preg_match( '/\.wpcpm-(usage|admin-table)$/', $selector ) ) {
+				$misplaced[] = sprintf( 'the plugin\'s %s  %s sets %s on the table\'s own box, which sits in a box that scrolls on a phone', $sheet, $selector, implode( ', ', array_keys( $set ) ) );
+			}
+		}
+	}
+}
+
+foreach ( $sheets as $path ) {
+	foreach ( wpcredits_rules( (string) file_get_contents( $path ) ) as $rule ) {
+		$set = array_intersect_key( $rule['decls'], array_flip( $box_props ) );
+
+		if ( ! $set ) {
+			continue;
+		}
+
+		foreach ( $rule['selectors'] as $selector ) {
+			if ( preg_match( '/\.wpcpm-(usage|admin-table)$/', $selector ) ) {
+				$misplaced[] = sprintf( '%s  %s sets %s on the table\'s own box, which sits in a box that scrolls on a phone', substr( $path, strlen( $theme ) + 1 ), $selector, implode( ', ', array_keys( $set ) ) );
+			} elseif ( preg_match( '/\.wpcpm-(usage|administrator)__scroll$/', $selector ) ) {
+				$misplaced[] = sprintf( '%s  %s sets %s on the box the plugin lets scroll on a phone', substr( $path, strlen( $theme ) + 1 ), $selector, implode( ', ', array_keys( $set ) ) );
+			}
+		}
+	}
+}
+
+foreach ( $misplaced as $where ) {
+	printf( "  PLACE  %s\n", $where );
+}
+
+printf( "%d placements off the values their neighbors take.\n", count( $misplaced ) );
+
+if ( $misplaced ) {
+	exit( 1 );
+}
+
 // The house rule, enforced here too: plain hyphens only, in every text file of the theme. The
 // hidden folders are left out as above: another line's working copy is not this theme.
 $dashes = array();

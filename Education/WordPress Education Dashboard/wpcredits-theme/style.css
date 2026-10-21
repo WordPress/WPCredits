@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.31
+Version: 1.31.9
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -391,6 +391,22 @@ body .skip-link.screen-reader-text:focus {
 	font-weight: 500;
 }
 
+/* "Become a partner", the menu's last item while the partnership levels are public (inc/partners.php):
+   an outline button in the brand blue, so it stands apart from the links before it and from the
+   filled Log in beside it. In the phone menu it is a row like the others, whose rules are deeper. */
+.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
+	border: 1px solid var( --wpc-brand );
+	color: var( --wpc-brand );
+	font-weight: 600;
+	padding: 7px 12px;
+}
+
+.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:hover,
+.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:focus {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand-dark );
+}
+
 /* The caret, dimmed and flipped when its panel is open. */
 .wpc-nav .wp-block-navigation__submenu-icon {
 	opacity: .6;
@@ -626,6 +642,23 @@ body .skip-link.screen-reader-text:focus {
 	color: var( --wpc-brand-dark );
 }
 
+/* The plugin's own secondary button in the sponsors page's listing, the way in under its upcoming
+   events, takes the outline button's colors and its edge, in rules of its own so the outline's rule
+   stays one selector; its size is the plugin's button's (the notices' section, further down), the
+   page's primary size. */
+.wpcpm-sponsors--full .wpcpm-button--secondary {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-brand );
+	color: var( --wpc-brand );
+}
+
+.wpcpm-sponsors--full .wpcpm-button--secondary:hover,
+.wpcpm-sponsors--full .wpcpm-button--secondary:focus {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand-dark );
+	color: var( --wpc-brand-dark );
+}
+
 .wp-block-button.wpc-button--light .wp-block-button__link {
 	background: var( --wpc-surface );
 	color: var( --wpc-brand );
@@ -846,6 +879,267 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
+   Landing - sponsors
+   ========================================================================== */
+/* The strip between the steps and the call to action: one row of sponsor logos with a line
+   under it, printed by the plugin's Sponsors block, which prints nothing for visitors until
+   the program turns the listing on. A hairline above separates it from the steps, the same
+   1px rule the audiences band draws between itself and them. */
+.wpcpm-sponsors--strip {
+	border-top: 1px solid var( --wpc-line );
+	padding: 32px 0 8px;
+}
+
+/* On the Education Hub homepage the strip sits between the pathway and the closing band, in the
+   hub's rhythm: 48px above and below, as every section there is padded, so its eyebrow is 96px under
+   the pathway's last line and the band 96px under its own (the hub's sheet takes the block gap off
+   every section), and with no hairline above it, as no section of the hub has one; the front page
+   keeps its hairline. Two classes and a child, the hub's habit, so it outranks the rule above; the
+   sides are that rule's. In the Site Editor the block is not a child of the main: the editor wraps
+   it in an element of its own, `block-editor-block-list__block`, which the front end never prints,
+   and draws the server's strip inside, a level or two down, so the second selector reaches it
+   through that wrapper (the hub's sheet writes its editor forms the same way, for the figures), and
+   the editor previews the strip as the page draws it. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip {
+	border-top: 0;
+	padding-bottom: 48px;
+	padding-top: 48px;
+}
+
+/* The eyebrow takes the status pills' type, 600 12px capitals .04em apart, so it reads as a
+   label and not a heading. */
+.wpcpm-sponsors__eyebrow {
+	color: var( --wpc-ink-60 );
+	font: 600 12px/18px var( --wpc-font );
+	letter-spacing: .04em;
+	margin: 0 0 16px;
+	text-transform: uppercase;
+}
+
+/* A row of marks, not a list to read down: no bullets and no indent, every logo on the row's
+   middle line, and the row wraps where it runs out of room. Two classes deep, so on a page,
+   where a manager can place the strip too, the prose's 22px list indent stays out. The
+   sponsors page turns the same list into a grid of cards (the "Sponsors page" section,
+   further down). */
+.wpcpm-sponsors--strip .wpcpm-sponsors__list {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px 32px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* The list's gap is the only space between two sponsors: two classes deep, so a page's prose
+   does not add its 6px over each item. */
+.wpcpm-sponsors--strip .wpcpm-sponsors__item {
+	margin: 0;
+}
+
+/* The logo is the link, so the link adds no color and no underline. A flex box and not an
+   inline one: an inline box sits on a line of body text, which hung 7px under every linked
+   logo and set it 3.5px off the row's middle beside a logo with no link. The gap parts a name
+   from a logo; the plugin gives that name to screen readers alone today. */
+.wpcpm-sponsors__link {
+	align-items: center;
+	color: inherit;
+	display: flex;
+	gap: 10px;
+	text-decoration: none;
+}
+
+/* A sponsor with no logo is its name alone, so the name takes the site's link blue, as the
+   steps' "Read the handbook" link does: a logo looks pressable without a color, a name does
+   not. */
+.wpcpm-sponsors__item--text .wpcpm-sponsors__link {
+	color: var( --wpc-brand );
+}
+
+/* theme.json's link hover, on focus as well, as the theme pairs its hovers: said again,
+   because the rule above outweighs theme.json's. */
+.wpcpm-sponsors__item--text .wpcpm-sponsors__link:hover,
+.wpcpm-sponsors__item--text .wpcpm-sponsors__link:focus {
+	color: var( --wpc-brand-dark );
+}
+
+/* A white logo, drawn for dark pages, is kept on an ink ground it can be seen on, as the
+   Administrator Dashboard keeps the white logos of an application (wpcpm-sapp-logo--white).
+   The ground's padding sits inside the logo's box, so the mark is drawn a touch smaller than
+   its neighbors; the ink ground's weight makes up for it. */
+.wpcpm-sponsors__item--white .wpcpm-sponsors__logo {
+	background: var( --wpc-ink );
+	border-radius: 4px;
+	box-sizing: border-box;
+	padding: 6px 8px;
+}
+
+/* A logo in the strip is one height for every sponsor: the row reads as a row, whatever shape
+   each company's mark is. Contained, so a mark wider than the 160px cap is scaled down into
+   it rather than squeezed to fit, and square-cornered: on a page, the prose's 8px image
+   radius would clip a mark drawn on its own ground. */
+.wpcpm-sponsors--strip .wpcpm-sponsors__logo {
+	border-radius: 0;
+	display: block;
+	height: 40px;
+	max-width: 160px;
+	object-fit: contain;
+	width: auto;
+}
+
+/* In the strip a white mark keeps 4px of ground over and under it rather than 6px, so it gets
+   32px of the 40px row: a touch smaller than its neighbors, and the ink ground's weight makes
+   up for it. The ground's 4px corners are said again, since the rule above squares the rest. */
+.wpcpm-sponsors--strip .wpcpm-sponsors__item--white .wpcpm-sponsors__logo {
+	border-radius: 4px;
+	padding: 4px 8px;
+}
+
+/* A name standing in for a logo is set at the 14px of the line under the row, with a little
+   weight so it holds its place among the marks. */
+.wpcpm-sponsors--strip .wpcpm-sponsors__name {
+	font: 500 14px/20px var( --wpc-font );
+}
+
+/* The line under the row, 16px down, in the muted gray of the steps' text: a count of the
+   sponsors listed by name alone, and the link to the full list. */
+.wpcpm-sponsors__more {
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
+	margin: 16px 0 0;
+}
+
+/* The manager's preview note, in the amber tint and rule of the plugin's notices above the
+   header: it is a warning that nobody else sees this yet. */
+.wpcpm-sponsors__preview {
+	background: var( --wpc-amber-tint );
+	border: 1px solid var( --wpc-amber-border );
+	border-radius: var( --wpc-radius-panel );
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0 0 16px;
+	padding: 8px 12px;
+}
+
+/* On the Education Hub homepage the strip is drawn in the hub's WordPress.org look (theme 1.24.18),
+   as hub.css draws the hub's own sections: its eyebrow is the hub's eyebrow, each sponsor a white card
+   on a 1px hairline with 2px corners and no shadow, the cards in a grid 16px apart, and the link to the
+   full list underlined at weight 500, as the doors' links are. The strip prints no heading of its own
+   and no button, so no rule here sets one. Every selector starts at the strip as a child of the hub's
+   main, or inside the Site Editor's block wrapper there, as the padding rule above does, so the strip
+   on the front page and the sponsors page's listing keep their own look; the hub's sheet sets the
+   type (Inter, through `--wpc-font`, and `--wpc-hub-serif`), which these rules read. */
+
+/* The eyebrow as the hub's: weight 500, its letters .12em apart, and 22px above the cards, as a
+   section's head sits 22px above its content. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__eyebrow,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__eyebrow {
+	font-weight: 500;
+	letter-spacing: .12em;
+	margin-bottom: 22px;
+}
+
+/* The cards in a grid 16px apart, as the hub's cards are: two columns on a phone, and from 640px as
+   many columns of 200px or more as fit, the row's cards one height (the homepage's row centers its
+   marks on one line, which in a grid would leave a short card beside a tall one). */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__list,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__list {
+	align-items: stretch;
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+@media ( min-width: 640px ) {
+	.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__list,
+	.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__list {
+		grid-template-columns: repeat( auto-fill, minmax( 200px, 1fr ) );
+	}
+}
+
+/* A sponsor is a card of the hub's: white on a 1px hairline, 2px corners, no shadow, 24px inside, its
+   mark or name centered. 90px tall at least, a 40px mark and the padding and hairlines around it, so
+   a card holding a name is as tall as one holding a logo. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__item,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__item {
+	align-items: center;
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+	box-shadow: none;
+	box-sizing: border-box;
+	display: flex;
+	justify-content: center;
+	min-height: 90px;
+	min-width: 0;
+	padding: 24px;
+	position: relative;
+	text-align: center;
+}
+
+/* A card whose sponsor has a website is the link, as a door is: the link covers the card, and the
+   hairline turns brand blue under the pointer. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__link::after,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__link::after {
+	content: "";
+	inset: 0;
+	position: absolute;
+}
+
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__item:has( > .wpcpm-sponsors__link ):hover,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__item:has( > .wpcpm-sponsors__link ):hover {
+	border-color: var( --wpc-brand );
+}
+
+/* The link and its mark never run wider than the card: a wide mark is scaled down into it, at most
+   160px wide as on the homepage. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__link,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__link {
+	max-width: 100%;
+	min-width: 0;
+}
+
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__logo,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__logo {
+	max-width: min( 160px, 100% );
+}
+
+/* A white mark's ink ground takes the hub's 2px corners. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__item--white .wpcpm-sponsors__logo,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__item--white .wpcpm-sponsors__logo {
+	border-radius: var( --wpc-radius-control );
+}
+
+/* A name standing in for a logo is set as the hub sets a program's or a course's name: the serif,
+   regular weight, 26px. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__item--text .wpcpm-sponsors__name,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__item--text .wpcpm-sponsors__name {
+	font: 400 26px/1.15 var( --wpc-hub-serif );
+}
+
+/* The link to the full list, in the line under the cards, underlined at weight 500 as the doors'
+   links are, the dark brand under the pointer as the program cards' links. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__more a,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__more a {
+	color: var( --wpc-brand );
+	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__more a:hover,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__more a:hover {
+	color: var( --wpc-brand-dark );
+}
+
+/* An Administrator's preview note keeps its amber, with the hub's 2px corners. */
+.wpc-main.wpc-hub > .wpcpm-sponsors--strip .wpcpm-sponsors__preview,
+.wpc-main.wpc-hub > .block-editor-block-list__block .wpcpm-sponsors--strip .wpcpm-sponsors__preview {
+	border-radius: var( --wpc-radius-control );
+}
+
+/* ==========================================================================
    Landing - call to action
    ========================================================================== */
 .wpc-cta {
@@ -1013,6 +1307,126 @@ p.is-style-pill {
 	border-radius: var( --wpc-radius-control );
 	font: 13px/20px var( --wpc-font );
 	padding: 8px 10px;
+}
+
+/* ==========================================================================
+   Sponsors page
+
+   The plugin's Sponsors block as the full list, inside a page's prose: a section per group
+   from the top of the ladder down, each a heading over a grid of cards, and the names group
+   a list of names; last, while any is coming, the upcoming events, a group of their own whose
+   cards are the sponsors' cards, with the way in to join them under their grid. The prose rules
+   above reach into it (a list's 22px indent, 6px over every list item after the first, 24px
+   over an h3, an 8px radius on every image), so every rule here is at least two classes deep,
+   enough to outweigh them, and says again what the listing needs.
+   ========================================================================== */
+/* 32px under the upcoming events, so what follows reads as a start of its own. Since plugin 1.123.18
+   the partners are one alphabetical list in one format, with no group per tier. */
+.wpcpm-sponsors--full .wpcpm-sponsors__events {
+	margin: 0 0 32px;
+}
+
+/* A group's name at the prose's h3 size, 20px on a 28px line, 16px over its cards: nearer to
+   them than to the group above, so it reads as theirs. */
+.wpcpm-sponsors--full .wpcpm-sponsors__heading {
+	font: 600 20px/28px var( --wpc-font );
+	margin: 0 0 16px;
+}
+
+/* The cards fill each row in as many columns of 220px or more as fit, 20px apart, and the
+   cards of a row share its height, as a grid's cards do. `min()` lets a column narrow to the
+   page where a phone's is narrower than that, rather than run off its edge. */
+.wpcpm-sponsors--full .wpcpm-sponsors__list {
+	display: grid;
+	gap: 20px;
+	grid-template-columns: repeat( auto-fill, minmax( min( 220px, 100% ), 1fr ) );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* A sponsor is a card in the article card's own values, the surface, the card line and the
+   card radius, 16px inside, with no margin: the grid's gap spaces them. An upcoming event is the
+   same card. */
+.wpcpm-sponsors--full .wpcpm-sponsors__item,
+.wpcpm-sponsors--full .wpcpm-sponsors__event {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	margin: 0;
+	padding: 16px;
+}
+
+/* A sponsor's card is centered, as the Administrator Dashboard centers the logos of an
+   application: a mark reads as a mark in the middle of its frame. An event's card holds no mark
+   but a title and a few lines to read, so it keeps the page's own left edge. */
+.wpcpm-sponsors--full .wpcpm-sponsors__item {
+	text-align: center;
+}
+
+/* A column, so the link's `align-items: center`, set with the strip's rules, centers the
+   logo across the card rather than down it. */
+.wpcpm-sponsors--full .wpcpm-sponsors__link {
+	flex-direction: column;
+}
+
+/* The mark's box, 48px tall and up to 200px wide (never wider than the card), the logo
+   contained in it at its own shape, centered on the card whether a link holds it or not, and
+   square-cornered: the prose's 8px image radius would clip a mark drawn on its own ground. */
+.wpcpm-sponsors--full .wpcpm-sponsors__logo {
+	border-radius: 0;
+	display: block;
+	height: 48px;
+	margin: 0 auto;
+	max-width: min( 200px, 100% );
+	object-fit: contain;
+	width: 100%;
+}
+
+/* The upcoming events take columns of 300px or more: an event's card holds a title and a few
+   lines of text. No level is drawn larger than another (plugin 1.123.18: every partner in the same
+   format). */
+.wpcpm-sponsors--full .wpcpm-sponsors__events .wpcpm-sponsors__list {
+	grid-template-columns: repeat( auto-fill, minmax( min( 300px, 100% ), 1fr ) );
+}
+
+/* A white mark's ink ground hugs the mark rather than filling the box: the mark's own width at
+   the group's height, held to the group's widest and never wider than the card, so it stays a
+   touch smaller than its neighbors. The ground's 4px corners are said again, since the logo
+   rule above squares the rest. */
+.wpcpm-sponsors--full .wpcpm-sponsors__item--white .wpcpm-sponsors__logo {
+	border-radius: 4px;
+	width: auto;
+}
+
+/* A name standing in for a logo is set bold at 15px, a size over the line under it, so it
+   holds a card alone. An event's title is set as a name is. */
+.wpcpm-sponsors--full .wpcpm-sponsors__name,
+.wpcpm-sponsors--full .wpcpm-sponsors__event-title {
+	font: 600 15px/22px var( --wpc-font );
+}
+
+/* A row of its own, on its own 22px line, as a name is inside its link: left inline, it sits on
+   the prose's 26px line, and the line under it stands 12px down where a sponsor's line stands 8px
+   under its name. */
+.wpcpm-sponsors--full .wpcpm-sponsors__event-title {
+	display: block;
+}
+
+/* The line under a sponsor, what it funds or what it does, in the muted gray a size under the
+   name, 8px under the mark; under an event's title, who hosts it, when it runs and what it is. */
+.wpcpm-sponsors--full .wpcpm-sponsors__line {
+	color: var( --wpc-ink-60 );
+	display: block;
+	font: 14px/20px var( --wpc-font );
+	margin-top: 8px;
+}
+
+/* The way in under the upcoming events, 16px under their cards, as a group's heading stands 16px
+   over its own: the line belongs to the list above it. Its button is the page's secondary button
+   (the outline button's rules, further up). */
+.wpcpm-sponsors--full .wpcpm-sponsors__join {
+	margin: 16px 0 0;
 }
 
 /* ==========================================================================
