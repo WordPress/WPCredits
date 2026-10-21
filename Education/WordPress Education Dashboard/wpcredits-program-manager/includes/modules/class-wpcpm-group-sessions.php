@@ -469,7 +469,7 @@ class WPCPM_Group_Sessions {
 		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
 			foreach ( wp_unslash( $_POST['more_dates'] ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
 				// An entry that is not text at all can only come from a tampered form, and casting it
-				// would warn and name "Array" in the notice (the review of 1.109.1).
+				// would warn and name "Array" in the notice.
 				if ( ! is_scalar( $more ) ) {
 					continue;
 				}
@@ -969,7 +969,7 @@ class WPCPM_Group_Sessions {
 
 		if ( $moved ) {
 			// Under the lock still, so two changes pressed at once cannot count the same revision,
-			// which a calendar would then ignore (the review of 1.109.1).
+			// which a calendar would then ignore.
 			$revision = self::next_revision( $call->ID );
 
 			// The reminder sweep marks a session it has reminded and never reads it again, so a

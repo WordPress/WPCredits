@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.122.38
+ * Version:           1.123.18
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.122.38' );
+define( 'WPCPM_VERSION', '1.123.18' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -60,6 +60,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-diff.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-publish.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-partners.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-store.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-updates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
@@ -73,6 +74,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-image-upload.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
@@ -133,9 +135,27 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-members.ph
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-roster.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
-require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers-run.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tier-card.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-listing.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-page.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-badge.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-report.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-report-numbers.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-report-files.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-report-card.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event-planner.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event-queue.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event-list.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-report-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-manager-booking.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-migration.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-feed.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-codes.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-offers.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-offer-review.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-claims.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tools.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-usage.php';
@@ -284,6 +304,14 @@ function wpcpm_deactivate() {
 	WPCPM_Mail_Log::deactivate();
 	WPCPM_Mail::deactivate();
 	WPCPM_Outcome_Figures::deactivate();
+
+	// The sponsor badge's rule, added by this request's init, leaves the rules before they are
+	// written: flushed with it, the stored rules would keep it once the plugin is gone, its query
+	// var no longer public, and `/sponsor-badge/<name>` would answer the home page.
+	if ( class_exists( 'WPCPM_Sponsor_Badge' ) && isset( $GLOBALS['wp_rewrite']->extra_rules_top[ WPCPM_Sponsor_Badge::RULE ] ) ) {
+		unset( $GLOBALS['wp_rewrite']->extra_rules_top[ WPCPM_Sponsor_Badge::RULE ] );
+	}
+
 	flush_rewrite_rules();
 }
 register_deactivation_hook( __FILE__, 'wpcpm_deactivate' );

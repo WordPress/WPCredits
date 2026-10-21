@@ -60,15 +60,13 @@ class WPCPM_Settings {
 			// so these two tables are read purely to turn those IDs into names.
 			'institutions_table'            => 'tbl4V0FEbzRP7I2w2',
 			'teams_table'                   => 'tblUBEXiS3QKUCXHf',
-			// The program team (Team Members), which is not the Contribution areas table teams_table names.
-			'team_members_table'            => 'tblUYWUSEcRLJ5BaR',
-			'sponsors_table'                => 'tbluji8wknOZr55fa',
+			// The Team Members table, the Sponsors table and its name column went with the sponsors
+			// sync in 1.111.0: stored settings that still carry them are harmless, as nothing reads them.
 			// The column holding each table's display name. Used when the schema
 			// endpoint is unavailable, since it is the schema that reports which
 			// field is primary.
 			'institutions_name_field'       => 'Name',
 			'teams_name_field'              => 'Contribution teams or areas',
-			'sponsors_name_field'           => 'Company Name',
 			// Students a mentor is currently mentoring. `Paused` and `Pending graduation`
 			// count as current: both syncs build their Airtable formula from this list,
 			// so a status missing here is a student nobody fetches (see `maybe_upgrade()`).
@@ -160,6 +158,8 @@ class WPCPM_Settings {
 			// switch gives: on means accepting writes from anybody on the internet, which is a
 			// decision somebody makes rather than a side effect of installing an update.
 			'sponsor_applications_enabled'  => false,
+			'sponsor_tiers_live'            => false,
+			'sponsor_tier_grace_until'      => '2026-12-31',
 			// The public application form. Off until the page that hosts it exists,
 			// because on means accepting submissions from anybody on the internet.
 			'applications_enabled'          => false,
@@ -275,12 +275,9 @@ class WPCPM_Settings {
 				'tutors_table',
 				'feedback_table',
 				'countries_table',
-				'team_members_table',
-				'sponsors_table',
 				'institutions_name_field',
 				'teams_name_field',
 				'countries_name_field',
-				'sponsors_name_field',
 			),
 			'people'                     => array(
 				'student_statuses',
@@ -320,6 +317,8 @@ class WPCPM_Settings {
 				'tools_students',
 				'tools_mentors',
 				'offer_low_stock',
+				'sponsor_tiers_live',
+				'sponsor_tier_grace_until',
 			),
 			'security'                   => array(
 				'two_factor_roles',
@@ -561,7 +560,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'tutors_table', 'feedback_table', 'institutions_table', 'teams_table', 'team_members_table', 'sponsors_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field', 'countries_name_field', 'institution_new_stage' ) as $key ) {
+		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'tutors_table', 'feedback_table', 'institutions_table', 'teams_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'institution_new_stage' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
 			}
@@ -612,6 +611,10 @@ class WPCPM_Settings {
 			// One is the smallest threshold that means anything; a thousand is above any pool
 			// the program has seen (section 6.2 caps a pool at five thousand codes).
 			$clean['offer_low_stock'] = max( 1, min( 1000, (int) $input['offer_low_stock'] ) );
+		}
+
+		if ( array_key_exists( 'sponsor_tier_grace_until', $input ) ) {
+			$clean['sponsor_tier_grace_until'] = self::date_or_stored( $input['sponsor_tier_grace_until'], $clean['sponsor_tier_grace_until'] );
 		}
 
 		// The key is write-only from the form's point of view, exactly like the Airtable
@@ -724,7 +727,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -1402,5 +1405,22 @@ class WPCPM_Settings {
 	 */
 	private static function is_mask( $value ) {
 		return (bool) preg_match( '/^\x{2022}+/u', $value );
+	}
+
+	/**
+	 * A posted `Y-m-d` that is a real day, else the stored value. The same rule as the offer form's
+	 * last day (WPCPM_Sponsor_Offers::clean()); not WPCPM_Sponsor_Tiers::is_date(), because this class
+	 * loads before the modules and its suite boots without them.
+	 *
+	 * @param mixed  $raw Raw input value.
+	 * @param string $stored Currently stored value.
+	 * @return string
+	 */
+	private static function date_or_stored( $raw, $stored ) {
+		$raw = trim( (string) $raw );
+		if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $raw, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+			return (string) $stored;
+		}
+		return $raw;
 	}
 }

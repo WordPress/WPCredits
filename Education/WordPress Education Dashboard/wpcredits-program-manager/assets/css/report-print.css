@@ -8,6 +8,11 @@
  * would be a second chance for the thing a school checks on screen and the thing it hands to its
  * rector to disagree.
  *
+ * The annual sponsor report's printed document (`WPCPM_Sponsor_Report_Files`) is dressed by this
+ * file too, inlined the same way: it draws the same classes, and its body carries
+ * `wpcpm-report-print--sponsor` beside `wpcpm-report-print`, so the few rules it alone needs are
+ * scoped to that class and the semester report is drawn exactly as it was.
+ *
  * Two rules follow from that, and both are worth knowing before editing:
  *
  * - **Nothing that could close a style element.** Inlined CSS cannot carry the two characters that
@@ -414,9 +419,10 @@
 /* -------------------------------------------------------------------------
  * The standalone printed document.
  *
- * `body.wpcpm-report-print` exists only on the page echoed from admin-post.php, so everything
- * scoped to it is invisible to the dashboard, where the theme owns the page and the tokens
- * above are already defined.
+ * `body.wpcpm-report-print` exists only on the pages echoed from admin-post.php, the semester
+ * report's and the sponsor report's, so everything scoped to it is invisible to the dashboard,
+ * where the theme owns the page and the tokens above are already defined. The sponsor report's
+ * own rules are scoped to `body.wpcpm-report-print--sponsor`, below.
  * ---------------------------------------------------------------------- */
 
 @page {
@@ -472,6 +478,45 @@ body.wpcpm-report-print .wpcpm-report-doc__quote-name,
 body.wpcpm-report-print .wpcpm-report-doc__cohort {
 	color: #555;
 	opacity: 1;
+}
+
+/* The sponsor report's printed document, and it alone: a section of it sets up to four tables one
+   after another (the sponsorship: the brief, the events held, the mentors and the months), where
+   the semester report sets one, so each table after another, or after a sentence, takes the room a
+   heading would give it. */
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__table + .wpcpm-report-doc__table,
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__note + .wpcpm-report-doc__table {
+	margin-top: 1.5em;
+}
+
+/* A track's narrative under the track's own table. */
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__table + .wpcpm-report-doc__p {
+	margin-top: 0.8em;
+}
+
+/* A table with a header row names three columns or more (the events held, the mentors, the
+   months): the 60% the two-column tables give their label column would leave the last column a
+   word wide. */
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__table thead th,
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__table thead + tbody th {
+	width: auto;
+}
+
+/* A caption says what its table counts: set to the column's start, as every other line here is,
+   rather than centered over a table that is not. */
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__table caption {
+	font-weight: 600;
+	padding: 0 0 0.4em;
+	text-align: start;
+}
+
+/* A track's name under its section's heading, one step below it, and kept with what follows it
+   for the reason the section heading is. */
+body.wpcpm-report-print--sponsor .wpcpm-report-doc__subheading {
+	break-after: avoid;
+	font-size: 11pt;
+	margin: 1.25em 0 0.4em;
+	page-break-after: avoid;
 }
 
 @media print {

@@ -41,38 +41,49 @@ final class WPCPM_Sponsor_Agreement_Card {
 	}
 
 	/**
-	 * The card.
+	 * The card. Folded until a flash names it; its row says where the agreement stands, and while it
+	 * is folded Upload follows the fold, a link to the card, whenever that state asks the company for
+	 * a file. The state is read from the summary once, here, for the row, the action and the body.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
 		$record  = trim( (string) $record );
 		$summary = WPCPM_Sponsor_Agreement::summary( $record );
 		$open    = isset( $context['open'] ) && self::CARD === $context['open'];
+		$state   = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Sponsor_Agreement::SUMMARY_NONE;
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'        => self::CARD,
+				'title'      => __( 'Collaboration Agreement', 'wpcredits-program-manager' ),
+				'open'       => $open,
+				'state'      => self::state_line( $summary, $state ),
+				'action'     => self::asks_for_file( $state ) ? array(
+					'label'   => __( 'Upload', 'wpcredits-program-manager' ),
+					/* translators: read after "Upload" by a screen reader alone. */
+					'context' => __( 'the signed Collaboration Agreement', 'wpcredits-program-manager' ),
+				) : null,
+				'body_class' => 'wpcpm-agreement',
+			)
 		);
-		echo '<div class="wpcpm-group__body wpcpm-agreement">';
 
-		self::render_state( $record, $summary );
+		self::render_state( $record, $summary, $state );
 		self::render_history( $record );
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
 	 * One branch per summary state, in the sponsor's words.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $summary From `WPCPM_Sponsor_Agreement::summary()`.
+	 * @param string $state   Its `SUMMARY_*` state, as `render()` read it.
 	 */
-	private static function render_state( $record, array $summary ) {
-		$state = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Sponsor_Agreement::SUMMARY_NONE;
-		$days  = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
+	private static function render_state( $record, array $summary, $state ) {
+		$days = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
 
 		printf( '<p class="wpcpm-agreement__state">%s</p>', esc_html( self::state_word( $state ) ) );
 
@@ -171,6 +182,46 @@ final class WPCPM_Sponsor_Agreement_Card {
 	}
 
 	/**
+	 * The card's row: the state in the pill's own words, with the day for the two states that have
+	 * one, written the way the site writes a day, as the design the owner approved on 27 September
+	 * 2026 gives it ("Accepted on 3 September 2026"). The lead under the pill keeps its own words.
+	 *
+	 * @param array  $summary From `WPCPM_Sponsor_Agreement::summary()`.
+	 * @param string $state   Its `SUMMARY_*` state, as `render()` read it.
+	 * @return string
+	 */
+	private static function state_line( array $summary, $state ) {
+		$day = isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '';
+
+		if ( WPCPM_Sponsor_Tiers::is_date( $day ) ) {
+			if ( WPCPM_Sponsor_Agreement::SUMMARY_ACCEPTED === $state ) {
+				/* translators: %s: the day the agreement was accepted. */
+				return sprintf( __( 'Accepted on %s', 'wpcredits-program-manager' ), WPCPM_Sponsor_Tiers::format_day( $day ) );
+			}
+
+			if ( WPCPM_Sponsor_Agreement::SUMMARY_ON_FILE === $state ) {
+				/* translators: %s: the day the program recorded the agreement it holds. */
+				return sprintf( __( 'On file with the program since %s', 'wpcredits-program-manager' ), WPCPM_Sponsor_Tiers::format_day( $day ) );
+			}
+		}
+
+		return self::state_word( $state );
+	}
+
+	/**
+	 * Whether a state asks the company for a file: an agreement sent back to it, or one no longer in
+	 * force. The card offers the upload form in more states than these, since a company may upload
+	 * whenever it likes, but with nothing on file nothing on the dashboard depends on an agreement,
+	 * and an accepted one asks for no newer copy.
+	 *
+	 * @param string $state A `SUMMARY_*` value.
+	 * @return bool
+	 */
+	private static function asks_for_file( $state ) {
+		return in_array( $state, array( WPCPM_Sponsor_Agreement::SUMMARY_RETURNED, WPCPM_Sponsor_Agreement::SUMMARY_REVOKED ), true );
+	}
+
+	/**
 	 * The upload form: the signed PDF and the declaration, and no free-text field.
 	 *
 	 * A textarea on an upload form is a second place for personal data to land, in a record
@@ -179,7 +230,7 @@ final class WPCPM_Sponsor_Agreement_Card {
 	 * nothing: a field that is simply absent is indistinguishable from one a proxy dropped, and
 	 * "the box was not ticked" and "the form did not arrive whole" are not the same refusal.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param string $intro  A sentence above the form, or '' for none.
 	 */
 	private static function render_upload( $record, $intro ) {
@@ -284,7 +335,7 @@ final class WPCPM_Sponsor_Agreement_Card {
 	/**
 	 * The manager's note on the most recent document in one state.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param string $state  A `STATE_*` value.
 	 */
 	private static function render_note( $record, $state ) {
@@ -310,7 +361,7 @@ final class WPCPM_Sponsor_Agreement_Card {
 	 * Only the words this class's events carry, never an actor's name: whose press it was is the
 	 * program's business and the audit log's.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 */
 	private static function render_history( $record ) {
 		$events = array();

@@ -190,7 +190,11 @@ class WPCPM_Admin {
 	}
 
 	/**
-	 * Load CSS and JS on this plugin's screens only.
+	 * Load CSS and JS on this plugin's screens only: the admin stylesheet and script every
+	 * screen carries, the dashboards' double-press guard (`wpcpm-forms`, which the call calendar
+	 * registers on `init`), and the Copy button's script beside them, registered once and enqueued
+	 * on every screen since nothing here says in advance which one holds a Copy button - the
+	 * Sponsors screen's handbook box is the one that does today.
 	 *
 	 * @param string $hook_suffix Current admin page.
 	 */
@@ -213,6 +217,14 @@ class WPCPM_Admin {
 			WPCPM_VERSION,
 			true
 		);
+
+		// Registered once, as the Sponsor Dashboard's own copy of this guard is: a screen that
+		// somehow loads both this and the dashboard's assets would not register it twice.
+		if ( ! wp_script_is( 'wpcpm-copy', 'registered' ) ) {
+			wp_register_script( 'wpcpm-copy', WPCPM_PLUGIN_URL . 'assets/js/copy.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-copy' );
 
 		// The double-press guard, the dashboards' own script: it locks a form that carries
 		// `data-wpcpm-once` at its first submit and shows the form's busy word, and leaves every

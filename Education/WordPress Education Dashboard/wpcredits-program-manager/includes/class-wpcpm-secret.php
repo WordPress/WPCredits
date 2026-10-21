@@ -123,7 +123,7 @@ final class WPCPM_Secret {
 	 *
 	 * Base64, because wpdb strips bytes that are not valid UTF-8 before writing a utf8mb4
 	 * column, and about a third of the bytes a cipher produces are exactly that; a blob written
-	 * raw would come back unreadable with no error anywhere (plan ruling 1).
+	 * raw would come back unreadable with no error anywhere.
 	 *
 	 * @param string $text Plaintext.
 	 * @return string|WP_Error ASCII.
@@ -152,7 +152,7 @@ final class WPCPM_Secret {
 
 	/**
 	 * A keyed fingerprint of a text: equal texts, equal fingerprints, and nothing about the
-	 * text readable from one (plan ruling 2).
+	 * text readable from one.
 	 *
 	 * @param string $text Plaintext.
 	 * @return string|WP_Error 64 hex characters.

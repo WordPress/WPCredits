@@ -75,6 +75,12 @@ $_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'agreements'
 ck( 'a known anchor travels', WPCPM_Return::url( $default ), 'https://example.test/administrator-dashboard/#wpcpm-agreements' );
 $_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'evil' );
 ck( 'an unknown anchor is dropped', WPCPM_Return::url( $default ), 'https://example.test/administrator-dashboard/' );
+// The Sponsor reports card's Draft now (1.115.0): a refusal lands back on the card it was pressed on.
+$_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-reports' );
+ck( 'the Sponsor reports card\'s anchor travels, so a refused Draft now lands back on that card', WPCPM_Return::url( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors#wpcpm-sponsor-reports' ), 'https://example.test/administrator-dashboard/#wpcpm-sponsor-reports' );
+// The Events card's three decisions (1.117.0): each lands back on the card it was pressed on.
+$_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-events' );
+ck( 'the Events card\'s anchor travels, so an approval, a return or a cancel lands back on that card', WPCPM_Return::url( 'https://example.test/' ), 'https://example.test/administrator-dashboard/#wpcpm-sponsor-events' );
 $GLOBALS['admin_page'] = '';
 $_POST = array( 'wpcpm_return' => 'dashboard' );
 ck( 'no page is the default', WPCPM_Return::url( $default ), $default );
@@ -85,14 +91,22 @@ ck( 'and nothing for an empty target', printed( '' ), '' );
 $html = printed( 'dashboard', 'requests' );
 ck( 'and both inputs for the dashboard', false !== strpos( $html, 'name="wpcpm_return" value="dashboard"' ) && false !== strpos( $html, 'name="wpcpm_return_to" value="requests"' ), true );
 ck( 'an unknown anchor is not printed', false !== strpos( printed( 'dashboard', 'evil' ), 'wpcpm_return_to' ), false );
-ck( 'the anchors are the fourteen cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'programs', 'mentor-engagement', 'health' ) );
+ck( 'and the Sponsor reports card\'s is', false !== strpos( printed( 'dashboard', 'sponsor-reports' ), 'name="wpcpm_return_to" value="sponsor-reports"' ), true );
+ck( 'and the Events card\'s', false !== strpos( printed( 'dashboard', 'sponsor-events' ), 'name="wpcpm_return_to" value="sponsor-events"' ), true );
+ck( 'the anchors are the eighteen cards and the strip, the Sponsor reports card right after the terms ending, the Sponsor offers to review card right after the sponsor posts, the Events card right after it and the Mentor engagement card right after Programs running', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'tiers-ending', 'sponsor-reports', 'programs', 'mentor-engagement', 'health' ) );
 
-// Read from the cards rather than from a copy of the list: card_open()'s own contract says its
-// id is one of these, and three of the twelve ids - offers-low, interests and sponsors - were
-// not, so a decision posted from one of those cards would have come back to the top of the page
-// with the anchor silently dropped by field() (deep check FADMN-6).
-preg_match_all( "/self::card_open\(\s*'([a-z-]+)'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ), $cards );
-$ids = array_values( array_unique( $cards[1] ) );
+// Read from the cards rather than from a copy of the list: each card's key, which its call to the
+// shell names first and the page prints as its anchor, `wpcpm-<key>`, is one of these. Three of
+// the twelve ids once were not - offers-low, interests and sponsors - so a decision posted from one
+// of those cards would have come back to the top of the page with the anchor silently dropped by
+// field() (deep check FADMN-6).
+$ids = array();
+foreach ( array_slice( explode( 'WPCPM_Dashboard_Card::open(', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ) ), 1 ) as $call ) {
+	if ( preg_match( "/'key'\s*=>\s*'([a-z-]+)'/", $call, $key ) ) {
+		$ids[] = $key[1];
+	}
+}
+$ids = array_values( array_unique( $ids ) );
 ck( 'and every card on the Administrator Dashboard uses one of them', array( count( $ids ) > 0, array_values( array_diff( $ids, WPCPM_Return::ANCHORS ) ) ), array( true, array() ) );
 
 // One printer for every wp-admin screen that links into the dashboard: to the card at its id, the

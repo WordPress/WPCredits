@@ -25,6 +25,20 @@
  * did not remove: the lock a publish run holds, and the copies of the base's schema and of Learn's
  * courses the track editor reads (SURFACES-7).
  *
+ * And the rewrite rules: the file flushes them once, so the sponsor badge's rule leaves the stored
+ * rules with the plugin (1.113.0). The flush is recorded, not run: nothing here keeps rules.
+ *
+ * And the sponsor report's two classes, the store and its numbers, which the file requires itself,
+ * so the Sponsors module's clean-up can reach the store without a fatal (1.115.0). A seeded report
+ * names a real file under the private files' base, so its own delete_all() is proved to remove the
+ * post, every meta row, and the file, which a stand-in for wp_delete_file() records as forgotten,
+ * and the lock a request that died drafting a report left behind, found by its prefix.
+ * The sponsor event store (1.117.0) is required by the file the same way, and its delete_all(),
+ * which the Sponsors module's uninstall calls, is proved to remove every event, a trashed one
+ * included, with every meta row it held, the person on it, its call link and the row saying the
+ * person is still to be told among them, and the lock a request left behind, while the person's
+ * account stays; the drain that tells the people on an event comes off the clock with the rest.
+ *
  * Run from the plugin root:  php bin/test-uninstall.php
  */
 
@@ -56,6 +70,10 @@ define( 'WEEK_IN_SECONDS', 604800 );
 define( 'MONTH_IN_SECONDS', 2592000 );
 define( 'YEAR_IN_SECONDS', 31536000 );
 
+// The sponsor report's file lives in this run's own directory, which goes with everything else it
+// wrote when the run ends, however it ends (bin/stubs/temp-dir.php).
+require_once __DIR__ . '/stubs/temp-dir.php';
+
 $GLOBALS['opts']      = array(); // The options table: name => value.
 $GLOBALS['posts']     = array(); // ID => WP_Post.
 $GLOBALS['pmeta']     = array(); // Post ID => key => value. A row may outlive its post.
@@ -65,6 +83,8 @@ $GLOBALS['roles']     = array(); // Slug => WP_Role.
 $GLOBALS['cron']      = array(); // Each scheduled event: its hook and its arguments.
 $GLOBALS['mail']      = array(); // Each message handed to wp_mail().
 $GLOBALS['unmodeled'] = array(); // Anything asked of a stand-in that it does not model.
+$GLOBALS['flushes']   = array(); // Each flush of the rewrite rules: whether it was hard.
+$GLOBALS['forgotten'] = array(); // Each path WPCPM_Private_Files::forget() asked wp_delete_file() to remove.
 $GLOBALS['next_id']   = 100;
 
 class WP_Post {
@@ -281,7 +301,13 @@ function plugin_dir_path( $file ) { return rtrim( dirname( $file ), '/' ) . '/';
 function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; }
 function __( $s, $d = null ) { return $s; }
 function apply_filters( $tag, $value ) { return $value; }
-function wp_upload_dir( $time = null, $create = true ) { return array( 'basedir' => '/srv/example/wp-content/uploads', 'baseurl' => 'https://example.test/wp-content/uploads' ); }
+// A real directory, under this run's own temporary one, so a stored path resolves through
+// realpath() the way it does on a live site and WPCPM_Private_Files::forget() is exercised for
+// real rather than short-circuited by a base that can never exist.
+function wp_upload_dir( $time = null, $create = true ) { return array( 'basedir' => rtrim( wpcpm_test_temp_dir(), '/' ) . '/uploads', 'baseurl' => 'https://example.test/wp-content/uploads' ); }
+// WordPress's own delete, recorded before it runs: forget() calls this on the one path it resolves,
+// and nothing else in this run's clean-up ever does.
+function wp_delete_file( $file ) { $GLOBALS['forgotten'][] = $file; if ( file_exists( $file ) ) { unlink( $file ); } }
 
 function get_option( $name, $default = false ) { return array_key_exists( $name, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $name ] : $default; }
 function delete_option( $name ) {
@@ -337,10 +363,20 @@ function get_post_meta( $id, $key = '', $single = false ) {
  * @return array
  */
 function get_posts( $args = array() ) {
-	$known = array( 'post_type', 'post_status', 'numberposts', 'posts_per_page', 'fields', 'orderby', 'order', 'suppress_filters', 'meta_query', 'meta_key', 'meta_value' );
+	// meta_compare joins the known list with WPCPM_Sponsor_Posts::clear_dormant_stamps() (1.112.0):
+	// a meta_key with no meta_value already means "must have the key at all" below (the line just
+	// past this array), which is EXISTS, the only value this suite's callers ever pass it.
+	$known = array( 'post_type', 'post_status', 'numberposts', 'posts_per_page', 'fields', 'orderby', 'order', 'suppress_filters', 'meta_query', 'meta_key', 'meta_value', 'meta_compare' );
 
 	foreach ( array_diff( array_keys( $args ), $known ) as $key ) {
 		$GLOBALS['unmodeled'][] = 'get_posts: ' . $key;
+	}
+
+	// A meta_compare this stand-in does not read is named rather than silently read as EXISTS:
+	// the line below only ever means EXISTS, so a caller asking for
+	// anything else deserves to be caught, not quietly answered as if it had.
+	if ( isset( $args['meta_compare'] ) && 'EXISTS' !== $args['meta_compare'] ) {
+		$GLOBALS['unmodeled'][] = 'get_posts: meta_compare ' . $args['meta_compare'];
 	}
 
 	$types    = (array) ( isset( $args['post_type'] ) ? $args['post_type'] : 'post' );
@@ -501,6 +537,10 @@ function wp_clear_scheduled_hook( $hook, $args = array() ) {
 	}
 	return $cleared;
 }
+/** Records each flush of the stored rewrite rules; nothing here keeps rules to write. */
+function flush_rewrite_rules( $hard = true ) {
+	$GLOBALS['flushes'][] = (bool) $hard;
+}
 function wp_mail( $to, $subject, $message, $headers = '', $attachments = array() ) {
 	$GLOBALS['mail'][] = array(
 		'to'      => $to,
@@ -616,6 +656,11 @@ function ck( $label, $got, $want ) {
  * forgot. The last section compares these names with the classes' own once the run has loaded them.
  */
 
+// The six options the old sponsors sync kept, which a site that upgrades still holds until the
+// move onto the site completes; the Sponsors module's uninstall removes them through the names the
+// migration keeps since the sync went (1.111.0), and the last section compares the two.
+$sync_options = array( 'wpcpm_sponsors_state', 'wpcpm_sponsors_report', 'wpcpm_sponsors_last_sync', 'wpcpm_sponsors_last_error', 'wpcpm_sponsors_lock', 'wpcpm_sponsors_sync_shrink' );
+
 // The options the file names, directly or through a class it calls.
 $named_options = array(
 	'wpcpm_settings',                      // WPCPM_Settings::OPT_NAME.
@@ -640,10 +685,16 @@ $named_options = array(
 	'wpcpm_tracks_upgrade_lock',           // WPCPM_Track_Store::OPT_UPGRADE_LOCK, through delete_all().
 	'wpcpm_track_fields_growth',           // The form of the track post below.
 	'wpcpm_track_fields_listed',           // The form of a track the index lists and no post holds.
+	'wpcpm_sponsors_migrated',             // WPCPM_Sponsors_Migration::OPT_REPORT, through WPCPM_Sponsors_Index::delete_all().
+	'wpcpm_sponsors_migrate_lock',         // WPCPM_Sponsors_Migration::OPT_LOCK, through WPCPM_Sponsors::uninstall(): a run that died holding it.
+	'wpcpm_sponsors_page_id',              // WPCPM_Sponsors_Page::OPT_PAGE, through WPCPM_Sponsors::uninstall().
+	'wpcpm_badge_rewrite',                 // WPCPM_Sponsor_Badge::OPT_REWRITE, through WPCPM_Sponsors::uninstall().
+	'wpcpm_sevent_reminder_edge',          // WPCPM_Sponsor_Event::OPT_REMINDER_EDGE, through WPCPM_Sponsor_Event::delete_all().
 	'wpcpm_mentor_application_log',        // WPCPM_Mentor_Application::OPT_LOG, through delete_all().
 	'wpcpm_mentor_application_counts',     // WPCPM_Mentor_Application::OPT_KEPT, through delete_all().
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
 );
+$named_options = array_merge( $named_options, $sync_options );
 
 foreach ( $named_options as $name ) {
 	$GLOBALS['opts'][ $name ] = array( 'seeded' => true );
@@ -686,6 +737,10 @@ set_transient( 'wpcpm_mentor_applications_feed', array( 'months' => array() ), 1
 // The names of the tables a Mentors row links to, kept a day by the table (1.122.33).
 set_transient( 'wpcpm_mapp_link_names', array( 'tblCOUNTRIES00001' => array( 'read' => time(), 'names' => array( 'poland' => 'recCOUNTRYPL00001' ) ) ), DAY_IN_SECONDS );
 
+// The minute the sponsors migration waits between runs while a row keeps failing (1.111.0): a
+// plugin removed inside that minute leaves the transient and its timeout behind.
+set_transient( 'wpcpm_sponsors_migrating', time(), MINUTE_IN_SECONDS );
+
 // The mail log holds the addresses mail went to; the queue, the people still waiting for one; the
 // run, the counts and times of the last bulk invite (the final fix wave, item 6).
 $GLOBALS['opts']['wpcpm_mail_log']     = array( array( 'to' => 'student-one@example.test' ) );
@@ -706,7 +761,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_handbook', 'wpcpm_ment_app' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -717,6 +772,32 @@ foreach ( $plugin_types as $type ) {
 a_post( 'wpcpm_agreement', 'private', array( '_wpcpm_agr_file' => array( 'path' => '/srv/example/wp-content/uploads/.wpcpm-private/agreement-one.pdf.enc', 'sha256' => str_repeat( 'a', 64 ) ), '_wpcpm_agr_institution' => 'recSEED0000000001' ) );
 a_post( 'wpcpm_inst_report', 'trash' );
 a_post( 'wpcpm_track', 'trash' );
+
+// A sponsor's annual report, with a real file under the private files' own base, at a path in the
+// shape WPCPM_Private_Files::store() returns: WPCPM_Sponsor_Report::delete_all() reads this path
+// before the post goes and forgets it through WPCPM_Private_Files::forget(), and a real file is
+// what makes that call resolve rather than return true for a base that can never exist.
+$report_base     = trailingslashit( wp_upload_dir()['basedir'] ) . '.wpcpm-private/';
+$report_relative = '2026/deadbeefdeadbeefdeadbeefdeadbeef.pdf';
+mkdir( $report_base . '2026', 0700, true );
+file_put_contents( $report_base . $report_relative, "%PDF-1.7\nsponsor report fixture\n" );
+$report_absolute = realpath( $report_base . $report_relative );
+
+$report = a_post(
+	'wpcpm_sponsor_report',
+	'private',
+	array(
+		'_wpcpm_sreport_sponsor'  => 'recSEED0000000004',
+		'_wpcpm_sreport_until'    => '2026-08-31',
+		'_wpcpm_sreport_data'     => array( 'v' => 1, 'from' => '2025-09-01', 'until' => '2026-08-31' ),
+		'_wpcpm_sreport_sections' => array( 'program' => 'Placeholder narrative for the uninstall check.' ),
+		'_wpcpm_sreport_state'    => 'draft',
+		'_wpcpm_sreport_file'     => array( 'path' => $report_relative, 'sha256' => str_repeat( 'b', 64 ), 'size' => 24 ),
+	)
+);
+
+// The lock a request took to draft a report of that sponsor and died holding.
+$GLOBALS['opts']['wpcpm_sreport_lock_recSEED0000000004'] = time() - HOUR_IN_SECONDS;
 
 // A canceled call: canceling trashes the call (wp_trash_post()), and `any` leaves the trash out,
 // so a call somebody canceled outlived the plugin (the final fix wave, item 5).
@@ -743,19 +824,23 @@ foreach ( array( 'wpcpm_student', 'wpcpm_mentor', 'wpcpm_institution', 'wpcpm_sp
 	$GLOBALS['roles'][ $role ] = new WP_Role( $role, array( 'read' => true, $program_caps[ $i ] => true ) );
 }
 
-// A program manager who chose how many Student, Mentor, Institution, Sponsor and Administrator
-// accounts a page shows, and how many mentors the Engagement tab shows: core keeps each choice as
-// user meta.
+// An Administrator with a booking link on their profile (1.111.0), which a sponsor's contact block
+// prints, who also chose how many Student, Mentor, Institution, Sponsor and Administrator accounts a
+// page shows and how many mentors the Engagement tab shows, each choice a row of user meta core
+// keeps: the plugin's rows, on an account that is not the plugin's, beside the account's own
+// nickname.
 $admin   = a_user(
 	array( 'administrator' ),
 	array(),
 	array(
+		'wpcpm_booking_url'                => 'https://calendly.example/manager',
 		'wpcpm_students_per_page'          => 50,  // WPCPM_Students::PER_PAGE_OPTION.
 		'wpcpm_mentors_per_page'           => 100, // WPCPM_Mentors::PER_PAGE_OPTION.
 		'wpcpm_mentor_engagement_per_page' => 60,  // WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION.
 		'wpcpm_institutions_per_page'      => 30,  // WPCPM_Institutions::PER_PAGE_OPTION.
 		'wpcpm_sponsors_per_page'          => 40,  // WPCPM_Sponsors::PER_PAGE_OPTION.
 		'wpcpm_administrators_per_page'    => 20,  // WPCPM_Administrators::PER_PAGE_OPTION.
+		'nickname'                         => 'manager-one',
 	)
 );
 $student = a_user(
@@ -786,10 +871,40 @@ $mentor  = a_user(
 );
 $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts', 'upload_files' ), array( 'wpcpm_sponsor_active' => 1 ) );
 
+// A sponsor's event (1.117.0), private as the store keeps it: its facts, its call link, the student
+// on it, the row that says the student is still to be told of its last change and the mark the day
+// before's reminders left on it, each a meta row of its own; another that somebody put in the trash
+// by hand; and the lock of a request that died holding it. The student's account is the site's, and
+// stays.
+$event         = a_post(
+	'wpcpm_sponsor_event',
+	'private',
+	array(
+		'_wpcpm_sevent_sponsor'  => 'spoAAAA0000000001',
+		'_wpcpm_sevent_state'    => 'approved',
+		'_wpcpm_sevent_start'    => 1790000000,
+		'_wpcpm_sevent_link'     => 'https://call.example/room',
+		'_wpcpm_sevent_person'   => $student,
+		'_wpcpm_sevent_pending'  => $student . ':3',
+		'_wpcpm_sevent_reminded' => 3,
+	)
+);
+$trashed_event = a_post( 'wpcpm_sponsor_event', 'trash', array( '_wpcpm_sevent_sponsor' => 'spoAAAA0000000001', '_wpcpm_sevent_state' => 'cancelled' ) );
+// An event of the program's own, with no sponsor, and the one lock the program's events take, left
+// behind by a request that died holding it.
+$program_event = a_post( 'wpcpm_sponsor_event', 'private', array( '_wpcpm_sevent_kind' => 'program', '_wpcpm_sevent_state' => 'approved', '_wpcpm_sevent_start' => 1790000000, '_wpcpm_sevent_link' => 'https://call.example/partners', '_wpcpm_sevent_person' => $student ) );
+
+$GLOBALS['opts']['wpcpm_sevent_lock_spoAAAA0000000001'] = time() - HOUR_IN_SECONDS;
+$GLOBALS['opts']['wpcpm_sevent_lock_program']           = time() - HOUR_IN_SECONDS;
+
 // The cron schedule: the twelve hooks the file clears itself, every hook the modules and the tools
 // clear, and one of core's.
 $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry' );
-$other_hooks = array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily' );
+// The old sponsors sync's two hooks stay on the list: a site that upgrades holds them until the
+// move onto the site completes, and the Sponsors module's uninstall clears them through the names
+// the migration keeps (1.111.0).
+$sync_hooks  = array( 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick' );
+$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily' ), $sync_hooks );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -842,6 +957,70 @@ ck( 'uninstall.php runs to its end, included from inside a function as uninstall
 ck( 'and raises no warning or notice on the way', $raised, array() );
 ck( 'every statement it sent the database, and everything it asked of a stand-in, is modeled here', $GLOBALS['unmodeled'], array() );
 
+echo "\n=== The sponsor report's classes ===\n";
+
+// Loaded by the file and by nothing here, as every other class is: a store the module's clean-up
+// reaches for and the file forgot to require would be a fatal in the middle of it.
+ck( 'the sponsor report\'s store and its numbers are loaded by the file itself', array( class_exists( 'WPCPM_Sponsor_Report', false ), class_exists( 'WPCPM_Sponsor_Report_Numbers', false ) ), array( true, true ) );
+
+// The sponsor event store (1.117.0), for the same reason: its delete_all() is the Sponsors module's
+// to call on the way out, and a class the file forgot to require is a fatal in the middle of it.
+ck( 'and so is the sponsor event store', class_exists( 'WPCPM_Sponsor_Event', false ), true );
+
+// WPCPM_Sponsors::uninstall() calls WPCPM_Sponsor_Report::delete_all(), which removes the seeded
+// report post, every meta row it held, and forgets the real file its file meta named; a page, a
+// post of another type, is untouched.
+ck(
+	'the report post, every meta row and the file it named are gone, and a post of another type stays',
+	array(
+		get_post( $report ),
+		get_post_meta( $report, '_wpcpm_sreport_sponsor', true ),
+		get_post_meta( $report, '_wpcpm_sreport_until', true ),
+		get_post_meta( $report, '_wpcpm_sreport_data', true ),
+		get_post_meta( $report, '_wpcpm_sreport_sections', true ),
+		get_post_meta( $report, '_wpcpm_sreport_state', true ),
+		get_post_meta( $report, '_wpcpm_sreport_file', true ),
+		$GLOBALS['forgotten'],
+		file_exists( $report_absolute ),
+		null !== get_post( $page ),
+	),
+	array( null, '', '', '', '', '', '', array( $report_absolute ), false, true )
+);
+ck( 'the lock a request that died drafting a report left behind goes too', get_option( 'wpcpm_sreport_lock_recSEED0000000004', 'gone' ), 'gone' );
+ck(
+	'found by its prefix, escaped for LIKE, through the site\'s own database object',
+	array_values( array_intersect( $wpdb->queries, array( "SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_sreport\\_lock\\_%'" ) ) ),
+	array( "SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_sreport\\_lock\\_%'" )
+);
+
+echo "\n=== The sponsor events ===\n";
+
+// WPCPM_Sponsors::uninstall() calls WPCPM_Sponsor_Event::delete_all(), which deletes every event for
+// good in every status the sponsors store walks, the trash included, and every meta row with it;
+// then every lock, found by its prefix, since a lock is named after a sponsor the store may already
+// have forgotten.
+ck(
+	'the sponsor events go, a trashed one included, with every meta row they held: the student on one, its call link, the row that said the student was still to be told, and the mark of its reminders',
+	array( get_post( $event ), get_post( $trashed_event ), isset( $GLOBALS['pmeta'][ $event ] ), isset( $GLOBALS['pmeta'][ $trashed_event ] ), get_post_meta( $event, '_wpcpm_sevent_person', true ), get_post_meta( $event, '_wpcpm_sevent_link', true ), get_post_meta( $event, '_wpcpm_sevent_pending', true ), get_post_meta( $event, '_wpcpm_sevent_reminded', true ) ),
+	array( null, null, false, false, '', '', '', '' )
+);
+ck( 'while the student keeps the account: the row that named them goes, they do not', isset( $GLOBALS['users'][ $student ] ), true );
+ck( 'the lock a request that died holding it left behind goes too', get_option( 'wpcpm_sevent_lock_spoAAAA0000000001', 'gone' ), 'gone' );
+ck( 'and so do the program\'s own events, with their meta, and the program\'s lock', array( get_post( $program_event ), isset( $GLOBALS['pmeta'][ $program_event ] ), get_option( 'wpcpm_sevent_lock_program', 'gone' ) ), array( null, false, 'gone' ) );
+ck(
+	'found by its prefix, escaped for LIKE, through the site\'s own database object',
+	array_values( array_intersect( $wpdb->queries, array( "SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_sevent\\_lock\\_%'" ) ) ),
+	array( "SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_sevent\\_lock\\_%'" )
+);
+
+echo "\n=== The rewrite rules ===\n";
+
+// The badge's rule stays in the stored rules until something writes them without it, and with the
+// plugin gone its query var is no longer public, so `/sponsor-badge/<name>` would answer the home
+// page. The uninstall request never ran the plugin's init, so the rule is not in memory, and one
+// flush writes the rules without it.
+ck( 'the rewrite rules are flushed once, so the badge\'s rule leaves the stored rules with the plugin', count( $GLOBALS['flushes'] ), 1 );
+
 echo "\n=== The options ===\n";
 
 ck( 'every option the file names goes, the Track Builder\'s included', array_values( array_intersect( $named_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
@@ -887,7 +1066,7 @@ echo "\n=== The meta ===\n";
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
 ck( 'the three keys an activation leaves on a mentor\'s account go, the held invitation among them, and the account\'s own stays', $GLOBALS['umeta'][ $mentor ], array( 'nickname' => 'mentor-one' ) );
 ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
-ck( 'a manager\'s rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too', $GLOBALS['umeta'][ $admin ], array() );
+ck( 'an Administrator\'s booking link and rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too, and the account\'s own row stays', $GLOBALS['umeta'][ $admin ], array( 'nickname' => 'manager-one' ) );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
 
@@ -1013,8 +1192,31 @@ $names = array(
 	'WPCPM_Semester_Report_Screen::CRON_AUTODRAFT'  => 'wpcpm_report_autodraft',
 	'WPCPM_Sponsor_Agreement::CRON_DISCARD'         => 'wpcpm_sponsor_agreement_discard',
 	'WPCPM_Sponsor_Application::CRON_PURGE'         => 'wpcpm_purge_sponsor_applications',
-	'WPCPM_Sponsors_Sync::CRON_DAILY'               => 'wpcpm_sponsors_daily',
-	'WPCPM_Sponsors_Sync::CRON_TICK'                => 'wpcpm_sponsors_sync_tick',
+	'WPCPM_Sponsor_Tiers_Run::CRON_HOOK'            => 'wpcpm_sponsor_tiers_daily',
+	'WPCPM_Sponsors_Migration::SYNC_OPTIONS'        => $sync_options,
+	'WPCPM_Sponsors_Migration::SYNC_HOOKS'          => $sync_hooks,
+	'WPCPM_Sponsors_Migration::OPT_REPORT'          => 'wpcpm_sponsors_migrated',
+	'WPCPM_Sponsors_Migration::TRANSIENT_RUNNING'   => 'wpcpm_sponsors_migrating',
+	'WPCPM_Sponsors_Migration::OPT_LOCK'            => 'wpcpm_sponsors_migrate_lock',
+	'WPCPM_Sponsors_Index::POST_TYPE'               => 'wpcpm_sponsor_co',
+	'WPCPM_Sponsor_Report::LOCK_PREFIX'             => 'wpcpm_sreport_lock_',
+	'WPCPM_Sponsor_Event::POST_TYPE'                => 'wpcpm_sponsor_event',
+	'WPCPM_Sponsor_Event::META_SPONSOR'             => '_wpcpm_sevent_sponsor',
+	'WPCPM_Sponsor_Event::META_STATE'               => '_wpcpm_sevent_state',
+	'WPCPM_Sponsor_Event::META_START'               => '_wpcpm_sevent_start',
+	'WPCPM_Sponsor_Event::META_LINK'                => '_wpcpm_sevent_link',
+	'WPCPM_Sponsor_Event::META_PERSON'              => '_wpcpm_sevent_person',
+	'WPCPM_Sponsor_Event::META_PENDING'             => '_wpcpm_sevent_pending',
+	'WPCPM_Sponsor_Event::META_REMINDED'            => '_wpcpm_sevent_reminded',
+	'WPCPM_Sponsor_Event::CRON_DRAIN'               => 'wpcpm_sevent_drain',
+	'WPCPM_Sponsor_Event::CRON_RETRY'               => 'wpcpm_sevent_remind_retry',
+	'WPCPM_Sponsor_Event::OPT_REMINDER_EDGE'        => 'wpcpm_sevent_reminder_edge',
+	'WPCPM_Sponsor_Event::LOCK_PREFIX'              => 'wpcpm_sevent_lock_',
+	'WPCPM_Sponsor_Event::PROGRAM_LOCK'             => 'program',
+	'WPCPM_Sponsor_Event::KIND_PROGRAM'             => 'program',
+	'WPCPM_Sponsors_Page::OPT_PAGE'                 => 'wpcpm_sponsors_page_id',
+	'WPCPM_Sponsor_Badge::OPT_REWRITE'              => 'wpcpm_badge_rewrite',
+	'WPCPM_Manager_Booking::META'                   => 'wpcpm_booking_url',
 	'WPCPM_Mentor_Checker_Runner::CRON_HOOK'        => 'wpcpm_checker_weekly_check',
 	'WPCPM_Mentor_Checker_Slack::RETRY_HOOK'        => 'wpcpm_checker_slack_retry',
 	'WPCPM_Duplicates_Scan::CRON_SCAN'              => 'wpcpm_duplicates_scan',

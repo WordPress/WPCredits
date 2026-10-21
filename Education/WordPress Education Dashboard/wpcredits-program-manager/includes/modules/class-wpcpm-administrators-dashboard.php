@@ -15,8 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Built exactly like the Institution Dashboard (design of 4 September 2026, decision 1):
  * one page the module creates and adopts by slug, gated to the administrator level with
  * `metadata_exists()`, a block and a shortcode that both reach `render()`, and one
- * `render()` that calls the cards in order. The order of the calls is the spec's, and it
- * is the whole of it.
+ * `render()` that draws one sentence under the title, the attention strip, the cards in their
+ * three groups and, last, the Tools section and the resources. The groups and the order of the
+ * cards in each are `groups()`'s.
  */
 final class WPCPM_Administrators_Dashboard {
 	/** The shortcode, for a page the plugin did not create. */
@@ -37,6 +38,16 @@ final class WPCPM_Administrators_Dashboard {
 	const OLD_TITLES = array();
 	/** The module id `WPCPM_Dashboards::nothing_to_show()` knows. */
 	const MODULE = 'administrators';
+	/**
+	 * What this page's groups ask of the dashboards' group printer, `WPCPM_Dashboard_Card::group()`,
+	 * besides their own id, heading, sentence and cards: the page's classes, which the theme's
+	 * rules for this page key on.
+	 */
+	const GROUP = array(
+		'group_class' => 'wpcpm-administrator__group',
+		'title_class' => 'wpcpm-administrator__group-title',
+		'lead_class'  => 'wpcpm-administrator__group-lead',
+	);
 
 	/**
 	 * Hooks. Called from `WPCPM_Administrators::boot()`.
@@ -50,6 +61,25 @@ final class WPCPM_Administrators_Dashboard {
 	 * The stylesheet, the shortcode and the block.
 	 */
 	public static function register() {
+		self::register_assets();
+
+		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render' ) );
+
+		$block_dir = WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard';
+
+		if ( function_exists( 'register_block_type' ) && file_exists( $block_dir . '/block.json' ) ) {
+			register_block_type( $block_dir, array( 'render_callback' => array( __CLASS__, 'render_block' ) ) );
+		}
+	}
+
+	/**
+	 * Register (but do not enqueue) the stylesheet.
+	 *
+	 * Public because the Sponsor Dashboard's sheet depends on this one: that page's At a glance strip
+	 * wears this page's attention tiles, so it asks this class for the sheet that dresses them, the
+	 * way both pages ask the mentors' class for theirs.
+	 */
+	public static function register_assets() {
 		// The Tools section's whole base look lives in the mentors' stylesheet, as it does for
 		// the other three dashboards; without this dependency it drew as a plain bulleted list
 		// with full-size logos (final review of Phase S2, finding 3).
@@ -62,14 +92,6 @@ final class WPCPM_Administrators_Dashboard {
 				array( WPCPM_Mentors_Dashboard::STYLE ),
 				WPCPM_VERSION
 			);
-		}
-
-		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render' ) );
-
-		$block_dir = WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard';
-
-		if ( function_exists( 'register_block_type' ) && file_exists( $block_dir . '/block.json' ) ) {
-			register_block_type( $block_dir, array( 'render_callback' => array( __CLASS__, 'render_block' ) ) );
 		}
 	}
 
@@ -236,6 +258,11 @@ final class WPCPM_Administrators_Dashboard {
 
 		wp_enqueue_script( 'wpcpm-forms' );
 
+		// A tile, a link in a mail or a decision's way back lands on a card's anchor, and a browser
+		// that follows a link to a closed card leaves it closed: the dashboards' opener, the one the
+		// Sponsor Dashboard's cards use, opens it.
+		WPCPM_Dashboard_Card::enqueue_opener();
+
 		if ( ! is_user_logged_in() ) {
 			// Same shape as WPCPM_Institutions_Dashboard::render() for a logged-out visitor: a
 			// sentence and a way back in, not a dead end nobody without an account can do
@@ -266,23 +293,30 @@ final class WPCPM_Administrators_Dashboard {
 			printf( '<h2 class="wpcpm-dashboard__title">%s</h2>', esc_html( $atts['title'] ) );
 		}
 
+		// One sentence under the title says what the page is (the design the owner approved on 28
+		// September 2026); what it is for, at length, is in the program manager guide, which
+		// bin/build-docs.php builds from docs/sections/ and which is published as the site's own
+		// /program-manager-guide/ page. The resources' WordPress Credits handbook button opens the
+		// handbook on make.wordpress.org, not that page. The page's own line takes the class the
+		// Mentor Report Card's and the Institution Dashboard's headers give theirs, which the
+		// sheets already dress.
+		printf( '<p class="wpcpm-dashboard__intro">%s</p>', esc_html__( 'Everything waiting for an Administrator, what to watch, and the program\'s numbers, read from the site and Airtable.', 'wpcredits-program-manager' ) );
+
 		self::render_messages();
 
 		WPCPM_Administrators_Cards::render_strip( $counts );
-		WPCPM_Administrators_Cards::render_applications( $data['applications'] );
-		WPCPM_Administrators_Cards::render_agreements( $data['agreements'] );
-		WPCPM_Administrators_Cards::render_reports( $data['reports'] );
-		WPCPM_Administrators_Cards::render_requests( $data['requests'] );
-		WPCPM_Administrators_Cards::render_sponsor_applications( isset( $data['sponsor_applications'] ) ? (array) $data['sponsor_applications'] : array(), $data['sponsor_totals']['applications'] );
-		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array(), $data['sponsor_totals']['posts'] );
-		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array(), $data['sponsor_totals']['agreements'] );
-		WPCPM_Administrators_Cards::render_offers_low( isset( $data['offers_low'] ) ? (array) $data['offers_low'] : array() );
-		WPCPM_Administrators_Cards::render_duplicates( isset( $data['duplicates'] ) ? (array) $data['duplicates'] : array() );
-		WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );
-		WPCPM_Administrators_Cards::render_sponsors_strip( isset( $data['sponsors'] ) ? (array) $data['sponsors'] : array() );
-		WPCPM_Administrators_Cards::render_programs( $data['programs'] );
-		WPCPM_Administrators_Cards::render_mentor_engagement( isset( $data['mentor_engagement'] ) ? (array) $data['mentor_engagement'] : array() );
-		WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
+
+		// Each group in the one shape both dashboards draw their groups in, with this page's classes:
+		// the heading and one sentence over the group's cards, and nothing over a group with none.
+		foreach ( self::groups( $data ) as $group ) {
+			WPCPM_Dashboard_Card::group( array_merge( self::GROUP, $group ) );
+		}
+
+		// The groups' headings are h2, so the Tools section's and the resources' h3 headings would
+		// read as the Reference group's in an outline: one h2 over both, for a screen reader alone,
+		// as the Sponsor Dashboard's resources open with. The two are drawn first, into a buffer,
+		// so the heading is printed only over something.
+		ob_start();
 
 		// Every live offer with its audience, for the program (spec 6.5). No switch for managers.
 		if ( class_exists( 'WPCPM_Sponsor_Tools' ) ) {
@@ -291,22 +325,90 @@ final class WPCPM_Administrators_Dashboard {
 
 		self::render_help();
 
+		$after = (string) ob_get_clean();
+
+		if ( '' !== trim( $after ) ) {
+			printf( '<h2 class="screen-reader-text">%s</h2>', esc_html__( 'Tools and resources', 'wpcredits-program-manager' ) );
+			echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's and the resources' own markup, each escaping what it prints, held until the page knew it had any.
+		}
+
 		echo '</div>';
 
 		return (string) ob_get_clean();
 	}
 
 	/**
+	 * The page's three groups of cards, in the order the owner approved on 28 September 2026, which is
+	 * the order an Administrator works through the page: what waits for an Administrator's decision, what to
+	 * keep an eye on, and the program's numbers. Each is an id, a heading, the one sentence that says
+	 * what its cards hold, and what draws its cards, in order. The Events card draws nothing while
+	 * Sponsor tiers is switched off, so until the program announces the tiers its group holds no place
+	 * for it.
+	 *
+	 * @param array $data What `WPCPM_Administrators_Cards::collect()` returned.
+	 * @return array[] `id`, `title`, `lead`, `cards`: a callable that prints the group's cards.
+	 */
+	private static function groups( array $data ) {
+		return array(
+			array(
+				'id'    => 'waiting',
+				'title' => __( 'Waiting for you', 'wpcredits-program-manager' ),
+				'lead'  => __( 'What needs an Administrator\'s decision.', 'wpcredits-program-manager' ),
+				'cards' => static function () use ( $data ) {
+					WPCPM_Administrators_Cards::render_applications( $data['applications'] );
+					WPCPM_Administrators_Cards::render_agreements( $data['agreements'] );
+					WPCPM_Administrators_Cards::render_reports( $data['reports'] );
+					WPCPM_Administrators_Cards::render_requests( $data['requests'] );
+					WPCPM_Administrators_Cards::render_sponsor_applications( isset( $data['sponsor_applications'] ) ? (array) $data['sponsor_applications'] : array(), $data['sponsor_totals']['applications'] );
+					WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array(), $data['sponsor_totals']['posts'] );
+					WPCPM_Administrators_Cards::render_sponsor_offers( isset( $data['sponsor_offers'] ) ? (array) $data['sponsor_offers'] : array(), isset( $data['sponsor_totals']['offers'] ) ? $data['sponsor_totals']['offers'] : null );
+					WPCPM_Administrators_Cards::render_sponsor_events( isset( $data['sponsor_events'] ) ? (array) $data['sponsor_events'] : array() );
+					WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array(), $data['sponsor_totals']['agreements'] );
+					WPCPM_Administrators_Cards::render_sponsor_reports( isset( $data['sponsor_reports'] ) ? (array) $data['sponsor_reports'] : array() );
+				},
+			),
+			array(
+				'id'    => 'watch',
+				'title' => __( 'Watch', 'wpcredits-program-manager' ),
+				'lead'  => __( 'What to keep an eye on this week.', 'wpcredits-program-manager' ),
+				'cards' => static function () use ( $data ) {
+					WPCPM_Administrators_Cards::render_offers_low( isset( $data['offers_low'] ) ? (array) $data['offers_low'] : array() );
+					WPCPM_Administrators_Cards::render_duplicates( isset( $data['duplicates'] ) ? (array) $data['duplicates'] : array() );
+					WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );
+					WPCPM_Administrators_Cards::render_tiers_ending( isset( $data['tiers_ending'] ) ? (array) $data['tiers_ending'] : array() );
+					WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
+				},
+			),
+			array(
+				'id'    => 'reference',
+				'title' => __( 'Reference', 'wpcredits-program-manager' ),
+				'lead'  => __( 'The program\'s numbers.', 'wpcredits-program-manager' ),
+				'cards' => static function () use ( $data ) {
+					WPCPM_Administrators_Cards::render_sponsors_strip( isset( $data['sponsors'] ) ? (array) $data['sponsors'] : array() );
+					WPCPM_Administrators_Cards::render_programs( $data['programs'] );
+					WPCPM_Administrators_Cards::render_mentor_engagement( isset( $data['mentor_engagement'] ) ? (array) $data['mentor_engagement'] : array() );
+				},
+			),
+		);
+	}
+
+	/**
 	 * What the last decision left to say, in the words the wp-admin queue would use.
 	 *
 	 * Every handler this page posts to flashes on the Institutions screen's channel, so the
-	 * four message maps are merged here as that screen merges them, the sponsor agreement's under
-	 * its own prefix, since its keys are the institution agreement's. Taken once, so it shows
+	 * message maps of those handlers are merged here, the sponsor agreement's under its own prefix,
+	 * since its keys are the institution agreement's. Taken once, so it shows
 	 * once, here or there. Draft now (WPCPM_Semester_Report_Screen::ACTION_DRAFT) is the one
 	 * decision this page posts that flashes somewhere else, on its own screen's channel, so it
 	 * is read separately below rather than merged into this map (since 1.92.0, decision 2 of
 	 * the final review: a successful draft never flashes here at all, because it leaves this
-	 * page for the editor; only a refusal does).
+	 * page for the editor; only a refusal does). The Sponsor reports card's Draft now (1.115.0)
+	 * is not that one: its handler flashes a refusal on this channel when the press came from
+	 * this page, so the Sponsors screen's report words are merged into this map, and a draft
+	 * that is made leaves for its editor, as the semester report's does. The Events
+	 * card's three decisions (1.117.0) are posted from this page alone and flash on this
+	 * channel whatever they decide, so their words are merged too; a stale nonce or a missing
+	 * capability stops on WordPress's own screen before any decision, and flashes nothing.
 	 */
 	private static function render_messages() {
 		$status = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
@@ -330,6 +432,10 @@ final class WPCPM_Administrators_Dashboard {
 				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Posts::messages() );
 			}
 
+			if ( class_exists( 'WPCPM_Sponsor_Offer_Review' ) && method_exists( 'WPCPM_Sponsor_Offer_Review', 'messages' ) ) {
+				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Offer_Review::messages() );
+			}
+
 			// The sponsor agreement's keys are the institution agreement's too, each worded for its
 			// own audience, so its outcomes come back here under its prefix and its sentences are
 			// read under it: neither audience is told the other's words.
@@ -343,6 +449,14 @@ final class WPCPM_Administrators_Dashboard {
 				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Application::manager_messages() );
 			}
 
+			if ( class_exists( 'WPCPM_Sponsor_Report_Screen' ) && method_exists( 'WPCPM_Sponsor_Report_Screen', 'messages' ) ) {
+				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Report_Screen::messages() );
+			}
+
+			if ( class_exists( 'WPCPM_Sponsor_Event_Queue' ) && method_exists( 'WPCPM_Sponsor_Event_Queue', 'messages' ) ) {
+				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Event_Queue::messages() );
+			}
+
 			if ( class_exists( 'WPCPM_Sync_Module' ) && method_exists( 'WPCPM_Sync_Module', 'sync_messages' ) ) {
 				$messages = array_merge( $messages, (array) WPCPM_Sync_Module::sync_messages() );
 			}
@@ -353,7 +467,7 @@ final class WPCPM_Administrators_Dashboard {
 				// The sponsor application queue's `sapp-account` sentence names what the site
 				// said when the account step failed, and that detail is one-shot: it is read
 				// here, on the one status being printed, and never inside the map, which
-				// anything that wants a sentence builds (S5 review).
+				// anything that wants a sentence builds.
 				if ( class_exists( 'WPCPM_Sponsor_Application' ) && method_exists( 'WPCPM_Sponsor_Application', 'sentence_for' ) ) {
 					$sentence = (string) WPCPM_Sponsor_Application::sentence_for( $status, $sentence );
 				}
@@ -403,7 +517,7 @@ final class WPCPM_Administrators_Dashboard {
 	}
 
 	/**
-	 * The Updates column and the program manager guide, last on the page.
+	 * The Updates column, the program manager guide and the way into wp-admin, last on the page.
 	 */
 	private static function render_help() {
 		if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) || ! method_exists( 'WPCPM_Handbook_Assistant', 'render_resources' ) ) {

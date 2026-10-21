@@ -133,6 +133,18 @@ ck( 'and says what it built, from inside the archive', array(
 	false !== strpos( $built['out'], 'version inside: ' . $version ),
 ), array( true, true, true ) );
 
+// The translation template is for translators and the tools that make translations from it:
+// WordPress loads a plugin's compiled translations and never reads its .pot, so .distignore keeps it
+// out of the zip. Read from the archive itself, and only once it lists something, so a zip that was
+// never written cannot pass.
+$listed = run( 'unzip -Z1 ' . escapeshellarg( $zip ) );
+
+ck( 'the zip carries no translation template', array(
+	$listed['status'],
+	'' !== trim( $listed['out'] ),
+	array_values( preg_grep( '/\.pot$/', explode( "\n", $listed['out'] ) ) ),
+), array( 0, true, array() ) );
+
 // The finding: a zip that cannot be written left the script dead with nothing said. Anything
 // that goes wrong has to reach the person who ran it, on stderr, with a non-zero status.
 $nowhere = run( 'bash bin/build ' . escapeshellarg( $scratch . '/no/such/directory/probe.zip' ) );

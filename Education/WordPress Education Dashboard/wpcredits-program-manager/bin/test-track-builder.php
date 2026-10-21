@@ -8,6 +8,11 @@
  * tracks' pairs say which tracks are kept. So the collaborators are stood in for here and the
  * screen is held to what it does with their answers.
  *
+ * A track's partners' narrative is a box of many lines under the partners: drawn with the track's
+ * text, escaped, and saved with the track; an emptied box removes it and a form with no box leaves
+ * it; a refused Save draws it again as it was left; a copy starts without it; and History names a
+ * change to it.
+ *
  * Run from the plugin root:  php bin/test-track-builder.php
  */
 
@@ -80,7 +85,7 @@ function admin_url( $path = '' ) { return 'https://example.test/wp-admin/' . $pa
 // Faithful to core in the one way that matters here: a value is inserted as it is handed and
 // never encoded (core says the caller encodes), so a handler that forgets to encode a column
 // name fails the check with & and + below rather than passing against a stand-in that encoded
-// for it (the Task 5 review). Both forms core accepts.
+// for it. Both forms core accepts.
 function add_query_arg( $key, $value = null, $url = null ) {
 	if ( is_array( $key ) ) { $args = $key; $url = (string) $value; } else { $args = array( $key => $value ); $url = (string) $url; }
 	foreach ( $args as $k => $v ) { $url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
@@ -149,6 +154,9 @@ class WPCPM_Request {
 	public static function posted_exact( $key ) { return isset( $_POST[ $key ] ) ? (string) $_POST[ $key ] : ''; }
 	public static function exact( $key ) { return isset( $_GET[ $key ] ) ? (string) $_GET[ $key ] : ''; }
 	public static function posted_verbatim_lines( $key ) { return isset( $_POST[ $key ] ) ? implode( "\n", array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $_POST[ $key ] ) ), 'strlen' ) ) : ''; }
+	// As the real one: tags stripped, the text trimmed and its line breaks kept, and the fallback for
+	// a field the form did not send, which is how a form that drew no box is told from an emptied one.
+	public static function posted_lines( $key, $fallback = '' ) { return isset( $_POST[ $key ] ) && is_scalar( $_POST[ $key ] ) ? trim( strip_tags( (string) $_POST[ $key ] ) ) : $fallback; }
 	// As the real one: a value is kept only when the whole of it matches, each once, in the order posted.
 	public static function posted_list( $key, $pattern ) {
 		$kept = array();
@@ -488,17 +496,81 @@ class WPCPM_Call_Calendar {
 	public static function register_assets() { ++self::$registered; }
 }
 
-/** The report form, stood in: what the preview handed it, the course too, and a marker where it drew. */
+/** The report form, stood in: what the preview handed it, the course and the partnership line too, and a marker where it drew. */
 class WPCPM_Student_Report_Form {
 	public static $previewed = array();
 	public static $courses   = array();
+	public static $partners  = array();
 
-	public static function render_preview( array $fields, $course = '' ) {
+	public static function render_preview( array $fields, $course = '', $partners = '' ) {
 		self::$previewed[] = array_keys( $fields );
 		self::$courses[]   = $course;
-		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">' . count( $fields ) . ' fields</div>';
+		self::$partners[]  = $partners;
+		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">' . count( $fields ) . ' fields' . $partners . '</div>';
 	}
 }
+
+/**
+ * The partners, stood in: the real class resolves them from the sponsors store and the tier ladder,
+ * which this suite does not load; bin/test-track-partners.php holds the real one to both. Four
+ * globals answer here: the sponsors a track may name today, the other sponsors the store knows,
+ * whether the tiers' switch is on, and the partners each published track names. The line names the
+ * keys it draws, so a check can see whose partners were drawn.
+ */
+class WPCPM_Track_Partners {
+	const FIELD = 'wpcpm_sponsors';
+
+	/** Every render_line() call: the track's key, and the keys it was handed, null for none. */
+	public static $asked = array();
+
+	public static function eligible( $today = '' ) {
+		return $GLOBALS['partners_eligible'];
+	}
+
+	// As the real one: the eligible sponsors, then every stored key they lack, each with its note.
+	public static function choices( array $stored, $today = '' ) {
+		$choices = array();
+
+		foreach ( self::eligible() as $record => $name ) {
+			$choices[ $record ] = array( 'label' => $name, 'note' => '' );
+		}
+
+		foreach ( $stored as $record ) {
+			$record = (string) $record;
+
+			if ( isset( $choices[ $record ] ) ) {
+				continue;
+			}
+
+			$known              = isset( $GLOBALS['partners_known'][ $record ] );
+			$choices[ $record ] = array(
+				'label' => $known ? $GLOBALS['partners_known'][ $record ] : $record,
+				'note'  => $known ? 'no longer a Partner' : 'unknown sponsor',
+			);
+		}
+
+		return $choices;
+	}
+
+	// As the real one: nothing while the tiers' switch is off, else the keys it is handed, or the
+	// published track's when it is handed none.
+	public static function render_line( $key, $today = '', $keys = null ) {
+		self::$asked[] = array( (string) $key, $keys );
+
+		if ( empty( $GLOBALS['partners_live'] ) ) {
+			return '';
+		}
+
+		$keys = null === $keys ? ( $GLOBALS['partners_published'][ (string) $key ] ?? array() ) : $keys;
+
+		return array() === $keys ? '' : '<div class="wpcpm-student__partners">' . implode( ' ', $keys ) . '</div>';
+	}
+}
+
+$GLOBALS['partners_eligible']  = array();
+$GLOBALS['partners_known']     = array();
+$GLOBALS['partners_live']      = false;
+$GLOBALS['partners_published'] = array();
 
 /** The students sync, for how many people are on a track now. */
 class WPCPM_Students_Sync {
@@ -628,7 +700,7 @@ ck( 'the four links of a row are drawn in the order the loop prints them, each c
     substr_count( $html, '>Edit</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_duplicate=13">Duplicate</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a> ' ),
     1 );
 
-// From Task 6 onward the screen prints values a Program Administrator typed into a track's own
+// The screen prints values a Program Administrator typed into a track's own
 // name, so a label is exactly where stored markup would surface if `esc_html()` were ever
 // dropped. A row built by hand, not through `WPCPM_Track_Builder::rows()` or the three tracks
 // above, so this proves what the screen does with a label and nothing about the earlier checks.
@@ -660,7 +732,7 @@ echo "\n=== The tool's hooks and assets ===\n";
  * Run a handler and say how it ended: a redirect, or the message it died with.
  *
  * A redirect's target is also kept, in `$GLOBALS['last_redirect']`, for a check that cares where
- * it landed rather than only that it happened (Task 9 review, L5).
+ * it landed rather than only that it happened.
  */
 function outcome( callable $handler ) {
 	try {
@@ -694,7 +766,7 @@ echo "\n=== The properties form ===\n";
 // read. Every track is edited here, the four original tracks included.
 ck( 'the form offers the track properties, then its questions and every other track\'s columns',
     array_keys( WPCPM_Track_Builder::form( 13 ) ),
-    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
+    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'sponsors', 'partner_choices', 'partners_narrative', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
 ck( 'filled from the definition', array( WPCPM_Track_Builder::form( 13 )['label'], WPCPM_Track_Builder::form( 13 )['status'] ), array( 'Marketing Track', 'Marketing Track' ) );
 
 ob_start();
@@ -706,7 +778,7 @@ ck( 'the form posts to the save action with a field per property',
     array( 1, 1, 1, 1, 1 ) );
 
 // A refusal flashes what was typed, and the form has to prefer it over the stored value - the
-// whole point of carrying `values` at all (Task 6 review). The typed label carries a quote and a
+// whole point of carrying `values` at all. The typed label carries a quote and a
 // tag so this also proves the win is not shown raw.
 ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array( 'values' => array( 'label' => 'Renamed "Marketing" <b>Track</b>' ) ) ) );
@@ -727,9 +799,9 @@ ck( 'one of the four original tracks is edited like any track, every property in
 
 // Track 13's definition carries no `hours_target` and an empty `course_url`. Posting the form's
 // own output back unchanged must not invent the one or keep the other as a stored empty string: a
-// blank field means the property is absent, not a value of zero or '' (the Task 6 review for
-// hours_target, and the final review for course_url - an untouched Save was flipping a published
-// track to "Unpublished changes" for a value nobody typed).
+// blank field means the property is absent, not a value of zero or '' (an
+// untouched Save was flipping a published track to "Unpublished changes" for a value nobody
+// typed).
 $form_before = WPCPM_Track_Builder::form( 13 );
 
 $GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
@@ -822,8 +894,7 @@ WPCPM_Track_Store::$duplicated = array();
 $_POST                         = array( 'track' => 999 );
 
 // A post that is not a track - somebody else's, or none at all - is the one guard between a
-// request and a copy of a post it named but never held, so this is pinned on its own (the Task 7
-// review).
+// request and a copy of a post it named but never held, so this is pinned on its own.
 ck( 'a track id naming no track is refused before anything is created',
     array( outcome( array( $tool, 'handle_duplicate' ) ), WPCPM_Track_Store::$duplicated, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
     array( 'redirect', array(), array( 'status' => 'error', 'message' => 'That track does not exist.' ) ) );
@@ -1072,7 +1143,7 @@ ck( 'a live track offers the check and the way off the live site, and not Publis
 ck( 'and with no schema token the columns are a list to make by hand',
     false !== strpos( $live_screen, 'no schema token is configured' ), true );
 
-// M1/L8 (Task 9 review): a draft whose preflight is ready but has columns pending, on a site
+// A draft whose preflight is ready but has columns pending, on a site
 // with no schema token, must not be handed a Publish button - `run()` can only refuse it with
 // `wpcpm_track_columns_by_hand` - and the by-hand list it is offered instead has to carry enough
 // (name, type, and a select's choices) that nobody has to guess.
@@ -1136,7 +1207,7 @@ foreach ( array( 'handle_publish', 'handle_unpublish', 'handle_verify', 'handle_
 	    outcome( array( $tool, $handler ) ), 'die: You do not have permission to manage the program.' );
 }
 
-// L4 (Task 9 review): $verified belongs in this list too, or a handle_verify() that read before
+// $verified belongs in this list too, or a handle_verify() that read before
 // its guard would still pass every check here. So does the preflight Publish reads for the typed
 // name: these presses carry the right name, so a handle_publish() that read the base before its
 // guard would otherwise pass (PUBLISH-LEARN-3's fix round).
@@ -1154,19 +1225,19 @@ ck( 'with both guards passed, Publish runs for the track that was posted',
 ck( 'and the flash says how many columns were created',
     false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], '1 column was created' ), true );
 
-// L5 (Task 9 review): the redirect target itself, not only that a redirect happened - four
+// The redirect target itself, not only that a redirect happened - four
 // handlers deliberately carry `wpcpm_publish` so the notice lands back on this same screen.
 ck( 'and lands back on the publish screen it was pressed from',
     false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
 
-// L6 (Task 9 review): handle_publish()'s error path had no check at all.
+// handle_publish()'s error path.
 WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_columns_by_hand', 'This track needs columns the base does not have, and no schema token is configured.' );
 
 ck( 'a publish the store refuses comes back as the error it is',
     array( outcome( array( $tool, 'handle_publish' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
     array( 'redirect', array( 'status' => 'error', 'message' => 'This track needs columns the base does not have, and no schema token is configured.' ) ) );
 
-// L6 (Task 9 review): the brief's own "nothing had to be created" case, the 0 === $made branch.
+// The "nothing had to be created" case, the 0 === $made branch.
 WPCPM_Track_Publish::$answer = array( 'created' => array(), 'published' => true );
 
 ck( 'and a run with nothing pending says so, not a count of columns it did not make',
@@ -1194,7 +1265,7 @@ ck( 'a tick names the item it was pressed for',
 ck( 'and it too lands back on the publish screen',
     false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
 
-// L6 (Task 9 review): handle_untick()'s effect was exercised only by its capability guard.
+// handle_untick()'s effect, beyond its capability guard.
 $GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNTICK;
 WPCPM_Track_Publish::$answer = null;
 WPCPM_Track_Publish::$ticked = array();
@@ -1220,7 +1291,7 @@ ck( 'a verify that finds a column gone names it, as an error',
 ck( 'and lands back on the publish screen',
     false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
 
-// L2/L6 (Task 9 review): verified()'s choices branch had no check, and the notice it returns now
+// verified()'s choices branch: the notice it returns now
 // names the checklist item ("Add the two Status choices") rather than a number the screen, which
 // draws an unordered list, never shows.
 WPCPM_Flash::$set            = array();
@@ -1962,7 +2033,7 @@ ck( 'while an unpublished shared question still offers it',
     array( true, false ) );
 
 // A lock can be taken while this screen is open: publish the track in another tab, then save a
-// control change. What comes back is the control the question has (the Task 7 review).
+// control change. What comes back is the control the question has.
 WPCPM_Track_Store::$tracks[13]['published'] = array( 'questions' => array( 'Slack name' => array() ) );
 $raced = question_screen(
 	WPCPM_Track_Builder::question_form( 13, 'Slack name' ),
@@ -2322,15 +2393,16 @@ WPCPM_Track_Store::$tracks[11] = array(
 ck( 'the builder hands the view the draft compiled as the live site compiles it: the authoring properties gone, the rest as stored',
     WPCPM_Track_Builder::preview( 13 ),
     array(
-        'track'  => 13,
-        'label'  => 'Marketing Track',
-        'fields' => array(
+        'track'    => 13,
+        'label'    => 'Marketing Track',
+        'fields'   => array(
             'Hours'      => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'min' => 0, 'max' => 1000, 'step' => 1 ),
             'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ),
             'Your blog'  => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding' ),
         ),
-        'state'  => 'draft',
-        'course' => '',
+        'state'    => 'draft',
+        'course'   => '',
+        'partners' => '',
     ) );
 
 // TRACKS-3: the student's page draws the hours box beside the course button, or in a section of
@@ -3561,7 +3633,7 @@ ck( 'the copy has its three of its own, every question with its lesson, and no c
         array_key_exists( 'course_url', $copy ),
         array_key_exists( 'learn_course_id', $copy ),
         array_key_exists( 'hours_target', $copy ),
-        substr_count( $copying, '<p>Copying WordPress Credits Program 150h. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course and no hours target, which are set on its page.</p>' ),
+        substr_count( $copying, '<p>Copying WordPress Credits Program 150h. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course, no hours target, no partners and no partners&#039; narrative, which are set on its page.</p>' ),
     ),
     array(
         'redirect',
@@ -3908,7 +3980,7 @@ ck( 'a press that publishes hands run() the preflight its name and its columns w
     array( outcome( array( $confirm_tool, 'handle_publish' ) ), WPCPM_Track_Publish::$handed, WPCPM_Track_Publish::$preflights ),
     array( 'redirect', array( $confirm_flight ), 1 ) );
 
-// Item 14a (Task 9's review): the press's own reading of the base failed, so the page asked for no
+// The press's own reading of the base failed, so the page asked for no
 // name and the handler for none, and run(), handed nothing, read the base again: a second reading
 // that answered created columns nobody confirmed. Shaped as the real preflight answers a base it
 // could not read, while the second reading would find two columns to create.
@@ -4271,6 +4343,570 @@ ck( 'the screen too, whichever of its views is asked for, dies on the capability
 $GLOBALS['can_manage'] = true;
 $GLOBALS['nonce']      = '';
 $_POST                 = array();
+
+echo "\n=== A track's partners: the picker, the save, the row, the history, the preview (1.114.0) ===\n";
+
+// A track names the sponsors partnering on it. The picker offers the ones that may be named today
+// and keeps each one the track names already, noted when it no longer qualifies; a save keeps what
+// is ticked of those and nothing else; the list and History name them; the preview draws the line
+// the student's page draws. What qualifies is the partners class's to say: it is stood in above,
+// and bin/test-track-partners.php holds the real one to the sponsors store.
+$acme    = 'spoCCCC0000000001';
+$birch   = 'spoCCCC0000000002';
+$lapsed  = 'spoCCCC0000000005';
+$cedar   = 'spoCCCC0000000007';
+$unknown = 'spoZZZZ0000000009';
+
+$GLOBALS['partners_eligible']  = array( $acme => 'Acme Tools', $birch => 'Birch Labs' );
+$GLOBALS['partners_known']     = array( $lapsed => 'Lapsed Co', $cedar => 'Cedar Hosting' );
+$GLOBALS['partners_live']      = false;
+$GLOBALS['partners_published'] = array();
+
+$partner_track                           = editable_track();
+$partner_track['definition']['hue']      = 'blue';
+$partner_track['definition']['sponsors'] = array( $lapsed, $unknown );
+WPCPM_Track_Store::$tracks               = array( 13 => $partner_track );
+WPCPM_Track_Store::$errors               = array();
+WPCPM_Track_Store::$saved                = array();
+
+$partner_form = WPCPM_Track_Builder::form( 13 );
+
+ck( 'the form hands the view the partners the track names and what the picker offers: today\'s eligible sponsors, then each one named that is not among them, with its note',
+    array( $partner_form['sponsors'], $partner_form['partner_choices'] ),
+    array(
+        array( $lapsed, $unknown ),
+        array(
+            $acme    => array( 'label' => 'Acme Tools', 'note' => '' ),
+            $birch   => array( 'label' => 'Birch Labs', 'note' => '' ),
+            $lapsed  => array( 'label' => 'Lapsed Co', 'note' => 'no longer a Partner' ),
+            $unknown => array( 'label' => $unknown, 'note' => 'unknown sponsor' ),
+        ),
+    ) );
+
+/**
+ * The partner boxes a page draws ticked, in the order it draws them.
+ *
+ * @param string $html The page.
+ * @return string[] Their values.
+ */
+function ticked_partners( $html ) {
+	preg_match_all( '/<input type="checkbox" name="wpcpm_sponsors\[\]" value="([^"]*)" checked \/>/', $html, $m );
+
+	return $m[1];
+}
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $partner_form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$partner_page = ob_get_clean();
+
+ck( 'the picker is the row after the key chip color\'s, inside the save form: a group named for screen readers, the hidden empty value first, a box a choice with the note after the name, the two the track names ticked, and no box to type in',
+    array(
+        substr_count( $partner_page, 'name="wpcpm_hue" value="blue" /></td></tr><tr><th scope="row">Partners</th><td><fieldset><legend class="screen-reader-text">Partners</legend><input type="hidden" name="wpcpm_sponsors[]" value="" /><label>' ),
+        substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000001" /> Acme Tools</label><br />' ),
+        substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000002" /> Birch Labs</label><br />' ),
+        substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000005" checked /> Lapsed Co (no longer a Partner)</label><br />' ),
+        substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoZZZZ0000000009" checked /> spoZZZZ0000000009 (unknown sponsor)</label><br />' ),
+        substr_count( $partner_page, 'type="checkbox" name="wpcpm_sponsors[]"' ),
+        ticked_partners( $partner_page ),
+        substr_count( $partner_page, 'Cedar Hosting' ),
+        substr_count( $partner_page, '<br /></fieldset><p class="description">The sponsors that co-brand this track. Only Approved sponsors at the Partner tier are offered; a sponsor whose term ended, or that is paused, stays ticked here until you untick it and stops showing on the site by itself.</p></td></tr>' ),
+        substr_count( $partner_page, 'name="wpcpm_sponsors"' ) + substr_count( $partner_page, 'id="wpcpm_sponsors"' ),
+        strpos( $partner_page, 'name="wpcpm_sponsors[]"' ) < strpos( $partner_page, 'Save the track' ),
+    ),
+    array( 1, 1, 1, 1, 1, 4, array( $lapsed, $unknown ), 0, 1, 0, true ) );
+
+// With no sponsor to offer and none named, the row says so, as the Sponsors screen's mentor picker
+// does, and draws no hidden value either: a form with no box to tick leaves the partners as they are.
+$GLOBALS['partners_eligible'] = array();
+WPCPM_Track_Store::$tracks    = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['hue'] = 'blue';
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$empty_picker = ob_get_clean();
+
+$GLOBALS['partners_eligible'] = array( $acme => 'Acme Tools', $birch => 'Birch Labs' );
+
+ck( 'with no sponsor to offer and none named, the row says there is none yet, and posts nothing',
+    array(
+        substr_count( $empty_picker, 'name="wpcpm_hue" value="blue" /></td></tr><tr><th scope="row">Partners</th><td><p class="description">No sponsor is at the Partner tier yet.</p></td></tr>' ),
+        substr_count( $empty_picker, 'wpcpm_sponsors' ),
+    ),
+    array( 1, 0 ) );
+
+/**
+ * Save track 13's properties with its partners as the form would post them, and say what was stored.
+ *
+ * The whole saved definition is kept in `$GLOBALS['partners_saved']` for a check that reads more.
+ *
+ * @param array      $stored The partners the track names before the save.
+ * @param array|null $ticked The boxes ticked, posted after the picker's hidden empty value; null
+ *                           for a form that drew no picker at all.
+ * @param string     $label  The name the form posts.
+ * @return array|string The partners stored, `none` when the saved definition names none, or how
+ *                      the press ended when nothing was saved.
+ */
+function save_partners( array $stored, $ticked, $label = 'Marketing Track' ) {
+	global $tool;
+
+	$track                      = editable_track();
+	$track['definition']['hue'] = 'blue';
+
+	if ( array() !== $stored ) {
+		$track['definition']['sponsors'] = $stored;
+	}
+
+	WPCPM_Track_Store::$tracks  = array( 13 => $track );
+	WPCPM_Track_Store::$errors  = array();
+	WPCPM_Track_Store::$saved   = array();
+	$GLOBALS['partners_before'] = $track['definition'];
+	$GLOBALS['partners_saved']  = null;
+	$GLOBALS['nonce']           = WPCPM_Track_Builder::ACTION_SAVE;
+	$_POST                      = array(
+		'track'        => 13,
+		'wpcpm_label'  => $label,
+		'wpcpm_status' => 'Marketing Track',
+		'wpcpm_key'    => 'marketing',
+		'wpcpm_hue'    => 'blue',
+	);
+
+	if ( null !== $ticked ) {
+		$_POST['wpcpm_sponsors'] = array_merge( array( '' ), $ticked );
+	}
+
+	$result = outcome( array( $tool, 'handle_save' ) );
+
+	if ( 'redirect' !== $result || ! isset( WPCPM_Track_Store::$saved[13] ) ) {
+		return $result;
+	}
+
+	$GLOBALS['partners_saved'] = WPCPM_Track_Store::$saved[13];
+
+	return array_key_exists( 'sponsors', WPCPM_Track_Store::$saved[13] ) ? WPCPM_Track_Store::$saved[13]['sponsors'] : 'none';
+}
+
+ck( 'a save with two of today\'s partners ticked names them, in the order ticked',
+    save_partners( array(), array( $acme, $birch ) ),
+    array( $acme, $birch ) );
+ck( 'a save with nothing ticked, the hidden value alone, names none',
+    save_partners( array( $acme ), array() ),
+    'none' );
+ck( 'a save that posts a sponsor the picker did not offer drops it, and a value that is no key at all',
+    save_partners( array(), array( $cedar, $acme, 'not-a-key', $unknown ) ),
+    array( $acme ) );
+ck( 'a save that posts a partner the track names already keeps it, though it no longer qualifies, and an unknown one the same',
+    save_partners( array( $lapsed, $unknown ), array( $lapsed, $unknown ) ),
+    array( $lapsed, $unknown ) );
+ck( 'a save that unticks a partner that no longer qualifies, or one the store does not know, drops it, and keeps the one still ticked',
+    save_partners( array( $lapsed, $unknown, $birch ), array( $birch ) ),
+    array( $birch ) );
+ck( 'a form that drew no picker leaves the partners as they are',
+    save_partners( array( $lapsed ), null ),
+    array( $lapsed ) );
+
+// The picker lists today's partners by name and the rest after them, so the boxes post in that
+// order whatever order the track keeps: a save that leaves them ticked must leave their order too,
+// or History and the publish screen would name a change nobody made.
+ck( 'a save that leaves the partners ticked leaves them in the track\'s own order, and one newly ticked joins after them',
+    array(
+        save_partners( array( $birch, $acme ), array( $acme, $birch ) ),
+        save_partners( array( $lapsed, $birch ), array( $birch, $lapsed ) ),
+        save_partners( array( $birch ), array( $acme, $birch ) ),
+    ),
+    array( array( $birch, $acme ), array( $lapsed, $birch ), array( $birch, $acme ) ) );
+
+save_partners( array( $lapsed, $birch ), array( $birch, $lapsed ), 'Marketing Track, renamed' );
+ck( 'so a rename of a track whose partner has lapsed changes its name alone',
+    WPCPM_Track_Diff::between( $GLOBALS['partners_before'], $GLOBALS['partners_saved'] )['track'],
+    array( 'label' ) );
+
+/**
+ * Refuse a save of the track the picker was drawn for, then draw the form the refusal comes back to.
+ *
+ * @param array|null $ticked The boxes ticked, after the hidden empty value; null for no picker.
+ * @return array What the refusal carried back for the picker (`absent` for nothing), and the boxes
+ *               the form then draws ticked.
+ */
+function refused_partners( $ticked ) {
+	global $tool, $partner_track;
+
+	WPCPM_Track_Store::$tracks = array( 13 => $partner_track );
+	WPCPM_Track_Store::$errors = array( array( 'code' => 'status_taken', 'message' => 'Another track already has this status.' ) );
+	WPCPM_Track_Store::$saved  = array();
+	WPCPM_Flash::$set          = array();
+	$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+	$_POST                     = array(
+		'track'        => 13,
+		'wpcpm_label'  => 'Marketing Track',
+		'wpcpm_status' => 'In Sensei',
+		'wpcpm_key'    => 'marketing',
+		'wpcpm_hue'    => 'blue',
+	);
+
+	if ( null !== $ticked ) {
+		$_POST['wpcpm_sponsors'] = array_merge( array( '' ), $ticked );
+	}
+
+	outcome( array( $tool, 'handle_save' ) );
+
+	$flash  = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+	$values = isset( $flash['values'] ) && is_array( $flash['values'] ) ? $flash['values'] : array();
+
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $flash ) );
+	$page = ob_get_clean();
+
+	WPCPM_Track_Store::$errors = array();
+
+	return array( array_key_exists( 'sponsors', $values ) ? $values['sponsors'] : 'absent', ticked_partners( $page ), WPCPM_Track_Store::$saved );
+}
+
+ck( 'a refused save comes back with the boxes as they were left: the one ticked, and not the two the track names',
+    refused_partners( array( $birch ) ),
+    array( array( $birch ), array( $birch ), array() ) );
+ck( 'with every box cleared, it comes back with none ticked rather than the track\'s own',
+    refused_partners( array() ),
+    array( array(), array(), array() ) );
+ck( 'and from a form that drew no picker, the track\'s own are ticked',
+    refused_partners( null ),
+    array( 'absent', array( $lapsed, $unknown ), array() ) );
+
+/**
+ * Refuse a save that ticks eleven eligible partners, one more than a track may name. Unlike
+ * refused_partners(), the error WPCPM_Track_Store::check() answers is not a stand-in: it is
+ * WPCPM_Track_Definition::validate()'s own answer, run for real on the definition
+ * posted_definition() would build from the same ticks, so the proof moves with
+ * WPCPM_Track_Definition::MAX_SPONSORS rather than staying pinned at eleven by hand.
+ *
+ * @param array $eleven Eleven distinct, eligible sponsor keys.
+ * @return array The flash's status and message, and the boxes the redrawn form ticks.
+ */
+function refused_by_sponsor_count( array $eleven ) {
+	global $tool;
+
+	$track                      = editable_track();
+	$track['definition']['hue'] = 'blue';
+
+	WPCPM_Track_Store::$tracks = array( 13 => $track );
+	WPCPM_Track_Store::$errors = WPCPM_Track_Definition::validate( array_merge( $track['definition'], array( 'sponsors' => $eleven ) ) );
+	WPCPM_Track_Store::$saved  = array();
+	WPCPM_Flash::$set          = array();
+	$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+	$_POST                     = array(
+		'track'          => 13,
+		'wpcpm_label'    => 'Marketing Track',
+		'wpcpm_status'   => 'Marketing Track',
+		'wpcpm_key'      => 'marketing',
+		'wpcpm_hue'      => 'blue',
+		'wpcpm_sponsors' => array_merge( array( '' ), $eleven ),
+	);
+
+	outcome( array( $tool, 'handle_save' ) );
+
+	$flash = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $flash ) );
+	$page = ob_get_clean();
+
+	WPCPM_Track_Store::$errors = array();
+
+	return array( $flash['status'] ?? '', $flash['message'] ?? '', ticked_partners( $page ) );
+}
+
+$eleven                       = array_map( static function ( $n ) { return sprintf( 'spoEEEE%010d', $n ); }, range( 1, 11 ) );
+$GLOBALS['partners_eligible'] = array_combine( $eleven, array_map( static function ( $n ) { return 'Eligible ' . $n; }, range( 1, 11 ) ) );
+
+ck( 'a save that ticks eleven eligible partners is refused by the real cap, one more than a track may name, and comes back with all eleven still ticked',
+    refused_by_sponsor_count( $eleven ),
+    array( 'error', 'A track names at most 10 partners.', $eleven ) );
+
+$GLOBALS['partners_eligible'] = array( $acme => 'Acme Tools', $birch => 'Birch Labs' );
+
+// A copy starts with no partners, as it starts with no course and no hours target (BUILDER-9): a
+// partner co-brands the track it chose, not every copy made of it.
+$copied_track                           = editable_track();
+$copied_track['definition']['sponsors'] = array( $acme, $lapsed );
+WPCPM_Track_Store::$tracks              = array( 13 => $copied_track );
+WPCPM_Track_Store::$errors              = array();
+WPCPM_Track_Store::$refuse              = null;
+WPCPM_Track_Store::$duplicated          = array();
+$GLOBALS['nonce']                       = WPCPM_Track_Builder::ACTION_DUPLICATE;
+$_POST                                  = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track copy', 'wpcpm_status' => 'Marketing Copy', 'wpcpm_key' => 'marketing-copy' );
+
+ck( 'duplicating a track with partners makes a copy that names none, and leaves the original\'s as they were',
+    array( outcome( array( $tool, 'handle_duplicate' ) ), array_key_exists( 'sponsors', WPCPM_Track_Store::$duplicated[0][1] ?? array( 'sponsors' => 'not copied at all' ) ), WPCPM_Track_Store::$tracks[13]['definition']['sponsors'] ),
+    array( 'redirect', false, array( $acme, $lapsed ) ) );
+
+$GLOBALS['nonce'] = '';
+$_POST            = array();
+
+$row_track                                = editable_track();
+$row_track['definition']['course_url']    = 'https://learn.wordpress.org/course/marketing/';
+$row_track['definition']['sponsors']      = array( $acme, $lapsed );
+$plain_track                              = editable_track();
+$plain_track['definition']['key']         = 'growth';
+$plain_track['definition']['status']      = 'Growth Track';
+$plain_track['definition']['label']       = 'Growth Track';
+WPCPM_Track_Store::$tracks                = array( 13 => $row_track, 14 => $plain_track );
+$partner_rows                             = WPCPM_Track_Builder::rows();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => $partner_rows, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$partner_list = ob_get_clean();
+
+ck( 'a row carries the partners its track names, in the track\'s order, each with the note the picker gives it, and a track that names none carries none',
+    array( $partner_rows[0]['partners'], $partner_rows[1]['partners'] ),
+    array( array( array( 'label' => 'Acme Tools', 'note' => '' ), array( 'label' => 'Lapsed Co', 'note' => 'no longer a Partner' ) ), array() ) );
+ck( 'the list names them under the track\'s name, after its Learn course, and prints no line for the track that names none',
+    array(
+        substr_count( $partner_list, '<td><strong>Marketing Track</strong><br /><a class="wpcpm-tracks__course" href="https://learn.wordpress.org/course/marketing/">Learn course</a><br /><span class="wpcpm-tracks__partners">Partners: Acme Tools, Lapsed Co (no longer a Partner)</span></td>' ),
+        substr_count( $partner_list, '<td><strong>Growth Track</strong></td>' ),
+        substr_count( $partner_list, 'wpcpm-tracks__partners' ),
+    ),
+    array( 1, 1, 1 ) );
+
+$partner_sheet = (string) file_get_contents( __DIR__ . '/../assets/css/track-builder.css' );
+ck( 'the line is one of the captions under a row\'s headline, in their one gray at their one size',
+    preg_match( '/\.wpcpm-tracks__partners,[^{}]*\{\s*color:\s*#646970;\s*font-size:\s*13px;\s*\}/', $partner_sheet ),
+    1 );
+
+$no_partners               = editable_track()['definition'];
+$with_partner              = $no_partners;
+$with_partner['sponsors']  = array( $acme );
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition'] = $with_partner;
+WPCPM_Track_Store::$tracks[13]['revisions']  = array(
+	array( 'id' => 302, 'at' => 1788300000, 'by' => 7, 'definition' => $with_partner ),
+	array( 'id' => 301, 'at' => 1788200000, 'by' => 7, 'definition' => $no_partners ),
+);
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$partner_history = ob_get_clean();
+$_GET = array();
+
+ck( 'History names a save that changed the partners in the track form\'s own word', substr_count( $partner_history, '<li>Track: Partners</li>' ), 1 );
+
+// The preview draws the draft's partners, as they would render once published: the line is drawn
+// from the keys the draft names, never from the published track's.
+$acme_line                              = '<div class="wpcpm-student__partners">spoCCCC0000000001</div>';
+$draft_track                            = editable_track();
+$draft_track['definition']['sponsors']  = array( $acme );
+WPCPM_Track_Store::$tracks              = array( 13 => $draft_track );
+$GLOBALS['partners_live']               = true;
+$GLOBALS['partners_published']          = array();
+WPCPM_Track_Partners::$asked            = array();
+WPCPM_Student_Report_Form::$partners    = array();
+$_GET                                   = array( 'wpcpm_preview' => 13 );
+ob_start();
+$tool->render_admin_page();
+$partner_preview = ob_get_clean();
+
+ck( 'with the switch on, a draft naming a partner it has never published previews the line, drawn from the draft\'s partners and handed to the renderer, which draws it where the student\'s page does',
+    array( WPCPM_Track_Partners::$asked, WPCPM_Student_Report_Form::$partners, substr_count( $partner_preview, '<div class="wpcpm-dashboard wpcpm-tracks__preview"><div class="wpcpm-report__body wpcpm-report__body--preview">3 fields' . $acme_line . '</div></div>' ) ),
+    array( array( array( 'marketing', array( $acme ) ) ), array( $acme_line ), 1 ) );
+
+$GLOBALS['partners_published']              = array( 'marketing' => array( $birch ) );
+WPCPM_Track_Store::$tracks[13]['state']     = 'changed';
+WPCPM_Track_Store::$tracks[13]['published'] = array( 'key' => 'marketing', 'sponsors' => array( $birch ) );
+$changed_line                               = WPCPM_Track_Builder::preview( 13 )['partners'];
+unset( WPCPM_Track_Store::$tracks[13]['definition']['sponsors'] );
+$dropped_line                               = WPCPM_Track_Builder::preview( 13 )['partners'];
+
+ck( 'a published track previews the draft\'s partners rather than the published copy\'s, and a draft that names none previews no line',
+    array( $changed_line, $dropped_line ),
+    array( $acme_line, '' ) );
+
+WPCPM_Track_Store::$tracks           = array( 13 => $draft_track );
+$GLOBALS['partners_live']            = false;
+WPCPM_Student_Report_Form::$partners = array();
+ob_start();
+$tool->render_admin_page();
+$plain_preview = ob_get_clean();
+$_GET          = array();
+
+ck( 'and with the switch off there is no line to draw',
+    array( WPCPM_Track_Builder::preview( 13 )['partners'], WPCPM_Student_Report_Form::$partners, substr_count( $plain_preview, 'wpcpm-student__partners' ) ),
+    array( '', array( '' ), 0 ) );
+
+$GLOBALS['partners_eligible']  = array();
+$GLOBALS['partners_known']     = array();
+$GLOBALS['partners_published'] = array();
+$GLOBALS['nonce']             = '';
+$_POST                        = array();
+
+echo "\n=== A track's partners' narrative: the box, the save, the copy, History ===\n";
+
+// One text for all of a track's partners, which each partner's annual report starts its block for
+// the track with when it is drafted: a box of many lines under the partners, saved with the track.
+// The help says by when: the site drafts a partner's report the day after that partner's term ends.
+$narrative_help = 'One text for all of this track&#039;s partners; rewrite it each term. When a partner&#039;s annual report is drafted, which the site does the day after that partner&#039;s term ends, its block for this track starts with this text as the track was last published: after rewriting it, publish the track before the next partner&#039;s term ends. Each report keeps its own copy, edited on the report.';
+
+$GLOBALS['partners_eligible']                                      = array( $acme => 'Acme Tools' );
+WPCPM_Track_Store::$tracks                                         = array( 13 => editable_track(), 14 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['hue']                = 'blue';
+WPCPM_Track_Store::$tracks[13]['definition']['partners_narrative'] = "Twelve students joined this year.\nTheir </textarea><script>alert(1)</script> & \"mentors\" met weekly.";
+
+$narrative_form = WPCPM_Track_Builder::form( 13 );
+
+ck( 'the form hands the view the track\'s narrative, and none for a track that holds none',
+    array( $narrative_form['partners_narrative'] ?? 'absent', WPCPM_Track_Builder::form( 14 )['partners_narrative'] ?? 'absent' ),
+    array( "Twelve students joined this year.\nTheir </textarea><script>alert(1)</script> & \"mentors\" met weekly.", '' ) );
+ck( 'and the track form calls it Partners\' narrative, the word History uses too', WPCPM_Track_Builder_Screen::track_labels()['partners_narrative'] ?? 'absent', 'Partners\' narrative' );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $narrative_form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$narrative_page = ob_get_clean();
+
+ck( 'the box is the row after the partners\', inside the save form: labeled, as long as the save allows, the text in it encoded, the help under it, and no one-line box for it',
+    array(
+        substr_count( $narrative_page, 'stops showing on the site by itself.</p></td></tr><tr><th scope="row"><label for="wpcpm_partners_narrative">Partners&#039; narrative</label></th><td><textarea id="wpcpm_partners_narrative" name="wpcpm_partners_narrative" rows="8" class="large-text" maxlength="5000">Twelve students joined this year.' . "\n" . 'Their &lt;/textarea&gt;&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;mentors&quot; met weekly.</textarea><p class="description">' . $narrative_help . '</p></td></tr>' ),
+        substr_count( $narrative_page, '<script>' ),
+        substr_count( $narrative_page, 'name="wpcpm_partners_narrative"' ),
+        substr_count( $narrative_page, '<input type="text" class="regular-text" id="wpcpm_partners_narrative"' ),
+        strpos( $narrative_page, 'name="wpcpm_partners_narrative"' ) < strpos( $narrative_page, 'Save the track' ),
+    ),
+    array( 1, 0, 1, 0, true ) );
+
+// The box is the track's, not a partner's: drawn whatever the picker offers, so a text written ahead
+// of the first partner's term is there when it starts.
+$GLOBALS['partners_eligible']                       = array();
+WPCPM_Track_Store::$tracks                          = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['hue'] = 'blue';
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$narrative_alone = ob_get_clean();
+
+ck( 'with no sponsor to offer and none named, the box still follows the partners\' row, empty',
+    substr_count( $narrative_alone, '<p class="description">No sponsor is at the Partner tier yet.</p></td></tr><tr><th scope="row"><label for="wpcpm_partners_narrative">Partners&#039; narrative</label></th><td><textarea id="wpcpm_partners_narrative" name="wpcpm_partners_narrative" rows="8" class="large-text" maxlength="5000"></textarea>' ),
+    1 );
+
+$GLOBALS['partners_eligible'] = array( $acme => 'Acme Tools', $birch => 'Birch Labs' );
+
+/**
+ * Save track 13's properties with its narrative box as the form would post it, and say what was stored.
+ *
+ * @param string|null $stored The narrative the track holds before the save; null for none.
+ * @param string|null $posted What the box posts; null for a form that drew no box.
+ * @return string The narrative stored, `none` when the saved definition holds none, or how the press
+ *                ended when nothing was saved.
+ */
+function save_narrative( $stored, $posted ) {
+	global $tool;
+
+	$track                      = editable_track();
+	$track['definition']['hue'] = 'blue';
+
+	if ( null !== $stored ) {
+		$track['definition']['partners_narrative'] = $stored;
+	}
+
+	WPCPM_Track_Store::$tracks = array( 13 => $track );
+	WPCPM_Track_Store::$errors = array();
+	WPCPM_Track_Store::$saved  = array();
+	$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+	$_POST                     = array(
+		'track'        => 13,
+		'wpcpm_label'  => 'Marketing Track',
+		'wpcpm_status' => 'Marketing Track',
+		'wpcpm_key'    => 'marketing',
+		'wpcpm_hue'    => 'blue',
+	);
+
+	if ( null !== $posted ) {
+		$_POST['wpcpm_partners_narrative'] = $posted;
+	}
+
+	$result = outcome( array( $tool, 'handle_save' ) );
+
+	if ( 'redirect' !== $result || ! isset( WPCPM_Track_Store::$saved[13] ) ) {
+		return $result;
+	}
+
+	return array_key_exists( 'partners_narrative', WPCPM_Track_Store::$saved[13] ) ? WPCPM_Track_Store::$saved[13]['partners_narrative'] : 'none';
+}
+
+ck( 'a save stores the box\'s words, line breaks kept and tags gone; an emptied box takes the narrative away; a form that drew no box leaves it as it was',
+    array(
+        save_narrative( null, "  Twelve students joined this year.\n\nTheir mentors met <b>weekly</b>.  " ),
+        save_narrative( 'The words the track held.', "Fourteen students joined.\nMore next term." ),
+        save_narrative( 'The words the track held.', '' ),
+        save_narrative( 'The words the track held.', null ),
+    ),
+    array( "Twelve students joined this year.\n\nTheir mentors met weekly.", "Fourteen students joined.\nMore next term.", 'none', 'The words the track held.' ) );
+
+// Refused, the box comes back as the person left it, never the track's own words, so nothing typed
+// is lost.
+WPCPM_Track_Store::$tracks                                         = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['partners_narrative'] = 'The words the track held.';
+WPCPM_Track_Store::$errors                                         = array( array( 'code' => 'narrative_shape', 'where' => '', 'message' => 'The partners\' narrative must be text of at most 5000 characters.' ) );
+WPCPM_Track_Store::$saved                                          = array();
+WPCPM_Flash::$set                                                  = array();
+$GLOBALS['nonce']                                                  = WPCPM_Track_Builder::ACTION_SAVE;
+$_POST                                                             = array(
+	'track'                    => 13,
+	'wpcpm_label'              => 'Marketing Track',
+	'wpcpm_status'             => 'Marketing Track',
+	'wpcpm_key'                => 'marketing',
+	'wpcpm_hue'                => 'blue',
+	'wpcpm_partners_narrative' => "Words typed\nand refused.",
+);
+$narrative_refused = outcome( array( $tool, 'handle_save' ) );
+$narrative_flash   = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $narrative_flash ) );
+$narrative_again = ob_get_clean();
+
+ck( 'a refused save comes back with the box as it was left, the refusal saying why, and nothing stored',
+    array( $narrative_refused, $narrative_flash['values']['partners_narrative'] ?? 'absent', substr_count( $narrative_again, 'maxlength="5000">Words typed' . "\n" . 'and refused.</textarea>' ), substr_count( $narrative_again, 'The words the track held.' ), $narrative_flash['message'] ?? '', WPCPM_Track_Store::$saved ),
+    array( 'redirect', "Words typed\nand refused.", 1, 0, 'The partners\' narrative must be text of at most 5000 characters.', array() ) );
+
+WPCPM_Track_Store::$errors = array();
+
+// A copy starts with no partners, and so with no narrative written to them.
+$narrated_track                                     = editable_track();
+$narrated_track['definition']['sponsors']           = array( $acme );
+$narrated_track['definition']['partners_narrative'] = 'Written to Acme Tools.';
+WPCPM_Track_Store::$tracks                          = array( 13 => $narrated_track );
+WPCPM_Track_Store::$refuse                          = null;
+WPCPM_Track_Store::$duplicated                      = array();
+$GLOBALS['nonce']                                   = WPCPM_Track_Builder::ACTION_DUPLICATE;
+$_POST                                              = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track copy', 'wpcpm_status' => 'Marketing Copy', 'wpcpm_key' => 'marketing-copy' );
+
+ck( 'duplicating a track with a partners\' narrative makes a copy that holds none, as it names no partners, and leaves the original\'s as it was',
+    array( outcome( array( $tool, 'handle_duplicate' ) ), array_key_exists( 'partners_narrative', WPCPM_Track_Store::$duplicated[0][1] ?? array( 'partners_narrative' => 'not copied at all' ) ), WPCPM_Track_Store::$tracks[13]['definition']['partners_narrative'] ),
+    array( 'redirect', false, 'Written to Acme Tools.' ) );
+
+$GLOBALS['nonce'] = '';
+$_POST            = array();
+
+// History names the change, in the save that made it and in what publishing would change: each
+// partner's report reads the text the track was last published with.
+$unnarrated                                  = editable_track()['definition'];
+$renarrated                                  = $unnarrated;
+$renarrated['partners_narrative']            = 'Twelve students joined this year.';
+WPCPM_Track_Store::$tracks                   = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition'] = $renarrated;
+WPCPM_Track_Store::$tracks[13]['state']      = 'changed';
+WPCPM_Track_Store::$tracks[13]['published']  = $unnarrated;
+WPCPM_Track_Store::$tracks[13]['revisions']  = array(
+	array( 'id' => 312, 'at' => 1788400000, 'by' => 7, 'definition' => $renarrated ),
+	array( 'id' => 311, 'at' => 1788300000, 'by' => 7, 'definition' => $unnarrated ),
+);
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$narrative_history = ob_get_clean();
+$_GET = array();
+
+ck( 'History names a save that changed the narrative in the track form\'s own words, and so does what publishing would change',
+    array( substr_count( $narrative_history, '<li>Track: Partners&#039; narrative</li>' ), substr_count( $narrative_history, '<h3>What publishing would change</h3><ul class="wpcpm-history__diff"><li>Track: Partners&#039; narrative</li></ul>' ) ),
+    array( 2, 1 ) );
+
+$GLOBALS['partners_eligible'] = array();
 
 echo "\n=== Every track runs from its definition: no switch, no refresh, no read-only page, and the four original tracks kept ===\n";
 

@@ -23,11 +23,18 @@ final class WPCPM_Track_Diff {
 	 * The track's own properties, compared one by one.
 	 *
 	 * `questions` is compared question by question below, and `schema_version` is the format's,
-	 * not the track's.
+	 * not the track's. `sponsors` is a list, read through `flat()` like every property here, which
+	 * compares an array element by element in order. `normalize()` keeps the partners in the order
+	 * it is handed them, and the Track Builder's save keeps the track's own order, a newly ticked
+	 * partner after the rest, so a save that leaves the partners alone is no change; a list whose
+	 * order changed without a partner added or removed still is one, not "the same partners,
+	 * listed differently." `partners_narrative` is text, compared whole: History says the words
+	 * changed, and a partner's annual report reads them as the track was last published, so what
+	 * publishing would change names them too.
 	 *
 	 * @var string[]
 	 */
-	const TRACK = array( 'status', 'key', 'label', 'course_url', 'learn_course_id', 'hours_target', 'hue' );
+	const TRACK = array( 'status', 'key', 'label', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'sponsors', 'partners_narrative' );
 
 	/**
 	 * Compare two definitions.

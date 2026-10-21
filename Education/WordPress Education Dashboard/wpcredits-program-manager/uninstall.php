@@ -70,6 +70,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-image-upload.ph
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-pdf-check.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-stash.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-dashboard-card.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-screen-tabs.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-palette.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-columns.php';
@@ -78,6 +79,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-di
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-publish.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-definition.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-tracks.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-partners.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-store.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
@@ -147,9 +149,27 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-policy.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-roster.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-index.php';
-require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-tiers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-tiers-run.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-tier-card.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-listing.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-page.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-badge.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-report.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-report-numbers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-report-files.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-report-card.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-event.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-event-planner.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-event-queue.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-event-list.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-report-screen.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-manager-booking.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-migration.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-feed.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-codes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-offers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-offer-review.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-claims.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-tools.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-usage.php';
@@ -192,6 +212,11 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-tools.php';
 
 WPCPM_Modules::uninstall();
 
+// The stored rewrite rules, written again without the sponsor badge's rule, for a site whose rules
+// still hold it: this request never ran the plugin's init, so the rule is not in memory to be
+// written back, and left stored it would answer `/sponsor-badge/<name>` with the home page.
+flush_rewrite_rules();
+
 // The roster index the students sync writes for the institution side, and the stamp that
 // says which institution a student belongs to. Both are the plugin's own cache of a fact
 // Airtable holds; the accounts they describe are people and are left alone.
@@ -232,6 +257,8 @@ delete_option( WPCPM_Countries::OPT_NAME );
 // The one-time repair of the sponsor accounts an older detach left holding posting
 // capabilities has run (1.99.0).
 delete_option( WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED );
+// The one-time marking of the test sponsors the store held at 1.123.18 has run.
+delete_option( WPCPM_Sponsors_Index::OPT_TESTS_MARKED );
 // A manager's rows-per-page choice for the sponsor accounts, which core keeps as user meta.
 delete_metadata( 'user', 0, WPCPM_Sponsors::PER_PAGE_OPTION, '', true );
 

@@ -62,13 +62,13 @@ final class WPCPM_Track_Publish {
 	 * gateway cutting the request off, a fatal - none of which reach the `delete_option()` on the
 	 * normal paths out of `run()`. This is the longest-running foreground request the plugin
 	 * makes: one HTTP POST per column, in series, each with its own 20-second timeout. Twenty
-	 * minutes is not task 11's 29 columns with a little room (that run took about 580 seconds, so
+	 * minutes is not a 29-column track's run with a little room (that run took about 580 seconds, so
 	 * ten minutes would leave it roughly twenty seconds of margin - too thin for a track with more
 	 * questions, or one slow response, to stay inside); it is a very large track covered with room
 	 * to spare, while still freeing a lock a killed run wedged well within one working session.
 	 * Long enough that a run genuinely still going is never overtaken by a second press creating
 	 * the same columns twice; short enough that a killed run does not wedge every track's Publish
-	 * button until somebody deletes the option over SSH (final review, finding 2; re-review).
+	 * button until somebody deletes the option over SSH.
 	 *
 	 * @var int
 	 */
@@ -199,7 +199,7 @@ final class WPCPM_Track_Publish {
 
 				// The name, the type and the options: what somebody creating this column by hand
 				// in Airtable needs, so a guess is never the only way to get the type right
-				// (design spec 7.2, Task 9 review L8).
+				// (design spec 7.2).
 				$create[]          = $column;
 				$detail[ $column ] = $field;
 				continue;
@@ -345,8 +345,8 @@ final class WPCPM_Track_Publish {
 		// Not a diff against `$landed`: `create` already reflects a schema read taken moments ago,
 		// so a column that really landed is already `ok` and not in it. Subtracting the post's own
 		// record on top would be a no-op except in the one case it gets wrong - a column the record
-		// claims landed that the base no longer has - where it would skip recreating it (final
-		// review, finding 1). `$landed` still seeds the created list below: it is the log's and the
+		// claims landed that the base no longer has - where it would skip recreating it. `$landed`
+		// still seeds the created list below: it is the log's and the
 		// count's record of what this run and any before it made, not what decides what is pending.
 		$landed  = self::landed( $post_id );
 		$pending = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
@@ -457,9 +457,9 @@ final class WPCPM_Track_Publish {
 	/**
 	 * Claim the right to run a publish: `add_option()`'s test-and-set, with a stale takeover.
 	 *
-	 * The house pattern (`WPCPM_Duplicates_Scan::acquire_lock()` and the four syncs): a fresh
+	 * The house pattern (`WPCPM_Duplicates_Scan::acquire_lock()` and the three syncs): a fresh
 	 * claim wins outright, a held claim younger than `LOCK_TIMEOUT` refuses, and one older than
-	 * that is taken over rather than left to block every track forever (final review, finding 2).
+	 * that is taken over rather than left to block every track forever.
 	 *
 	 * @return bool Whether this request now holds the lock.
 	 */
@@ -706,7 +706,7 @@ final class WPCPM_Track_Publish {
 
 		// Every other entry point checks this, through `preflight()`'s `no_definition` refusal or
 		// `track_post()` behind `WPCPM_Track_Store::save()`; this one wrote post meta to whatever
-		// ID it was handed (final review, finding 3).
+		// ID it was handed.
 		if ( ! is_array( WPCPM_Track_Store::get( $post_id ) ) ) {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
 		}

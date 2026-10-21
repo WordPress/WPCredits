@@ -138,6 +138,22 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	}
 
 	/**
+	 * A track's edit screen on this tool, by its post ID: the same address `render_actions()`
+	 * links each row's own Edit button to. A public static so another screen naming a track -
+	 * the Sponsors screen's Tier box, for the track a Partner sponsors - can send a program
+	 * manager to the one place that names it, rather than build a second address to keep in
+	 * step with this one.
+	 *
+	 * @param int $post_id A track's post ID.
+	 * @return string
+	 */
+	public static function track_url( $post_id ) {
+		$tool = new self();
+
+		return add_query_arg( 'wpcpm_track', (int) $post_id, $tool->admin_url() );
+	}
+
+	/**
 	 * Hooks.
 	 */
 	public function boot() {
@@ -190,8 +206,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 *
 	 * Everything the list prints, read once here so the screen asks nothing of the store while it
 	 * draws: the state, who published it last, how many students hold its status, what the last
-	 * compile left out, and whether a live track has lost its status from "Currently mentoring",
-	 * which the students sync reads alone (the deep check of 1.109.1, BUILDER-3).
+	 * compile left out, whether a live track has lost its status from "Currently mentoring", which
+	 * the students sync reads alone (the deep check of 1.109.1, BUILDER-3), and the partners the
+	 * track names, a lapsed or unknown one with its note.
 	 *
 	 * @return array[]
 	 */
@@ -228,6 +245,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				'status'         => $status,
 				'key'            => isset( $definition['key'] ) ? (string) $definition['key'] : '',
 				'course'         => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
+				'partners'       => self::partners_of( $definition ),
 				'state'          => WPCPM_Track_Store::state( $post_id ),
 				'students'       => WPCPM_Students_Sync::count_on_status( $status ),
 				'published_by'   => (int) $last['by'],
@@ -254,7 +272,10 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * no hours target at all (a standing product decision), and a field that rendered "0" for
 	 * "no target" would save back as an explicit zero the moment somebody pressed Save without
 	 * touching it - turning a published track into one with unpublished changes for nothing it
-	 * asked for (the Task 6 review).
+	 * asked for.
+	 *
+	 * The partners come with what the picker offers, read here so the screen asks nothing of the
+	 * sponsors store, and with their narrative, the one text the track keeps for all of them.
 	 *
 	 * @param int $post_id The track.
 	 * @return array
@@ -265,30 +286,39 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition = is_array( $definition ) ? $definition : array();
 		$published  = WPCPM_Track_Store::published( $post_id );
 		$lessons    = self::lessons_of( $definition );
+		$sponsors   = self::sponsors_of( $definition );
 
 		return array(
-			'id'              => $post_id,
-			'label'           => isset( $definition['label'] ) ? (string) $definition['label'] : '',
-			'status'          => isset( $definition['status'] ) ? (string) $definition['status'] : '',
-			'key'             => isset( $definition['key'] ) ? (string) $definition['key'] : '',
-			'course_url'      => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
-			'learn_course_id' => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : '',
-			'hours_target'    => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : '',
-			'hue'             => isset( $definition['hue'] ) ? (string) $definition['hue'] : '',
+			'id'                 => $post_id,
+			'label'              => isset( $definition['label'] ) ? (string) $definition['label'] : '',
+			'status'             => isset( $definition['status'] ) ? (string) $definition['status'] : '',
+			'key'                => isset( $definition['key'] ) ? (string) $definition['key'] : '',
+			'course_url'         => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
+			'learn_course_id'    => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : '',
+			'hours_target'       => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : '',
+			'hue'                => isset( $definition['hue'] ) ? (string) $definition['hue'] : '',
+			// The partners the draft names, and what the picker offers: the sponsors that may be
+			// named today, then each one the draft names that is not among them, with its note, so a
+			// save cannot drop one nobody unticked.
+			'sponsors'           => $sponsors,
+			'partner_choices'    => WPCPM_Track_Partners::choices( $sponsors ),
+			// The draft's words for its partners, which each partner's annual report starts its
+			// block for the track with once the track is published.
+			'partners_narrative' => WPCPM_Track_Definition::narrative( $definition ),
 			// The questions and every other track's columns, for the list under the properties
 			// (T3a): the sharing index is read once here, not once per row.
-			'questions'       => isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array(),
-			'others'          => WPCPM_Track_Store::others( $post_id ),
-			'schema'          => self::schema_line( $definition ),
+			'questions'          => isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array(),
+			'others'             => WPCPM_Track_Store::others( $post_id ),
+			'schema'             => self::schema_line( $definition ),
 			// The columns of the published copy: a row for one of these promises no fork, since
 			// that is the change `handle_save()` refuses (decision 23, the whole-branch review).
-			'locked'          => is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? array_map( 'strval', array_keys( $published['questions'] ) ) : array(),
+			'locked'             => is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? array_map( 'strval', array_keys( $published['questions'] ) ) : array(),
 			// What Learn says about the course, for the line beside the link (T3c, decision 31).
-			'course'          => self::course_of( $definition ),
+			'course'             => self::course_of( $definition ),
 			// The course's lessons by the form's group, and one sentence when they could not be
 			// read (decision 32).
-			'lessons'         => $lessons['by_group'],
-			'learn'           => $lessons['error'],
+			'lessons'            => $lessons['by_group'],
+			'learn'              => $lessons['error'],
 		);
 	}
 
@@ -300,9 +330,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * course comes too, because the student's page draws the hours box beside the course button, or
 	 * in a section of its own when there is no course, and the preview draws the same (TRACKS-3).
 	 *
+	 * So does the partnership line, which the student's page draws after the course columns, or
+	 * after the hours box on a track with no course, or on its own when there is neither, as
+	 * `render_preview()` draws it: the draft's partners as they would render once published, so a
+	 * partner ticked in a draft shows here before the track is published, and one unticked goes.
+	 * No line appears while the tiers' switch is off, as none appears to students.
+	 *
 	 * @param int $post_id The track.
-	 * @return array `track`, `label`, `fields` (column => spec), `state`, and `course`, the Learn
-	 *               course link or empty.
+	 * @return array `track`, `label`, `fields` (column => spec), `state`, `course`, the Learn
+	 *               course link or empty, and `partners`, the partnership line's HTML or empty.
 	 */
 	public static function preview( $post_id ) {
 		$post_id    = (int) $post_id;
@@ -310,11 +346,12 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition = is_array( $definition ) ? $definition : array();
 
 		return array(
-			'track'  => $post_id,
-			'label'  => isset( $definition['label'] ) ? (string) $definition['label'] : '',
-			'fields' => WPCPM_Track_Definition::compile_fields( $definition ),
-			'state'  => WPCPM_Track_Store::state( $post_id ),
-			'course' => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
+			'track'    => $post_id,
+			'label'    => isset( $definition['label'] ) ? (string) $definition['label'] : '',
+			'fields'   => WPCPM_Track_Definition::compile_fields( $definition ),
+			'state'    => WPCPM_Track_Store::state( $post_id ),
+			'course'   => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
+			'partners' => WPCPM_Track_Partners::render_line( isset( $definition['key'] ) ? (string) $definition['key'] : '', '', self::sponsors_of( $definition ) ),
 		);
 	}
 
@@ -742,7 +779,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		// a copy that kept its original's course and target pointed its students at both until
 		// somebody noticed (the deep check of 1.109.1, BUILDER-9). The questions keep their
 		// lessons, which point at no course until the copy has one; the question's screen says so.
-		unset( $definition['course_url'], $definition['learn_course_id'], $definition['hours_target'] );
+		// No partners either, for the same reason: a partner co-brands the track it chose, not
+		// every copy made of it; and so no partners' narrative, which is written to those partners.
+		unset( $definition['course_url'], $definition['learn_course_id'], $definition['hours_target'], $definition['sponsors'], $definition['partners_narrative'] );
 
 		// Checked as a track with nothing locked to it, which is what a copy is, so a status
 		// another track already holds is refused before a draft nobody asked for exists.
@@ -1205,7 +1244,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 *
 	 * The questions travel untouched, because this form does not show them: an editor that rebuilt
 	 * the definition from its fields alone would drop every question the moment somebody renamed a
-	 * track.
+	 * track. The partners are the picker's boxes, kept to the ones it offered, and their narrative
+	 * is the box under them.
 	 *
 	 * @param array $stored The definition as it is stored.
 	 * @return array
@@ -1242,7 +1282,85 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			$definition['hue'] = $hue;
 		}
 
+		// The partners: the ones the track already names that were left ticked, whether or not they
+		// still qualify, so a lapsed partner is unticked on purpose and never dropped by a save that
+		// did not mean it; then the ones newly ticked that qualify today. The kept ones keep the
+		// track's order, since the picker lists its boxes by name and a save that left the partners
+		// alone must not reorder them into a change History and the publish screen would name (the
+		// Sponsors screen's lists keep a stored order for the same reason, in
+		// `WPCPM_Sponsors::clean_list()`). A form that drew no picker leaves them as they are.
+		if ( self::partners_drawn() ) {
+			$ticked   = WPCPM_Request::posted_list( WPCPM_Track_Partners::FIELD, WPCPM_Track_Definition::SPONSOR_KEY );
+			$kept     = array_intersect( self::sponsors_of( $stored ), $ticked );
+			$added    = array_intersect( $ticked, array_keys( WPCPM_Track_Partners::eligible() ) );
+			$sponsors = array_values( array_unique( array_merge( $kept, $added ) ) );
+
+			if ( empty( $sponsors ) ) {
+				unset( $definition['sponsors'] );
+			} else {
+				$definition['sponsors'] = $sponsors;
+			}
+		}
+
+		// The partners' narrative: the box's words, and none once the box is emptied, as an emptied
+		// course link is no course. A form that drew no box leaves the text as it is, as the sponsor
+		// report's editor leaves the words of a box it never drew.
+		$narrative = WPCPM_Request::posted_lines( 'wpcpm_partners_narrative', null );
+
+		if ( '' === $narrative ) {
+			unset( $definition['partners_narrative'] );
+		} elseif ( null !== $narrative ) {
+			$definition['partners_narrative'] = $narrative;
+		}
+
 		return $definition;
+	}
+
+	/**
+	 * Whether the posted form drew the partner picker. The picker posts its hidden empty value
+	 * whatever is ticked, as the Sponsors screen's lists do (`WPCPM_Sponsors::posted_fields()`), so
+	 * a picker with nothing ticked is told from a form that drew none.
+	 *
+	 * @return bool
+	 */
+	private static function partners_drawn() {
+		return in_array( '', WPCPM_Request::posted_list( WPCPM_Track_Partners::FIELD, '/\A\z/' ), true );
+	}
+
+	/**
+	 * The sponsor keys a definition names as its partners, in its order.
+	 *
+	 * @param array $definition A track's definition.
+	 * @return string[]
+	 */
+	private static function sponsors_of( array $definition ) {
+		return isset( $definition['sponsors'] ) && is_array( $definition['sponsors'] ) ? array_values( array_map( 'strval', $definition['sponsors'] ) ) : array();
+	}
+
+	/**
+	 * The partners a definition names, in its order, as the list shows them: each one's name, and the
+	 * note the picker gives one that no longer qualifies or that the sponsors store does not know.
+	 *
+	 * @param array $definition A track's definition.
+	 * @return array[] Each `label` and `note`; none for a track that names no partner.
+	 */
+	private static function partners_of( array $definition ) {
+		$stored = self::sponsors_of( $definition );
+
+		if ( array() === $stored ) {
+			return array();
+		}
+
+		$choices  = WPCPM_Track_Partners::choices( $stored );
+		$partners = array();
+
+		foreach ( $stored as $record ) {
+			if ( isset( $choices[ $record ] ) ) {
+				$partners[] = $choices[ $record ];
+			}
+		}
+
+		return $partners;
 	}
 
 	/**
@@ -1253,7 +1371,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * boxes are emptied, so the form drew both from the stored track again, and the Save that
 	 * followed the refusal put them back (the deep check of 1.109.1, BUILDER-6).
 	 *
-	 * @return string[] Property => what its box held.
+	 * @return array Property => what its box held; `sponsors`, when the form drew the partner
+	 *               picker, the keys ticked in it, none included; `partners_narrative`, when the
+	 *               form drew its box, the words in it, line breaks and all.
 	 */
 	private static function posted_properties() {
 		$typed = array();
@@ -1262,6 +1382,17 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			// The course link as typed, with the `%XX` the one-line cleaner would take out: the box
 			// is drawn with it again, and the Save that follows would send the link without them.
 			$typed[ $property ] = 'course_url' === $property ? WPCPM_Request::posted_verbatim( 'wpcpm_course_url' ) : WPCPM_Request::posted_text( 'wpcpm_' . $property );
+		}
+
+		// The boxes as they were left, so a refusal does not tick again the ones somebody cleared.
+		if ( self::partners_drawn() ) {
+			$typed['sponsors'] = WPCPM_Request::posted_list( WPCPM_Track_Partners::FIELD, WPCPM_Track_Definition::SPONSOR_KEY );
+		}
+
+		$narrative = WPCPM_Request::posted_lines( 'wpcpm_partners_narrative', null );
+
+		if ( null !== $narrative ) {
+			$typed['partners_narrative'] = $narrative;
 		}
 
 		return $typed;
@@ -1456,7 +1587,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$track = WPCPM_Request::posted_id( 'track' );
 
 		// Back to the track's own publish screen, where the press came from, rather than the list:
-		// the screen shows the state the press changed (T2c's Task 9 review, its L3).
+		// the screen shows the state the press changed.
 		$this->report(
 			WPCPM_Track_Publish::take_down( $track, get_current_user_id() ),
 			__( 'The track is a draft again. Nothing was changed in Airtable, and its status is still in "Currently mentoring".', 'wpcredits-program-manager' ),

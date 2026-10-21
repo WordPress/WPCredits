@@ -12,6 +12,10 @@
  *   request that read before the first one wrote actually sees.
  * - The guard refuses only the second press of the same person: somebody else still gets the
  *   next code.
+ * - A claim problem names the student and carries their address to reply to, so it goes to the
+ *   sponsor's assigned contact only while that account holds the program capability, and to the
+ *   program's fallback once it does not, through the real store and `mail_manager()`; the mail
+ *   layer and the managers' notice are stood in.
  *
  * Run from the plugin root:  php bin/test-sponsor-claims.php
  */
@@ -50,7 +54,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_title = '', $post_status = 'private', $post_author = 0;
+	public $ID = 0, $post_type = '', $post_title = '', $post_name = '', $post_status = 'private', $post_author = 0;
 	public function __construct( array $a ) { foreach ( $a as $k => $v ) { $this->$k = $v; } }
 }
 class WPCPM_Test_Die extends Exception {}
@@ -147,10 +151,10 @@ function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https
 // The post store: enough of posts, meta and get_posts() for the offers to live in.
 function wp_insert_post( array $args, $wp_error = false ) {
 	$id = $GLOBALS['next_post']++;
-	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_name' => $args['post_name'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
 	return $id;
 }
-function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = $args['post_title']; } return $id; }
+function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) ) { foreach ( array( 'post_title', 'post_name', 'post_status' ) as $field ) { if ( isset( $args[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = $args[ $field ]; } } } return $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
@@ -163,7 +167,9 @@ function get_posts( array $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
 		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
-		if ( isset( $args['post_status'] ) && $post->post_status !== $args['post_status'] ) { continue; }
+		// A list of statuses as core takes one: the store finds a sponsor's post under every status
+		// (WPCPM_Sponsors_Index::POST_STATUSES), so without it patch() would find no post to write.
+		if ( isset( $args['post_status'] ) && 'any' !== $args['post_status'] && ! in_array( $post->post_status, (array) $args['post_status'], true ) ) { continue; }
 		$ok = true;
 		foreach ( (array) ( $args['meta_query'] ?? array() ) as $clause ) {
 			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
@@ -171,9 +177,16 @@ function get_posts( array $args ) {
 			if ( isset( $clause['compare'] ) && 'EXISTS' === $clause['compare'] ) { if ( ! $have ) { $ok = false; } continue; }
 			if ( ! $have || (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ] !== (string) $clause['value'] ) { $ok = false; }
 		}
+		// The store (1.111.0) asks a bare meta_key/meta_value pair, not meta_query.
+		if ( $ok && isset( $args['meta_key'] ) && array_key_exists( 'meta_value', $args ) ) {
+			$have = get_post_meta( $id, $args['meta_key'], true );
+			if ( (string) $have !== (string) $args['meta_value'] ) { $ok = false; }
+		}
 		if ( $ok ) { $out[] = $post; }
 	}
 	usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
+	if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) { return array_map( static function ( $p ) { return $p->ID; }, $out ); }
 	return $out;
 }
 
@@ -254,6 +267,7 @@ class WPCPM_Institution_Export {
 	public static function csv( array $matrix ) { $out = "\xEF\xBB\xBF"; foreach ( $matrix as $row ) { $out .= implode( ',', array_map( array( __CLASS__, 'cell' ), $row ) ) . "\r\n"; } return $out; }
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 // The template registry, which every email's builder fills its words from since 1.122.22.
@@ -265,6 +279,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
@@ -277,8 +292,7 @@ $G = 'recSPONSOR0000007'; $T = 'recTEAM0000000001';
 WPCPM_Sponsors_Index::write( array(
 	$G => array( 'name' => 'Gizmo', 'status' => 'Approved', 'website' => 'https://gizmo.example/', 'contact_person' => 'Rep', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A year of the plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => '', 'coupon_link' => '', 'manager' => $T, 'mentors' => array() ),
 ), time() );
-WPCPM_Sponsors_Index::write_team( array( $T => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
-$GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'offer_low_stock' => 0, 'student_statuses' => array( 'In Sensei' ), 'past_statuses' => array( 'Graduate' ), 'tools_students' => true, 'tools_mentors' => false );
+$GLOBALS['settings'] = array( 'offer_low_stock' => 0, 'student_statuses' => array( 'In Sensei' ), 'past_statuses' => array( 'Graduate' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
 	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
 	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
@@ -326,6 +340,35 @@ ck( 'the person still holds exactly the one claim, at the index the first press 
 ck( 'and the lock the second press took is released', isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $g1 ] ), false );
 ck( 'the guard refuses that person and nobody else: the next claimant gets the next code', array_map( static function ( $v ) { return is_array( $v ) ? array( $v['new'], $v['code'] ) : $v; }, array( WPCPM_Sponsor_Claims::claim( $g1, $GLOBALS['users'][23] ) ) ), array( array( true, 'G-2' ) ) );
 
+echo "\n=== A program contact who is no longer a program manager ===\n";
+// The sponsor's contact is the program manager assigned on the Sponsors screen, a site account. A
+// manager who leaves the team and keeps the account, as a mentor say, must stop receiving what a
+// contact is sent: this mail names the student and carries their address to reply to. It goes to
+// the program's own fallback instead, the one a sponsor with nobody assigned already has.
+$GLOBALS['users'][77] = new WP_User( 77, array( 'wpcpm_mentor' ), 'Former Manager', 'maciej+former@a8c.com' );
+WPCPM_Sponsors_Index::patch( $G, array( 'manager' => '77' ) );
+
+/** Report Student One's code once and say who was mailed: the kind of send, its recipient and context. */
+function problem_mailed_to() {
+	global $g1;
+
+	$GLOBALS['sent'] = array();
+	WPCPM_Sponsor_Claims::report_problem( $g1, $GLOBALS['users'][20] );
+
+	return array_map( static function ( $send ) { return array( $send[0], $send[1], $send[2] ); }, $GLOBALS['sent'] );
+}
+
+$GLOBALS['manage'] = array( 1, 77 );
+$while_manager     = problem_mailed_to();
+$GLOBALS['manage'] = array( 1 );
+$once_demoted      = problem_mailed_to();
+ck( 'a claim problem goes to the assigned contact while they hold the program capability, and once they lose it to the program\'s fallback, never to them', array( WPCPM_Sponsors_Index::row( $G )['manager'], $while_manager, $once_demoted ), array(
+	'77',
+	array( array( 'user', 77, 'claim-problem' ) ),
+	array( array( 'managers', 'sponsor_notify', 'claim-problem' ) ),
+) );
+WPCPM_Sponsors_Index::patch( $G, array( 'manager' => $T ) );
+
 echo "\n=== The offer's title in a mail reads as typed ===\n";
 // A member typed "Q&A: save <3 on <b>hosting</b> > plans". The cleaner wrote the "<" that opens no
 // tag as `&lt;` and took the tags; for a member, insert_text() wrote the ">" as `&gt;` before the
@@ -334,6 +377,9 @@ echo "\n=== The offer's title in a mail reads as typed ===\n";
 // subject is marked plain text.
 $q_stored = 'Q&amp;A: save &lt;3 on hosting &gt; plans';
 $q_typed  = 'Q&A: save <3 on hosting > plans';
+// The program contact is a site account on this line: the Manager, user 1, who holds the program
+// capability, so the manager's copy goes to them.
+WPCPM_Sponsors_Index::patch( $G, array( 'manager' => '1' ) );
 $GLOBALS['uid'] = 5;
 $g2 = WPCPM_Sponsor_Offers::create( $G, array( 'title' => 'Q&A: save &lt;3 on hosting > plans', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 5, 'expires' => '' ) );
 // kses, which this suite's post store does not run, writes the "&" of a member's title as `&amp;`.
@@ -353,6 +399,7 @@ ck( 'a reported problem is mailed with the title as typed, the subject marked pl
 // post, where "<3 on hosting >" read back would be taken for a tag: it keeps the stored form, which
 // every screen that prints it escapes as it is.
 ck( 'the audit row keeps the title as stored', end( $GLOBALS['audit'] )['message'], 'A claimant reported a problem with their code for "' . $q_stored . '" (ending Q-1); 1 mail sent.' );
+WPCPM_Sponsors_Index::patch( $G, array( 'manager' => $T ) );
 
 echo "\n=== The usage CSV reads as typed ===\n";
 // A CSV is plain text too: a spreadsheet shows `&lt;` as four characters. The writer it goes through

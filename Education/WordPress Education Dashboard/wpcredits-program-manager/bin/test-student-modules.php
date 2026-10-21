@@ -15,9 +15,14 @@
  * - **The script gets the kept order back as JSON; the plain form lands back where it was**: the
  *   same student's page, at the module that moved.
  * - **A module with nothing to say is not printed**, so nothing empty is offered to move.
+ * - **A track's partnership line rides in the section the course module draws** (1.114.0): after
+ *   the course columns in My course, after the hours box in My hours, and with neither, in a
+ *   section of its own whose heading the mover says. Nothing of it while the tiers' switch is off
+ *   or on a track that names no partner, and no empty section either.
  *
  * Nothing real is loaded but the dashboard class and `WPCPM_Request`; every section renderer is a
- * stand-in that prints a marker, because this suite is about the wrapper around them.
+ * stand-in that prints a marker, because this suite is about the wrapper around them. So is the
+ * partnership line, whose building bin/test-track-partners.php holds.
  *
  * Run from the plugin root:  php bin/test-student-modules.php
  */
@@ -36,8 +41,11 @@ $GLOBALS['uid']   = 0;
 $GLOBALS['caps']  = false;
 $GLOBALS['umeta'] = array();
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h', 'link' => 'https://airtable.example/form' );
-$GLOBALS['enqueued']   = array();
-$GLOBALS['registered'] = array();
+// The partnership line a track key gets while the tiers' switch is on; none until a check sets one.
+$GLOBALS['partners_line'] = array();
+$GLOBALS['tiers_live']    = false;
+$GLOBALS['enqueued']      = array();
+$GLOBALS['registered']    = array();
 
 class RedirectSignal extends Exception {}
 class DieSignal extends Exception {}
@@ -130,6 +138,11 @@ class WPCPM_Two_Factor { public static function prompt( $u ) {} }
 class WPCPM_Program {
 	public static function course_url( $s ) { return in_array( $s, array( '', 'Marketing Track', 'Paused', 'Pending graduation', 'Graduate' ), true ) ? '' : 'https://learn.example/course'; }
 	public static function label( $s ) { return (string) $s; }
+	// The two tracks this suite puts a student on; the three states are on none.
+	public static function track( $s ) {
+		$tracks = array( 'WordPress Credits Program 150h' => '150h', 'Marketing Track' => 'marketing' );
+		return isset( $tracks[ $s ] ) ? $tracks[ $s ] : '';
+	}
 	// The cards' shared Program row (bin/test-mentors-dashboard.php draws the real one); this one says
 	// what it was asked for, so the page can be read for whom it asked about.
 	public static function program_field( $s, $u = 0 ) { return array( 'label' => 'Program', 'value' => 'Program row for ' . $s . ', account ' . (int) $u ); }
@@ -139,6 +152,13 @@ class WPCPM_Program {
 		}
 
 		return 'Pending graduation' === $s ? (string) ( $GLOBALS['umeta'][ (int) $u ]['wpcpm_student_course'] ?? '' ) : '';
+	}
+}
+// The partnership line as the real class answers it for a track key: '' while the tiers' switch is
+// off, which the real class reads itself, and '' for a track with no partner that qualifies today.
+class WPCPM_Track_Partners {
+	public static function render_line( $key, $today = '', $keys = null ) {
+		return ! empty( $GLOBALS['tiers_live'] ) && isset( $GLOBALS['partners_line'][ $key ] ) ? $GLOBALS['partners_line'][ $key ] : '';
 	}
 }
 class WPCPM_Mentors_Dashboard {
@@ -454,9 +474,148 @@ $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
 ck( 'while over My course it still says My course',
 	substr_count( WPCPM_Students_Dashboard::render(), 'aria-label="Move My course up" title="Move My course up" data-wpcpm-moved="My course moved up."' ), 1 );
 
+echo "\n=== A track's partners (1.114.0) ===\n";
+
+// The line belongs in the course module (the sponsor tiers design, section 9). A track with no
+// course has no My course section, so the line rides in whichever section the module draws, and
+// with neither it is a section of its own, under a heading that does not repeat the line's lead.
+$GLOBALS['uid']           = 30;
+$GLOBALS['caps']          = false;
+$_GET                     = array();
+$acme_line                = '<div class="wpcpm-student__partners"><p class="wpcpm-student__partners-lead">In partnership with</p><ul class="wpcpm-student__partners-list"><li class="wpcpm-student__partner"><span class="wpcpm-student__partner-name">Acme Example</span></li></ul></div>';
+$GLOBALS['partners_line'] = array( '150h' => $acme_line, 'marketing' => $acme_line );
+$GLOBALS['tiers_live']    = true;
+
+$GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
+$page               = WPCPM_Students_Dashboard::render();
+ck( 'on a track with a course, the line follows the course columns inside My course, once, and the mover still says My course',
+	array(
+		1 === preg_match( '#<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--course"><h3 class="wpcpm-student__heading">My course</h3><div class="wpcpm-student__course-cols"><p class="wpcpm-student__actions"><a class="wpcpm-button" href="https://learn.example/course" target="_blank" rel="noopener noreferrer">Open your course</a></p><!-- hours --></div>' . preg_quote( $acme_line, '#' ) . '</section>#', $page ),
+		substr_count( $page, 'wpcpm-student__partners-lead' ),
+		substr_count( $page, 'aria-label="Move My course up"' ),
+	),
+	array( true, 1, 1 ) );
+
+// The students sync writes the status under `program` and nothing under `status` (the 1.110.4
+// hotfix): the card falls back to `program` when `status` is empty, and the track, so the line,
+// is read from the same status.
+$GLOBALS['program'] = array( 'program' => 'WordPress Credits Program 150h', 'is_past' => false );
+$page               = WPCPM_Students_Dashboard::render();
+ck( 'and so it is for the students sync\'s own shape, the status under `program` alone',
+	array( substr_count( $page, '<!-- hours --></div>' . $acme_line . '</section>' ), substr_count( $page, 'wpcpm-student__partners-lead' ) ),
+	array( 1, 1 ) );
+
+$GLOBALS['program'] = array( 'status' => 'Marketing Track' );
+$page               = WPCPM_Students_Dashboard::render();
+ck( 'on a track with no course, the line follows the hours box inside My hours, once, and the mover still says My hours',
+	array(
+		1 === preg_match( '#id="wpcpm-module-course">.*?<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--hours"><h3 class="wpcpm-student__heading">My hours</h3><!-- hours -->' . preg_quote( $acme_line, '#' ) . '</section>#s', $page ),
+		substr_count( $page, 'wpcpm-student__partners-lead' ),
+		substr_count( $page, 'aria-label="Move My hours up"' ),
+	),
+	array( true, 1, 1 ) );
+
+$GLOBALS['program'] = array( 'status' => 'Marketing Track', 'no_hours' => true );
+$page               = WPCPM_Students_Dashboard::render();
+ck( 'with neither, the line is a section of its own in the course module, under a heading of its own that the mover says',
+	array(
+		in_array( 'course', module_ids( $page ), true ),
+		1 === preg_match( '#id="wpcpm-module-course">.*?<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--partners"><h3 class="wpcpm-student__heading">Partners of your track</h3>' . preg_quote( $acme_line, '#' ) . '</section>#s', $page ),
+		substr_count( $page, 'aria-label="Move Partners of your track up" title="Move Partners of your track up" data-wpcpm-moved="Partners of your track moved up."' ),
+		substr_count( $page, '>My hours</h3>' ) + substr_count( $page, '>My course</h3>' ),
+	),
+	array( true, true, 1, 0 ) );
+
+// The switch off, with the same tracks naming the same partner: the real line is '' then, and the
+// page must be the one it was before the tracks had partners, down to having no module to move.
+$cases = array(
+	'course'  => array( 'status' => 'WordPress Credits Program 150h' ),
+	'hours'   => array( 'status' => 'Marketing Track' ),
+	'neither' => array( 'status' => 'Marketing Track', 'no_hours' => true ),
+);
+$off = array();
+
+$GLOBALS['tiers_live'] = false;
+
+foreach ( $cases as $case => $row ) {
+	$GLOBALS['program'] = $row;
+	$page               = WPCPM_Students_Dashboard::render();
+	$off[ $case ]       = array(
+		substr_count( $page, 'wpcpm-student__partners' ) + substr_count( $page, 'wpcpm-student__links--partners' ),
+		in_array( 'course', module_ids( $page ), true ),
+		substr_count( $page, '<!-- hours --></div></section>' ) + substr_count( $page, '<h3 class="wpcpm-student__heading">My hours</h3><!-- hours --></section>' ),
+	);
+}
+
+ck( 'with the tiers\' switch off nothing of it is drawn: My course and My hours as they were, and no module with neither',
+	$off,
+	array(
+		'course'  => array( 0, true, 1 ),
+		'hours'   => array( 0, true, 1 ),
+		'neither' => array( 0, false, 0 ),
+	) );
+
+// The switch on, and only the other track names a partner.
+$GLOBALS['tiers_live']    = true;
+$GLOBALS['partners_line'] = array( 'design' => $acme_line );
+$none                     = array();
+
+foreach ( $cases as $case => $row ) {
+	$GLOBALS['program'] = $row;
+	$page               = WPCPM_Students_Dashboard::render();
+	$none[ $case ]      = array(
+		substr_count( $page, 'wpcpm-student__partners' ) + substr_count( $page, 'wpcpm-student__links--partners' ),
+		in_array( 'course', module_ids( $page ), true ),
+	);
+}
+
+ck( 'nor on a track that names no partner while another track does: no line, and no empty section of its own',
+	$none,
+	array(
+		'course'  => array( 0, true ),
+		'hours'   => array( 0, true ),
+		'neither' => array( 0, false ),
+	) );
+
+// A student waiting to graduate is on no track, and their account keeps the course they took
+// (`WPCPM_Program::course_status()`): the line names that course's track's partners, the ones the
+// Tools section binds them to (bin/test-sponsor-tools.php), and nothing for a pending student whose
+// account keeps no course.
+$GLOBALS['partners_line'] = array( '150h' => $acme_line, 'marketing' => $acme_line );
+$GLOBALS['program']       = array( 'status' => 'Pending graduation' );
+$pending                  = array();
+
+foreach ( array( 'course' => 'WordPress Credits Program 150h', 'hours' => 'Marketing Track', 'none' => '', 'not a track' => 'Graduate' ) as $case => $kept ) {
+	$GLOBALS['umeta'][30]['wpcpm_student_course'] = $kept;
+	$page                                         = WPCPM_Students_Dashboard::render();
+	$pending[ $case ]                             = array(
+		substr_count( $page, 'wpcpm-student__partners-lead' ),
+		1 === preg_match( '#<!-- hours --></div>' . preg_quote( $acme_line, '#' ) . '</section>#', $page ),
+		1 === preg_match( '#<h3 class="wpcpm-student__heading">My hours</h3><!-- hours -->' . preg_quote( $acme_line, '#' ) . '</section>#', $page ),
+	);
+}
+
+unset( $GLOBALS['umeta'][30]['wpcpm_student_course'] );
+
+ck( 'a Pending graduation student whose account keeps a course gets that track\'s partnership line where the course module draws it, in My course or in My hours; one whose account keeps no course, or a status that is no track\'s, gets none',
+	$pending,
+	array(
+		'course'      => array( 1, true, false ),
+		'hours'       => array( 1, false, true ),
+		'none'        => array( 0, false, false ),
+		'not a track' => array( 0, false, false ),
+	) );
+
+$GLOBALS['tiers_live']    = false;
+$GLOBALS['partners_line'] = array();
+$GLOBALS['program']       = array( 'status' => 'WordPress Credits Program 150h' );
+
 echo "\n=== House rules ===\n";
 $source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php' );
 ck( 'the mover is printed behind the may-arrange check only', 1 === preg_match( '/if \( \$can_move \) \{\s*self::render_mover\(/', $source ), true );
+ck( 'the partnership line is asked of WPCPM_Track_Partners behind class_exists(), never of the Track Builder\'s store, which the live site does not read',
+	array( false !== strpos( $source, "class_exists( 'WPCPM_Track_Partners' ) ? WPCPM_Track_Partners::render_line( \$track )" ), strpos( $source, 'WPCPM_Track_Store' ) ),
+	array( true, false ) );
 $script = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/modules.js' );
 ck( 'the script posts to the action attribute, never to form.action, which the hidden action field shadows', array( substr_count( $script, "fetch( form.getAttribute( 'action' )" ), substr_count( $script, 'fetch( form.action' ) ), array( 1, 0 ) );
 ck( 'the script posts the same field names the handler reads', array(
@@ -489,8 +648,7 @@ ck( 'a refused save puts the modules back and replaces what the live region said
 ), array( true, true, true ) );
 
 /*
- * Two refusals in a row, and where focus lands after one. Both are the Task 7 items the deep
- * check parked and the whole-branch review of 1.99.0 pulled back in.
+ * Two refusals in a row, and where focus lands after one.
  *
  * The stale-ticket guard used to stand in front of the whole answer, so a press answered while
  * a later one was still in flight returned before it restored anything: two quick presses both

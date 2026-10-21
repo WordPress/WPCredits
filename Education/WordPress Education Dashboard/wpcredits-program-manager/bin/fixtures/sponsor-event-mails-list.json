@@ -1,0 +1,106 @@
+[
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: Partners \"Q&A\" in C:\\talks",
+        "body": "You joined Partner Example's event.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 10, 2026 2:00 pm to 3:30 pm (America / New York)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: Partners \"Q&A\" in C:\\talks",
+        "body": "You joined Partner Example's event.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 10, 2026 7:00 pm to 8:30 pm (Europe / Lisbon)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You left: Partners \"Q&A\" in C:\\talks",
+        "body": "You left Partner Example's event. The calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mona.mentor at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: Champion webinar & more",
+        "body": "You joined Champion <b>Example</b> & Co's event.\n\nTitle: Champion webinar & more\nWhen: December 1, 2026 7:00 pm to 8:00 pm (Asia / Tokyo)\nLength: 60 minutes\nJoin the call: https://meet.example/champion",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "mona.mentor at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You left: Champion webinar & more",
+        "body": "You left Champion <b>Example</b> & Co's event.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You left: Paused workshop",
+        "body": "You left Paused Example's event. The calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Calloff webinar",
+        "body": "An event you joined is canceled.\n\nTitle: Calloff webinar\nSponsor: Calloff Example\nWhen: December 10, 2026 10:00 am to 11:30 am (America / New York)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "ines.institution at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: Champion webinar & more",
+        "body": "You joined Champion <b>Example</b> & Co's event.\n\nTitle: Champion webinar & more\nWhen: December 1, 2026 11:00 am to 12:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://meet.example/champion\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.manager at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: Champion webinar & more",
+        "body": "You joined Champion <b>Example</b> & Co's event.\n\nTitle: Champion webinar & more\nWhen: December 1, 2026 11:00 am to 12:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://meet.example/champion\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mel.mentorrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: The partners session",
+        "body": "You joined an event hosted by the WordPress Credits Program.\n\nTitle: The partners session\nWhen: January 15, 2027 3:00 pm to 4:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://meet.example/partners\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mel.mentorrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You left: The partners session",
+        "body": "You left an event hosted by the WordPress Credits Program. The calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You joined: We <3 \"our\" team & Bob's > all",
+        "body": "You joined Signs Example's event.\n\nTitle: We <3 \"our\" team & Bob's > all\nWhen: December 15, 2026 5:00 am to 6:30 am (America / New York)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached adds it to your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sam.current at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] You left: We <3 \"our\" team & Bob's > all",
+        "body": "You left Signs Example's event. The calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    }
+]

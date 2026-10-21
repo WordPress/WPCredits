@@ -450,10 +450,8 @@ $probe = array(
 	'feedback_table'                => 'tblPROBE0000000005',
 	'institutions_table'            => 'tblPROBE0000000001',
 	'teams_table'                   => 'tblPROBE0000000006',
-	'sponsors_table'                => 'tblPROBE0000000007',
 	'institutions_name_field'       => 'Probe institution',
 	'teams_name_field'              => 'Probe field',
-	'sponsors_name_field'           => 'Probe sponsor',
 	'student_statuses'              => array( 'Probe current', 'Probe paused' ),
 	'past_statuses'                 => array( 'Probe past' ),
 	'on_inactive'                   => 'keep',
@@ -499,11 +497,11 @@ $probe = array(
 	'report_autodraft_grace_days'   => '30',
 	'report_notify'                 => 'one@example.org,two@example.org',
 	// The Sponsors module.
-	'team_members_table'            => 'tblPROBE0000000015',
 	'sponsor_on_inactive'           => 'revoke',
 	'sponsor_notify'                => 'probe-one@example.org,probe-two@example.org',
 	'logo_max_kb'                   => '2048',
 	'offer_low_stock'               => '250',
+	'sponsor_tier_grace_until'      => '2027-03-31',
 	// Mentor applications (1.122.31).
 	'mentor_notify'                 => 'probe-one@example.test,probe-two@example.test',
 	'mentor_course_link'            => 'https://learn.example.test/course/probe/?group=PROBE',
@@ -1036,13 +1034,12 @@ ck( 'and the grace has a ceiling of a year', $saved['report_autodraft_grace_days
 echo "\n=== Sponsors module settings ===\n";
 
 // The fifth audience's settings (design spec of 4 September 2026, section 5).
-ck( 'the Team Members table has its own setting: teams_table is the Contribution areas table', WPCPM_Settings::defaults()['team_members_table'], 'tblUYWUSEcRLJ5BaR' );
 ck( 'sponsors are routed home at login by default, like everybody', WPCPM_Settings::defaults()['sponsor_home'], true );
 ck( 'a sponsor that stops being Approved keeps its accounts unless told otherwise', WPCPM_Settings::defaults()['sponsor_on_inactive'], 'keep' );
 ck( 'interest mail falls back to every manager', WPCPM_Settings::defaults()['sponsor_notify'], '' );
 ck( 'a logo may be a megabyte', WPCPM_Settings::defaults()['logo_max_kb'], 1024 );
 
-$saved = WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'anything', 'logo_max_kb' => '999999', 'sponsor_notify' => ' maciej@a8c.com ', 'team_members_table' => 'tblX' ) );
+$saved = WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'anything', 'logo_max_kb' => '999999', 'sponsor_notify' => ' maciej@a8c.com ' ) );
 ck( 'an unknown on-inactive answer reads as keep', $saved['sponsor_on_inactive'], 'keep' );
 ck( 'and revoke is the one other answer', WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'revoke' ) )['sponsor_on_inactive'], 'revoke' );
 ck( 'the logo ceiling is clamped', $saved['logo_max_kb'], 8192 );
@@ -1050,7 +1047,32 @@ ck( 'the notify list is trimmed', $saved['sponsor_notify'], 'maciej@a8c.com' );
 ck( 'and cleaned like its siblings: split, lowered, the non-addresses dropped, duplicates gone',
 	WPCPM_Settings::save( array( 'sponsor_notify' => 'Maciej@a8c.com, not-an-address maciej@a8c.com' ) )['sponsor_notify'],
 	'maciej@a8c.com' );
-ck( 'the table ID is saved as text', $saved['team_members_table'], 'tblX' );
+
+// 1.111.0: the sponsor record lives on the site and no sync reads a sponsor table any more, so the
+// settings screen neither asks for the program team's table nor promises what a sync will do. The
+// status set on the Sponsors screen is the record, and the leaving rule says what changing it does.
+// Read from the class that draws the Settings screen, whose Sponsors tab holds these rows.
+ck( 'the settings screen asks for no Team Members table and names no sponsors sync',
+	array( strpos( $screen_source, 'Team Members' ), strpos( $screen_source, 'sponsors sync' ), strpos( $screen_source, 'on the next sync' ), strpos( $screen_source, 'the sync copies' ), strpos( $screen_source, 'Airtable\\\'s Status' ), strpos( $screen_source, 'created in Airtable until' ) ),
+	array( false, false, false, false, false, false ) );
+ck( 'and the Sponsors tab says what a status change and an approval do, and what the logo ceiling applies to',
+	array(
+		false !== strpos( $screen_source, "__( 'What a change of status on the Sponsors screen does with the accounts of a sponsor that is no longer Approved.', 'wpcredits-program-manager' )" ),
+		false !== strpos( $screen_source, "__( 'The status is the record: choose the other answer to have a status change on the Sponsors screen remove the accounts of a sponsor that is no longer Approved.', 'wpcredits-program-manager' )" ),
+		false !== strpos( $screen_source, 'nothing becomes a sponsor until somebody approves it' ),
+		false !== strpos( $screen_source, "esc_html__( 'Applies to the logos sponsors upload and the ones sent with an application: PNG, JPEG and WebP only, never SVG.', 'wpcredits-program-manager' )" ),
+	),
+	array( true, true, true, true ) );
+
+$defaults = WPCPM_Settings::defaults();
+ck( 'the tiers switch is off and the grace date is 2026-12-31 by default', array( $defaults['sponsor_tiers_live'], $defaults['sponsor_tier_grace_until'] ), array( false, '2026-12-31' ) );
+
+$saved = WPCPM_Settings::save( array( 'sponsor_tier_grace_until' => '2026-13-40' ) );
+$saved = WPCPM_Settings::save( array( 'sponsor_tier_grace_until' => '' ) );
+ck( 'a malformed grace date keeps the stored one, and an empty one too', $saved['sponsor_tier_grace_until'], '2026-12-31' );
+
+$saved = WPCPM_Settings::save( array( 'sponsor_tier_grace_until' => '2027-03-31' ) );
+ck( 'a real grace date is taken', $saved['sponsor_tier_grace_until'], '2027-03-31' );
 
 echo "\n=== Mentor applications settings (1.122.31) ===\n";
 
@@ -1663,11 +1685,14 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 
 // Where each setting goes: the design's table of tabs, then each tool's own. The tables and columns
 // no screen drew belong with the others on Connection; Advanced holds the rest of what had no control.
+// The Team Members and Sponsors tables and the Sponsors name column went with the sponsors sync
+// (1.111.0), and the Sponsors tab holds the tiers' switch and grace date, as the design's Sponsors
+// row gives them.
 $by_design = array(
-	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'sponsors_name_field' ),
+	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
 	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
-	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock' ),
+	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles' ),
 	'advanced'                   => array( 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
@@ -1887,7 +1912,7 @@ $after              = WPCPM_Settings::get();
 
 ck( 'Save on the Sponsors tab writes its settings, its unticked boxes off, and nothing else, whatever else the request holds',
     array( settings_changed_since( $other_answers ), $after['sponsor_home'], $after['tools_students'], $after['logo_max_kb'], $after['auto_sync'], $after['mentor_home'], $after['mentor_status'] ),
-    array( array( 'logo_max_kb', 'sponsor_applications_enabled', 'sponsor_on_inactive', 'tools_mentors' ), true, true, 2048, true, true, $other_answers['mentor_status'] ) );
+    array( array( 'logo_max_kb', 'sponsor_applications_enabled', 'sponsor_on_inactive', 'sponsor_tiers_live', 'tools_mentors' ), true, true, 2048, true, true, $other_answers['mentor_status'] ) );
 
 ck( 'and says so naming the tab, and goes back to it, with nothing compiled or rescheduled',
     array( $ended, $queued['settings'] ?? null, $queued['settings-scope'] ?? null, $GLOBALS['redirected_to'], WPCPM_Track_Store::$compiled - $compiled_then, count( WPCPM_Mentor_Checker_Runner::$synced ) - $synced_then ),
@@ -2696,6 +2721,7 @@ $design_sections = array(
 		'When a sponsor is no longer Approved' => 'when-a-sponsor-is-no-longer-approved',
 		'Interest mail'                        => 'interest-mail',
 		'Offers'                               => 'offers',
+		'Tiers'                                => 'sponsor-tiers',
 	),
 	'security'     => array(
 		'Two-factor authentication' => 'two-factor-authentication',
@@ -2776,8 +2802,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 24 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 24, 0, 24 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 25 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 25, 0, 25 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -3067,12 +3093,12 @@ foreach ( array( 'text_row', 'select_row', 'checklist_row', 'reviewers_row' ) as
 	sort( $drawn_by[ $helper ] );
 }
 
-$chosen = array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'sponsors_name_field', 'mentor_status', 'checker_source_status', 'checker_target_status', 'institution_new_stage' );
+$chosen = array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'mentor_status', 'checker_source_status', 'checker_target_status', 'institution_new_stage' );
 $offered_by_select = array_merge( $chosen, array( 'handbook_model' ) );
 sort( $chosen );
 sort( $offered_by_select );
 
-ck( 'the base, the ten tables, the four name columns, the three statuses and the starting stage are each one choice of a select, and the model too once the provider lists models to choose from',
+ck( 'the base, the eight tables, the three name columns, the three statuses and the starting stage are each one choice of a select, and the model too once the provider lists models to choose from',
     $drawn_by['select_row'], $offered_by_select );
 
 // The provider lists no models, so the only list there could be is the default beside the model
@@ -3449,7 +3475,7 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
             ),
         ),
         'Automatic sync'                     => array(
-            array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.' ),
+            array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.' ),
             array( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.' ),
         ),
         'Enrollment lists from institutions' => array(
@@ -3490,7 +3516,7 @@ ck( 'the Token scopes row says one sentence, and its fold holds the scopes, each
     '<tr><th scope="row">Token scopes</th><td><p class="description">Set the scopes listed under Details on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Token scopes</span></summary><ul class="wpcpm-scopes"><li><code>data.records:read</code> <strong>Required</strong><br /><span class="description">Reading mentors, students and tutors.</span></li><li><code>data.records:write</code> <strong>Required by the Mentor Status Checker</strong><br /><span class="description">Changing a mentor&#039;s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable&#039;s refusal waits on the application. The launch&#039;s check row, which WP-CLI writes and deletes, needs it too.</span></li><li><code>schema.bases:read</code> <strong>Optional</strong><br /><span class="description">Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker&#039;s screen offer, and reading each column&#039;s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant&#039;s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.</span></li></ul><p>Scopes cannot be checked from here without writing to the base, so this list is the reference.</p></details></td></tr>' );
 ck( 'and the Automatic sync row its switch, one sentence, and its fold',
     isset( $sync_row[0] ) ? $sync_row[0] : null,
-    '<tr><th scope="row">Automatic sync</th><td><label><input type="checkbox" name="auto_sync" value="1" checked=\'checked\'> Read Airtable on a schedule</label><p class="description">Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Automatic sync</span></summary><p>The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</p></details></td></tr>' );
+    '<tr><th scope="row">Automatic sync</th><td><label><input type="checkbox" name="auto_sync" value="1" checked=\'checked\'> Read Airtable on a schedule</label><p class="description">Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Automatic sync</span></summary><p>The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</p></details></td></tr>' );
 
 // The save keeps one valid address or none (`WPCPM_Settings::save()`), so a range typed in comes back
 // empty: the help says so where the address is typed.
@@ -4217,6 +4243,114 @@ foreach ( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help
 ck( 'guide 31 has no Tools tab and says the four tools keep their settings on their own screens, and guide 32 gives each of the four a Settings section',
     array( 1 === preg_match( '/^### The Tools tab$/m', $guide_31 ), false !== strpos( $guide_31, 'eighth' ), 1 === preg_match( '/Mentor Status Checker.*Student Duplicate Finder.*Need help\?.*Emails.*own screen/s', $guide_31 ), $tool_parts ),
     array( false, false, true, array_fill_keys( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?', 'Emails' ), true ) ) );
+
+echo "\n=== The Sponsors tab keeps the tiers' switch and grace date, and saves them in its own scope ===\n";
+
+// The switch that launches the sponsor tiers and the grace date the daily run waits for, drawn by the
+// Sponsors tab in a section of their own, last, as its other rows are drawn: one sentence under each
+// control and the rest in its Details fold, the switch's fold holding the list of everything it turns
+// on. Each is saved by the Sponsors tab alone: a save of any other tab, or of a tool's Settings
+// section, leaves both as they were, whatever its request holds.
+store_settings( $defaults );
+$tiers_tab = draw_settings( 'sponsors' );
+$tiers_at  = strpos( $tiers_tab, '<h2>Tiers</h2>' );
+$tiers_end = false === $tiers_at ? false : strpos( $tiers_tab, '</table>', $tiers_at );
+$tiers_row = false === $tiers_end ? array() : array_column( rows_of( substr( $tiers_tab, $tiers_at, $tiers_end - $tiers_at ) ), 'label' );
+
+ck( 'the Sponsors tab ends on the Tiers section: the switch, then the grace date',
+    array( $tiers_row, false !== $tiers_end && false === strpos( substr( $tiers_tab, $tiers_end ), '<h2>' ) ),
+    array( array( 'Sponsor tiers', 'Tier grace date' ), true ) );
+
+ck( 'the switch is a box labeled as the launch it is, off by default, and the old label is gone',
+    array(
+        false !== strpos( $tiers_tab, '<tr><th scope="row">Sponsor tiers</th><td><label><input type="checkbox" name="sponsor_tiers_live" value="1"> Launch the sponsor tiers</label>' ),
+        strpos( $screen_source, 'Show sponsors their tier' ),
+    ),
+    array( true, false ) );
+
+// The box is the launch: ticking it publishes the Partners page, whose theme template prints the
+// tiers and their amounts, and turns on every surface the tiers have. The one sentence says what it does to the page; the fold
+// names each other surface, the Tier box among them, whose tiers no sponsor sees until then. The
+// Sponsor Dashboard's cards are named by the titles they carry since 27 September 2026, Sponsorship
+// and Badge without "Your", and the At a glance tiles the switch gates beside them: the tier's, the
+// next event's and the reports'.
+ck( 'and says in one sentence what turning it on and off does to the Partners page, its fold naming every other surface the switch gates, the Tier box among them',
+    help_of( $tiers_tab, 'Sponsor tiers' ),
+    array(
+        array( 'Turning this on is the launch: it publishes the Partners page, and turning it off returns the page to draft.' ),
+        array(
+            'It also turns on the Sponsors block and its strip on the landing page, the badge a sponsor puts on its own site, the application form\'s tier question, the Handbook listing tab on the Sponsors screen, the partnership tiles a track\'s students see and the offers its partners keep for them, the description for the partner page, the caps a tier puts on posts, and the dormant state; on the Sponsor Dashboard, the At a glance tiles for the tier, the next event and the reports, the Sponsorship card, the Badge card and the badge in the Sponsor Dashboard\'s header, the Reports card and the reports a sponsor\'s members open there, and the Events card with its planner; and the events lists on the Student Report Card, the Mentor Report Card and the Institution Dashboard, with the Administrator Dashboard\'s Events card and the Overview\'s count of the events waiting, the Events card on the Sponsors screen\'s Waiting for review tab and the events in its menu bubble, and the reminders the day before each approved event.',
+            'Off until the program announces the tiers: while it is off, Administrators set tiers, terms and funded lines in the Tier box on the Sponsors screen, and no sponsor sees them.',
+        ),
+    ) );
+
+store_settings( array_merge( $defaults, array( 'sponsor_tiers_live' => true ) ) );
+ck( 'and is drawn ticked while the switch is on',
+    false !== strpos( draw_settings( 'sponsors' ), '<input type="checkbox" name="sponsor_tiers_live" value="1" checked=\'checked\'> Launch the sponsor tiers' ),
+    true );
+store_settings( $defaults );
+
+// "Until this day, included" is not how US English says a day belongs to a period: "Through".
+ck( 'the grace date is a date field holding the day stored, and says through which day nothing goes dormant, in US English, its fold what happens from the day after',
+    array(
+        false !== strpos( $tiers_tab, '<input type="date" id="wpcpm-sponsor_tier_grace_until" name="sponsor_tier_grace_until" value="2026-12-31" class="regular-text" autocomplete="off" />' ),
+        help_of( $tiers_tab, 'Tier grace date' ),
+        strpos( $screen_source, 'Until this day, included' ),
+    ),
+    array(
+        true,
+        array( array( 'Through this day, nothing a sponsor\'s tier does not cover goes dormant.' ), array( 'From the day after, the daily run applies the tiers as set.' ) ),
+        false,
+    ) );
+
+// Every mail meant for a sponsor's program manager takes one road, the assigned manager, else the
+// Interest mail's addresses, else every manager (WPCPM_Sponsor_Interests::mail_manager()); the
+// row's fold names each mail on that road, the tiers run's term-end mail and the event planner's
+// among them.
+ck( 'the Interest mail\'s row says in its fold every mail meant for a sponsor\'s Administrator, the thirty-day mail of a term\'s end and the mails about the events it plans among them, and that a new application comes here too',
+    help_of( $tiers_tab, 'Who is mailed' )[1],
+    array( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes, a warning that its codes are running low, the mail thirty days before its term ends and the mails about the events it plans, changes or cancels go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.' ) );
+
+// Each key, through the real handler: the Sponsors tab's Save writes it, by its own rule, and the Save
+// of every other tab and of each tool's Settings section leaves it as stored, though its request
+// carries it. The switch is a box, so the Sponsors tab's Save with the box unticked turns it off.
+$other_scopes = array_values( array_diff( array_keys( WPCPM_Settings::scopes() ), array( 'sponsors' ) ) );
+$switch_kept  = array();
+$grace_kept   = array();
+
+foreach ( $other_scopes as $scope ) {
+	store_settings( array_merge( $defaults, array( 'sponsor_tiers_live' => true ) ) );
+	press_tab( $scope, array() );
+	$left_on = WPCPM_Settings::get()['sponsor_tiers_live'];
+
+	store_settings( $defaults );
+	press_tab( $scope, array( 'sponsor_tiers_live' => '1', 'sponsor_tier_grace_until' => '2027-06-30' ) );
+
+	$switch_kept[ $scope ] = array( $left_on, WPCPM_Settings::get()['sponsor_tiers_live'] );
+	$grace_kept[ $scope ]  = WPCPM_Settings::get()['sponsor_tier_grace_until'];
+}
+
+store_settings( $defaults );
+press_tab( 'sponsors', array( 'sponsor_tiers_live' => '1' ) );
+$switched_on_here = WPCPM_Settings::get()['sponsor_tiers_live'];
+press_tab( 'sponsors', array() );
+$switched_off_here = WPCPM_Settings::get()['sponsor_tiers_live'];
+
+ck( 'sponsor_tiers_live is written by the Sponsors tab\'s Save, on with the box ticked and off with it unticked, and left as stored by every other tab\'s and tool\'s Save',
+    array( $switched_on_here, $switched_off_here, $switch_kept ),
+    array( true, false, array_fill_keys( $other_scopes, array( true, false ) ) ) );
+
+store_settings( $defaults );
+press_tab( 'sponsors', array( 'sponsor_tier_grace_until' => '2027-06-30' ) );
+$grace_here = WPCPM_Settings::get()['sponsor_tier_grace_until'];
+press_tab( 'sponsors', array( 'sponsor_tier_grace_until' => '2027-02-30' ) );
+$grace_refused = WPCPM_Settings::get()['sponsor_tier_grace_until'];
+
+ck( 'sponsor_tier_grace_until is written by the Sponsors tab\'s Save, a day that is not real leaving the stored one, and left as stored by every other tab\'s and tool\'s Save',
+    array( $grace_here, $grace_refused, $grace_kept ),
+    array( '2027-06-30', '2027-06-30', array_fill_keys( $other_scopes, '2026-12-31' ) ) );
+
+$GLOBALS['umeta'] = array();
 
 echo "\n=== airtable_record_url() ===\n";
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( WPCPM_Settings::defaults(), array( 'base_id' => 'appTEST', 'students_table' => 'tbl STU', 'reports_table' => '' ) );

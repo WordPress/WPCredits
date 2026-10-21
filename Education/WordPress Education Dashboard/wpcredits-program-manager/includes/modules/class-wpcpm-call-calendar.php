@@ -244,7 +244,8 @@ class WPCPM_Call_Calendar {
 	 *
 	 * Being the single funnel, it is also where the group sessions render - so they appear on the
 	 * three early exits too, which is where they matter most: a student whose mentor has published
-	 * no private hours can still be invited to a session.
+	 * no private hours can still be invited to a session. The events from the program's sponsors
+	 * follow the sessions, for the student on their own page alone.
 	 *
 	 * @param WP_User|null $student           The student, when there is one.
 	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
@@ -258,6 +259,13 @@ class WPCPM_Call_Calendar {
 		// squeezed into half the card.
 		if ( $student instanceof WP_User ) {
 			self::render_student_sessions( $student, $viewer_is_student, $can_manage );
+		}
+
+		// Under the sessions, and for the student looking at their own page alone: a Join puts
+		// whoever presses it on the event, and a program manager reading this page joins on the
+		// Administrator Dashboard, as themselves, never on the student's behalf.
+		if ( $viewer_is_student && $student instanceof WP_User && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+			WPCPM_Sponsor_Event_List::render( $student, WPCPM_Sponsor_Event_List::BACK_STUDENT );
 		}
 
 		echo '</div>';
@@ -777,6 +785,14 @@ class WPCPM_Call_Calendar {
 		// reads with them rather than under a form somewhere to the right.
 		echo '<div class="wpcpm-calls__col wpcpm-calls__col--sessions">';
 		WPCPM_Group_Sessions::render_mentor_panel( $mentor );
+
+		// The events from the program's sponsors, under the sessions, for the mentor looking at their
+		// own page alone: a Join puts whoever presses it on the event, and a program manager viewing
+		// this page joins on the Administrator Dashboard, as themselves.
+		if ( get_current_user_id() === (int) $mentor->ID && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+			WPCPM_Sponsor_Event_List::render( $mentor, WPCPM_Sponsor_Event_List::BACK_MENTOR );
+		}
+
 		echo '</div>';
 
 		echo '</div>';

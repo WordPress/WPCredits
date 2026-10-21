@@ -28,12 +28,17 @@
  *   anywhere; a row whose institution already has a copy in review is given the sentence and
  *   the way out rather than a form that would be refused; a settled one still takes T10's
  *   replacement.
+ * - **The reviewer's block comes back where it was drawn.** On the Administrator Dashboard its
+ *   Accept and Return carry that page's way back to the Collaboration Agreements card, as every
+ *   decision posted from that page does, since the dashboard passes `WPCPM_Return::DASHBOARD`
+ *   after `true`; a block given no way back carries none, and the handler returns where the
+ *   press came from.
  * - **The review block decides on one page and is read on the other.** The Administrator
- *   Dashboard calls it with one argument and gets Accept and Return; the Institutions screen's
- *   queue passes `false` and gets the same block to read, with the way to the dashboard's own
- *   copy of it in the decisions' place, or nothing there while that page is missing, since the
- *   queue says so once above its list. Both callers are read off their source, since each one's
- *   suite stands this in.
+ *   Dashboard passes `true` and gets Accept and Return; the Institutions screen's queue passes
+ *   `false` and gets the same block to read, with the way to the dashboard's own copy of it in
+ *   the decisions' place, or nothing there while that page is missing, since the queue says so
+ *   once above its list. Both callers are read off their source, since each one's suite stands
+ *   this in.
  * - **One mechanism per form for a manager acting on behalf.** The generate and Regenerate
  *   forms put the switcher on the action URL, where `resolve_institution()` reads it, and
  *   carry no record field, because that class stopped reading one. The upload and on-file
@@ -253,6 +258,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+// The real way back, which prints nothing for a form drawn anywhere but the Administrator Dashboard.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -1847,9 +1854,10 @@ echo "\n=== The review block: the checklist read, the flags as a courtesy, two w
 /**
  * Render the review block for one document and hand back what it printed.
  *
- * Drawn to decide, it is called with the one argument the Administrator Dashboard passes, so every
- * check of the two decisions is a check that the default still draws them; drawn to be read, with
- * the `false` the Institutions screen's queue passes.
+ * Drawn to decide, it is called with the post alone, so every check of the two decisions is a check
+ * that the defaults still draw them, with no way back; the Administrator Dashboard's own call, which
+ * adds `true` and its way back, is drawn below. Drawn to be read, with the `false` the Institutions
+ * screen's queue passes.
  *
  * @param int         $post_id    Agreement post ID.
  * @param bool        $can_manage Whether the viewer holds CAP_MANAGE.
@@ -1896,6 +1904,21 @@ ck( 'the two ways out are Accept and Return, one each', array_intersect_key( for
 ck( 'Accept is keyed to the document', false !== strpos( $template_review, 'value="nonce-wpcpm_agreement_accept_' . $review_id . '"' ), true );
 ck( 'Return is too', false !== strpos( $template_review, 'value="nonce-wpcpm_agreement_return_' . $review_id . '"' ), true );
 ck( 'and both carry the post ID under the name the handlers read', substr_count( $template_review, 'name="wpcpm_agreement_post" value="' . $review_id . '"' ), 2 );
+
+// Drawn as the Administrator Dashboard draws it, with `true` and its way back, the block's two
+// decisions come back to that page's Collaboration Agreements card, as every decision posted from
+// that page does; drawn with no way back, the forms carry none and are what they were.
+$GLOBALS['caps']      = true;
+$GLOBALS['member_of'] = array();
+ob_start();
+WPCPM_Institution_Panel::render_review( $review_id, true, WPCPM_Return::DASHBOARD );
+$dashboard_review = (string) ob_get_clean();
+$back_to_card     = '<input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="agreements" />';
+ck( 'drawn on the Administrator Dashboard, Accept and Return each carry the way back to its Collaboration Agreements card, after the post they decide; given no way back, neither carries one', array(
+	substr_count( $dashboard_review, 'name="wpcpm_agreement_post" value="' . $review_id . '" />' . $back_to_card ),
+	str_replace( $back_to_card, '', $dashboard_review ) === $template_review,
+	substr_count( $template_review, 'wpcpm_return' ),
+), array( 2, true, 0 ) );
 
 // The confirm names everything that leaves the building: the institution, the Airtable stage
 // and the number of inboxes. The count comes from members_of(), so a fourth member added
@@ -1995,11 +2018,12 @@ ck( 'passing true is the default, the Administrator Dashboard\'s', ( function ()
 // Which page passes which is said where the next reader of the method will look for it.
 $review_doc = substr( $panel_src, 0, (int) strpos( $panel_src, 'public static function render_review(' ) );
 $review_doc = substr( $review_doc, (int) strrpos( $review_doc, '/**' ) );
-ck( 'the docblock says which page decides and which reads', array(
-	false !== strpos( $review_doc, '@param bool $decide' ),
+ck( 'the docblock says which page decides and which reads, and where a decision comes back to', array(
+	1 === preg_match( '/@param\s+bool\s+\$decide\s/', $review_doc ),
+	1 === preg_match( '/@param\s+string\s+\$where\s/', $review_doc ),
 	false !== strpos( $review_doc, 'Administrator Dashboard' ),
 	false !== strpos( $review_doc, 'Institutions screen' ),
-), array( true, true, true ) );
+), array( true, true, true, true ) );
 
 // And each page passes what the docblock says, read off the two callers: the suite of either page
 // stands this class in, so neither could see the other argument passed.
@@ -2007,9 +2031,9 @@ $callers = array(
 	'cards' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ),
 	'queue' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ),
 );
-ck( 'the Administrator Dashboard passes nothing and the Institutions screen passes false, once each', array(
+ck( 'the Administrator Dashboard passes true and its way back, and the Institutions screen passes false, once each', array(
 	substr_count( $callers['cards'], 'WPCPM_Institution_Panel::render_review(' ),
-	substr_count( $callers['cards'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'] );" ),
+	substr_count( $callers['cards'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'], true, WPCPM_Return::DASHBOARD );" ),
 	substr_count( $callers['queue'], 'WPCPM_Institution_Panel::render_review(' ),
 	substr_count( $callers['queue'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'], false );" ),
 ), array( 1, 1, 1, 1 ) );
@@ -2387,9 +2411,10 @@ ck( 'and each of them is positioned, so what is drawn inside it stays inside it'
 // no link or button, unless it takes focus, and a screen reader does not announce it unless it is
 // named. So wherever the plugin prints the class of a box a stylesheet lets scroll sideways, it
 // prints it as a tab stop with a role and a name, as the Administrator Dashboard's tables were made
-// in 1.122.35 and the Student Duplicate Finder's and the Emails tool's in 1.122.36. The role is a
-// region, or what the Student Duplicate Finder's helper fills in, a group for a student on its list
-// and a region elsewhere, which bin/test-duplicate-finder.php reads off the screens.
+// in 1.122.35, the Student Duplicate Finder's and the Emails tool's in 1.122.36 and, on the sponsor
+// tiers line, the Sponsor Dashboard's Usage table in 1.123.17. The role is a region, or what the
+// Student Duplicate Finder's helper fills in, a group for a student on its list and a region
+// elsewhere, which bin/test-duplicate-finder.php reads off the screens.
 // The sideways boxes are pinned by name, so a new one is decided here rather than shipped unseen;
 // the two boxes that scroll up and down are a combobox's list, which its field drives with the
 // arrow keys, and the Need help? panel's answers.
@@ -2435,8 +2460,8 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_P
 }
 
 ksort( $printed );
-ck( 'the boxes the stylesheets let scroll sideways are the three that hold the wide tables: the Administrator Dashboard\'s, the Student Duplicate Finder\'s and the Emails tool\'s', $sideways, array( '.wpcpm-administrator__scroll', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll' ) );
-ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1 ), array() ) );
+ck( 'the boxes the stylesheets let scroll sideways are the four that hold the wide tables: the Administrator Dashboard\'s, the Student Duplicate Finder\'s, the Emails tool\'s and the Sponsor Dashboard\'s Usage card\'s', $sideways, array( '.wpcpm-administrator__scroll', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll', '.wpcpm-usage__scroll' ) );
+ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1, 'class-wpcpm-sponsor-usage.php: .wpcpm-usage__scroll' => 1 ), array() ) );
 
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the
 // steps list, because the same form is drawn on five surfaces and only one of them is a step;

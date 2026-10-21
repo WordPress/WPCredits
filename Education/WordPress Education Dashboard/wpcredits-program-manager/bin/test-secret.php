@@ -9,9 +9,9 @@
  *   tag, the ciphertext) is the format WPCPM_Secret writes, so every agreement sealed before
  *   the extraction (1.94.0) still opens.
  * - A sealed value bound for an option is base64: wpdb strips bytes that are not valid UTF-8
- *   from a utf8mb4 column, and ciphertext is not text (plan ruling 1).
+ *   from a utf8mb4 column, and ciphertext is not text.
  * - The duplicate fingerprint is keyed: a bare SHA-256 of a six-character coupon code is
- *   enumerated in seconds by anyone who can read the option (plan ruling 2).
+ *   enumerated in seconds by anyone who can read the option.
  *
  * Run from the plugin root:  php bin/test-secret.php
  */

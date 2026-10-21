@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * The one place a record ID arriving in a request becomes an acting sponsor.
+ * The one place a sponsor key arriving in a request becomes an acting sponsor.
  *
  * Design spec of 4 September 2026, section 4: for an actor without `CAP_MANAGE` the stamp wins
  * and the argument is ignored; for a manager the argument is checked against the index, and the
@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class WPCPM_Sponsor_Roster {
 
-	/** The query argument the manager switcher posts. Read with `text()`, never `key()`: record IDs are case-sensitive. */
+	/** The query argument the manager switcher posts. Read with `text()`, never `key()`: sponsor keys are case-sensitive. */
 	const ARG_VIEW = 'wpcpm_sponsor_view';
 
 	/** The meter's scope: its keys are `sponsor-refused` and `sponsor-locked`. */
@@ -37,9 +37,9 @@ final class WPCPM_Sponsor_Roster {
 	const LOG_LOCKED = 'claim_locked';
 
 	/**
-	 * Turn a record ID from a request into an acting sponsor, or refuse.
+	 * Turn a sponsor key from a request into an acting sponsor, or refuse.
 	 *
-	 * @param string           $record The record ID the request names; ignored for a member.
+	 * @param string           $record The sponsor key the request names; ignored for a member.
 	 * @param string           $action A `WPCPM_Sponsor_Policy::ACT_*` constant.
 	 * @param int|WP_User|null $user   The acting user; null for the current one.
 	 * @return array|WP_Error `record`, `decision` (the policy's array) and `row` (the index row or null), or the one refusal.
@@ -85,7 +85,7 @@ final class WPCPM_Sponsor_Roster {
 	 * while every save silently landed on its own. The page and the write must answer the same
 	 * question in the same order, or a person cannot see where their writing goes.
 	 *
-	 * @param string       $asked The record ID the request names.
+	 * @param string       $asked The sponsor key the request names.
 	 * @param WP_User|null $actor The acting account, already resolved.
 	 * @return string The record to act on, or '' for a refusal the caller meters.
 	 */
@@ -117,19 +117,19 @@ final class WPCPM_Sponsor_Roster {
 	}
 
 	/**
-	 * Whether a record ID is real and current: shaped like an Airtable ID, and one the index
-	 * still lists.
+	 * Whether a key is real and current: shaped like a sponsor key, and one the store still
+	 * holds.
 	 *
-	 * Both resolvers ask exactly this before trusting a request-named ID, so it stands once
-	 * here rather than three times: `is_record_id()` catches a value that is not a record ID at
-	 * all, and `has()` catches one the index no longer holds, such as a sponsor that left since
-	 * the page offering this ID was drawn.
+	 * Both resolvers ask exactly this before trusting a request-named key, so it stands once
+	 * here rather than three times: `is_key()` catches a value that is not a sponsor key at
+	 * all, and `has()` catches one the store no longer holds, such as a sponsor that left since
+	 * the page offering this key was drawn.
 	 *
-	 * @param string $record The record ID to test.
+	 * @param string $record The key to test.
 	 * @return bool
 	 */
 	private static function known_record( $record ) {
-		return WPCPM_Mentors_Sync::is_record_id( $record ) && WPCPM_Sponsors_Index::has( $record );
+		return WPCPM_Sponsors_Index::is_key( $record ) && WPCPM_Sponsors_Index::has( $record );
 	}
 
 	/**
@@ -141,7 +141,7 @@ final class WPCPM_Sponsor_Roster {
 	 *
 	 * @param int|WP_User|null $viewer     The person looking; null for the current user.
 	 * @param bool             $can_manage Whether the caller has already established `CAP_MANAGE`.
-	 * @return string Airtable record ID, or ''.
+	 * @return string Sponsor key, or ''.
 	 */
 	public static function resolve_sponsor( $viewer, $can_manage ) {
 		$viewer = WPCPM_Roles::resolve_user( $viewer );
@@ -174,7 +174,7 @@ final class WPCPM_Sponsor_Roster {
 	}
 
 	/**
-	 * The record ID the request names, from the query string or the posted form.
+	 * The sponsor key the request names, from the query string or the posted form.
 	 *
 	 * @return string
 	 */
@@ -192,16 +192,16 @@ final class WPCPM_Sponsor_Roster {
 	 * The sponsors the manager switcher offers, in index order: every row, one entry each.
 	 *
 	 * Provisioning a sponsor is done by looking at it first, so a sponsor with no account yet
-	 * is precisely the one a manager needs to open. A nameless record is listed by its ID. The
+	 * is precisely the one a manager needs to open. A nameless sponsor is listed by its key. The
 	 * switcher draws the list A to Z (`WPCPM_Dashboards::render_switcher()`).
 	 *
-	 * @return array<string, string> Record ID to label.
+	 * @return array<string, string> Sponsor key to label.
 	 */
 	public static function switcher_options() {
 		$options = array();
 
 		foreach ( WPCPM_Sponsors_Index::rows() as $record_id => $row ) {
-			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			if ( ! WPCPM_Sponsors_Index::is_key( $record_id ) ) {
 				continue;
 			}
 

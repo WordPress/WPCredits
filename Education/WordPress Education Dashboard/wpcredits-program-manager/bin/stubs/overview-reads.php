@@ -21,6 +21,12 @@
  * - `locked`: the accounts locked today;
  * - `sponsor_posts` and `sponsor_applications`: the rows waiting, and `sponsor_agreements`, ID =>
  *   the facts of a document waiting for review;
+ * - `events_shown`: whether the Events card is in use, Sponsor tiers switched on, which a new site
+ *   does not have; and `sponsor_events`: the events waiting for the program's OK, as rows, counted
+ *   only while the card is in use;
+ * - `sponsor_drafts`: the sponsors' reports drafted and not finished, ID => the report's `sponsor`
+ *   and `until`, each a post the suite seeds; and `sponsor_due`: the terms owed a report, as rows,
+ *   both read by the reports' stand-ins, which bin/test-overview.php keeps for itself (below);
  * - `offers`, ID => offer, and `codes`, ID => the offer's code counts;
  * - `mentor_applications`: how many mentor applications wait in the Mentors screen's queue;
  * - `duplicates`: the Student Duplicate Finder's last report, or none before its first scan;
@@ -33,10 +39,26 @@
  * dashboards and what they said lately are read through classes left out here, which the cards
  * guard: the Overview shows none of them.
  *
+ * Of the sponsors' events and reports, the three classes the cards read for the Events card and the
+ * Sponsor reports card, one is stood in here. The Events card's queue (`WPCPM_Sponsor_Event_Queue`)
+ * is read by the cards and by two other readers: the Administrator Dashboard's notices (`messages()`)
+ * and the Sponsors screen, whose menu bubble counts the waiting events (`count_waiting()`) and whose
+ * Waiting for review tab lists them (`waiting_rows()`, `time_fact()`). Its stand-in has every member
+ * the cards call and none of the others': the notices and the bubble ask only where the class has
+ * the member, and the tab draws its list only while `shown()` says the events are in use, which
+ * bin/test-admin-menu.php, the one suite here that loads the Sponsors module, never switches on.
+ * The reports' store and
+ * their screen (`WPCPM_Sponsor_Report`, `WPCPM_Sponsor_Report_Screen`) are stood in by
+ * bin/test-overview.php alone: bin/test-admin-menu.php loads the real Sponsors module, which, wherever
+ * the two classes exist, calls members of both that no stand-in here has, so that suite leaves them
+ * out, and the cards' guard, both or neither, leaves the Sponsor reports tile out with them, as a new
+ * site has no report to count. A suite that loads the Sponsors module must not stand those two in.
+ *
  * Beside what the cards read, the members the two suites' other readers ask of the same classes: the
  * Institutions and Sponsors entries count their menu bubbles with `pending_count()` and
- * `awaiting_review()`, and the Mentor Status Checker describes itself with the mentors sync's column
- * names.
+ * `awaiting_review()`, the Mentor Status Checker describes itself with the mentors sync's column
+ * names, and the Events card, which bin/test-overview.php draws empty for the address its row
+ * action carries, draws its body through the queue's `render()`.
  *
  * Loaded with `require_once __DIR__ . '/stubs/overview-reads.php';` from a suite's header.
  */
@@ -57,7 +79,7 @@ function wpcpm_overview_holds( $key, $none ) {
 /**
  * Where an audience's sync is: idle, and never failed, unless the suite says otherwise.
  *
- * @param string $audience `students`, `mentors`, `institutions` or `sponsors`.
+ * @param string $audience `students`, `mentors` or `institutions`.
  * @return array
  */
 function wpcpm_overview_progress( $audience ) {
@@ -189,6 +211,13 @@ class WPCPM_Sponsor_Posts {
 	}
 }
 
+/** Sponsor offers, and changes to live ones, waiting for review (1.123.18). */
+class WPCPM_Sponsor_Offer_Review {
+	public static function waiting_all( $limit = 50 ) {
+		return array_slice( (array) wpcpm_overview_holds( 'sponsor_offers', array() ), 0, max( 1, (int) $limit ) );
+	}
+}
+
 /** Sponsor Collaboration Agreements: the documents waiting for review, and none out of force. */
 class WPCPM_Sponsor_Agreement {
 	public static function awaiting_review( $limit = 50 ) {
@@ -262,6 +291,34 @@ class WPCPM_Sponsor_Codes {
 	}
 }
 
+/* ---- the sponsors' events ---------------------------------------------------- */
+
+/**
+ * The Events card's queue: in use while the world says so, and then the events waiting for the
+ * program's OK, as the rows `data()` answers; none coming up, which no tile counts. Out of use, it
+ * reads nothing, as the real one does.
+ */
+class WPCPM_Sponsor_Event_Queue {
+	public static function shown() {
+		return (bool) wpcpm_overview_holds( 'events_shown', false );
+	}
+
+	public static function data() {
+		return array(
+			'waiting'  => self::shown() ? array_values( (array) wpcpm_overview_holds( 'sponsor_events', array() ) ) : array(),
+			'upcoming' => array(),
+		);
+	}
+
+	/** As the real one counts: the events waiting. */
+	public static function count_for_tile( array $data ) {
+		return isset( $data['waiting'] ) && is_array( $data['waiting'] ) ? count( $data['waiting'] ) : 0;
+	}
+
+	/** The card's lists and forms, which no check reads, since the card is drawn for its frame: none. */
+	public static function render( array $data ) {}
+}
+
 /* ---- the mentors' queue ------------------------------------------------------ */
 
 /** Mentor applications waiting for a decision (1.122.31): the number, all the cards read of them. */
@@ -314,20 +371,6 @@ class WPCPM_Institutions_Sync {
 
 	public static function progress() {
 		return wpcpm_overview_progress( 'institutions' );
-	}
-
-	/** As the real one reads it: the option the run stamps when it finishes. */
-	public static function last_read() {
-		return (int) get_option( self::OPT_LAST, 0 );
-	}
-}
-
-class WPCPM_Sponsors_Sync {
-	const OPT_LAST   = 'wpcpm_sponsors_last_sync';
-	const CRON_DAILY = 'wpcpm_sponsors_daily';
-
-	public static function progress() {
-		return wpcpm_overview_progress( 'sponsors' );
 	}
 
 	/** As the real one reads it: the option the run stamps when it finishes. */

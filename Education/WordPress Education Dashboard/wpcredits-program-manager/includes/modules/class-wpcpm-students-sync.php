@@ -55,9 +55,8 @@ class WPCPM_Students_Sync {
 	 *
 	 * Since 1.98.2 every Airtable sync shares the recurrence above, so the offset is the whole of
 	 * what keeps two of them out of the same WP-Cron request: this one takes +0:30, the mentors
-	 * sync +1:00, the institutions sync +1:30, the sponsors sync +2:00. Minutes rather than hours
-	 * because +0:30 and +1:30 are not whole numbers of hours and an hours constant could not say
-	 * so.
+	 * sync +1:00 and the institutions sync +1:30. Minutes rather than hours because +0:30 and
+	 * +1:30 are not whole numbers of hours and an hours constant could not say so.
 	 *
 	 * Not a constant expression on `MINUTE_IN_SECONDS`: that is evaluated the first time the
 	 * class is touched, and a test that loads it before defining the time constants would fatal

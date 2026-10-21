@@ -218,7 +218,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports, the Sponsors and the Mentor applications, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events and the Mentor applications, in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -281,6 +281,36 @@ ck(
 		'offer-low-stock',
 		'claim-problem',
 		'sponsor-post-returned',
+		'sponsor-offer-returned',
+		'sponsor-term-ending',
+		'sponsor-term-ended',
+		'event-joined',
+		'event-joined-program',
+		'event-left',
+		'event-left-program',
+		'event-changed',
+		'event-changed-program',
+		'event-canceled',
+		'event-canceled-program',
+		'event-reminder',
+		'event-reminder-program',
+		'event-reminder-sponsor',
+		'event-approved',
+		'event-returned',
+		'event-returned-no-events',
+		'event-canceled-with-note',
+		'event-changed-sponsor',
+		'event-changed-sponsor-for',
+		'event-canceled-sponsor',
+		'event-canceled-sponsor-for',
+		'event-planned',
+		'event-planned-for',
+		'event-changed-waiting',
+		'event-changed-waiting-for',
+		'event-changed-approved',
+		'event-changed-approved-for',
+		'event-canceled-by-sponsor',
+		'event-canceled-for',
 		'mentor-application-received',
 		'mentor-selected',
 		'mentor-more-information',
@@ -479,6 +509,39 @@ $shape = array(
 	'offer-low-stock'               => array( "\n", array(), array() ),
 	'claim-problem'                 => array( "\n", array(), array( 'code_ending' ) ),
 	'sponsor-post-returned'         => array( "\n", array( 'post_title', 'author_name', 'note' ), array( 'note' ) ),
+	'sponsor-offer-returned'        => array( "\n", array( 'offer_title', 'member_name', 'note' ), array( 'note' ) ),
+	// The Sponsors' term mails, the sponsor's name, the tier and the day needed in both, and the
+	// Sponsor events, every one about an event needing its time, the call link and the description in
+	// the body alone, and an Administrator's note needed where the email is about it.
+	'sponsor-term-ending'           => array( "\n", array( 'company_name', 'tier', 'term_end' ), array() ),
+	'sponsor-term-ended'            => array( "\n", array( 'company_name', 'tier', 'term_end' ), array() ),
+	'event-joined'                  => array( "\n", array( 'event_title', 'company_name', 'when' ), array( 'call_link' ) ),
+	'event-joined-program'          => array( "\n", array( 'event_title', 'when' ), array( 'call_link' ) ),
+	'event-left'                    => array( "\n", array( 'company_name' ), array() ),
+	'event-left-program'            => array( "\n", array(), array() ),
+	'event-changed'                 => array( "\n", array( 'event_title', 'company_name', 'when' ), array( 'call_link' ) ),
+	'event-changed-program'         => array( "\n", array( 'event_title', 'when' ), array( 'call_link' ) ),
+	'event-canceled'                => array( "\n", array( 'event_title', 'company_name', 'when' ), array() ),
+	'event-canceled-program'        => array( "\n", array( 'event_title', 'when' ), array() ),
+	'event-reminder'                => array( "\n", array( 'event_title', 'company_name', 'when' ), array( 'call_link' ) ),
+	'event-reminder-program'        => array( "\n", array( 'event_title', 'when' ), array( 'call_link' ) ),
+	'event-reminder-sponsor'        => array( "\n", array( 'event_title', 'when' ), array() ),
+	'event-approved'                => array( "\n", array( 'event_title', 'when' ), array( 'call_link' ) ),
+	'event-returned'                => array( "\n", array( 'event_title', 'note', 'when' ), array( 'note' ) ),
+	'event-returned-no-events'      => array( "\n", array( 'event_title', 'note', 'when' ), array( 'note' ) ),
+	'event-canceled-with-note'      => array( "\n", array( 'event_title', 'note', 'when' ), array( 'note' ) ),
+	'event-changed-sponsor'         => array( "\n", array( 'event_title', 'when' ), array( 'call_link' ) ),
+	'event-changed-sponsor-for'     => array( "\n", array( 'event_title', 'company_name', 'when' ), array( 'call_link' ) ),
+	'event-canceled-sponsor'        => array( "\n", array( 'event_title', 'when' ), array() ),
+	'event-canceled-sponsor-for'    => array( "\n", array( 'event_title', 'company_name', 'when' ), array() ),
+	'event-planned'                 => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-planned-for'             => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-changed-waiting'         => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-changed-waiting-for'     => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-changed-approved'        => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-changed-approved-for'    => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-canceled-by-sponsor'     => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
+	'event-canceled-for'            => array( "\n", array( 'company_name', 'event_title', 'when', 'description' ), array( 'call_link', 'description' ) ),
 	// The Mentor applications (1.122.31): the confirming link and the course link each needed, in the
 	// body alone, and the applicant's name, address and profile in the body alone. The request for
 	// more information names nobody and has no placeholder, as its automation had none.
@@ -493,6 +556,96 @@ foreach ( $shape as $id => $want ) {
 	$want_whole[ $id ] = array( 'trigger' => true, 'undeclared' => array(), 'unused' => array(), 'missing' => array(), 'in_subject' => array(), 'about' => true, 'left' => array(), 'eol' => $want[0], 'link' => array( $want[1], $want[2] ) );
 }
 ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, every email about a call its time, every link with a secret is needed, in the body alone, and a meeting link and what somebody typed go in the body alone', $whole, $want_whole );
+
+// The two sentences an event email says only when they are true, the calendar file's and how many
+// of the people on a canceled event were told, are values an Administrator can move or delete but
+// not reword: every email that has one shows it in its preview and its test, its own example, the
+// sentence that email says.
+$conditional = array(
+	'calendar_note' => array(),
+	'told_note'     => array(),
+);
+foreach ( $all as $id => $entry ) {
+	foreach ( array_keys( $conditional ) as $name ) {
+		if ( isset( $entry['placeholders'][ $name ] ) ) {
+			$examples                    = WPCPM_Mail_Templates::example_values( $id );
+			$preview                     = WPCPM_Mail_Templates::render( $id, $examples );
+			$conditional[ $name ][ $id ] = '' !== $examples[ $name ] && false !== strpos( $preview['body'], $examples[ $name ] ) ? $examples[ $name ] : '';
+		}
+	}
+}
+ck(
+	'each Sponsor events email that may say what its calendar file does, or how many were told, says it in its preview, in its own words: the approval adds the event, a change replaces the file, a cancel or a leave takes it off',
+	array( array_count_values( $conditional['calendar_note'] ), $conditional['told_note'] ),
+	array(
+		array(
+			'The calendar file attached adds it to your calendar.'  => 3,
+			'The calendar file attached takes it off your calendar.' => 7,
+			'The calendar file attached replaces the one you had.'   => 4,
+		),
+		array( 'event-canceled-with-note' => 'The 3 people who joined it have been told.' ),
+	)
+);
+
+// Nobody has joined an event that waits for approval, so the four emails about a waiting event leave
+// the people who joined out of their preview and their test, as the email does; the four about an
+// approved event, or a canceled one, which may have been either, show the line.
+$joined_line = array();
+foreach ( $all as $id => $entry ) {
+	if ( isset( $entry['placeholders']['joined'] ) ) {
+		$joined_line[ $id ] = false !== strpos( WPCPM_Mail_Templates::render( $id, WPCPM_Mail_Templates::example_values( $id ) )['body'], 'People who joined:' );
+	}
+}
+ck(
+	'the program contact\'s mail about a waiting event shows no line of the people who joined in its preview, the mail about an approved event or a canceled one does',
+	$joined_line,
+	array(
+		'event-planned'              => false,
+		'event-planned-for'          => false,
+		'event-changed-waiting'      => false,
+		'event-changed-waiting-for'  => false,
+		'event-changed-approved'     => true,
+		'event-changed-approved-for' => true,
+		'event-canceled-by-sponsor'  => true,
+		'event-canceled-for'         => true,
+	)
+);
+
+// A term that ended is explained as one that ended: the tier whose term ended, held until its last day.
+ck(
+	'the tier is explained in the past tense in the email about a term that ended, and in the present tense in the one about a term that ends',
+	array(
+		false !== strpos( $all['sponsor-term-ended']['placeholders']['tier']['means'], 'term ended' ),
+		false !== strpos( $all['sponsor-term-ended']['placeholders']['tier']['means'], 'term ends' ),
+		false !== strpos( $all['sponsor-term-ending']['placeholders']['tier']['means'], 'term ends' ),
+		false !== strpos( $all['sponsor-term-ending']['placeholders']['tier']['means'], 'term ended' ),
+	),
+	array( true, false, true, false )
+);
+
+// The site's name as WordPress stores it, its "&" an entity (`WPCPM_Mail::site_name()` hands it over
+// so), is read back once by the registry, whatever the email: the subject of each of the term mails
+// and the Sponsor events emails names the site as a person typed it, and neither its subject nor its
+// body shows "&amp;".
+$amp_checked = 0;
+$amp_wrong   = array();
+foreach ( $all as $id => $entry ) {
+	if ( WPCPM_Mail_Catalog::MODULE_EVENTS !== $entry['module'] && 0 !== strpos( $id, 'sponsor-term-' ) ) {
+		continue;
+	}
+
+	$mail = WPCPM_Mail_Templates::mail( $id, array( 'site_name' => 'Arts &amp; Sciences Dashboard' ) + WPCPM_Mail_Templates::example_values( $id ) );
+	++$amp_checked;
+
+	if ( 0 !== strpos( $mail['subject'], '[Arts & Sciences Dashboard] ' ) || false !== strpos( $mail['subject'] . $mail['body'], '&amp;' ) ) {
+		$amp_wrong[] = $id;
+	}
+}
+ck(
+	'a site name holding an "&", stored as an entity, reads as typed in the subject of each of the 2 term emails and the 27 Sponsor events emails, and "&amp;" is in none of their subjects or bodies',
+	array( $amp_checked, $amp_wrong ),
+	array( 29, array() )
+);
 
 // In the emails about an application the institution's or the company's name is the one the
 // application gave, and the placeholder says so there; everywhere else it keeps its area's words.
@@ -664,7 +817,7 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 	$GLOBALS['umeta'][9]['wpcpm_timezone'] = $zones[1];
 	$today                                 = new DateTimeImmutable( 'now', wp_timezone() );
 	// Each an email's id and one of its placeholders: an email may be read for two.
-	foreach ( array( array( 'agreement-accepted', 'accepted_on' ), array( 'agreement-reinstated', 'reinstated_on' ), array( 'agreement-returned', 'returned_on' ), array( 'agreement-revoked', 'revoked_on' ), array( 'agreement-received', 'uploaded_on' ), array( 'institution-invite', 'expiry_date' ), array( 'member-last', 'left_on' ), array( 'agreement-received', 'review_window' ), array( 'sponsor-agreement-accepted', 'accepted_on' ), array( 'sponsor-agreement-received', 'review_window' ) ) as $pair ) {
+	foreach ( array( array( 'agreement-accepted', 'accepted_on' ), array( 'agreement-reinstated', 'reinstated_on' ), array( 'agreement-returned', 'returned_on' ), array( 'agreement-revoked', 'revoked_on' ), array( 'agreement-received', 'uploaded_on' ), array( 'institution-invite', 'expiry_date' ), array( 'member-last', 'left_on' ), array( 'agreement-received', 'review_window' ), array( 'sponsor-agreement-accepted', 'accepted_on' ), array( 'sponsor-agreement-received', 'review_window' ), array( 'sponsor-term-ending', 'term_end' ), array( 'sponsor-term-ended', 'term_end' ) ) as $pair ) {
 		list( $id, $name )                    = $pair;
 		$examples[ $who ][ $id . ' ' . $name ] = WPCPM_Mail_Templates::example_values( $id )[ $name ];
 	}
@@ -679,12 +832,14 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 		'agreement-received review_window'       => '3 working days',
 		'sponsor-agreement-accepted accepted_on' => $today->format( 'Y-m-d' ),
 		'sponsor-agreement-received review_window' => '3 working days',
+		'sponsor-term-ending term_end'           => $today->modify( '+30 days' )->format( 'Y-m-d' ),
+		'sponsor-term-ended term_end'            => $today->modify( '-5 days' )->format( 'Y-m-d' ),
 	);
 }
 unset( $GLOBALS['site_zone'], $GLOBALS['umeta'][9]['wpcpm_timezone'] );
 $GLOBALS['uid'] = 0;
 ck(
-	'an agreement is decided today and was uploaded yesterday, an invitation works fourteen days from today, a membership ended today, and the program takes the working days set, all on the site\'s clock, whatever the clock of the Administrator looking at them',
+	'an agreement is decided today and was uploaded yesterday, an invitation works fourteen days from today, a membership ended today, a term ends thirty days from today and the one that ended did so five days ago, and the program takes the working days set, all on the site\'s clock, whatever the clock of the Administrator looking at them',
 	array( array_values( array_diff( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), DateTimeZone::listIdentifiers() ) ), $examples ),
 	array( array(), $wanted )
 );

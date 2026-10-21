@@ -479,8 +479,12 @@ set_error_handler(
 
 echo "=== The names ===\n";
 
+// Read from the contribution areas' own place rather than a fixed offset: the private sponsor tiers
+// line names no Sponsor Company Name column (its sponsors live on the site), so its fields() holds
+// one entry fewer before them than main's does.
+$mentor_fields = WPCPM_Mentors_Sync::fields();
 ck( 'five Mentors columns more are named by fields(), after the contribution areas, the last with the right single quotation mark the table spells it with',
-	array_slice( WPCPM_Mentors_Sync::fields(), 7, 6 ),
+	array_slice( $mentor_fields, (int) array_search( 'mentor_expertise', array_keys( $mentor_fields ), true ), 6 ),
 	array(
 		'mentor_expertise' => 'Contribution Area - Expertise',
 		'mentor_country'   => 'Country',

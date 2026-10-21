@@ -116,7 +116,7 @@ function compiled( array $rows, array $forms = array() ) {
 /** One compiled row, as a compile writes it: with no `source`, which a check adds to stand for a row compiled before. */
 function row( $key, $label, array $overrides = array() ) {
 	return array_merge(
-		array( 'key' => $key, 'label' => $label, 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'automation' => false, 'post' => 1 ),
+		array( 'key' => $key, 'label' => $label, 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'sponsors' => array(), 'automation' => false, 'post' => 1 ),
 		$overrides
 	);
 }
@@ -339,6 +339,24 @@ ck( 'a compiled row is live with a source or without one, a row compiled from a 
 ck( 'and the reads of the program map with the compiled tracks suspended are gone, with what suspended them',
 	array( method_exists( 'WPCPM_Tracks', 'builtin_row' ), method_exists( 'WPCPM_Tracks', 'builtin_key' ), method_exists( 'WPCPM_Tracks', 'unfiltered' ), property_exists( 'WPCPM_Tracks', 'suspended' ) ),
 	array( false, false, false, false ) );
+
+echo "\n=== A sponsor's tracks ===\n";
+
+// A row compiled before the removal still carries a `source`. None ever named a partner, since a
+// marked track could not be saved, but `source` is not read, so one that did would be answered like
+// any row.
+compiled(
+	array(
+		'Marketing Track' => row( 'marketing', 'Marketing Track', array( 'sponsors' => array( 'spoAAAA0000000001' ), 'post' => 42 ) ),
+		'Developer Track' => row( 'dev', 'Developer Track' ),
+		'In Sensei 50h'   => row( '50h', 'Credits 50', array( 'source' => 'builtin', 'sponsors' => array( 'spoAAAA0000000001' ), 'post' => 12 ) ),
+	)
+);
+ck( 'the live tracks a sponsor partners: key, label and post, in the tracks\' order, a row compiled before the removal included',
+	WPCPM_Tracks::partner_tracks( 'spoAAAA0000000001' ),
+	array( array( 'key' => 'marketing', 'label' => 'Marketing Track', 'post' => 42 ), array( 'key' => '50h', 'label' => 'Credits 50', 'post' => 12 ) ) );
+ck( 'nothing for a sponsor no track names', WPCPM_Tracks::partner_tracks( 'spoAAAA0000000002' ), array() );
+ck( 'and nothing for no key at all', WPCPM_Tracks::partner_tracks( '' ), array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

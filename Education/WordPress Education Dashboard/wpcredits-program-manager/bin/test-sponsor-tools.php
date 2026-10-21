@@ -8,9 +8,10 @@
  * - may_claim() clause by clause: a Graduate is refused, a Paused student allowed, a mentor only
  *   when the offer opens to mentors, a manager only when it opens to managers, a second claim
  *   refused, an empty pool refused, an expired or paused offer refused, a shared offer with
- *   nothing to share refused.
+ *   nothing to share refused, and while the tiers' switch is on a student on a track with a
+ *   partner refused any other sponsor's offer, before the pool is asked (1.114.0).
  * - The section is drawn on the person's own card and never on somebody else's view of it: the
- *   caller passes the viewer, and a manager gets one muted count line instead (Task 8 wires it).
+ *   caller passes the viewer, and a manager gets one muted count line instead.
  * - The switches, the sort (sponsor name, then title), the empty-pool rule per viewer, "Your
  *   codes" listing a claim from an ended offer, and the claim form appearing only when
  *   may_claim() says yes.
@@ -19,6 +20,10 @@
  *   nothing more of the offer's own, because the code and its Report a problem button sit
  *   together under Your codes, one row per code.
  * - The handlers flash on the viewer's own channel and send them back where they came from.
+ * - A track's partners (1.114.0): while the tiers' switch is on, a student on a track with a
+ *   partner that qualifies is offered that partner's live offers alone; a code claimed from anybody
+ *   else before the link stays in "Your codes"; with the switch off, on a track with no partner, and
+ *   on the mentors' list, every offer is offered as before.
  *
  * Run from the plugin root:  php bin/test-sponsor-tools.php
  */
@@ -40,6 +45,9 @@ $GLOBALS['next_post'] = 900;
 $GLOBALS['flash']     = array();
 $GLOBALS['settings']  = array();
 $GLOBALS['program']   = array();
+// Track key => the sponsor keys of its partners that qualify today; no track names one until the
+// partners' checks do.
+$GLOBALS['track_partners'] = array();
 
 class WP_Error {
 	private $c, $m, $d;
@@ -57,7 +65,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_title = '', $post_status = 'private', $post_author = 0;
+	public $ID = 0, $post_type = '', $post_title = '', $post_name = '', $post_status = 'private', $post_author = 0;
 	public function __construct( array $a ) { foreach ( $a as $k => $v ) { $this->$k = $v; } }
 }
 class WPCPM_Test_Die extends Exception {}
@@ -135,10 +143,10 @@ function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https
 // The post store: enough of posts, meta and get_posts() for the offers to live in.
 function wp_insert_post( array $args, $wp_error = false ) {
 	$id = $GLOBALS['next_post']++;
-	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_name' => $args['post_name'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
 	return $id;
 }
-function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = $args['post_title']; } return $id; }
+function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) ) { foreach ( array( 'post_title', 'post_name', 'post_status' ) as $field ) { if ( isset( $args[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = $args[ $field ]; } } } return $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
@@ -151,7 +159,7 @@ function get_posts( array $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
 		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
-		if ( isset( $args['post_status'] ) && $post->post_status !== $args['post_status'] ) { continue; }
+		if ( isset( $args['post_status'] ) && 'any' !== $args['post_status'] && $post->post_status !== $args['post_status'] ) { continue; }
 		$ok = true;
 		foreach ( (array) ( $args['meta_query'] ?? array() ) as $clause ) {
 			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
@@ -159,9 +167,16 @@ function get_posts( array $args ) {
 			if ( isset( $clause['compare'] ) && 'EXISTS' === $clause['compare'] ) { if ( ! $have ) { $ok = false; } continue; }
 			if ( ! $have || (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ] !== (string) $clause['value'] ) { $ok = false; }
 		}
+		// The store (1.111.0) asks a bare meta_key/meta_value pair, not meta_query.
+		if ( $ok && isset( $args['meta_key'] ) && array_key_exists( 'meta_value', $args ) ) {
+			$have = get_post_meta( $id, $args['meta_key'], true );
+			if ( (string) $have !== (string) $args['meta_value'] ) { $ok = false; }
+		}
 		if ( $ok ) { $out[] = $post; }
 	}
 	usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
+	if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) { return array_map( static function ( $p ) { return $p->ID; }, $out ); }
 	return $out;
 }
 
@@ -216,6 +231,33 @@ class WPCPM_Mentors_Sync {
 }
 class WPCPM_Mentors_Dashboard { public static function get_mentees( $user_id ) { return array(); } }
 class WPCPM_Students_Sync { public static function get_program( $user_id ) { return $GLOBALS['program'][ (int) $user_id ] ?? array(); } }
+/**
+ * The track a status is on, as WPCPM_Program::track() maps the fixture's statuses; the rest are on
+ * none. `course_status()` keeps the real contract in miniature: a track's status is its own course,
+ * and a Pending graduation student's course is the one their account keeps, when it is a track's.
+ */
+class WPCPM_Program {
+	public static function track( $status ) { return array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev' )[ trim( (string) $status ) ] ?? ''; }
+	public static function course_status( $status, $user_id = 0 ) {
+		$status = trim( (string) $status );
+		if ( '' !== self::track( $status ) ) { return $status; }
+		if ( 'Pending graduation' !== $status || (int) $user_id < 1 ) { return ''; }
+		$kept = trim( (string) get_user_meta( (int) $user_id, 'wpcpm_student_course', true ) );
+		return '' !== self::track( $kept ) ? $kept : '';
+	}
+}
+/**
+ * A track's partners that qualify today, as WPCPM_Track_Partners::for_track() answers them, over
+ * $GLOBALS['track_partners']. Which partners qualify, and on which day, is bin/test-track-partners.php's
+ * to pin; the Tools section reads each one's record and nothing else.
+ */
+class WPCPM_Track_Partners {
+	public static function for_track( $key, $today = '' ) {
+		$out = array();
+		foreach ( $GLOBALS['track_partners'][ (string) $key ] ?? array() as $record ) { $out[] = array( 'record' => $record, 'name' => 'A partner', 'website' => '', 'logo' => '' ); }
+		return $out;
+	}
+}
 class WPCPM_Students_Dashboard { public static function page_url() { return 'https://example.test/student-report-card/'; } }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
@@ -232,6 +274,7 @@ class WPCPM_Institution_Export {
 	public static function csv( array $matrix ) { $out = "\xEF\xBB\xBF"; foreach ( $matrix as $row ) { $out .= implode( ',', array_map( array( __CLASS__, 'cell' ), $row ) ) . "\r\n"; } return $out; }
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 // The template registry, which every email's builder fills its words from since 1.122.22.
@@ -243,6 +286,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
@@ -260,13 +304,13 @@ class WPCPM_Sponsor_Posts {
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
-$A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $T = 'recTEAM0000000001';
+// 1.111.0: the manager is a site user id now, not a Team Members record.
+$A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
 	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
-WPCPM_Sponsors_Index::write_team( array( $T => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
-$GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
+$GLOBALS['settings'] = array( 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
 	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
 	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
@@ -309,10 +353,19 @@ function ck( $label, $actual, $expected ) {
 // too, D an ended pool user 20 claimed from, E a pool whose last day has passed, F open to
 // managers. All live except D and E.
 $GLOBALS['uid'] = 5;
-$a1 = WPCPM_Sponsor_Offers::seed( $A );
+// A's offer is seeded with the text, the instructions and the More information link its sponsor
+// carried before the record moved onto the site, handed to seed() as the move hands them
+// (`WPCPM_Sponsors_Migration`, 1.111.0): the card checks below read all three.
+$a1 = WPCPM_Sponsor_Offers::seed( $A, array( 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits' ) );
 WPCPM_Sponsor_Offers::add_codes( $a1, "A-1\nA-2\nA-3" );
 WPCPM_Sponsor_Offers::set_state( $a1, 'live' );
 $b1 = WPCPM_Sponsor_Offers::seed( $B );
+// 1.111.0: coupon_link left the row's shape the instant it is stored, so seed() can no longer
+// read a link back from the store to decide "shared" for a sponsor coming through it (it always
+// seeds a pool now, same as A's). A manager turning B's offer into a shared one from the Offers
+// card is simulated directly, the way the rest of this suite's shared-offer coverage needs it.
+update_post_meta( $b1, WPCPM_Sponsor_Offers::META_KIND, WPCPM_Sponsor_Offers::KIND_SHARED );
+WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
 WPCPM_Sponsor_Offers::set_state( $b1, 'live' );
 $mk = static function ( $record, $title, array $audience, $codes, $state, $expires = '' ) {
 	$id = WPCPM_Sponsor_Offers::create( $record, array( 'title' => $title, 'kind' => 'codes', 'text' => 'What you get', 'instructions' => 'How', 'url' => '', 'audience' => $audience, 'low' => 10, 'expires' => $expires ) );
@@ -409,6 +462,21 @@ ck( 'an offer that also opens to mentors, or to the program team, is still open 
 // Looked for as cards, by title: the ended offer's code is listed under Your codes, and since
 // 1.116.4 its row carries a problem form naming that offer, which is not a card for it.
 ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $html, 'Expired' ), offer_card( $html, 'Old offer' ), offer_card( $html, 'Empty' ), strpos( $html, 'name="wpcpm_offer" value="' . $empty . '"' ) ), array( false, '', '', false ) );
+// The offer's fifth state, dormant, the program's (1.112.0): a program-made move, not a
+// sponsor's, but Tools must still treat it the way it treats ended or expired - offered to
+// nobody - while a claim already standing on it is untouched. User 23 claims it: 20 is the
+// count checks' own fixture further down, and this must not move what they count.
+$dorm_t = $mk( $A, 'Dormant test offer', array(), 'DORM-1', 'live' );
+WPCPM_Sponsor_Claims::claim( $dorm_t, $GLOBALS['users'][23] );
+WPCPM_Sponsor_Offers::set_dormant( $dorm_t );
+$dorm_html = section( 'students', 23 );
+// Looked for as a card and a claim form, as the ended offer above is: the one form that names it is
+// the problem form in its code's row under Your codes, since 1.116.4.
+$dorm_items = code_items( $dorm_html );
+ck( 'a dormant offer is offered to nobody, no card and no claim form, and a claim already made on it keeps its code under Your codes, whose problem form is the one form naming the offer',
+	array( offer_card( $dorm_html, 'Dormant test offer' ), strpos( $dorm_html, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $dorm_t ), false !== strpos( $dorm_html, 'Your codes' ), false !== strpos( $dorm_html, '>DORM-1<' ), substr_count( $dorm_html, 'name="wpcpm_offer" value="' . $dorm_t . '"' ), isset( $dorm_items['DORM-1'] ) ? substr_count( $dorm_items['DORM-1'], 'name="wpcpm_offer" value="' . $dorm_t . '"' ) : 0 ),
+	array( '', false, true, true, 1, 1 ) );
+$GLOBALS['uid'] = 20; // section() left the acting user at 23; everything below expects 20, as section( 'students', 20 ) above left it.
 ck( 'each open offer carries a claim form with its nonce, and no code', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $a1 ), strpos( $html, 'A-1' ) ), array( 4, true, false ) );
 ck( 'the sponsor logo, name and website are drawn', array( false !== strpos( $html, 'wpcpm-tools__logo' ), false !== strpos( $html, 'https://plugins.mango-example.com/' ) ), array( true, true ) );
 ck( '"Your codes" lists the claim from the ended offer, with the code', array( false !== strpos( $html, 'Your codes' ), false !== strpos( $html, 'Old offer' ), false !== strpos( $html, '>D-1<' ) ), array( true, true, true ) );
@@ -447,7 +515,7 @@ ck( 'the flash prints once with its tone, and the code claimed shows under Your 
 // FFRNT-6: a focusable block with no role and no name was announced as ordinary text, and the
 // Enter and Space behavior forms.js gives it was undiscoverable. Every code the section prints
 // is a button that names itself and points at the one hint that says what pressing it does. Its
-// own visible text, the code, is the accessible name (Task 3 fix round 1, review suggestion 1):
+// own visible text, the code, is the accessible name:
 // an aria-label of "Select your code" would replace that name outright and fail WCAG 2.5.3, so
 // the button carries no aria-label at all, only the aria-describedby that adds the hint. Each code
 // prints once, under Your codes (1.116.4), so there is one button for each of the two codes held.
@@ -567,18 +635,133 @@ ck( 'and a student is refused the same way when theirs is switched off', WPCPM_S
 $GLOBALS['settings']['tools_students'] = true;
 $GLOBALS['settings']['tools_mentors']  = true;
 
+echo "\n=== A track's partners: their offers alone (1.114.0) ===\n";
+// The rule (the sponsor tiers design, section 9): while the tiers' switch is on, the students of a
+// track with a partner that qualifies are offered that partner's live offers alone, and a code they
+// claimed from anybody else before the link stays theirs in "Your codes". Everything here is set
+// up with the switch off, as the site is before launch: a live offer's cap is only asked while it
+// is on. Student 24 is on the 50-hour track and holds B's shared link from before the track named
+// A; Cirrus Example (B) gets an offer open to mentors, so the mentors' list has a B offer to lose.
+$g1 = $mk( $B, 'Hosting for mentors', array( 'mentors' ), "G-1\nG-2", 'live' );
+$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Partnered', 'maciej@a8c.com' );
+$GLOBALS['program'][24] = array( 'program' => 'In Sensei 50h', 'is_past' => false );
+$GLOBALS['uid']         = 24;
+$claimed_b              = WPCPM_Sponsor_Claims::claim( $b1, $GLOBALS['users'][24] );
+$ids                    = static function ( $audience, $uid ) { return array_map( 'intval', array_column( WPCPM_Sponsor_Tools::offers_for( $audience, $GLOBALS['users'][ $uid ] ), 'id' ) ); };
+$every                  = $ids( 'students', 24 );
+ck( 'before the link, the student holds B\'s link and is offered every live offer open to students, B\'s and A\'s', array( is_array( $claimed_b ), $every ), array( true, array( $b1, $f1, $g1, $c1, $a1 ) ) );
+$other_track  = $ids( 'students', 20 );
+$mentors_list = $ids( 'mentors', 30 );
+ck( 'and the mentor is offered the two offers open to mentors, B\'s and A\'s', $mentors_list, array( $g1, $c1 ) );
+
+$GLOBALS['track_partners'] = array( '50h' => array( $A ) );
+ck( 'with the tiers\' switch off, the track naming A as its partner changes nothing', $ids( 'students', 24 ), $every );
+
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+ck( 'with it on, A\'s live offers are the only ones the student is offered: B\'s are gone', $ids( 'students', 24 ), array( $c1, $a1 ) );
+$partnered = section( 'students', 24 );
+// B's offer looked for as a card and a claim form, as the ended offer is above: since 1.116.4 the
+// row of B's link under "Your codes" carries the problem form naming B's offer, the one form that
+// names it.
+$partnered_codes = code_items( $partnered );
+ck( 'and the section draws A\'s two offers to claim, no card of B\'s, and B\'s link still in "Your codes"', array(
+	substr_count( $partnered, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ),
+	false !== strpos( $partnered, 'name="wpcpm_offer" value="' . $c1 . '"' ) && false !== strpos( $partnered, 'name="wpcpm_offer" value="' . $a1 . '"' ),
+	offer_card( $partnered, 'Cirrus Example' ),
+	strpos( $partnered, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $b1 ),
+	substr_count( $partnered, 'name="wpcpm_offer" value="' . $b1 . '"' ),
+	isset( $partnered_codes['https://cirrus-example.example/checkout?code=WPCREDITS'] ) ? substr_count( $partnered_codes['https://cirrus-example.example/checkout?code=WPCREDITS'], 'name="wpcpm_offer" value="' . $b1 . '"' ) : 0,
+	strpos( $partnered, 'name="wpcpm_offer" value="' . $f1 . '"' ),
+	strpos( $partnered, 'Hosting for mentors' ),
+	false !== strpos( $partnered, '<h4 class="wpcpm-tools__subheading">Your codes</h4>' ),
+	false !== strpos( $partnered, '<span class="wpcpm-tools__codes-offer">Cirrus Example: Cirrus Example</span> <a class="wpcpm-tools__code" href="https://cirrus-example.example/checkout?code=WPCREDITS"' ),
+), array( 2, true, '', false, 1, 1, false, false, true, true ) );
+ck( 'a student on a track that names no partner is offered every live offer, as before', $ids( 'students', 20 ), $other_track );
+// A mentor's account can still carry the program a student's once did, on the partnered track here:
+// the rule is the students' list's alone, so even that account loses nothing from the mentors' list.
+$GLOBALS['program'][30] = array( 'program' => 'In Sensei 50h', 'is_past' => false );
+ck( 'the mentors\' list is no track\'s: B\'s offer open to mentors stays beside A\'s', $ids( 'mentors', 30 ), $mentors_list );
+unset( $GLOBALS['program'][30] );
+
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+ck( 'and with the switch off again the student is offered every live offer once more', $ids( 'students', 24 ), $every );
+$GLOBALS['track_partners'] = array();
+
+echo "\n=== A form drawn before the track named its partners (1.114.0) ===\n";
+// The list stops offering B's offers to the partnered track's students, but a claim form drawn
+// before the track named A, or before the switch was turned on, still posts: the rule has to hold
+// where the code is taken as well as where the offer is shown, as FOFFR-2 above holds the section's
+// own switch. Student 23, on the Developer Track, which names no partner, first takes the one code
+// of B's pool for the program team, with the switch off, so a stale form for a pool that has since
+// run out shows which clause is asked first.
+$GLOBALS['uid'] = 23;
+$emptied_f      = WPCPM_Sponsor_Claims::claim( $f1, $GLOBALS['users'][23] );
+
+$GLOBALS['track_partners']                 = array( '50h' => array( $A ) );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+ck( 'a partnered track\'s student is refused B\'s offer with a reason of its own, while A\'s stays open to them', array( WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $g1 ) ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $a1 ) ) ), array( 'partners', '' ) );
+// claim() hands back a code the person holds before it asks anything, so this reason is never
+// what they are told; it pins the clauses' order, as the ended offer does above.
+ck( 'and so is B\'s link the student already holds, before the claim on it is even looked at', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $b1 ) ), 'partners' );
+$pool_before   = WPCPM_Sponsor_Codes::counts( $g1 );
+$ledger_before = count( WPCPM_Sponsor_Codes::claims( $g1 ) );
+$GLOBALS['uid'] = 24;
+post( array( 'wpcpm_offer' => $g1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+ck( 'so a claim posted from a form drawn before the link burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'], WPCPM_Sponsor_Codes::counts( $g1 ), count( WPCPM_Sponsor_Codes::claims( $g1 ) ), WPCPM_Sponsor_Claims::has_claimed( 24, $g1 ) ), array( 'claim-refused', $pool_before, $ledger_before, false ) );
+post( array( 'wpcpm_offer' => $f1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+ck( 'and a form for B\'s pool that has since run out is refused too, not told the pool ran out: the rule is asked before the pool', array( is_array( $emptied_f ), WPCPM_Sponsor_Codes::counts( $f1 )['available'], WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $f1 ) ), WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'] ), array( true, 0, 'partners', 'claim-refused' ) );
+
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+ck( 'with the switch off the same offer of B\'s is claimable', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $g1 ) ), '' );
+$GLOBALS['track_partners'] = array();
+
+echo "\n=== A student waiting to graduate ===\n";
+// Pending graduation is a state on no track, and the students sync keeps the course the student took
+// on their account (`WPCPM_Program::course_status()`). The partners of that course's track are the
+// ones the Student Report Card names (bin/test-student-modules.php), so they bind the Tools section
+// too; a pending student whose account keeps no course is on no track, and nothing binds them.
+$GLOBALS['users'][25]   = new WP_User( 25, array( 'wpcpm_student' ), 'Student Waiting', 'maciej@a8c.com' );
+$GLOBALS['program'][25] = array( 'program' => 'Pending graduation', 'is_past' => false );
+$GLOBALS['umeta'][25]   = array( 'wpcpm_student_course' => 'In Sensei 50h' );
+$GLOBALS['users'][26]   = new WP_User( 26, array( 'wpcpm_student' ), 'Student Waiting Unknown', 'maciej@a8c.com' );
+$GLOBALS['program'][26] = array( 'program' => 'Pending graduation', 'is_past' => false );
+
+$GLOBALS['track_partners']                 = array( '50h' => array( $A ) );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+ck( 'a Pending graduation student whose account keeps the 50-hour course is offered the track partner A\'s live offers alone, and refused B\'s with the partners\' reason',
+	array( WPCPM_Sponsor_Tools::kind_of( $GLOBALS['users'][25] ), $ids( 'students', 25 ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][25], $offer( $g1 ) ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][25], $offer( $a1 ) ) ),
+	array( 'students', array( $c1, $a1 ), 'partners', '' ) );
+ck( 'one whose account keeps no course is on no track: offered what a student on a track that names no partner is, B\'s offer claimable',
+	array( WPCPM_Sponsor_Tools::kind_of( $GLOBALS['users'][26] ), $ids( 'students', 26 ) === $ids( 'students', 20 ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][26], $offer( $g1 ) ) ),
+	array( 'students', true, '' ) );
+$GLOBALS['umeta'][25]['wpcpm_student_course'] = 'Graduate';
+ck( 'and so is one whose account keeps a status that is no track\'s', array( $ids( 'students', 25 ) === $ids( 'students', 20 ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][25], $offer( $g1 ) ) ), array( true, '' ) );
+$GLOBALS['umeta'][25]['wpcpm_student_course'] = 'In Sensei 50h';
+
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+$GLOBALS['track_partners']                 = array();
+
 echo "\n=== The call sites ===\n";
 $students = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php' );
 $own      = strpos( $students, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, \$viewer )" );
 $count    = strpos( $students, 'WPCPM_Sponsor_Tools::render_count_line( $student )' );
 ck( 'the Student Report Card draws the section as a module of its own (1.95.12)', $own > strpos( $students, 'case self::MODULE_TOOLS:' ) && $own < strpos( $students, 'private static function render_mover(' ), true );
 ck( 'on the student\'s own card only, with the count line for a manager viewing somebody else', $count > 0 && false !== strpos( $students, '$viewer->ID === $student->ID' ) && $count > $own, true );
+$tools = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php' );
+ck( 'the Student Report Card\'s partnership line and this section read a student\'s track by one rule, the course a student waiting to graduate took, so the two name the same partners, and neither reads it of the status alone',
+	array(
+		substr_count( $students, 'WPCPM_Program::track( WPCPM_Program::course_status( $status, $student->ID ) )' ),
+		substr_count( $tools, 'WPCPM_Program::track( WPCPM_Program::course_status( self::status_of( $user->ID ), $user->ID ) )' ),
+		substr_count( $students, 'WPCPM_Program::track( $status )' ) + substr_count( $tools, 'WPCPM_Program::track( self::status_of(' ),
+	),
+	array( 1, 1, 0 ) );
 $mentors = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php' );
 $call    = strpos( $mentors, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, \$viewer )" );
 ck( 'the Mentor Report Card draws it after the past students, as the last section, for the mentor themself (the updates and resources lead the page since 1.95.14)', $call > strpos( $mentors, "esc_html__( 'Past students', 'wpcredits-program-manager' )" ) && $call > strpos( $mentors, "WPCPM_Handbook_Assistant::render_resources( 'mentor' )" ) && strpos( $mentors, "WPCPM_Handbook_Assistant::render_resources( 'mentor' )" ) < strpos( $mentors, 'WPCPM_Call_Calendar::render_mentor( $mentor )' ) && false !== strpos( $mentors, '$viewer->ID === $mentor->ID' ), true );
 $admin = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-dashboard.php' );
 $acall = strpos( $admin, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS, \$viewer )" );
-ck( 'the Administrator Dashboard draws it after the syncs card and before the help', $acall > strpos( $admin, 'WPCPM_Administrators_Cards::render_health(' ) && $acall < strpos( $admin, 'self::render_help();' ), true );
+$agroups = strpos( $admin, 'WPCPM_Dashboard_Card::group( array_merge( self::GROUP, $group ) );' );
+ck( 'the Administrator Dashboard draws it after the cards, in their groups, and before the help', false !== $agroups && $acall > $agroups && $acall < strpos( $admin, 'self::render_help();' ), true );
 ck( 'every call site is guarded by class_exists(), so a dashboard renders without the Sponsors module', array( substr_count( $students, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $mentors, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $admin, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1 ), array( true, true, true ) );
 
 echo "\n=== House rules ===\n";
@@ -587,6 +770,9 @@ ck( 'no em or en dash in the class', preg_match( '/\x{2013}|\x{2014}/u', $src ),
 ck( 'the claim form is drawn only after may_claim() said yes', strpos( $src, 'self::may_claim( $viewer, $offer )' ) < strpos( $src, 'self::render_claim_form(' ), true );
 ck( 'the section never asks the sponsor policy: a claimant is not a member', strpos( $src, 'WPCPM_Sponsor_Policy' ), false );
 ck( 'nothing here writes to Airtable', preg_match( '/WPCPM_Airtable|update_records/', $src ), 0 );
+ck( 'a track\'s partners are asked of WPCPM_Track_Partners behind class_exists(), never of the Track Builder\'s store, which the live site does not read',
+	array( false !== strpos( $src, "class_exists( 'WPCPM_Track_Partners' )" ), false !== strpos( $src, 'WPCPM_Track_Partners::for_track(' ), strpos( $src, 'WPCPM_Track_Store' ) ),
+	array( true, true, false ) );
 $js = (string) file_get_contents( __DIR__ . '/../assets/js/forms.js' );
 ck( 'forms.js selects a code on click without the clipboard API', array( false !== strpos( $js, 'data-wpcpm-select' ), false !== strpos( $js, 'selectNodeContents' ), strpos( $js, 'navigator.clipboard' ) ), array( true, true, false ) );
 ck( 'and by keyboard too, through the one selection routine both listeners call', array( false !== strpos( $js, "'keydown'" ), false !== strpos( $js, 'selectContents' ) ), array( true, true ) );
@@ -607,6 +793,32 @@ $code_source = (string) file_get_contents( __DIR__ . '/../includes/modules/class
 ck( 'a claimed code is drawn as a link or as a button, both under the one class', array( 1 === preg_match( '/<a class="wpcpm-tools__code" href=/', $code_source ), 1 === preg_match( '/<button type="button" class="wpcpm-tools__code" data-wpcpm-select /', $code_source ) ), array( true, true ) );
 ck( 'and that class breaks a long code at its card\'s edge, as a link and as the button', array( false !== strpos( $rule( '.wpcpm-tools__code' ), 'overflow-wrap: anywhere;' ), false === strpos( $rule( '.wpcpm-tools__code' ), 'white-space' ), false === strpos( $rule( 'button.wpcpm-tools__code' ), 'overflow-wrap' ), false === strpos( $rule( 'button.wpcpm-tools__code' ), 'white-space' ) ), array( true, true, true, true ) );
 ck( 'with the code still selected as one unit on a click', array( false !== strpos( $rule( '.wpcpm-tools__code' ), 'user-select: all;' ), false !== strpos( $js, 'range.selectNodeContents( target );' ) ), array( true, true ) );
+
+echo "\n=== A test sponsor's offers (1.123.18) ===\n";
+// A test sponsor is never listed publicly, and what students and mentors are shown is a listing:
+// its offers, and the guides under them, are shown to neither and claimed by neither, a form drawn
+// before the flag was set included. The program team still sees them on the Administrator Dashboard.
+/** Set a sponsor's test flag in the stand-in store, whose get_posts() reads one status at a time, so patch()'s every-status lookup finds nothing here. */
+function tools_set_test( $record, $flag ) {
+	foreach ( $GLOBALS['pmeta'] as $id => $meta ) {
+		if ( isset( $meta[ WPCPM_Sponsors_Index::META_KEY ] ) && $record === $meta[ WPCPM_Sponsors_Index::META_KEY ] ) {
+			$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsors_Index::META_ROW ]['test'] = $flag;
+		}
+	}
+	WPCPM_Sponsors_Index::forget();
+}
+tools_set_test( $B, true );
+$t_of = static function ( $audience, $uid ) use ( $B ) { return array_values( array_filter( array_map( static function ( $o ) { return (string) $o['sponsor']; }, WPCPM_Sponsor_Tools::offers_for( $audience, $GLOBALS['users'][ $uid ] ) ), static function ( $s ) use ( $B ) { return $s === $B; } ) ); };
+$t_mentor_b = $mk( $B, 'Test sponsor, for mentors', array( 'mentors' ), 'TM-1', 'live' );
+$t_team_b   = $mk( $B, 'Test sponsor, for the team', array( 'managers' ), 'TT-1', 'live' );
+ck( 'a test sponsor\'s live offers are listed for no student and no mentor, and still for the program team', array( $t_of( 'students', 20 ), $t_of( 'mentors', 30 ), count( $t_of( 'managers', 1 ) ) > 0 ), array( array(), array(), true ) );
+ck( 'and neither may claim one: the refusal names the test sponsor', array( WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][20], $offer( $b1 ) ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][30], $offer( $t_mentor_b ) ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][1], $offer( $t_team_b ) ) ), array( 'test', 'test', '' ) );
+$t_section = section( 'students', 20 );
+ck( 'the student\'s section prints none of its offers, nor its name', array( strpos( $t_section, 'name="wpcpm_offer" value="' . $b1 . '"' ), strpos( $t_section, 'Cirrus Example' ), false !== strpos( $t_section, 'name="wpcpm_offer" value="' . $a1 . '"' ) ), array( false, false, true ) );
+tools_set_test( $B, false );
+WPCPM_Sponsor_Offers::set_state( $t_mentor_b, 'ended' );
+WPCPM_Sponsor_Offers::set_state( $t_team_b, 'ended' );
+ck( 'cleared, its offers are listed again', in_array( (string) $b1, array_map( static function ( $o ) { return (string) $o['id']; }, WPCPM_Sponsor_Tools::offers_for( 'students', $GLOBALS['users'][20] ) ), true ), true );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

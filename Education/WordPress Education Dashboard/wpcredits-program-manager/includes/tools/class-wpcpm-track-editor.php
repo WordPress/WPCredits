@@ -651,7 +651,7 @@ final class WPCPM_Track_Editor {
 
 		// Core's add_query_arg() inserts a value exactly as it is handed and leaves encoding to
 		// the caller, so a column name holding `&`, `+`, `%` or `#` would come back as a
-		// different string (the Task 5 review); one call, not one per argument, so nothing
+		// different string; one call, not one per argument, so nothing
 		// already in the query is touched twice. `add_query_arg( array(), $url )` is the URL
 		// unchanged, so the no-argument case still works.
 		$url = add_query_arg( $encoded, $this->builder->admin_url() );

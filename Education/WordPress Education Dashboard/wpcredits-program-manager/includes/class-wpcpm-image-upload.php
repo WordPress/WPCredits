@@ -12,10 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Accepts an image by its bytes, re-saves it through WordPress's editor, stores it.
  *
- * Design spec of 4 September 2026, section 8.1, pulled forward to Phase S1 because the
- * sponsors sync copies each Approved sponsor's logo out of Airtable into the Media Library:
- * an Airtable attachment URL expires within hours, and a dashboard that hotlinked one would
- * show a broken image by the afternoon.
+ * Design spec of 4 September 2026, section 8.1, pulled forward to Phase S1 for the sponsors
+ * sync, which copied each Approved sponsor's logo out of Airtable into the Media Library until
+ * it went in 1.111.0: an Airtable attachment URL expires within hours, and a dashboard that
+ * hotlinked one would show a broken image by the afternoon. The site's own forms are its
+ * callers now: the sponsor application, the logo card and the Student Report Card's report
+ * form.
  *
  * The rules, each a refusal on its own: the file exists; it is within `logo_max_kb`; the
  * MIME from `finfo` and the type from `getimagesize()` agree and are PNG, JPEG or WebP; the
@@ -36,8 +38,8 @@ final class WPCPM_Image_Upload {
 	 * The floor for a logo somebody uploads, which the help beside the upload states.
 	 *
 	 * A rule a caller passes as `min_width`, never the default: a logo already in the Media
-	 * Library, or one the sponsors sync copies in from the base, was accepted under the lower
-	 * floor and is never refused for being narrower than this.
+	 * Library, among them the ones the sponsors sync copied in before it went, was accepted under
+	 * the lower floor and is never refused for being narrower than this.
 	 */
 	const LOGO_MIN_WIDTH = 300;
 
@@ -50,9 +52,6 @@ final class WPCPM_Image_Upload {
 		'image/jpeg' => 'jpg',
 		'image/webp' => 'webp',
 	);
-
-	/** Seconds a download may take before it is a refusal. */
-	const DOWNLOAD_TIMEOUT = 20;
 
 	/**
 	 * Check a file on disk and re-save it.
@@ -156,7 +155,8 @@ final class WPCPM_Image_Upload {
 	 *
 	 * @param array  $accepted What `accept()` returned.
 	 * @param string $name     The base name to store under, without extension.
-	 * @param int    $author   The attachment's author; 0 for the sync.
+	 * @param int    $author   The attachment's author; 0 for a file no account owns yet, as the
+	 *                         application form stores a logo until approval.
 	 * @param string $title    The attachment's title, e.g. "Weglot logo (colour)".
 	 * @param array  $options  `private` (bool) and `generated_name` (bool); both default to off.
 	 * @return int|WP_Error The attachment ID.
@@ -214,7 +214,7 @@ final class WPCPM_Image_Upload {
 
 		if ( is_wp_error( $id ) ) {
 			// The copy is in the uploads directory and no attachment row points at it: delete it,
-			// or a refused store leaves a file nothing can find (S5 review, clean-up 1.98.1).
+			// or a refused store leaves a file nothing can find (a clean-up of 1.98.1).
 			wp_delete_file( $dest );
 
 			return $id;
@@ -227,48 +227,6 @@ final class WPCPM_Image_Upload {
 		wp_update_attachment_metadata( (int) $id, wp_generate_attachment_metadata( (int) $id, $dest ) );
 
 		return (int) $id;
-	}
-
-	/**
-	 * Fetch an image from a URL, accept it and store it.
-	 *
-	 * @param string $url    Where the image is; http or https only.
-	 * @param string $name   The name it came with (Airtable's filename); its extension must match the bytes.
-	 * @param int    $author The attachment's author; 0 for the sync.
-	 * @param string $title  The attachment's title.
-	 * @param array  $rules  As for `accept()`; `name` is taken from `$name`.
-	 * @return int|WP_Error The attachment ID.
-	 */
-	public static function sideload( $url, $name, $author, $title, array $rules = array() ) {
-		$url = esc_url_raw( trim( (string) $url ), array( 'http', 'https' ) );
-
-		if ( '' === $url || ! wp_http_validate_url( $url ) ) {
-			return new WP_Error( 'wpcpm_image_url', __( 'That is not an address an image can be fetched from.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( ! function_exists( 'download_url' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-
-		$temp = download_url( $url, self::DOWNLOAD_TIMEOUT );
-
-		if ( is_wp_error( $temp ) ) {
-			return new WP_Error( 'wpcpm_image_download', $temp->get_error_message() );
-		}
-
-		$rules['name'] = (string) $name;
-		$accepted      = self::accept( $temp, $rules );
-
-		// The download is read once and never kept.
-		wp_delete_file( $temp );
-
-		if ( is_wp_error( $accepted ) ) {
-			return $accepted;
-		}
-
-		$base = pathinfo( (string) $name, PATHINFO_FILENAME );
-
-		return self::store( $accepted, '' === $base ? 'logo' : $base, $author, $title );
 	}
 
 	/**

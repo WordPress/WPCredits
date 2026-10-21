@@ -227,7 +227,7 @@ class Fake_Wpdb {
 }
 $GLOBALS['wpdb'] = new Fake_Wpdb();
 
-function get_post_time( $format, $gmt = false, $id = 0 ) {
+function get_post_time( $format, $gmt = false, $id = 0, $translate = false ) {
 	return isset( $GLOBALS['post_time'][ (int) $id ] ) ? $GLOBALS['post_time'][ (int) $id ] : time();
 }
 function get_posts( $args ) {

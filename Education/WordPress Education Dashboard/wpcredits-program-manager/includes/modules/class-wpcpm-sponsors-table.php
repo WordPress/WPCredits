@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * (`WPCPM_Sponsor_Members::META_ACTIVE`), the one `live_accounts()` reads.
  *
  * **Sponsor, Member since and Status are sorted by the table, not by a query.** An account holds its
- * sponsor as a record ID (`WPCPM_Sponsor_Members::META_RECORD_ID`) whose name lives in the sponsors
+ * sponsor as a key (`WPCPM_Sponsor_Members::META_RECORD_ID`) whose name lives in the sponsors
  * index, the day its membership began inside a serialized row (`META_MEMBERSHIP`), and nothing it
  * holds says it is locked for the day: the roster's ceiling does
  * (`WPCPM_Sponsor_Roster::locked_today()`). No `orderby` reaches any of the three, so for those sorts
@@ -76,7 +76,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	const ORDERBY_STATUS = 'status';
 
 	/**
-	 * The sponsors index's rows, read once a draw: record ID => row.
+	 * The sponsors index's rows, read once a draw: key => row.
 	 *
 	 * @var array|null
 	 */
@@ -214,8 +214,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	 * The accounts a search finds: the ones WordPress finds by the username, the email or the name,
 	 * then the ones stamped with a sponsor whose name in the index holds the term, without regard to
 	 * case or accents. Only the index's name, never the status the cell adds after it, and never a
-	 * record ID: an account whose sponsor the index no longer holds shows its record ID, which names
-	 * nothing.
+	 * key: an account whose sponsor the index no longer holds shows its key, which names nothing.
 	 *
 	 * @param string   $search  The search, with its wildcards.
 	 * @param string[] $columns The account columns WordPress searches.
@@ -392,12 +391,12 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 
 	/**
 	 * The sponsor an account is stamped with, as the Sponsor cell names it: its name in the index,
-	 * trimmed, or the record ID where the index lacks it or holds no name; '' for no stamp. A sponsor
+	 * trimmed, or the key where the index lacks it or holds no name; '' for no stamp. A sponsor
 	 * that is not Approved says so after its name, with its status as the index holds it, or "no
 	 * status" where it holds none: such a sponsor can keep its accounts, and they can act for it, so
 	 * the status is what tells a manager why such an account is on the list.
 	 *
-	 * @param string $record The record ID the account is stamped with, trimmed.
+	 * @param string $record The key the account is stamped with, trimmed.
 	 * @return string
 	 */
 	private function sponsor_label( $record ) {
@@ -423,7 +422,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 		$shown = trim( $status );
 
 		return sprintf(
-			/* translators: 1: the sponsor's name, 2: its status in the sponsors base, such as Paused, or "no status". */
+			/* translators: 1: the sponsor's name, 2: its status on the sponsor's record, such as Paused, or "no status". */
 			__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
 			$name,
 			'' !== $shown ? $shown : __( 'no status', 'wpcredits-program-manager' )
@@ -454,7 +453,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	/**
 	 * The sponsors index's rows, read once a draw.
 	 *
-	 * @return array Record ID => row.
+	 * @return array Key => row.
 	 */
 	private function index() {
 		if ( null === $this->index ) {
@@ -584,8 +583,8 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 
 	/**
 	 * The sponsor an account is stamped with, as `sponsor_label()` names it, and nothing for an account
-	 * stamped with none; on the No account view, the sponsor's name over its record ID, which a manager
-	 * searches the base by.
+	 * stamped with none; on the No account view, the sponsor's name over its key, which the site holds
+	 * it by and which tells two sponsors of one name apart.
 	 *
 	 * @param WP_User|array $item The row: an account, or a record on the No account view.
 	 * @return string
@@ -674,7 +673,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 		}
 
 		if ( 'no-email' === $reason ) {
-			return esc_html__( 'No Contact Email in Airtable. Add one there and sync.', 'wpcredits-program-manager' );
+			return esc_html__( 'No contact address on the sponsor\'s record. Add one on its Edit form.', 'wpcredits-program-manager' );
 		}
 
 		return '';
@@ -707,10 +706,10 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	 * its contact address is given one there, an existing account attached by its address. A manager's
 	 * dashboard opens as any sponsor the index holds, whatever its accounts.
 	 *
-	 * Create account is a nonce link to the module's provisioning handler, the record ID with its case,
-	 * the tab and where the list stands, so the handler comes back to the view as it stood, under the
-	 * nonce that handler has always checked, keyed to the sponsor, so a link taken from one row is no
-	 * use on another. The table is one form, so a row's action cannot be a form of its own.
+	 * Create account is a nonce link to the module's provisioning handler, the sponsor's key with its
+	 * case, the tab and where the list stands, so the handler comes back to the view as it stood, under
+	 * the nonce that handler has always checked, keyed to the sponsor, so a link taken from one row is
+	 * no use on another. The table is one form, so a row's action cannot be a form of its own.
 	 *
 	 * @param array $row The record row.
 	 * @return array<string, string> `create`, `view` and `accounts` => the links, in that order: no
@@ -750,7 +749,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	 *
 	 * One address for both kinds of row: an account's sponsor and a No account row's record.
 	 *
-	 * @param string $record The sponsor's record ID, with its case.
+	 * @param string $record The sponsor's key, with its case.
 	 * @return array<string, string> `view` => the link, or nothing.
 	 */
 	private function view_action( $record ) {
@@ -776,7 +775,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	 * address `WPCPM_Sponsors::accounts_view_url()` builds, the Accounts tab with the record, and the
 	 * list's state after it.
 	 *
-	 * @param string $record The sponsor's record ID, with its case.
+	 * @param string $record The sponsor's key, with its case.
 	 * @return array<string, string> `accounts` => the link, or nothing.
 	 */
 	private function accounts_action( $record ) {
@@ -816,7 +815,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	/**
 	 * The No account view's rows: the worklist, the ready ones first and then by name, searched by
 	 * the sponsor's name, or ordered by it from A to Z or Z to A when the list is sorted by the
-	 * Sponsor column, the record ID settling two of one name.
+	 * Sponsor column, the key settling two of one name.
 	 *
 	 * @param string $view A record view.
 	 * @return array[]
@@ -929,23 +928,27 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * What a sponsor's identifier looks like: the shape of the key the sponsors index keys its rows
-	 * by, an Airtable record ID.
+	 * What a sponsor's identifier looks like: the shape of a key in the sponsors index
+	 * (`WPCPM_Sponsors_Index::KEY_PATTERN`), the one shape every sponsor class checks. A sponsor that
+	 * came onto the site with the index keeps the record ID it had as its key; one added here is keyed
+	 * by the key the site minted for it (`WPCPM_Sponsors_Index::mint_key()`), so the list ticks, links
+	 * and gives an account to either alike.
 	 *
 	 * The one place the table matches a sponsor's identifier, the ticked records read back from the
-	 * list's form and the record a row's links name alike (`is_record()`), so a change to what
-	 * identifies a sponsor is an edit here.
+	 * list's form and the record a row's links name alike (`is_record()`), so the table matches a
+	 * sponsor exactly as the index does, and follows any change to the index's key.
 	 *
 	 * @return string A regular expression.
 	 */
 	private static function record_pattern() {
-		return WPCPM_Airtable::RECORD_ID_PATTERN;
+		return WPCPM_Sponsors_Index::KEY_PATTERN;
 	}
 
 	/**
 	 * Whether a value is, whole, a sponsor's identifier (`record_pattern()`), with its case.
 	 *
-	 * The whole of it: a `$` without the `D` modifier matches before a trailing newline too.
+	 * The whole of it, whatever the pattern's anchors: a `$` without the `D` modifier matches before a
+	 * trailing newline too.
 	 *
 	 * @param mixed $value The value.
 	 * @return bool
@@ -959,16 +962,19 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 	 * `WPCPM_Sponsors::provision_ticked()` returned, or the reason a row's press carries.
 	 *
 	 * On the ticked sponsors: how many accounts it created, and how many accounts it attached that
-	 * already used a sponsor's address; of those, how many Airtable could not be told about; when it
-	 * left some of the ticked for the next press, since one press creates at most
-	 * `WPCPM_Sponsors::PROVISION_LIMIT`, that it did; and, when it could not give some sponsors an
-	 * account, which, each with why, the first few named and the rest counted. On one row: why that
-	 * sponsor's account could not be made, or why the account at its address cannot act for it. Every
-	 * other outcome, and any of these with nothing to say, keeps the screen's own sentence.
+	 * already used a sponsor's address; of those, the sponsors whose record could not be found to mark
+	 * as having an account, the first few named and the rest counted (only counted, for a detail that
+	 * names none), and how such a record is marked; when it left some of the ticked for the next press,
+	 * since one press creates at most `WPCPM_Sponsors::PROVISION_LIMIT`, that it did; and, when it
+	 * could not give some sponsors an account, which, each with why, the first few named and the rest
+	 * counted. On one row: why that sponsor's account could not be made, or why the account at its
+	 * address cannot act for it. Every other outcome, and any of these with nothing to say, keeps the
+	 * screen's own sentence, a row's `record-unmarked` among them.
 	 *
 	 * @param string $status The outcome `handle_action()` returned, or a row's press left.
-	 * @param array  $detail What came with it: `created`, `attached`, `airtable`, `left`, `limit`,
-	 *                       `failed` and `failed_more` from the ticked sponsors; `reason` from a row.
+	 * @param array  $detail What came with it: `created`, `attached`, `unmarked`, `unmarked_names`,
+	 *                       `unmarked_more`, `left`, `limit`, `failed` and `failed_more` from the
+	 *                       ticked sponsors; `reason` from a row.
 	 * @return string The sentence, as text; '' for the screen's.
 	 */
 	public static function action_sentence( $status, array $detail ) {
@@ -996,7 +1002,7 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 
 		$created   = isset( $detail['created'] ) ? (int) $detail['created'] : 0;
 		$attached  = isset( $detail['attached'] ) ? (int) $detail['attached'] : 0;
-		$airtable  = isset( $detail['airtable'] ) ? (int) $detail['airtable'] : 0;
+		$unmarked  = isset( $detail['unmarked'] ) ? (int) $detail['unmarked'] : 0;
 		$left      = isset( $detail['left'] ) ? (int) $detail['left'] : 0;
 		$limit     = isset( $detail['limit'] ) ? (int) $detail['limit'] : 0;
 		$sentences = array();
@@ -1017,12 +1023,24 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 			);
 		}
 
-		if ( $airtable > 0 ) {
-			$sentences[] = sprintf(
-				/* translators: %s: how many of the accounts created or attached Airtable could not be told about. */
-				_n( 'Airtable could not be told about %s of them: its Dashboard account checkbox is out of step until the next attempt.', 'Airtable could not be told about %s of them: its Dashboard account checkbox is out of step until the next attempt.', $airtable, 'wpcredits-program-manager' ),
-				number_format_i18n( $airtable )
-			);
+		if ( $unmarked > 0 ) {
+			list( $unfound, $named ) = self::names_in( $detail, 'unmarked_names', 'unmarked_more' );
+
+			// Named, so the manager knows which records to look for; counted only for a detail that
+			// carries no names, which says nothing it does not know.
+			$sentences[] = $named > 0
+				? sprintf(
+					/* translators: %s: the sponsors given an account whose record could not be found, comma-separated. */
+					__( 'Not marked as having an account, because the record could not be found: %s.', 'wpcredits-program-manager' ),
+					implode( ', ', $unfound )
+				)
+				: sprintf(
+					/* translators: %s: how many sponsors given an account have a record that could not be found. */
+					_n( '%s sponsor record could not be found, so it is not marked as having an account.', '%s sponsor records could not be found, so they are not marked as having an account.', $unmarked, 'wpcredits-program-manager' ),
+					number_format_i18n( $unmarked )
+				);
+			/* translators: How a sponsor's record is marked as having an account, after the sentence that says which records are not. */
+			$sentences[] = __( 'Saving a sponsor on its Edit form marks it, if the Sponsors tab lists it.', 'wpcredits-program-manager' );
 		}
 
 		if ( $left > 0 ) {

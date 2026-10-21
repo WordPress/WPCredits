@@ -145,7 +145,7 @@ class WPCPM_Track_Editor_Screen {
 		// A locked question raced by a typed control that differs from the stored one could not
 		// have carried that control's own properties: its boxes belonged to another control, so
 		// they read blank unless corrected here. These six read the stored question instead, while
-		// every other property still keeps what was typed (decision 29, the Task 9 review).
+		// every other property still keeps what was typed (decision 29).
 		$stored_type = isset( $question['type'] ) ? (string) $question['type'] : '';
 
 		if ( $locked && array() !== $typed && isset( $typed['type'] ) && (string) $typed['type'] !== $stored_type ) {
@@ -161,7 +161,7 @@ class WPCPM_Track_Editor_Screen {
 		// What was typed wins over what is stored. A refusal's values are the whole press, since
 		// posted_question() writes a property only when it was given and a flag only when it was
 		// ticked, so a property the flash does not carry was cleared or unticked and must draw
-		// empty; only with no refusal at all does the stored question speak (the Task 7 review).
+		// empty; only with no refusal at all does the stored question speak.
 		$value = function ( $property, $fallback = '' ) use ( $typed, $question ) {
 			$from = array() !== $typed ? $typed : $question;
 
@@ -200,7 +200,7 @@ class WPCPM_Track_Editor_Screen {
 		if ( $locked ) {
 			// The stored control, not the typed one, is what is shown and posted back: a lock can be
 			// taken while this screen is open (publish the track in another tab), and the typed
-			// control would be the very change the handler refuses (the Task 7 review).
+			// control would be the very change the handler refuses.
 			printf( '<input type="hidden" name="wpcpm_column" value="%s" />', esc_attr( $column ) );
 			printf( '<input type="hidden" name="wpcpm_type" value="%s" />', esc_attr( $type ) );
 			printf(
@@ -613,7 +613,7 @@ class WPCPM_Track_Editor_Screen {
 		echo '<td class="wpcpm-list__actions">';
 
 		// The column is encoded by the caller: add_query_arg() inserts a value exactly as it is
-		// handed and leaves encoding to us, and a column can hold `&` (the Task 5 review).
+		// handed and leaves encoding to us, and a column can hold `&`.
 		printf(
 			'<a href="%1$s">%2$s</a> ',
 			esc_url( add_query_arg( 'wpcpm_question', rawurlencode( $column ), add_query_arg( 'wpcpm_track', $track, $url ) ) ),

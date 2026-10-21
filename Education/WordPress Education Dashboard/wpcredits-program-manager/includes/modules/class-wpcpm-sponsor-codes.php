@@ -18,9 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Sealed means WPCPM_Secret::seal_for_option(): the site key, base64 for the option row. The
  * fingerprint finds duplicates without unsealing, and is keyed because a bare hash of a short
- * code is enumerated in seconds (plan ruling 2). The claims ledger lives here beside the codes
+ * code is enumerated in seconds. The claims ledger lives here beside the codes
  * so that the sponsor's counts and the manager's claimant list read one option per offer
- * instead of every account's meta (plan ruling 3); the person's own copy is in their
+ * instead of every account's meta; the person's own copy is in their
  * `wpcpm_claims` meta (WPCPM_Sponsor_Claims). No custom table: a pool is hundreds of codes,
  * capped at five thousand (spec section 3, decision 4).
  *
@@ -135,7 +135,7 @@ final class WPCPM_Sponsor_Codes {
 		delete_option( self::option_name( $offer_id ) );
 
 		// The pool takes its lock with it: uninstall deletes the offers first, so anything that
-		// iterates offers afterwards to find locks finds none (final review, finding 6).
+		// iterates offers afterwards to find locks finds none.
 		delete_option( self::LOCK_PREFIX . (int) $offer_id );
 	}
 

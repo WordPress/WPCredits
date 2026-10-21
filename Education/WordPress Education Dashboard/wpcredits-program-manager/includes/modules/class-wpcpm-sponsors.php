@@ -12,12 +12,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Module 4 - Sponsors.
  *
- * The companies that fund mentors and offer their tools to students. Airtable is the record of
- * who a sponsor is; the site holds what Airtable cannot. This class is the sync module (the
- * three-hourly read into `WPCPM_Sponsors_Index`), the wp-admin screen, and the two things a
- * manager does on it: create the accounts of the Approved sponsors that have none, and attach or
- * remove the accounts that act for each. Nothing is ever provisioned by the sync (design spec of 4
- * September 2026, decision 9).
+ * The companies that fund mentors and offer their tools to students. Since 1.111.0 the site is
+ * the record of who a sponsor is: one private post per company, kept by `WPCPM_Sponsors_Index`,
+ * added and edited on this screen or made by approving an application (design of 23 September
+ * 2026). This class is the wp-admin screen and what a manager does on it: add a sponsor, edit
+ * what a manager owns of its record, create the accounts of the Approved sponsors that have none,
+ * attach or remove the accounts that act for each, and run the move onto the site again while it
+ * is incomplete. An account is only ever made by a manager's press (design spec of 4 September
+ * 2026, decision 9). The annual sponsor report's Reports card and its editor (1.115.0) are
+ * `WPCPM_Sponsor_Report_Screen`'s.
+ *
+ * The screen is the tabs of `TABS`, on the accounts screen every audience's module shares
+ * (`WPCPM_Accounts_Screen`): its Accounts tab lists the sponsor accounts, invites them and
+ * creates the missing ones, and holds one sponsor's accounts as a view of it.
+ *
+ * It has no sync. It still extends `WPCPM_Sync_Module` for the two things that class still gives
+ * it: the way back to the tab a press was made on (`redirect_back()`), and the notice the press
+ * leaves there (`render_status_notice()`). `sync_class()` names no class, the sync's outcomes are
+ * none of this screen's (`sync_messages()`), and the sync handlers it inherits are hooked by
+ * nothing.
  */
 class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
@@ -25,23 +38,21 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	// list's form and the presses made in it, a row's invitation and the rows-per-page choice. Two
 	// of its methods this class answers itself and runs under other names: the load hook
 	// (`load_screen()`), and the words for what a press left (`notice_sentence()`), which ask the
-	// list's own wording first, then the application queue's.
+	// report screen's words and the migration's first, then the list's own wording, then the
+	// application queue's.
 	use WPCPM_Accounts_Screen {
 		load_screen as private load_accounts_list;
 		notice_sentence as protected list_notice_sentence;
 	}
 
-	const ACTION_SYNC   = 'wpcpm_sponsors_sync';
-	const ACTION_CANCEL = 'wpcpm_sponsors_cancel';
-	const ACTION_TICK   = 'wpcpm_sponsors_tick';
-
 	/**
 	 * The screen's tabs, slug => label, in the bar's order: by the job a manager opens the screen
 	 * for, the queue first, which is the tab the screen opens on. English, as a constant has to hold
-	 * them; `tab_labels()` translates them.
+	 * them; `tab_labels()` translates them, and leaves out the last, Handbook listing, while the
+	 * tiers switch is off (`listing_shown()`).
 	 *
-	 * The sync has no tab of its own: its card is drawn beside the sponsors it reads, on the
-	 * Sponsors tab, which is where the health rows link this audience's sync.
+	 * No tab holds a sync, since the sponsors are the site's own records: they are listed and added
+	 * on the Sponsors tab.
 	 */
 	const TABS = array(
 		'queue'            => 'Waiting for review',
@@ -49,10 +60,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		self::TAB_ACCOUNTS => 'Accounts',
 		'offers'           => 'Offers and codes',
 		'interests'        => 'Interests',
+		'reports'          => 'Reports',
 		'agreements'       => 'Agreements',
+		'listing'          => 'Handbook listing',
 	);
 
-	/** The name a sponsor's record ID travels under: the field the forms that act on one sponsor post it in. */
+	/** The name a sponsor's key travels under: the field the forms that act on one sponsor post it in. */
 	const ARG_SPONSOR = 'wpcpm_sponsor';
 
 	/** The screen's tab the accounts are on, which every link and form of the list returns to. */
@@ -76,9 +89,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/**
 	 * How many accounts one Create account on the ticked sponsors creates.
 	 *
-	 * A ceiling and not a page size: each account made is told to Airtable, a request of its own,
-	 * and ten of them stay well inside the time one request is given. Whatever is left is still
-	 * listed on the No account view afterwards, so pressing it again is the way through.
+	 * A ceiling and not a page size: each account made is invited, given its first offer and marked
+	 * on its sponsor's record, and ten of them stay well inside the time one request is given.
+	 * Whatever is left is still listed on the No account view afterwards, so pressing it again is
+	 * the way through.
 	 */
 	const PROVISION_LIMIT = 10;
 
@@ -91,19 +105,76 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/** Attach an existing account by address, or detach one; `wpcpm_op` says which. */
 	const ACTION_MEMBERS = 'wpcpm_sponsor_members';
 
+	/** Add a sponsor that never applied on the site. One nonce for the form: `wpcpm_sponsor_add`. */
+	const ACTION_ADD = 'wpcpm_sponsor_add';
+
+	/** Save a sponsor's Edit form. The nonce is keyed to the sponsor: `wpcpm_sponsor_edit_<key>`. */
+	const ACTION_EDIT = 'wpcpm_sponsor_edit';
+
+	/** Run the move onto the site again, from the migration box. */
+	const ACTION_MIGRATE = 'wpcpm_sponsors_migrate';
+
+	/** The query argument that draws a sponsor's Edit form on the Sponsors tab: `?edit=<key>`. */
+	const ARG_EDIT = 'edit';
+
 	/** The flash channel this screen reads. */
 	const FLASH = 'sponsors_admin';
 
-	/** The Airtable checkbox that says whether a sponsor has a site account. */
-	const FIELD_DASHBOARD_ACCOUNT = 'Dashboard account';
-
 	/** Audit kinds this class writes. */
 	const LOG_PROVISIONED = 'provisioned';
+	const LOG_ADDED       = 'sponsor_added';
+	const LOG_EDITED      = 'sponsor_edited';
+
+	/** The status a sponsor added here starts in, unless the manager chose another (design section 5). */
+	const STATUS_ADDED = 'In review';
+
+	/**
+	 * What a manager edits of a sponsor's record, in the forms' order (design section 4). The rest
+	 * of the row is the sponsor's own or the site's: the free text, the consent, the day it was
+	 * created, the agreement, the interests and the account flag. `event_allowance` is posted as a
+	 * number and kept with the term's last day (`clean_fields()`).
+	 */
+	const EDITABLE = array( 'name', 'website', 'status', 'test', 'contact_person', 'contact_email', 'option', 'support', 'product_type', 'manager', 'tier', 'tier_until', 'event_allowance', 'funded_line', 'mentors', 'notes' );
+
+	/** The two lists of `EDITABLE`, posted as ticked boxes. */
+	const LISTS = array( 'support', 'mentors' );
+
+	/** The longest name, contact person or funded line the forms take, as typed. */
+	const MAX_LINE = 200;
+
+	/** The longest note, as typed. */
+	const MAX_NOTES = 4000;
+
+	/**
+	 * The typed texts of `EDITABLE`: each with the most characters it holds as the manager typed it
+	 * (`WPCPM_Typed_Text::typed_length()`), the status a changed one over that refuses a save with, and
+	 * the status a changed one the cleaner would take words from refuses it with
+	 * (`WPCPM_Typed_Text::cleaner_loses()`).
+	 */
+	const TYPED = array(
+		'name'           => array( self::MAX_LINE, 'name-too-long', 'name-loss' ),
+		'contact_person' => array( self::MAX_LINE, 'contact-too-long', 'contact-loss' ),
+		'funded_line'    => array( self::MAX_LINE, 'funded-too-long', 'funded-loss' ),
+		'notes'          => array( self::MAX_NOTES, 'notes-too-long', 'notes-loss' ),
+	);
+
+	/**
+	 * The most extra events the Tier box grants one term. A ceiling rather than a judgment, as the
+	 * group sessions' are: with the tier's own, one a month across the term's twelve, and a typo of
+	 * a hundred is refused rather than granted.
+	 */
+	const MAX_EXTRA_EVENTS = 11;
+
+	/**
+	 * A ticked value worth looking up: printable, or empty for the one hidden value each list
+	 * carries to say it was drawn. `clean_fields()` keeps only the values the form offers.
+	 */
+	const LIST_VALUE = '/\A[^\x00-\x1f\x7f]{0,200}\z/';
 
 	/** How many interest rows the log card shows. */
 	const INTERESTS_SHOWN = 50;
 
-	/** Seed a sponsor's first offer from the index, for the accounts provisioned before offers existed (plan ruling 7). */
+	/** Seed a sponsor's first offer from the index, for the accounts provisioned before offers existed. */
 	const ACTION_SEED = 'wpcpm_offer_seed';
 
 	/** Void a claimed code so the person may claim again. */
@@ -189,12 +260,14 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Applications waiting, plus agreements awaiting review, plus posts pending.
+	 * Applications waiting, plus agreements awaiting review, plus posts pending, plus, while the
+	 * sponsors' events are in use, the events waiting for the program's OK, which the Administrator
+	 * Dashboard's strip counts on its Events waiting tile, so the bubble and the strip agree.
 	 *
-	 * Each behind a guard, because the three classes ship in three phases and the bubble is
-	 * drawn on every admin page: a class missing from a partial deploy must cost a zero, not a
-	 * fatal on every screen in the site. Cached for a minute (clean-up 1.98.1): three post
-	 * queries on every admin page for every manager was the S5 whole-branch review's finding.
+	 * Each behind a guard, because the classes ship in phases and the bubble is drawn on every admin
+	 * page: a class missing from a partial deploy must cost a zero, not a fatal on every screen in the
+	 * site. Cached for a minute (clean-up 1.98.1): three post queries on every admin page for every
+	 * manager was the S5 whole-branch review's finding.
 	 *
 	 * @return int
 	 */
@@ -219,6 +292,17 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$count += count( (array) WPCPM_Sponsor_Posts::pending_all( self::COUNT_MAX ) );
 		}
 
+		// The offers and the changes to live ones waiting for review (1.123.18), whatever the tiers
+		// switch says. The offers class forgets the cache itself at each move of the review.
+		if ( class_exists( 'WPCPM_Sponsor_Offer_Review' ) && method_exists( 'WPCPM_Sponsor_Offer_Review', 'waiting_all' ) ) {
+			$count += count( (array) WPCPM_Sponsor_Offer_Review::waiting_all( self::COUNT_MAX ) );
+		}
+
+		// None while the events are not in use, which the queue's count asks itself.
+		if ( class_exists( 'WPCPM_Sponsor_Event_Queue' ) && method_exists( 'WPCPM_Sponsor_Event_Queue', 'count_waiting' ) ) {
+			$count += (int) WPCPM_Sponsor_Event_Queue::count_waiting();
+		}
+
 		// Three queries on every admin page was the S5 review's finding; a minute is short
 		// enough that a manager sees their own decision land (the hooks below forget the cache
 		// the moment a row changes) and long enough that a busy morning costs one count.
@@ -233,7 +317,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * A post of one of the three kinds the bubble counts changed status.
+	 * A post of one of the kinds whose status moves the bubble changed status.
 	 *
 	 * @param string  $new  New status.
 	 * @param string  $old  Old status.
@@ -246,7 +330,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * An application's or an agreement's state meta changed.
+	 * An application's, an agreement's or a sponsor event's state meta changed.
 	 *
 	 * @param int    $meta_id  Meta row ID.
 	 * @param int    $post_id  Post ID.
@@ -259,7 +343,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The post types the bubble counts, of the classes that exist.
+	 * The post types whose status moves the bubble, of the classes that exist; an event moves it by
+	 * its state meta (`attention_meta_keys()`), since its post stays private.
 	 *
 	 * @return string[]
 	 */
@@ -278,7 +363,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The state meta keys whose change moves the bubble.
+	 * The state meta keys whose change moves the bubble. An event's state is written as it is
+	 * planned, and again as it is approved, returned or canceled, and the event's post itself stays
+	 * private throughout, so its state key, not its status, is what tells the bubble.
 	 *
 	 * @return string[]
 	 */
@@ -293,16 +380,38 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$keys[] = WPCPM_Sponsor_Agreement::META_STATE;
 		}
 
+		if ( class_exists( 'WPCPM_Sponsor_Event' ) ) {
+			$keys[] = WPCPM_Sponsor_Event::META_STATE;
+		}
+
 		return $keys;
 	}
 
 	/**
-	 * The sync class.
+	 * No sync: the module has had none since 1.111.0, when the sponsor record moved onto the site.
+	 *
+	 * The three sync handlers this class inherits are hooked by nothing, so nothing asks for the
+	 * name, and it is empty rather than the name of a class that no longer runs.
 	 *
 	 * @return string
 	 */
 	protected function sync_class() {
-		return 'WPCPM_Sponsors_Sync';
+		return '';
+	}
+
+	/**
+	 * None of the sync's outcomes: no sync runs on this screen, so neither `started` nor `cancelled`
+	 * is anything a press here can leave, and the sync's `error`, which points to a sync's error
+	 * printed below the notice, would point at nothing.
+	 *
+	 * The notice every press leaves is printed from the screen's own map over this one
+	 * (`render_status_notice()`), so an outcome left on the channel that the screen does not word
+	 * prints nothing; the screen words its own `error` per tab (`outcome_messages()`).
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice type and sentence: none.
+	 */
+	public static function sync_messages() {
+		return array();
 	}
 
 	/**
@@ -326,10 +435,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 	/**
 	 * The words the screen prints for sponsor accounts, in the places every accounts screen prints
-	 * its audience's: the keys `WPCPM_Accounts_Screen::screen_words()` lists. The warning while
-	 * Airtable is not connected is printed from here by this screen's frame, above every tab
-	 * (`render_admin_page()`), through the printer every accounts screen shares
-	 * (`render_not_connected()`).
+	 * its audience's: the keys `WPCPM_Accounts_Screen::screen_words()` lists, but `not_connected`.
+	 * That one is the warning a screen whose accounts arrive by a sync prints while the connection the
+	 * sync needs is missing (`render_not_connected()`); this screen prints none, since its sponsors
+	 * are the site's own records and its accounts are made on the site, so nothing reads it.
 	 *
 	 * @return array<string, string>
 	 */
@@ -338,7 +447,6 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'heading_views'      => __( 'Filter sponsor accounts list', 'wpcredits-program-manager' ),
 			'heading_pagination' => __( 'Sponsor accounts list navigation', 'wpcredits-program-manager' ),
 			'heading_list'       => __( 'Sponsor accounts list', 'wpcredits-program-manager' ),
-			'not_connected'      => __( 'Airtable is not connected yet, so no sponsors can be synced.', 'wpcredits-program-manager' ),
 			'list_heading'       => __( 'Sponsor accounts', 'wpcredits-program-manager' ),
 			'page_label'         => __( 'Sponsor Dashboard:', 'wpcredits-program-manager' ),
 			'page_missing'       => __( 'The Sponsor Dashboard page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
@@ -385,24 +493,42 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function boot() {
 		WPCPM_Ceiling::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement', 'WPCPM_Sponsor_Application' ) as $front ) {
+		// The store's post type, at a priority ahead of anything that could query it on the same
+		// request (1.111.0).
+		add_action( 'init', array( 'WPCPM_Sponsors_Index', 'register_post_type' ), 5 );
+
+		// The held index becomes posts on the first request after the upgrade, right after the
+		// post type exists and before anything reads a sponsor (design decision 7). Once the
+		// report says complete, this is one read of an autoloaded option per request.
+		add_action( 'init', array( 'WPCPM_Sponsors_Migration', 'maybe_run' ), 6 );
+
+		// A test sponsor is never listed publicly (1.123.18): the sponsors the store held before
+		// the flag whose names start with "TEST" are marked once, before anything public is drawn.
+		add_action( 'init', array( 'WPCPM_Sponsors_Index', 'maybe_mark_tests' ), 7 );
+
+		// A program manager's booking link, a field on their own profile (design decision 5).
+		WPCPM_Manager_Booking::init();
+
+		// The public feed the Tracker and the Monthly Report switch to reading, in their own
+		// releases (design decision 8).
+		WPCPM_Sponsors_Feed::init();
+
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Event_Queue', 'WPCPM_Sponsor_Event_List', 'WPCPM_Sponsors_Listing', 'WPCPM_Sponsors_Page', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement', 'WPCPM_Sponsor_Application', 'WPCPM_Sponsor_Tiers_Run', 'WPCPM_Sponsor_Report', 'WPCPM_Sponsor_Report_Files', 'WPCPM_Sponsor_Report_Screen' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
 		}
 
-		WPCPM_Sponsors_Sync::register_cron();
-
-		// The retention run, put back on the clock whenever it is missing: see the method.
+		// The module's daily jobs, each put back on the clock whenever it is missing: see the method.
 		add_action( 'init', array( __CLASS__, 'schedule_cron' ), 20 );
 
-		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
-		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
 		add_action( 'admin_post_' . self::ACTION_MEMBERS, array( $this, 'handle_members' ) );
+		add_action( 'admin_post_' . self::ACTION_ADD, array( $this, 'handle_add' ) );
+		add_action( 'admin_post_' . self::ACTION_EDIT, array( $this, 'handle_edit' ) );
+		add_action( 'admin_post_' . self::ACTION_MIGRATE, array( $this, 'handle_migrate' ) );
 		add_action( 'admin_post_' . self::ACTION_SEED, array( $this, 'handle_seed' ) );
 		add_action( 'admin_post_' . self::ACTION_CLAIM_VOID, array( $this, 'handle_claim_void' ) );
-		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 
 		// Once per site, on the first admin page after 1.99.0: the accounts an older detach left
 		// holding posting capabilities (FSPON-1). See the method.
@@ -421,10 +547,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Activation: the schedule and the page.
+	 * Activation: the migration, the schedule, the pages, and the sponsor events' drain.
 	 */
 	public function activate() {
-		WPCPM_Sponsors_Sync::activate();
+		// A site that already holds an index migrates at once: this request's `init`, where
+		// boot() hooks the migration, fired before the plugin was activated.
+		WPCPM_Sponsors_Migration::maybe_run();
 
 		self::schedule_cron();
 
@@ -441,10 +569,33 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
 			WPCPM_Sponsor_Application::ensure_page();
 		}
+
+		// The Partners page, made where there is none and then put where the tiers' switch says: in
+		// draft until the switch publishes it, and published at once on a site activated after the
+		// launch. Made first, since set_published() makes no page when it is asked for a draft.
+		if ( class_exists( 'WPCPM_Sponsors_Page' ) ) {
+			WPCPM_Sponsors_Page::ensure_page();
+			WPCPM_Sponsors_Page::set_published( WPCPM_Sponsor_Tiers::live() );
+		}
+
+		// The badge's rule. The activation hook flushes the rules once every module has activated,
+		// in a request where this plugin's init has never run, so the rule is not in memory to be
+		// written; with its version gone, the next request's WPCPM_Sponsor_Badge::maybe_flush()
+		// writes the rules again with the rule in them.
+		if ( class_exists( 'WPCPM_Sponsor_Badge' ) ) {
+			delete_option( WPCPM_Sponsor_Badge::OPT_REWRITE );
+		}
+
+		// Deactivation took the drain off the clock with the module's other jobs, and the people a
+		// move left still to tell must not wait for the next move to put it back.
+		if ( class_exists( 'WPCPM_Sponsor_Event' ) ) {
+			WPCPM_Sponsor_Event::resume_drain();
+		}
 	}
 
 	/**
-	 * Put the agreement's retention run and the application queue's on the clock, if they are not there already.
+	 * Put the module's three daily jobs on the clock, if they are not there already: the agreement's
+	 * retention run, the application queue's, and the tier ladder's daily run.
 	 *
 	 * **Called from `boot()` on every load, not only from `activate()`.** The activation hook
 	 * fires on an explicit activation and on nothing else: not on the files being replaced, and
@@ -452,9 +603,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * (`wp plugin install --force`). Until this method existed the job was scheduled only in
 	 * `activate()`, so a site installed or updated through the upgrader would never discard a
 	 * withdrawn or returned document's file again, and nothing on any screen would say so. The
-	 * sync already self-heals this way on every boot; this is the same rule for the retention
-	 * run. `wp_next_scheduled()` makes it cheap and idempotent: one cache read on a normal load,
-	 * one write when the job is missing.
+	 * other modules' syncs self-heal this way on every boot; this is the same rule for the
+	 * retention run. `wp_next_scheduled()` makes it cheap and idempotent: one cache read on a
+	 * normal load, one write when the job is missing.
 	 *
 	 * Daily, because the setting behind it is in days, and eight hours past activation: the
 	 * institutions module's own nightly jobs sit at one to six hours past its, so a slow night
@@ -471,14 +622,21 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Application' ) && ! wp_next_scheduled( WPCPM_Sponsor_Application::CRON_PURGE ) ) {
 			wp_schedule_event( time() + ( 9 * HOUR_IN_SECONDS ), 'daily', WPCPM_Sponsor_Application::CRON_PURGE );
 		}
+
+		// The tier ladder's daily run (1.112.0), ten hours past the load that first schedules it. When
+		// it is scheduled in the same request as the application purge above, as on activation, the
+		// extra hour keeps the two jobs apart. Otherwise, as on a site updated in place, where the
+		// purge keeps the time it already had, the run simply lands ten hours after the first load
+		// that scheduled it.
+		if ( class_exists( 'WPCPM_Sponsor_Tiers_Run' ) && ! wp_next_scheduled( WPCPM_Sponsor_Tiers_Run::CRON_HOOK ) ) {
+			wp_schedule_event( time() + ( 10 * HOUR_IN_SECONDS ), 'daily', WPCPM_Sponsor_Tiers_Run::CRON_HOOK );
+		}
 	}
 
 	/**
 	 * Deactivation: off the clock.
 	 */
 	public function deactivate() {
-		WPCPM_Sponsors_Sync::deactivate();
-
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
 			wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD );
 		}
@@ -488,6 +646,19 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
 			wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE );
 		}
+
+		// And so does the tier ladder's daily run (1.112.0).
+		if ( class_exists( 'WPCPM_Sponsor_Tiers_Run' ) ) {
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Tiers_Run::CRON_HOOK );
+		}
+
+		// And the sponsor events' drain (1.117.0), which activation puts back while rows wait for it,
+		// and the reminders' retry, whose window the next daily run covers: the edge stays where the
+		// run that left an event to the retry began.
+		if ( class_exists( 'WPCPM_Sponsor_Event' ) ) {
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Event::CRON_DRAIN );
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Event::CRON_RETRY );
+		}
 	}
 
 	/**
@@ -495,12 +666,21 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * not this module's to delete (spec section 11).
 	 */
 	public function uninstall() {
-		delete_option( WPCPM_Sponsors_Sync::OPT_STATE );
-		delete_option( WPCPM_Sponsors_Sync::OPT_REPORT );
-		delete_option( WPCPM_Sponsors_Sync::OPT_LAST );
-		delete_option( WPCPM_Sponsors_Sync::OPT_ERROR );
-		delete_option( WPCPM_Sponsors_Sync::OPT_LOCK );
-		delete_option( WPCPM_Sponsors_Sync::OPT_SHRINK );
+		// What the old sponsors sync kept, since the sync went in 1.111.0: the move onto the site
+		// removes all eight the moment it completes, so these are for a site uninstalled before it
+		// did. The names are the migration's, the same two lists its clean-up reads.
+		foreach ( WPCPM_Sponsors_Migration::SYNC_OPTIONS as $option ) {
+			delete_option( $option );
+		}
+
+		foreach ( WPCPM_Sponsors_Migration::SYNC_HOOKS as $hook ) {
+			wp_clear_scheduled_hook( $hook );
+		}
+
+		// The minute the migration waits between runs, for a site uninstalled inside it, and the
+		// lock of a run that died holding it.
+		delete_transient( WPCPM_Sponsors_Migration::TRANSIENT_RUNNING );
+		delete_option( WPCPM_Sponsors_Migration::OPT_LOCK );
 
 		WPCPM_Sponsors_Index::delete_all();
 
@@ -517,6 +697,19 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			WPCPM_Sponsor_Posts::delete_all();
 		}
 
+		// The reports, then every lock a request left behind; the store forgets each one's attached
+		// file itself as it deletes the post.
+		if ( class_exists( 'WPCPM_Sponsor_Report' ) ) {
+			WPCPM_Sponsor_Report::delete_all();
+		}
+
+		// The events, each with the people on it and its call link, a trashed one too, and every lock
+		// a request left behind. The people keep their accounts, as every account stays (spec
+		// section 11).
+		if ( class_exists( 'WPCPM_Sponsor_Event' ) ) {
+			WPCPM_Sponsor_Event::delete_all();
+		}
+
 		// The posts and the options; the files and the key stay, listed in the manifest the
 		// Institutions module mailed a moment ago (spec section 11).
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
@@ -531,6 +724,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE );
 		}
 
+		// The tier ladder's daily run, off the clock with the module's other two (1.112.0).
+		if ( class_exists( 'WPCPM_Sponsor_Tiers_Run' ) ) {
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Tiers_Run::CRON_HOOK );
+		}
+
 		if ( class_exists( 'WPCPM_Sponsor_Approval' ) ) {
 			WPCPM_Sponsor_Approval::delete_all();
 		}
@@ -540,8 +738,15 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			delete_option( WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED );
 		}
 
-		wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_DAILY );
-		wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_TICK );
+		if ( class_exists( 'WPCPM_Sponsors_Page' ) ) {
+			delete_option( WPCPM_Sponsors_Page::OPT_PAGE );
+		}
+
+		// The rewrite version the badge's rule was flushed for; the rule itself leaves the stored
+		// rules at the next flush, once nothing adds it.
+		if ( class_exists( 'WPCPM_Sponsor_Badge' ) ) {
+			delete_option( WPCPM_Sponsor_Badge::OPT_REWRITE );
+		}
 
 		delete_transient( self::TRANSIENT_ATTENTION );
 
@@ -560,6 +765,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}
+
+		// A program manager's booking link (1.111.0) is the plugin's row on an account that is
+		// not the plugin's, the same bargain as the stamps above.
+		if ( class_exists( 'WPCPM_Manager_Booking' ) ) {
+			delete_metadata( 'user', 0, WPCPM_Manager_Booking::META, '', true );
+		}
 	}
 
 	/**
@@ -573,10 +784,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'provision-attached' => array( 'success', __( 'An account with that address already existed and now acts for the sponsor.', 'wpcredits-program-manager' ) ),
 			'provision-admin'    => array( 'error', __( 'That address belongs to an administrator, who already reaches every sponsor.', 'wpcredits-program-manager' ) ),
 			'provision-inactive' => array( 'error', __( 'Only an Approved sponsor can be given an account.', 'wpcredits-program-manager' ) ),
-			'provision-no-email' => array( 'error', __( 'That sponsor has no Contact Email in Airtable. Add one there and sync.', 'wpcredits-program-manager' ) ),
+			'provision-no-email' => array( 'error', __( 'That sponsor has no contact address. Add one on its Edit form, then try again.', 'wpcredits-program-manager' ) ),
 			'provision-refused'  => array( 'error', __( 'That account cannot act for this sponsor.', 'wpcredits-program-manager' ) ),
 			'provision-failed'   => array( 'error', __( 'The account could not be created.', 'wpcredits-program-manager' ) ),
-			'airtable-failed'    => array( 'warning', __( 'Done on the site, but Airtable could not be told: the Dashboard account checkbox is out of step until the next attempt.', 'wpcredits-program-manager' ) ),
+			'record-unmarked'    => array( 'warning', __( 'The account acts for the sponsor, and its invitation is queued unless it already had one. The sponsor\'s record could not be found, so it is not marked as having an account. If the Sponsors tab lists the sponsor, saving it on its Edit form marks it.', 'wpcredits-program-manager' ) ),
 			'attached'           => array( 'success', __( 'The account now acts for the sponsor.', 'wpcredits-program-manager' ) ),
 			'attach-no-account'  => array( 'error', __( 'No account has that address. Attach account attaches an account that exists; a sponsor\'s first account is made with Create account on the No account view.', 'wpcredits-program-manager' ) ),
 			'attach-refused'     => array( 'error', __( 'That account cannot act for this sponsor.', 'wpcredits-program-manager' ) ),
@@ -585,12 +796,39 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'refused'            => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 			'posting-on'         => array( 'success', __( 'Posting is on for this sponsor: its accounts can write posts and submit them for review.', 'wpcredits-program-manager' ) ),
 			'posting-off'        => array( 'success', __( 'Posting is off for this sponsor: its accounts can no longer write posts.', 'wpcredits-program-manager' ) ),
-			'offer-seeded'       => array( 'success', __( 'The first offer was seeded from the base; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
+			'offer-seeded'       => array( 'success', __( 'The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
 			'offer-seed-none'    => array( 'info', __( 'That sponsor already has an offer; nothing was seeded.', 'wpcredits-program-manager' ) ),
 			'offer-seed-failed'  => array( 'error', __( 'The offer could not be seeded: the index does not hold that sponsor.', 'wpcredits-program-manager' ) ),
 			'claim-voided'       => array( 'success', __( 'The claim was voided. The person may claim again; the code stays void for the count.', 'wpcredits-program-manager' ) ),
 			'claim-void-none'    => array( 'info', __( 'That person holds no claim on that offer.', 'wpcredits-program-manager' ) ),
 			'claim-void-busy'    => array( 'info', __( 'Another change to that offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
+			'sponsor-added'      => array( 'success', __( 'The sponsor was added. Nothing else happens until its status is Approved and its account is created.', 'wpcredits-program-manager' ) ),
+			'sponsor-saved'      => array( 'success', __( 'The sponsor was saved.', 'wpcredits-program-manager' ) ),
+			'sponsor-unchanged'  => array( 'info', __( 'Nothing changed, so nothing was saved.', 'wpcredits-program-manager' ) ),
+			'sponsor-rejected'   => array(
+				'error',
+				sprintf(
+					/* translators: %d: the most extra events the Tier box grants one term. */
+					__( 'Nothing was saved: one of the values could not be accepted. A sponsor needs a name; the website has to be a web address, the contact email an email address, Extra events this term a whole number from 0 to %d, and every choice one this form offers.', 'wpcredits-program-manager' ),
+					self::MAX_EXTRA_EVENTS
+				),
+			),
+			// A typed text over its limit is named, with the limit (`long_sentence()`).
+			'name-too-long'      => array( 'error', self::long_sentence( __( 'Name', 'wpcredits-program-manager' ), self::MAX_LINE ) ),
+			'contact-too-long'   => array( 'error', self::long_sentence( __( 'Contact person', 'wpcredits-program-manager' ), self::MAX_LINE ) ),
+			'funded-too-long'    => array( 'error', self::long_sentence( __( 'What the sponsorship funds', 'wpcredits-program-manager' ), self::MAX_LINE ) ),
+			'notes-too-long'     => array( 'error', self::long_sentence( __( 'Notes', 'wpcredits-program-manager' ), self::MAX_NOTES ) ),
+			// A typed text the cleaner would take words from is named, with how to keep every word: the
+			// sentence every box of typed text refuses a loss with (`WPCPM_Typed_Text::loss_message()`).
+			'name-loss'          => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Name', 'wpcredits-program-manager' ) ) ),
+			'contact-loss'       => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Contact person', 'wpcredits-program-manager' ) ) ),
+			'funded-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( __( 'What the sponsorship funds', 'wpcredits-program-manager' ) ) ),
+			'notes-loss'         => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Notes', 'wpcredits-program-manager' ) ) ),
+			'sponsor-detached'   => array( 'warning', __( 'Saved. The sponsor is no longer Approved, so its accounts were detached, as the setting says.', 'wpcredits-program-manager' ) ),
+			'sponsor-not-saved'  => array( 'error', __( 'Nothing was saved. The site could not save the sponsor just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
+			// The counts are the report's, read when the notice is printed: see notice_sentence().
+			'migrated'           => array( 'info', __( 'The move onto the site ran again.', 'wpcredits-program-manager' ) ),
+			'migrate-busy'       => array( 'info', __( 'The move onto the site is already running. Give it a minute, then look at this box again.', 'wpcredits-program-manager' ) ),
 		);
 
 		// The agreement's own outcomes, so a review pressed on this screen has words to print.
@@ -603,27 +841,87 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$messages = array_merge( $messages, WPCPM_Sponsor_Application::manager_messages() );
 		}
 
+		// A sponsor report's PDF outcomes, so an attach or a removal pressed on a report has words.
+		if ( class_exists( 'WPCPM_Sponsor_Report_Files' ) ) {
+			$messages = array_merge( $messages, WPCPM_Sponsor_Report_Files::manager_messages() );
+		}
+
+		// And the report's own, so a draft, a save, a state move or Not a renewal has words too.
+		if ( class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			$messages = array_merge( $messages, WPCPM_Sponsor_Report_Screen::messages() );
+		}
+
 		return $messages;
 	}
 
 	/**
-	 * The sentence one status prints, worded from what the press carried beside it: the accounts
-	 * list's words for a press made in it, a row's Create account among them (the accounts screen's
-	 * own reading, kept under another name: `list_notice_sentence()`), and the queue's `sapp-account`
-	 * sentence, which names what the site said when the account step failed.
+	 * The sentence a save refused for one typed text's length prints: the box, by its label on the
+	 * form, and the most characters it holds, as the box counts them.
+	 *
+	 * The one builder of that sentence. `messages()` asks it for the Edit form's four boxes, and the
+	 * sponsor report's editor asks it for the narrative a Save refused, with the label of the box
+	 * (`WPCPM_Sponsor_Report_Screen::sentence_for()`), so the two print one wording.
+	 *
+	 * @param string $label The box's label.
+	 * @param int    $limit The most characters it holds, as typed.
+	 * @return string
+	 */
+	public static function long_sentence( $label, $limit ) {
+		return sprintf(
+			/* translators: 1: a box's label on the form it was typed in, 2: the most characters it holds. */
+			_n( 'Nothing was saved: "%1$s" is longer than %2$s character. Shorten it and save again.', 'Nothing was saved: "%1$s" is longer than %2$s characters. Shorten it and save again.', $limit, 'wpcredits-program-manager' ),
+			$label,
+			number_format_i18n( $limit )
+		);
+	}
+
+	/**
+	 * The sentence one status prints, worded from what the press carried beside it: Not a
+	 * renewal's `sreport-owed-cleared`, which names the last day of the term it cleared (the report
+	 * screen's own reading, `WPCPM_Sponsor_Report_Screen::sentence_for()`); the accounts list's
+	 * words for a press made in it, a row's Create account among them (the accounts screen's own
+	 * reading, kept under another name: `list_notice_sentence()`); and the queue's `sapp-account`
+	 * sentence, which names what the site said when the account step failed. Run again's
+	 * `migrated` carries nothing beside it, and is worded with the counts of the run it made, from
+	 * the migration's report.
 	 *
 	 * Each detail is one-shot, so it is resolved here, on the one status being printed, and
 	 * never inside `messages()`: this map is built by anything that wants a sentence out of it,
 	 * `WPCPM_Sponsor_Approval::status_sentence()` among them, in the middle of the POST that
-	 * set the detail (S5 review). The two travel on channels of their own, and each is taken
-	 * whichever status is printed, so neither waits to surface under a later press; where the list
-	 * words the status, its words stand, since the two never word the same one.
+	 * set the detail. The three travel on channels of their own, and each is taken
+	 * whichever status is printed, so none waits to surface under a later press; where the list
+	 * words the status, its words stand, since the list and the queue never word the same one.
 	 *
 	 * @param string $status   The status being printed.
 	 * @param string $sentence Its sentence from `messages()`.
 	 * @return string
 	 */
 	protected function notice_sentence( $status, $sentence ) {
+		// First, whatever the status, so the day a Not a renewal carried is taken with its notice.
+		if ( class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			$sentence = WPCPM_Sponsor_Report_Screen::sentence_for( $status, $sentence );
+		}
+
+		// Run again's outcome, with the counts of the run it just made: the flash carries a status
+		// alone, and the report is where the run left its numbers. Kept rather than returned, so the
+		// list's and the queue's details below are taken on this press too.
+		if ( 'migrated' === $status ) {
+			$report = WPCPM_Sponsors_Migration::report();
+			$counts = sprintf(
+				/* translators: 1: how many sponsors are posts on the site, 2: how many rows the old index held. */
+				_n(
+					'The move onto the site ran again: %1$s of %2$s row is a post.',
+					'The move onto the site ran again: %1$s of %2$s rows are posts.',
+					$report['rows'],
+					'wpcredits-program-manager'
+				),
+				number_format_i18n( $report['posts'] ),
+				number_format_i18n( $report['rows'] )
+			);
+
+			$sentence = $report['complete'] ? $counts . ' ' . __( 'Every sponsor is on the site now.', 'wpcredits-program-manager' ) : $counts;
+		}
+
 		$listed = $this->list_notice_sentence( $status, $sentence );
 		$queued = class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::sentence_for( $status, $sentence ) : (string) $sentence;
 
@@ -638,7 +936,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * and the ground goes in the log), then whether the sponsor has an account already, then the
 	 * record's own facts. The record is the posted field's, or the address's when nothing is
 	 * posted, as a row's link carries it, read with `WPCPM_Request::text()` and never a `key()`:
-	 * `sanitize_key()` lowercases, and a record ID is case-sensitive. It is read before the nonce
+	 * `sanitize_key()` lowercases, and a sponsor's key is case-sensitive. It is read before the nonce
 	 * is checked only because the nonce is keyed to it; nothing is done with it until both checks
 	 * have passed.
 	 *
@@ -647,7 +945,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * back to the Accounts tab itself. What provisioning said beside a refusal or a failure, why the
 	 * account at the address cannot act for the sponsor or what WordPress said of an account it
 	 * would not make, travels with the outcome as its reason, and the Sponsors table words it
-	 * (`WPCPM_Sponsors_Table::action_sentence()`).
+	 * (`WPCPM_Sponsors_Table::action_sentence()`). An account made or attached whose sponsor's record
+	 * could not then be marked, `record-unmarked`, carries nothing beside it: the screen's own
+	 * sentence says the account is in place and how the record is marked (`messages()`).
 	 *
 	 * A sponsor that has a live account already is given none, whatever its contact address: a link
 	 * left open while an account at another address was attached would otherwise make a second
@@ -720,7 +1020,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * through `WPCPM_Roles::insert_user()`, and `attach()` decides under the rules of spec 5.1.
 	 * "Already attached" is reported as `already` and is good news to both callers.
 	 *
-	 * @param string $record   Sponsor record ID.
+	 * @param string $record   Sponsor key.
 	 * @param int    $actor_id The manager.
 	 * @return array `status` (a key of `messages()`), `user_id`, `created`, `already`, `detail`.
 	 */
@@ -741,7 +1041,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			return $answer;
 		}
 
-		$email = sanitize_email( $row['contact_email'] );
+		$email = self::contact_address( $row );
 
 		if ( ! is_email( $email ) ) {
 			$answer['status'] = 'provision-no-email';
@@ -790,9 +1090,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( is_wp_error( $attached ) ) {
 			// Already attached here is the one refusal that is good news. in_array() rather than
 			// a direct strict comparison on the error code: the sponsor policy suite scans this
-			// module's file for a sponsor-prefixed string beside that operator, to keep record-ID
+			// module's file for a sponsor-prefixed string beside that operator, to keep sponsor-key
 			// comparisons behind the policy's own helper alone, and a bare one here would read
-			// as exactly that to a scan that cannot see this is an error code, not a record ID.
+			// as exactly that to a scan that cannot see this is an error code, not a sponsor key.
 			if ( in_array( $attached->get_error_code(), array( 'wpcpm_sponsor_member_already' ), true ) ) {
 				return array(
 					'status'  => 'provision-attached',
@@ -820,11 +1120,18 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 	/**
 	 * Create or attach the account behind a sponsor's contact address, and everything that
-	 * follows on this screen: the invitation, the first offer, the base's checkbox, the log.
+	 * follows on this screen: the invitation, the first offer, the account flag, the log.
 	 *
-	 * @param string $record   Sponsor record ID.
+	 * The account made or attached acts for the sponsor whether or not its flag can then be set:
+	 * when the sponsor's record cannot be marked as having an account (`mark_dashboard_account()`
+	 * answers false: the store no longer holds the record the press read, as after a stray trash),
+	 * the answer is `record-unmarked`, and `created` says whether the account was made or attached,
+	 * as the status itself says it for `provisioned` and `provision-attached`, so a caller counts it
+	 * as either.
+	 *
+	 * @param string $record   Sponsor key.
 	 * @param int    $actor_id The manager.
-	 * @return array `status` (a key of `messages()`), `user_id`, `detail`.
+	 * @return array `status` (a key of `messages()`), `user_id`, `created`, `detail`.
 	 */
 	public static function provision( $record, $actor_id ) {
 		$account = self::provision_account( $record, $actor_id );
@@ -834,6 +1141,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			return array(
 				'status'  => $account['status'],
 				'user_id' => (int) $account['user_id'],
+				'created' => ! empty( $account['created'] ),
 				'detail'  => (string) $account['detail'],
 			);
 		}
@@ -865,26 +1173,57 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 					? __( 'A sponsor account was created from the contact address and its invitation queued.', 'wpcredits-program-manager' )
 					: __( 'The existing account at the contact address was attached to the sponsor.', 'wpcredits-program-manager' ),
 				'data'     => array(
-					'user'     => $user_id,
-					'created'  => $created,
-					'airtable' => ! is_wp_error( $marked ),
+					'user'    => $user_id,
+					'created' => $created,
 				),
 			)
 		);
 
-		if ( is_wp_error( $marked ) ) {
+		if ( ! $marked ) {
 			return array(
-				'status'  => 'airtable-failed',
+				'status'  => 'record-unmarked',
 				'user_id' => $user_id,
-				'detail'  => $marked->get_error_message(),
+				'created' => $created,
+				'detail'  => '',
 			);
 		}
 
 		return array(
 			'status'  => $created ? 'provisioned' : 'provision-attached',
 			'user_id' => $user_id,
+			'created' => $created,
 			'detail'  => '',
 		);
+	}
+
+	/**
+	 * A sponsor's contact address as provisioning reads it from the row: every entity the row holds
+	 * read back, named or numbered, as a browser reads the Edit form's Contact email box and as
+	 * `WPCPM_Typed_Text::same_text()` reads it (`html_entity_decode()`), then `sanitize_email()`.
+	 *
+	 * A row can hold its address with an entity, `&amp;` for the "&" of the address or `&#43;` for
+	 * its "+", as text written by other means is stored, and `sanitize_email()` drops the ";" of such
+	 * an entity and keeps the rest, which is another address: the account would be made there, or the
+	 * account somebody else holds there attached. Read back first, it is the address the row means,
+	 * the one the Edit form's Contact email box shows (`render_fields()`). Create account
+	 * (`provision_account()`) and the No account view (`provision_worklist()`) read it here alike; the
+	 * row keeps it as stored.
+	 *
+	 * An address `sanitize_email()` would have to change is not the one the row means either: read back,
+	 * `sam&#59;co@example.org` is "sam;co@example.org", and what `sanitize_email()` leaves of it,
+	 * "samco@example.org", is another address, perhaps somebody's. Nothing is made of it: the address
+	 * reads as none, which Create account and the No account view already answer.
+	 *
+	 * @param array $row The sponsor's index row.
+	 * @return string The address, or '' when nothing an address can be made of is left.
+	 */
+	private static function contact_address( array $row ) {
+		$stored = isset( $row['contact_email'] ) && is_scalar( $row['contact_email'] ) ? trim( (string) $row['contact_email'] ) : '';
+
+		$decoded = html_entity_decode( $stored, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$email   = sanitize_email( $decoded );
+
+		return $email === $decoded ? $email : '';
 	}
 
 	/**
@@ -892,8 +1231,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * them: the ready ones first, then by name.
 	 *
 	 * Every index row whose status is Approved and that no live account acts for (the accounts
-	 * `accounts_by_sponsor()` groups, one query for them all), each with its record ID as `id`; its
-	 * name from the index, trimmed, or the record ID where the index has none, as `name`; its contact
+	 * `accounts_by_sponsor()` groups, one query for them all), each with its key as `id`; its
+	 * name from the index, trimmed, or the key where the index has none, as `name`; its contact
 	 * address masked, never whole, or '' when it has none `is_email()` accepts, as `contact`; whether
 	 * an account already uses that address, which a Create account attaches rather than duplicates,
 	 * as `existing`; why it may not be provisioned, as `reason`: '' when it may, `no-email` with no
@@ -903,7 +1242,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * sponsor's is refused by the members class only when the press attaches it, and the press says
 	 * why (`provision_ticked()`). In the order a worklist reads from the top: what can be done now
 	 * first, then the rest by name, read as a reader expects names, without regard to case or
-	 * accents, the record ID settling two of one name.
+	 * accents, the key settling two of one name.
 	 *
 	 * Costs the live accounts' one query and an account looked up by address for each sponsor with
 	 * one, so the list reads it once a draw (`WPCPM_Sponsors_Table`).
@@ -922,7 +1261,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			}
 
 			$name     = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
-			$email    = sanitize_email( isset( $row['contact_email'] ) ? (string) $row['contact_email'] : '' );
+			$email    = self::contact_address( $row );
 			$valid    = (bool) is_email( $email );
 			$holder   = $valid ? get_user_by( 'email', $email ) : false;
 			$existing = $holder instanceof WP_User && $holder->exists();
@@ -976,23 +1315,27 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * (`provision()`), as a row's Create account makes it.
 	 *
 	 * What provisioning answered is counted: an account made, `provisioned`, under `created`; the
-	 * account that already used the address, attached, `provision-attached`, under `attached`; one
-	 * made or attached that Airtable could not be told about, `airtable-failed`, under `airtable`, and
-	 * under `created` or `attached` too, by whether the view saw an account at the address. Anything
-	 * else is a sponsor not given an account, named under `failed` with what provisioning said, or
-	 * the sentence this screen keeps for its outcome where it said nothing (`messages()`): the first
-	 * `PROVISION_NAMES` named, and how many more as `failed_more`.
+	 * account that already used the address, attached, `provision-attached`, under `attached`. An
+	 * account made or attached whose sponsor's record could not then be found to mark as having an
+	 * account, `record-unmarked`, is counted under `created` or `attached`, by what provisioning says
+	 * it did, and under `unmarked` too: the sponsor has its account, and its record waits for its
+	 * mark. Those sponsors are named under `unmarked_names`, the first `PROVISION_NAMES` in the order
+	 * pressed, and how many more as `unmarked_more`, so the words say which records to look for.
+	 * Anything else is a sponsor not given an account, named under `failed` with what provisioning
+	 * said, or the sentence this screen keeps for its outcome where it said nothing (`messages()`): the
+	 * first `PROVISION_NAMES` named, and how many more as `failed_more`.
 	 *
 	 * `provision-none`, with no detail, when no ticked sponsor was ready; `provision-failed` when any
 	 * was not given an account; `provisioned` otherwise. The detail holds `created`, `attached`,
-	 * `airtable`, `left` and `limit`, the ceiling, which the words for it name
-	 * (`WPCPM_Sponsors_Table::action_sentence()`).
+	 * `unmarked`, `left` and `limit`, the ceiling; `unmarked_names` and `unmarked_more` too when a
+	 * record could not be found, and `failed` and `failed_more` when a sponsor was not given an
+	 * account. The words for it are the table's (`WPCPM_Sponsors_Table::action_sentence()`).
 	 *
 	 * Checks neither the capability nor a nonce: the accounts screen checks both before the table
 	 * hands the ticked records over (`WPCPM_Accounts_Screen::handle_list_form()`), and the records are
 	 * matched against the view the site holds.
 	 *
-	 * @param string[] $records The ticked sponsors' record IDs.
+	 * @param string[] $records The ticked sponsors' keys.
 	 * @return array{0: string, 1: array} The outcome and its detail.
 	 */
 	public static function provision_ticked( array $records ) {
@@ -1012,10 +1355,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$tried    = array_slice( $ready, 0, self::PROVISION_LIMIT );
 		$messages = self::messages();
 		$failed   = array();
+		$unmarked = array();
 		$detail   = array(
 			'created'  => 0,
 			'attached' => 0,
-			'airtable' => 0,
+			'unmarked' => 0,
 			'left'     => count( $ready ) - count( $tried ),
 			'limit'    => self::PROVISION_LIMIT,
 		);
@@ -1035,13 +1379,21 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				++$detail['created'];
 			} elseif ( 'provision-attached' === $status ) {
 				++$detail['attached'];
-			} elseif ( 'airtable-failed' === $status ) {
-				++$detail['airtable'];
-				++$detail[ $row['existing'] ? 'attached' : 'created' ];
+			} elseif ( 'record-unmarked' === $status ) {
+				++$detail['unmarked'];
+				++$detail[ empty( $result['created'] ) ? 'attached' : 'created' ];
+				$unmarked[] = (string) $row['name'];
 			} else {
 				$said     = '' !== (string) $result['detail'] ? (string) $result['detail'] : ( isset( $messages[ $status ][1] ) ? (string) $messages[ $status ][1] : '' );
 				$failed[] = self::failed_named( $row['name'], $said );
 			}
+		}
+
+		if ( ! empty( $unmarked ) ) {
+			$detail += array(
+				'unmarked_names' => array_slice( $unmarked, 0, self::PROVISION_NAMES ),
+				'unmarked_more'  => max( 0, count( $unmarked ) - self::PROVISION_NAMES ),
+			);
 		}
 
 		if ( empty( $failed ) ) {
@@ -1082,6 +1434,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 	/**
 	 * Attach an existing account by address, or detach one.
+	 *
+	 * A last Remove clears the record's account flag (`mark_dashboard_account()`) and answers
+	 * `detached` whatever the clear answers, since the account no longer acts for the sponsor. When
+	 * the store no longer holds the record the clear fails, and the flag then stays true on a record
+	 * that is out of the store; the one place that flag shows is the Administrator Dashboard's figure
+	 * of the sponsors with an account.
 	 */
 	public function handle_members() {
 		$this->verify( self::ACTION_MEMBERS );
@@ -1111,7 +1469,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 			WPCPM_Mail::queue_invites( array( (int) $user->ID ) );
 
-			$this->redirect_back( is_wp_error( self::mark_dashboard_account( $record, true ) ) ? 'airtable-failed' : 'attached' );
+			$this->redirect_back( self::mark_dashboard_account( $record, true ) ? 'attached' : 'record-unmarked' );
 		}
 
 		$user_id  = WPCPM_Request::posted_id( 'wpcpm_user' );
@@ -1123,13 +1481,861 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$this->redirect_back( 'detach-refused' );
 		}
 
-		$status = 'detached';
-
-		if ( empty( WPCPM_Sponsor_Members::members_of( $record ) ) && is_wp_error( self::mark_dashboard_account( $record, false ) ) ) {
-			$status = 'airtable-failed';
+		// The account is removed by now, so the press says so whatever the clear answers.
+		if ( empty( WPCPM_Sponsor_Members::members_of( $record ) ) ) {
+			self::mark_dashboard_account( $record, false );
 		}
 
-		$this->redirect_back( $status );
+		$this->redirect_back( 'detached' );
+	}
+
+	/**
+	 * Add a sponsor that never applied on the site: what a manager owns of the record, cleaned by
+	 * `clean_fields()`, under a key the site mints, and In review unless the manager chose another
+	 * status. Nothing else happens: the account comes from Create account once the sponsor is
+	 * Approved, as it does for any sponsor (design section 5).
+	 *
+	 * A refusal comes back to the tab the form names, the Sponsors tab (`redirect_back()`), with the
+	 * sentence that names a typed text over its limit, or the one that lists the rules
+	 * (`refusal()`); the sponsor added opens on its Edit form, which that tab draws in place of its
+	 * cards (`redirect_to_edit()`).
+	 *
+	 * The typed texts are the Edit form's (`handle_edit()`): before any field is cleaned, the first in
+	 * the form's order that the cleaner would take words from refuses the Add with the sentence that
+	 * names it (`TYPED`). The form is drawn empty, so no box comes back as drawn holding what the
+	 * cleaner would take. Every refusal keeps the whole form as it was posted, for the one time the
+	 * Sponsors tab draws it again (`keep_typing()`), under the Add form's own name.
+	 */
+	public function handle_add() {
+		$this->verify( self::ACTION_ADD );
+
+		// No mentors: the picker is the Edit form's, once the sponsor exists. No Tier box either:
+		// it is Edit's alone (design section 4), its extra events with it.
+		$fields   = array_diff( self::EDITABLE, array( 'mentors', 'tier', 'tier_until', 'event_allowance', 'funded_line' ) );
+		$defaults = array( 'status' => self::STATUS_ADDED );
+		$form     = self::typed_form( '' );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = self::typed_post( $fields );
+		$lost  = self::lost_box( $typed, array() );
+
+		if ( '' !== $lost ) {
+			self::keep_typing( $form, $typed, $defaults );
+			$this->redirect_back( self::TYPED[ $lost ][2] );
+		}
+
+		$clean = self::clean_fields( self::posted_fields( $fields ), $defaults );
+
+		if ( ! $clean['ok'] ) {
+			self::keep_typing( $form, $typed, $defaults );
+			$this->redirect_back( self::refusal( $clean ) );
+		}
+
+		$key = WPCPM_Sponsors_Index::mint_key();
+		$row = array_merge(
+			$clean['row'],
+			array(
+				'record_id'         => $key,
+				'slug'              => '',
+				'created'           => wp_date( 'Y-m-d' ),
+				'consent'           => false,
+				'dashboard_account' => false,
+			)
+		);
+
+		if ( ! WPCPM_Sponsors_Index::insert( $row ) ) {
+			$this->redirect_back( 'sponsor-not-saved' );
+		}
+
+		$filled = self::filled( $row );
+
+		WPCPM_Institution_Audit::record_sponsor(
+			array(
+				'kind'     => self::LOG_ADDED,
+				'sponsor'  => $key,
+				'subject'  => $key,
+				'actor'    => get_current_user_id(),
+				'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
+				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'  => sprintf(
+					/* translators: %s: the fields set, comma-separated. */
+					__( 'A sponsor was added on the Sponsors screen, with: %s.', 'wpcredits-program-manager' ),
+					implode( ', ', $filled )
+				),
+				// The field names, never the values: a contact's address is the sponsor's data, and
+				// the log is not the place to copy it.
+				'data'     => array( 'fields' => $filled ),
+			)
+		);
+
+		$this->redirect_to_edit( 'sponsor-added', $key );
+	}
+
+	/**
+	 * Save a sponsor's Edit form: the fields it was given, cleaned by `clean_fields()`, patched
+	 * onto the record and logged by name.
+	 *
+	 * The account flag is the site's own fact, which the form does not post: a save marks the record
+	 * of a sponsor an account acts for when the record says it has none, the mark a Create account or
+	 * an Attach account could not save (`record-unmarked`), on a save that changes no field too, which
+	 * is then saved and logs nothing, since no field a manager owns moved. A record that says it has
+	 * an account is left as it is: the last account's removal clears the flag where it happens.
+	 *
+	 * A status set away from Approved applies the setting "When a sponsor is no longer Approved"
+	 * here, where the status now changes: with `revoke`, every account that acts
+	 * for the sponsor is detached and the account flag cleared. A new name renames the sponsor's
+	 * category as well, and keeps its slug.
+	 *
+	 * A save that moves the last day of a term is a renewal, which the thirty-day mail asks for, and
+	 * often comes before the term ends: the term it moves off keeps its annual report, recorded on
+	 * the row as `report_owed` when its tier carries one and none exists yet
+	 * (`WPCPM_Sponsor_Report::owed_after_save()`, which also keeps an owed term still without its
+	 * report over a second save). The log names the fields the manager changed, not the owed term.
+	 *
+	 * Every outcome comes back to the sponsor's Edit form (`redirect_to_edit()`), but a save for a key
+	 * the store does not hold, which has no form to come back to: it comes back to the tab the form
+	 * names, the Sponsors tab (`redirect_back()`).
+	 *
+	 * Before any field is cleaned, each of the typed texts of `TYPED` that the manager changed is asked
+	 * whether the cleaner would take words from what was typed (`WPCPM_Typed_Text::cleaner_loses()`):
+	 * "Kids <12 free, adults >18 pay" would be stored as "Kids 18 pay". The first such box, in the
+	 * form's order, refuses the whole save, by the one-save rule of `clean_fields()`, with the sentence
+	 * that names it (`TYPED`). A box posted back as it was drawn is the stored text and is not asked:
+	 * the row can hold what the cleaner would take, such as a percent octet brought over from the
+	 * program records, and only what a manager changed is theirs to be told about. It is not cleaned
+	 * and written back either, which would lose those words without a word said, so it keeps its
+	 * stored text whatever its length.
+	 *
+	 * A save refused for a loss, for a typed text's length or for any other value keeps the whole form
+	 * as it was posted, for the one time the form is drawn again (`keep_typing()`): one value refuses
+	 * the whole save, and the manager makes the change the refusal names and loses none of the others.
+	 */
+	public function handle_edit() {
+		$key = WPCPM_Request::posted_text( 'wpcpm_sponsor' );
+
+		$this->verify( self::ACTION_EDIT . '_' . $key );
+
+		$current = WPCPM_Sponsors_Index::row( $key );
+
+		if ( ! is_array( $current ) ) {
+			$this->redirect_back( 'refused' );
+		}
+
+		$form = self::typed_form( $key );
+
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = self::typed_post( self::EDITABLE );
+		$drawn = self::drawn_typed( $typed, $current );
+		$lost  = self::lost_box( $typed, $drawn );
+
+		if ( '' !== $lost ) {
+			self::keep_typing( $form, $typed, $current );
+			$this->redirect_to_edit( self::TYPED[ $lost ][2], $key );
+		}
+
+		// A box posted back as drawn is left out, and so keeps its stored text (see `clean_fields()`).
+		$clean = self::clean_fields( array_diff_key( self::posted_fields( self::EDITABLE ), array_flip( $drawn ) ), $current );
+
+		if ( ! $clean['ok'] ) {
+			self::keep_typing( $form, $typed, $current );
+			$this->redirect_to_edit( self::refusal( $clean ), $key );
+		}
+
+		// Asked only of a record that says it has no account: the one that can be waiting for its mark.
+		$unmarked = empty( $current['dashboard_account'] ) && ! empty( WPCPM_Sponsor_Members::members_of( $key ) );
+
+		if ( empty( $clean['changed'] ) && ! $unmarked ) {
+			$this->redirect_to_edit( 'sponsor-unchanged', $key );
+		}
+
+		$fields = array_intersect_key( $clean['row'], array_flip( $clean['changed'] ) );
+
+		if ( $unmarked ) {
+			$fields['dashboard_account'] = true;
+		}
+
+		// Guarded like the module's other classes: the screen saves with or without the report's store.
+		if ( class_exists( 'WPCPM_Sponsor_Report' ) ) {
+			$owed = WPCPM_Sponsor_Report::owed_after_save( $key, $current, $clean['row'] );
+
+			if ( ! empty( $owed ) ) {
+				$fields['report_owed'] = $owed;
+			}
+		}
+
+		if ( ! WPCPM_Sponsors_Index::patch( $key, $fields ) ) {
+			$this->redirect_to_edit( 'sponsor-not-saved', $key );
+		}
+
+		// The sponsor's category carries its name, and this form is the one place a sponsor is
+		// renamed since the sync that used to rename the term went (1.111.0); the slug stays.
+		if ( in_array( 'name', $clean['changed'], true ) && class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::rename_terms( array( $key => $current ), array( $key => $clean['row'] ) );
+		}
+
+		$actor = get_current_user_id();
+
+		// The trail names the fields a manager changed. A save that only marked the record changed
+		// none, and the account it marks was logged when it was made or attached.
+		if ( ! empty( $clean['changed'] ) ) {
+			WPCPM_Institution_Audit::record_sponsor(
+				array(
+					'kind'     => self::LOG_EDITED,
+					'sponsor'  => $key,
+					'subject'  => $key,
+					'actor'    => $actor,
+					'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
+					'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+					'message'  => sprintf(
+						/* translators: %s: the fields changed, comma-separated. */
+						__( 'Sponsor fields changed on the Sponsors screen: %s.', 'wpcredits-program-manager' ),
+						implode( ', ', $clean['changed'] )
+					),
+					// The field names, never the values, as the profile card logs its own saves.
+					'data'     => array( 'fields' => $clean['changed'] ),
+				)
+			);
+		}
+
+		$status  = 'sponsor-saved';
+		$leaving = WPCPM_Sponsors_Index::STATUS_APPROVED === $current['status'] && WPCPM_Sponsors_Index::STATUS_APPROVED !== $clean['row']['status'];
+
+		// The accounts go with the status only when the setting says so; keep is its default,
+		// because a pause is often short. The notice says accounts were detached only when one was.
+		if ( $leaving && 'revoke' === WPCPM_Settings::get_value( 'sponsor_on_inactive', 'keep' ) ) {
+			$status = self::revoke_accounts( $key, $actor ) > 0 ? 'sponsor-detached' : $status;
+		}
+
+		$this->redirect_to_edit( $status, $key );
+	}
+
+	/**
+	 * Run the move onto the site again, from the migration box: the run the first request after an
+	 * upgrade makes, pressed by hand.
+	 *
+	 * Through the migration's lock like every run: a press while another
+	 * run holds it moves nothing, and the notice says the move is already running rather than
+	 * claiming a run that did not happen. Either way the press comes back to the tab the form names,
+	 * the Sponsors tab (`redirect_back()`), which draws the box while the move is still incomplete;
+	 * once a run has completed it the box is gone, and the tab draws the Sponsors card alone under
+	 * the notice.
+	 */
+	public function handle_migrate() {
+		$this->verify( self::ACTION_MIGRATE );
+
+		$report = WPCPM_Sponsors_Migration::run();
+
+		$this->redirect_back( null === $report ? 'migrate-busy' : 'migrated' );
+	}
+
+	/**
+	 * The one set of rules Add and Edit share: every field a manager owns, cleaned against the
+	 * record it would change.
+	 *
+	 * Only the fields in `$posted` are read, and one it does not carry keeps its value, so a form
+	 * changes the fields it is given and nothing else. A value identical to the one on the record
+	 * is kept as it is, even where the rule for its field would not produce it: two sponsors came
+	 * onto the site with a blank status and a linked mentor can leave the mentors index, and a save
+	 * must neither refuse nor quietly rewrite what nobody touched. Anything new must pass its rule,
+	 * and one value that does not refuses the whole save, as on the profile card (design spec of
+	 * 4 September 2026, section 5.5).
+	 *
+	 * - `name`: trimmed, required, `MAX_LINE` characters at most as typed; `contact_person` the
+	 *   same, not required (`clean_typed()`).
+	 * - `website`, `contact_email`, `product_type`: the profile card's own rules, so a manager and
+	 *   the sponsor save the same values: a web address read as typed, its percent codes kept
+	 *   (`posted_fields()`), through `WPCPM_Field_Value::clean_url()` that names no user, an address
+	 *   `is_email()` accepts, one of the product types; or ''.
+	 * - `status`: one of `WPCPM_Sponsors_Index::STATUSES`.
+	 * - `test`: `0` or `1`, kept as the flag (1.123.18).
+	 * - `option`: one of the application form's `OPTION_CHOICES`, or ''.
+	 * - `support`: the ticked values `WPCPM_Sponsor_Interests::CHOICES` holds.
+	 * - `manager`: '' or the ID of a user `WPCPM_Institutions::managers()` lists.
+	 * - `tier`: one of `WPCPM_Sponsor_Tiers::KEYS`, or ''.
+	 * - `tier_until`: a real calendar date (`WPCPM_Sponsor_Tiers::is_date()`), or ''.
+	 * - `event_allowance`: a whole number from 0 to `MAX_EXTRA_EVENTS`, an empty box read as 0, kept
+	 *   as `until`, the term's last day as the save leaves it, and `extra`, the number, or as nothing
+	 *   for 0 (`allowance_after()`).
+	 * - `funded_line`: one line, `MAX_LINE` characters at most as typed, the same rule as the
+	 *   contact person's.
+	 * - `mentors`: the ticked record IDs the mentors index, `WPCPM_Mentors_Sync::sponsorship()`, holds.
+	 * - `notes`: `sanitize_textarea_field()`, `MAX_NOTES` characters at most as typed, each line
+	 *   break one.
+	 *
+	 * The four typed texts of `TYPED` are kept as stored when they read the same as the stored text,
+	 * whatever their length, and a changed one is counted as the manager typed it and refused, never
+	 * cut, one over its limit (`clean_typed()`); the refusal names it.
+	 *
+	 * A Friend has no term (spec section 4): once every field above passes its own rule, a
+	 * `tier_until` left on a Friend's row - its own already, or one the tier was just
+	 * changed to - is dropped rather than refused, and `changed` reflects the drop.
+	 *
+	 * The extra events are read once that rule has run, since they are kept with the term's last day
+	 * the save leaves, which it can clear. A number the same as the one the Tier box was drawn with,
+	 * the events the record grants the term ending on its own Term ends day while that term runs
+	 * (`granted()`), is the box as drawn and keeps the row's allowance as it is, so a renewal that
+	 * leaves the box alone leaves the number with the term it was granted for; a number with no term
+	 * to keep it for is dropped, as a Friend's day is.
+	 *
+	 * @param array $posted  Field => what was posted: a string, or a list of strings for the two
+	 *                       lists.
+	 * @param array $current The record as the store holds it, or the new record's defaults; a key it
+	 *                       lacks is `WPCPM_Sponsors_Index::empty_row()`'s.
+	 * @return array `ok` (bool), `row` (`$current` with every accepted change), `changed` (the keys
+	 *               whose value changed, in the forms' order), and for a refusal `long`: the typed
+	 *               text of `TYPED` refused for its length, or '' for any other refusal.
+	 */
+	public static function clean_fields( array $posted, array $current ) {
+		$current = array_merge( WPCPM_Sponsors_Index::empty_row(), $current );
+		$refused = array(
+			'ok'      => false,
+			'row'     => $current,
+			'changed' => array(),
+			'long'    => '',
+		);
+		$row     = $current;
+		$changed = array();
+
+		foreach ( self::EDITABLE as $field ) {
+			// The extra events are read after the Friend's rule below: see the docblock.
+			if ( ! array_key_exists( $field, $posted ) || 'event_allowance' === $field ) {
+				continue;
+			}
+
+			$value = self::clean_field( $field, $posted[ $field ], $current[ $field ] );
+
+			if ( null === $value ) {
+				// A typed text is refused for its length alone (`clean_typed()`), and the notice
+				// names it.
+				if ( isset( self::TYPED[ $field ] ) && is_scalar( $posted[ $field ] ) ) {
+					$refused['long'] = $field;
+				}
+
+				return $refused;
+			}
+
+			if ( $value !== $current[ $field ] ) {
+				$row[ $field ] = $value;
+				$changed[]     = $field;
+			}
+		}
+
+		// A Friend has no term (spec section 4): a date left in the box is dropped, not
+		// refused, whether the tier is Friend already or was just set to it.
+		if ( ( '' === $row['tier'] || WPCPM_Sponsor_Tiers::MENTOR === $row['tier'] ) && '' !== $row['tier_until'] ) {
+			$row['tier_until'] = '';
+			$changed           = array_values( array_diff( $changed, array( 'tier_until' ) ) );
+
+			if ( '' !== (string) $current['tier_until'] ) {
+				$changed[] = 'tier_until';
+			}
+		}
+
+		if ( array_key_exists( 'event_allowance', $posted ) ) {
+			$extra = self::clean_field( 'event_allowance', $posted['event_allowance'], $current['event_allowance'] );
+
+			if ( null === $extra ) {
+				return $refused;
+			}
+
+			$allowance = self::allowance_after( $extra, $current, (string) $row['tier_until'] );
+
+			// Put in its place among the fields changed, which the loop above keeps in the forms' order.
+			if ( $allowance !== $current['event_allowance'] ) {
+				$row['event_allowance'] = $allowance;
+				$changed                = array_values( array_intersect( self::EDITABLE, array_merge( $changed, array( 'event_allowance' ) ) ) );
+			}
+		}
+
+		// Required whether or not it was posted: an Add without one, or an Edit that cleared it.
+		if ( '' === $row['name'] ) {
+			return $refused;
+		}
+
+		return array(
+			'ok'      => true,
+			'row'     => $row,
+			'changed' => $changed,
+		);
+	}
+
+	/**
+	 * One posted value by its field's rule; see `clean_fields()`.
+	 *
+	 * @param string $field  A key of `EDITABLE`.
+	 * @param mixed  $raw    What was posted.
+	 * @param mixed  $stored What the record holds.
+	 * @return bool|int|string|string[]|null The value to keep, the number of extra events for
+	 *                                        `event_allowance`, the flag for `test`, or null when
+	 *                                        the rule refuses it.
+	 */
+	private static function clean_field( $field, $raw, $stored ) {
+		if ( in_array( $field, self::LISTS, true ) ) {
+			return is_array( $raw ) ? self::clean_list( $field, $raw, (array) $stored ) : null;
+		}
+
+		if ( ! is_scalar( $raw ) ) {
+			return null;
+		}
+
+		$raw = trim( (string) $raw );
+
+		// The test sponsor's flag (1.123.18), posted as 0 or 1: its box posts a hidden 0 before it.
+		if ( 'test' === $field ) {
+			return in_array( $raw, array( '0', '1' ), true ) ? '1' === $raw : null;
+		}
+
+		// A number, which the record keeps with a day: whether it is the box as drawn is
+		// clean_fields()'s to ask, since that turns on the day the save leaves.
+		if ( 'event_allowance' === $field ) {
+			if ( '' === $raw ) {
+				return 0;
+			}
+
+			return ctype_digit( $raw ) && (int) $raw <= self::MAX_EXTRA_EVENTS ? (int) $raw : null;
+		}
+
+		// Untouched: see clean_fields(). A website is read as typed and trimmed, and its box draws each
+		// line break as a space (`WPCPM_Typed_Text::one_line()`), so one the row holds with a space at
+		// either end or a line break inside, posted back as its box drew it, is untouched too, and
+		// keeps its stored bytes rather than being completed or cleaned anew. The contact address's box
+		// shows the stored address with each entity read (`render_fields()`), so one that reads the
+		// same as the stored address once each entity is read (`WPCPM_Typed_Text::same_text()`) is
+		// untouched as well, and keeps a stored `&amp;` as it is.
+		if ( (string) $stored === $raw || ( 'website' === $field && WPCPM_Typed_Text::one_line( trim( (string) $stored ) ) === $raw ) || ( 'contact_email' === $field && WPCPM_Typed_Text::same_text( $raw, trim( (string) $stored ) ) ) ) {
+			return (string) $stored;
+		}
+
+		if ( isset( self::TYPED[ $field ] ) ) {
+			return self::clean_typed( $field, $raw, (string) $stored );
+		}
+
+		switch ( $field ) {
+			case 'website':
+			case 'contact_email':
+			case 'product_type':
+				$clean = WPCPM_Sponsor_Profile::clean( $field, $raw );
+
+				return $clean['ok'] ? (string) $clean['value'] : null;
+			case 'status':
+				return in_array( $raw, WPCPM_Sponsors_Index::STATUSES, true ) ? $raw : null;
+			case 'option':
+				return '' === $raw || in_array( $raw, WPCPM_Sponsor_Application::OPTION_CHOICES, true ) ? $raw : null;
+			case 'manager':
+				return '' === $raw || in_array( $raw, self::manager_ids(), true ) ? $raw : null;
+			case 'tier':
+				return '' === $raw || WPCPM_Sponsor_Tiers::is_tier( $raw ) ? $raw : null;
+			case 'tier_until':
+				return '' === $raw || WPCPM_Sponsor_Tiers::is_date( $raw ) ? $raw : null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * One of the typed texts of `TYPED`, by its own rule: the name, the contact person and the
+	 * funded line one line each, the notes with their line breaks.
+	 *
+	 * Read the same as the stored text (`reads_as_stored()`), it is the stored text, and is kept as it
+	 * is whatever its length, so a row that holds a text longer than its limit from an earlier store
+	 * does not stop a save of the other fields. A changed text is counted as the manager typed it
+	 * (`typed_length()`): each entity the cleaner wrote for a "<" and the quote marks and ampersands
+	 * after it, and each line break, is the one character its box counted. One over the limit is
+	 * refused rather than cut, since a name or a note cut short says something else.
+	 *
+	 * @param string $field  A key of `TYPED`.
+	 * @param string $raw    What was posted, trimmed.
+	 * @param string $stored What the record holds.
+	 * @return string|null The value to keep, or null when it is over its limit.
+	 */
+	private static function clean_typed( $field, $raw, $stored ) {
+		$value = 'notes' === $field ? sanitize_textarea_field( $raw ) : sanitize_text_field( $raw );
+
+		if ( self::reads_as_stored( $field, $value, $stored ) ) {
+			return $stored;
+		}
+
+		return WPCPM_Typed_Text::typed_length( $value ) <= self::TYPED[ $field ][0] ? $value : null;
+	}
+
+	/**
+	 * Whether a text posted for one of the typed texts of `TYPED` reads as the text the record holds:
+	 * the test of a box posted back as it was drawn, asked of what was typed (`drawn_typed()`) and of
+	 * what the cleaner made of it (`clean_typed()`).
+	 *
+	 * Its box draws the text the manager typed (`render_fields()`), so posted back unedited it can
+	 * come back in other bytes than the stored ones: a ">" the box held as `&gt;` after a "<" the
+	 * cleaner would read as a tag comes back written `&gt;` where the row holds ">", and the notes'
+	 * every line break comes back as CR LF. A text area drops a line break its text begins with, and
+	 * the cleaner trims what is posted, so a stored text that ends or starts in a space or a line
+	 * break, as an earlier store could keep one, comes back without it. So both are read trimmed, and
+	 * compared once each entity is read (`WPCPM_Typed_Text::same_text()`, `same_lines()` for the
+	 * notes). A one-line box is drawn with each line break inside its stored text as a space
+	 * (`WPCPM_Typed_Text::one_line()`, a CR LF one break), which a text input would otherwise drop
+	 * and so join the words: a name stored with "Caf%C3%A9" and "Co" on two lines, as a row brought
+	 * over from the program records can hold it, would post back as "Caf%C3%A9Co", asked about losses
+	 * as though the manager had typed it. So a post-back that reads as the stored text so folded is
+	 * the stored text too.
+	 *
+	 * @param string $field  A key of `TYPED`.
+	 * @param string $text   What was posted, as typed or as cleaned.
+	 * @param string $stored What the record holds.
+	 * @return bool
+	 */
+	private static function reads_as_stored( $field, $text, $stored ) {
+		$text   = trim( (string) $text );
+		$stored = trim( (string) $stored );
+
+		if ( 'notes' === $field ) {
+			return WPCPM_Typed_Text::same_lines( $text, $stored );
+		}
+
+		return WPCPM_Typed_Text::same_text( $text, $stored ) || WPCPM_Typed_Text::same_text( $text, WPCPM_Typed_Text::one_line( $stored ) );
+	}
+
+	/**
+	 * The status a save that `clean_fields()` refused leaves with: the one that names a typed text
+	 * over its limit, or the one that lists the rules for every other refusal.
+	 *
+	 * @param array $clean What `clean_fields()` answered.
+	 * @return string A key of `messages()`.
+	 */
+	private static function refusal( array $clean ) {
+		$long = isset( $clean['long'] ) ? (string) $clean['long'] : '';
+
+		return isset( self::TYPED[ $long ] ) ? self::TYPED[ $long ][1] : 'sponsor-rejected';
+	}
+
+	/**
+	 * The extra events a record grants the term that ends on its own Term ends day, while that term
+	 * still runs: the number the Tier box is drawn holding, and what a save compares the posted number
+	 * with. The allowance's count while its day is that day and has not passed, and 0 otherwise, a
+	 * number granted for another term included.
+	 *
+	 * The same day the store counts the number for (`WPCPM_Sponsor_Event::extra_events()`), read
+	 * here from the row alone, so the Edit form draws and saves on a checkout without the event store.
+	 * Once that day has passed, no start can use the number, since a start has to be still to come:
+	 * the box then holds none and says what the ended term was granted (`render_extra_row()`), so a
+	 * renewal of a term that has ended takes the number typed with it for the renewed term in one
+	 * save, rather than keeping it, drawn as the box's, with the term that ended.
+	 *
+	 * @param array $row A sponsor's row, read for `tier_until` and `event_allowance`.
+	 * @return int
+	 */
+	private static function granted( array $row ) {
+		$until     = isset( $row['tier_until'] ) ? (string) $row['tier_until'] : '';
+		$allowance = isset( $row['event_allowance'] ) && is_array( $row['event_allowance'] ) ? $row['event_allowance'] : array();
+
+		return '' !== $until && isset( $allowance['until'], $allowance['extra'] ) && (string) $allowance['until'] === $until && strcmp( $until, WPCPM_Sponsor_Tiers::today() ) >= 0 ? (int) $allowance['extra'] : 0;
+	}
+
+	/**
+	 * The allowance a save leaves on the row, from the number the Tier box posted.
+	 *
+	 * The number the box was drawn with (`granted()`) is the box as drawn, and the row keeps its
+	 * allowance as it is: a renewal that leaves the box alone leaves the number with the term it was
+	 * granted for, which the store then counts for that term alone. With no term after the save the
+	 * row keeps its allowance too, since a sponsor with no term waits only for its last event to take
+	 * place and a number has no term to be kept for. Any other number is the term's the save leaves:
+	 * kept with its last day, or nothing for 0.
+	 *
+	 * @param int    $extra   The number posted, from 0 to `MAX_EXTRA_EVENTS`.
+	 * @param array  $current The record before the save.
+	 * @param string $until   The last day of the term the save leaves, `Y-m-d`, or '' for none.
+	 * @return array `until` and `extra`, or `array()`.
+	 */
+	private static function allowance_after( $extra, array $current, $until ) {
+		if ( '' === $until || self::granted( $current ) === $extra ) {
+			return $current['event_allowance'];
+		}
+
+		return $extra > 0 ? array(
+			'until' => $until,
+			'extra' => $extra,
+		) : array();
+	}
+
+	/**
+	 * A ticked list: the values the form offers and those already on the record, which the form
+	 * draws too and which pass as themselves (see `clean_fields()`), in that order.
+	 *
+	 * @param string   $field  `support` or `mentors`.
+	 * @param array    $raw    The ticked values.
+	 * @param string[] $stored What the record holds.
+	 * @return string[]
+	 */
+	private static function clean_list( $field, array $raw, array $stored ) {
+		$stored  = array_values( array_map( 'strval', $stored ) );
+		$offered = 'support' === $field ? WPCPM_Sponsor_Interests::CHOICES : array_map( 'strval', array_keys( WPCPM_Mentors_Sync::sponsorship() ) );
+		$value   = array_values( array_unique( array_intersect( array_merge( $offered, $stored ), array_map( 'strval', $raw ) ) ) );
+
+		// The same values in another order are no change.
+		$sorted_value  = $value;
+		$sorted_stored = $stored;
+		sort( $sorted_value );
+		sort( $sorted_stored );
+
+		return $sorted_value === $sorted_stored ? $stored : $value;
+	}
+
+	/**
+	 * What the form posted, for `clean_fields()`: each field it carries, and none it does not.
+	 *
+	 * A box left clear posts nothing, so each list on the forms carries one hidden empty value as
+	 * well: a list that arrives is a list the form drew, and one that does not arrive is left as it
+	 * is (the Edit form draws no mentors while the mentors index has none to offer).
+	 *
+	 * @param string[] $fields The fields to read, keys of `EDITABLE`.
+	 * @return array Field => the posted string, or the ticked values of a list.
+	 */
+	private static function posted_fields( array $fields ) {
+		$posted = array();
+
+		foreach ( $fields as $field ) {
+			$name = 'wpcpm_' . $field;
+
+			if ( in_array( $field, self::LISTS, true ) ) {
+				$list = WPCPM_Request::posted_list( $name, self::LIST_VALUE );
+
+				if ( in_array( '', $list, true ) ) {
+					$posted[ $field ] = array_values( array_diff( $list, array( '' ) ) );
+				}
+
+				continue;
+			}
+
+			// A note keeps its line breaks, and the website is read as typed, as the profile card reads
+			// its own: the one-line cleaner removes every `%XX`, which would rewrite an address in
+			// another alphabet or a query with a space in it, and `clean_field()` runs the website
+			// through `WPCPM_Field_Value::clean_url()`, whose `esc_url_raw()` keeps them. Every other
+			// field is one line.
+			if ( 'notes' === $field ) {
+				$value = WPCPM_Request::posted_lines( $name, null );
+			} elseif ( 'website' === $field ) {
+				$value = WPCPM_Request::posted_verbatim( $name, null );
+			} else {
+				$value = WPCPM_Request::posted_text( $name, null );
+			}
+
+			if ( null !== $value ) {
+				$posted[ $field ] = $value;
+			}
+		}
+
+		return $posted;
+	}
+
+	/**
+	 * A sponsor's Edit form, or the Add form, as `WPCPM_Typed_Text::keep()` names it: the form, and
+	 * the sponsor an Edit form edits, so a refused save's typing comes back in the form it was typed
+	 * into and in no other.
+	 *
+	 * @param string $key Sponsor key, or '' for the Add form.
+	 * @return string
+	 */
+	private static function typed_form( $key ) {
+		return '' === (string) $key ? 'sponsor-add' : 'sponsor-edit:' . $key;
+	}
+
+	/**
+	 * What the form posted, before the cleaner has read it: each field it carries as typed
+	 * (`WPCPM_Request::posted_raw()`), unslashed and neither cleaned nor trimmed, and each list it
+	 * drew as `posted_fields()` reads it, the ticked values.
+	 *
+	 * @param string[] $fields The fields to read, keys of `EDITABLE`.
+	 * @return array Field => what was typed, or the ticked values of a list.
+	 */
+	private static function typed_post( array $fields ) {
+		$typed = array_intersect_key( self::posted_fields( $fields ), array_flip( self::LISTS ) );
+
+		foreach ( array_diff( $fields, self::LISTS ) as $field ) {
+			$value = WPCPM_Request::posted_raw( 'wpcpm_' . $field, null );
+
+			if ( null !== $value ) {
+				$typed[ $field ] = $value;
+			}
+		}
+
+		return $typed;
+	}
+
+	/**
+	 * The typed texts of `TYPED` posted back as they were drawn: each that reads as the text the
+	 * record holds (`reads_as_stored()`), asked of what was typed.
+	 *
+	 * @param array $typed   What was typed, as `typed_post()` read it.
+	 * @param array $current The record as the store holds it.
+	 * @return string[] Keys of `TYPED`, in its order.
+	 */
+	private static function drawn_typed( array $typed, array $current ) {
+		$drawn = array();
+
+		foreach ( array_keys( self::TYPED ) as $field ) {
+			$stored = isset( $current[ $field ] ) && is_scalar( $current[ $field ] ) ? (string) $current[ $field ] : '';
+
+			if ( isset( $typed[ $field ] ) && is_string( $typed[ $field ] ) && self::reads_as_stored( $field, $typed[ $field ], $stored ) ) {
+				$drawn[] = $field;
+			}
+		}
+
+		return $drawn;
+	}
+
+	/**
+	 * The first of the typed texts of `TYPED`, in the forms' order, that the cleaner would take words
+	 * from (`WPCPM_Typed_Text::cleaner_loses()`): "Kids <12 free, adults >18 pay" would be stored as
+	 * "Kids 18 pay". A box posted back as it was drawn is not asked.
+	 *
+	 * @param array    $typed What was typed, as `typed_post()` read it.
+	 * @param string[] $drawn The boxes posted back as drawn (`drawn_typed()`).
+	 * @return string A key of `TYPED`, or '' when none would lose a word.
+	 */
+	private static function lost_box( array $typed, array $drawn ) {
+		foreach ( array_keys( self::TYPED ) as $field ) {
+			if ( isset( $typed[ $field ] ) && ! in_array( $field, $drawn, true ) && WPCPM_Typed_Text::cleaner_loses( $typed[ $field ], 'notes' === $field ? 'lines' : 'line' ) ) {
+				return $field;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Keep what a refused Edit or Add form held for the one time it is drawn again (`render_edit()`,
+	 * `render_add()`): every field as it was posted, so the manager makes the change the refusal names
+	 * and loses none of the others.
+	 *
+	 * A typed text of `TYPED` is kept as typed, up to the room its box was drawn with, and never less
+	 * than the text it was drawn with (`WPCPM_Typed_Text::kept_room()`); the website and the contact
+	 * address whole, as their boxes take any length. A choice is kept when its field's rule takes it
+	 * (`clean_field()`): a value the form offers, or the one the record holds, which is what a select,
+	 * the Term ends day and the extra events' number can post. A list is kept as the ticked values the
+	 * form draws (`clean_list()`). A choice a hand-made post sent is not kept, so the form is never
+	 * drawn offering it.
+	 *
+	 * @param string $form  The form, as `typed_form()` names it.
+	 * @param array  $typed What was typed, as `typed_post()` read it.
+	 * @param array  $row   The record the form was drawn from, or the new record's defaults.
+	 */
+	private static function keep_typing( $form, array $typed, array $row ) {
+		$row  = array_merge( WPCPM_Sponsors_Index::empty_row(), $row );
+		$kept = array();
+		$room = array();
+
+		foreach ( $typed as $field => $value ) {
+			if ( is_array( $value ) ) {
+				$kept[ $field ] = self::clean_list( $field, $value, (array) $row[ $field ] );
+
+				continue;
+			}
+
+			if ( isset( self::TYPED[ $field ] ) ) {
+				$room[ $field ] = WPCPM_Typed_Text::kept_room( (string) $row[ $field ], self::TYPED[ $field ][0] );
+			} elseif ( in_array( $field, array( 'website', 'contact_email' ), true ) || null !== self::clean_field( $field, $value, $row[ $field ] ) ) {
+				$room[ $field ] = mb_strlen( (string) $value, 'UTF-8' );
+			} else {
+				continue;
+			}
+
+			$kept[ $field ] = $value;
+		}
+
+		WPCPM_Typed_Text::keep( $form, $kept, $room );
+	}
+
+	/**
+	 * The program managers a sponsor can be assigned to, by user ID as the row keeps it.
+	 *
+	 * @return string[]
+	 */
+	private static function manager_ids() {
+		return array_map(
+			static function ( $user ) {
+				return (string) $user->ID;
+			},
+			WPCPM_Institutions::managers()
+		);
+	}
+
+	/**
+	 * The fields a manager set on a new sponsor: those of `EDITABLE` that hold a value.
+	 *
+	 * @param array $row The new row.
+	 * @return string[]
+	 */
+	private static function filled( array $row ) {
+		return array_values(
+			array_filter(
+				self::EDITABLE,
+				static function ( $field ) use ( $row ) {
+					return array() !== $row[ $field ] && '' !== $row[ $field ] && false !== $row[ $field ];
+				}
+			)
+		);
+	}
+
+	/**
+	 * Detach every account that acts for a sponsor, as the setting asks when it says revoke, and
+	 * clear the account flag once nobody is left, as the members handler does for the last account
+	 * it removes.
+	 *
+	 * @param string $key   Sponsor key.
+	 * @param int    $actor The manager who changed the status.
+	 * @return int How many accounts were detached.
+	 */
+	private static function revoke_accounts( $key, $actor ) {
+		$detached = 0;
+
+		foreach ( WPCPM_Sponsor_Members::members_of( $key ) as $member ) {
+			if ( true === WPCPM_Sponsor_Members::detach( $member->ID, WPCPM_Sponsor_Members::REASON_REVOKED, $actor ) ) {
+				++$detached;
+			}
+		}
+
+		// Asked again rather than assumed: an account a detach refused still acts for the sponsor,
+		// and the flag has to say so.
+		if ( empty( WPCPM_Sponsor_Members::members_of( $key ) ) ) {
+			self::mark_dashboard_account( $key, false );
+		}
+
+		return $detached;
+	}
+
+	/**
+	 * A sponsor's Edit form: the Sponsors tab with `?edit=<key>`, which draws that form in place of the
+	 * tab's cards (`render_tab_sponsors()`).
+	 *
+	 * The one builder of every address that opens the form: Edit on each row of the Sponsors card, the
+	 * way back after Add and every save, Not a renewal's landing (`WPCPM_Sponsor_Report_Screen`), the
+	 * daily run's mail about a term that ends (`WPCPM_Sponsor_Tiers_Run`) and the Administrator
+	 * Dashboard's Terms ending rows (`WPCPM_Administrators_Cards`). Public and static for those three,
+	 * which have no module to ask, so the address is written out, as `accounts_view_url()` writes its
+	 * own: the module's own address is an instance method (`admin_url()`), and the screen's page slug
+	 * is fixed. The key is encoded as a query value; whether it names a sponsor is the form's to ask
+	 * (`render_edit()`).
+	 *
+	 * @param string $key Sponsor key.
+	 * @return string
+	 */
+	public static function edit_url( $key ) {
+		return admin_url( 'admin.php?page=wpcpm-sponsors&tab=sponsors&' . self::ARG_EDIT . '=' . rawurlencode( (string) $key ) );
+	}
+
+	/**
+	 * Back to a sponsor's Edit form on the Sponsors tab (`edit_url()`) with the outcome flashed, rather
+	 * than to the list: a manager who has just saved a sponsor is still working on it.
+	 *
+	 * @param string $status An outcome `messages()` knows.
+	 * @param string $key    Sponsor key.
+	 */
+	private function redirect_to_edit( $status, $key ) {
+		WPCPM_Flash::set( $this->flash_key(), $status );
+		wp_safe_redirect( self::edit_url( $key ) );
+		exit;
 	}
 
 	/**
@@ -1168,7 +2374,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				'actor'    => get_current_user_id(),
 				'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => __( 'The first offer was seeded from the base by an Administrator.', 'wpcredits-program-manager' ),
+				'message'  => __( 'The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ),
 				'data'     => array( 'offer' => (int) $seeded ),
 			)
 		);
@@ -1197,8 +2403,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$this->redirect_back( 'refused' );
 		}
 
-		// void_claim() answers true, false or a WP_Error (Task 4's fix round: the pool's lock can
-		// be another request's for a moment), which is not the same "nothing to void" as a person
+		// void_claim() answers true, false or a WP_Error (the pool's lock can be another
+		// request's for a moment), which is not the same "nothing to void" as a person
 		// holding no claim, so the busy answer gets its own status rather than folding into
 		// 'claim-void-none'.
 		$voided = WPCPM_Sponsor_Claims::void_claim( $offer_id, $user_id, get_current_user_id() );
@@ -1236,7 +2442,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'offers' ) );
 			/* translators: %s: sponsor name. */
-			printf( '<button type="submit" class="button">%s</button>', esc_html( sprintf( __( 'Seed the first offer for %s from the base', 'wpcredits-program-manager' ), '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record ) ) );
+			printf( '<button type="submit" class="button">%s</button>', esc_html( sprintf( __( 'Create the first offer for %s', 'wpcredits-program-manager' ), '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record ) ) );
 			echo '</form> ';
 		}
 
@@ -1259,7 +2465,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 			echo '<tr>';
 			echo '<td>' . esc_html( '' === $sponsor ? $offer['sponsor'] : $sponsor ) . '</td>';
-			echo '<td>' . esc_html( $offer['title'] ) . ( $offer['primary'] ? ' <span class="description">' . esc_html__( '(in the base)', 'wpcredits-program-manager' ) . '</span>' : '' ) . '</td>';
+			echo '<td>' . esc_html( $offer['title'] ) . ( $offer['primary'] ? ' <span class="description">' . esc_html__( '(primary)', 'wpcredits-program-manager' ) . '</span>' : '' ) . '</td>';
 			echo '<td>' . esc_html( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? __( 'Codes', 'wpcredits-program-manager' ) : __( 'Shared', 'wpcredits-program-manager' ) ) . '</td>';
 			echo '<td>' . esc_html( WPCPM_Sponsor_Offers::state_label( $offer['state'] ) ) . '</td>';
 			echo '<td>' . esc_html( number_format_i18n( $counts['available'] ) ) . '</td>';
@@ -1314,41 +2520,32 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Tell the base whether a sponsor has a site account, and the index at once.
+	 * The site's writer of the row's `dashboard_account` flag for provisioning and member
+	 * changes (spec section 12): the provision handler sets it true; the members handler sets it
+	 * true when it attaches an account and false when a sponsor's last account goes; and a status
+	 * change that detaches the accounts (`revoke_accounts()`) sets it false. The approval sets the
+	 * flag true on insert, a save of the Edit form sets it true in its own patch for a sponsor an
+	 * account acts for whose record says it has none (`handle_edit()`), and the migration copies
+	 * whatever the old index held; none of those three goes through this method, nor do the two that
+	 * give a new row its first false: a sponsor added on the Sponsors tab (`handle_add()`) and the
+	 * index's `empty_row()`, which a row that does not give the flag takes it from.
 	 *
-	 * The one place the `Dashboard account` column is written (spec section 12): the provision
-	 * handler (true), the members handler when the last account goes (false) and the sync's
-	 * revoke phase (false).
-	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param bool   $flag   Whether it has an account.
-	 * @return true|WP_Error
+	 * @return bool True when the row was patched; false for a malformed or unknown key, which
+	 *              touches nothing.
 	 */
 	public static function mark_dashboard_account( $record, $flag ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
-			return new WP_Error( 'wpcpm_sponsor_bad_record', __( 'That is not an Airtable record ID.', 'wpcredits-program-manager' ) );
+		// Refused here, before the store is asked at all: patch() would answer false for a
+		// malformed key too (post_id_of() refuses it), but a string that is not shaped like a key
+		// should not cost a read to find that out.
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
+			return false;
 		}
 
-		$airtable = new WPCPM_Airtable();
-		$written  = $airtable->update_records(
-			(string) WPCPM_Settings::get_value( 'sponsors_table', '' ),
-			array(
-				array(
-					'id'     => $record,
-					'fields' => array( self::FIELD_DASHBOARD_ACCOUNT => (bool) $flag ),
-				),
-			)
-		);
-
-		if ( is_wp_error( $written ) ) {
-			return $written;
-		}
-
-		WPCPM_Sponsors_Index::patch( $record, array( 'dashboard_account' => (bool) $flag ) );
-
-		return true;
+		return WPCPM_Sponsors_Index::patch( $record, array( 'dashboard_account' => (bool) $flag ) );
 	}
 
 	/**
@@ -1373,8 +2570,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * The sponsor whose accounts the request asks for: the record the Accounts tab's address names,
 	 * with its case, or '' when the tab shown is another or the address names none.
 	 *
-	 * Read with `WPCPM_Request::text()` and never a `key()`: `sanitize_key()` lowercases, and a record
-	 * ID is case-sensitive. Whether it names a sponsor the index holds is the view's to ask
+	 * Read with `WPCPM_Request::text()` and never a `key()`: `sanitize_key()` lowercases, and a
+	 * sponsor's key is case-sensitive. Whether it names a sponsor the index holds is the view's to ask
 	 * (`render_sponsor_accounts()`).
 	 *
 	 * @return string
@@ -1398,7 +2595,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * the screen's page slug is fixed. The record is encoded as a query value; whether it names a
 	 * sponsor is the view's to ask.
 	 *
-	 * @param string $record The sponsor's record ID, with its case.
+	 * @param string $record The sponsor's key, with its case.
 	 * @return string
 	 */
 	public static function accounts_view_url( $record ) {
@@ -1431,7 +2628,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The tabs as the bar prints them: TABS, each label translated.
+	 * The tabs as the bar prints them: TABS, each label translated, but for Handbook listing while
+	 * the tiers switch is off.
 	 *
 	 * Each is written out here, because the translation tools collect a string only where it is
 	 * written as one; a tab this does not name keeps the English of TABS. The screen's own, in place
@@ -1443,6 +2641,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * names no tab, the managers' mail about a new application and the way back from an opened
 	 * application among them, open the queue.
 	 *
+	 * The last tab, Handbook listing, holds the listing for the handbook, which names the tiers, so it
+	 * is in the bar only while the tiers switch is on, by the test the box itself is drawn under
+	 * (`listing_shown()`). While the switch is off it is left out here, and its address opens the
+	 * first tab, as the address of a tab the screen does not have does (`render_admin_page()`).
+	 *
 	 * @return array<string, string> Slug => label.
 	 */
 	private static function tab_labels() {
@@ -1452,42 +2655,67 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			self::TAB_ACCOUNTS => __( 'Accounts', 'wpcredits-program-manager' ),
 			'offers'           => __( 'Offers and codes', 'wpcredits-program-manager' ),
 			'interests'        => __( 'Interests', 'wpcredits-program-manager' ),
+			'reports'          => __( 'Reports', 'wpcredits-program-manager' ),
 			'agreements'       => __( 'Agreements', 'wpcredits-program-manager' ),
+			'listing'          => __( 'Handbook listing', 'wpcredits-program-manager' ),
 		);
 
-		return array_merge( self::TABS, array_intersect_key( $translated, self::TABS ) );
+		$tabs = self::TABS;
+
+		if ( ! self::listing_shown() ) {
+			unset( $tabs['listing'] );
+		}
+
+		return array_merge( $tabs, array_intersect_key( $translated, $tabs ) );
 	}
 
 	/**
-	 * Render the Sponsors screen: the outcome of the last press, the warning while Airtable is not
-	 * connected, the tab bar, then the tab shown.
+	 * Render the Sponsors screen: the outcome of the last press, the tab bar, then the tab shown.
 	 *
-	 * Six tabs by job, in TABS: Waiting for review holds the sponsor applications, the sponsor posts
-	 * and the signed agreements waiting, read here and decided on the Administrator Dashboard, or one
-	 * application opened from them in their place; Sponsors the last sync's error, the Airtable sync
-	 * and every sponsor; Accounts the accounts locked for the day, the invitations and the sponsor
-	 * accounts list, or one sponsor's accounts in their place; Offers and codes every offer with its
-	 * codes and claims; Interests what sponsors said they would like to support; and Agreements every
-	 * Approved sponsor's agreement.
+	 * Eight tabs by job, in TABS: Waiting for review holds the sponsor applications, the sponsor posts,
+	 * the sponsors' events while they are in use and the signed agreements waiting, read here and
+	 * decided on the Administrator Dashboard, or one application opened from them in their place;
+	 * Sponsors the migration box while the move onto the site is incomplete, then every sponsor, or
+	 * one sponsor's Edit form in their place; Accounts the accounts locked for the day, the
+	 * invitations and the sponsor accounts list, or one sponsor's accounts in their place; Offers and
+	 * codes every offer with its codes and claims; Interests what sponsors said they would like to
+	 * support; Reports every Approved sponsor's annual reports, or one report's editor in their place;
+	 * Agreements every Approved sponsor's agreement; and Handbook listing, while the tiers switch is
+	 * on, the listing for the handbook.
+	 *
+	 * While the switch is off the bar leaves Handbook listing out (`tab_labels()`), and its address
+	 * opens the first tab, the queue, as the address of a tab the screen does not have does. The
+	 * shared screen's reading of the tab (`tab()`) knows every tab of TABS, so the frame asks the bar:
+	 * for a tab the bar does not hold it draws the first tab, and the bar marks that one. The rule is
+	 * the frame's, not a `tab()` of this class's own, so the reading stays the one every audience's
+	 * screen shares; the other readers of it here, the load hook and `view_record()`, ask only whether
+	 * the tab is Accounts.
 	 *
 	 * The outcome notice is the whole screen's: one map of every outcome a press here can flash,
-	 * printed above the bar on whichever tab is shown, as the warning while Airtable is not connected
-	 * is. A press comes back to the tab it was made on, so its sentence prints there; the agreement
-	 * forms come back by their referer, which is the tab they were pressed on. One whose way back
-	 * names no tab lands on the screen's own address, which is the queue: a decision on an opened
-	 * application. Each tab reads only what it draws.
+	 * printed above the bar on whichever tab is shown. A press comes back to the tab it was made on,
+	 * so its sentence prints there; the agreement forms come back by their referer, which is the tab
+	 * they were pressed on. One whose way back names no tab lands on the screen's own address, which
+	 * is the queue: a decision on an opened application. Each tab reads only what it draws.
+	 *
+	 * Unlike the screens whose audience is synced, the frame prints no warning while the site has no
+	 * connection to another service (`render_not_connected()`): the sponsors are the site's own
+	 * records, added and edited here, so nothing on this screen waits for one.
 	 */
 	public function render_admin_page() {
-		$tab = self::tab();
+		$tabs = self::tab_labels();
+		$tab  = self::tab();
+
+		if ( ! isset( $tabs[ $tab ] ) ) {
+			$tab = (string) array_key_first( $tabs );
+		}
 
 		echo '<div class="wrap wpcpm-wrap">';
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
 		$this->render_status_notice( $this->outcome_messages( $tab ) );
-		$this->render_not_connected();
 
-		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+		WPCPM_Screen_Tabs::render( $this->page_slug(), $tabs, $tab );
 
 		switch ( $tab ) {
 			case 'sponsors':
@@ -1502,8 +2730,14 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			case 'interests':
 				$this->render_tab_interests();
 				break;
+			case 'reports':
+				$this->render_tab_reports();
+				break;
 			case 'agreements':
 				$this->render_tab_agreements();
+				break;
+			case 'listing':
+				$this->render_tab_listing();
 				break;
 			default:
 				$this->render_tab_queue();
@@ -1519,12 +2753,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * The screen's own map (`messages()`), the outcomes of the presses made in the accounts list, worded
 	 * once for every audience's accounts screen (`accounts_messages()`), which come back to the
 	 * Accounts tab, and the two a Create account leaves when it makes nothing: on the ticked sponsors
-	 * when none of them was ready, on one sponsor when it has an account already. `error` is worded
-	 * by the tab it comes back to: a failed start of the sync comes back to the Sponsors tab, where
-	 * the sync's words point to the last sync's error printed below them; a row's invitation that
-	 * could not be sent comes back to the Accounts tab, which words it for the invitation; the other
-	 * four tabs print no error below, so there the words send the reader to the screen again
-	 * (`failed_message()`).
+	 * when none of them was ready, on one sponsor when it has an account already. None of the sync's
+	 * outcomes is in it, since no sync runs here (`sync_messages()`). `error` is worded by the tab it
+	 * comes back to: a row's invitation that could not be sent comes back to the Accounts tab, which
+	 * words it for the invitation; no tab prints an error below the notice, so on every other tab the
+	 * words send the reader to the screen again (`failed_message()`).
 	 *
 	 * @param string $tab The tab shown.
 	 * @return array<string, array> Status => notice type and sentence.
@@ -1532,9 +2765,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	private function outcome_messages( $tab ) {
 		$messages = self::messages();
 
-		if ( 'sponsors' !== $tab ) {
-			$messages['error'] = self::failed_message();
-		}
+		$messages['error'] = self::failed_message();
 
 		// Left by a Create account alone, which comes back to the list, so worded beside the list's
 		// other outcomes rather than among the ones the forms on every tab flash.
@@ -1551,13 +2782,14 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The Waiting for review tab: the three kinds of item a manager decides, each in a card of its
-	 * own in the Administrator Dashboard's order, or one application opened from them in their place.
+	 * The Waiting for review tab: the kinds of item a manager decides, each in a card of its own in
+	 * the Administrator Dashboard's order, or one application opened from them in their place.
 	 *
 	 * The tab reads and the Administrator Dashboard decides, a decision's one home: the sponsor
-	 * applications, the sponsor posts and the signed agreements waiting are listed here, and each
-	 * links to its place there. While the dashboard's page is missing there is nowhere to link, so
-	 * the sentence its class keeps for that prints once, above the cards, and no card or row links.
+	 * applications, the sponsor posts, the sponsors' events while they are in use and the signed
+	 * agreements waiting are listed here, and each links to its place there. While the dashboard's
+	 * page is missing there is nowhere to link, so the sentence its class keeps for that prints once,
+	 * above the cards, and no card or row links.
 	 *
 	 * The opened application is a view of this tab, drawn instead of the cards rather than above
 	 * them, as the Institutions screen draws its own; its "Back to the queue" is the screen's own
@@ -1585,29 +2817,32 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		$this->render_queue_posts();
+		$this->render_queue_offers();
+		$this->render_queue_events();
 		$this->render_queue_agreements();
 	}
 
 	/**
-	 * The Sponsors tab: the last sync's error, the Airtable sync, then every sponsor.
+	 * The Sponsors tab: the migration box while the move onto the site is incomplete
+	 * (`render_migration()`), then the Sponsors card (`render_index()`): what the tiers as set would
+	 * put to dormant after the grace date, the table of every sponsor with its tier and, in each row's
+	 * last cell, Edit and Manage accounts, then the form that adds a sponsor, which names this tab.
 	 *
-	 * The error is said on the tab that runs the sync, above the card that runs it: it is that card's
-	 * to explain, and its button is the way out of it. The sync's progress and its last read are
-	 * asked here and on no other tab.
+	 * When the address names a sponsor's key, that sponsor's Edit form is drawn in their place, the
+	 * tab's view of one sponsor, and the accounts are not read for it (`render_edit()`); a key the
+	 * store does not hold draws the cards under a notice that says so.
+	 *
+	 * Nothing here reads or draws a sync: the sponsors are the site's own records, listed, added and
+	 * edited on this tab, and a sponsor's account is created on the Accounts tab.
 	 */
 	private function render_tab_sponsors() {
-		$rows     = WPCPM_Sponsors_Index::rows();
-		$progress = WPCPM_Sponsors_Sync::progress();
+		$rows = WPCPM_Sponsors_Index::rows();
 
-		if ( ! empty( $progress['error'] ) ) {
-			printf(
-				'<div class="notice notice-error"><p><strong>%1$s</strong> %2$s</p></div>',
-				esc_html__( 'Last sync error:', 'wpcredits-program-manager' ),
-				esc_html( (string) $progress['error'] )
-			);
+		if ( $this->render_edit( $rows ) ) {
+			return;
 		}
 
-		$this->render_sync_panel( $progress, WPCPM_Sponsors_Sync::last_read() );
+		$this->render_migration();
 		$this->render_index( $rows, self::accounts_by_sponsor() );
 	}
 
@@ -1618,12 +2853,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * that sponsor's accounts in their place (`render_sponsor_accounts()`).
 	 *
 	 * The screen's own, in place of the shared screen's: the notices of the presses made on the tab
-	 * and the warning while Airtable is not connected are this screen's frame's, printed above the
-	 * bar on every tab (`render_admin_page()`), so the tab prints neither again. The locked accounts
-	 * are the list's own reading of them, which its Status cells read too, so one draw of the tab
-	 * asks the ceiling once (`WPCPM_Sponsors_Table::locked_accounts()`) and the notice goes with the
-	 * list, not above one sponsor's accounts; the list is the one the screen's load hook built, or one
-	 * built and read now (`table()`).
+	 * are this screen's frame's, printed above the bar on every tab (`render_admin_page()`), so the
+	 * tab does not print them again; and it prints no warning about a connection, since the accounts
+	 * it lists are made on the site, by a press here or an approved application, and none arrives by
+	 * a sync. The locked accounts are the list's own reading of them, which its Status cells read
+	 * too, so one draw of the tab asks the ceiling once (`WPCPM_Sponsors_Table::locked_accounts()`)
+	 * and the notice goes with the list, not above one sponsor's accounts; the list is the one the
+	 * screen's load hook built, or one built and read now (`table()`).
 	 */
 	private function render_tab_accounts() {
 		$record = self::view_record();
@@ -1653,9 +2889,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * switch's handler comes back here by itself (`WPCPM_Sponsor_Posts::handle_flags()`). The record
 	 * is the address's, so it is looked up in the sponsors index, with its case, before anything is
 	 * drawn for it, and a value the index does not hold, well formed or not, names no sponsor and is
-	 * never printed: the view says so and names the remedy, the sponsors sync, on its tab. A press can
-	 * still land on such a view, when a sync dropped the record after the view was drawn; its outcome
-	 * is printed above the bar like any other.
+	 * never printed: the view says so, and that a sponsor is added on the Sponsors tab, linked. A press
+	 * can still land on such a view, from a form that posted a record the index does not hold; its
+	 * outcome is printed above the bar like any other.
 	 *
 	 * The accounts' addresses are printed here, as the Sponsor Dashboard's People card prints them: a
 	 * manager attaches and removes accounts by address. The list prints none. A sponsor that is not
@@ -1663,22 +2899,22 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * form that attaches one and the switch are drawn for an Approved sponsor alone, as the screen has
 	 * always drawn them.
 	 *
-	 * @param string $record The record ID the address names, as given.
+	 * @param string $record The key the address names, as given.
 	 */
 	private function render_sponsor_accounts( $record ) {
 		echo '<div class="wpcpm-card">';
 
-		// `row()` asks whether the value is a record ID before it looks, so a value that is none costs
+		// `row()` asks whether the value is a key before it looks, so a value that is none costs
 		// no read of the index and is answered as one the index lacks.
 		$row = WPCPM_Sponsors_Index::row( $record );
 
 		if ( null === $row ) {
 			printf(
 				'<p>%1$s %2$s</p>',
-				esc_html__( 'No sponsor record has that ID.', 'wpcredits-program-manager' ),
+				esc_html__( 'That link names no sponsor on this site.', 'wpcredits-program-manager' ),
 				sprintf(
 					/* translators: %s: the name of the Sponsors tab, as a link to it. */
-					esc_html__( 'If it should be here, run the sponsors sync on the %s tab.', 'wpcredits-program-manager' ),
+					esc_html__( 'A sponsor is added on the %s tab.', 'wpcredits-program-manager' ),
 					'<a href="' . esc_url( $this->tab_url( 'sponsors' ) ) . '">' . esc_html( self::tab_labels()['sponsors'] ) . '</a>'
 				)
 			);
@@ -1778,6 +3014,54 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * A sponsor report's editor, a view of the Reports tab drawn in place of its card when
+	 * `?wpcpm_sreport=<id>` names a report, as one sponsor's Edit form is on the Sponsors tab: drawn
+	 * by the report screen's class, with the way back to the tab
+	 * (`WPCPM_Sponsor_Report_Screen::render_editor()`). Reached from Open on the Reports card and on
+	 * the Administrator Dashboard's Sponsor reports card, and where every press made in the editor
+	 * lands. An ID that names no report is said in a notice, and the card is drawn under it.
+	 *
+	 * @return bool Whether the editor was drawn, in which case the tab draws nothing else.
+	 */
+	private function render_report() {
+		if ( ! class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			return false;
+		}
+
+		$post_id = WPCPM_Request::id( WPCPM_Sponsor_Report_Files::ARG_EDITOR );
+
+		if ( $post_id < 1 ) {
+			return false;
+		}
+
+		if ( WPCPM_Sponsor_Report_Screen::render_editor( $post_id ) ) {
+			return true;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html__( 'That report is not on this site anymore. Every Approved sponsor\'s reports are listed on the Reports card below.', 'wpcredits-program-manager' )
+		);
+
+		return false;
+	}
+
+	/**
+	 * The Reports card, the Reports tab's own: each Approved sponsor's annual reports and the form
+	 * that drafts one, drawn by the report screen's class. Guarded like the module's other classes,
+	 * so the screen draws with or without it.
+	 *
+	 * @param array $rows The index rows.
+	 */
+	private function render_reports( array $rows ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			return;
+		}
+
+		WPCPM_Sponsor_Report_Screen::render_card( $rows );
+	}
+
+	/**
 	 * The way back from one sponsor's accounts to the list as it stood when Manage accounts was
 	 * followed: a row's link carried the list's view, search, sort and page (`list_state()`), so they
 	 * are this request's, which `list_url()` reads. From the Sponsors card or the People card, and
@@ -1790,6 +3074,18 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'<p><a href="%1$s">%2$s</a></p>',
 			esc_url( $this->list_url() ),
 			esc_html__( 'Back to the accounts', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The way back from a sponsor's Edit form to the Sponsors tab, which lists every sponsor: the
+	 * tab's own address, since the list there has no state of its own to return to.
+	 */
+	private function render_back_to_sponsors() {
+		printf(
+			'<p><a href="%1$s">%2$s</a></p>',
+			esc_url( $this->tab_url( 'sponsors' ) ),
+			esc_html__( 'Back to the sponsors', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -1834,6 +3130,20 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The Reports tab: the Reports card, every Approved sponsor's annual reports and the form that
+	 * drafts one (`render_reports()`); or, when the address names a report, its editor in the card's
+	 * place, the tab's view of one report (`render_report()`), which reads the report and not the
+	 * index. An ID that names no report draws the card under a notice that says so.
+	 */
+	private function render_tab_reports() {
+		if ( $this->render_report() ) {
+			return;
+		}
+
+		$this->render_reports( WPCPM_Sponsors_Index::rows() );
+	}
+
+	/**
 	 * The Agreements tab: every Approved sponsor's agreement, and where a document waiting to be read
 	 * is listed.
 	 */
@@ -1842,12 +3152,22 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The Handbook listing tab, in the bar while the tiers switch is on: the listing for the handbook
+	 * (`render_listing_box()`), its one card, which reads the index. While the switch is off the tab
+	 * is not in the bar and its address opens the first tab (`render_admin_page()`), so this is drawn
+	 * only while the box is shown, under the same test (`listing_shown()`).
+	 */
+	private function render_tab_listing() {
+		$this->render_listing_box();
+	}
+
+	/**
 	 * The sponsor posts waiting for review, oldest first, to be read: each is published or returned
 	 * on the Administrator Dashboard, and each row ends with the way to its own item there.
 	 *
 	 * The rows are the dashboard card's own read, `WPCPM_Administrators_Cards::LIMIT` of them, so no
 	 * row links to an item that card does not draw: the read applies its limit before it leaves out
-	 * a post whose sponsor stamp is not a record ID, so the first rows of a longer read could differ.
+	 * a post whose sponsor stamp is no sponsor's key, so the first rows of a longer read could differ.
 	 * The heading counts from a second read, one more than `COUNT_MAX`, the menu bubble's ceiling,
 	 * and the list says so whenever it shows fewer than wait. A row says in one sentence what the
 	 * dashboard's card says of the post, and offers Preview, the one way to read it before deciding.
@@ -1905,6 +3225,142 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			}
 
 			WPCPM_Return::render_dashboard_link( 'sponsor-posts', 'wpcpm-sponsor-post-' . (int) $row['id'] );
+			echo '</li>';
+		}
+
+		echo '</ol>';
+		echo '</div>';
+	}
+
+	/**
+	 * The sponsor offers, and the changes to live ones, waiting for review (1.123.18), oldest first, to
+	 * be read: each is approved or returned on the Administrator Dashboard's card of the same title,
+	 * and each row ends with the way to its own item there. Read as the posts' card reads its own: the
+	 * rows the dashboard card's own read, `WPCPM_Administrators_Cards::LIMIT` of them, and the heading
+	 * counted from a second read, one more than `COUNT_MAX`, the list saying so whenever it shows
+	 * fewer than wait. A row says in one sentence whether it is a new offer or changes, whose, who
+	 * sent it and how long ago.
+	 */
+	private function render_queue_offers() {
+		if ( ! class_exists( 'WPCPM_Sponsor_Offer_Review' ) ) {
+			return;
+		}
+
+		$waiting = count( (array) WPCPM_Sponsor_Offer_Review::waiting_all( self::COUNT_MAX + 1 ) );
+
+		echo '<div class="wpcpm-card" id="wpcpm-sponsor-offers-review">';
+		printf(
+			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Sponsor offers to review', 'wpcredits-program-manager' ),
+			esc_html( self::queue_count( $waiting ) )
+		);
+		echo '<p class="description">' . esc_html__( 'Offers that sponsors sent for review, and changes they made to what students see of live ones, oldest first. Each is approved or returned on the Administrator Dashboard.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( 0 === $waiting ) {
+			echo '<p>' . esc_html__( 'Nothing is waiting.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		$rows = (array) WPCPM_Sponsor_Offer_Review::waiting_all( (int) WPCPM_Administrators_Cards::LIMIT );
+
+		self::render_queue_window( count( $rows ), $waiting );
+
+		echo '<ol class="wpcpm-queue">';
+
+		foreach ( $rows as $row ) {
+			$who = '' !== (string) $row['by'] ? (string) $row['by'] : __( 'somebody whose account is gone', 'wpcredits-program-manager' );
+			$ago = human_time_diff( (int) $row['at'], time() );
+
+			echo '<li class="wpcpm-queue-item">';
+			printf( '<h3 class="wpcpm-queue-title">%s</h3>', esc_html( (string) $row['title'] ) );
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					'new' === $row['change']
+						/* translators: 1: the sponsor's name, 2: the name of the account that sent it, 3: how long ago, as a human-readable time difference. */
+						? sprintf( __( 'A new offer from %1$s, sent by %2$s %3$s ago.', 'wpcredits-program-manager' ), (string) $row['company'], $who, $ago )
+						/* translators: 1: the sponsor's name, 2: the name of the account that sent them, 3: how long ago, as a human-readable time difference. */
+						: sprintf( __( 'Changes to a live offer of %1$s, sent by %2$s %3$s ago.', 'wpcredits-program-manager' ), (string) $row['company'], $who, $ago )
+				)
+			);
+			WPCPM_Return::render_dashboard_link( 'sponsor-offers-review', 'wpcpm-sponsor-offer-' . (int) $row['id'] );
+			echo '</li>';
+		}
+
+		echo '</ol>';
+		echo '</div>';
+	}
+
+	/**
+	 * The events sponsors planned that wait for the program's OK, oldest first, to be read: each is
+	 * approved or returned on the Administrator Dashboard's Events card, whose title this card takes,
+	 * and each row ends with the way to its own item there. Drawn only while the events are in use
+	 * (`WPCPM_Sponsor_Event_Queue::shown()`), as that card is, and nothing of them is read otherwise.
+	 *
+	 * The rows are that card's own read of what waits (`WPCPM_Sponsor_Event_Queue::waiting_rows()`),
+	 * in its order, and the list holds every one, as that card does: a sponsor holds one event at a
+	 * time, so the list is never longer than the sponsors with an event waiting. The heading counts
+	 * them, in the menu bubble's form past `COUNT_MAX`. A row says in one sentence whose event it is,
+	 * who planned it and how long ago, and when it takes place in the words the dashboard's item opens
+	 * with (`WPCPM_Sponsor_Event_Queue::time_fact()`), so the two read one event's time alike. A row
+	 * carries its planner's ID and no name, since the dashboard prints none, so the planners' accounts
+	 * are read here, warmed in one query first. The card's id is the one the dashboard's Events card
+	 * and the Overview link to.
+	 */
+	private function render_queue_events() {
+		if ( ! class_exists( 'WPCPM_Sponsor_Event_Queue' ) || ! WPCPM_Sponsor_Event_Queue::shown() ) {
+			return;
+		}
+
+		$rows    = (array) WPCPM_Sponsor_Event_Queue::waiting_rows();
+		$waiting = count( $rows );
+
+		echo '<div class="wpcpm-card" id="wpcpm-sponsor-events">';
+		printf(
+			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Events', 'wpcredits-program-manager' ),
+			esc_html( self::queue_count( $waiting ) )
+		);
+		echo '<p class="description">' . esc_html__( 'Events that sponsors planned and that wait for the program\'s OK, oldest first. An event is approved or returned on the Administrator Dashboard.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( 0 === $waiting ) {
+			echo '<p>' . esc_html__( 'Nothing is waiting.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		// The planners' accounts in one query, each read from it below.
+		$planners = array_values( array_unique( array_filter( array_map( 'intval', array_column( $rows, 'planned_author' ) ) ) ) );
+
+		if ( array() !== $planners ) {
+			cache_users( $planners );
+		}
+
+		echo '<ol class="wpcpm-queue">';
+
+		foreach ( $rows as $row ) {
+			$planner = (int) $row['planned_author'] > 0 ? get_userdata( (int) $row['planned_author'] ) : false;
+			$planned = $planner instanceof WP_User ? (string) $planner->display_name : '';
+
+			echo '<li class="wpcpm-queue-item">';
+			printf( '<h3 class="wpcpm-queue-title">%s</h3>', esc_html( (string) $row['title'] ) );
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: the sponsor's name, 2: the name of the account that planned the event, 3: how long ago, as a human-readable time difference, 4: when the event takes place, its length and the time zone, as "December 1, 2026 10:00 am to 11:30 am, 90 minutes, in your time zone (Europe / Warsaw)". */
+						__( 'From %1$s, by %2$s. Planned %3$s ago, for %4$s.', 'wpcredits-program-manager' ),
+						(string) $row['sponsor_name'],
+						'' !== $planned ? $planned : __( 'somebody whose account is gone', 'wpcredits-program-manager' ),
+						human_time_diff( (int) $row['planned_at'], time() ),
+						WPCPM_Sponsor_Event_Queue::time_fact( (array) $row )
+					)
+				)
+			);
+			WPCPM_Return::render_dashboard_link( 'sponsor-events', 'wpcpm-sponsor-event-' . (int) $row['id'] );
 			echo '</li>';
 		}
 
@@ -1990,10 +3446,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/**
 	 * A sponsor queue's count as it is printed: the number, or, once the count's read, which asks
 	 * for one more than `COUNT_MAX`, returns more, the menu bubble's form, `COUNT_MAX` and a plus
-	 * sign. The posts and signed agreements cards on the Waiting for review tab print it in their
-	 * headings and window lines, and so do the Administrator Dashboard's tiles and cards for the same
-	 * two queues and the Overview's counts of them. The applications are counted in full and print
-	 * their number as it stands, on the applications card here and on those pages alike.
+	 * sign. The posts, events and signed agreements cards on the Waiting for review tab print it in
+	 * their headings, and the posts' and the agreements' in their window lines; so do the
+	 * Administrator Dashboard's tiles and cards for the posts and the agreements, and the Overview's
+	 * counts of those two. The applications are counted in full and print their number as it stands,
+	 * on the applications card here and on those pages alike.
 	 *
 	 * Less the rows a list draws, it is the number a line under that list gives for the rest: past
 	 * the ceiling, `COUNT_MAX` less those rows with the plus sign, the least the read vouches for.
@@ -2143,82 +3600,656 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Sync controls and live progress: the institutions panel's markup, which assets/js/admin.js polls.
-	 *
-	 * @param array $progress From `WPCPM_Sponsors_Sync::progress()`.
-	 * @param int   $last     When the last run finished.
+	 * The migration box, where the sync panel stood, and only while the move onto the site is
+	 * incomplete (design section 5): how far the move got, the sponsors it could give no program
+	 * manager, the sponsors still waiting for the draft offer that keeps it open, and Run again, whose
+	 * form names the Sponsors tab, so its press comes back to that tab (`handle_migrate()`): to this
+	 * box while the move is still incomplete, and to the Sponsors card alone once the run has
+	 * completed it.
 	 */
-	private function render_sync_panel( array $progress, $last ) {
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Reads the Team Members table, then every sponsor\'s columns, copies each Approved sponsor\'s logo into the Media Library, and reviews the accounts of sponsors that are no longer Approved. It never creates an account.', 'wpcredits-program-manager' ) . '</p>';
+	private function render_migration() {
+		$report = WPCPM_Sponsors_Migration::report();
 
-		if ( ! empty( $progress['running'] ) ) {
-			printf(
-				'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3">',
-				esc_attr( self::ACTION_TICK ),
-				esc_attr( wp_create_nonce( self::ACTION_TICK ) )
-			);
-			echo '<p class="wpcpm-progress__head"><span class="spinner is-active" aria-hidden="true"></span> ';
-			printf( '<strong data-wpcpm-label>%s</strong>', esc_html( isset( $progress['label'] ) ? $progress['label'] : '' ) );
-			printf( ' <span class="wpcpm-progress__step" data-wpcpm-step>%s</span>', esc_html( isset( $progress['step_label'] ) ? $progress['step_label'] : '' ) );
-			echo '</p>';
-			$percent = isset( $progress['percent'] ) ? (int) $progress['percent'] : 0;
-			printf(
-				'<div class="wpcpm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="%1$d" aria-label="%2$s" data-wpcpm-bar><div class="wpcpm-bar__fill" style="width:%1$d%%" data-wpcpm-fill></div></div>',
-				(int) $percent,
-				esc_attr__( 'Sync progress', 'wpcredits-program-manager' )
-			);
-			echo '<p class="wpcpm-progress__meta">';
-			printf( '<span data-wpcpm-percent>%d%%</span> - ', (int) $percent );
-			printf( '<span data-wpcpm-detail>%s</span> - ', esc_html( isset( $progress['detail'] ) ? $progress['detail'] : '' ) );
-			/* translators: %s: elapsed time as a clock value. */
-			$elapsed_label = __( 'running for %s', 'wpcredits-program-manager' );
-			printf(
-				'<span data-wpcpm-elapsed data-label="%1$s">%2$s</span>',
-				esc_attr( $elapsed_label ),
-				esc_html( sprintf( $elapsed_label, WPCPM_Mentors::format_duration( isset( $progress['elapsed'] ) ? (int) $progress['elapsed'] : 0 ) ) )
-			);
-			echo '</p>';
-			printf(
-				'<p class="wpcpm-progress__stalled" data-wpcpm-stalled%1$s>%2$s</p>',
-				! empty( $progress['stalled'] ) ? '' : ' hidden',
-				esc_html__( 'No progress for over two minutes. The run may have been interrupted: cancel it and start again.', 'wpcredits-program-manager' )
-			);
-			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';
-			echo '</div>';
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-wpcpm-once data-wpcpm-busy="' . esc_attr__( 'Canceling', 'wpcredits-program-manager' ) . '">';
-			wp_nonce_field( self::ACTION_CANCEL );
-			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CANCEL ) . '" />';
-			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
-			submit_button( __( 'Cancel sync', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
-			echo '</form>';
-		} else {
-			if ( $last ) {
-				printf(
-					'<p>%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: 1: date and time, 2: human-readable time difference. */
-							__( 'Last completed %1$s (%2$s ago).', 'wpcredits-program-manager' ),
-							wp_date( 'Y-m-d H:i', $last ),
-							human_time_diff( $last, time() )
-						)
-					)
-				);
-			} else {
-				echo '<p>' . esc_html__( 'No sync has run yet.', 'wpcredits-program-manager' ) . '</p>';
-			}
-
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-wpcpm-once data-wpcpm-busy="' . esc_attr__( 'Starting', 'wpcredits-program-manager' ) . '">';
-			wp_nonce_field( self::ACTION_SYNC );
-			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_SYNC ) . '" />';
-			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
-			submit_button( __( 'Sync sponsors now', 'wpcredits-program-manager' ), 'primary', 'submit', false );
-			echo '</form>';
+		if ( $report['complete'] ) {
+			return;
 		}
 
+		echo '<div class="wpcpm-card" id="wpcpm-sponsors-migration">';
+		echo '<h2>' . esc_html__( 'Moving sponsors onto the site', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Since 1.111.0 every sponsor is a record of its own on this site. The move runs by itself and tries again at most once a minute until every sponsor has moved; this box goes away when it has.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( $report['runs'] < 1 ) {
+			echo '<p>' . esc_html__( 'The move has not run yet.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: how many sponsors are posts on the site, 2: how many rows the old index held. */
+						_n(
+							'%1$s of %2$s row is a post.',
+							'%1$s of %2$s rows are posts.',
+							$report['rows'],
+							'wpcredits-program-manager'
+						),
+						number_format_i18n( $report['posts'] ),
+						number_format_i18n( $report['rows'] )
+					)
+				)
+			);
+		}
+
+		if ( ! empty( $report['unmapped'] ) ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: sponsor names, comma-separated. */
+						__( 'No Administrator on this site matched the sponsors\' Administrator, so none is assigned: %s. Choose one on each sponsor\'s Edit form.', 'wpcredits-program-manager' ),
+						implode( ', ', $report['unmapped'] )
+					)
+				)
+			);
+		}
+
+		// Named because they are why a move with every row a post is still open: each is owed its
+		// first offer, in draft, from the text the old index held, and that text has no other copy.
+		if ( ! empty( $report['unseeded'] ) ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: sponsor names, comma-separated. */
+						__( 'Still waiting for their first offer, in draft, which keeps the move open until each has one: %s.', 'wpcredits-program-manager' ),
+						implode( ', ', $report['unseeded'] )
+					)
+				)
+			);
+		}
+
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Running', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_MIGRATE );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_MIGRATE ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Run again', 'wpcredits-program-manager' ) );
+		echo '</form></div>';
+	}
+
+	/**
+	 * A sponsor's Edit form, a view of the Sponsors tab drawn in place of its cards when `?edit=<key>`
+	 * names a sponsor the store holds, as the opened application is on the queue tab and one sponsor's
+	 * accounts on the Accounts tab: the sponsor's name, the way back to the tab, what a manager owns of
+	 * the record, then its key and listing handle, which nobody edits. Reached from Edit on each row of
+	 * the Sponsors card, and where Add and every save of the form land (`redirect_to_edit()`).
+	 *
+	 * The form names the Sponsors tab, so the one press that cannot come back to the form, a save for
+	 * a key the store no longer holds, comes back to the tab (`handle_edit()`), and its Cancel is the
+	 * tab too. A key the store does not hold, well formed or not, is never printed: a notice says the
+	 * link names no sponsor on this site, and the tab's cards are drawn under it.
+	 *
+	 * @param array $rows The index rows.
+	 * @return bool Whether the form was drawn, in which case the tab draws nothing else.
+	 */
+	private function render_edit( array $rows ) {
+		$key = WPCPM_Request::text( self::ARG_EDIT );
+
+		if ( '' === $key ) {
+			return false;
+		}
+
+		if ( ! isset( $rows[ $key ] ) ) {
+			printf(
+				'<div class="notice notice-warning"><p>%1$s %2$s</p></div>',
+				esc_html__( 'That link names no sponsor on this site.', 'wpcredits-program-manager' ),
+				esc_html__( 'Every sponsor on this site is listed on the Sponsors card below.', 'wpcredits-program-manager' )
+			);
+
+			return false;
+		}
+
+		$row  = $rows[ $key ];
+		$name = '' === trim( (string) $row['name'] ) ? $key : trim( (string) $row['name'] );
+
+		echo '<div class="wpcpm-card" id="wpcpm-sponsor-edit">';
+		printf(
+			'<h2>%s</h2>',
+			esc_html(
+				sprintf(
+					/* translators: %s: sponsor name. */
+					__( 'Edit %s', 'wpcredits-program-manager' ),
+					$name
+				)
+			)
+		);
+		$this->render_back_to_sponsors();
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_EDIT . '_' . $key );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_EDIT ) );
+		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $key ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
+		// A refused save: every field is drawn as it was posted (`keep_typing()`).
+		self::render_fields( 'edit', $row, WPCPM_Typed_Text::kept( self::typed_form( $key ) ) );
+		printf(
+			'<p class="submit"><button type="submit" class="button button-primary">%1$s</button> <a href="%2$s">%3$s</a></p>',
+			esc_html__( 'Save', 'wpcredits-program-manager' ),
+			esc_url( $this->tab_url( 'sponsors' ) ),
+			esc_html__( 'Cancel', 'wpcredits-program-manager' )
+		);
+		echo '</form>';
+
+		// Not a renewal's own form, while the row owes a report: the Tier box's button inside the form
+		// above posts it through its form attribute, since one form cannot sit inside another.
+		if ( class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			WPCPM_Sponsor_Report_Screen::render_not_renewal_form( $key, $row );
+		}
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: the sponsor's key, 2: its listing handle. */
+					__( 'Key: %1$s; listing handle: %2$s', 'wpcredits-program-manager' ),
+					$key,
+					(string) $row['slug']
+				)
+			)
+		);
 		echo '</div>';
+
+		return true;
+	}
+
+	/**
+	 * Add a sponsor, under the index table: the fields of the Edit form but the mentors, whose
+	 * picker is the Edit form's once the sponsor exists.
+	 *
+	 * The form names the Sponsors tab, so a press the handler refuses comes back to it
+	 * (`redirect_back()`); a sponsor added goes on to its Edit form, which the same tab draws in
+	 * place of its cards (`handle_add()`).
+	 */
+	private function render_add() {
+		echo '<h3 id="wpcpm-sponsor-add">' . esc_html__( 'Add a sponsor', 'wpcredits-program-manager' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'For a company that never applied on the site. Nothing else happens when it is added: once its status is Approved, its account is made with Create account on the Accounts tab\'s No account view.', 'wpcredits-program-manager' ) . '</p>';
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Adding', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_ADD );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ADD ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
+		// A refused Add: every field is drawn as it was posted (`keep_typing()`).
+		self::render_fields( 'add', array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'status' => self::STATUS_ADDED ) ), WPCPM_Typed_Text::kept( self::typed_form( '' ) ) );
+		printf( '<p class="submit"><button type="submit" class="button button-primary">%s</button></p>', esc_html__( 'Add the sponsor', 'wpcredits-program-manager' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * The Add and Edit forms' fields, one wp-admin form table in the order of `EDITABLE`, each
+	 * holding what the record holds, a value no choice offers included, so a save nobody touched
+	 * sends back what is there (see `clean_fields()`).
+	 *
+	 * The typed texts of `TYPED` are drawn back as the manager typed them, by the rules every box of
+	 * typed text uses (`WPCPM_Typed_Text`): a text input through `esc_attr( attr_text() )` and the
+	 * notes through `esc_textarea( typed_text() )`, each with the `maxlength` `drawn_limit()` gives it.
+	 * Drawn as stored, a box would show the cleaner's entities as typed characters, and one that holds
+	 * "We <3 our team > all" would post a "tag" the cleaner drops, words and all. The website is drawn
+	 * through `esc_attr( kept_attr() )`, so a stored entity posts back as stored. The contact address
+	 * is drawn as stored, through `esc_attr()` alone, so its address box shows it with each entity
+	 * read and the browser takes it as an address, and posted back so it is untouched
+	 * (`clean_field()`). A line break inside a stored one-line text or website is drawn as a space
+	 * (`WPCPM_Typed_Text::one_line()`), which the box would otherwise drop. The profile card on the
+	 * Sponsor Dashboard draws and reads its Website, Contact person and Contact email by the same
+	 * rules (`WPCPM_Sponsor_Profile`), so a box left as either screen drew it changes nothing.
+	 *
+	 * After a refused save, the Add or Edit form is drawn as it was posted (`keep_typing()`): every
+	 * box with what was typed, exactly, a text input through `esc_attr( kept_attr() )` and the notes
+	 * through `esc_textarea()`, in the room it was drawn with; every select, the Term ends day and the
+	 * extra events with what was chosen; and every list with the boxes that were ticked. Which rows are
+	 * drawn is the record's to say, as it was for the form that was posted.
+	 *
+	 * @param string $form `add` or `edit`: each form's field IDs carry its name, so the two never
+	 *                     share one, and only the Edit form draws the Tier box and the mentors.
+	 * @param array  $row  The record, or the new record's defaults.
+	 * @param array  $kept What a refused save of the form kept, field => what was typed or the ticked
+	 *                     values of a list, or an empty array.
+	 */
+	private static function render_fields( $form, array $row, array $kept = array() ) {
+		$id      = 'wpcpm-' . $form . '-';
+		$allowed = array( 'span' => array( 'class' => array() ) );
+		$typed   = static function ( $field ) use ( $kept ) {
+			return isset( $kept[ $field ] ) && is_string( $kept[ $field ] ) ? $kept[ $field ] : null;
+		};
+		$ticked  = static function ( $field, array $stored ) use ( $kept ) {
+			return isset( $kept[ $field ] ) && is_array( $kept[ $field ] ) ? $kept[ $field ] : $stored;
+		};
+		// A text input's value, ready for `esc_attr()`: what was typed, or what the record holds. A
+		// typed text of `TYPED` is read back to what the manager typed. The website has each "&"
+		// written `&amp;` (`kept_attr()`), since `esc_attr()` keeps an entity it finds and the browser
+		// would post back the character in place of the stored entity. A line break inside a stored
+		// name, contact person, funded line or website is drawn as a space
+		// (`WPCPM_Typed_Text::one_line()`), which the box would otherwise drop. The contact address is
+		// drawn as stored: its box is an address box, whose browser refuses the whole form when the
+		// value is no address, and an entity shown as its characters, `&amp;` say, is none; so the box
+		// shows the address with each entity read, and a post-back that reads as the stored address is
+		// the box untouched (`clean_field()`). An address's box drops white space itself. The Term ends
+		// day is drawn as stored too: a date box takes a date and nothing else.
+		$value = static function ( $field ) use ( $row, $typed ) {
+			if ( null !== $typed( $field ) ) {
+				return WPCPM_Typed_Text::kept_attr( $typed( $field ) );
+			}
+
+			$stored = (string) $row[ $field ];
+
+			if ( isset( self::TYPED[ $field ] ) ) {
+				return WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $stored ) );
+			}
+
+			return 'website' === $field ? WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::kept_attr( $stored ) ) : $stored;
+		};
+
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		printf(
+			'<tr><th scope="row"><label for="%1$sname">%2$s %3$s</label></th><td><input type="text" class="regular-text" id="%1$sname" name="wpcpm_name" value="%4$s" maxlength="%5$d" required /></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Name', 'wpcredits-program-manager' ),
+			wp_kses( '<span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>', $allowed ),
+			esc_attr( $value( 'name' ) ),
+			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['name'], self::MAX_LINE )
+		);
+
+		// `inputmode="url"` on a text field, as the application form draws its own: a url field
+		// refuses a scheme-less address, and example.com is how most people write one.
+		printf(
+			'<tr><th scope="row"><label for="%1$swebsite">%2$s</label></th><td><input type="text" inputmode="url" class="regular-text" id="%1$swebsite" name="wpcpm_website" value="%3$s" /></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Website', 'wpcredits-program-manager' ),
+			esc_attr( $value( 'website' ) )
+		);
+
+		self::select_row( $id . 'status', 'status', __( 'Status', 'wpcredits-program-manager' ), array_combine( WPCPM_Sponsors_Index::STATUSES, WPCPM_Sponsors_Index::STATUSES ), $row['status'], $typed( 'status' ) );
+
+		// The test sponsor's flag (1.123.18), on both forms: a hidden 0 before the box, as each list
+		// posts its hidden empty value, so a form that drew it always says what it holds.
+		$test = null !== $typed( 'test' ) ? '1' === $typed( 'test' ) : ! empty( $row['test'] );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="hidden" name="wpcpm_test" value="0" /><label for="%2$stest"><input type="checkbox" id="%2$stest" name="wpcpm_test" value="1"%3$s /> %4$s</label><p class="description">%5$s</p></td></tr>',
+			esc_html__( 'Test sponsor', 'wpcredits-program-manager' ),
+			esc_attr( $id ),
+			$test ? ' checked' : '',
+			esc_html__( 'Test sponsor: not listed publicly', 'wpcredits-program-manager' ),
+			esc_html__( 'A test sponsor is left out of the Partners page, the logo strip, the handbook listing and the public feed, and its offers, posts and events are shown to no student or mentor. Its own accounts still see its Sponsor Dashboard.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row"><label for="%1$scontact-person">%2$s</label></th><td><input type="text" class="regular-text" id="%1$scontact-person" name="wpcpm_contact_person" value="%3$s" maxlength="%4$d" /></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Contact person', 'wpcredits-program-manager' ),
+			esc_attr( $value( 'contact_person' ) ),
+			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['contact_person'], self::MAX_LINE )
+		);
+		printf(
+			'<tr><th scope="row"><label for="%1$scontact-email">%2$s</label></th><td><input type="email" class="regular-text" id="%1$scontact-email" name="wpcpm_contact_email" value="%3$s" /><p class="description">%4$s</p></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Contact email', 'wpcredits-program-manager' ),
+			esc_attr( $value( 'contact_email' ) ),
+			esc_html__( 'Create account makes the account at this address and sends its invitation here.', 'wpcredits-program-manager' )
+		);
+
+		$none = array( '' => __( 'Not chosen', 'wpcredits-program-manager' ) );
+
+		self::select_row( $id . 'option', 'option', __( 'Sponsorship option', 'wpcredits-program-manager' ), $none + array_combine( WPCPM_Sponsor_Application::OPTION_CHOICES, WPCPM_Sponsor_Application::OPTION_CHOICES ), $row['option'], $typed( 'option' ) );
+		self::checkboxes_row( 'support', __( 'Would like to support', 'wpcredits-program-manager' ), array_combine( WPCPM_Sponsor_Interests::CHOICES, WPCPM_Sponsor_Interests::CHOICES ), $ticked( 'support', (array) $row['support'] ) );
+		self::select_row( $id . 'product-type', 'product_type', __( 'Type of product', 'wpcredits-program-manager' ), $none + array_combine( WPCPM_Sponsor_Profile::CHOICES['Type of product'], WPCPM_Sponsor_Profile::CHOICES['Type of product'] ), $row['product_type'], $typed( 'product_type' ) );
+
+		$managers = array( '' => __( 'Nobody yet', 'wpcredits-program-manager' ) );
+
+		foreach ( WPCPM_Institutions::managers() as $user ) {
+			$managers[ (string) $user->ID ] = $user->display_name;
+		}
+
+		// A manager assigned before they lost the program capability stays assigned, and says so,
+		// until somebody chooses another: in the words the index and the terms card name them in.
+		$current = (string) $row['manager'];
+
+		if ( '' !== $current && ! array_key_exists( $current, $managers ) ) {
+			$managers[ $current ] = WPCPM_Sponsors_Index::manager_label( $row );
+		}
+
+		self::select_row( $id . 'manager', 'manager', __( 'Assigned Administrator', 'wpcredits-program-manager' ), $managers, $current, $typed( 'manager' ) );
+
+		if ( 'edit' === $form ) {
+			// The Tier box: Edit's alone (design section 4), drawn after the program manager and
+			// before the sponsored mentors.
+			self::select_row( $id . 'tier', 'tier', __( 'Tier', 'wpcredits-program-manager' ), WPCPM_Sponsor_Tiers::labels(), '' === $row['tier'] ? WPCPM_Sponsor_Tiers::MENTOR : $row['tier'], $typed( 'tier' ) );
+
+			$tier_notes = array( __( 'The sponsor sees its tier and what the tier includes only while Sponsor tiers is switched on in Settings.', 'wpcredits-program-manager' ) );
+
+			// The answer in the words the application's question offered it: "Not sure yet" is one
+			// of its answers and no tier, so the ladder's label() would read it as the floor, and a
+			// value the question never offered is no request at all. Read without a guard, as the
+			// Sponsorship option row above reads the choices the form's support question offered
+			// until 1.123.12.
+			$offered   = WPCPM_Sponsor_Application::tier_choices();
+			$requested = isset( $offered[ $row['tier_requested'] ] ) ? $offered[ $row['tier_requested'] ] : '';
+
+			if ( '' !== $requested ) {
+				array_unshift(
+					$tier_notes,
+					sprintf(
+						/* translators: %s: the tier requested on the sponsor's application, or its "Not sure yet". */
+						__( 'Requested on the application: %s.', 'wpcredits-program-manager' ),
+						$requested
+					)
+				);
+			}
+
+			printf(
+				'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p></td></tr>',
+				'',
+				esc_html( implode( ' ', $tier_notes ) )
+			);
+
+			printf(
+				'<tr><th scope="row"><label for="%1$stier-until">%2$s</label></th><td><input type="date" id="%1$stier-until" name="wpcpm_tier_until" value="%3$s" /><p class="description">%4$s</p></td></tr>',
+				esc_attr( $id ),
+				esc_html__( 'Term ends', 'wpcredits-program-manager' ),
+				esc_attr( $value( 'tier_until' ) ),
+				esc_html__( 'The last day of the term. Empty means no term. A Friend has no term, so the day is cleared for one. From the day after the term ends the sponsor reads as a Friend, and the daily run applies that from the day after the grace date in Settings.', 'wpcredits-program-manager' )
+			);
+
+			self::render_owed_row( $row );
+
+			// For a tier that includes the co-hosted event, the one the number adds to, read on the
+			// tier the select holds, so a Champion whose term has ended can be renewed and granted
+			// more in one save.
+			if ( in_array( WPCPM_Sponsor_Tiers::EVENT_CO_HOSTED, WPCPM_Sponsor_Tiers::events( (string) $row['tier'] ), true ) ) {
+				self::render_extra_row( $id, $row, $typed( 'event_allowance' ) );
+			}
+
+			printf(
+				'<tr><th scope="row"><label for="%1$sfunded-line">%2$s</label></th><td><input type="text" class="regular-text" id="%1$sfunded-line" name="wpcpm_funded_line" value="%3$s" maxlength="%4$d" /><p class="description">%5$s</p></td></tr>',
+				esc_attr( $id ),
+				esc_html__( 'What the sponsorship funds', 'wpcredits-program-manager' ),
+				esc_attr( $value( 'funded_line' ) ),
+				(int) WPCPM_Typed_Text::drawn_limit( (string) $row['funded_line'], self::MAX_LINE ),
+				esc_html__( 'Shown from Backer up on the sponsor\'s dashboard and in its report, never on the Partners page: one line, for example the mentor stipends of the Developer Track.', 'wpcredits-program-manager' )
+			);
+
+			$linked  = array_map( 'strval', (array) $row['mentors'] );
+			$mentors = self::mentor_choices( $linked );
+
+			if ( empty( $mentors ) ) {
+				printf(
+					'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p></td></tr>',
+					esc_html__( 'Sponsored mentors', 'wpcredits-program-manager' ),
+					esc_html__( 'No mentor can be chosen until the mentors index holds one. It is filled on the Mentors screen.', 'wpcredits-program-manager' )
+				);
+			} else {
+				self::checkboxes_row( 'mentors', __( 'Sponsored mentors', 'wpcredits-program-manager' ), $mentors, $ticked( 'mentors', $linked ) );
+			}
+
+			if ( WPCPM_Sponsor_Tiers::PARTNER === WPCPM_Sponsor_Tiers::effective( $row ) ) {
+				self::render_tracks_row( (string) $row['record_id'] );
+			}
+		}
+
+		printf(
+			'<tr><th scope="row"><label for="%1$snotes">%2$s</label></th><td><textarea id="%1$snotes" name="wpcpm_notes" rows="4" class="large-text" maxlength="%3$d">%4$s</textarea><p class="description">%5$s</p></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Notes', 'wpcredits-program-manager' ),
+			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['notes'], self::MAX_NOTES ),
+			// The parser drops one line feed right after the opening tag, so a kept typing, which can
+			// begin with a line break, is given one of its own first.
+			null !== $typed( 'notes' ) ? "\n" . esc_textarea( $typed( 'notes' ) ) : esc_textarea( WPCPM_Typed_Text::typed_text( (string) $row['notes'] ) ),
+			esc_html__( 'Private: shown on this screen only.', 'wpcredits-program-manager' )
+		);
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * The Tier box's read-only Report due row, under Term ends, while a save that moved the day left
+	 * the term it moved off owed its report (`report_owed`), with Not a renewal for a day that was
+	 * corrected rather than renewed.
+	 *
+	 * The button belongs to a form of its own, drawn after the Edit form by the report screen's
+	 * class, and posts it through its `form` attribute: the row sits inside the Edit form, and one
+	 * form cannot sit inside another. That form carries the question the press asks. Nothing is
+	 * drawn while nothing is owed.
+	 *
+	 * @param array $row The sponsor's row.
+	 */
+	private static function render_owed_row( array $row ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Report_Screen' ) ) {
+			return;
+		}
+
+		$due = WPCPM_Sponsor_Report_Screen::owed_sentence( $row );
+
+		if ( '' === $due ) {
+			return;
+		}
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><p>%2$s</p><p><button type="submit" form="%3$s" class="button">%4$s</button></p><p class="description">%5$s</p></td></tr>',
+			esc_html__( 'Report due', 'wpcredits-program-manager' ),
+			esc_html( $due ),
+			esc_attr( WPCPM_Sponsor_Report_Screen::NOT_RENEWAL_FORM ),
+			esc_html__( 'Not a renewal', 'wpcredits-program-manager' ),
+			esc_html__( 'The term\'s last day was moved before its report existed, so that term keeps its report: the daily run drafts it the day after the term ends. When the day was moved to correct it rather than to renew, Not a renewal says no report is owed.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The Tier box's Extra events this term: how many co-hosted events the term that ends on the Term
+	 * ends day holds beyond the one the tier includes, drawn holding what the row grants that term
+	 * while it runs (`granted()`), so a save that leaves it alone sends that back.
+	 *
+	 * A number the row keeps for another day, a renewal having moved the day since, is no longer this
+	 * term's, and one kept for the Term ends day once that day has passed can no longer be used: the
+	 * box holds none for either, and a sentence under the box says what the other term was granted,
+	 * as the term that ended once its last day has passed, until the box is changed. After a refused
+	 * save, the box holds the number that was posted (`keep_typing()`).
+	 *
+	 * @param string      $id   The form's ID prefix.
+	 * @param array       $row  The sponsor's row.
+	 * @param string|null $kept The number a refused save of the form posted, as posted, or null.
+	 */
+	private static function render_extra_row( $id, array $row, $kept = null ) {
+		$granted   = self::granted( $row );
+		$allowance = is_array( $row['event_allowance'] ) ? $row['event_allowance'] : array();
+		$other     = '';
+
+		if ( 0 === $granted && isset( $allowance['until'], $allowance['extra'] ) && WPCPM_Sponsor_Tiers::is_date( (string) $allowance['until'] ) ) {
+			$count = (int) $allowance['extra'];
+			$day   = WPCPM_Sponsor_Tiers::format_day( (string) $allowance['until'] );
+			$other = strcmp( (string) $allowance['until'], WPCPM_Sponsor_Tiers::today() ) < 0
+				/* translators: 1: how many more co-hosted events were granted, 2: the last day of the term they were granted for. */
+				? sprintf( _n( '%1$s more event was granted for the term that ended on %2$s.', '%1$s more events were granted for the term that ended on %2$s.', $count, 'wpcredits-program-manager' ), number_format_i18n( $count ), $day )
+				/* translators: 1: how many more co-hosted events were granted, 2: the last day of the term they were granted for. */
+				: sprintf( _n( '%1$s more event was granted for the term to %2$s.', '%1$s more events were granted for the term to %2$s.', $count, 'wpcredits-program-manager' ), number_format_i18n( $count ), $day );
+		}
+
+		printf(
+			'<tr><th scope="row"><label for="%1$sevent-allowance">%2$s</label></th><td><input type="number" id="%1$sevent-allowance" name="wpcpm_event_allowance" value="%3$s" min="0" max="%4$d" step="1" class="small-text" />',
+			esc_attr( $id ),
+			esc_html__( 'Extra events this term', 'wpcredits-program-manager' ),
+			esc_attr( null !== $kept ? WPCPM_Typed_Text::kept_attr( $kept ) : (string) (int) $granted ),
+			(int) self::MAX_EXTRA_EVENTS
+		);
+
+		if ( '' !== $other ) {
+			printf( '<p>%s</p>', esc_html( $other ) );
+		}
+
+		printf(
+			'<p class="description">%s</p></td></tr>',
+			esc_html__( 'Co-hosted events this sponsor may hold in the term that ends on the Term ends day, beyond the one its tier includes. A renewal that moves that day and leaves this box as it is starts the new term with none. Without a term nothing is saved here: a sponsor with no term waits only for its last event to take place.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The Tier box's read-only Tracks row, for an effective Partner alone: which live tracks name
+	 * it, each linked to that track's own page on the Track Builder, where a program manager
+	 * names or drops a partner. Never editable here, so the two screens cannot disagree about who
+	 * is named (the sponsor tiers design, section 4).
+	 *
+	 * @param string $record The sponsor's key.
+	 */
+	private static function render_tracks_row( $record ) {
+		$links = array();
+
+		if ( class_exists( 'WPCPM_Tracks' ) ) {
+			foreach ( WPCPM_Tracks::partner_tracks( $record ) as $track ) {
+				// Required unconditionally on the site, as the Track Builder's own screens are;
+				// this guard is only for a suite that loads this one file.
+				$links[] = class_exists( 'WPCPM_Track_Builder' )
+					? sprintf( '<a href="%1$s">%2$s</a>', esc_url( WPCPM_Track_Builder::track_url( (int) $track['post'] ) ), esc_html( $track['label'] ) )
+					: esc_html( $track['label'] );
+			}
+		}
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td>%2$s<p class="description">%3$s</p></td></tr>',
+			esc_html__( 'Tracks', 'wpcredits-program-manager' ),
+			empty( $links )
+				? esc_html__( 'None yet. A track names its partners on the Track Builder; they show here once the track is published.', 'wpcredits-program-manager' )
+				: wp_kses( implode( ', ', $links ), array( 'a' => array( 'href' => array() ) ) ),
+			esc_html__( 'Set on each track\'s page on the Track Builder; a partner whose term ends stays named there and stops showing on the site.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * One select of the Add and Edit forms. A value the record holds that no option offers is
+	 * drawn as an option of its own, selected, so a save nobody touched sends it back. After a
+	 * refused save, the option that was chosen is the one selected, among the same options.
+	 *
+	 * @param string      $id      The select's ID.
+	 * @param string      $field   The field, a key of `EDITABLE`.
+	 * @param string      $label   The label.
+	 * @param array       $options Value => label, in order.
+	 * @param string      $current What the record holds.
+	 * @param string|null $chosen  What a refused save of the form chose, or null.
+	 */
+	private static function select_row( $id, $field, $label, array $options, $current, $chosen = null ) {
+		$current = (string) $current;
+
+		if ( ! array_key_exists( $current, $options ) ) {
+			$options = array( $current => '' === $current ? __( 'Not set yet', 'wpcredits-program-manager' ) : $current ) + $options;
+		}
+
+		$current = null === $chosen ? $current : (string) $chosen;
+
+		printf(
+			'<tr><th scope="row"><label for="%1$s">%2$s</label></th><td><select id="%1$s" name="wpcpm_%3$s">',
+			esc_attr( $id ),
+			esc_html( $label ),
+			esc_attr( $field )
+		);
+
+		foreach ( $options as $value => $text ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( (string) $value ),
+				(string) $value === $current ? ' selected' : '',
+				esc_html( $text )
+			);
+		}
+
+		echo '</select></td></tr>';
+	}
+
+	/**
+	 * One list of boxes of the Add and Edit forms, after the hidden empty value that says the list
+	 * was drawn (see `posted_fields()`).
+	 *
+	 * @param string   $field   `support` or `mentors`.
+	 * @param string   $label   The row's label.
+	 * @param array    $choices Value => label, in order.
+	 * @param string[] $checked The values ticked.
+	 */
+	private static function checkboxes_row( $field, $label, array $choices, array $checked ) {
+		printf( '<tr><th scope="row">%1$s</th><td><fieldset><legend class="screen-reader-text">%1$s</legend>', esc_html( $label ) );
+		printf( '<input type="hidden" name="wpcpm_%s[]" value="" />', esc_attr( $field ) );
+
+		foreach ( $choices as $value => $text ) {
+			printf(
+				'<label><input type="checkbox" name="wpcpm_%1$s[]" value="%2$s"%3$s /> %4$s</label><br />',
+				esc_attr( $field ),
+				esc_attr( (string) $value ),
+				in_array( (string) $value, $checked, true ) ? ' checked' : '',
+				esc_html( $text )
+			);
+		}
+
+		echo '</fieldset></td></tr>';
+	}
+
+	/**
+	 * The mentors the picker offers: the mentors index, the Active mentors first and then by name,
+	 * each "Name (status)"; after them any mentor the record links whom the index does not hold,
+	 * by record ID, which a save keeps while it stays ticked (see `clean_fields()`).
+	 *
+	 * @param string[] $linked The mentor record IDs the sponsor's record links.
+	 * @return array<string, string> Record ID => label.
+	 */
+	private static function mentor_choices( array $linked ) {
+		$index = array();
+
+		foreach ( WPCPM_Mentors_Sync::sponsorship() as $record => $facts ) {
+			$name   = isset( $facts['name'] ) ? trim( (string) $facts['name'] ) : '';
+			$status = isset( $facts['status'] ) ? trim( (string) $facts['status'] ) : '';
+
+			$index[] = array(
+				'record' => (string) $record,
+				'name'   => '' === $name ? (string) $record : $name,
+				'status' => $status,
+			);
+		}
+
+		// Active first, the word WPCPM_Sponsor_Mentors::looking() reads, then by name.
+		usort(
+			$index,
+			static function ( $a, $b ) {
+				$active = (int) ( 'Active' !== $a['status'] ) - (int) ( 'Active' !== $b['status'] );
+
+				return 0 !== $active ? $active : strcasecmp( $a['name'], $b['name'] );
+			}
+		);
+
+		$choices = array();
+
+		foreach ( $index as $mentor ) {
+			$choices[ $mentor['record'] ] = sprintf(
+				/* translators: 1: a mentor's name, 2: the mentor's status in the program. */
+				__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+				$mentor['name'],
+				'' === $mentor['status'] ? __( 'no status', 'wpcredits-program-manager' ) : $mentor['status']
+			);
+		}
+
+		foreach ( $linked as $record ) {
+			if ( ! isset( $choices[ $record ] ) ) {
+				$choices[ $record ] = sprintf(
+					/* translators: %s: a mentor's record ID. */
+					__( '%s (not in the mentors index)', 'wpcredits-program-manager' ),
+					$record
+				);
+			}
+		}
+
+		return $choices;
 	}
 
 	/**
@@ -2228,7 +4259,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * once per sponsor row, each its own `get_users()` query; grouping `live_accounts()`'s one
 	 * query by `sponsor_of()` here does the same job in one pass over one list.
 	 *
-	 * @return array<string, WP_User[]> Record ID to its accounts.
+	 * @return array<string, WP_User[]> Sponsor key to its accounts.
 	 */
 	private static function accounts_by_sponsor() {
 		$grouped = array();
@@ -2247,11 +4278,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Every sponsor, with its status, manager, accounts and logo, and in the last column its Manage
-	 * accounts, which opens its accounts on the Accounts tab, where they are attached and removed and
-	 * its posting is switched; a screen reader hears the column's heading, Manage accounts, and the
-	 * sponsor's name after the link's words. A sponsor's account is created on the Accounts tab's No
-	 * account view.
+	 * Every sponsor, with its status, manager, accounts and logo, and in the last column Edit on every
+	 * row, which opens the sponsor's Edit form on this tab, and its Manage accounts, which opens its
+	 * accounts on the Accounts tab, where they are attached and removed and its posting is switched;
+	 * then the form that adds one. A screen reader hears the column's heading, Edit and Manage
+	 * accounts, and the sponsor's name after each link's words. A sponsor's account is created on the
+	 * Accounts tab's No account view.
 	 *
 	 * @param array $rows     The index rows.
 	 * @param array $accounts From `accounts_by_sponsor()`.
@@ -2261,34 +4293,162 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Sponsors', 'wpcredits-program-manager' ), esc_html( number_format_i18n( count( $rows ) ) ) );
 
 		if ( empty( $rows ) ) {
-			echo '<p>' . esc_html__( 'No sponsors have been read yet. Run the sync.', 'wpcredits-program-manager' ) . '</p></div>';
+			echo '<p>' . esc_html__( 'No sponsors yet. Add one below or approve an application.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			self::render_grace_preview();
+			$this->render_table( $rows, $accounts );
+		}
 
+		$this->render_add();
+
+		echo '</div>';
+	}
+
+	/**
+	 * Whether the listing for the handbook is shown: while Sponsor tiers is on in Settings, the launch
+	 * switch every sponsor-facing surface checks (`WPCPM_Sponsor_Tiers::live()`), and while the
+	 * listing's class is there to draw it.
+	 *
+	 * The one test the Handbook listing tab is in the bar under (`tab_labels()`) and the box is drawn
+	 * under (`render_listing_box()`), so neither is shown without the other. class_exists() is a
+	 * defensive guard, not a load order fix - the listing class always loads before this one - so a
+	 * site missing the file for some other reason loses the tab and the box rather than the whole
+	 * screen.
+	 *
+	 * @return bool
+	 */
+	private static function listing_shown() {
+		return class_exists( 'WPCPM_Sponsors_Listing' ) && WPCPM_Sponsor_Tiers::live();
+	}
+
+	/**
+	 * The listing for the handbook: the same list the Partners page draws, in plain markup with
+	 * absolute addresses, for a manager to paste into the handbook or hand to the WordPress
+	 * Foundation. The Handbook listing tab's one card (`render_tab_listing()`), the sponsors index
+	 * made public.
+	 *
+	 * Gated on the launch switch, like every other public and sponsor-facing surface this
+	 * release adds: the HTML this box shows names the tiers, so it stays off the page, manager
+	 * or not, until the program announces them. The test is the tab's own (`listing_shown()`), so
+	 * the box is drawn wherever the tab is and nowhere while the switch is off.
+	 */
+	private function render_listing_box() {
+		if ( ! self::listing_shown() ) {
 			return;
 		}
 
+		echo '<div class="wpcpm-card" id="wpcpm-sponsors-listing-box">';
+		echo '<h2>' . esc_html__( 'Listing for the handbook', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p>' . esc_html__( 'The partners as the Partners page lists them, in alphabetical order, as plain HTML with the logos\' public addresses: paste it into the handbook or the WordPress Foundation\'s page.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( empty( WPCPM_Sponsors_Index::approved() ) ) {
+			echo '<p>' . esc_html__( 'No Approved sponsor yet.', 'wpcredits-program-manager' ) . '</p>';
+		}
+
+		printf( '<textarea id="wpcpm-sponsors-listing-html" class="large-text code" rows="12" readonly="readonly">%s</textarea>', esc_textarea( WPCPM_Sponsors_Listing::plain() ) );
+		printf(
+			'<p><button type="button" class="button" data-wpcpm-copy="#wpcpm-sponsors-listing-html" data-wpcpm-copied="%1$s" data-wpcpm-select-hint="%2$s">%3$s</button> <span class="wpcpm-copy__status" role="status" aria-live="polite"></span></p>',
+			esc_attr__( 'Copied.', 'wpcredits-program-manager' ),
+			esc_attr__( 'Selected. Copy it with your keyboard.', 'wpcredits-program-manager' ),
+			esc_html__( 'Copy', 'wpcredits-program-manager' )
+		);
+		echo '</div>';
+	}
+
+	/**
+	 * The grace preview above the index table: the published posts the daily run would put to
+	 * dormant on the day after the grace date, under the tiers and terms as they are set now, as
+	 * `WPCPM_Sponsor_Tiers_Run::preview()` plans it without applying anything. Drawn on or before
+	 * the grace date whether Sponsor tiers is on or off in Settings, because managers set the tiers
+	 * before the launch and plan from this; once the date has passed, the run itself is what
+	 * happens and the paragraph is not drawn.
+	 */
+	private static function render_grace_preview() {
+		if ( ! WPCPM_Sponsor_Tiers::in_grace() ) {
+			return;
+		}
+
+		$preview = WPCPM_Sponsor_Tiers_Run::preview();
+		$day     = WPCPM_Sponsor_Tiers::format_day( $preview['day'] );
+
+		if ( empty( $preview['sponsors'] ) ) {
+			/* translators: %s: the day after the grace date. */
+			$text = sprintf( __( 'Under the tiers as set, nothing goes dormant on %s.', 'wpcredits-program-manager' ), $day );
+		} else {
+			$names = array();
+
+			foreach ( $preview['sponsors'] as $sponsor ) {
+				$names[] = sprintf(
+					/* translators: 1: company name, 2: how many of its published posts go dormant, such as "1 post". */
+					__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+					$sponsor['name'],
+					/* translators: %d: how many of the sponsor's published posts go dormant. */
+					sprintf( _n( '%d post', '%d posts', $sponsor['posts'], 'wpcredits-program-manager' ), $sponsor['posts'] )
+				);
+			}
+
+			$text = sprintf(
+				/* translators: 1: the day after the grace date, 2: how many published posts go dormant, a phrase like 2 published posts, 3: each sponsor with how many of its posts go dormant. */
+				__( 'Under the tiers as set, on %1$s, the daily run puts %2$s to dormant: %3$s.', 'wpcredits-program-manager' ),
+				$day,
+				/* translators: %d: how many published posts go dormant, across the sponsors. */
+				sprintf( _n( '%d published post', '%d published posts', $preview['posts'], 'wpcredits-program-manager' ), $preview['posts'] ),
+				implode( '; ', $names )
+			);
+		}
+
+		if ( ! $preview['live'] ) {
+			$text .= ' ' . __( 'Sponsor tiers is off in Settings: nothing goes dormant until it is on.', 'wpcredits-program-manager' );
+		}
+
+		echo '<p class="description">' . esc_html( $text ) . '</p>';
+	}
+
+	/**
+	 * The index table itself.
+	 *
+	 * @param array $rows     The index rows.
+	 * @param array $accounts From `accounts_by_sponsor()`.
+	 */
+	private function render_table( array $rows, array $accounts ) {
 		echo '<table class="wpcpm-table widefat striped"><thead><tr>';
-		foreach ( array( __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Status', 'wpcredits-program-manager' ), __( 'Product', 'wpcredits-program-manager' ), __( 'Program contact', 'wpcredits-program-manager' ), __( 'Accounts', 'wpcredits-program-manager' ), __( 'Logo', 'wpcredits-program-manager' ) ) as $head ) {
+		foreach ( array( __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Status', 'wpcredits-program-manager' ), __( 'Tier', 'wpcredits-program-manager' ), __( 'Product', 'wpcredits-program-manager' ), __( 'Program contact', 'wpcredits-program-manager' ), __( 'Accounts', 'wpcredits-program-manager' ), __( 'Logo', 'wpcredits-program-manager' ) ) as $head ) {
 			echo '<th scope="col">' . esc_html( $head ) . '</th>';
 		}
 		// The column of links is named for a screen reader and drawn without a visible heading.
-		echo '<th scope="col"><span class="screen-reader-text">' . esc_html__( 'Manage accounts', 'wpcredits-program-manager' ) . '</span></th>';
+		echo '<th scope="col"><span class="screen-reader-text">' . esc_html__( 'Edit and Manage accounts', 'wpcredits-program-manager' ) . '</span></th>';
 		echo '</tr></thead><tbody>';
 
 		foreach ( $rows as $record => $row ) {
 			$members = isset( $accounts[ $record ] ) ? $accounts[ $record ] : array();
-			$manager = WPCPM_Sponsors_Index::manager_of( $record );
 			$logo    = WPCPM_Sponsors_Index::logo_record( $record );
 			$name    = '' === trim( $row['name'] ) ? $record : trim( $row['name'] );
 			$link    = self::dashboard_link( $record );
 
 			echo '<tr>';
-			echo '<td>' . ( '' !== $link ? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $link ), esc_html( $name ) ) : esc_html( $name ) ) . '</td>';
+			echo '<td>' . ( '' !== $link ? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $link ), esc_html( $name ) ) : esc_html( $name ) );
+
+			// A test sponsor says so on its row (1.123.18): it is listed nowhere public.
+			if ( ! empty( $row['test'] ) ) {
+				echo ' <span class="description">' . esc_html__( '(test sponsor, not listed publicly)', 'wpcredits-program-manager' ) . '</span>';
+			}
+
+			echo '</td>';
 			echo '<td>' . esc_html( $row['status'] ) . '</td>';
+			echo '<td>' . esc_html( self::tier_cell( $row ) ) . '</td>';
 			echo '<td>' . esc_html( $row['product_type'] ) . '</td>';
-			echo '<td>' . esc_html( is_array( $manager ) ? $manager['name'] : '' ) . '</td>';
+			echo '<td>' . esc_html( WPCPM_Sponsors_Index::manager_label( $row ) ) . '</td>';
 			echo '<td>' . esc_html( number_format_i18n( count( $members ) ) ) . '</td>';
-			echo '<td>' . esc_html( $logo['colour'] > 0 ? __( 'On the site', 'wpcredits-program-manager' ) : ( empty( $row['logo'] ) ? __( 'None', 'wpcredits-program-manager' ) : __( 'Not copied yet', 'wpcredits-program-manager' ) ) ) . '</td>';
+			// The row's own `logo` key left it in 1.111.0: the logo option is the only record of
+			// it now, so the column reads that alone rather than a fact the row no longer carries.
+			echo '<td>' . esc_html( $logo['colour'] > 0 ? __( 'On the site', 'wpcredits-program-manager' ) : __( 'None', 'wpcredits-program-manager' ) ) . '</td>';
 			echo '<td>';
+			printf(
+				'<a href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a> ',
+				esc_url( self::edit_url( (string) $record ) ),
+				esc_html__( 'Edit', 'wpcredits-program-manager' ),
+				esc_html( $name )
+			);
 			printf(
 				'<a href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a>',
 				esc_url( self::accounts_view_url( $record ) ),
@@ -2299,7 +4459,44 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			echo '</td></tr>';
 		}
 
-		echo '</tbody></table></div>';
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * The index's Tier column: the effective tier alone while there is no term to name, the tier
+	 * with the last day of its term while that term is open, and a lapsed term read back as a
+	 * Friend, with the tier it used to be and the day it ended (the daily run's mail, the
+	 * Sponsorship card and the Administrator Dashboard print the same day through
+	 * `WPCPM_Sponsor_Tiers::format_day()`).
+	 *
+	 * @param array $row A row.
+	 * @return string
+	 */
+	private static function tier_cell( array $row ) {
+		$tier  = isset( $row['tier'] ) ? (string) $row['tier'] : '';
+		$until = isset( $row['tier_until'] ) ? (string) $row['tier_until'] : '';
+
+		if ( ! WPCPM_Sponsor_Tiers::is_date( $until ) ) {
+			return WPCPM_Sponsor_Tiers::label( WPCPM_Sponsor_Tiers::effective( $row ) );
+		}
+
+		$day = WPCPM_Sponsor_Tiers::format_day( $until );
+
+		if ( WPCPM_Sponsor_Tiers::effective( $row ) === $tier ) {
+			return sprintf(
+				/* translators: 1: a sponsor tier's name, 2: the last day of its term. */
+				__( '%1$s until %2$s', 'wpcredits-program-manager' ),
+				WPCPM_Sponsor_Tiers::label( $tier ),
+				$day
+			);
+		}
+
+		return sprintf(
+			/* translators: 1: the tier a sponsor's term used to be, 2: the day the term ended. */
+			__( 'Friend (%1$s ended %2$s)', 'wpcredits-program-manager' ),
+			WPCPM_Sponsor_Tiers::label( $tier ),
+			$day
+		);
 	}
 
 	/**
@@ -2497,7 +4694,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/**
 	 * One Approved sponsor's standing agreement state, and the one control it can take next.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @param array  $row    The index row.
 	 */
 	private function render_agreement_state( $record, array $row ) {
@@ -2511,10 +4708,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'<p class="description">%s</p>',
 			esc_html(
 				sprintf(
-					/* translators: 1: what this site holds, 2: what Airtable says. */
-					__( 'This site: %1$s. Airtable: %2$s.', 'wpcredits-program-manager' ),
-					self::agreement_word( $state, (string) $summary['accepted_at'] ),
-					'' === trim( (string) $summary['airtable_status'] ) ? __( 'Not started', 'wpcredits-program-manager' ) : (string) $summary['airtable_status']
+					/* translators: %s: what this site holds. */
+					__( 'This site: %s.', 'wpcredits-program-manager' ),
+					self::agreement_word( $state, (string) $summary['accepted_at'] )
 				)
 			)
 		);
@@ -2588,7 +4784,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * @param string      $label   The button.
 	 * @param string      $confirm A confirm sentence, or '' for none.
 	 * @param string      $note    A note box's label, or '' for no note box.
-	 * @param string      $drive   A record ID when this form asks for a Drive link, else ''.
+	 * @param string      $drive   A sponsor key when this form asks for a Drive link, else ''.
 	 * @param string|null $kept    What a refused press of this form typed into its note box, or
 	 *                             null.
 	 */
@@ -2688,7 +4884,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/**
 	 * A sponsor's dashboard, through the switcher, or '' before the front end exists.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	private static function dashboard_link( $record ) {

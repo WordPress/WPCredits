@@ -103,6 +103,13 @@
 	grid-template-columns: 1fr 1fr;
 }
 
+/* In thirds on the Sponsor Dashboard (1.118.0), its program contact in a column of its own: the
+   theme's three tracks (wpcredits-theme 1.29.0). Ahead of the 600px block below, whose one track
+   for halves then wins for thirds too. */
+.wpcpm-resources--split-3 {
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+}
+
 .wpcpm-resources__col {
 	display: flex;
 	flex-direction: column;

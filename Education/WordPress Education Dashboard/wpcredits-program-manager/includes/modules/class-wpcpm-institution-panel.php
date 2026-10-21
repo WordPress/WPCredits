@@ -464,19 +464,24 @@ class WPCPM_Institution_Panel {
 	 * site never shows the file in a browser and hands it over as an attachment instead.
 	 *
 	 * **Two pages draw it, and one of them decides.** A decision keeps one home, the
-	 * Administrator Dashboard, which passes nothing for `$decide` and gets the two, Accept and
-	 * Return. The Institutions screen's queue passes `false` and gets the same block to read, down
-	 * to the download link, with one line in the decisions' place: the way to this block on the
-	 * Administrator Dashboard, by the `wpcpm-review-<post id>` anchor both pages print. While that
-	 * page is missing the line is left out and the caller says so: the queue prints the dashboard
-	 * class's sentence once above its list, where one sentence per waiting document would repeat
-	 * it.
+	 * Administrator Dashboard, which passes `true` for `$decide` and gets the two, Accept and
+	 * Return, each brought back to it by `$where`. The Institutions screen's queue passes `false`
+	 * and gets the same block to read, down to the download link, with one line in the decisions'
+	 * place: the way to this block on the Administrator Dashboard, by the `wpcpm-review-<post id>`
+	 * anchor both pages print. While that page is missing the line is left out and the caller says
+	 * so: the queue prints the dashboard class's sentence once above its list, where one sentence
+	 * per waiting document would repeat it.
 	 *
-	 * @param int  $post_id Agreement post ID, a document in `submitted`.
-	 * @param bool $decide  True on the Administrator Dashboard, where the two decisions are drawn;
-	 *                      false on the Institutions screen, where the block is read.
+	 * @param int    $post_id Agreement post ID, a document in `submitted`.
+	 * @param bool   $decide  True on the Administrator Dashboard, where the two decisions are drawn;
+	 *                        false on the Institutions screen, where the block is read.
+	 * @param string $where   Where a decision comes back to, as `WPCPM_Return::field()` takes it:
+	 *                        WPCPM_Return::DASHBOARD from the Administrator Dashboard, so it lands on
+	 *                        that page's Collaboration Agreements card, open; '' for none, and the
+	 *                        handler returns where the press came from. Read only while `$decide` is
+	 *                        true: a block drawn to be read holds no form.
 	 */
-	public static function render_review( $post_id, $decide = true ) {
+	public static function render_review( $post_id, $decide = true, $where = '' ) {
 		$post_id = (int) $post_id;
 		$post    = get_post( $post_id );
 
@@ -537,8 +542,8 @@ class WPCPM_Institution_Panel {
 		self::render_download_link( $post_id, __( 'Download the signed agreement', 'wpcredits-program-manager' ) );
 
 		if ( $decide ) {
-			self::render_accept_form( $post_id, $name, $members );
-			self::render_return_form( $post_id );
+			self::render_accept_form( $post_id, $name, $members, $where );
+			self::render_return_form( $post_id, $where );
 		} else {
 			self::render_decided_elsewhere( $post_id );
 		}
@@ -686,8 +691,9 @@ class WPCPM_Institution_Panel {
 	 * @param int    $post_id Agreement post ID.
 	 * @param string $name    Institution name, as printed.
 	 * @param int    $members How many people are emailed.
+	 * @param string $where   Where the decision comes back to, as `render_review()` was told.
 	 */
-	private static function render_accept_form( $post_id, $name, $members ) {
+	private static function render_accept_form( $post_id, $name, $members, $where = '' ) {
 		self::form_start(
 			'wpcpm-review__form wpcpm-review__form--accept',
 			WPCPM_Institution_Agreement::ACTION_ACCEPT,
@@ -697,6 +703,10 @@ class WPCPM_Institution_Panel {
 		);
 
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $where, 'agreements' );
+		}
 
 		printf(
 			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
@@ -730,9 +740,10 @@ class WPCPM_Institution_Panel {
 	 * A return refused for its own words comes back with the note as it was typed, in this
 	 * document's box only (`WPCPM_Institution_Agreement::kept_return_note()`).
 	 *
-	 * @param int $post_id Agreement post ID.
+	 * @param int    $post_id Agreement post ID.
+	 * @param string $where   Where the decision comes back to, as `render_review()` was told.
 	 */
-	private static function render_return_form( $post_id ) {
+	private static function render_return_form( $post_id, $where = '' ) {
 		$base = 'wpcpm-return-' . (int) $post_id;
 		$kept = WPCPM_Institution_Agreement::kept_return_note( $post_id );
 
@@ -745,6 +756,10 @@ class WPCPM_Institution_Panel {
 		);
 
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $where, 'agreements' );
+		}
 
 		printf(
 			'<p class="wpcpm-review__note"><label for="%1$s">%2$s</label> <textarea class="wpcpm-agreement-panel__input" id="%1$s" name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required>%3$s</textarea></p>',

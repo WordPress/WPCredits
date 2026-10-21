@@ -428,7 +428,8 @@ class WPCPM_Institutions_Dashboard {
 		// everybody who reads it. Each module says under its title what it is for.
 		if ( ! $locked ) {
 			$order    = self::module_order( $record );
-			$can_move = $can_manage || (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record;
+			$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record;
+			$can_move = $can_manage || $own_page;
 
 			if ( $can_move && wp_script_is( WPCPM_Module_Order::SCRIPT, 'registered' ) ) {
 				wp_enqueue_script( WPCPM_Module_Order::SCRIPT );
@@ -464,6 +465,14 @@ class WPCPM_Institutions_Dashboard {
 			foreach ( $rendered as $key => $body ) {
 				self::render_module( $key, $body, $index, $count, $record, $can_move );
 				++$index;
+			}
+
+			// The events from the program's sponsors, after the modules and outside their saved
+			// order, for a contact of this institution on its own page alone: a Join puts whoever
+			// presses it on the event, so a program manager looking through the switcher is not
+			// offered it, and joins on the Administrator Dashboard, as themselves.
+			if ( $own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+				WPCPM_Sponsor_Event_List::render( $viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );
 			}
 
 			// When the records were last read, once, at the foot of the page under its own

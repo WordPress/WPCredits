@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 75 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, 105', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 105 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -118,7 +118,7 @@ ck(
 // and the sponsor's say who receives each, as the institution's do.
 $named = array();
 foreach ( $emails as $id => $e ) {
-	if ( in_array( $e['module'], array( 'institutions', 'sponsors' ), true ) ) {
+	if ( in_array( $e['module'], array( 'institutions', 'sponsors', 'events' ), true ) ) {
 		$named[ $e['module'] ][ $id ] = $e['label'] . ' / ' . ( '' === $e['audience'] ? 'the account decides' : $e['audience'] );
 	}
 }
@@ -147,7 +147,7 @@ ck(
 	)
 );
 ck(
-	'and the Sponsors area its thirteen ids of before 1.122.22 and the two emails of their own since; the low codes go to the sponsor\'s accounts and its Administrator in the same words, so the account decides',
+	'and the Sponsors area its thirteen ids of before 1.122.22 and the two emails of their own since, and the two of a term\'s end; the low codes go to the sponsor\'s accounts and its Administrator in the same words, so the account decides',
 	isset( $named['sponsors'] ) ? $named['sponsors'] : null,
 	array(
 		'sponsor-applied'              => 'Sponsor application received, to the applicant / applicant',
@@ -165,6 +165,46 @@ ck(
 		'offer-low-stock'              => 'Codes running low / the account decides',
 		'claim-problem'                => 'Problem with a claimed code / administrator',
 		'sponsor-post-returned'        => 'Sponsor post returned with a note / sponsor',
+		'sponsor-offer-returned'       => 'Sponsor offer returned with a note / sponsor',
+		'sponsor-term-ending'          => 'Sponsor term ending, to Administrators / administrator',
+		'sponsor-term-ended'           => 'Sponsor term ended, to Administrators / administrator',
+	)
+);
+// The Sponsor events area: an email to the people who join, leave or are on an event goes to
+// students, mentors, institutions' contacts and Administrators in the same words, so the account
+// decides; the program's own events have ids of their own, and so has what an Administrator did on a
+// sponsor's behalf.
+ck(
+	'the Sponsor events area names its 27 emails, each with who receives it',
+	isset( $named['events'] ) ? $named['events'] : null,
+	array(
+		'event-joined'               => 'Event joined, to the person who joined / the account decides',
+		'event-joined-program'       => 'Program event joined, to the person who joined / the account decides',
+		'event-left'                 => 'Event left, to the person who left / the account decides',
+		'event-left-program'         => 'Program event left, to the person who left / the account decides',
+		'event-changed'              => 'Event changed, to the people on it / the account decides',
+		'event-changed-program'      => 'Program event changed, to the people on it / the account decides',
+		'event-canceled'             => 'Event canceled, to the people on it / the account decides',
+		'event-canceled-program'     => 'Program event canceled, to the people on it / the account decides',
+		'event-reminder'             => 'Event reminder, to the people on it / the account decides',
+		'event-reminder-program'     => 'Program event reminder, to the people on it / the account decides',
+		'event-reminder-sponsor'     => 'Event reminder, to the sponsor / sponsor',
+		'event-approved'             => 'Event approved, to the sponsor / sponsor',
+		'event-returned'             => 'Event returned with a note, to the sponsor / sponsor',
+		'event-returned-no-events'   => 'Event returned with a note, to a sponsor whose tier no longer includes events / sponsor',
+		'event-canceled-with-note'   => 'Event canceled with a note, to the sponsor / sponsor',
+		'event-changed-sponsor'      => 'Approved event changed, to the sponsor / sponsor',
+		'event-changed-sponsor-for'  => 'Approved event changed by an Administrator, to the sponsor / sponsor',
+		'event-canceled-sponsor'     => 'Approved event canceled, to the sponsor / sponsor',
+		'event-canceled-sponsor-for' => 'Approved event canceled by an Administrator, to the sponsor / sponsor',
+		'event-planned'              => 'Event planned by a sponsor, to Administrators / administrator',
+		'event-planned-for'          => 'Event planned for a sponsor by an Administrator, to Administrators / administrator',
+		'event-changed-waiting'      => 'Waiting event changed by its sponsor, to Administrators / administrator',
+		'event-changed-waiting-for'  => 'Waiting event changed for a sponsor by an Administrator, to Administrators / administrator',
+		'event-changed-approved'     => 'Approved event changed by its sponsor, to Administrators / administrator',
+		'event-changed-approved-for' => 'Approved event changed for a sponsor by an Administrator, to Administrators / administrator',
+		'event-canceled-by-sponsor'  => 'Event canceled by its sponsor, to Administrators / administrator',
+		'event-canceled-for'         => 'Event canceled for a sponsor by an Administrator, to Administrators / administrator',
 	)
 );
 
@@ -196,7 +236,7 @@ ck(
 	)
 );
 
-ck( 'the areas are the ones the Log lists, in its order', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications', 'WordPress', 'Two Factor', 'Other' ) );
+ck( 'the areas are the ones the Log lists, in its order, the Sponsor events after the Sponsors and the Mentor applications after them', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'WordPress', 'Two Factor', 'Other' ) );
 
 // Every context the plugin hands the mail layer, read from the source: a literal, or a constant the
 // same file declares, as the second argument of send(), send_to() and mail_members(), the first of
@@ -229,7 +269,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 36 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 36 );
+ck( 'and the scan found all 37 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31 and the offer returned with a note since 1.123.18; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 37 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,

@@ -38,8 +38,18 @@ class WPCPM_Sponsor_Posts {
 	/** A manager's note when a post goes back to its author; cleared on publish. */
 	const META_RETURN_NOTE = '_wpcpm_sponsor_return_note';
 
+	/**
+	 * Jetpack Subscriptions' own mark for a post it must never email to the site's subscribers
+	 * (1.123.18): set on every sponsor post, beside the category it leaves out
+	 * (`exclude_from_subscriptions()`), so either guard alone keeps a sponsor post out of the mail.
+	 */
+	const META_NO_SUBSCRIBER_MAIL = '_jetpack_dont_email_post_to_subs';
+
 	/** When it went back, Unix time. */
 	const META_RETURNED = '_wpcpm_sponsor_returned';
+
+	/** A post the daily run, `WPCPM_Sponsor_Tiers_Run`, put back to pending: the Y-m-d it happened. */
+	const META_DORMANT = '_wpcpm_spost_dormant';
 
 	/** A return note's longest, in characters as the manager typed it (`WPCPM_Typed_Text::box_length()`). */
 	const MAX_NOTE = 2000;
@@ -68,6 +78,9 @@ class WPCPM_Sponsor_Posts {
 	const CARD_LIMIT  = 50;
 	const TOOLS_LIMIT = 5;
 
+	/** A limit for posts_of() when a caller wants no real cap; five hundred in flight is not a cap problem. */
+	const COUNT_LIMIT = 500;
+
 	/**
 	 * Booted by WPCPM_Sponsors::boot(). The handlers, the fence and the byline are all registered
 	 * for everyone; each callback below decides for itself whether the current user is fenced.
@@ -89,6 +102,8 @@ class WPCPM_Sponsor_Posts {
 		add_action( 'save_post_post', array( __CLASS__, 'enforce' ), 20, 2 );
 		add_action( 'rest_after_insert_post', array( __CLASS__, 'enforce_rest' ), 20, 1 );
 		add_action( 'pre_get_posts', array( __CLASS__, 'scope_admin_list' ) );
+		// A test sponsor's posts are in no front-end listing anybody but an Administrator reads (1.123.18).
+		add_action( 'pre_get_posts', array( __CLASS__, 'hide_test_posts' ) );
 		add_filter( 'ajax_query_attachments_args', array( __CLASS__, 'scope_media' ) );
 		add_filter( 'rest_attachment_query', array( __CLASS__, 'scope_media' ) );
 		add_filter( 'wp_prepare_attachment_for_js', array( __CLASS__, 'scope_attachment_details' ), 10, 2 );
@@ -107,6 +122,97 @@ class WPCPM_Sponsor_Posts {
 		add_filter( 'the_content', array( __CLASS__, 'filter_content' ), 6 );
 		// After the gate's own oembed_response_data filter at 10, which answers a refusal first.
 		add_filter( 'oembed_response_data', array( __CLASS__, 'filter_oembed' ), 20, 2 );
+		// Jetpack Subscriptions emails a post each time it moves to publish, a sponsor post an
+		// Administrator approves and a dormant one the daily run wakes among them. Its own filter,
+		// which only Jetpack applies, so without Jetpack this does nothing and asks for nothing.
+		add_filter( 'jetpack_subscriptions_exclude_these_categories', array( __CLASS__, 'exclude_from_subscriptions' ) );
+	}
+
+	/**
+	 * `pre_get_posts`: a test sponsor is never listed publicly (1.123.18), and its posts are posts of
+	 * the site, which the blog, its archives, its feeds and its search list to every reader the
+	 * access gate admits. On the front end, for anybody but an Administrator, a listing leaves out
+	 * every post stamped with a test sponsor's key. The same queries the gate stands aside from are
+	 * left alone: wp-admin, a single post's own page, which the gate answers, a query that names
+	 * none of the post types a sponsor post can be, and the plugin's own queries that stand outside
+	 * the gate by name (`QUERY_UNGATED`), so the test sponsor's own members keep their Posts card.
+	 * The store is read only for a query that can list a post, so reading it, itself a query of
+	 * the sponsors' own post type, never comes back here.
+	 *
+	 * @param WP_Query $query The query being prepared.
+	 */
+	public static function hide_test_posts( $query ) {
+		if ( is_admin() || ! $query instanceof WP_Query || $query->get( WPCPM_Content_Access::QUERY_UNGATED ) || $query->is_singular() ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+
+		if ( $user_id && user_can( $user_id, WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
+		// An unset post type is the blog index, a feed or a search, which list posts.
+		$post_types = array_filter( array_map( 'strval', (array) $query->get( 'post_type' ) ), 'strlen' );
+
+		if ( ! empty( $post_types ) && ! in_array( 'post', $post_types, true ) && ! in_array( 'any', $post_types, true ) ) {
+			return;
+		}
+
+		$tests = WPCPM_Sponsors_Index::test_keys();
+
+		if ( empty( $tests ) ) {
+			return;
+		}
+
+		$meta_query = $query->get( 'meta_query' );
+		$meta_query = is_array( $meta_query ) ? $meta_query : array();
+
+		$meta_query[] = array(
+			'relation' => 'OR',
+			array(
+				'key'     => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+				'value'   => $tests,
+				'compare' => 'NOT IN',
+			),
+		);
+
+		$query->set( 'meta_query', $meta_query );
+	}
+
+	/**
+	 * `jetpack_subscriptions_exclude_these_categories`: the Sponsors category and every sponsor's
+	 * own under it join the categories Jetpack never emails to the site's subscribers (1.123.18).
+	 * Read by slug and never created here: with no Sponsors category yet there is no sponsor post
+	 * to leave out, and the list goes back as it came.
+	 *
+	 * @param mixed $categories The category IDs or slugs left out so far.
+	 * @return array
+	 */
+	public static function exclude_from_subscriptions( $categories ) {
+		$categories = is_array( $categories ) ? $categories : array();
+		$parent     = get_term_by( 'slug', self::PARENT_SLUG, 'category' );
+
+		if ( ! is_object( $parent ) || empty( $parent->term_id ) ) {
+			return $categories;
+		}
+
+		$categories[] = (int) $parent->term_id;
+		$children     = get_term_children( (int) $parent->term_id, 'category' );
+
+		if ( is_array( $children ) ) {
+			sort( $children );
+
+			foreach ( $children as $child ) {
+				$categories[] = (int) $child;
+			}
+		}
+
+		return array_values( array_unique( $categories, SORT_REGULAR ) );
 	}
 
 	/*
@@ -156,6 +262,26 @@ class WPCPM_Sponsor_Posts {
 			$data['post_status'] = 'pending';
 		}
 
+		// A submission the tier's cap has no room for is a draft, never a refusal: this filter
+		// can only change the data (spec inventory 3c), so the card is where a member reads why.
+		// A post already pending or published holds its slot already - re-saving it (a dormant
+		// one included) is not a new claim on the cap, so only a post about to enter pending for
+		// the first time, from a draft, an auto-draft or brand new, asks whether there is room
+		// (review finding: the clamp was drafting an edit whenever the sponsor's OTHER posts
+		// alone already reached the cap, which is the normal state while any post sits dormant).
+		if ( 'pending' === $data['post_status'] ) {
+			$post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+			$prior   = $post_id > 0 ? get_post_status( $post_id ) : false;
+
+			if ( ! in_array( $prior, array( 'pending', 'publish' ), true ) ) {
+				$record = WPCPM_Sponsor_Members::sponsor_of();
+
+				if ( '' !== $record && '' !== self::write_reason( $record ) ) {
+					$data['post_status'] = 'draft';
+				}
+			}
+		}
+
 		$data['post_author'] = get_current_user_id();
 
 		// No scheduling: a date in the future becomes now, so a post cannot go live by itself
@@ -186,6 +312,12 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		self::pin( (int) $post_id, WPCPM_Sponsor_Members::sponsor_of() );
+
+		// An edit is a new submission: the daily run may only wake a post nobody has touched
+		// since it parked it, so a member's own save - classic or REST, both raise save_post_post
+		// - takes the stamp off, whatever the run left here before (review finding: the stamp
+		// used to survive an edit, so wake() would have published text nobody reviewed).
+		delete_post_meta( (int) $post_id, self::META_DORMANT );
 	}
 
 	/**
@@ -210,7 +342,7 @@ class WPCPM_Sponsor_Posts {
 	 * @param string $record  The member's sponsor; '' does nothing.
 	 */
 	public static function pin( $post_id, $record ) {
-		if ( $post_id < 1 || ! WPCPM_Mentors_Sync::is_record_id( (string) $record ) ) {
+		if ( $post_id < 1 || ! WPCPM_Sponsors_Index::is_key( (string) $record ) ) {
 			return;
 		}
 
@@ -222,6 +354,7 @@ class WPCPM_Sponsor_Posts {
 
 		update_post_meta( $post_id, WPCPM_Content_Access::META_KEY, WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS );
 		update_post_meta( $post_id, WPCPM_Sponsor_Policy::META_POST_SPONSOR, $record );
+		update_post_meta( $post_id, self::META_NO_SUBSCRIBER_MAIL, 1 );
 	}
 
 	/**
@@ -354,7 +487,7 @@ class WPCPM_Sponsor_Posts {
 	 * A sponsor's flags, with the default the design chose: posting is on until a manager
 	 * switches it off (decision 6 wants sponsors writing).
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return array `array( 'posts' => bool )`.
 	 */
 	public static function flags( $record ) {
@@ -369,7 +502,7 @@ class WPCPM_Sponsor_Posts {
 	/**
 	 * Whether the sponsor's accounts may write posts.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return bool
 	 */
 	public static function posting_enabled( $record ) {
@@ -379,7 +512,7 @@ class WPCPM_Sponsor_Posts {
 	/**
 	 * Switch posting for a sponsor and apply it to every live member at once.
 	 *
-	 * @param string $record   Airtable record ID.
+	 * @param string $record   Sponsor key.
 	 * @param bool   $on       The new state.
 	 * @param int    $actor_id Who switched it.
 	 * @return bool True when the flag changed; false for a bad record or a switch to the state it was in.
@@ -387,7 +520,7 @@ class WPCPM_Sponsor_Posts {
 	public static function set_posting( $record, $on, $actor_id ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return false;
 		}
 
@@ -430,10 +563,10 @@ class WPCPM_Sponsor_Posts {
 	 * otherwise. Called by attach() and by every switch.
 	 *
 	 * @param int    $user_id The account.
-	 * @param string $record  Airtable record ID.
+	 * @param string $record  Sponsor key.
 	 */
 	public static function apply_caps( $user_id, $record ) {
-		if ( ! WPCPM_Mentors_Sync::is_record_id( (string) $record ) || ! self::posting_enabled( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( (string) $record ) || ! self::posting_enabled( $record ) ) {
 			self::drop_caps( $user_id );
 
 			return;
@@ -528,13 +661,13 @@ class WPCPM_Sponsor_Posts {
 	 * The sponsor's child category, created on first use and recorded per record. The slug is
 	 * the company name's, suffixed `-2`, `-3` and so on when another term holds it.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return int Term id, or 0.
 	 */
 	public static function ensure_terms( $record ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return 0;
 		}
 
@@ -567,7 +700,7 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		// The name as a slashed copy: core unslashes a term's name, and the company's name is
-		// the base's, read unslashed. The slug is `sanitize_title()`'s, which core reads as given.
+		// read from its record unslashed. The slug is `sanitize_title()`'s, which core reads as given.
 		$made = wp_insert_term(
 			wp_slash( $name ),
 			'category',
@@ -589,7 +722,7 @@ class WPCPM_Sponsor_Posts {
 	/**
 	 * The recorded child term, if it still exists.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return int Term id, or 0.
 	 */
 	public static function term_of( $record ) {
@@ -605,11 +738,13 @@ class WPCPM_Sponsor_Posts {
 	}
 
 	/**
-	 * Rename the child terms of companies the sync just saw renamed. The slug is kept on
-	 * purpose: links to the category keep working, and the name is what readers see.
+	 * Rename the child terms of the sponsors a save just renamed. The slug is kept on purpose:
+	 * links to the category keep working, and the name is what readers see. The Sponsors
+	 * screen's Edit form is the caller since 1.111.0, when the sponsor record moved onto the site
+	 * and the sync that called this went with it.
 	 *
-	 * @param array $before The index rows held before the sync, keyed by record.
-	 * @param array $after  The rows just read, keyed by record.
+	 * @param array $before The rows as the store held them before the save, keyed by sponsor key.
+	 * @param array $after  The rows as saved, keyed by sponsor key.
 	 */
 	public static function rename_terms( array $before, array $after ) {
 		foreach ( $after as $record => $row ) {
@@ -667,6 +802,8 @@ class WPCPM_Sponsor_Posts {
 	 * posts in it is site content.
 	 */
 	public static function delete_all() {
+		self::clear_dormant_stamps();
+
 		global $wpdb;
 
 		if ( isset( $wpdb ) && is_object( $wpdb ) ) {
@@ -696,6 +833,31 @@ class WPCPM_Sponsor_Posts {
 		}
 	}
 
+	/**
+	 * Uninstall: every post still carrying META_DORMANT loses the stamp, across every status a
+	 * stamped post could be in. Not the daily run's own call: waking every dormant post at once
+	 * is exactly what it must never do, and this is uninstall's own cleanup, nothing else's. The
+	 * posts themselves are never touched here - they are site content, the same as the category
+	 * terms a few lines up.
+	 */
+	private static function clear_dormant_stamps() {
+		$stamped = get_posts(
+			array(
+				'post_type'        => 'post',
+				'post_status'      => array( 'publish', 'pending', 'draft', 'future', 'private', 'trash' ),
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'meta_key'         => self::META_DORMANT,
+				'meta_compare'     => 'EXISTS',
+				'suppress_filters' => false,
+			)
+		);
+
+		foreach ( (array) $stamped as $id ) {
+			delete_post_meta( (int) $id, self::META_DORMANT );
+		}
+	}
+
 	/*
 	 * Reading the posts
 	 * --------------------------------------------------------------------
@@ -708,7 +870,7 @@ class WPCPM_Sponsor_Posts {
 	 * otherwise hide the sponsor's own list from the sponsor. The card is gated by the sponsor
 	 * policy instead, and `render_tools()` re-checks `can_view()` on every post it prints.
 	 *
-	 * @param string   $record   Airtable record ID.
+	 * @param string   $record   Sponsor key.
 	 * @param string[] $statuses Post statuses.
 	 * @param int      $limit    How many at most.
 	 * @return WP_Post[]
@@ -716,7 +878,7 @@ class WPCPM_Sponsor_Posts {
 	public static function posts_of( $record, array $statuses = array( 'draft', 'pending', 'publish' ), $limit = self::CARD_LIMIT ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return array();
 		}
 
@@ -748,11 +910,60 @@ class WPCPM_Sponsor_Posts {
 	}
 
 	/**
+	 * How many of a sponsor's posts hold a slot toward its tier's cap: pending or published,
+	 * one named by id left out. A pending post the daily run demoted still holds its slot, so it
+	 * is not left out here the way pending_all() leaves it out of the manager's queue.
+	 *
+	 * @param string $record    Sponsor key.
+	 * @param int    $except_id A post already counted to leave out, or 0 to leave none out.
+	 * @return int
+	 */
+	public static function post_count( $record, $except_id = 0 ) {
+		$count = 0;
+
+		foreach ( self::posts_of( $record, array( 'pending', 'publish' ), self::COUNT_LIMIT ) as $post ) {
+			if ( (int) $post->ID !== (int) $except_id ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * A sponsor's published posts, as posts_of() orders them.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return WP_Post[]
+	 */
+	public static function published_of( $record ) {
+		return self::posts_of( $record, array( 'publish' ), self::COUNT_LIMIT );
+	}
+
+	/**
+	 * A sponsor's pending posts the daily run put back from publish, stamped META_DORMANT.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return WP_Post[]
+	 */
+	public static function dormant_of( $record ) {
+		$out = array();
+
+		foreach ( self::posts_of( $record, array( 'pending' ), self::COUNT_LIMIT ) as $post ) {
+			if ( '' !== (string) get_post_meta( $post->ID, self::META_DORMANT, true ) ) {
+				$out[] = $post;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * A post's state in the sponsor's words: draft, returned (a draft with a note), pending,
-	 * published.
+	 * dormant (a pending post the daily run put back), published.
 	 *
 	 * @param WP_Post $post The post.
-	 * @return string One of `draft`, `returned`, `pending`, `published`.
+	 * @return string One of `draft`, `returned`, `pending`, `dormant`, `published`.
 	 */
 	public static function state_of( WP_Post $post ) {
 		if ( 'publish' === $post->post_status ) {
@@ -760,7 +971,7 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		if ( 'pending' === $post->post_status ) {
-			return 'pending';
+			return '' !== (string) get_post_meta( $post->ID, self::META_DORMANT, true ) ? 'dormant' : 'pending';
 		}
 
 		return '' !== (string) get_post_meta( $post->ID, self::META_RETURN_NOTE, true ) ? 'returned' : 'draft';
@@ -777,10 +988,241 @@ class WPCPM_Sponsor_Posts {
 			'draft'     => __( 'Draft', 'wpcredits-program-manager' ),
 			'returned'  => __( 'Returned with a note', 'wpcredits-program-manager' ),
 			'pending'   => __( 'Waiting for review', 'wpcredits-program-manager' ),
+			'dormant'   => __( 'Dormant', 'wpcredits-program-manager' ),
 			'published' => __( 'Published', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $labels[ $state ] ) ? $labels[ $state ] : $state;
+	}
+
+	/*
+	 * The tier's post cap
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The tier's post cap for a sponsor, or null for any number; null too while the switch is
+	 * off, so nothing below is ever asked to spell out a benefit the switch has not turned on.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return int|null
+	 */
+	private static function cap_of( $record ) {
+		if ( ! WPCPM_Sponsor_Tiers::live() ) {
+			return null;
+		}
+
+		$row = WPCPM_Sponsors_Index::row( $record );
+
+		return WPCPM_Sponsor_Tiers::post_cap( WPCPM_Sponsor_Tiers::effective( is_array( $row ) ? $row : array() ) );
+	}
+
+	/**
+	 * A sponsor's effective tier, in words.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string
+	 */
+	private static function tier_label( $record ) {
+		$row = WPCPM_Sponsors_Index::row( $record );
+
+		return WPCPM_Sponsor_Tiers::label( WPCPM_Sponsor_Tiers::effective( is_array( $row ) ? $row : array() ) );
+	}
+
+	/**
+	 * The sentence write_reason() asks for: '' while the switch is off; the tier's own sentence
+	 * while it includes no posts at all; '' while the sponsor's count has not reached the cap;
+	 * the sentence once it has. The editor fence's own clamp does not call this any more (review
+	 * finding): a post already pending or published is left alone there before this is ever
+	 * asked, so there is no post to except out of the count here either.
+	 *
+	 * A count sentence never spells "one" into the plural form's own placeholder: `1 === $cap`
+	 * is answered by its own sentence, so `_n()`'s pair only ever fires for two or more, and its
+	 * singular form still carries `%2$d` rather than the English word, for every locale whose
+	 * plural rule picks that form for a count other than one.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string
+	 */
+	private static function reason( $record ) {
+		$cap = self::cap_of( $record );
+
+		if ( null === $cap ) {
+			return '';
+		}
+
+		// The tier posts start at, named: for a Friend the next tier, Supporter, includes no
+		// posts either, so "the next tier" would send it to one without them.
+		if ( 0 === $cap ) {
+			return sprintf(
+				/* translators: 1: the sponsor's tier's name, 2: the name of the lowest tier that includes posts. */
+				__( 'Your tier, %1$s, includes no posts. Posts start at %2$s: talk to your program contact.', 'wpcredits-program-manager' ),
+				self::tier_label( $record ),
+				WPCPM_Sponsor_Tiers::label( WPCPM_Sponsor_Tiers::BACKER )
+			);
+		}
+
+		if ( self::post_count( $record ) < $cap ) {
+			return '';
+		}
+
+		if ( 1 === $cap ) {
+			/* translators: %s: the tier's name. */
+			return sprintf( __( 'Your tier, %s, includes one post at a time, in review or published. The next can follow once the program returns this one or takes it down.', 'wpcredits-program-manager' ), self::tier_label( $record ) );
+		}
+
+		return sprintf(
+			/* translators: 1: the tier's name, 2: how many posts it includes at a time. */
+			_n( 'Your tier, %1$s, includes %2$d post at a time, in review or published.', 'Your tier, %1$s, includes %2$d posts at a time, in review or published.', $cap, 'wpcredits-program-manager' ),
+			self::tier_label( $record ),
+			$cap
+		);
+	}
+
+	/**
+	 * Why Write a post cannot be pressed, or '' when it can: the card's own words for the
+	 * editor fence's reason().
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string
+	 */
+	public static function write_reason( $record ) {
+		return self::reason( $record );
+	}
+
+	/**
+	 * Why a manager's Publish is refused, or '' when it is not: only the published count is
+	 * asked, since a sponsor's cap counts pending and published together (`post_count()`) and
+	 * publishing a pending post keeps that total the same rather than growing it.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string
+	 */
+	public static function publish_reason( $record ) {
+		$cap = self::cap_of( $record );
+
+		if ( null === $cap || count( self::published_of( $record ) ) < $cap ) {
+			return '';
+		}
+
+		/* translators: %s: the tier's name. */
+		return sprintf( __( 'Not published: the sponsor\'s tier, %s, includes no more published posts. The tier is on the Sponsors screen.', 'wpcredits-program-manager' ), self::tier_label( $record ) );
+	}
+
+	/**
+	 * A published post back to pending, with the stamp that marks it the daily run's own move
+	 * rather than a submission: pending_all() leaves it out. Core has no status-only helper for
+	 * publish to pending, so this goes through wp_update_post(): under cron there is no user, and
+	 * kses runs on the re-save regardless, which changes nothing for a member's own content
+	 * (their own save already ran the same filters) and can strip markup a manager added with
+	 * unfiltered_html - accepted here, for a post the run only parks rather than changes.
+	 *
+	 * @param int    $post_id The post.
+	 * @param string $today   `Y-m-d`; '' for WPCPM_Sponsor_Tiers::today().
+	 * @return bool Whether the post was published and is now dormant.
+	 */
+	public static function set_dormant( $post_id, $today = '' ) {
+		$post = get_post( (int) $post_id );
+
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+			return false;
+		}
+
+		$moved = wp_update_post(
+			array(
+				'ID'          => $post->ID,
+				'post_status' => 'pending',
+			),
+			true
+		);
+
+		if ( is_wp_error( $moved ) || ! $moved ) {
+			return false;
+		}
+
+		update_post_meta( $post->ID, self::META_DORMANT, '' !== (string) $today ? (string) $today : WPCPM_Sponsor_Tiers::today() );
+
+		return true;
+	}
+
+	/**
+	 * A dormant post back to publish, its stamp cleared. No date moves: the post keeps the day
+	 * it first went live, whichever run that was. wake() is only ever the daily run's own move,
+	 * for a post nobody has touched since it went dormant: an edit (enforce()), a manager's
+	 * Publish or a manager's Return each take the stamp off on their own the moment they happen,
+	 * because every one of those is a submission again, never the run's to bring back on its own.
+	 *
+	 * @param int $post_id The post.
+	 * @return bool Whether the post was pending and stamped, and is now published.
+	 */
+	public static function wake( $post_id ) {
+		$post = get_post( (int) $post_id );
+
+		if ( ! $post instanceof WP_Post || 'pending' !== $post->post_status || '' === (string) get_post_meta( $post->ID, self::META_DORMANT, true ) ) {
+			return false;
+		}
+
+		// wp_publish_post(), not wp_update_post(): the daily run has no user and nothing new to
+		// save, so a full re-save here would run the member's already-reviewed content through
+		// the content filters a second time for no reason, under cron. handle_publish()'s own
+		// reason for avoiding wp_publish_post() - a pending post's untouched zero GMT date - does
+		// not apply here: a dormant post's GMT date was already set the day it first went live.
+		// Jetpack's mark first, for a post published before the mark existed: Jetpack reads it the
+		// moment the post goes live again, and would otherwise email it to the subscribers anew.
+		update_post_meta( $post->ID, self::META_NO_SUBSCRIBER_MAIL, 1 );
+		wp_publish_post( $post->ID );
+
+		// wp_publish_post() answers nothing and never checks its own database write, so a failed one is read back here rather than assumed.
+		if ( 'publish' !== get_post_status( $post->ID ) ) {
+			return false;
+		}
+
+		delete_post_meta( $post->ID, self::META_DORMANT );
+
+		return true;
+	}
+
+	/**
+	 * The card's own words for a dormant post: nothing about the tiers before the switch is on
+	 * (the rule for every sponsor-facing surface: a switch flipped on and off again before launch
+	 * must not leave a sponsor reading their tier), the daily run's own wording whenever the tier
+	 * already covers the post and only the run itself has not caught up yet, and otherwise the cap
+	 * in words.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string
+	 */
+	public static function dormant_note( $record ) {
+		if ( ! WPCPM_Sponsor_Tiers::live() ) {
+			return __( 'Held back by the program: not shown right now. It returns by itself when the program sets it live again.', 'wpcredits-program-manager' );
+		}
+
+		$cap = self::cap_of( $record );
+
+		// Two cases read the same: a tier with no cap always covers any number of posts, so a
+		// post dormant under one is only waiting on the next daily run to wake it, never stuck
+		// ((int) null would otherwise print "0 published posts", which is wrong on its face, and
+		// the offers card's dormant sentence reads a tier with no cap the same way); and a tier
+		// with a cap that already has room for this post - a manager raised the tier since the
+		// run parked it - is the same wait, not a manager's decision still to make (review
+		// finding).
+		if ( null === $cap || count( self::published_of( $record ) ) < $cap ) {
+			return __( 'Held back until the next daily run, which brings back what your tier has room for.', 'wpcredits-program-manager' );
+		}
+
+		if ( 0 === $cap ) {
+			return __( 'Dormant: your tier includes no posts, so a published post is held back. It returns by itself when an Administrator sets a tier that includes it.', 'wpcredits-program-manager' );
+		}
+
+		if ( 1 === $cap ) {
+			return __( 'Dormant: your tier includes one published post at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: %d: how many published posts the tier includes at a time. */
+			_n( 'Dormant: your tier includes %d published post at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them.', 'Dormant: your tier includes %d published posts at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them.', $cap, 'wpcredits-program-manager' ),
+			$cap
+		);
 	}
 
 	/*
@@ -790,10 +1232,20 @@ class WPCPM_Sponsor_Posts {
 
 	/**
 	 * The Posts card on the Sponsor Dashboard: every post with its state, edit links for the
-	 * author, Write a post when the flag is on, Publish and Return for a manager on a pending
-	 * post. The same section-around-a-disclosure shape as every card on the page.
+	 * author, Write a post when the flag is on, and for a program manager the way to this sponsor's
+	 * posts in wp-admin. No decision is drawn here: a pending post is published or returned from
+	 * the Administrator Dashboard's Sponsor posts to review card, which `render_decision()` draws.
+	 * The same section-around-a-disclosure shape as every card on the page.
 	 *
-	 * @param string $record  Airtable record ID.
+	 * Folded until a flash names it. The row says how many of the posts listed are published and how
+	 * many wait for review, each read by its own state. The posts listed are the card's own list, at
+	 * most CARD_LIMIT, the newest change first, drafts among them: the list the count beside the
+	 * title counts, so the row and the title agree however many posts there are. While the card is
+	 * folded, Write a post follows the fold, the editor's address, exactly when the button inside is
+	 * drawn: for a member, with posting on and room in the tier. The card's first line says where a
+	 * published post appears.
+	 *
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
@@ -803,28 +1255,70 @@ class WPCPM_Sponsor_Posts {
 		$is_member  = WPCPM_Sponsor_Members::is_member( $viewer, $record );
 		$posts      = self::posts_of( $record );
 		$open       = isset( $context['open'] ) && self::CARD === $context['open'];
-
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Posts', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $posts ) ) )
+		$posting    = $is_member && ! $can_manage && self::posting_enabled( $record );
+		$why        = $posting ? self::write_reason( $record ) : '';
+		$counted    = array(
+			'published' => 0,
+			'pending'   => 0,
 		);
-		echo '<div class="wpcpm-group__body">';
+
+		foreach ( $posts as $post ) {
+			$state = self::state_of( $post );
+
+			if ( isset( $counted[ $state ] ) ) {
+				++$counted[ $state ];
+			}
+		}
+
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'    => self::CARD,
+				'title'  => __( 'Posts', 'wpcredits-program-manager' ),
+				'count'  => count( $posts ),
+				'open'   => $open,
+				'state'  => sprintf(
+					/* translators: 1: how many of the sponsor's posts are published, 2: how many are waiting for review. */
+					__( '%1$s published, %2$s waiting', 'wpcredits-program-manager' ),
+					number_format_i18n( $counted['published'] ),
+					number_format_i18n( $counted['pending'] )
+				),
+				'action' => $posting && '' === $why ? array(
+					'label'   => __( 'Write a post', 'wpcredits-program-manager' ),
+					'href'    => admin_url( 'post-new.php' ),
+					/* translators: read after "Write a post" by a screen reader alone. */
+					'context' => __( 'in the WordPress editor', 'wpcredits-program-manager' ),
+				) : null,
+			)
+		);
+
+		// Where a published post appears, said here since the group's lead is one sentence for its
+		// four cards (the design the owner approved on 27 September 2026).
+		echo '<p class="wpcpm-student__note">' . esc_html__( 'A post appears under your offer in Tools from our sponsors, on the Student Report Card and the Mentor Report Card, once an Administrator publishes it.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( $is_member && ! $can_manage ) {
 
-			if ( self::posting_enabled( $record ) ) {
-				// Write a post opens the editor; the second link is the Posts screen in wp-admin,
-				// where the member's own posts are listed and Add New sits (the fence scopes that
-				// list to theirs). The owner asked for the way into wp-admin to be on the card.
-				printf(
-					'<p class="wpcpm-posts__actions"><a class="wpcpm-button" href="%1$s">%2$s</a> <a class="wpcpm-posts__admin" href="%3$s">%4$s</a></p>',
-					esc_url( admin_url( 'post-new.php' ) ),
-					esc_html__( 'Write a post', 'wpcredits-program-manager' ),
-					esc_url( admin_url( 'edit.php' ) ),
-					esc_html__( 'Your posts in wp-admin', 'wpcredits-program-manager' )
-				);
+			if ( $posting ) {
+				if ( '' === $why ) {
+					// Write a post opens the editor; the second link is the Posts screen in wp-admin,
+					// where the member's own posts are listed and Add New sits (the fence scopes that
+					// list to theirs). The owner asked for the way into wp-admin to be on the card.
+					printf(
+						'<p class="wpcpm-posts__actions"><a class="wpcpm-button" href="%1$s">%2$s</a> <a class="wpcpm-posts__admin" href="%3$s">%4$s</a></p>',
+						esc_url( admin_url( 'post-new.php' ) ),
+						esc_html__( 'Write a post', 'wpcredits-program-manager' ),
+						esc_url( admin_url( 'edit.php' ) ),
+						esc_html__( 'Your posts in wp-admin', 'wpcredits-program-manager' )
+					);
+				} else {
+					// The tier's cap has no room right now: the sentence stands where Write a post
+					// would, and the way into wp-admin stays, for editing what already exists.
+					printf( '<p class="wpcpm-student__note">%s</p>', esc_html( $why ) );
+					printf(
+						'<p class="wpcpm-posts__actions"><a class="wpcpm-posts__admin" href="%1$s">%2$s</a></p>',
+						esc_url( admin_url( 'edit.php' ) ),
+						esc_html__( 'Your posts in wp-admin', 'wpcredits-program-manager' )
+					);
+				}
 			} else {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'The program has not enabled posting for this sponsor.', 'wpcredits-program-manager' ) . '</p>';
 			}
@@ -861,15 +1355,19 @@ class WPCPM_Sponsor_Posts {
 			echo '</ul>';
 		}
 
-		echo '</div></details></section>';
+		if ( $is_member && ! empty( self::dormant_of( $record ) ) ) {
+			printf( '<p class="wpcpm-student__note">%s</p>', esc_html( self::dormant_note( $record ) ) );
+		}
+
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
 	 * One post on the card, in the Updates list's shape: the title (a link to the post once
 	 * published, to the editor while its author may still edit it), then one muted line with the
 	 * state and the date; a returned post shows the manager's note under them. No controls: the
-	 * sponsor's accounts submit, a program manager publishes from wp-admin (spec 7.4), and the
-	 * Administrator Dashboard's queue (Phase S6) is where Publish and Return will live.
+	 * sponsor's accounts submit, and a program manager publishes or returns a pending post from
+	 * the Administrator Dashboard's Sponsor posts to review card, which `render_decision()` draws.
 	 *
 	 * @param WP_Post $post The post.
 	 */
@@ -1002,8 +1500,21 @@ class WPCPM_Sponsor_Posts {
 				'numberposts'                       => max( 1, (int) $limit ),
 				'orderby'                           => 'date',
 				'order'                             => 'ASC',
-				'meta_key'                          => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
-				'meta_compare'                      => 'EXISTS',
+				// A dormant post is excluded here, in the query, rather than skipped afterward:
+				// a PHP-side skip still lets an older dormant post (it keeps the date it first
+				// went live) spend one of $limit's slots before being dropped, which can push a
+				// newer, genuine submission out of a tight window (review finding).
+				'meta_query'                        => array(
+					'relation' => 'AND',
+					array(
+						'key'     => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key'     => self::META_DORMANT,
+						'compare' => 'NOT EXISTS',
+					),
+				),
 				WPCPM_Content_Access::QUERY_UNGATED => true,
 				'suppress_filters'                  => false,
 			)
@@ -1018,7 +1529,7 @@ class WPCPM_Sponsor_Posts {
 
 			$record = trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) );
 
-			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 				continue;
 			}
 
@@ -1108,7 +1619,7 @@ class WPCPM_Sponsor_Posts {
 	 * A sponsor's published guides under its offer in the Tools section, for a viewer the level
 	 * admits. Nothing is printed when there is none.
 	 *
-	 * @param string  $record Airtable record ID.
+	 * @param string  $record Sponsor key.
 	 * @param WP_User $viewer Who is reading.
 	 * @param string  $name   The company name the offer already printed.
 	 */
@@ -1160,6 +1671,10 @@ class WPCPM_Sponsor_Posts {
 			'post-note-long'    => array( 'error', sprintf( __( 'The note is longer than %s characters. Shorten it and return the post again.', 'wpcredits-program-manager' ), number_format_i18n( self::MAX_NOTE ) ) ),
 			'post-note-loss'    => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'return' ) ),
 			'post-not-pending'  => array( 'error', __( 'Only a post waiting for review can be published or returned here.', 'wpcredits-program-manager' ) ),
+			// The Administrator Dashboard's own flash names the status alone, with no detail
+			// (leave(), below), so this sentence names no tier: publish_reason() supplies the
+			// tier-specific one as the detail the Sponsor Dashboard shows beside it.
+			'post-cap'          => array( 'error', __( 'Not published: the sponsor\'s tier includes no more published posts. The tier is on the Sponsors screen.', 'wpcredits-program-manager' ) ),
 			'post-failed'       => array( 'error', __( 'The post could not be changed right now. Try again later.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -1220,7 +1735,7 @@ class WPCPM_Sponsor_Posts {
 		$post   = $post_id > 0 ? get_post( $post_id ) : null;
 		$record = $post instanceof WP_Post ? trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) ) : '';
 
-		if ( ! $post instanceof WP_Post || 'post' !== $post->post_type || ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! $post instanceof WP_Post || 'post' !== $post->post_type || ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			self::leave( 'refused' );
 		}
 
@@ -1249,11 +1764,24 @@ class WPCPM_Sponsor_Posts {
 
 	/**
 	 * A manager publishes a pending post: the status and both dates carry the moment it went
-	 * live, so the feeds and the archives file it there; the return note, if any, is cleared.
+	 * live, so the feeds and the archives file it there; the return note, if any, and a dormant
+	 * stamp, if any, are cleared - a post a manager just published is not the daily run's to
+	 * revisit.
 	 */
 	public static function handle_publish() {
 		$opened = self::begin( self::ACTION_POST_PUBLISH );
 		$post   = $opened['post'];
+
+		// No detail: publish_reason()'s own sentence, if this leaves with it, would all but
+		// repeat the flash the Sponsor Dashboard already prints for post-cap from messages()
+		// (review finding).
+		if ( '' !== self::publish_reason( $opened['record'] ) ) {
+			self::leave( 'post-cap', $opened['record'] );
+		}
+
+		// Jetpack's mark before the post goes live, which is when Jetpack reads it, so a post a
+		// member saved before 1.123.18, which carries none, is not emailed to the subscribers.
+		update_post_meta( $post->ID, self::META_NO_SUBSCRIBER_MAIL, 1 );
 
 		// Not wp_publish_post(): it flips the status and leaves a pending post's dates alone, so
 		// the post would carry the zero GMT date and be filed under the member's last save
@@ -1275,6 +1803,7 @@ class WPCPM_Sponsor_Posts {
 
 		delete_post_meta( $post->ID, self::META_RETURN_NOTE );
 		delete_post_meta( $post->ID, self::META_RETURNED );
+		delete_post_meta( $post->ID, self::META_DORMANT );
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -1294,7 +1823,8 @@ class WPCPM_Sponsor_Posts {
 
 	/**
 	 * A manager returns a pending post to its author as a draft, with a note that is kept on
-	 * the post and mailed to the author.
+	 * the post and mailed to the author. Any dormant stamp goes too: a returned post is the
+	 * member's draft again, not something the daily run still has a claim on.
 	 *
 	 * The note is counted as the manager typed it (`WPCPM_Typed_Text::box_length()`, on what
 	 * `WPCPM_Request::posted_raw()` read): the entities the cleaner writes for a "<" and the quote
@@ -1355,6 +1885,7 @@ class WPCPM_Sponsor_Posts {
 		// Slashed, because post meta unslashes what it is handed and the note is not.
 		update_post_meta( $post->ID, self::META_RETURN_NOTE, wp_slash( $note ) );
 		update_post_meta( $post->ID, self::META_RETURNED, time() );
+		delete_post_meta( $post->ID, self::META_DORMANT );
 
 		// A mail is plain text: the title as WordPress stored it (kses writes each "&" of a
 		// member's title as `&amp;`) and the note as the cleaner left it are handed over as stored
@@ -1425,7 +1956,7 @@ class WPCPM_Sponsor_Posts {
 		// here too, so a bad one never flashes success for a write that never happened: decide()
 		// grants a manager every row of the map without ever asking the index, so a well-formed
 		// record the index does not hold would otherwise leave a flag behind for no sponsor.
-		if ( ! empty( $decision['allowed'] ) && WPCPM_Mentors_Sync::is_record_id( $record ) && WPCPM_Sponsors_Index::has( $record ) ) {
+		if ( ! empty( $decision['allowed'] ) && WPCPM_Sponsors_Index::is_key( $record ) && WPCPM_Sponsors_Index::has( $record ) ) {
 			self::set_posting( $record, $on, get_current_user_id() );
 			$status = $on ? 'posting-on' : 'posting-off';
 		}
@@ -1456,7 +1987,7 @@ class WPCPM_Sponsor_Posts {
 
 		$record = trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) );
 
-		return WPCPM_Mentors_Sync::is_record_id( $record ) ? $record : '';
+		return WPCPM_Sponsors_Index::is_key( $record ) ? $record : '';
 	}
 
 	/**
@@ -1509,7 +2040,7 @@ class WPCPM_Sponsor_Posts {
 
 		$record = trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return $data;
 		}
 

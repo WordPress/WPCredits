@@ -13,13 +13,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Reads Students, Students Reports and Feedback every three hours and keeps the addresses that
  * have more than one row in any of them, with a proposal for every row.
  *
- * Built like the four Airtable syncs, `WPCPM_Sponsors_Sync` above all: a resumable state machine in
- * an option, ticks of a budgeted slice under a lock, the shared three-hour recurrence at an offset
- * of its own, and the progress payload `assets/js/admin.js` polls. It departs from them in one place
- * on purpose: **a failed read ends the run.** A sync that stops on an error keeps its state and
- * stays "running", so the recurring event skips every later run until somebody cancels; this one
- * records the error, drops the working state and keeps the last good report, and the next run
- * starts clean three hours later (spec decision 3.4).
+ * Built like the three Airtable syncs: a resumable state machine in an option, ticks of a budgeted
+ * slice under a lock, the shared three-hour recurrence at an offset of its own, and the progress
+ * payload `assets/js/admin.js` polls. It departs from them in one place on purpose: **a failed read
+ * ends the run.** A sync that stops on an error keeps its state and stays "running", so the
+ * recurring event skips every later run until somebody cancels; this one records the error, drops
+ * the working state and keeps the last good report, and the next run starts clean three hours
+ * later (spec decision 3.4).
  *
  * It writes nothing to Airtable, and the report it keeps holds duplicates only (decision 3.5).
  */
@@ -44,9 +44,9 @@ final class WPCPM_Duplicates_Scan {
 	/**
 	 * Minutes into the three-hour cycle the scan runs at.
 	 *
-	 * After the students (30), mentors (60), institutions (90) and sponsors (120) syncs, so that no
-	 * two of the five share a WP-Cron request. Minutes, and not a constant expression on
-	 * `MINUTE_IN_SECONDS`, for the reason `WPCPM_Sponsors_Sync::SCHEDULE_OFFSET_MINUTES` gives.
+	 * After the students (30), mentors (60) and institutions (90) syncs, so that no two of the four
+	 * share a WP-Cron request. Minutes, and not a constant expression on `MINUTE_IN_SECONDS`, for
+	 * the reason `WPCPM_Mentors_Sync::SCHEDULE_OFFSET_MINUTES` gives.
 	 */
 	const SCHEDULE_OFFSET_MINUTES = 150;
 
@@ -116,7 +116,7 @@ final class WPCPM_Duplicates_Scan {
 	/**
 	 * Ensure the recurring event exists, on the three-hour recurrence, at this scan's offset.
 	 *
-	 * The recurrence is checked and not only the event's existence, as `WPCPM_Sponsors_Sync` does,
+	 * The recurrence is checked and not only the event's existence, as `WPCPM_Mentors_Sync` does,
 	 * and the interval is the students sync's, never one of this class's own: an event on a schedule
 	 * WordPress cannot find is dropped without a word.
 	 */

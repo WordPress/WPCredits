@@ -103,12 +103,7 @@ final class WPCPM_Sponsor_Tools {
 			return false;
 		}
 
-		// The status sits under `program` in the cache the students sync writes (there is no
-		// separate Program column in the base, so the status is the program), never under
-		// `status`: reading the latter counted no student as current and the section never drew
-		// for a student, whatever the setting said (25 September 2026).
-		$program = WPCPM_Students_Sync::get_program( $user->ID );
-		$status  = trim( (string) ( isset( $program['program'] ) ? $program['program'] : '' ) );
+		$status = self::status_of( $user->ID );
 
 		if ( '' === $status ) {
 			return false;
@@ -116,6 +111,23 @@ final class WPCPM_Sponsor_Tools {
 
 		return in_array( $status, (array) WPCPM_Settings::get_value( 'student_statuses', array() ), true )
 			&& ! in_array( $status, (array) WPCPM_Settings::get_value( 'past_statuses', array() ), true );
+	}
+
+	/**
+	 * A person's status as the students sync cached it, trimmed. The one reader of it here, so
+	 * whether a student is current and which track they are on are read from the same key.
+	 *
+	 * @param int $user_id The person.
+	 * @return string '' before the sync has reached them.
+	 */
+	private static function status_of( $user_id ) {
+		// The status sits under `program` in the cache the students sync writes (there is no
+		// separate Program column in the base, so the status is the program), never under
+		// `status`: reading the latter counted no student as current and the section never drew
+		// for a student, whatever the setting said (25 September 2026).
+		$program = WPCPM_Students_Sync::get_program( (int) $user_id );
+
+		return trim( (string) ( isset( $program['program'] ) ? $program['program'] : '' ) );
 	}
 
 	/**
@@ -148,7 +160,7 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * Whether a person may claim an offer: six clauses, each with a test.
+	 * Whether a person may claim an offer: seven clauses, each with a test.
 	 *
 	 * @param int|WP_User|null $user  The person.
 	 * @param array            $offer The offer.
@@ -169,7 +181,9 @@ final class WPCPM_Sponsor_Tools {
 	 *
 	 * @param int|WP_User|null $user  The person.
 	 * @param array            $offer The offer.
-	 * @return string '' when they may claim, else `nobody`, `closed`, `kind`, `off`, `claimed`, `empty` or `unshared`.
+	 * @return string '' when they may claim, else `nobody`, `closed`, `kind`, `off`, `test` (a test
+	 *                sponsor's offer, for a student or a mentor), `partners`, `claimed`, `empty` or
+	 *                `unshared`.
 	 */
 	public static function may_claim_reason( $user, array $offer ) {
 		$user = WPCPM_Roles::resolve_user( $user );
@@ -200,17 +214,37 @@ final class WPCPM_Sponsor_Tools {
 			return 'off';
 		}
 
-		// 4. The person has not claimed this offer.
+		// A test sponsor's offer is for no student and no mentor (1.123.18): it is never listed for
+		// them, and a form drawn before the flag was set is refused where the code is taken. The
+		// program team, who test with it, may still claim one opened to them.
+		if ( self::AUDIENCE_MANAGERS !== $kind && WPCPM_Sponsors_Index::is_test( (string) $offer['sponsor'] ) ) {
+			return 'test';
+		}
+
+		// 4. On a Partner's track, once the tiers are launched, the offer is one of the partners'
+		// (the sponsor tiers design, section 9). offers_for() lists nothing else for such a
+		// student, but a form drawn before the track named its partners, or before the switch was
+		// turned on, still posts: the rule holds where the code is taken as well as where the
+		// offer is shown, as clause 3 does for the section's switch. Asked before the pool, so a
+		// stale form for another sponsor's pool that has since run out is refused, not told that
+		// it ran out.
+		$exclusive = self::exclusive_records_of( $user );
+
+		if ( ! empty( $exclusive ) && ! in_array( (string) $offer['sponsor'], $exclusive, true ) ) {
+			return 'partners';
+		}
+
+		// 5. The person has not claimed this offer.
 		if ( WPCPM_Sponsor_Claims::has_claimed( $user->ID, $offer['id'] ) ) {
 			return 'claimed';
 		}
 
-		// 5. For a pool, one code is available.
+		// 6. For a pool, one code is available.
 		if ( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Codes::counts( $offer['id'] )['available'] < 1 ) {
 			return 'empty';
 		}
 
-		// 6. For a shared offer, there is something to show.
+		// 7. For a shared offer, there is something to show.
 		if ( WPCPM_Sponsor_Offers::KIND_SHARED === $offer['kind'] && '' === WPCPM_Sponsor_Codes::shared( $offer['id'] ) ) {
 			return 'unshared';
 		}
@@ -227,6 +261,11 @@ final class WPCPM_Sponsor_Tools {
 	 * unless they already hold a code from it; managers see it with a warning. Managers see
 	 * every live offer, whatever its audience, so the program can see what students are offered.
 	 *
+	 * While the tiers' switch is on, a student on a track with a partner that qualifies today is
+	 * shown that partner's offers alone, or those partners' (1.114.0).
+	 *
+	 * A test sponsor's offers are shown to no student and no mentor (1.123.18).
+	 *
 	 * @param string           $audience One of the AUDIENCE_* constants.
 	 * @param int|WP_User|null $user     The viewer.
 	 * @return array
@@ -239,8 +278,25 @@ final class WPCPM_Sponsor_Tools {
 			return $out;
 		}
 
+		// A Partner's track: its students see the partners' offers alone (the sponsor tiers design,
+		// section 9). exclusive_records_of() is the gate, and may_claim_reason() asks the same one,
+		// so a form drawn before the rule applied is refused when it is posted. A code already
+		// claimed from anybody else's offer stays in "Your codes", which reads claims_of() and not
+		// this list.
+		$exclusive = self::exclusive_records_of( $user );
+
 		foreach ( WPCPM_Sponsor_Offers::live() as $offer ) {
 			if ( ! WPCPM_Sponsor_Offers::is_live( $offer ) ) {
+				continue;
+			}
+
+			if ( ! empty( $exclusive ) && ! in_array( (string) $offer['sponsor'], $exclusive, true ) ) {
+				continue;
+			}
+
+			// A test sponsor's offers, and so the guides under them, are shown to no student and no
+			// mentor (1.123.18); the program team sees them, as it sees every live offer.
+			if ( self::AUDIENCE_MANAGERS !== $audience && WPCPM_Sponsors_Index::is_test( (string) $offer['sponsor'] ) ) {
 				continue;
 			}
 
@@ -271,9 +327,52 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
+	 * The sponsors whose offers alone a person is offered and may claim, or none when every
+	 * sponsor's are open to them. A Partner's track binds its students and nobody else, since
+	 * the rule is the students' list's: a mentor or a manager claims as no student, whatever
+	 * program their account once carried. It binds only once the tiers are launched: the rule is
+	 * a benefit of the tier (the sponsor tiers design, section 9). The one gate the list and the
+	 * claim both ask, so the two cannot disagree about who it binds.
+	 *
+	 * @param WP_User $user  The person.
+	 * @param string  $today A `Y-m-d` date, or '' for today.
+	 * @return string[] Sponsor keys; none when the rule does not bind them.
+	 */
+	private static function exclusive_records_of( WP_User $user, $today = '' ) {
+		if ( ! class_exists( 'WPCPM_Track_Partners' ) || ! WPCPM_Sponsor_Tiers::live() || self::AUDIENCE_STUDENTS !== self::kind_of( $user ) ) {
+			return array();
+		}
+
+		return self::partner_records_of( $user, $today );
+	}
+
+	/**
+	 * The sponsors a student's track names as its partners and that qualify today: the ones whose
+	 * offers alone the student is shown. A student waiting to graduate is on the track of the course
+	 * they took, which their account keeps (`WPCPM_Program::course_status()`). None for a student on
+	 * no track, waiting with no course the site knows among them, on a track that names no partner,
+	 * or on one whose partners have all lapsed. They are the partners the Student Report Card names,
+	 * read by the same course and through the same resolver, so a partner stops deciding what the
+	 * track's students are offered on the day it stops showing on their card.
+	 *
+	 * @param WP_User $user  A current student.
+	 * @param string  $today A `Y-m-d` date, or '' for today.
+	 * @return string[] Sponsor keys.
+	 */
+	private static function partner_records_of( WP_User $user, $today = '' ) {
+		$track = WPCPM_Program::track( WPCPM_Program::course_status( self::status_of( $user->ID ), $user->ID ) );
+
+		if ( '' === $track ) {
+			return array();
+		}
+
+		return array_map( 'strval', array_column( WPCPM_Track_Partners::for_track( $track, $today ), 'record' ) );
+	}
+
+	/**
 	 * A sponsor's name, trimmed; '' when the index does not hold the record.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	private static function sponsor_name( $record ) {
@@ -284,8 +383,7 @@ final class WPCPM_Sponsor_Tools {
 
 	/**
 	 * The section, on a person's own card. Echoes nothing when the audience's switch is off or
-	 * there is nothing to show: no live offer open to them, no claim of theirs, no flash
-	 * (plan ruling 8).
+	 * there is nothing to show: no live offer open to them, no claim of theirs, no flash.
 	 *
 	 * @param string           $audience One of the AUDIENCE_* constants: whose card this is.
 	 * @param int|WP_User|null $viewer   The person whose card it is.
@@ -319,7 +417,7 @@ final class WPCPM_Sponsor_Tools {
 		// role is announced and what pressing it does still has to be said somewhere, or the
 		// behavior forms.js gives it is undiscoverable (deep check FFRNT-6), but a viewer whose
 		// only claim is a checkout link sees no button anywhere on the page, and a hint about
-		// pressing one would describe nothing there (Task 3 fix round 1, review suggestion 4).
+		// pressing one would describe nothing there.
 		$has_button_claim = false;
 
 		foreach ( array_keys( $claims ) as $claimed_offer_id ) {

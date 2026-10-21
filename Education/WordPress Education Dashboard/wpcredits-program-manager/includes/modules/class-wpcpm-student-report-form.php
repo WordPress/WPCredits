@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **A screenshot is a public file, and that is the decision, not an oversight.** The picture is
  * stored in the Media Library authored by the student, and Airtable is sent its URL rather than its
  * bytes: an attachment column is written with an address the base fetches for itself, which is how
- * `WPCPM_Sponsor_Logo` writes a logo and the only way an attachment column can be written at all.
+ * `WPCPM_Sponsor_Logo` wrote a logo until 1.111.0, and the only way such a column can be written.
  * The copies Airtable hands back are signed and expire within hours, so the card shows this site's
  * own file and never the base's; when the base holds a file the site has no copy of, the control
  * says how many and offers to replace them (design spec section 5, and assumption 6.3).
@@ -985,10 +985,15 @@ class WPCPM_Student_Report_Form {
 	 * draws them in; with none, the box alone, as the section of its own that
 	 * `WPCPM_Students_Dashboard::render_links()` draws for a track with no course.
 	 *
-	 * @param array  $fields The fields, column name => spec, as `compile_fields()` gives them.
-	 * @param string $course The track's Learn course link; empty for a track with none.
+	 * The track's partnership line follows them, where the student's page draws it: after the
+	 * course columns, after the box alone, or on its own, before the report in each case.
+	 *
+	 * @param array  $fields   The fields, column name => spec, as `compile_fields()` gives them.
+	 * @param string $course   The track's Learn course link; empty for a track with none.
+	 * @param string $partners The partnership line, as `WPCPM_Track_Partners::render_line()` builds
+	 *                         it; empty for none.
 	 */
-	public static function render_preview( array $fields, $course = '' ) {
+	public static function render_preview( array $fields, $course = '', $partners = '' ) {
 		$context = array(
 			'student' => 0,
 			'images'  => array(),
@@ -1012,6 +1017,8 @@ class WPCPM_Student_Report_Form {
 		if ( '' !== $course ) {
 			echo '</div>';
 		}
+
+		echo (string) $partners; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Track_Partners::render_line(), which escapes every value it prints.
 
 		echo '<div class="wpcpm-report">';
 		self::render_groups( $fields, array(), true, $context );

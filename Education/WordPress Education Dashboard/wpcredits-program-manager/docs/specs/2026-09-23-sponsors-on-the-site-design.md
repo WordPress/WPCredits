@@ -8,7 +8,7 @@ The Sponsors module (spec `2026-09-04-sponsors-module-design.md`, six phases, 1.
 
 1. **The site is the record for sponsors, starting with this release.** The program's direction is to bring its records onto wordpresseducation.org; sponsors go first because everything but their identity already lives there. Students, mentors, institutions and feedback stay on Airtable for now, and nothing in this document touches them.
 2. **The site's application form is the only intake.** The Airtable interest form and the seven Airtable automations that answered it are retired by the program team; the plugin does not touch them.
-3. **The Airtable Sponsors table becomes an archive.** It is renamed by hand, never written again, and the plugin stops reading it. Nothing is deleted there.
+3. **The Airtable Sponsors table is left as it is.** The plugin stops reading and writing it, nothing is deleted or renamed there, and the program team shuts down the automations built around it (the product owner, 24 September 2026: no rename; the table simply falls out of use).
 4. **Two other tools read that table today** (the WPCredits Tracker plugin and the Credits Monthly Report, both in the same GitHub repository). They switch to a public feed the site publishes, in their own releases, later. Until then they keep reading the archive, whose numbers stop moving.
 5. **The read contract stays.** `WPCPM_Sponsors_Index` keeps answering the twenty sponsor classes exactly as it does; only its storage changes.
 
@@ -24,18 +24,20 @@ Read on 23 September 2026.
 - **Seven deployed Airtable automations** ("Sponsors 1.1" to "Sponsors 5") send an email when a Sponsors record matches a `Sponsorship options` value and the mentor-type answers. They answer the old interest form. The site's application flow (1.97.0) sends its own acknowledgement and decisions.
 - **Settings** hold `sponsors_table` and `sponsors_name_field`; the fixture `bin/fixtures/sponsors-table-fields.json` pins the table's 32 fields, and `bin/test-fixtures.php` and `bin/test-sponsors-sync.php` read it.
 
+*Corrected after the inventory of 23 September 2026:* the record-id checks in the sponsor classes numbered 33, not forty-two (the sum counted four files twice), the fixture pinned 31 fields, not 32, and `WPCPM_Sponsor_Mentors` counted as "others" the linked mentors the mentors index does not hold, never the `company` link (see decision 6).
+
 ## 3. The architecture, in ten decisions
 
 1. **A private post type, `wpcpm_sponsor`,** one post per company. The title is the company name, the slug is the company's public handle, the meta holds every field of section 4. Not public, not searchable, no front-end URL of its own.
-2. **`WPCPM_Sponsors_Index` keeps its read contract** (`rows()`, `row()`, `has()`, `approved()`, `status_counts()`, `manager_of()`, `display_logo()` and the rest) over the post type, with one request-level cache built from a single query. `write()`, `patch()` and `insert()` become the store's save path, called by the Sponsors screen, the approval and the migration, and by nothing else.
+2. **`WPCPM_Sponsors_Index` keeps its read contract** (`rows()`, `row()`, `has()`, `approved()`, `status_counts()`, `manager_of()`, `display_logo()` and the rest) over the post type, with one request-level cache built from a single query. `write()`, `patch()` and `insert()` become the store's save path, called by the Sponsors screen, the approval and the migration; `patch()` is also called by the dashboard cards, as before.
 3. **Keys do not change.** A migrated sponsor keeps its Airtable record id as its key for ever, so offers, codes, claims, posts, flags, members, logos and agreements need no rekeying. A new sponsor gets a key of the same length minted by the site: `spo` followed by fourteen characters from the same alphabet. One check, `WPCPM_Sponsors_Index::is_key()`, accepts both shapes and replaces every record-id check in the sponsor classes; the Airtable check stays where it belongs, in the syncs that still talk to Airtable.
 4. **The Sponsors screen owns identity.** Each sponsor gets an edit form there for the fields a manager owns (section 5), and an "Add a sponsor" form for a company that never applied on the site. Status changes keep the five words the base used, so history and the Administrator Dashboard read the same.
 5. **The assigned manager is a site user** with the administrator access level, chosen from a list. The booking link a sponsor sees comes from a new field on that user's profile, `wpcpm_booking_url`, which the migration seeds once from the held Team Members option by email address. `manager_of()` returns the same three things it returns today.
-6. **The mentor link lives on the sponsor record** as a list of mentor record ids, edited with a picker over the mentors index (name and WordPress.org profile, active mentors first). The mentors sync stops reading `Sponsor Company Name`; `WPCPM_Mentors_Sync::sponsorship()` keeps `sponsored` and `wants`, and its `company` becomes an empty list, so "others" is always zero and the card stops showing it.
+6. **The mentor link lives on the sponsor record** as a list of mentor record ids, edited with a picker over the mentors index (name and WordPress.org profile, active mentors first). The mentors sync stops reading `Sponsor Company Name`; `WPCPM_Mentors_Sync::sponsorship()` keeps `sponsored` and `wants` and drops `company`. The card is unchanged: `WPCPM_Sponsor_Mentors::linked()` never read the `company` link, and its "others" counts the linked mentors the mentors index does not hold.
 7. **The migration is idempotent and counted.** On the first request after the upgrade, every row of the held index becomes a post, the logo record and the copied attachment are kept, the manager is mapped by address, the mentor list is copied, and a sponsor whose row carries offer text but no primary offer gets its primary offer seeded in draft, as the approval does. The index option is removed only when the post count equals the row count; until then, and on any mismatch, the store answers from the option and the Sponsors screen shows the count with a "Run again" button. Every run is logged.
 8. **A public feed replaces the table for the other readers.** `GET /wp-json/wpcpm/v1/sponsors` answers with the Approved sponsors and monthly application counts (section 6), cached for fifteen minutes, metered through `WPCPM_Ceiling` like every public route, and holding no contact data.
 9. **What goes:** `WPCPM_Sponsors_Sync` and its two cron hooks, the six write-backs and the approval's record creation, the `sponsors_table` and `sponsors_name_field` settings, the Team Members option and its writer, the fixture, the sync's row on the Administrator Dashboard's syncs card, and the sync paragraph in the program managers' guide.
-10. **Nothing is announced, created or changed in Airtable by the plugin.** The rename and the automations are the program team's, and the readme names them as the two manual steps.
+10. **Nothing is announced, created or changed in Airtable by the plugin.** Retiring the seven automations is the program team's one manual step, and the readme names it.
 
 ## 4. The record
 
@@ -71,7 +73,7 @@ The three offer mirror fields (`offer`, `instructions`, `more_info`) leave the r
 
 `GET /wp-json/wpcpm/v1/sponsors` returns:
 
-- `sponsors`: for every Approved sponsor, `name`, `slug`, `website`, `logo` (the public attachment address or empty), `mentors` (a count), `since` (the month the company applied, `YYYY-MM`).
+- `sponsors`: for every Approved sponsor, `name`, `slug`, `website`, `logo` (the public attachment address or empty), `mentors` (a count), `since` (the month the record was made on the site, `YYYY-MM`; a migrated sponsor keeps the created date its old row carried).
 - `applications`: per month for the last 24 months, `received` and `approved`, from the application posts and the store's created dates.
 - `generated`: the time the answer was built.
 
@@ -105,4 +107,4 @@ One release, 1.111.0, no theme change: the header, `WPCPM_VERSION`, the readme's
 
 ## 12. Open questions for the product owner
 
-None that block the work. Two for the program team: who renames the Airtable table and on which day, and whether the seven automations go the same day.
+None that block the work. One for the program team: on which day the seven automations are shut down, once the owner has confirmed the new module works.

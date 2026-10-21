@@ -213,6 +213,7 @@ function get_posts( $args = array() ) { return $GLOBALS['waiting']; }
 function get_post_meta( $id, $k = '', $single = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array( $rows ); if ( $single ) { return $rows ? $rows[0] : ''; } return $rows; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = array( $v ); return true; }
 function add_post_meta( $id, $k, $v ) { return true; }
+function delete_post_meta( $id, $k, $v = '' ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function wp_update_post( $post, $wp_error = false ) { return (int) $post['ID']; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
@@ -499,6 +500,7 @@ class WPCPM_Sponsors_Index {
 	public static function manager_of( $record ) { return self::$manager; }
 	public static function patch( $record, array $patch ) { return true; }
 	public static function empty_row() { return array( 'name' => '', 'support' => array() ); }
+	public static function is_key( $value ) { return is_string( $value ) && 1 === preg_match( '/^(?:rec|spo)[A-Za-z0-9]{14}$/', $value ); }
 }
 /** Each country's routing: its contact's address and booking link, as the countries map holds them. */
 class WPCPM_Countries {
@@ -1125,9 +1127,10 @@ function emails_of( array $case ) {
 		'recSEED0000000018' => array( 'name' => 'Second College', 'country' => 'XX' ),
 		'recSEED0000000020' => array( 'name' => 'Third College', 'country' => 'ZZ' ),
 	);
+	// Each sponsor's row as the store keeps it, its interests' history with it.
 	WPCPM_Sponsors_Index::$rows    = array(
-		'recSEED0000000101' => array( 'name' => 'Acme & "Sons" 50% Hosting', 'support' => array() ),
-		'recSEED0000000102' => array( 'name' => '', 'support' => array() ),
+		'recSEED0000000101' => array( 'name' => 'Acme & "Sons" 50% Hosting', 'support' => array(), 'interests' => '' ),
+		'recSEED0000000102' => array( 'name' => '', 'support' => array(), 'interests' => '' ),
 	);
 	WPCPM_Sponsors_Index::$manager = null;
 
@@ -1902,6 +1905,21 @@ function changes() {
 			'item'    => 4,
 			'replace' => array( 'headers' => array( 'Reply-To: "' . $name . '"' => 'Reply-To: ' . $name ) ),
 		);
+	}
+
+	// The sponsors live on the site, each one a private post, and an interest's history is kept on
+	// the Sponsors screen, which the email's last sentence names, in every interest case of both
+	// recordings that sends one: a case with nothing ticked, named or typed sends none. These rows
+	// carry no `item`, since the change is not one of the 1.122.23 changes the rows above list.
+	foreach ( array_merge( cases(), added_cases() ) as $case => $about ) {
+		$said = array_filter( array( $about['args']['choices'] ?? array(), $about['args']['events'] ?? '', $about['args']['note'] ?? '' ) );
+
+		if ( 'interest' === $about['send'] && array() !== $said ) {
+			$rows[] = array(
+				'case'    => $case,
+				'replace' => array( 'body' => array( 'The full history is in the Sponsorship interests column of the Sponsors table.' => 'The full history is on the Sponsors screen.' ) ),
+			);
+		}
 	}
 
 	return $rows;

@@ -293,8 +293,8 @@ $bomb = pdf_bytes( "4 0 obj<</Filter/FlateDecode>>stream\n" . gzcompress( str_re
 $scan = WPCPM_Pdf_Check::inspect( $bomb );
 ck( 'a stream that would inflate past the budget is skipped rather than read', $scan['ok'], true );
 // The bound sits exactly at SCAN_MAX_STREAM: a stream that inflates to the limit, or to a little
-// under it, is still read whole and its refusal found; one byte over is skipped (the review of
-// Task 1: the added bound is the one line most worth pinning at its boundary).
+// under it, is still read whole and its refusal found; one byte over is skipped (the bound is
+// the one line most worth pinning at its boundary).
 $at_limit = WPCPM_Pdf_Check::inspect( pdf_bytes( "4 0 obj<</Filter/FlateDecode>>stream\n" . gzcompress( str_repeat( 'A', WPCPM_Pdf_Check::SCAN_MAX_STREAM - 7 ) . '/Launch' ) . "\nendstream endobj\n" ) );
 $under    = WPCPM_Pdf_Check::inspect( pdf_bytes( "4 0 obj<</Filter/FlateDecode>>stream\n" . gzcompress( str_repeat( 'A', WPCPM_Pdf_Check::SCAN_MAX_STREAM - 1024 ) . '/Launch' ) . "\nendstream endobj\n" ) );
 $over     = WPCPM_Pdf_Check::inspect( pdf_bytes( "4 0 obj<</Filter/FlateDecode>>stream\n" . gzcompress( str_repeat( 'A', WPCPM_Pdf_Check::SCAN_MAX_STREAM - 6 ) . '/Launch' ) . "\nendstream endobj\n" ) );

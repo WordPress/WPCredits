@@ -67,7 +67,18 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   the rejection; the sponsor's Collaboration Agreement received, accepted, returned with a note, out
   of force and back in force; what a sponsor says on the Sponsor Dashboard it would like to support,
   and its request to sponsor a mentor; the warning that an offer's codes are running low and a
-  claimant's report of a code that did not work; and a sponsor's post sent back to its author.
+  claimant's report of a code that did not work; a sponsor's post sent back to its author; and the
+  mail to a sponsor's Administrator thirty days before its term ends, and its twin for a term the
+  daily run finds already over.
+- **Sponsor events**: what the people on a sponsor's event, or on one of the program's own, the
+  sponsor's accounts and its Administrator are told: a join and a leave, with the calendar file that
+  adds the event or takes it off; a change or a cancel, to the people on it; the reminder the day
+  before, to the people on it and to the sponsor's accounts that are not; an Administrator's
+  approval, return and cancel with a note, to the sponsor's accounts; a change or a cancel of an
+  approved event made on the Sponsor Dashboard, to the sponsor's accounts; and what a sponsor plans,
+  changes or cancels there, to its Administrator. An event of the program's own says "Hosted by the
+  WordPress Credits Program" where a sponsor's names its sponsor, so it has emails of its own, and
+  so has what an Administrator did on a sponsor's behalf through the Sponsor Dashboard's switcher.
 - **Mentor applications** (since 1.122.31): what a person who applied to mentor through the form on
   the site is told, the acknowledgement with the link that confirms the address, the selection with
   the mentors' course invitation link, the request for more information and the decline, and the
@@ -75,7 +86,7 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   the program's Airtable automations sent, and carry the program's contact address as their
   Reply-To when **Contact address in emails** is set, so an answer reaches the program.
 
-Where an email is two, as the mentor's confirmations with and without a meeting link and the five
+Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
 Administrator's edit of "Invitation to join an institution" does not carry over to "Invitation to
 join an institution, with no sender named": that invitation is sent as shipped until it is edited
@@ -229,9 +240,9 @@ Each row is one recipient of one email: when it was sent, in the site's time zon
 plain text, and under it the person's name when the address belonged to an account at the time,
 which is a link to the account for as long as the account exists; the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
-area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Mentor
-applications, WordPress, Two Factor or Other); which email it was; its subject; and its status. The
-status is one of three:
+area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
+events, Mentor applications, WordPress, Two Factor or Other); which email it was; its subject; and
+its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the
   inbox: a full mailbox or a spam filter can still stop it after it leaves the site.
@@ -491,7 +502,8 @@ Leaving it off between clean-ups is a reasonable habit, not a sign that somethin
 #### On the Administrator Dashboard
 
 The **Duplicated students** tile counts the students the last scan listed, and its card links here.
-A tile at zero means the last scan found nothing, not that no scan has run: the card says which.
+With none listed there is no tile; the card says whether the last scan found nothing or no scan has
+run yet.
 
 ### Track Builder
 
@@ -539,9 +551,9 @@ Three ways, each ending on the new track's page, as a draft.
   questions are added on the track's page.
 - **Duplicate** copies every question of an existing track, the four original tracks included, and asks
   for a name, a status and a key of its own, refused as New track's are when another track holds
-  them. The copy starts with no Learn course and no hours target; set them on its page. This is the
-  usual way to start a track that resembles one you run: duplicate the 150-hour track and change what
-  differs.
+  them. The copy starts with no Learn course, no hours target, no partners and no partners'
+  narrative; set them on its page. This is the usual way to start a track that resembles one you
+  run: duplicate the 150-hour track and change what differs.
 - *From a Learn course link* is New track with the link filled in. The lessons appear under the
   groups that are their modules, and each lesson offers **Add a question under this lesson**, which
   is how a form gets built lesson by lesson.
@@ -550,9 +562,17 @@ Three ways, each ending on the new track's page, as a draft.
 
 The properties come first: **Name**, **Airtable status**, **Key**, **Learn course**, **Hours
 target** and **Key chip color**, which is one of blue, cyan, teal, green, red, pink or purple. The
-hours target may stay empty. **Save the track** saves the properties; the questions save themselves
-as they are added, edited and moved. Save refuses a name, status or key another track holds, drafts
-included, and a refused Save draws the boxes again as you left them.
+hours target may stay empty. After the chip color, **Partners** offers the sponsors Approved at the
+Partner tier today plus any the track already names, ticked, so a lapsed one stays until you
+untick it. Under them, **Partners' narrative** is one text for all of the track's partners, up to
+5,000 characters, which you rewrite each term: when a partner's annual report is drafted, which the
+site does the day after that partner's term ends, its block for this track starts with the text as
+the track was last published, so after rewriting it, publish the track before the next partner's
+term ends. Each report keeps its own copy, edited on the report: a report drafted before a change
+keeps the words it started with, and **Regenerate** keeps them too. **Save the track** saves the
+properties; the questions save themselves as they are added, edited and moved. Save refuses a name,
+status or key another track holds, drafts included, and a refused Save draws the boxes again as you
+left them.
 
 {{image:track-builder-track|On a track's page you set its properties and build its form group by group and lesson by lesson, and a line above the questions says what publishing would create in Airtable.}}
 

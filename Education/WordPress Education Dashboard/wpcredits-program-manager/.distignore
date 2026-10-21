@@ -6,6 +6,8 @@
 node_modules
 bin
 docs
+# The translation template is for translators; WordPress never reads a .pot.
+languages/*.pot
 phpcs.xml.dist
 *.orig
 *.rej

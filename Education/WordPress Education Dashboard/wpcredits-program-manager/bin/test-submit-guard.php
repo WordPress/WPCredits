@@ -173,7 +173,7 @@ ck( 'and the release reaches the form\'s own controls and the ones that name it 
 // prints are its own integers today, but an id carrying a quote, a bracket or a space makes
 // `[form="..."]` a selector the browser refuses - and the exception is thrown inside the
 // pageshow handler, which ends the loop and leaves every form after it on the page disabled
-// with its button still reading "Sending" (the Task 7 item the whole-branch review pulled in).
+// with its button still reading "Sending".
 ck( 'and the id is escaped before it becomes one, so a malformed id cannot end the loop',
     array(
         (bool) strpos( $js, 'window.CSS && CSS.escape ? CSS.escape( form.id ) : form.id.replace(' ),
@@ -388,6 +388,28 @@ ck( 'the institution and sponsor application decisions carry their sentence as d
         substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-sponsor-application.php' ), '\' data-wpcpm-confirm="\' . esc_attr( $args[\'confirm\'] ) . \'"\'' ),
     ),
     array( 1, 1 ) );
+/*
+ * The sponsor report editor on the Sponsors screen's Reports tab asks the same way, in wp-admin,
+ * where the admin class loads forms.js: its one-button forms carry the question on the button.
+ */
+$report_screen = (string) file_get_contents( $root . '/includes/modules/class-wpcpm-sponsor-report-screen.php' );
+ck( 'the sponsor report editor\'s Remove the PDF, Mark final and Regenerate carry their sentence as data-wpcpm-confirm on the button, escaped with esc_attr()',
+    array(
+        substr_count( $report_screen, '\'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>\', esc_attr( $classes ), esc_attr( $confirm ), esc_html( $label )' ),
+        substr_count( $report_screen, 'wp_json_encode' ),
+    ),
+    array( 1, 0 ) );
+/*
+ * Not a renewal's button sits in a sponsor's Edit form and posts a form of its own through
+ * `form="<id>"`, so the question is on that form, as the offer's Void form carries its own.
+ */
+ck( 'and Not a renewal\'s question is on the form its button posts from inside the Edit form, escaped with esc_attr__(), the Sponsors class keeping none of its own',
+    array(
+        substr_count( $report_screen, 'id="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s" data-wpcpm-confirm="%4$s">' ),
+        substr_count( $report_screen, "esc_attr__( 'Say that no report is owed for that term?" ),
+        substr_count( (string) file_get_contents( $root . '/includes/modules/class-wpcpm-sponsors.php' ), 'Say that no report is owed for that term?' ),
+    ),
+    array( 1, 1, 0 ) );
 
 /**
  * Whether PHP source prints the `data-wpcpm-confirm` attribute: the text is in a string or in markup
@@ -600,8 +622,21 @@ $surfaces = array(
 	'includes/modules/class-wpcpm-sponsor-agreement-card.php'            => array( 'sponsor-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-agreement.php'                 => array( 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-application.php'               => array( 'admin', 'administrator-dashboard' ),
+	// Leave is drawn wherever the list or an event's actions are: the Administrator Dashboard's Events
+	// card, through the queue's Coming up; the Institution Dashboard's own page; and the Student Report
+	// Card and the Mentor Report Card, through the calendar's render_student() and render_mentor().
+	'includes/modules/class-wpcpm-sponsor-event-list.php'                => array( 'administrator-dashboard', 'institution-dashboard', 'calendar' ),
+	// Cancel the event is drawn by the tier card's planner on the Sponsor Dashboard. The Administrator
+	// Dashboard's Events card draws the planner's rows through render_fields(), which asks nothing.
+	'includes/modules/class-wpcpm-sponsor-event-planner.php'             => array( 'sponsor-dashboard' ),
+	// Cancel with this note and the program's Cancel the event are the Events card's, on the Administrator
+	// Dashboard. The Sponsors screen's queue tab reads the waiting rows and draws none of the queue's forms.
+	'includes/modules/class-wpcpm-sponsor-event-queue.php'               => array( 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-logo.php'                      => array( 'sponsor-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-offers.php'                    => array( 'sponsor-dashboard' ),
+	// The report editor's Remove the PDF, Mark final and Regenerate, and Not a renewal's form, are drawn on
+	// the Sponsors screen. Draft now on the Administrator Dashboard's Sponsor reports card asks nothing.
+	'includes/modules/class-wpcpm-sponsor-report-screen.php'             => array( 'admin' ),
 	'includes/modules/class-wpcpm-sponsors.php'                          => array( 'admin' ),
 	// The Remove question is drawn for an editor, so on the Student Report Card only: the report route's
 	// fragment, which the Mentor Report Card and the Institution's student page insert after they load, is

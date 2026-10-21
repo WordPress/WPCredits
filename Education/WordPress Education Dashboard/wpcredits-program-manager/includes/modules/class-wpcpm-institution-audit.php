@@ -13,6 +13,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * One row per applied change or membership event against an institution, with the
  * ground it was allowed on.
  *
+ * The Sponsors module writes its rows about a sponsor here too, under a key of its own
+ * (`META_SPONSOR`), and the rows about the program's own work, an event the program plans
+ * itself, under a third (`META_PROGRAM`): each module's readers ask for their own key, so one
+ * log holds the three and none of them lists another's rows.
+ *
  * A private post type in the shape of `WPCPM_Mentor_Notes`: applied changes only, one row
  * per save, no count cap, no IP addresses. Membership events (`member_added`,
  * `member_removed`) and agreement events are rows of the same type, so one list per
@@ -40,10 +45,18 @@ class WPCPM_Institution_Audit {
 	/**
 	 * The sponsor a row is about, for the Sponsors module's rows; `META_INSTITUTION` is absent
 	 * on those and this key is absent on an institution's, so each module's readers see only
-	 * their own rows. One log, two keys, the class name kept: renaming the log would touch
-	 * every institution suite for no behaviour (design spec of 4 September 2026, section 5.5).
+	 * their own rows, and a row about the program's own work carries neither (`META_PROGRAM`).
+	 * One log, three keys, the class name kept: renaming the log would touch every institution
+	 * suite for no behavior (design spec of 4 September 2026, section 5.5).
 	 */
 	const META_SPONSOR = '_wpcpm_log_sponsor';
+
+	/**
+	 * The mark of a row about the program's own work, which is about no institution and no sponsor:
+	 * it holds `program`, and neither `META_INSTITUTION` nor `META_SPONSOR` is on such a row, so the
+	 * institution readers and the sponsor readers never list it.
+	 */
+	const META_PROGRAM = '_wpcpm_log_program';
 
 	/** Post meta: whom or what the row is about - a user ID or a record ID, as a string. */
 	const META_SUBJECT = '_wpcpm_log_subject';
@@ -172,13 +185,18 @@ class WPCPM_Institution_Audit {
 	 * The same row as `record()` writes, keyed by `META_SPONSOR` instead of `META_INSTITUTION`,
 	 * so the institution readers never list it and `entries_for_sponsor()` never lists theirs.
 	 *
-	 * @param array $entry As for `record()`, with `sponsor` (record ID) in place of `institution`.
+	 * @param array $entry As for `record()`, with `sponsor` (sponsor key) in place of `institution`.
 	 * @return int|WP_Error The post ID, or why not.
 	 */
 	public static function record_sponsor( array $entry ) {
 		$sponsor = trim( isset( $entry['sponsor'] ) ? (string) $entry['sponsor'] : '' );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $sponsor ) ) {
+		// class_exists() first: bin/test-audit.php and the institution suites that require this
+		// file on their own - test-institution-graduate.php, -invite.php, -members.php,
+		// -notes.php, -people.php, -request.php, -student-form.php and test-unlinked-link.php -
+		// never load the sponsors store, so the fallback is a literal copy of
+		// WPCPM_Sponsors_Index::KEY_PATTERN, `\z` anchor included.
+		if ( ! ( class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::is_key( $sponsor ) : 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $sponsor ) ) ) {
 			return new WP_Error( 'wpcpm_audit_sponsor', __( 'An audit row needs the sponsor record it is about.', 'wpcredits-program-manager' ) );
 		}
 
@@ -186,7 +204,23 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
-	 * The one writer behind `record()` and `record_sponsor()`.
+	 * Write one row about the program's own work, which no institution and no sponsor is the subject
+	 * of: an event the program plans itself, for one.
+	 *
+	 * The same row as `record()` writes, keyed by `META_PROGRAM` instead, so the institution readers
+	 * and `entries_for_sponsor()` and `sponsor_entries()` never list it. An `institution` or a
+	 * `sponsor` in the entry is not written: the row is about the program. The kind, the ground and
+	 * the evidence are checked as for every row.
+	 *
+	 * @param array $entry As for `record()`, with no institution.
+	 * @return int|WP_Error The post ID, or why not.
+	 */
+	public static function record_program( array $entry ) {
+		return self::write( $entry, self::META_PROGRAM, 'program' );
+	}
+
+	/**
+	 * The one writer behind `record()`, `record_sponsor()` and `record_program()`.
 	 *
 	 * Refuses rather than guesses: a row with an unknown ground would be the one row the policy
 	 * did not stand behind. The actor goes on the post as its author for the admin's sake, but
@@ -197,8 +231,8 @@ class WPCPM_Institution_Audit {
 	 * is handed, and a message or data built around a typed note or a name is unslashed.
 	 *
 	 * @param array  $entry    The entry, its record already validated by the caller.
-	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
-	 * @param string $record   The record ID the row is about.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR` or `META_PROGRAM`.
+	 * @param string $record   The record ID the row is about, or `program` for the program's own.
 	 * @return int|WP_Error
 	 */
 	private static function write( array $entry, $meta_key, $record ) {
@@ -275,7 +309,7 @@ class WPCPM_Institution_Audit {
 	/**
 	 * Every row about a sponsor, newest first.
 	 *
-	 * @param string $sponsor Airtable record ID.
+	 * @param string $sponsor Sponsor key.
 	 * @param int    $limit   How many at most; 0 or less for all of them.
 	 * @return array[] As `entries_for()` returns them.
 	 */
@@ -336,14 +370,19 @@ class WPCPM_Institution_Audit {
 	 * The rows keyed by one of the two record keys, with the case re-check `entries_for()` always made.
 	 *
 	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
-	 * @param string $record   Airtable record ID.
+	 * @param string $record   An institution's Airtable record ID, or a sponsor's key.
 	 * @param int    $limit    How many at most; 0 or less for all of them.
 	 * @return array[]
 	 */
 	private static function entries_on( $meta_key, $record, $limit ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		// class_exists() first: bin/test-audit.php and the institution suites that require this
+		// file on their own - test-institution-graduate.php, -invite.php, -members.php,
+		// -notes.php, -people.php, -request.php, -student-form.php and test-unlinked-link.php -
+		// never load the sponsors store, so the fallback is a literal copy of
+		// WPCPM_Sponsors_Index::KEY_PATTERN, `\z` anchor included.
+		if ( ! ( class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::is_key( $record ) : 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $record ) ) ) {
 			return array();
 		}
 

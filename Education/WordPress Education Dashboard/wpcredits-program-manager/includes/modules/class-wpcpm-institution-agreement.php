@@ -3983,7 +3983,10 @@ class WPCPM_Institution_Agreement {
 	 * The same shape as `bounce_on_file()`, which Phase 2 shipped and which this phase does
 	 * not touch: back where the request came from, since every one of these forms is drawn on
 	 * both the institution's panel and the manager's row, with the Institutions screen as the
-	 * fallback for a request that carried no referer. The words for each outcome live in
+	 * fallback for a request that carried no referer. A decision posted from the Administrator
+	 * Dashboard names its way back (`WPCPM_Return`), and goes there, to the Collaboration
+	 * Agreements card: the referer is that page without the card's anchor, and a card whose last
+	 * document was just decided is drawn folded. The words for each outcome live in
 	 * `WPCPM_Institution_Panel::messages()`, once, because both screens print them.
 	 *
 	 * @param string $status Outcome slug.
@@ -3992,8 +3995,9 @@ class WPCPM_Institution_Agreement {
 		WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
 
 		$back = wp_get_referer();
+		$back = $back ? $back : admin_url( 'admin.php?page=wpcpm-institutions' );
 
-		wp_safe_redirect( $back ? $back : admin_url( 'admin.php?page=wpcpm-institutions' ) );
+		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $back ) : $back );
 		exit;
 	}
 }

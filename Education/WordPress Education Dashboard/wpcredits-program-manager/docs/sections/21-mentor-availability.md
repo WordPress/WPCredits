@@ -88,3 +88,17 @@ Under a session you have run, **Add a note for everybody on this session**. You 
 appears on every attendee's card - and it counts for each of them, so nobody who was there is left
 sitting in *Need a call*. Deleting it removes it from everyone. You can note everybody who was on
 your session, a student who has since moved to another mentor included.
+
+## Events from our sponsors
+
+When a sponsor holds a webinar or another online event with the program and the program has approved
+it, it is listed under *Group sessions* on your Mentor Report Card, as *Events from our sponsors*, in
+your own time zone: the title and the sponsor's name, when it runs and for how long, how many places
+are left and what it is about. **Join** takes a place and emails you a calendar invitation with the
+link to the call; **Leave** asks first, then frees the place and emails you the calendar file that
+takes the event out of your calendar. If the event is changed or canceled, you are told by email,
+with a calendar file that brings your calendar up to date. Usually the day before the event, an
+email reminds you of it, with the link to the call. The sponsor sees how many people joined, never
+who. Your students see the same events on their Student Report Card. The program's own online events
+are listed there too, each naming the WordPress Credits Program where a sponsor's names the sponsor,
+and while one of them is listed the list is headed *Events from our sponsors and the program*.

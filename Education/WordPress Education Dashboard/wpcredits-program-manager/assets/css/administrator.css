@@ -8,6 +8,69 @@
 	margin-bottom: 1.25em;
 }
 
+/* A card's row, drawn by the dashboards' one card shell: after the title one phrase, and a folded
+   card's action beside the row, the card's section its positioning context. This page loads none of
+   sponsor.css, so that sheet's rules for the row are copied here from it, keyed to this page's
+   card, value for value where this page's own rhythm allows: the phrase in the voice of a student
+   row's preview, 14px/20px ink-60; the action inside the row's own 1.25em of side padding and its
+   line; and the disclosure giving up the 2.5em a group keeps under it, which it keeps only while
+   the action follows it (a disclosure that is its section's last child has none), so a card with an
+   action stands as far from the next as one without, and under 600px the action sits 8px under its
+   row. Two values differ. A card here starts its row at its section's top edge, where that page's
+   cards keep 2em over the row, so the action sits the same 8px down the row at 8px down the card.
+   And a folded row keeps room for this page's widest action, Open the Student Duplicate Finder,
+   270px wide in this base's button at a 16px text size, and 16px between, where that page keeps
+   room for Plan an event. */
+.wpcpm-administrator__card .wpcpm-sponsor__state {
+	color: #656a71;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+.wpcpm-administrator__card {
+	position: relative;
+}
+
+.wpcpm-administrator__card > .wpcpm-group__disclosure {
+	margin-bottom: 0;
+}
+
+.wpcpm-administrator__card > .wpcpm-sponsor__row-action {
+	display: flex;
+	margin: 0;
+	position: absolute;
+	right: calc( 1.25em + 1px );
+	top: 8px;
+}
+
+.wpcpm-administrator__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary {
+	padding-right: calc( 1.25em + 286px );
+}
+
+/* The action shows only while its card is folded, as on the Sponsor Dashboard. The card prints it
+   whether it is drawn open or folded, and this one rule, keyed on the disclosure's own state, hides
+   it once the card is open, whatever opened it: the page, a tile, a link or a press on the title.
+   The open card's body is on screen, and an action after it would come last in the reading and
+   focus order while drawn beside the title; display: none takes it out of the accessibility tree as
+   well. A browser without :has() keeps the action visible on an open card. */
+.wpcpm-administrator__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-sponsor__row-action {
+	display: none;
+}
+
+/* Under 600px there is no room beside the row: the action drops 8px under the row it belongs to,
+   and the row takes its room back. */
+@media ( max-width: 600px ) {
+
+	.wpcpm-administrator__card > .wpcpm-sponsor__row-action {
+		margin-top: 8px;
+		position: static;
+	}
+
+	.wpcpm-administrator__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary {
+		padding-right: 1.25em;
+	}
+}
+
 /* The base shape only: color is a theme's job (the WPCredits theme's dashboard skin paints
    --success and --error), so a site with no skin still gets a readable, bordered message
    rather than a bare paragraph nobody dressed. */
@@ -17,13 +80,25 @@
 	padding: 12px 16px;
 }
 
+/* The strip's tiles, in two rules, on this page and on the Sponsor Dashboard's At a glance strip,
+   which wears these rules too. A strip of one or two tiles keeps tiles of a tile's width: the grid
+   fills its row with tracks of at least 150px and keeps the ones no tile takes, rather than
+   stretching two tiles across the card. From three tiles, the rule after this one lets the tiles
+   fill the row, as they always have: the kept tracks would set the count by the card's width, seven
+   at 1280px, and draw every strip at the tracks' least width, a long word against its border. */
 .wpcpm-attention__tiles {
 	display: grid;
 	gap: 12px;
-	grid-template-columns: repeat( auto-fit, minmax( 150px, 1fr ) );
+	grid-template-columns: repeat( auto-fill, minmax( 150px, 1fr ) );
 	list-style: none;
 	margin: 0;
 	padding: 0;
+}
+
+/* Three tiles or more fill the row, the tracks no tile takes collapsed. :has() is what the row's
+   hide rule above already relies on; a browser without it keeps the rule before for every strip. */
+.wpcpm-attention__tiles:has( > :nth-child( 3 ) ) {
+	grid-template-columns: repeat( auto-fit, minmax( 150px, 1fr ) );
 }
 
 .wpcpm-attention__tile {
@@ -31,11 +106,13 @@
 	border-radius: 8px;
 }
 
-/* A queue with nothing in it is quieter than one with work waiting, but its label is the only
-   thing naming the queue and the tile is still a link. It carried opacity 0.55 and the label
-   inside it another 0.72 until 1.99.0: opacities multiply, so the label painted at an effective
-   0.396 and 2.44:1 against the card, and on a quiet day most of the strip was unreadable (deep
-   check FFRNT-5). One muted ink for the whole tile now, and nothing dimmed on top of it. */
+/* A tile at zero is quieter than one with something to say, but its label is the only thing
+   naming it and the tile is still a link. This page draws no tile for a count at zero; the Sponsor
+   Dashboard's At a glance strip, which this sheet dresses too, draws its zeros. The tile carried
+   opacity 0.55 and the label inside it another 0.72 until 1.99.0: opacities multiply, so the label
+   painted at an effective 0.396 and 2.44:1 against the card, and on a quiet day most of the strip
+   was unreadable (deep check FFRNT-5). One muted ink for the whole tile now, and nothing dimmed on
+   top of it. */
 .wpcpm-attention__tile--zero {
 	color: var( --wpcpm-ink-muted );
 }
@@ -64,6 +141,23 @@
 	letter-spacing: 0.04em;
 	opacity: 0.72;
 	text-transform: uppercase;
+}
+
+/* The strip's one sentence when nothing needs a manager, in place of its tiles: a note, in the
+   values student.css gives .wpcpm-student__note, since this page loads none of that sheet. */
+.wpcpm-attention__none {
+	color: inherit;
+	font-size: 0.875em;
+	margin: 1em 0 0;
+	opacity: 0.72;
+}
+
+/* The Resources column's second heading, For administrators, over the way into wp-admin: every
+   heading of the section is set with no room above it, which the column's first heading needs and
+   this one, under the guide's buttons or the note beneath them, does not. 24px, twice the 12px the
+   WPCredits theme keeps under a heading, so the heading reads as its list's and not as the note's. */
+.wpcpm-administrator .wpcpm-resources__col > .wpcpm-student__heading:not( :first-child ) {
+	margin-top: 24px;
 }
 
 .wpcpm-administrator__item {

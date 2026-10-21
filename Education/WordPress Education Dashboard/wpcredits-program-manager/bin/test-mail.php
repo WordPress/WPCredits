@@ -111,6 +111,7 @@ function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a 
 function wp_specialchars_decode( $s, $q = null ) { return html_entity_decode( (string) $s, ENT_QUOTES ); }
 function wp_parse_url( $u, $c = -1 ) { return parse_url( $u, $c ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
+function network_home_url( $p = '' ) { return ( $GLOBALS['network_home'] ?? 'https://example.test' ) . $p; }
 function get_bloginfo( $k = 'name' ) { return 'WordPress Education Dashboard'; }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
@@ -162,7 +163,7 @@ $GLOBALS['posts'] = array();
 $GLOBALS['pmeta'] = array();
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k = '', $single = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array( $rows ); if ( $single ) { return $rows ? $rows[0] : ''; } return $rows; }
-function get_post_time( $f, $gmt = false, $post = null ) { return 1785000000; }
+function get_post_time( $f, $gmt = false, $post = null, $translate = false ) { return 1785000000; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 require_once __DIR__ . '/stubs/caps.php';
@@ -414,6 +415,38 @@ WPCPM_Mail::send( 30, 'test', function () {
 ck( 'newlines are stripped from the subject',
     array( false !== strpos( $GLOBALS['mail'][0]['subject'], "\n" ), false !== strpos( $GLOBALS['mail'][0]['subject'], 'Bcc' ) ),
     array( false, true ) );
+
+// A subject in plain text: a sponsor member's event title with its entities read back holds a "<" as
+// a character. The text cleaner every subject goes through reads "<3 ... >" as a tag and drops it with
+// the words between, so a builder that says its subject is plain text has it cleaned with each "<"
+// kept as text, and every other subject is cleaned as before.
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send( 30, 'test', function () {
+	return array( 'subject' => '[Site] Event changed: We <3 "our" team & Bob\'s > all', 'body' => 'x', 'plain_subject' => true );
+} );
+WPCPM_Mail::send( 30, 'test', function () {
+	return array( 'subject' => 'Write <b> for bold, then R&amp;D &lt;3', 'body' => 'x', 'plain_subject' => true );
+} );
+WPCPM_Mail::send( 30, 'test', function () {
+	return array( 'subject' => "Booked <3 our team >\r\nBcc: attacker@example.test", 'body' => 'x', 'plain_subject' => true );
+} );
+WPCPM_Mail::send( 30, 'test', function () {
+	return array( 'subject' => 'Booked with Ada <b>Example</b>', 'body' => 'x' );
+} );
+WPCPM_Mail::send_to( 'applicant@example.test', 'test', function () {
+	return array( 'subject' => 'Received: We <3 "our" team & Bob\'s > all', 'body' => 'x', 'plain_subject' => true );
+} );
+ck( 'a subject the builder says is plain text goes out as it was handed: a "<3", a ">", an ampersand and quotes kept, words and all',
+    $GLOBALS['mail'][0]['subject'], '[Site] Event changed: We <3 "our" team & Bob\'s > all' );
+ck( 'and a "<b>" in it stays as text, and an entity typed out stays as typed, read no deeper',
+    $GLOBALS['mail'][1]['subject'], 'Write <b> for bold, then R&amp;D &lt;3' );
+ck( 'a plain subject still cannot become two headers: its CR and LF go, as any subject\'s do, and its words stay',
+    array( strpbrk( $GLOBALS['mail'][2]['subject'], "\r\n" ), false !== strpos( $GLOBALS['mail'][2]['subject'], 'Booked <3 our team >' ), false !== strpos( $GLOBALS['mail'][2]['subject'], 'Bcc' ) ),
+    array( false, true, true ) );
+ck( 'a subject the builder does not say is plain text is cleaned as every subject was, its tags taken out',
+    $GLOBALS['mail'][3]['subject'], sanitize_text_field( 'Booked with Ada <b>Example</b>' ) );
+ck( 'and send_to() takes a plain subject by the same rule',
+    $GLOBALS['mail'][4]['subject'], 'Received: We <3 "our" team & Bob\'s > all' );
 
 $GLOBALS['mail'] = array();
 $sent = WPCPM_Mail::send( 30, 'test', function () { return array( 'subject' => '   ', 'body' => 'x' ); } );
@@ -840,6 +873,21 @@ ck(
 	array( strlen( $header[0] ) <= 998, as_read( $header[0] )['name'] === $fits, strlen( $header[1] ) <= 998, strlen( $header[1] ) > 998 - 75, '' !== $name && 0 === strpos( $cut, $name ) && strlen( $name ) < strlen( $cut ) && 1 === preg_match( '//u', $name ), as_read( $header[1] )['addresses'], as_read( $header[1] )['address'], as_read( $header[1] )['one_line'] ),
 	array( true, true, true, true, true, 1, 'a-much-longer-address-for-a-person@example.test', true )
 );
+
+/* ---- the program's sender ---------------------------------------------- */
+
+echo "\n=== The program's sender ===\n";
+
+// No message this plugin sends names a From of its own, so each leaves from core's default: a
+// calendar file's organizer reads this, and must name who the mail it arrives with comes from.
+ck( 'the program\'s mail leaves from core\'s own sender: wordpress@ and the site\'s host, named WordPress', WPCPM_Mail::sender(), array( 'email' => 'wordpress@example.test', 'name' => 'WordPress' ) );
+$GLOBALS['network_home'] = 'https://www.example.test';
+ck( 'without the www. that core drops', WPCPM_Mail::sender()['email'], 'wordpress@example.test' );
+unset( $GLOBALS['network_home'] );
+add_filter( 'wp_mail_from', function () { return 'program@example.test'; } );
+add_filter( 'wp_mail_from_name', function () { return 'The Program'; } );
+ck( 'and through the two filters wp_mail() applies, so a site that changes its sender changes this', WPCPM_Mail::sender(), array( 'email' => 'program@example.test', 'name' => 'The Program' ) );
+unset( $GLOBALS['filters']['wp_mail_from'], $GLOBALS['filters']['wp_mail_from_name'] );
 
 /* ---- the context the mail log names a send by ---------------------------- */
 
@@ -2157,10 +2205,10 @@ $sponsor_email = array(
 );
 $sponsor = new WP_User( 80, 'Sponsor Rep', 'rep@sponsor.example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
 
-// The Sponsor Dashboard's class lands in Task 10 of this phase; stood in here the way the
-// institution dashboard was above, so the label is proven present rather than merely not fatal.
+// The Sponsor Dashboard's class is not loaded here; it is stood in the way the institution
+// dashboard was above, so the label is proven present rather than merely not fatal.
 if ( ! class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
-	/** Stands in for the Sponsor Dashboard once Task 10 lands it. */
+	/** Stands in for the Sponsor Dashboard's class, which this suite does not load. */
 	class WPCPM_Sponsors_Dashboard { public static function page_url() { return 'https://example.test/sponsor-dashboard/'; } }
 }
 

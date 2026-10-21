@@ -48,9 +48,8 @@ ID or the column's name is typed, and a sentence under the field says why: no Pe
 or no Base ID is set, Airtable refused the token, the token lacks the `schema.bases:read` scope or
 access to the base, the base has no such table or column, or the read failed.
 
-Six of these had no control before 1.117.0 and could only be changed in code: the **Tutors**,
-**Feedback**, **Countries** and **Sponsors** tables, and the **Countries** and **Sponsors** name
-columns.
+Four of these had no control before 1.117.0 and could only be changed in code: the **Tutors**,
+**Feedback** and **Countries** tables, and the **Countries** name column.
 
 The bases, statuses and stages are read from Airtable once a day, the tables and columns every
 fifteen minutes, and all of them again after a Save of the Connection tab. A read that failed is not
@@ -59,11 +58,11 @@ every one, and the fields stay typed meanwhile. **Read the lists from Airtable a
 tab's Save button, reads them at once: for a status or a stage somebody has just added in Airtable,
 which cannot be chosen until the lists are read again, or once Airtable answers again.
 
-When its table is chosen from the list, which saves the table's ID, each of the **Institutions**,
-**Countries** and **Sponsors** name columns can also be set to **None (the built-in column)**, which
-leaves the setting blank: each is then read from the column the plugin names by default, **Name**,
-**Name** and **Company Name**, and by the mentors sync from the table's primary column, which it finds
-by the table's ID. A table saved by its name, as one typed before 1.117.0 could be, keeps its name
+When its table is chosen from the list, which saves the table's ID, each of the **Institutions** and
+**Countries** name columns can also be set to **None (the built-in column)**, which leaves the
+setting blank: each is then read from the column the plugin names by default, **Name** for both, and
+the Institutions table's by the mentors sync from the table's primary column, which it finds by the
+table's ID. A table saved by its name, as one typed before 1.117.0 could be, keeps its name
 column typed: the mentors sync would ask for that column itself, and a blank one names no column.
 
 | Setting | What it is for |
@@ -76,8 +75,6 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 | **Tutors table** | Read when an institution enrolls students, for that institution's own tutors and no other school's. |
 | **Feedback table** | Where the students' survey answers are written: one row per student, with a column per question. |
 | **Countries table** and **Countries name column** | Read for the name of each institution's country and the Administrator who looks after it; the name column holds each country's name. |
-| **Team Members table** | Read by the sponsors sync for each sponsor's program contact. Not the Contribution areas table. |
-| **Sponsors table** and **Sponsors name column** | Read by the sponsors sync, and written to whenever a sponsor's record changes on this site, from an approved application to a new logo; the name column holds each company's name, which the mentors sync reads too, for the report form's company field. |
 
 ### The Students and mentors tab
 
@@ -136,13 +133,12 @@ answer that removes comes first, and it is the default for both.
   Administrator, and a mentor whose account is not yet confirmed as the person's (see *Applications
   to mentor*).
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
-  institutions syncs every three hours, the mentors run half an hour after the students run. The
-  sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the
-  student rows carry what people are shown on their cards, and the students run is the expensive
-  one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads
-  three Airtable tables and no WordPress.org profile. A run already in progress is left to finish
-  rather than restarted. The students and mentors runs can also be run by hand from the Students and
-  Mentors screens.
+  institutions syncs every three hours, the mentors run half an hour after the students run. Its
+  fold: the student rows carry what people are shown on their cards, and the students run is the
+  expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run
+  reads three Airtable tables and no WordPress.org profile. A run already in progress is left to
+  finish rather than restarted. The students and mentors runs can also be run by hand from the
+  Students and Mentors screens.
 
 #### Landing pages
 
@@ -260,18 +256,18 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 ### The Sponsors tab
 
-Five sections, headed on the screen **Applications**, **Landing page**, **When a sponsor is no longer
-Approved**, **Interest mail** and **Offers**.
+Six sections, headed on the screen **Applications**, **Landing page**, **When a sponsor is no longer
+Approved**, **Interest mail**, **Offers** and **Tiers**.
 
 #### Sponsor applications
 
 - **Applications from sponsors** - **Take sponsor applications through the form on this site**, at
   /sponsor-application/. Off by default, since it is a public page anybody can post to; its address
   is under the switch. Every submission is stored for an Administrator to read on the Sponsors
-  screen's Waiting for review tab and to decide on the Administrator Dashboard, and nothing is
-  created in Airtable until somebody approves it; while this is off, the page shows one sentence
-  saying applications are closed. As with institutions, the form shows nothing to the public
-  without a published privacy policy, and the row says so.
+  screen's Waiting for review tab and to decide on the Administrator Dashboard, and nothing becomes
+  a sponsor until somebody approves it; while this is off, the page shows one sentence saying
+  applications are closed. As with institutions, the form shows nothing to the public without a
+  published privacy policy, and the row says so.
 
 #### Sponsor landing page
 
@@ -284,8 +280,8 @@ Approved**, **Interest mail** and **Offers**.
 - **Its accounts** - **Remove its accounts from the sponsor, so they lose access to its Sponsor
   Dashboard**, or **Leave their access in place**, the default. Nothing is ever deleted, and Paused
   and Not Moving Forward sponsors keep their accounts by default, because a pause is often short.
-  Its fold: Airtable's Status is the record, and the first answer has the sync remove the accounts
-  from any sponsor whose Status is no longer Approved.
+  Its fold: the status is the record, and the first answer has a status change on the Sponsors
+  screen remove the accounts of a sponsor that is no longer Approved.
 
 #### Interest mail
 
@@ -293,14 +289,14 @@ Approved**, **Interest mail** and **Offers**.
   none, chosen as the Institutions tab's reviewers are; with none here, every Administrator is
   written to. Every mail meant for a sponsor's Administrator goes to its assigned Administrator:
   its interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one
-  of its codes and a warning that its codes are running low. A sponsor with none is mailed here, and
-  every new sponsor application comes here too, since a new application has no Administrator yet.
+  of its codes, a warning that its codes are running low, the mail thirty days before its term ends
+  and the mails about the events it plans, changes or cancels. A sponsor with none is mailed here,
+  and every new sponsor application comes here too, since a new application has no Administrator yet.
 
 #### Offers
 
 - **Largest logo** - the largest logo file, in KB, from 100 to 8192 and 1024 by default, for the
-  logos the sync copies from Airtable, the ones sponsors upload and the ones sent with an
-  application. PNG, JPEG and WebP only; never SVG.
+  logos sponsors upload and the ones sent with an application. PNG, JPEG and WebP only; never SVG.
 - **Tools from our sponsors** - two boxes: **Show the section on the Student Report Card**, on by
   default, and **Show the section on the Mentor Report Card**, off by default. The section lists the
   live offers, each with its claim button. Its fold: a student always sees offers open to students,
@@ -309,6 +305,36 @@ Approved**, **Interest mail** and **Offers**.
 - **Low-stock warning** - when a pool of one-time codes falls below this many codes, from 1 to 1000
   and 10 by default, the sponsor and its Administrator are mailed, once per crossing. Its fold:
   this is the default for new offers, and each offer can set its own.
+
+#### Sponsor tiers
+
+- **Sponsor tiers** - **Launch the sponsor tiers**, the launch switch for the tiers, off by default:
+  ticking it is the launch. Turning it on publishes the Partners page; turning it off returns the
+  page to draft. Its fold lists everything else it turns on. While it is off, the switch gates the
+  Partners page and the Sponsors block (the full list and the strip on the landing page alike), the
+  badge a sponsor puts on its own site, the Handbook listing tab on the Sponsors screen, the
+  application form's *Which tier are you considering?* question, the partnership tiles a track's
+  students see on their Student Report Card and the offers its partners keep for them, the At a
+  glance tiles for the tier, the next event and the reports, the *Sponsorship*, *Badge*, *Reports*
+  and *Events* cards, the badge in the Sponsor Dashboard's header, the reports a sponsor's members
+  open on the *Reports* card and the event planner on the *Events* card, the Administrator
+  Dashboard's *Events* card and its tile, which the Overview lists too, the *Events* card on the
+  Sponsors screen's Waiting for review tab and the events in its menu bubble, and the *Events from
+  our sponsors* lists, the reminders the day before each approved event, the description for the
+  partner page, the caps a tier puts on posts, and the dormant state; the daily run puts nothing to
+  dormant and wakes nothing. A signed-in Administrator sees the Partners page and the Sponsors block
+  while the switch is off, under a note that visitors do not see them yet; the badge and the
+  application's tier question stay refused to everyone, Administrators included, and the Handbook
+  listing tab stays out of the Sponsors screen's tab bar, its address opening the first tab, until
+  the switch is on. Administrators can set tiers, terms and funded lines on the Sponsors screen
+  whether it is on or off, the Sponsors screen and the Administrator Dashboard show them either way,
+  and the mail that warns of a term's end thirty days ahead goes out either way. Switched off again
+  after being on, it leaves whatever is dormant where it is until it is back on, and the sponsor
+  reads only that the program is holding it back.
+- **Tier grace date** - 31 December 2026 by default. On or before this day nothing a sponsor's tier
+  does not cover goes dormant, even with the switch on. Its fold: from the day after, the daily run
+  applies the tiers as set. Until the day has passed, the Sponsors screen says what the run would put
+  to dormant on the day after it. A value that is not a real date leaves the stored day in place.
 
 ### The Security tab
 

@@ -58,7 +58,6 @@ function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslas
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
 function wp_update_attachment_metadata( $id, $data ) { $GLOBALS['meta'][ $id ] = $data; return true; }
 function wp_delete_file( $p ) { $GLOBALS['deleted_files'][] = $p; if ( file_exists( $p ) ) { unlink( $p ); } }
-function download_url( $url, $timeout = 300 ) { if ( empty( $GLOBALS['download'][ $url ] ) ) { return new WP_Error( 'http_404', 'Not Found' ); } $tmp = wpcpm_test_tempnam( 'dl' ); copy( $GLOBALS['download'][ $url ], $tmp ); $GLOBALS['downloaded'][] = $tmp; return $tmp; }
 class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 // The editor: what WordPress does with a real image, in miniature. `save()` writes a copy and
 // says so, which is what "the bytes served are bytes WordPress wrote" means here.
@@ -163,26 +162,13 @@ ck( 'store() refuses when copy() fails', code( $store_result ), 'wpcpm_image_sto
 ck( 'and the re-saved temporary file is cleaned up rather than left behind', file_exists( $broken['path'] ), false );
 
 // The row is refused after the copy already landed in the uploads directory: the orphan
-// this leaves behind, with nothing pointing at it, is what the review found (S5 review,
-// clean-up 1.98.1).
+// this would leave behind, with nothing pointing at it, is deleted since 1.98.1.
 $leftover = WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'Weglot Logo Light-1.png' ) );
 $GLOBALS['insert_fails'] = true;
 $orphan_result = WPCPM_Image_Upload::store( $leftover, 'Weglot logo', 7, 'Weglot logo (colour)' );
 $GLOBALS['insert_fails'] = false;
 ck( 'store() refuses when the attachment row cannot be written', code( $orphan_result ), 'attachment_insert_failed' );
 ck( 'and the copy nothing points at is deleted, not left behind', in_array( end( $GLOBALS['insert_attachment_calls'] ), $GLOBALS['deleted_files'], true ), true );
-
-echo "\n=== Sideloading ===\n";
-$GLOBALS['download'] = array( 'https://v5.airtableusercontent.com/x/logo.png' => png( 400, 120 ), 'https://v5.airtableusercontent.com/x/logo.svg' => $svg );
-$id = WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/logo.png', 'logo.png', 0, 'Acme logo' );
-ck( 'a logo is fetched, accepted and stored', $id, 102 );
-ck( 'with no author: the sync has none', $GLOBALS['attachments'][1]['post_author'], 0 );
-ck( 'the downloaded temporary file is removed', file_exists( $GLOBALS['downloaded'][0] ), false );
-$GLOBALS['download']['https://v5.airtableusercontent.com/x/small.png'] = png( 250, 90 );
-ck( 'a logo already in the base at 250px is still copied: the wider floor is for an upload, never for what is stored', WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/small.png', 'small.png', 0, 'Small logo' ), 103 );
-ck( 'an SVG at the other end is refused by content', code( WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/logo.svg', 'logo.svg', 0, 'x' ) ), 'wpcpm_image_type' );
-ck( 'a URL that is not http(s) is refused before any request', code( WPCPM_Image_Upload::sideload( 'ftp://example.test/logo.png', 'logo.png', 0, 'x' ) ), 'wpcpm_image_url' );
-ck( 'a download that fails is a refusal that names the download', code( WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/missing.png', 'missing.png', 0, 'x' ) ), 'wpcpm_image_download' );
 
 echo "\n=== Private, under a name nobody can guess (S5 fix wave) ===\n";
 // The two options the review added for a file a stranger uploaded through a public form. Both

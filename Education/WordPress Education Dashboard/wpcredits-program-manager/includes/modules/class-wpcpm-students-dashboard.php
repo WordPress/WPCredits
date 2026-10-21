@@ -539,7 +539,8 @@ class WPCPM_Students_Dashboard {
 		switch ( $key ) {
 			case self::MODULE_COURSE:
 				// The course and the hours: what a student opens this page to reach. With no course
-				// the module is the hours alone, and its mover says so (TRACKS-3).
+				// the module is the hours alone, and its mover says so (TRACKS-3). A track's partners
+				// ride in whichever section it draws, or in one of their own (1.114.0).
 				if ( ! empty( $program ) ) {
 					$name = self::render_links( $program, $student );
 				}
@@ -823,12 +824,20 @@ class WPCPM_Students_Dashboard {
 	 * graduation with no course the site knows, gets the same section: `fields()` draws them the
 	 * 150-hour track's form, its Hours question included (TRACKS-5), and the box saves through that
 	 * form as it does for everybody else. A Pending graduation student whose course the site does
-	 * know keeps My course, as on the track (`WPCPM_Program::course_status()`). The section is drawn
-	 * only when the box is, so a form with no Hours question, or a record that cannot be read,
-	 * leaves no empty heading.
+	 * know keeps My course, as on the track, and the partnership line of that course's track
+	 * (`WPCPM_Program::course_status()`). The section is drawn only when the box is, so a form with
+	 * no Hours question, or a record that cannot be read, leaves no empty heading.
 	 *
 	 * The section's heading is also what its module's mover calls it, so the arrows over My hours
 	 * say My hours (TRACKS-3).
+	 *
+	 * **A track's partners ride in the section drawn** (1.114.0). The partnership line
+	 * `WPCPM_Track_Partners::render_line()` builds belongs in the course module (the sponsor tiers
+	 * design, section 9), and on a track with no course that module is My hours, so the line follows
+	 * the course columns in My course and the box in My hours. With neither drawn it is a section
+	 * of its own, headed Partners of your track rather than with the line's own lead, so the heading
+	 * and the lead do not say the same words. The line is empty while the tiers' switch is off or no
+	 * partner of the track qualifies today, and then nothing of it is drawn, no heading either.
 	 *
 	 * @param array   $program The student's cached program array.
 	 * @param WP_User $student The student the page is being drawn for.
@@ -841,6 +850,13 @@ class WPCPM_Students_Dashboard {
 		$course = WPCPM_Program::course_url( WPCPM_Program::course_status( $status, $student->ID ) );
 		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
 		$name   = '';
+
+		// Asked by the track's key, which the compiled tracks are read by: the live site never
+		// reads a track post. A student waiting to graduate is asked by the course they took, as the
+		// Tools section asks (`WPCPM_Sponsor_Tools`), so the two name the same partners; a student
+		// on no track, Paused, finished, or waiting with no course the site knows, has none to show.
+		$track    = WPCPM_Program::track( WPCPM_Program::course_status( $status, $student->ID ) );
+		$partners = '' !== $track && class_exists( 'WPCPM_Track_Partners' ) ? WPCPM_Track_Partners::render_line( $track ) : '';
 
 		if ( '' !== $course ) {
 			$name = __( 'My course', 'wpcredits-program-manager' );
@@ -855,7 +871,9 @@ class WPCPM_Students_Dashboard {
 			self::render_course_button( $course );
 			WPCPM_Student_Report_Form::render_hours( $student, $program );
 
-			echo '</div></section>';
+			echo '</div>';
+			echo $partners; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Track_Partners::render_line(), which escapes every value it prints.
+			echo '</section>';
 		} else {
 			ob_start();
 			WPCPM_Student_Report_Form::render_hours( $student, $program );
@@ -867,6 +885,14 @@ class WPCPM_Students_Dashboard {
 				echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--hours">';
 				echo '<h3 class="wpcpm-student__heading">' . esc_html( $name ) . '</h3>';
 				echo $hours; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Printed by render_hours(), which escapes every value it prints.
+				echo $partners; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Track_Partners::render_line(), which escapes every value it prints.
+				echo '</section>';
+			} elseif ( '' !== $partners ) {
+				$name = __( 'Partners of your track', 'wpcredits-program-manager' );
+
+				echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--partners">';
+				echo '<h3 class="wpcpm-student__heading">' . esc_html( $name ) . '</h3>';
+				echo $partners; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Track_Partners::render_line(), which escapes every value it prints.
 				echo '</section>';
 			}
 		}

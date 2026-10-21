@@ -1397,8 +1397,8 @@ ck( 'the offset is read from the class rather than copied', WPCPM_Institutions_S
 // The mentors run is named here too, because it is the neighbour this one is nearest to: it
 // takes +1:00 and this takes +1:30. Its offset is read from the source rather than the class -
 // this suite carries a two-method stand-in for WPCPM_Mentors_Sync and the real one needs an
-// Airtable stand-in that is not here - and all four offsets are held apart against each other
-// in bin/test-sponsors-sync.php, where every one of the four classes is loaded.
+// Airtable stand-in that is not here - and every offset of the cycle is held apart from the
+// others in bin/test-sync-schedule.php, where every class that takes one is loaded.
 $mentors_src = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-mentors-sync.php' );
 $mentors_off = preg_match( '/const SCHEDULE_OFFSET_MINUTES\s*=\s*(\d+);/', $mentors_src, $m ) ? (int) $m[1] : 0;
 

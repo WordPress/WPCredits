@@ -55,7 +55,7 @@ final class WPCPM_Sponsor_Mentors {
 	/**
 	 * The mentors linked to a sponsor, resolved through the sponsorship index.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return array `mentors` (each `record`, `name`, `profile`, `current`, `past`), `others` (linked mentors the index does not hold: not Active) and `index_empty` (the sponsorship index has not been built yet, so `others` means nothing).
 	 */
 	public static function linked( $record ) {
@@ -268,28 +268,43 @@ final class WPCPM_Sponsor_Mentors {
 	 * chips, one line of student counts. Names of mentors and numbers of students, never a
 	 * student's name (spec section 5.6).
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * Mentors you sponsor is the company's own live state and is open whatever a flash says; the
+	 * list of mentors looking for a sponsor is long and folds until a flash names it (the design the
+	 * owner approved on 27 September 2026). Each row says how many, and neither offers an action after
+	 * its fold: the one press is on each looking mentor's own tile.
+	 *
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
 		$linked  = self::linked( $record );
 		$looking = self::looking();
 		$open    = isset( $context['open'] ) ? (string) $context['open'] : '';
+		$count   = count( $linked['mentors'] ) + (int) $linked['others'];
 
-		// Your mentors.
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), self::CARD === $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Your mentors', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $linked['mentors'] ) + (int) $linked['others'] ) )
+		// Mentors you sponsor.
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'   => self::CARD,
+				'title' => __( 'Mentors you sponsor', 'wpcredits-program-manager' ),
+				'count' => $count,
+				'open'  => true,
+				'state' => 0 === $count
+					? __( 'None yet', 'wpcredits-program-manager' )
+					: sprintf(
+						/* translators: %s: how many mentors the company sponsors. */
+						_n( '%s mentor', '%s mentors', $count, 'wpcredits-program-manager' ),
+						number_format_i18n( $count )
+					),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
 
 		if ( ! empty( $linked['index_empty'] ) ) {
 			// The mentors sync has not written its index since it learned to: nothing can be
 			// named yet, and "not currently active" would be a statement about people the site
-			// simply has not read (found live on 5 September 2026).
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'The mentor list refreshes with the next program sync.', 'wpcredits-program-manager' ) . '</p>';
+			// simply has not read (found live on 5 September 2026). The sponsor reading this is told
+			// when the list comes, in words that name no sync.
+			echo '<p class="wpcpm-student__note">' . esc_html__( 'The mentor list refreshes with the next update of the mentor records.', 'wpcredits-program-manager' ) . '</p>';
 		} elseif ( empty( $linked['mentors'] ) && 0 === $linked['others'] ) {
 			echo '<p>' . esc_html__( 'No mentor is linked to your company yet.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
@@ -317,16 +332,22 @@ final class WPCPM_Sponsor_Mentors {
 			}
 		}
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 
 		// Mentors looking for a sponsor.
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD_LOOKING ), self::CARD_LOOKING === $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Mentors looking for a sponsor', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $looking ) ) )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'   => self::CARD_LOOKING,
+				'title' => __( 'Mentors looking for a sponsor', 'wpcredits-program-manager' ),
+				'count' => count( $looking ),
+				'open'  => self::CARD_LOOKING === $open,
+				'state' => sprintf(
+					/* translators: %s: how many mentors are looking for a sponsor. */
+					_n( '%s looking', '%s looking', count( $looking ), 'wpcredits-program-manager' ),
+					number_format_i18n( count( $looking ) )
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
 
 		if ( empty( $looking ) ) {
 			echo '<p>' . esc_html__( 'Nobody is on the list right now.', 'wpcredits-program-manager' ) . '</p>';
@@ -340,7 +361,7 @@ final class WPCPM_Sponsor_Mentors {
 			echo '</div>';
 		}
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
@@ -348,7 +369,7 @@ final class WPCPM_Sponsor_Mentors {
 	 * looking for a sponsor the interest form.
 	 *
 	 * @param array  $mentor    `name`, `profile`, `user_id`, `current`, `past`, `expertise`, `record`.
-	 * @param string $record    Sponsor record ID, for the form.
+	 * @param string $record    Sponsor key, for the form.
 	 * @param bool   $with_form Whether to draw the interest form.
 	 */
 	private static function render_mentor_card( array $mentor, $record, $with_form ) {

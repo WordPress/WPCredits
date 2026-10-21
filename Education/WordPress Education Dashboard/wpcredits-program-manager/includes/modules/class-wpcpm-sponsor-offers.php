@@ -13,14 +13,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Post type `wpcpm_offer`, private and invisible, one post per offer; the codes live beside it
  * in WPCPM_Sponsor_Codes and the claims in WPCPM_Sponsor_Claims.
  *
- * Sponsors design spec of 4 September 2026, section 6.1. The record ID in
- * `_wpcpm_offer_sponsor` is the queryable key and is never read from a form: every handler
+ * Sponsors design spec of 4 September 2026, section 6.1. The sponsor's key, held in
+ * `_wpcpm_offer_sponsor`, is the queryable field and is never read from a form: every handler
  * claims its sponsor through WPCPM_Sponsor_Roster::claim() first and then asks find() whether
  * the offer belongs to it, so a member cannot reach another sponsor's offer by posting its ID.
- * The one offer marked primary mirrors its text, instructions and link to Airtable's `Offer`,
- * `Brief instructions` and `More info link`, so managers keep seeing the offer in the grid;
- * `Coupon code/discount link` is never written, because the truthful value ("managed on the
- * site") is not a URL and the column is a url field.
+ * The one offer marked primary is the offer the profile card points to and the Sponsors screen
+ * marks "(primary)"; nothing about it is written anywhere else, since 1.111.0 moved the record
+ * onto the site.
+ *
+ * **The review (1.123.18).** What students and mentors see of an offer has an Administrator's OK,
+ * as a sponsor's post does: the partner page offers products at any level, and the Foundation
+ * decides how they are shared. A sponsor member's new offer is sent for review rather than switched
+ * on (`submit()`, the Waiting for review state), and a member's change to the words, the link or
+ * the shared code of an offer students can see, live, paused or dormant, is held beside it
+ * (`propose()`) while students keep seeing the offer as it was approved. An Administrator approves
+ * or returns either with a note (`WPCPM_Sponsor_Offer_Review`). Pausing, ending, a new last day, the
+ * audience, the warning and the codes added to a pool take effect at once, and what the program's
+ * own staff make or change needs no review. An offer carries whether its words have that OK
+ * (`META_APPROVED`); one from before this release carries no such mark, and reads as approved when
+ * students could already see it (`approved()`), so nothing live at the update changes.
  */
 final class WPCPM_Sponsor_Offers {
 
@@ -38,14 +49,24 @@ final class WPCPM_Sponsor_Offers {
 	const META_LOW_SENT     = '_wpcpm_offer_low_sent';
 	const META_EXPIRES      = '_wpcpm_offer_expires';
 	const META_EVENT        = '_wpcpm_offer_event';
+	const META_APPROVED     = '_wpcpm_offer_approved';
+	const META_PROPOSED     = '_wpcpm_offer_proposed';
+	const META_SUBMITTED    = '_wpcpm_offer_submitted';
+	const META_RETURN_NOTE  = '_wpcpm_offer_return_note';
+	const META_RETURNED     = '_wpcpm_offer_returned';
+
+	/** The fields of what students see that a member's change to a visible offer holds for review, the shared code beside them. */
+	const REVIEWED = array( 'title', 'text', 'instructions', 'url' );
 
 	const KIND_CODES  = 'codes';
 	const KIND_SHARED = 'shared';
 
-	const STATE_DRAFT  = 'draft';
-	const STATE_LIVE   = 'live';
-	const STATE_PAUSED = 'paused';
-	const STATE_ENDED  = 'ended';
+	const STATE_DRAFT   = 'draft';
+	const STATE_REVIEW  = 'review';
+	const STATE_LIVE    = 'live';
+	const STATE_PAUSED  = 'paused';
+	const STATE_ENDED   = 'ended';
+	const STATE_DORMANT = 'dormant';
 
 	/** Students are always in; these two are opt-in per offer. */
 	const AUDIENCES = array( 'mentors', 'managers' );
@@ -65,6 +86,7 @@ final class WPCPM_Sponsor_Offers {
 	const ACTION_STATE      = 'wpcpm_offer_state';
 	const ACTION_CODES_ADD  = 'wpcpm_offer_codes_add';
 	const ACTION_CODES_VOID = 'wpcpm_offer_codes_void';
+	const ACTION_DISCARD    = 'wpcpm_offer_discard';
 
 	const CARD = 'offers';
 
@@ -74,31 +96,14 @@ final class WPCPM_Sponsor_Offers {
 	const LOG_SEEDED = 'offer_seeded';
 
 	/**
-	 * Offer field to Airtable column, for the primary offer. Spelled as the base spells them;
-	 * pinned by bin/fixtures/sponsors-table-fields.json through WPCPM_Sponsor_Profile::FIELDS.
-	 */
-	const MIRROR = array(
-		'text'         => 'Offer',
-		'instructions' => 'Brief instructions',
-		'url'          => 'More info link',
-	);
-
-	/** The same three, as the index names them. */
-	const MIRROR_INDEX = array(
-		'text'         => 'offer',
-		'instructions' => 'instructions',
-		'url'          => 'more_info',
-	);
-
-	/**
 	 * A coupon link on one of these hosts is the sheet the program is retiring, never a shared
 	 * code. Drive as well as Docs: the same sheet shared from the file list is a `drive.google.com`
-	 * link, and the rule exists to keep the sheet out of the pool (final review, finding 13).
+	 * link, and the rule exists to keep the sheet out of the pool.
 	 */
 	const SHEET_HOSTS = array( 'docs.google.com', 'drive.google.com' );
 
 	/**
-	 * The post type, and the four handlers.
+	 * The post type, and the five handlers.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
@@ -106,6 +111,7 @@ final class WPCPM_Sponsor_Offers {
 		add_action( 'admin_post_' . self::ACTION_STATE, array( __CLASS__, 'handle_state' ) );
 		add_action( 'admin_post_' . self::ACTION_CODES_ADD, array( __CLASS__, 'handle_codes_add' ) );
 		add_action( 'admin_post_' . self::ACTION_CODES_VOID, array( __CLASS__, 'handle_codes_void' ) );
+		add_action( 'admin_post_' . self::ACTION_DISCARD, array( __CLASS__, 'handle_discard' ) );
 	}
 
 	/**
@@ -151,21 +157,31 @@ final class WPCPM_Sponsor_Offers {
 	 * @return string[]
 	 */
 	public static function states() {
-		return array( self::STATE_DRAFT, self::STATE_LIVE, self::STATE_PAUSED, self::STATE_ENDED );
+		return array( self::STATE_DRAFT, self::STATE_REVIEW, self::STATE_LIVE, self::STATE_PAUSED, self::STATE_ENDED, self::STATE_DORMANT );
 	}
 
 	/**
 	 * The moves a sponsor may make. Ended is final: a pool that was handed out is a record,
 	 * and reviving it would put codes people already hold back on offer.
 	 *
+	 * Dormant is the program's state, written by set_dormant() when a tier stops covering the
+	 * offer and lifted by wake(); it is never a target here, so no sponsor can post it, and a
+	 * sponsor may only end a dormant offer.
+	 *
+	 * Waiting for review is a member's draft sent to the program (`submit()`): the member may take it
+	 * back to a draft or end it, and only an Administrator's approval puts it live
+	 * (`WPCPM_Sponsor_Offers::approve()`), never a move posted here.
+	 *
 	 * @return array<string, string[]>
 	 */
 	public static function transitions() {
 		return array(
-			self::STATE_DRAFT  => array( self::STATE_LIVE, self::STATE_ENDED ),
-			self::STATE_LIVE   => array( self::STATE_PAUSED, self::STATE_ENDED ),
-			self::STATE_PAUSED => array( self::STATE_LIVE, self::STATE_ENDED ),
-			self::STATE_ENDED  => array(),
+			self::STATE_DRAFT   => array( self::STATE_LIVE, self::STATE_ENDED ),
+			self::STATE_REVIEW  => array( self::STATE_DRAFT, self::STATE_ENDED ),
+			self::STATE_LIVE    => array( self::STATE_PAUSED, self::STATE_ENDED ),
+			self::STATE_PAUSED  => array( self::STATE_LIVE, self::STATE_ENDED ),
+			self::STATE_ENDED   => array(),
+			self::STATE_DORMANT => array( self::STATE_ENDED ),
 		);
 	}
 
@@ -190,6 +206,11 @@ final class WPCPM_Sponsor_Offers {
 			'low_sent'     => 0,
 			'expires'      => '',
 			'event'        => array(),
+			'approved'     => false,
+			'proposed'     => array(),
+			'submitted'    => array(),
+			'note'         => '',
+			'returned'     => 0,
 		);
 	}
 
@@ -236,7 +257,325 @@ final class WPCPM_Sponsor_Offers {
 		$event          = get_post_meta( $id, self::META_EVENT, true );
 		$offer['event'] = is_array( $event ) ? $event : array();
 
+		$proposed          = get_post_meta( $id, self::META_PROPOSED, true );
+		$offer['proposed'] = is_array( $proposed ) ? array_map( 'strval', $proposed ) : array();
+
+		// A held shared code is sealed at rest (`propose()`). One that no longer opens is dropped
+		// from the change, so an approval keeps the code students have rather than clearing it.
+		if ( isset( $offer['proposed']['shared'] ) && '' !== $offer['proposed']['shared'] ) {
+			$plain = WPCPM_Secret::unseal_from_option( $offer['proposed']['shared'] );
+
+			if ( is_wp_error( $plain ) ) {
+				unset( $offer['proposed']['shared'] );
+			} else {
+				$offer['proposed']['shared'] = $plain;
+			}
+		}
+
+		$submitted          = get_post_meta( $id, self::META_SUBMITTED, true );
+		$offer['submitted'] = is_array( $submitted ) && isset( $submitted['by'], $submitted['at'] ) ? array(
+			'by' => (int) $submitted['by'],
+			'at' => (int) $submitted['at'],
+		) : array();
+
+		$offer['note']     = (string) get_post_meta( $id, self::META_RETURN_NOTE, true );
+		$offer['returned'] = (int) get_post_meta( $id, self::META_RETURNED, true );
+		$offer['approved'] = self::approved( $id, $offer['state'] );
+
 		return $offer;
+	}
+
+	/**
+	 * Whether an offer's words have an Administrator's OK: the mark the offer carries, `1` or `0`,
+	 * and for an offer from before 1.123.18, which carries none, whether students could already see
+	 * it, live, paused or dormant, so an offer that was live at the update stays live and needs no
+	 * review. A draft from before reads as not approved: switched on, it is new to students.
+	 *
+	 * @param int    $offer_id Offer post ID.
+	 * @param string $state    Its state, as read.
+	 * @return bool
+	 */
+	private static function approved( $offer_id, $state ) {
+		$mark = get_post_meta( (int) $offer_id, self::META_APPROVED, true );
+
+		if ( '1' === (string) $mark ) {
+			return true;
+		}
+
+		if ( '0' === (string) $mark ) {
+			return false;
+		}
+
+		return in_array( $state, self::visible_states(), true );
+	}
+
+	/**
+	 * The states in which students see an offer, or will again at a resume or a wake: a member's
+	 * change to such an offer waits for review (`propose()`).
+	 *
+	 * @return string[]
+	 */
+	public static function visible_states() {
+		return array( self::STATE_LIVE, self::STATE_PAUSED, self::STATE_DORMANT );
+	}
+
+	/**
+	 * Whether an offer, or a change to one, waits for an Administrator: an offer sent for review, or a
+	 * change held beside a visible offer that has not been returned.
+	 *
+	 * @param array $offer An offer.
+	 * @return bool
+	 */
+	public static function is_waiting( array $offer ) {
+		return self::STATE_REVIEW === $offer['state'] || ( ! empty( $offer['proposed'] ) && 0 === (int) $offer['returned'] && in_array( $offer['state'], self::visible_states(), true ) );
+	}
+
+	/**
+	 * The offer as its edit form draws it: a change held for review in place of the words it holds,
+	 * so the member edits what they last sent.
+	 *
+	 * @param array $offer An offer.
+	 * @return array
+	 */
+	public static function as_drawn( array $offer ) {
+		foreach ( self::REVIEWED as $key ) {
+			if ( isset( $offer['proposed'][ $key ] ) ) {
+				$offer[ $key ] = (string) $offer['proposed'][ $key ];
+			}
+		}
+
+		return $offer;
+	}
+
+	/**
+	 * Every offer and every change waiting for an Administrator, the oldest sent first.
+	 *
+	 * @return array Offers keyed by ID.
+	 */
+	public static function waiting() {
+		$found = self::query(
+			array(
+				array(
+					'key'   => self::META_STATE,
+					'value' => self::STATE_REVIEW,
+				),
+			)
+		) + self::query(
+			array(
+				array(
+					'key'     => self::META_PROPOSED,
+					'compare' => 'EXISTS',
+				),
+			)
+		);
+
+		$waiting = array_filter( $found, array( __CLASS__, 'is_waiting' ) );
+
+		uasort(
+			$waiting,
+			static function ( array $a, array $b ) {
+				$at_a = isset( $a['submitted']['at'] ) ? (int) $a['submitted']['at'] : 0;
+				$at_b = isset( $b['submitted']['at'] ) ? (int) $b['submitted']['at'] : 0;
+
+				return $at_a !== $at_b ? $at_a - $at_b : (int) $a['id'] - (int) $b['id'];
+			}
+		);
+
+		return $waiting;
+	}
+
+	/**
+	 * A member sends a draft for review: it waits, seen by nobody but its sponsor, until an
+	 * Administrator approves it. The note of an earlier return goes, since what waits now is what the
+	 * member changed since.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @param int $by       The member who sent it.
+	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_transition`, `wpcpm_offer_empty`.
+	 */
+	public static function submit( $offer_id, $by ) {
+		$offer = self::read( (int) $offer_id );
+
+		if ( null === $offer ) {
+			return new WP_Error( 'wpcpm_offer_missing', __( 'That offer does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( self::STATE_DRAFT !== $offer['state'] ) {
+			return new WP_Error( 'wpcpm_offer_transition', __( 'The offer cannot move to that state from where it is.', 'wpcredits-program-manager' ) );
+		}
+
+		$why = self::cannot_go_live( $offer );
+
+		if ( '' !== $why ) {
+			return new WP_Error( 'wpcpm_offer_empty', $why );
+		}
+
+		update_post_meta( $offer['id'], self::META_STATE, self::STATE_REVIEW );
+		self::stamp_submitted( $offer['id'], $by );
+		self::touch( $offer['id'], 'submitted' );
+
+		return true;
+	}
+
+	/**
+	 * A member's change to what students see of a visible offer, held for review: the words, the link
+	 * and, for a shared offer, the code, as the member last sent them. Students keep seeing the offer
+	 * as it was approved until an Administrator approves the change. The shared code is sealed at rest,
+	 * as the one students see is (`WPCPM_Sponsor_Codes::set_shared()`), and `read()` unseals it.
+	 *
+	 * @param int   $offer_id Offer post ID.
+	 * @param array $values   `title`, `text`, `instructions`, `url` and, for a shared offer, `shared`.
+	 * @param int   $by       The member who sent it.
+	 * @return true|WP_Error The seal's refusal, with nothing held.
+	 */
+	public static function propose( $offer_id, array $values, $by ) {
+		$values = array_map( 'strval', $values );
+
+		if ( isset( $values['shared'] ) && '' !== $values['shared'] ) {
+			$sealed = WPCPM_Secret::seal_for_option( $values['shared'] );
+
+			if ( is_wp_error( $sealed ) ) {
+				return $sealed;
+			}
+
+			$values['shared'] = $sealed;
+		}
+
+		update_post_meta( (int) $offer_id, self::META_PROPOSED, wp_slash( $values ) );
+		self::stamp_submitted( (int) $offer_id, $by );
+		self::touch( (int) $offer_id, 'proposed' );
+
+		return true;
+	}
+
+	/**
+	 * Drop a held change, its note and who sent it: the offer is as it was approved.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 */
+	public static function discard( $offer_id ) {
+		foreach ( array( self::META_PROPOSED, self::META_SUBMITTED, self::META_RETURN_NOTE, self::META_RETURNED ) as $key ) {
+			delete_post_meta( (int) $offer_id, $key );
+		}
+
+		self::forget_queue();
+	}
+
+	/**
+	 * An Administrator approves what waits: an offer sent for review goes live, and a held change
+	 * becomes what students see. Either way the offer's words carry the program's OK.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_not_waiting`, `wpcpm_offer_empty`,
+	 *                       `wpcpm_codes_busy`.
+	 */
+	public static function approve( $offer_id ) {
+		$offer = self::read( (int) $offer_id );
+
+		if ( null === $offer ) {
+			return new WP_Error( 'wpcpm_offer_missing', __( 'That offer does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! self::is_waiting( $offer ) ) {
+			return new WP_Error( 'wpcpm_offer_not_waiting', __( 'Nothing of this offer waits for review.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( self::STATE_REVIEW === $offer['state'] ) {
+			$why = self::cannot_go_live( $offer );
+
+			if ( '' !== $why ) {
+				return new WP_Error( 'wpcpm_offer_empty', $why );
+			}
+
+			update_post_meta( $offer['id'], self::META_STATE, self::STATE_LIVE );
+		} else {
+			$values = $offer['proposed'];
+
+			if ( array_key_exists( 'shared', $values ) && self::KIND_SHARED === $offer['kind'] ) {
+				$stored = WPCPM_Sponsor_Codes::set_shared( $offer['id'], (string) $values['shared'] );
+
+				if ( is_wp_error( $stored ) ) {
+					return $stored;
+				}
+			}
+
+			self::save( $offer['id'], array_intersect_key( $values, array_flip( self::REVIEWED ) ), 'changes-approved' );
+		}
+
+		update_post_meta( $offer['id'], self::META_APPROVED, '1' );
+		self::discard( $offer['id'] );
+		self::touch( $offer['id'], 'approved' );
+
+		return true;
+	}
+
+	/**
+	 * An Administrator returns what waits, with a note kept on the offer: an offer sent for review is
+	 * the member's draft again, and a held change stays held, out of the queue, for the member to mend
+	 * and send again or to discard, while students keep seeing the offer as it was approved.
+	 *
+	 * @param int    $offer_id Offer post ID.
+	 * @param string $note     The note, as the cleaner left it.
+	 * @return array|WP_Error `change` (`new` or `changes`) and `by`, the member who sent it (0 when
+	 *                        unknown); `wpcpm_offer_missing` or `wpcpm_offer_not_waiting`.
+	 */
+	public static function return_with_note( $offer_id, $note ) {
+		$offer = self::read( (int) $offer_id );
+
+		if ( null === $offer ) {
+			return new WP_Error( 'wpcpm_offer_missing', __( 'That offer does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! self::is_waiting( $offer ) ) {
+			return new WP_Error( 'wpcpm_offer_not_waiting', __( 'Nothing of this offer waits for review.', 'wpcredits-program-manager' ) );
+		}
+
+		$change = self::STATE_REVIEW === $offer['state'] ? 'new' : 'changes';
+
+		if ( 'new' === $change ) {
+			update_post_meta( $offer['id'], self::META_STATE, self::STATE_DRAFT );
+			update_post_meta( $offer['id'], self::META_APPROVED, '0' );
+		}
+
+		// Slashed, because post meta unslashes what it is handed and the note is not.
+		update_post_meta( $offer['id'], self::META_RETURN_NOTE, wp_slash( (string) $note ) );
+		update_post_meta( $offer['id'], self::META_RETURNED, time() );
+		self::touch( $offer['id'], 'returned' );
+		self::forget_queue();
+
+		return array(
+			'change' => $change,
+			'by'     => isset( $offer['submitted']['by'] ) ? (int) $offer['submitted']['by'] : 0,
+		);
+	}
+
+	/**
+	 * Who sent what waits, and when; an earlier return's note and stamp go, since what waits now is new.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @param int $by       The member.
+	 */
+	private static function stamp_submitted( $offer_id, $by ) {
+		update_post_meta(
+			(int) $offer_id,
+			self::META_SUBMITTED,
+			array(
+				'by' => (int) $by,
+				'at' => time(),
+			)
+		);
+		delete_post_meta( (int) $offer_id, self::META_RETURN_NOTE );
+		delete_post_meta( (int) $offer_id, self::META_RETURNED );
+		self::forget_queue();
+	}
+
+	/**
+	 * The Sponsors menu's bubble counts what waits: it counts again on the next admin page.
+	 */
+	private static function forget_queue() {
+		if ( class_exists( 'WPCPM_Sponsors' ) && method_exists( 'WPCPM_Sponsors', 'forget_attention' ) ) {
+			WPCPM_Sponsors::forget_attention();
+		}
 	}
 
 	/**
@@ -298,13 +637,13 @@ final class WPCPM_Sponsor_Offers {
 	/**
 	 * Every offer belonging to one sponsor.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return array Offers keyed by ID.
 	 */
 	public static function offers_of( $record ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return array();
 		}
 
@@ -360,15 +699,17 @@ final class WPCPM_Sponsor_Offers {
 	 * it goes to the post write through `WPCPM_Typed_Text::insert_text()`. The text and the
 	 * instructions are post meta, which no filter reads, and are stored as the cleaner left them.
 	 *
-	 * @param string $record  Sponsor record ID.
-	 * @param array  $fields  Cleaned fields (clean()'s `fields`).
-	 * @param bool   $primary Whether this is the one mirrored to the base.
+	 * @param string $record   Sponsor key.
+	 * @param array  $fields   Cleaned fields (clean()'s `fields`).
+	 * @param bool   $primary  Whether this is the sponsor's one primary offer.
+	 * @param bool   $approved Whether its words have the program's OK as they are made: the
+	 *                         program's own offer and a seeded one do; a member's waits for review.
 	 * @return int|WP_Error
 	 */
-	public static function create( $record, array $fields, $primary = false ) {
+	public static function create( $record, array $fields, $primary = false, $approved = false ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return new WP_Error( 'wpcpm_offer_sponsor', __( 'An offer needs the sponsor it belongs to.', 'wpcredits-program-manager' ) );
 		}
 
@@ -391,6 +732,7 @@ final class WPCPM_Sponsor_Offers {
 		update_post_meta( (int) $post_id, self::META_SPONSOR, $record );
 		update_post_meta( (int) $post_id, self::META_STATE, self::STATE_DRAFT );
 		update_post_meta( (int) $post_id, self::META_PRIMARY, $primary ? '1' : '0' );
+		update_post_meta( (int) $post_id, self::META_APPROVED, $approved ? '1' : '0' );
 
 		unset( $fields['title'] );
 		self::write_fields( (int) $post_id, $fields, 'created' );
@@ -577,7 +919,7 @@ final class WPCPM_Sponsor_Offers {
 			return $refuse( 'kind' );
 		}
 
-		// Once the pool holds codes or claims, switching kind would orphan them (plan ruling 5).
+		// Once the pool holds codes or claims, switching kind would orphan them.
 		if ( is_array( $existing ) && $kind !== $existing['kind'] && self::kind_is_fixed( $existing ) ) {
 			return $refuse( 'kind' );
 		}
@@ -622,18 +964,23 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Seed the first offer from the index (spec 6.1), once per sponsor.
+	 * Seed the sponsor's first offer (spec 6.1), once per sponsor.
 	 *
-	 * The title is the sponsor's name: the base's `Offer` is a description, which becomes the
-	 * text. The name is taken in the form the index holds it, and only a name longer
-	 * than the title's box allows, counted as typed, is cut (`cut_as_typed()`). A checkout link
-	 * becomes the shared code; the coupon sheet is a list the program is retiring and its address
-	 * names students, so it is never stored here.
+	 * The title is the sponsor's name, taken in the form the index holds it, and only a name
+	 * longer than the title's box allows, counted as typed, is cut (`cut_as_typed()`). The caller
+	 * passes what the migration held for the four legacy fields a sponsor's row used to carry
+	 * (`offer`, `instructions`, `more_info`, `coupon_link`, class-wpcpm-sponsors-migration.php's
+	 * seed_offer()); each is read with a default of '', so a sponsor with no legacy data simply
+	 * seeds an empty draft rather than an undefined-index notice. A checkout link becomes the
+	 * shared code; the coupon sheet is a list the program is retiring and its address names
+	 * students, so it is never stored here.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
+	 * @param array  $legacy `offer`, `instructions`, `more_info`, `coupon_link`, each '' when
+	 *                        absent.
 	 * @return int|false|WP_Error The offer, or false when the sponsor already has one.
 	 */
-	public static function seed( $record ) {
+	public static function seed( $record, array $legacy = array() ) {
 		$row = WPCPM_Sponsors_Index::row( $record );
 
 		if ( ! is_array( $row ) ) {
@@ -644,7 +991,7 @@ final class WPCPM_Sponsor_Offers {
 			return false;
 		}
 
-		$coupon = trim( (string) $row['coupon_link'] );
+		$coupon = trim( isset( $legacy['coupon_link'] ) ? (string) $legacy['coupon_link'] : '' );
 		$title  = trim( (string) $row['name'] );
 		$shared = '' !== $coupon && 1 === preg_match( '#^https?://#i', $coupon );
 
@@ -657,15 +1004,17 @@ final class WPCPM_Sponsor_Offers {
 		$fields = array(
 			'title'        => self::cut_as_typed( '' !== $title ? $title : __( 'Offer', 'wpcredits-program-manager' ), self::MAX_TITLE ),
 			'kind'         => $shared ? self::KIND_SHARED : self::KIND_CODES,
-			'text'         => self::imported_text( (string) $row['offer'], self::MAX_OFFER ),
-			'instructions' => self::imported_text( (string) $row['instructions'], self::MAX_TEXT ),
-			'url'          => WPCPM_Field_Value::clean_url( (string) $row['more_info'] ),
+			'text'         => self::imported_text( isset( $legacy['offer'] ) ? (string) $legacy['offer'] : '', self::MAX_OFFER ),
+			'instructions' => self::imported_text( isset( $legacy['instructions'] ) ? (string) $legacy['instructions'] : '', self::MAX_TEXT ),
+			'url'          => WPCPM_Field_Value::clean_url( isset( $legacy['more_info'] ) ? (string) $legacy['more_info'] : '' ),
 			'audience'     => array(),
 			'low'          => max( 1, (int) WPCPM_Settings::get_value( 'offer_low_stock', 10 ) ),
 			'expires'      => '',
 		);
 
-		$id = self::create( $record, $fields, true );
+		// Seeded by the program, from its own records, so its words need no review: a member's change
+		// to them, once the sponsor has it, does.
+		$id = self::create( $record, $fields, true, true );
 
 		if ( is_wp_error( $id ) ) {
 			return $id;
@@ -760,7 +1109,29 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Move an offer to a state.
+	 * How many of a sponsor's offers is_live() says are live today, one left out. An offer past
+	 * its last day holds no slot: it is shown to nobody, so it does not count against the cap.
+	 *
+	 * @param string $record    Sponsor key.
+	 * @param int    $except_id An offer to leave out of the count, or 0 to leave none out.
+	 * @param string $today     `Y-m-d`; '' for the site's today.
+	 * @return int
+	 */
+	public static function live_count( $record, $except_id = 0, $today = '' ) {
+		$count = 0;
+
+		foreach ( self::offers_of( $record ) as $offer ) {
+			if ( (int) $offer['id'] !== (int) $except_id && self::is_live( $offer, $today ) ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Move an offer to a state. No tier caps live offers since 1.123.18, so nothing counts how many
+	 * of a sponsor's offers are live before or after a switch.
 	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $state    A state.
@@ -792,9 +1163,73 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		update_post_meta( $offer['id'], self::META_STATE, $state );
+
+		// An offer leaving Waiting for review, or ending with a change held, leaves the queue.
+		if ( self::is_waiting( $offer ) ) {
+			self::forget_queue();
+		}
+
+		// What goes live has the program's OK: a resume, an Administrator's press, or a draft made
+		// with it. A member's unapproved draft is sent for review instead (`submit()`).
+		if ( self::STATE_LIVE === $state ) {
+			update_post_meta( $offer['id'], self::META_APPROVED, '1' );
+		}
+
 		self::touch( $offer['id'], 'state-' . $state );
 
 		return true;
+	}
+
+	/**
+	 * Move a live offer to dormant: the program's own move, never a sponsor's, made when a
+	 * tier's cap no longer covers it.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return bool Whether the offer was live and is now dormant.
+	 */
+	public static function set_dormant( $offer_id ) {
+		$offer = self::read( (int) $offer_id );
+
+		if ( null === $offer || self::STATE_LIVE !== $offer['state'] ) {
+			return false;
+		}
+
+		update_post_meta( $offer['id'], self::META_STATE, self::STATE_DORMANT );
+		self::touch( $offer['id'], 'dormant' );
+
+		return true;
+	}
+
+	/**
+	 * Move a dormant offer back to live: the program's own move, once a tier covers it again.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return bool Whether the offer was dormant and is now live.
+	 */
+	public static function wake( $offer_id ) {
+		$offer = self::read( (int) $offer_id );
+
+		if ( null === $offer || self::STATE_DORMANT !== $offer['state'] ) {
+			return false;
+		}
+
+		update_post_meta( $offer['id'], self::META_STATE, self::STATE_LIVE );
+		self::touch( $offer['id'], 'woken' );
+
+		return true;
+	}
+
+	/**
+	 * The dormant sentence the card prints while the tiers are announced;
+	 * `WPCPM_Sponsor_Posts::dormant_note()` is the posts' own. No tier caps live offers since
+	 * 1.123.18, when the partner page offered products at any level, separately from the levels, so
+	 * an offer the daily run parked under an earlier cap is only waiting on the next run,
+	 * `WPCPM_Sponsor_Tiers_Run`, to wake it, and the sentence says so and names no tier.
+	 *
+	 * @return string
+	 */
+	private static function dormant_sentence() {
+		return __( 'Dormant: offers are separate from the tiers now, so it resumes by itself on the next daily run. You can end it.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -953,56 +1388,8 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Write the primary offer's three fields to Airtable and the index. A non-primary offer
-	 * has nothing to mirror and answers true.
-	 *
-	 * The three go as stored, as every writer to the base sends its text. The sponsors sync reads
-	 * the cell back into the index as it stands, and `seed()` cleans what it finds there, so a cell
-	 * read back to "<3 on hosting >" would lose those words on a later import.
-	 *
-	 * @param array $offer An offer.
-	 * @return bool Whether the base has it.
-	 */
-	public static function mirror( array $offer ) {
-		if ( empty( $offer['primary'] ) ) {
-			return true;
-		}
-
-		$cells = array();
-
-		foreach ( self::MIRROR as $key => $column ) {
-			$cells[ $column ] = (string) $offer[ $key ];
-		}
-
-		$airtable = new WPCPM_Airtable();
-		$written  = $airtable->update_records(
-			(string) WPCPM_Settings::get_value( 'sponsors_table', '' ),
-			array(
-				array(
-					'id'     => $offer['sponsor'],
-					'fields' => $cells,
-				),
-			)
-		);
-
-		if ( is_wp_error( $written ) ) {
-			return false;
-		}
-
-		$patch = array();
-
-		foreach ( self::MIRROR_INDEX as $key => $index_key ) {
-			$patch[ $index_key ] = (string) $offer[ $key ];
-		}
-
-		WPCPM_Sponsors_Index::patch( $offer['sponsor'], $patch );
-
-		return true;
-	}
-
-	/**
 	 * This card's outcomes. A status names the outcome; the detail the dashboard prints after
-	 * it names the line or the reason (plan ruling 10).
+	 * it names the line or the reason.
 	 *
 	 * @return array<string, array{0: string, 1: string}>
 	 */
@@ -1010,28 +1397,32 @@ final class WPCPM_Sponsor_Offers {
 		return array(
 			// The sentence after it is the whole message: `WPCPM_Typed_Text::loss_message()` says that
 			// nothing was saved, which box, and how to keep every word.
-			'offer-loss'          => array( 'error', '' ),
-			'offer-created'       => array( 'success', __( 'Your offer was created. Switch it on when it is ready.', 'wpcredits-program-manager' ) ),
+			'offer-loss'              => array( 'error', '' ),
+			'offer-created'           => array( 'success', __( 'Your offer was created. Switch it on when it is ready.', 'wpcredits-program-manager' ) ),
+			'offer-created-review'    => array( 'success', __( 'Your offer was created as a draft. Send it for review when it is ready: students and mentors see it once an Administrator approves it.', 'wpcredits-program-manager' ) ),
+			'offer-sent'              => array( 'success', __( 'Sent for review. Students and mentors see the offer once an Administrator approves it.', 'wpcredits-program-manager' ) ),
+			'offer-changes-waiting'   => array( 'success', __( 'Your changes were saved and wait for an Administrator\'s review. Until they are approved, students and mentors see the offer as it was.', 'wpcredits-program-manager' ) ),
+			'offer-changes-discarded' => array( 'success', __( 'Your changes were discarded. The offer stays as the program approved it.', 'wpcredits-program-manager' ) ),
+			'offer-no-changes'        => array( 'error', __( 'No change of this offer is waiting, so there is nothing to discard.', 'wpcredits-program-manager' ) ),
 			// The offer stands and the codes do not: the detail names the line or the file's fault,
 			// and the pool's own box on the card takes the corrected list (polish of 1.94.1).
-			'offer-created-no-codes' => array( 'error', __( 'Your offer was created, but the codes were not added. Add them to the offer below.', 'wpcredits-program-manager' ) ),
-			'offer-saved'         => array( 'success', __( 'Your offer was saved.', 'wpcredits-program-manager' ) ),
-			'offer-mirror-failed' => array( 'info', __( 'Your offer was saved here, but the program records could not be updated right now. They will be on your next save.', 'wpcredits-program-manager' ) ),
-			'offer-rejected'      => array( 'error', __( 'The offer could not be saved.', 'wpcredits-program-manager' ) ),
-			'offer-failed'        => array( 'error', __( 'The offer could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
-			'offer-state-saved'   => array( 'success', __( 'The offer was switched.', 'wpcredits-program-manager' ) ),
-			'offer-empty'         => array( 'error', __( 'The offer cannot be switched on yet.', 'wpcredits-program-manager' ) ),
-			'offer-transition'    => array( 'error', __( 'The offer cannot move to that state from where it is.', 'wpcredits-program-manager' ) ),
-			// Task 4's second fix round: the pool's own lock can be held by another request for a
+			'offer-created-no-codes'  => array( 'error', __( 'Your offer was created, but the codes were not added. Add them to the offer below.', 'wpcredits-program-manager' ) ),
+			'offer-saved'             => array( 'success', __( 'Your offer was saved.', 'wpcredits-program-manager' ) ),
+			'offer-rejected'          => array( 'error', __( 'The offer could not be saved.', 'wpcredits-program-manager' ) ),
+			'offer-failed'            => array( 'error', __( 'The offer could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
+			'offer-state-saved'       => array( 'success', __( 'The offer was switched.', 'wpcredits-program-manager' ) ),
+			'offer-empty'             => array( 'error', __( 'The offer cannot be switched on yet.', 'wpcredits-program-manager' ) ),
+			'offer-transition'        => array( 'error', __( 'The offer cannot move to that state from where it is.', 'wpcredits-program-manager' ) ),
+			// The pool's own lock can be held by another request for a
 			// moment, and set_shared() and void_unclaimed() both answer that with a WP_Error rather
 			// than a count; this is the one sentence both leave with (see handle_save(),
 			// handle_codes_void()).
-			'offer-busy'          => array( 'info', __( 'Another change to this offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
-			'codes-added'         => array( 'success', __( 'Codes added.', 'wpcredits-program-manager' ) ),
-			'codes-refused'       => array( 'error', __( 'Nothing was added.', 'wpcredits-program-manager' ) ),
-			'codes-none'          => array( 'error', __( 'No codes were found in what you pasted or uploaded.', 'wpcredits-program-manager' ) ),
-			'codes-max'           => array( 'error', __( 'An offer holds at most 5000 codes. Talk to the program about a larger pool.', 'wpcredits-program-manager' ) ),
-			'codes-voided'        => array( 'success', __( 'Unclaimed codes were voided.', 'wpcredits-program-manager' ) ),
+			'offer-busy'              => array( 'info', __( 'Another change to this offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
+			'codes-added'             => array( 'success', __( 'Codes added.', 'wpcredits-program-manager' ) ),
+			'codes-refused'           => array( 'error', __( 'Nothing was added.', 'wpcredits-program-manager' ) ),
+			'codes-none'              => array( 'error', __( 'No codes were found in what you pasted or uploaded.', 'wpcredits-program-manager' ) ),
+			'codes-max'               => array( 'error', __( 'An offer holds at most 5000 codes. Talk to the program about a larger pool.', 'wpcredits-program-manager' ) ),
+			'codes-voided'            => array( 'success', __( 'Unclaimed codes were voided.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -1131,10 +1522,12 @@ final class WPCPM_Sponsor_Offers {
 	 */
 	public static function state_label( $state ) {
 		$labels = array(
-			self::STATE_DRAFT  => __( 'Not switched on yet', 'wpcredits-program-manager' ),
-			self::STATE_LIVE   => __( 'Live', 'wpcredits-program-manager' ),
-			self::STATE_PAUSED => __( 'Paused', 'wpcredits-program-manager' ),
-			self::STATE_ENDED  => __( 'Ended', 'wpcredits-program-manager' ),
+			self::STATE_DRAFT   => __( 'Not switched on yet', 'wpcredits-program-manager' ),
+			self::STATE_REVIEW  => __( 'Waiting for review', 'wpcredits-program-manager' ),
+			self::STATE_LIVE    => __( 'Live', 'wpcredits-program-manager' ),
+			self::STATE_PAUSED  => __( 'Paused', 'wpcredits-program-manager' ),
+			self::STATE_ENDED   => __( 'Ended', 'wpcredits-program-manager' ),
+			self::STATE_DORMANT => __( 'Dormant', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $labels[ $state ] ) ? $labels[ $state ] : (string) $state;
@@ -1223,7 +1616,11 @@ final class WPCPM_Sponsor_Offers {
 	public static function handle_save() {
 		$claim    = self::begin( self::ACTION_SAVE, WPCPM_Sponsor_Policy::ACT_MANAGE_OFFERS, true );
 		$record   = $claim['record'];
-		$existing = $claim['offer'];
+		$staff    = self::by_staff( $claim );
+		$approved = $claim['offer'];
+		// The form drew a change held for review in place of the offer's own words, so what was
+		// posted is read against that, and the offer as approved is kept apart for what students see.
+		$existing = null === $approved ? null : self::as_drawn( $approved );
 		$form     = self::typed_form( $record, null === $existing ? 0 : $existing['id'] );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
@@ -1302,7 +1699,7 @@ final class WPCPM_Sponsor_Offers {
 
 		// The shared code is checked before the offer is written, so a refusal here leaves
 		// nothing behind: a "could not be saved" that had already created the offer would
-		// leave an orphan the sponsor can see and not explain (Task 6 review).
+		// leave an orphan the sponsor can see and not explain.
 		$shared = null;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- begin() verified the nonce.
@@ -1348,9 +1745,24 @@ final class WPCPM_Sponsor_Offers {
 			}
 		}
 
+		// A member's change to what students see of a visible offer waits for review: the words, the
+		// link and the shared code are held beside the offer, and the rest is saved at once.
+		$held = null;
+
+		if ( null !== $existing && ! $staff && in_array( $approved['state'], self::visible_states(), true ) ) {
+			$held = array_intersect_key( $cleaned['fields'], array_flip( self::REVIEWED ) );
+
+			if ( self::KIND_SHARED === $approved['kind'] ) {
+				$held['shared'] = null !== $shared ? $shared : ( isset( $approved['proposed']['shared'] ) ? $approved['proposed']['shared'] : WPCPM_Sponsor_Codes::shared( $approved['id'] ) );
+			}
+
+			$shared = null;
+		}
+
 		if ( null === $existing ) {
-			// The first offer a sponsor gets is the one the base sees.
-			$offer_id = self::create( $record, $cleaned['fields'], empty( self::offers_of( $record ) ) );
+			// The first offer a sponsor gets is the one marked primary; a member's waits for review,
+			// and one the program's own staff make has its OK as it is made.
+			$offer_id = self::create( $record, $cleaned['fields'], empty( self::offers_of( $record ) ), $staff );
 
 			if ( is_wp_error( $offer_id ) ) {
 				self::leave( 'offer-failed', $record );
@@ -1370,7 +1782,37 @@ final class WPCPM_Sponsor_Offers {
 			}
 		} else {
 			$offer_id = $existing['id'];
-			self::save( $offer_id, $cleaned['fields'] );
+
+			if ( null !== $held ) {
+				self::save( $offer_id, array_diff_key( $cleaned['fields'], $held ) );
+			} else {
+				self::save( $offer_id, $cleaned['fields'] );
+			}
+
+			if ( $staff ) {
+				// What the program's own staff save is what students see, with its OK, and any change
+				// a member had waiting is the one the form drew, now saved.
+				update_post_meta( $offer_id, self::META_APPROVED, '1' );
+				self::discard( $offer_id );
+			} elseif ( null === $held && self::changes_words( $approved, $cleaned['fields'], $shared ) ) {
+				// A member's draft or offer waiting for review, changed: its words need the OK again.
+				update_post_meta( $offer_id, self::META_APPROVED, '0' );
+			}
+		}
+
+		$waiting = false;
+
+		if ( null !== $held ) {
+			if ( self::changes_words( $approved, $held, isset( $held['shared'] ) ? $held['shared'] : null ) ) {
+				if ( is_wp_error( self::propose( $offer_id, $held, get_current_user_id() ) ) ) {
+					self::leave( 'offer-failed', $record );
+				}
+
+				$waiting = true;
+			} elseif ( ! empty( $approved['proposed'] ) ) {
+				// Typed back to what students see: nothing is left to review.
+				self::discard( $offer_id );
+			}
 		}
 
 		if ( null !== $shared ) {
@@ -1380,9 +1822,6 @@ final class WPCPM_Sponsor_Offers {
 				self::leave( 'offer-busy', $record );
 			}
 		}
-
-		$offer    = self::read( $offer_id );
-		$mirrored = self::mirror( $offer );
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -1399,26 +1838,54 @@ final class WPCPM_Sponsor_Offers {
 				// The field names, never the values: the offer is the sponsor's copy, and the
 				// log is not the place to keep a second one.
 				'data'     => array(
-					'offer'    => $offer_id,
-					'created'  => null === $existing,
-					'fields'   => array_keys( $cleaned['fields'] ),
-					'mirrored' => $mirrored,
-					'codes'    => '' !== $codes_note,
+					'offer'   => $offer_id,
+					'created' => null === $existing,
+					'fields'  => array_keys( $cleaned['fields'] ),
+					'codes'   => '' !== $codes_note,
+					'waiting' => $waiting,
 				),
 			)
 		);
 
-		// The refused list first: it is the one thing here the sponsor has to act on now. A
-		// mirror that did not go through repeats itself on the next save without anyone's help.
+		// The one thing here the sponsor has to act on now: the offer itself is already saved.
 		if ( '' !== $codes_fail ) {
 			self::leave( 'offer-created-no-codes', $record, $codes_fail );
 		}
 
-		if ( ! $mirrored ) {
-			self::leave( 'offer-mirror-failed', $record );
+		if ( null === $existing ) {
+			self::leave( $staff ? 'offer-created' : 'offer-created-review', $record, $codes_note );
 		}
 
-		self::leave( null === $existing ? 'offer-created' : 'offer-saved', $record, $codes_note );
+		self::leave( $waiting || ( null !== $held && self::is_waiting( (array) self::read( $offer_id ) ) ) ? 'offer-changes-waiting' : 'offer-saved', $record, $codes_note );
+	}
+
+	/**
+	 * Whether a claim is the program's own staff acting, whose offers need no review.
+	 *
+	 * @param array $claim What `begin()` answered.
+	 * @return bool
+	 */
+	private static function by_staff( array $claim ) {
+		return isset( $claim['decision']['ground'] ) && WPCPM_Institution_Audit::GROUND_MANAGER === $claim['decision']['ground'];
+	}
+
+	/**
+	 * Whether cleaned fields change what students would see of an offer: its words, its link or, given,
+	 * its shared code.
+	 *
+	 * @param array       $offer  The offer, as approved.
+	 * @param array       $fields Cleaned fields; the reviewed ones are compared.
+	 * @param string|null $shared The shared code posted, or null when none was.
+	 * @return bool
+	 */
+	private static function changes_words( array $offer, array $fields, $shared ) {
+		foreach ( self::REVIEWED as $key ) {
+			if ( array_key_exists( $key, $fields ) && (string) $fields[ $key ] !== (string) $offer[ $key ] ) {
+				return true;
+			}
+		}
+
+		return null !== $shared && self::KIND_SHARED === $offer['kind'] && (string) WPCPM_Sponsor_Codes::shared( $offer['id'] ) !== (string) $shared;
 	}
 
 	/**
@@ -1429,7 +1896,13 @@ final class WPCPM_Sponsor_Offers {
 		$record = $claim['record'];
 		$offer  = $claim['offer'];
 		$state  = WPCPM_Request::posted_key( 'wpcpm_state' );
-		$moved  = self::set_state( $offer['id'], $state );
+		// A member's draft without the program's OK is sent for review rather than switched on.
+		$send  = self::STATE_LIVE === $state && self::STATE_DRAFT === $offer['state'] && ! $offer['approved'] && ! self::by_staff( $claim );
+		$moved = $send ? self::submit( $offer['id'], get_current_user_id() ) : self::set_state( $offer['id'], $state );
+
+		if ( $send && ! is_wp_error( $moved ) ) {
+			$state = self::STATE_REVIEW;
+		}
 
 		if ( is_wp_error( $moved ) ) {
 			$statuses = array(
@@ -1437,8 +1910,9 @@ final class WPCPM_Sponsor_Offers {
 				'wpcpm_offer_transition' => 'offer-transition',
 			);
 			$code     = $moved->get_error_code();
+			$detail   = 'wpcpm_offer_empty' === $code ? $moved->get_error_message() : '';
 
-			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, 'wpcpm_offer_empty' === $code ? $moved->get_error_message() : '' );
+			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, $detail );
 		}
 
 		WPCPM_Institution_Audit::record_sponsor(
@@ -1459,7 +1933,42 @@ final class WPCPM_Sponsor_Offers {
 			)
 		);
 
-		self::leave( 'offer-state-saved', $record );
+		self::leave( $send ? 'offer-sent' : 'offer-state-saved', $record );
+	}
+
+	/**
+	 * Discard a change held for review, waiting or returned: the offer stays as it was approved. It
+	 * shows students nothing new, so it takes effect at once.
+	 */
+	public static function handle_discard() {
+		$claim  = self::begin( self::ACTION_DISCARD, WPCPM_Sponsor_Policy::ACT_MANAGE_OFFERS );
+		$record = $claim['record'];
+		$offer  = $claim['offer'];
+
+		if ( empty( $offer['proposed'] ) ) {
+			self::leave( 'offer-no-changes', $record );
+		}
+
+		self::discard( $offer['id'] );
+		self::touch( $offer['id'], 'changes-discarded' );
+
+		WPCPM_Institution_Audit::record_sponsor(
+			array(
+				'kind'     => self::LOG_SAVED,
+				'sponsor'  => $record,
+				'subject'  => (string) $offer['id'],
+				'actor'    => get_current_user_id(),
+				'ground'   => $claim['decision']['ground'],
+				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'  => __( 'The changes waiting on an offer were discarded.', 'wpcredits-program-manager' ),
+				'data'     => array(
+					'offer'     => $offer['id'],
+					'discarded' => true,
+				),
+			)
+		);
+
+		self::leave( 'offer-changes-discarded', $record );
 	}
 
 	/**
@@ -1522,7 +2031,7 @@ final class WPCPM_Sponsor_Offers {
 		$offer  = $claim['offer'];
 		$voided = WPCPM_Sponsor_Codes::void_unclaimed( $offer['id'] );
 
-		// The pool's lock can be another request's for a moment (Task 4's second fix round): the
+		// The pool's lock can be another request's for a moment: the
 		// void did not happen, so nothing is touched or logged, unlike every other error this
 		// handler's sibling above map by code - there is only the one code void_unclaimed() ever
 		// returns.
@@ -1556,22 +2065,57 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The card: every offer with its forms, then the form for a new one.
+	 * The card: the form for a new offer, then every offer with its forms.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * Open whatever a flash says, since what the company offers is its live state (the design the
+	 * owner approved on 27 September 2026), so the context every card is handed asks nothing of it.
+	 * The row says how many offers are live today and how many claims stand this month, the two
+	 * figures the At a glance tile reads from the same readers, and, while any offer or change of the
+	 * sponsor's waits for an Administrator's review (1.123.18), how many between them. New offer follows the fold, a link to
+	 * the card, whose body opens on the form for a new offer under its own New offer heading: drawn
+	 * open, the card has it hidden by the stylesheets, which show a card's action only while the card
+	 * is folded, so it shows once the sponsor folds the card.
+	 *
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
 		$offers = self::offers_of( $record );
-		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
+		// The program's own staff, acting for the sponsor, need no review: the card says so and offers
+		// them Switch on where a member is offered Send for review.
+		$staff = ! empty( $context['can_manage'] );
+		$stats = WPCPM_Sponsor_Claims::stats( $record );
+		$month = isset( $stats['totals']['month'] ) ? (int) $stats['totals']['month'] : 0;
+		// What waits for an Administrator, offers and changes alike, so a folded card says so too.
+		$queued = count( array_filter( $offers, array( __CLASS__, 'is_waiting' ) ) );
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Offers and codes', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $offers ) ) )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'    => self::CARD,
+				'title'  => __( 'Offers and codes', 'wpcredits-program-manager' ),
+				'count'  => count( $offers ),
+				'open'   => true,
+				'state'  => 0 < $queued
+					? sprintf(
+						/* translators: 1: how many of the sponsor's offers are live today, 2: how many of its offers, or changes to them, wait for an Administrator's review, 3: how many times they were claimed this month. */
+						_n( '%1$s live, %2$s waiting for review, %3$s claim this month', '%1$s live, %2$s waiting for review, %3$s claims this month', $month, 'wpcredits-program-manager' ),
+						number_format_i18n( self::live_count( $record ) ),
+						number_format_i18n( $queued ),
+						number_format_i18n( $month )
+					)
+					: sprintf(
+						/* translators: 1: how many of the sponsor's offers are live today, 2: how many times they were claimed this month. */
+						_n( '%1$s live, %2$s claim this month', '%1$s live, %2$s claims this month', $month, 'wpcredits-program-manager' ),
+						number_format_i18n( self::live_count( $record ) ),
+						number_format_i18n( $month )
+					),
+				'action' => array(
+					'label'   => __( 'New offer', 'wpcredits-program-manager' ),
+					/* translators: read after "New offer" by a screen reader alone. */
+					'context' => __( 'for the program\'s students and mentors', 'wpcredits-program-manager' ),
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
 
 		// The new-offer form first and on the left, the sponsor's offers on the right, folded to
 		// a title and a line of counts: the ones in play under "Active offers", the ended and
@@ -1589,16 +2133,16 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		echo '<div class="wpcpm-offers__cols"><div class="wpcpm-offers__col wpcpm-offers__col--new">';
-		self::render_new_form( $record );
+		self::render_new_form( $record, $staff );
 		echo '</div><div class="wpcpm-offers__col wpcpm-offers__col--list">';
-		self::render_list( __( 'Active offers', 'wpcredits-program-manager' ), $active, $record, __( 'No offer yet. Create one on the left, and it appears here.', 'wpcredits-program-manager' ) );
+		self::render_list( __( 'Active offers', 'wpcredits-program-manager' ), $active, $record, __( 'No offer yet. Create one on the left, and it appears here.', 'wpcredits-program-manager' ), $staff );
 
 		if ( ! empty( $past ) ) {
-			self::render_list( __( 'Ended and expired offers', 'wpcredits-program-manager' ), $past, $record, '' );
+			self::render_list( __( 'Ended and expired offers', 'wpcredits-program-manager' ), $past, $record, '', $staff );
 		}
 
 		echo '</div></div>';
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
@@ -1627,10 +2171,11 @@ final class WPCPM_Sponsor_Offers {
 	 *
 	 * @param string $title  The list's title.
 	 * @param array  $offers The offers in it.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param string $empty  The sentence for an empty list, or '' to print nothing.
+	 * @param bool   $staff  Whether the program's own staff are looking, whose presses need no review.
 	 */
-	private static function render_list( $title, array $offers, $record, $empty ) {
+	private static function render_list( $title, array $offers, $record, $empty, $staff = false ) {
 		printf( '<h4 class="wpcpm-sponsor__subheading">%s</h4>', esc_html( $title ) );
 
 		if ( empty( $offers ) ) {
@@ -1642,19 +2187,29 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		foreach ( $offers as $offer ) {
-			self::render_offer( $offer, $record );
+			self::render_offer( $offer, $record, $staff );
 		}
 	}
 
 	/**
 	 * One offer: its heading and counts, the edit form, the state buttons, the codes box.
 	 *
+	 * The pill says the offer's state, but for an offer switched on and past its last day: that one is
+	 * over, listed with the ended offers and counted live nowhere (`is_live()`), so its pill says
+	 * Expired rather than Live.
+	 *
+	 * The details are the offer as students see it; the edit form draws a change held for review in
+	 * place of those words, and between the two a note says the change waits, or was returned with the
+	 * Administrator's note, with the press that discards it.
+	 *
 	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
+	 * @param bool   $staff  Whether the program's own staff are looking.
 	 */
-	private static function render_offer( array $offer, $record ) {
+	private static function render_offer( array $offer, $record, $staff = false ) {
 		$counts = WPCPM_Sponsor_Codes::counts( $offer['id'] );
 		$fixed  = self::kind_is_fixed( $offer );
+		$pill   = self::STATE_LIVE === $offer['state'] && self::is_past( $offer ) ? __( 'Expired', 'wpcredits-program-manager' ) : self::state_label( $offer['state'] );
 		// A refused save of this offer's form: the offer and its form are drawn open, so the typing
 		// is where the person left it.
 		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record, $offer['id'] ) );
@@ -1663,8 +2218,8 @@ final class WPCPM_Sponsor_Offers {
 		printf(
 			'<h4 class="wpcpm-offer__title">%1$s <span class="wpcpm-offer__state">%2$s</span>%3$s</h4>',
 			esc_html( $offer['title'] ),
-			esc_html( self::state_label( $offer['state'] ) ),
-			$offer['primary'] ? ' <span class="wpcpm-offer__primary">' . esc_html__( 'shown in the program records', 'wpcredits-program-manager' ) . '</span>' : ''
+			esc_html( $pill ),
+			$offer['primary'] ? ' <span class="wpcpm-offer__primary">' . esc_html__( '(primary)', 'wpcredits-program-manager' ) . '</span>' : ''
 		);
 
 		if ( self::KIND_CODES === $offer['kind'] ) {
@@ -1702,10 +2257,11 @@ final class WPCPM_Sponsor_Offers {
 		// Open, an offer reads as text first (owner, 1.97.4): its details, then Edit this offer, which
 		// reveals the form; the state moves under a title of their own; the codes last.
 		self::render_details( $offer );
+		self::render_changes( $offer, $record );
 		printf( '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-%1$d"%3$s><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offer__edit-toggle">%2$s</summary>', (int) $offer['id'], esc_html__( 'Edit this offer', 'wpcredits-program-manager' ), empty( $kept ) ? '' : ' open' );
-		self::render_edit_form( $offer, $record, $fixed, $kept );
+		self::render_edit_form( self::as_drawn( $offer ), $record, $fixed, $kept );
 		echo '</details>';
-		self::render_state_block( $offer, $record );
+		self::render_state_block( $offer, $record, $staff );
 
 		if ( self::KIND_CODES === $offer['kind'] && self::STATE_ENDED !== $offer['state'] ) {
 			// Adding codes is another job than editing the offer: its own block under a line (owner, 1.97.2).
@@ -1721,7 +2277,7 @@ final class WPCPM_Sponsor_Offers {
 	 * The fields, for an existing offer or a new one.
 	 *
 	 * @param array|null $offer  The offer, or null for the new-offer form.
-	 * @param string     $record Sponsor record ID.
+	 * @param string     $record Sponsor key.
 	 * @param bool       $fixed  Whether the kind may no longer change.
 	 * @param array      $kept   What a refused save of this form kept (`WPCPM_Typed_Text::kept()`).
 	 */
@@ -1876,13 +2432,56 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The state block: a title, one sentence on what the state means today, and the moves.
+	 * A change of the offer's words held for review: whether it waits or was returned, with the
+	 * Administrator's note, escaped, as a returned post shows its note; and the press that discards
+	 * it, which takes effect at once. Nothing for an offer with no change held.
 	 *
 	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 */
-	private static function render_state_block( array $offer, $record ) {
+	private static function render_changes( array $offer, $record ) {
+		if ( empty( $offer['proposed'] ) ) {
+			return;
+		}
+
+		echo '<div class="wpcpm-offer__changes">';
+
+		if ( $offer['returned'] > 0 ) {
+			printf( '<p class="wpcpm-student__note">%s</p>', esc_html__( 'An Administrator returned your changes with a note. Students and mentors still see the offer as it reads above.', 'wpcredits-program-manager' ) );
+			printf( '<p class="wpcpm-offer__note">%s</p>', esc_html( $offer['note'] ) );
+		} else {
+			printf( '<p class="wpcpm-student__note">%s</p>', esc_html__( 'Your changes wait for an Administrator\'s review. Until they are approved, students and mentors see the offer as it reads above.', 'wpcredits-program-manager' ) );
+		}
+
+		printf(
+			'<form method="post" action="%1$s" class="wpcpm-inline-form wpcpm-offer__discard-form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Discarding', 'wpcredits-program-manager' ),
+			esc_attr__( 'Discard your changes? The offer stays as it reads above.', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_DISCARD . '_' . $offer['id'] );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DISCARD ) );
+		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
+		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
+		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button></p>', esc_html__( 'Discard the changes', 'wpcredits-program-manager' ) );
+		echo '</form></div>';
+	}
+
+	/**
+	 * The state block: a title, one sentence on what the state means today, and the moves. A draft
+	 * a member sends for review says so, and one the program returned shows the note, escaped.
+	 *
+	 * @param array  $offer  The offer.
+	 * @param string $record Sponsor key.
+	 * @param bool   $staff  Whether the program's own staff are looking.
+	 */
+	private static function render_state_block( array $offer, $record, $staff = false ) {
+		$note = '';
+
 		switch ( $offer['state'] ) {
+			case self::STATE_REVIEW:
+				$sentence = __( 'Waiting for review: nobody but you sees it until an Administrator approves it.', 'wpcredits-program-manager' );
+				break;
 			case self::STATE_LIVE:
 				$sentence = self::is_live( $offer )
 					? __( 'Live: shown on the site.', 'wpcredits-program-manager' )
@@ -1894,14 +2493,34 @@ final class WPCPM_Sponsor_Offers {
 			case self::STATE_ENDED:
 				$sentence = __( 'Ended: nothing more can be claimed, and it cannot be resumed.', 'wpcredits-program-manager' );
 				break;
+			case self::STATE_DORMANT:
+				// Nothing about the tiers reaches a sponsor before launch, a dormant offer's own
+				// reason included: a switch turned on and off again before launch must not leave
+				// a sponsor reading their tier's name.
+				$sentence = WPCPM_Sponsor_Tiers::live()
+					? self::dormant_sentence()
+					: __( 'Dormant: held back by the program. You can end it.', 'wpcredits-program-manager' );
+				break;
 			default:
-				$sentence = __( 'A draft: nobody but you sees it. Switch it on when it is ready.', 'wpcredits-program-manager' );
+				if ( $offer['returned'] > 0 && empty( $offer['proposed'] ) ) {
+					$sentence = __( 'Returned by the program with a note: change the offer, then send it for review again.', 'wpcredits-program-manager' );
+					$note     = (string) $offer['note'];
+				} elseif ( $staff || $offer['approved'] ) {
+					$sentence = __( 'A draft: nobody but you sees it. Switch it on when it is ready.', 'wpcredits-program-manager' );
+				} else {
+					$sentence = __( 'A draft: nobody but you sees it. Send it for review when it is ready: students and mentors see it once an Administrator approves it.', 'wpcredits-program-manager' );
+				}
 		}
 
 		echo '<div class="wpcpm-offer__moves">';
 		printf( '<h5 class="wpcpm-offer__subtitle">%s</h5>', esc_html__( 'State', 'wpcredits-program-manager' ) );
 		printf( '<p class="wpcpm-student__note wpcpm-offer__state-note">%s</p>', esc_html( $sentence ) );
-		self::render_state_form( $offer, $record );
+
+		if ( '' !== $note ) {
+			printf( '<p class="wpcpm-offer__note">%s</p>', esc_html( $note ) );
+		}
+
+		self::render_state_form( $offer, $record, $staff );
 		echo '</div>';
 	}
 
@@ -1909,7 +2528,7 @@ final class WPCPM_Sponsor_Offers {
 	 * The edit form for one offer.
 	 *
 	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param bool   $fixed  Whether the kind may no longer change.
 	 * @param array  $kept   What a refused save of this form kept (`WPCPM_Typed_Text::kept()`).
 	 */
@@ -1934,16 +2553,27 @@ final class WPCPM_Sponsor_Offers {
 	 * move left (ended) prints nothing here and no state form either.
 	 *
 	 * @param array $offer The offer.
+	 * @param bool  $staff Whether the program's own staff are looking, who switch a draft on where a
+	 *                     member sends it for review.
 	 */
-	private static function render_state_buttons( array $offer ) {
+	private static function render_state_buttons( array $offer, $staff = false ) {
 		$moves = self::transitions()[ $offer['state'] ];
 
 		if ( empty( $moves ) ) {
 			return;
 		}
 
+		if ( self::STATE_PAUSED === $offer['state'] ) {
+			$on = __( 'Resume', 'wpcredits-program-manager' );
+		} elseif ( $staff || $offer['approved'] ) {
+			$on = __( 'Switch on', 'wpcredits-program-manager' );
+		} else {
+			$on = __( 'Send for review', 'wpcredits-program-manager' );
+		}
+
 		$labels = array(
-			self::STATE_LIVE   => self::STATE_PAUSED === $offer['state'] ? __( 'Resume', 'wpcredits-program-manager' ) : __( 'Switch on', 'wpcredits-program-manager' ),
+			self::STATE_LIVE   => $on,
+			self::STATE_DRAFT  => __( 'Take it back', 'wpcredits-program-manager' ),
 			self::STATE_PAUSED => __( 'Pause', 'wpcredits-program-manager' ),
 			self::STATE_ENDED  => __( 'End this offer', 'wpcredits-program-manager' ),
 		);
@@ -1964,9 +2594,10 @@ final class WPCPM_Sponsor_Offers {
 	 * One form, one button per move the machine allows from here.
 	 *
 	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
+	 * @param bool   $staff  Whether the program's own staff are looking.
 	 */
-	private static function render_state_form( array $offer, $record ) {
+	private static function render_state_form( array $offer, $record, $staff = false ) {
 		$moves = self::transitions()[ $offer['state'] ];
 
 		if ( empty( $moves ) ) {
@@ -1984,7 +2615,7 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
 		echo '<p class="wpcpm-offer__actions">';
-		self::render_state_buttons( $offer );
+		self::render_state_buttons( $offer, $staff );
 		echo '</p></form>';
 	}
 
@@ -2025,7 +2656,7 @@ final class WPCPM_Sponsor_Offers {
 	 * The paste box, the file field and the void button, for a pool.
 	 *
 	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param array  $counts The pool's counts.
 	 */
 	private static function render_codes_forms( array $offer, $record, array $counts ) {
@@ -2066,12 +2697,30 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The form for a new offer.
+	 * The form for a new offer, under the sentence that says a member's offer and changes wait for an
+	 * Administrator's review, or, for the program's own staff, that theirs need none. The review is not
+	 * a tier's, so it is said whatever the tiers switch says, and names no tier.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
+	 * @param bool   $staff  Whether the program's own staff are looking.
 	 */
-	private static function render_new_form( $record ) {
+	private static function render_new_form( $record, $staff = false ) {
 		echo '<h4 class="wpcpm-sponsor__subheading">' . esc_html__( 'New offer', 'wpcredits-program-manager' ) . '</h4>';
+
+		printf(
+			'<p class="wpcpm-student__note">%s</p>',
+			$staff
+				? esc_html__( 'As an Administrator, what you create or change here needs no review.', 'wpcredits-program-manager' )
+				: esc_html__( 'A new offer, and every change to what students see of a live one, waits for an Administrator\'s review before students and mentors see it.', 'wpcredits-program-manager' )
+		);
+
+		// No tier caps live offers since 1.123.18: the partner page offers products at any level,
+		// separately from the levels, so while the tiers are announced the note says that and names
+		// no tier.
+		if ( WPCPM_Sponsor_Tiers::live() ) {
+			printf( '<p class="wpcpm-student__note">%s</p>', esc_html__( 'Offers are separate from the tiers: your company may have any number of live offers, whatever its tier.', 'wpcredits-program-manager' ) );
+		}
+
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__form wpcpm-offer__form--new" enctype="multipart/form-data" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),

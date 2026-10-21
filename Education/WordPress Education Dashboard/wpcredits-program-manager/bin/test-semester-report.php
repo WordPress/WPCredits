@@ -546,7 +546,6 @@ class WPCPM_Mentors_Sync {
 				'recINSTD000000004' => 'Universidad Delta',
 			),
 			'teams'        => array(),
-			'companies'    => array(),
 		);
 	}
 
@@ -1888,7 +1887,7 @@ function form_fields( $html ) {
 echo "\n=== The screen a program manager sees ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 $GLOBALS['acting'] = $A;
 $prev_manage       = $GLOBALS['manage'];
 $GLOBALS['manage'] = true;
@@ -1918,7 +1917,7 @@ ck( 'and a narrative box to type into', count( $scraped['textareas'] ) > 0, true
 echo "\n=== Two people, one institution, one form ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 $area_names = array_keys( $scraped['textareas'] );
 $first_area = $area_names[0];
 
@@ -1977,7 +1976,7 @@ ck( 'the words a refused save hands back keep their backslashes', isset( $handed
 echo "\n=== A withdrawal reaches a stored document ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 $GLOBALS['flash'] = array();
 
 // The student opens her own Finishing-up form and changes her mind. Nothing regenerates.
@@ -2032,7 +2031,7 @@ ck( 'and the stored snapshot still says what it said when it was generated', $ev
 echo "\n=== The print document ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 $print_link = '';
 
 if ( preg_match_all( '/href=["\']([^"\']+)["\']/i', $screen, $hrefs ) ) {
@@ -2106,7 +2105,7 @@ $GLOBALS['manage'] = $prev_manage;
 echo "\n=== Another institution's report is not a report ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 
 // A second institution with a report of its own, so there is a real post ID to point at.
 $GLOBALS['acting'] = $B;
@@ -2247,7 +2246,7 @@ $GLOBALS['manage'] = false;
 echo "\n=== Asking the students who have not answered ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 
 /*
  * Open question 2, decided: **program managers only**. The institution is the party that
@@ -2375,7 +2374,7 @@ ck( 'and the underscore is escaped, so a neighbour survives', isset( $GLOBALS['o
 echo "\n=== The findings the reviewers proved, held in place ===\n";
 
 // The approval design of 4 September 2026, decision 1, made the editor a manager's; the
-// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+// member's own card is asserted in the section below, "What the institution sees".
 
 /*
  * Fourteen mutation-proved findings came out of Phase 6's review and the suite caught none of them.
@@ -2821,7 +2820,7 @@ $today             = '2026-09-04';
 // needs an institution whose snapshot names released students, which only the fixture has.
 $saved_index       = $GLOBALS['index'];
 // `email_key` alongside `email`: `cohort_rows()` reads the roster index by `email_key`
-// (never `email`), and Task 4's job tests need these rows to carry a real address there so
+// (never `email`), and the daily job's tests below need these rows to carry a real address there so
 // `generate()` makes its live Students Reports and Feedback reads instead of finding no
 // email and returning early - which is the only way a $GLOBALS['fail_table'] can be proven
 // to stop a draft.
@@ -3286,9 +3285,8 @@ ck( 'every track the program map can answer contributes its labels', array_value
 
 // The fields one track's form carries and no other's, named from the forms rather than written
 // down here: they are the evidence the merge visited a track past the first, and the reason a
-// missing track is worth failing over at all. Every track's form is the 150-hour set plus its
-// own questions until Task 2 gives the Designer Track a set of its own, so this is empty for
-// three of the four tracks and that is not a fault of the merge.
+// missing track is worth failing over at all. A track whose form adds no question of its own
+// to the 150-hour set adds nothing here, and that is not a fault of the merge.
 $track_only = array();
 foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
 	$track = WPCPM_Program::track( $status );

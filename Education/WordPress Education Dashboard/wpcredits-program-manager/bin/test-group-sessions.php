@@ -107,7 +107,7 @@ function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', 
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
-function get_post_time( $f, $gmt = false, $post = null ) { return time() - DAY_IN_SECONDS; }
+function get_post_time( $f, $gmt = false, $post = null, $translate = false ) { return time() - DAY_IN_SECONDS; }
 function get_post_status( $p = null ) { $post = get_post( is_object( $p ) ? $p->ID : $p ); return $post ? $post->post_status : false; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**

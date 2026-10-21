@@ -558,7 +558,11 @@ final class WPCPM_Track_Store {
 	 * (TRACKS-3), which `compile()` does not: a published track that breaks it keeps running, and
 	 * nothing that breaks it can be published or saved from a track's own screen. The question
 	 * editor asks it of the question a press is about alone, so a draft saved before the rule can
-	 * be put right one question at a time (the final fix wave of the deep check of 1.109.1).
+	 * be put right one question at a time (the final fix wave of the deep check of 1.109.1). It
+	 * asks the partners' narrative's rule, `check_narrative()`, which `compile()` does not ask
+	 * either: the narrative is nothing the live site draws, so no text a published copy holds leaves
+	 * the track out of a compile, while no longer one can be published or saved from a track's own
+	 * screen.
 	 *
 	 * @param int   $post_id    The track the definition belongs to.
 	 * @param array $definition The definition to check.
@@ -586,7 +590,7 @@ final class WPCPM_Track_Store {
 
 		$errors = WPCPM_Track_Definition::validate( $definition, self::context( $post_id, $definition, $others, true ) );
 
-		return array_merge( $errors, WPCPM_Track_Definition::check_hours( $definition ) );
+		return array_merge( $errors, WPCPM_Track_Definition::check_hours( $definition ), WPCPM_Track_Definition::check_narrative( $definition ) );
 	}
 
 	/**

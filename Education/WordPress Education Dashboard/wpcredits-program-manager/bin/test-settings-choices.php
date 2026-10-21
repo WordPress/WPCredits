@@ -764,9 +764,13 @@ function table( $id, $name, array $fields, $primary = 0 ) {
 $defaults = WPCPM_Settings::defaults();
 $base     = $defaults['base_id'];
 
-// The ten tables the Connection tab names, at the IDs the defaults hold, the Institutions table
-// with its primary column listed second, as the base may list it.
-$schema_body = array(
+// The eight tables the Connection tab names, at the IDs the defaults hold, the Institutions table
+// with its primary column listed second, as the base may list it; and the base's Team Members and
+// Sponsors tables, which no setting has named since the sponsor record moved onto the site
+// (1.111.0), at their IDs in the base: a table the plugin no longer reads is still one of the base's.
+$team_members_table = 'tblUYWUSEcRLJ5BaR';
+$sponsors_table     = 'tbluji8wknOZr55fa';
+$schema_body        = array(
 	'tables' => array(
 		table( $defaults['mentors_table'], 'Mentors', array( 'Full Name', 'Email', select_field( 'fldMSTATUS00001', 'Status', $mentor_statuses ) ) ),
 		table( $defaults['reports_table'], 'Students Reports', array( 'Name', 'Email', select_field( 'fldRSTATUS00001', 'Status', $report_statuses ) ) ),
@@ -776,8 +780,8 @@ $schema_body = array(
 		table( $defaults['tutors_table'], 'Tutors', array( 'Name', 'Institution' ) ),
 		table( $defaults['feedback_table'], 'Feedback', array( 'Name', 'F1 How was it?' ) ),
 		table( $defaults['countries_table'], 'Countries', array( 'Name', 'Program manager' ) ),
-		table( $defaults['team_members_table'], 'Team Members', array( 'Name', 'Email' ) ),
-		table( $defaults['sponsors_table'], 'Sponsors', array( 'Company Name', 'Status' ) ),
+		table( $team_members_table, 'Team Members', array( 'Name', 'Email' ) ),
+		table( $sponsors_table, 'Sponsors', array( 'Company Name', 'Status' ) ),
 	),
 );
 $schema_url  = 'https://api.airtable.com/v0/meta/bases/' . $base . '/tables';
@@ -977,8 +981,8 @@ $table_names = array(
 	$defaults['tutors_table']       => 'Tutors',
 	$defaults['feedback_table']     => 'Feedback',
 	$defaults['countries_table']    => 'Countries',
-	$defaults['team_members_table'] => 'Team Members',
-	$defaults['sponsors_table']     => 'Sponsors',
+	$team_members_table             => 'Team Members',
+	$sponsors_table                 => 'Sponsors',
 );
 
 ck( 'bases(): each base the token can open, by ID with its name',
@@ -1324,55 +1328,59 @@ foreach ( $table_names as $id => $name ) {
 
 $table_selects = array();
 
-foreach ( array( 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table' ) as $key ) {
+foreach ( array( 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table' ) as $key ) {
 	$table_selects[ $key ] = select_options( $connection, $key );
 }
 
 ck( 'the Connection tab draws the base as a select of the bases the token can open, the ID beside each name',
     select_options( $connection, 'base_id' ), array( $base => 'WPCredits (' . $base . ')', 'appPROBE000000002' => 'Sandbox (appPROBE000000002)' ) );
-ck( 'and each of the ten tables as a select of the base\'s tables, the ID beside each name',
+ck( 'and each of the eight tables as a select of the base\'s tables, the ID beside each name',
     $table_selects, array_fill_keys( array_keys( $table_selects ), $named_tables ) );
-// A blank name column is not nothing for three of them: the institutions sync, the countries and the
-// sponsors sync each read a column of their own when it is blank, so each offers None, first. The
-// Contribution areas name column has no column of its own to fall back on.
-ck( 'and each name column as a select of its own table\'s columns, the three whose readers fall back on a column of their own offering None first',
+// A blank name column is not nothing for two of them: the institutions sync and the countries each
+// read a column of their own when it is blank, so each offers None, first. The Contribution areas
+// name column has no column of its own to fall back on. The Sponsors name column left with the
+// sponsors sync (1.111.0), and none is drawn.
+ck( 'and each name column as a select of its own table\'s columns, the two whose readers fall back on a column of their own offering None first, and no Sponsors name column',
     array(
         select_options( $connection, 'institutions_name_field' ),
         select_options( $connection, 'teams_name_field' ),
         select_options( $connection, 'countries_name_field' ),
-        select_options( $connection, 'sponsors_name_field' ),
+        strpos( $connection, 'sponsors_name_field' ),
     ),
     array(
         array( '' => 'None (the built-in column)', 'Name' => 'Name', 'Country' => 'Country', 'Current Stage' => 'Current Stage' ),
         array( 'Contribution teams or areas' => 'Contribution teams or areas', 'Description' => 'Description' ),
         array( '' => 'None (the built-in column)', 'Name' => 'Name', 'Program manager' => 'Program manager' ),
-        array( '' => 'None (the built-in column)', 'Company Name' => 'Company Name', 'Status' => 'Status' ),
+        false,
     ) );
 
 $none_chosen = browser_post( $connection );
 $none_saves  = array();
 
-foreach ( array( 'institutions_name_field', 'countries_name_field', 'sponsors_name_field' ) as $key ) {
+foreach ( array( 'institutions_name_field', 'countries_name_field' ) as $key ) {
 	store( $stored_now, $live );
 	press( array_merge( $none_chosen, array( $key => '' ) ) );
 
 	$none_saves[ $key ] = WPCPM_Settings::get()[ $key ];
 }
 
-store( array_merge( $stored_now, array( 'sponsors_name_field' => '' ) ), $live );
+store( array_merge( $stored_now, array( 'countries_name_field' => '' ) ), $live );
 airtable_answers( true );
 $none_drawn = form_of( draw_settings( 'connection' ) );
 
 ck( 'and None saves the column blank, which a blank stored draws chosen, not as a current value the list lacks',
-    array( $none_saves, attrs( preg_match( '#<option value=""[^>]*>#', (string) preg_replace( '#^.*?name="sponsors_name_field">#s', '', $none_drawn ), $none_option ) ? $none_option[0] : '' ), substr_count( $none_drawn, 'None (current)' ) ),
-    array( array_fill_keys( array( 'institutions_name_field', 'countries_name_field', 'sponsors_name_field' ), '' ), array( 'option' => '', 'value' => '', 'selected' => 'selected' ), 0 ) );
+    array( $none_saves, attrs( preg_match( '#<option value=""[^>]*>#', (string) preg_replace( '#^.*?name="countries_name_field">#s', '', $none_drawn ), $none_option ) ? $none_option[0] : '' ), substr_count( $none_drawn, 'None (current)' ) ),
+    array( array_fill_keys( array( 'institutions_name_field', 'countries_name_field' ), '' ), array( 'option' => '', 'value' => '', 'selected' => 'selected' ), 0 ) );
 
 // A table stored by its name, as one typed before the tables were chosen from a list could be. The
-// mentors sync knows a table's primary column by the table's ID alone, so for this table it asks for
-// the name column itself, and a blank one would be a column with no name: the name column is the text
-// input it was, holding the name saved, with no None to offer. Chosen from the list, which stores the
-// ID, the table's name column offers None first.
-store( array_merge( $stored_now, array( 'institutions_table' => 'Institutions', 'sponsors_table' => 'Sponsors' ) ), $live );
+// mentors sync knows a table's primary column by the table's ID alone, so for the Institutions
+// table, whose names it reads, it asks for the name column itself, and a blank one would be a
+// column with no name: the name column is the text input it was, holding the name saved, with no
+// None to offer. The mentors sync never reads the Countries table; its half is here because
+// `name_columns()` asks one condition of every table, so a Countries table stored by its name is
+// drawn the same way. Chosen from the list, which stores the ID, the table's name column offers
+// None first.
+store( array_merge( $stored_now, array( 'institutions_table' => 'Institutions', 'countries_table' => 'Countries' ) ), $live );
 airtable_answers( true );
 $tables_by_name = form_of( draw_settings( 'connection' ) );
 store( $stored_now, $live );
@@ -1383,18 +1391,18 @@ ck( 'a name column whose table is stored by its name is the text input it was, h
     array(
         select_options( $tables_by_name, 'institutions_name_field' ),
         drawn_input( $tables_by_name, 'institutions_name_field' ),
-        select_options( $tables_by_name, 'sponsors_name_field' ),
-        drawn_input( $tables_by_name, 'sponsors_name_field' ),
+        select_options( $tables_by_name, 'countries_name_field' ),
+        drawn_input( $tables_by_name, 'countries_name_field' ),
         array_slice( (array) select_options( $tables_by_id, 'institutions_name_field' ), 0, 1, true ),
-        array_slice( (array) select_options( $tables_by_id, 'sponsors_name_field' ), 0, 1, true ),
+        array_slice( (array) select_options( $tables_by_id, 'countries_name_field' ), 0, 1, true ),
     ),
-    array( null, $stored_now['institutions_name_field'], null, $stored_now['sponsors_name_field'], array( '' => 'None (the built-in column)' ), array( '' => 'None (the built-in column)' ) ) );
+    array( null, $stored_now['institutions_name_field'], null, $stored_now['countries_name_field'], array( '' => 'None (the built-in column)' ), array( '' => 'None (the built-in column)' ) ) );
 
 store( $stored_now, $live );
 airtable_answers( true );
 
 $connection_post = browser_post( $connection );
-$connection_keys = array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'team_members_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'sponsors_name_field' );
+$connection_keys = array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' );
 
 $posted_values = array();
 $saved_values  = array();
@@ -1684,8 +1692,8 @@ ck( 'and no box is drawn for any of them',
     array( array(), array(), array(), array() ) );
 
 $sentences = array(
-	'Type the ID. The list could not be read from Airtable just now.'                                         => 11,
-	'Type the column\'s name. The list could not be read from Airtable just now.'                             => 4,
+	'Type the ID. The list could not be read from Airtable just now.'                                         => 9,
+	'Type the column\'s name. The list could not be read from Airtable just now.'                             => 3,
 	'Type the status. The list could not be read from Airtable just now.'                                     => 3,
 	'Type one status per line. The list could not be read from Airtable just now.'                            => 2,
 	'Type the stage. The list could not be read from Airtable just now.'                                      => 1,

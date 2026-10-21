@@ -1,6 +1,6 @@
 <?php
 /**
- * The Sponsor Dashboard's profile card: the fields a sponsor may write back to Airtable.
+ * The Sponsor Dashboard's profile card: the fields a sponsor keeps up to date about their company.
  *
  * @package WPCreditsProgramManager
  */
@@ -10,20 +10,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * An allowlist, cleaned field by field, written in one PATCH with an audit row.
+ * An allowlist, cleaned field by field, written to the store in one call with an audit row.
  *
- * Design spec of 4 September 2026, section 5.5. The fields are spelled as the base spells
- * them; single selects are validated byte for byte against `CHOICES`, which
- * bin/test-sponsor-cards.php asserts against bin/fixtures/sponsors-table-fields.json, because
- * `update_records()` sends no `typecast` and any other spelling is a 422 for the whole PATCH.
- * One rejected field rejects the whole save, for the same reason: what the base would refuse
- * as a whole is refused here as a whole. Changing `Contact Email` changes the Airtable field
- * and nothing about accounts, and the form says so.
+ * Design spec of 4 September 2026, section 5.5. Single selects are validated byte for byte
+ * against `CHOICES`, which bin/test-sponsor-cards.php pins word for word, so a stray value here
+ * never diverges from what the form itself offers. One rejected field rejects the whole save,
+ * for the same reason a form with one broken control is not half-submitted: what is refused is
+ * refused as a whole. Changing `Contact Email` changes the address the program holds and
+ * nothing about accounts, and the form says so.
  *
- * Three of the eight fields (`OFFER_FIELDS`) are also written by the primary offer's mirror.
- * Two writers of the same base columns is one too many, and the offer is the text students
- * actually see, so once a primary offer exists this card shows those three read-only and
- * ignores a posted value for them (final review of Phase S2, finding 2).
+ * The offer's text, instructions and link are the primary offer's now (WPCPM_Sponsor_Offers),
+ * not this card's: once a sponsor has any offer, this card prints one note pointing to the
+ * Offers card in their place, rather than a third place to edit the same words (final review of
+ * Phase S2, finding 2).
+ *
+ * The description for the partner page (1.112.0) is a tier benefit rather than one of FIELDS:
+ * drawn and read for every tier from Supporter up, the tiers the Partners page prints it for in
+ * one format (1.123.18), and only while the tier ladder's launch switch is on. It is measured, drawn and compared by the rules
+ * every box of typed text uses (`WPCPM_Typed_Text::typed_length()`, `typed_text()`,
+ * `drawn_limit()` and `same_lines()`), and so are "Anything else you'd like to share.", the one
+ * text box among FIELDS, and the Contact person, so what a sponsor types into any of these boxes
+ * is counted and shown back the same way. Each of the three is refused, rather than saved short,
+ * when the cleaner would take words from it, and comes back as typed.
  */
 final class WPCPM_Sponsor_Profile {
 
@@ -33,7 +41,10 @@ final class WPCPM_Sponsor_Profile {
 	const MAX_LINE    = 200;
 	const LOG_KIND    = 'profile_saved';
 
-	/** Index key => Airtable column, kind, label. The order is the form's. */
+	/** The description for the partner page, at most this many characters (1.112.0). */
+	const DESCRIPTION_MAX = 300;
+
+	/** Index key => the field's name and kind. The order is the form's. */
 	const FIELDS = array(
 		'website'        => array(
 			'name' => 'Website',
@@ -51,28 +62,13 @@ final class WPCPM_Sponsor_Profile {
 			'name' => 'Type of product',
 			'kind' => 'select',
 		),
-		'offer'          => array(
-			'name' => 'Offer',
-			'kind' => 'line',
-		),
-		'instructions'   => array(
-			'name' => 'Brief instructions',
-			'kind' => 'text',
-		),
-		'more_info'      => array(
-			'name' => 'More info link',
-			'kind' => 'url',
-		),
 		'anything'       => array(
 			'name' => "Anything else you'd like to share.",
 			'kind' => 'text',
 		),
 	);
 
-	/** The three fields the primary offer's mirror owns once one exists. */
-	const OFFER_FIELDS = array( 'offer', 'instructions', 'more_info' );
-
-	/** The single selects' choices, as the base spells them. */
+	/** The single selects' choices, spelled exactly as the form offers them. */
 	const CHOICES = array(
 		'Type of product' => array( 'Hosting', 'Plugin', 'Service' ),
 	);
@@ -85,7 +81,8 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
-	 * The labels, translated at call time.
+	 * The labels, translated at call time: each of FIELDS', and the description for the sponsor
+	 * listing's, which a refusal names.
 	 *
 	 * @return array<string, string>
 	 */
@@ -95,10 +92,8 @@ final class WPCPM_Sponsor_Profile {
 			'contact_person' => __( 'Contact person', 'wpcredits-program-manager' ),
 			'contact_email'  => __( 'Contact email', 'wpcredits-program-manager' ),
 			'product_type'   => __( 'Type of product', 'wpcredits-program-manager' ),
-			'offer'          => __( 'Your offer, in one line', 'wpcredits-program-manager' ),
-			'instructions'   => __( 'How students use it', 'wpcredits-program-manager' ),
-			'more_info'      => __( 'Link with more information', 'wpcredits-program-manager' ),
 			'anything'       => __( 'Anything else you would like to share', 'wpcredits-program-manager' ),
+			'description'    => __( 'Description for the partner page', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -112,49 +107,107 @@ final class WPCPM_Sponsor_Profile {
 			// The sentence after it is the whole message: `WPCPM_Typed_Text::loss_message()` says that
 			// nothing was saved, which box, and how to keep every word.
 			'profile-loss'      => array( 'error', '' ),
-			'profile-saved'     => array( 'success', __( 'Your profile was saved to the program records.', 'wpcredits-program-manager' ) ),
+			'profile-saved'     => array( 'success', __( 'Your profile was saved.', 'wpcredits-program-manager' ) ),
 			'profile-unchanged' => array( 'info', __( 'Nothing changed.', 'wpcredits-program-manager' ) ),
 			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the links and the product type.', 'wpcredits-program-manager' ) ),
+			'profile-text-long' => array(
+				'error',
+				sprintf(
+					/* translators: %d: the most characters Anything else you would like to share holds. */
+					_n( 'The text for Anything else you would like to share is longer than %d character, so nothing was saved.', 'The text for Anything else you would like to share is longer than %d characters, so nothing was saved.', self::MAX_TEXT, 'wpcredits-program-manager' ),
+					self::MAX_TEXT
+				),
+			),
+			'profile-too-long'  => array(
+				'error',
+				sprintf(
+					/* translators: %d: the most characters the description for the partner page holds. */
+					_n( 'The description for the partner page is longer than %d character, so nothing was saved.', 'The description for the partner page is longer than %d characters, so nothing was saved.', self::DESCRIPTION_MAX, 'wpcredits-program-manager' ),
+					self::DESCRIPTION_MAX
+				),
+			),
 			// The sentence after it names the field and how far over it is (long_sentence()).
 			'profile-long'      => array( 'error', __( 'Nothing was saved.', 'wpcredits-program-manager' ) ),
-			'profile-failed'    => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
+			'profile-failed'    => array( 'error', __( 'Your profile could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'           => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
 	/**
-	 * Whether a primary offer already owns the three fields in `OFFER_FIELDS`.
+	 * The four details the card's row counts: every one of FIELDS but "Anything else you'd like to
+	 * share.", which is there for a sponsor with something more to say, so a sponsor with nothing
+	 * else to share still has a complete profile. The form requires none of the five.
+	 *
+	 * @return string[] Keys of FIELDS, in the form's order.
+	 */
+	public static function details() {
+		return array_values( array_diff( array_keys( self::FIELDS ), array( 'anything' ) ) );
+	}
+
+	/**
+	 * How many of the four details (`details()`) a row holds something in: a value of spaces holds
+	 * nothing. The card's row says it, "Profile complete" once every one is filled. Neither the
+	 * optional "Anything else you'd like to share." nor the description for the partner page, a
+	 * tier's benefit and none of the five FIELDS, is counted.
+	 *
+	 * @param array $row A sponsor's row.
+	 * @return int
+	 */
+	public static function filled( array $row ) {
+		$filled = 0;
+
+		foreach ( self::details() as $key ) {
+			if ( isset( $row[ $key ] ) && is_scalar( $row[ $key ] ) && '' !== trim( (string) $row[ $key ] ) ) {
+				++$filled;
+			}
+		}
+
+		return $filled;
+	}
+
+	/**
+	 * Whether the sponsor has any offer yet, wherever its text now lives.
 	 *
 	 * Guarded by class_exists(): the Offers module is a later phase's file and this card is
-	 * loaded on its own by bin/test-sponsor-cards.php, so an absent Offers class means no
-	 * offer owns anything and all eight fields stay editable.
+	 * loaded on its own by bin/test-sponsor-cards.php, so an absent Offers class reads as no
+	 * offer, and the note stays off.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return bool
 	 */
-	private static function owned_by_offer( $record ) {
+	private static function has_offer( $record ) {
 		if ( ! class_exists( 'WPCPM_Sponsor_Offers' ) || ! method_exists( 'WPCPM_Sponsor_Offers', 'offers_of' ) ) {
 			return false;
 		}
 
-		foreach ( WPCPM_Sponsor_Offers::offers_of( $record ) as $offer ) {
-			if ( ! empty( $offer['primary'] ) ) {
-				return true;
-			}
-		}
+		return ! empty( WPCPM_Sponsor_Offers::offers_of( $record ) );
+	}
 
-		return false;
+	/**
+	 * Whether the description for the partner page is this sponsor's to write: every tier from
+	 * Supporter up, the tiers the Partners page prints a description under (the listing's line()
+	 * asks the ladder's same `description` benefit), and only while the launch switch is on, since
+	 * until then nothing a sponsor sees names a tier. The effective tier, so a term that has ended
+	 * takes the box away with it the day after its last day, when the sponsor reads as a Friend. A
+	 * description saved before stays on the row, neither drawn nor replaced here nor printed on the
+	 * page while the sponsor is a Friend.
+	 *
+	 * @param array $row The sponsor's row.
+	 * @return bool
+	 */
+	private static function shows_description( array $row ) {
+		return WPCPM_Sponsor_Tiers::live() && WPCPM_Sponsor_Tiers::includes( WPCPM_Sponsor_Tiers::effective( $row ), 'description' );
 	}
 
 	/**
 	 * Clean one posted value by its field's kind.
 	 *
-	 * A typed text, one line (the Contact person, the offer line) or a text area (How students
-	 * use it, Anything else you would like to share), is counted as the person typed it
-	 * (`WPCPM_Typed_Text::typed_length()`): the entities the cleaner writes for a "<" and the quote
-	 * marks and ampersands after it, and a line break's two bytes, count as the one character each
-	 * stands for. One over its limit (`limit_of()`) is refused rather than cut: a name cut short is
-	 * a different name, and a text cut short reaches the program missing its end.
+	 * A typed text, one line (the Contact person) or a text area (Anything else you would like to
+	 * share), is counted as the person typed it (`WPCPM_Typed_Text::typed_length()`): the entities
+	 * the cleaner writes for a "<" and the quote marks and ampersands after it, and a line break's
+	 * two bytes, count as the one character each stands for. One over its limit (`limit_of()`) is
+	 * refused rather than cut: a name cut short is a different name, and a text cut short reaches
+	 * the program missing its end.
 	 *
 	 * @param string $key A key of `FIELDS`.
 	 * @param string $raw The posted value.
@@ -216,7 +269,9 @@ final class WPCPM_Sponsor_Profile {
 				);
 		}
 
-		$value = 'text' === $kind ? sanitize_textarea_field( $raw ) : sanitize_text_field( $raw );
+		// A typed text, the Contact person or Anything else you would like to share. A text area
+		// keeps its lines as the box shows them, each break one LF.
+		$value = 'text' === $kind ? str_replace( array( "\r\n", "\r" ), "\n", sanitize_textarea_field( $raw ) ) : sanitize_text_field( $raw );
 		$over  = WPCPM_Typed_Text::typed_length( $value ) - self::limit_of( $key );
 
 		if ( $over > 0 ) {
@@ -235,19 +290,34 @@ final class WPCPM_Sponsor_Profile {
 
 	/**
 	 * The longest a typed text may be, in characters as typed: `MAX_TEXT` for a text area,
-	 * `MAX_LINE` for one line.
+	 * `MAX_LINE` for one line, and `DESCRIPTION_MAX` for the description for the partner page.
 	 *
-	 * @param string $key A key of `FIELDS`.
+	 * @param string $key A key of `FIELDS`, or `description`.
 	 * @return int
 	 */
 	private static function limit_of( $key ) {
+		if ( 'description' === $key ) {
+			return self::DESCRIPTION_MAX;
+		}
+
 		return isset( self::FIELDS[ $key ] ) && 'text' === self::FIELDS[ $key ]['kind'] ? self::MAX_TEXT : self::MAX_LINE;
+	}
+
+	/**
+	 * A posted field's kind: its own in FIELDS, and `text` for the description for the sponsor
+	 * listing, a text area that is none of them.
+	 *
+	 * @param string $key A key of `FIELDS`, or `description`.
+	 * @return string
+	 */
+	private static function kind_of( $key ) {
+		return isset( self::FIELDS[ $key ] ) ? self::FIELDS[ $key ]['kind'] : 'text';
 	}
 
 	/**
 	 * The form, as `WPCPM_Typed_Text::keep()` names it: one sponsor's profile card.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	private static function typed_form( $record ) {
@@ -257,9 +327,9 @@ final class WPCPM_Sponsor_Profile {
 	/**
 	 * Keep what a refused profile form held for the one time it is drawn again: every field that was
 	 * posted, as typed, each up to the room its box was drawn with (`limit_of()`, and never less than
-	 * the value the box was drawn with, so a text the base holds over its limit comes back whole).
+	 * the value the box was drawn with, so a text the row holds over its limit comes back whole).
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @param array  $typed  Each posted field, as posted and not yet cleaned.
 	 * @param array  $row    The index row the form was drawn from.
 	 */
@@ -278,20 +348,24 @@ final class WPCPM_Sponsor_Profile {
 	 *
 	 * A typed text is drawn back by `WPCPM_Typed_Text`, so a box posted back unedited can come back
 	 * in other bytes than the stored ones: with a ">" the card held as `&gt;`, say, or a text
-	 * area's every break as CR LF where the base keeps LF. Read the same, it is the stored text,
+	 * area's every break as CR LF where the row keeps LF. Read the same, it is the stored text,
 	 * and is not written. A link is the stored value byte for byte, or with each line break as a
 	 * space, as below. Every other kind is the stored value only byte for byte.
 	 *
-	 * Both sides are read trimmed, as the cleaner trims what it reads. A value written in the base's
-	 * grid can end in a space or begin with a line break, and a box can hand it back without them:
-	 * a text area drops a line break its text begins with, and a link's or an address's box drops
-	 * the spaces at its ends. Such a box, posted back untouched, is still the stored value, and a
-	 * save would only take the white space off.
+	 * Both sides are read trimmed, as the cleaner trims what it reads. A value brought over from the
+	 * program records can end in a space or begin with a line break, and a box can hand it back
+	 * without them: a text area drops a line break its text begins with, and a link's or an
+	 * address's box drops the spaces at its ends. Such a box, posted back untouched, is still the
+	 * stored value, and a save would only take the white space off.
 	 *
 	 * A one-line text or a link is drawn with each line break its stored value holds as a space
 	 * (`WPCPM_Typed_Text::one_line()`), so one posted back as it was drawn is the stored value too.
 	 * An address is drawn as stored, and is not asked so: it comes here as `sanitize_email()` hands
-	 * it back, which holds no space.
+	 * it back, which holds no space. Its box shows it with each entity read, so an address stored
+	 * with one, `&amp;` say, comes back as the character the entity stands for, and is the stored
+	 * value when the two read the same once each entity is read (`WPCPM_Typed_Text::same_text()`).
+	 * The Sponsors screen's Edit form reads these boxes by the same rules (`WPCPM_Sponsors`), so a
+	 * box left as either screen drew it changes nothing on either.
 	 *
 	 * @param string $kind    The field's kind.
 	 * @param string $next    The value as posted: as typed, for the test of a box posted back as
@@ -313,6 +387,10 @@ final class WPCPM_Sponsor_Profile {
 
 		if ( 'url' === $kind ) {
 			return WPCPM_Typed_Text::one_line( $current ) === $next;
+		}
+
+		if ( 'email' === $kind ) {
+			return WPCPM_Typed_Text::same_text( $next, $current );
 		}
 
 		return 'text' === $kind && WPCPM_Typed_Text::same_lines( $next, $current );
@@ -344,10 +422,11 @@ final class WPCPM_Sponsor_Profile {
 	 *
 	 * The nonce, then the claim (which decides `ACT_EDIT_PROFILE` and meters a refusal), then
 	 * every posted typed text a person changed asked whether the cleaner would take words from it,
-	 * then every other posted field cleaned, then one PATCH of the cells that changed, then the
-	 * index and the log. Only fields that were posted are read, so a form missing one leaves it
-	 * alone, and a typed text or a link posted back as it was drawn is left as the base holds it. A
-	 * save refused for a loss or a length keeps what was typed for the form's redraw.
+	 * in the form's order, the description for the partner page last, then every other posted
+	 * field cleaned, then one patch of the sponsor's row with the fields that changed, then the log.
+	 * Only fields that were posted are read, so a form missing one leaves it alone, and a typed text
+	 * or a link posted back as it was drawn is left as the row holds it. A save refused for a loss or
+	 * a length keeps what was typed for the form's redraw, the description's among it.
 	 */
 	public static function handle_save() {
 		check_admin_referer( self::ACTION_SAVE );
@@ -372,31 +451,34 @@ final class WPCPM_Sponsor_Profile {
 		$row   = $claim['row'];
 		$cells = array();
 		$keys  = array();
-		$owned = self::owned_by_offer( $record );
 		$typed = array();
 		$drawn = array();
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
 		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
 
-		// What was typed into each field that was posted and that this card writes, before the
-		// cleaner has read it.
+		// What was typed into each field that was posted, before the cleaner has read it.
 		foreach ( self::FIELDS as $key => $spec ) {
-			if ( ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) || ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
+			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
 				continue;
 			}
 
 			$typed[ $key ] = WPCPM_Request::posted_raw( 'wpcpm_' . $key );
 		}
 
+		// The description for the partner page is read only while its box is drawn (1.112.0).
+		if ( isset( $_POST['wpcpm_description'] ) && self::shows_description( $row ) ) {
+			$typed['description'] = WPCPM_Request::posted_raw( 'wpcpm_description' );
+		}
+
 		// A typed text or a link posted back as it was drawn is the stored value, by the card's own test
 		// of an untouched box (`unchanged()`), asked of what was typed. It is neither asked about losses
-		// nor cleaned and written: the base can hold a tag or a percent octet the cleaner would take,
-		// or a link the card would complete or refuse, written in its grid, and only what a person
-		// changed is theirs to be told about. Cleaned and written back, it would lose those words
-		// without a word said.
+		// nor cleaned and written: the row can hold a tag or a percent octet the cleaner would take, or
+		// a link the card would complete or refuse, brought over from the program records or saved
+		// before these rules, and only what a person changed is theirs to be told about. Cleaned and
+		// written back, it would lose those words without a word said.
 		foreach ( $typed as $key => $value ) {
-			$kind = self::FIELDS[ $key ]['kind'];
+			$kind = self::kind_of( $key );
 
 			if ( in_array( $kind, array( 'line', 'text', 'url' ), true ) && self::unchanged( $kind, $value, isset( $row[ $key ] ) ? (string) $row[ $key ] : '' ) ) {
 				$drawn[ $key ] = true;
@@ -406,7 +488,7 @@ final class WPCPM_Sponsor_Profile {
 		// A typed text the cleaner would take words from is refused before any field is cleaned, and
 		// the form gets back what was typed: saved, it would lose the words without a word said.
 		foreach ( $typed as $key => $value ) {
-			$kind = self::FIELDS[ $key ]['kind'];
+			$kind = self::kind_of( $key );
 
 			if ( ! isset( $drawn[ $key ] ) && in_array( $kind, array( 'line', 'text' ), true ) && WPCPM_Typed_Text::cleaner_loses( $value, 'text' === $kind ? 'lines' : 'line' ) ) {
 				self::keep_typing( $record, $typed, $row );
@@ -415,21 +497,14 @@ final class WPCPM_Sponsor_Profile {
 		}
 
 		foreach ( self::FIELDS as $key => $spec ) {
-			// The primary offer writes these three cells on every save of the Offers card, so a
-			// value posted here would be overwritten by the next one and read as "it did not
-			// save" (finding 2). Ignored, never written, and the card draws them read-only.
-			if ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) {
-				continue;
-			}
-
 			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) || isset( $drawn[ $key ] ) ) {
 				continue;
 			}
 
-			// A text area is read with its line breaks, and a link as typed: the one-line cleaner
+			// A text box keeps its line breaks, and a link is read as typed: the one-line cleaner
 			// removes every `%XX`, which would rewrite an address in another alphabet or a query
 			// with a space in it, and clean() runs a link through clean_url(), whose esc_url_raw()
-			// keeps them. Every other field is read as one line.
+			// keeps them. Every other field is one line.
 			if ( 'text' === $spec['kind'] ) {
 				$posted = WPCPM_Request::posted_lines( 'wpcpm_' . $key );
 			} elseif ( 'url' === $spec['kind'] ) {
@@ -440,25 +515,35 @@ final class WPCPM_Sponsor_Profile {
 
 			$cleaned = self::clean( $key, $posted );
 			$current = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
+			$next    = null === $cleaned['value'] ? '' : (string) $cleaned['value'];
 
+			// A typed text is drawn read back to what was typed, so it is compared as it reads
+			// (`unchanged()`): posted back unedited it holds the same text once each entity is read
+			// and each line break is one LF, though the cleaner may write a ">" the box held after a
+			// tag-like "<" as `&gt;` where the row holds ">", and the row may hold a break as CR LF.
+			// It is compared before it is measured, so only a changed text can be refused: one a row
+			// kept longer than its limit from an earlier store stays as it is, and does not stop a
+			// save of the other fields.
+			if ( ( 'text' === $spec['kind'] || 'line' === $spec['kind'] ) && self::unchanged( $spec['kind'], $next, $current ) ) {
+				continue;
+			}
+
+			// A text box is refused for its length alone, and the flash says so; a line over its
+			// limit is named, with how far over it is (`long_sentence()`). Either is to be shortened,
+			// so the form comes back with what was typed.
 			if ( ! $cleaned['ok'] ) {
-				if ( isset( $cleaned['over'] ) ) {
-					// Over its limit and read as the stored text: the base holds it so, written in
-					// its grid, which bounds neither column, and the box posted it back untouched.
-					// A save that did not touch it is not refused for it.
-					if ( self::unchanged( $spec['kind'], (string) $cleaned['value'], $current ) ) {
-						continue;
-					}
+				if ( 'text' === $spec['kind'] ) {
+					self::keep_typing( $record, $typed, $row );
+					self::leave( 'profile-text-long', $record );
+				}
 
-					// To be shortened, so the form comes back with what was typed.
+				if ( isset( $cleaned['over'] ) ) {
 					self::keep_typing( $record, $typed, $row );
 					self::leave( 'profile-long', $record, self::long_sentence( $key, $cleaned['over'] ) );
 				}
 
 				self::leave( 'profile-rejected', $record );
 			}
-
-			$next = null === $cleaned['value'] ? '' : (string) $cleaned['value'];
 
 			if ( self::unchanged( $spec['kind'], $next, $current ) ) {
 				continue;
@@ -468,23 +553,37 @@ final class WPCPM_Sponsor_Profile {
 			$keys[]                 = $key;
 		}
 
-		if ( empty( $cells ) ) {
-			self::leave( 'profile-unchanged', $record );
+		// The description for the partner page is not one of FIELDS: it is read only while the
+		// box is drawn, so a value posted by hand while it is not is ignored as the box is absent
+		// (1.112.0), and one posted back as it was drawn is left as the row holds it. Its line breaks
+		// are kept, the way the box shows them.
+		$extra = array();
+
+		if ( isset( $typed['description'] ) && ! isset( $drawn['description'] ) ) {
+			// A browser sends each line break in the box as CRLF, and every break is stored as one
+			// LF, as the box shows it. The text cleaner writes a "<" that opens no tag, and the quote
+			// marks and the ampersand after it, as entities, so a description that fits its box can
+			// be stored longer than DESCRIPTION_MAX: the limit counts what was typed, as the box
+			// counts it, and a longer one refuses the save as a whole rather than being cut, which
+			// would drop its last words or end inside an entity. The row is post meta, which kses
+			// never reads, so the description is stored as the cleaner left it.
+			$next = str_replace( array( "\r\n", "\r" ), "\n", sanitize_textarea_field( WPCPM_Request::posted_lines( 'wpcpm_description' ) ) );
+
+			if ( WPCPM_Typed_Text::typed_length( $next ) > self::DESCRIPTION_MAX ) {
+				self::keep_typing( $record, $typed, $row );
+				self::leave( 'profile-too-long', $record );
+			}
+
+			// Read as the box reads it back: posted back unedited, a description holds the same
+			// text once each entity is read, though the cleaner may write a ">" the box held after a
+			// tag-like "<" as `&gt;` where the row holds ">", so it changes nothing.
+			if ( ! WPCPM_Typed_Text::same_lines( $next, (string) $row['description'] ) ) {
+				$extra['description'] = $next;
+			}
 		}
 
-		$airtable = new WPCPM_Airtable();
-		$written  = $airtable->update_records(
-			(string) WPCPM_Settings::get_value( 'sponsors_table', '' ),
-			array(
-				array(
-					'id'     => $record,
-					'fields' => $cells,
-				),
-			)
-		);
-
-		if ( is_wp_error( $written ) ) {
-			self::leave( 'profile-failed', $record );
+		if ( empty( $cells ) && empty( $extra ) ) {
+			self::leave( 'profile-unchanged', $record );
 		}
 
 		$patch = array();
@@ -493,7 +592,14 @@ final class WPCPM_Sponsor_Profile {
 			$patch[ $key ] = null === $cells[ self::FIELDS[ $key ]['name'] ] ? '' : (string) $cells[ self::FIELDS[ $key ]['name'] ];
 		}
 
-		WPCPM_Sponsors_Index::patch( $record, $patch );
+		// Merged after the loop, which reads each key's value from FIELDS; the audit names the
+		// description among the changed fields as it names the others.
+		$patch = array_merge( $patch, $extra );
+		$keys  = array_merge( $keys, array_keys( $extra ) );
+
+		if ( ! WPCPM_Sponsors_Index::patch( $record, $patch ) ) {
+			self::leave( 'profile-failed', $record );
+		}
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -518,9 +624,12 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
-	 * The card.
+	 * The card, Company profile and logo. Folded until a flash names it, its row how much of the
+	 * profile is filled in, and while it is folded Edit after the fold, a link to the card; its first
+	 * line says that what the company saves here is the program's record of it, since the group's lead
+	 * is one sentence for its three cards (the design the owner approved on 27 September 2026).
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
@@ -528,17 +637,33 @@ final class WPCPM_Sponsor_Profile {
 		$row    = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
 		$labels = self::labels();
 		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
-		$owned  = self::owned_by_offer( $record );
-		$said   = false;
+		$filled = self::filled( $row );
+		$fields = count( self::details() );
 		// A refused save: each field is drawn as it was left, in the room its box had.
 		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Your company profile and logo', 'wpcredits-program-manager' )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'    => self::CARD,
+				'title'  => __( 'Company profile and logo', 'wpcredits-program-manager' ),
+				'open'   => $open,
+				'state'  => $filled >= $fields
+					? __( 'Profile complete', 'wpcredits-program-manager' )
+					: sprintf(
+						/* translators: 1: how many of the profile's details hold a value, 2: how many details the row counts, four. */
+						_n( '%1$s of %2$s field filled', '%1$s of %2$s fields filled', $fields, 'wpcredits-program-manager' ),
+						number_format_i18n( $filled ),
+						number_format_i18n( $fields )
+					),
+				'action' => array(
+					'label'   => __( 'Edit', 'wpcredits-program-manager' ),
+					/* translators: read after "Edit" by a screen reader alone. */
+					'context' => __( 'the company profile and logo', 'wpcredits-program-manager' ),
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
+
+		echo '<p class="wpcpm-student__note">' . esc_html__( 'Keep the profile current: what you save here is kept by the program.', 'wpcredits-program-manager' ) . '</p>';
 
 		// Two columns (owner, 1.96.7): the company's details on the left, its logo on the right,
 		// the way the Student Report Card's course section keeps its two errands side by side.
@@ -557,23 +682,6 @@ final class WPCPM_Sponsor_Profile {
 			$id    = 'wpcpm-profile-' . $key;
 			$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
 			$typed = isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : null;
-
-			if ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) {
-				// Said once, above the first of the three, rather than three times.
-				if ( ! $said ) {
-					echo '<p class="wpcpm-student__note">' . esc_html__( "Your offer's text, instructions and link are edited on the Offers card: that is the offer students see.", 'wpcredits-program-manager' ) . '</p>';
-
-					$said = true;
-				}
-
-				printf(
-					'<p class="wpcpm-sponsor__field wpcpm-sponsor__field--owned"><span>%1$s</span> <strong>%2$s</strong></p>',
-					esc_html( $labels[ $key ] ),
-					esc_html( '' !== $value ? $value : __( 'Not set', 'wpcredits-program-manager' ) )
-				);
-
-				continue;
-			}
 
 			echo '<p class="wpcpm-sponsor__field">';
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $labels[ $key ] ) );
@@ -602,22 +710,28 @@ final class WPCPM_Sponsor_Profile {
 			} else {
 				// A one-line text is drawn as the person typed it, with room for each ">" held as
 				// `&gt;` (`WPCPM_Typed_Text`): drawn as stored, "We <3 our team > all" would post
-				// back as "We all". A link and an address are not typed text the cleaner escapes. Each
-				// line break a stored text or link holds is drawn as a space
-				// (`WPCPM_Typed_Text::one_line()`), which the box would otherwise drop. An address is
-				// drawn as stored, and its box drops a break: a space there would be an address that is
-				// not one, which the browser refuses, and the whole save with it. After a refused save,
-				// any of them is drawn with what was typed, exactly (`WPCPM_Typed_Text::kept_attr()`),
-				// in the same room.
-				$line = 'line' === $spec['kind'];
-
+				// back as "We all". A link and an address are not typed text the cleaner escapes. A
+				// link has each "&" written `&amp;` (`WPCPM_Typed_Text::kept_attr()`), since
+				// `esc_attr()` keeps an entity it finds and the box would post back the character in
+				// place of a stored entity. Each line break a stored text or link holds is drawn as a
+				// space (`WPCPM_Typed_Text::one_line()`), which the box would otherwise drop. An
+				// address is drawn as stored, so the box shows it with each entity read, and its box
+				// drops a break: a space there would be an address that is not one, which the browser
+				// refuses, and the whole save with it. The Sponsors screen's Edit form draws these
+				// boxes by the same rules (`WPCPM_Sponsors`). After a refused save, any of them is
+				// drawn with what was typed, exactly (`WPCPM_Typed_Text::kept_attr()`), in the same
+				// room.
 				if ( null !== $typed ) {
 					$shown = WPCPM_Typed_Text::kept_attr( $typed );
 				} elseif ( 'email' === $spec['kind'] ) {
 					$shown = $value;
+				} elseif ( 'url' === $spec['kind'] ) {
+					$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::kept_attr( $value ) );
 				} else {
-					$shown = WPCPM_Typed_Text::one_line( $line ? WPCPM_Typed_Text::attr_text( $value ) : $value );
+					$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $value ) );
 				}
+
+				$line = 'line' === $spec['kind'];
 
 				printf(
 					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d" />',
@@ -630,10 +744,35 @@ final class WPCPM_Sponsor_Profile {
 			}
 
 			if ( 'contact_email' === $key ) {
-				echo '<span class="wpcpm-student__note">' . esc_html__( 'This changes the address Airtable holds for your company. It does not change who can sign in: ask your program contact for that.', 'wpcredits-program-manager' ) . '</span>';
+				echo '<span class="wpcpm-student__note">' . esc_html__( 'This changes the address the program holds for your company. It does not change who can sign in: ask your program contact for that.', 'wpcredits-program-manager' ) . '</span>';
 			}
 
 			echo '</p>';
+
+			// In place of the three fields the primary offer now owns (offer, instructions,
+			// more_info left FIELDS above): one note, right where they used to sit in the form,
+			// rather than a third place to edit the same words.
+			if ( 'product_type' === $key && self::has_offer( $record ) ) {
+				echo '<p class="wpcpm-student__note">' . esc_html__( "Your offer's text, instructions and link are edited on the Offers card.", 'wpcredits-program-manager' ) . '</p>';
+			}
+		}
+
+		// A Supporter's alone, while the launch switch is on: see shows_description(). The note
+		// names the number DESCRIPTION_MAX holds. The stored description holds the entities the
+		// text cleaner wrote, read back to what was typed before the box escapes it, by the rule
+		// every box of typed text draws its own with (`WPCPM_Typed_Text`). After a refused save, it
+		// is drawn with what was typed, exactly, in the same room, after a line feed of its own, as
+		// the parser drops the one right after the opening tag.
+		if ( self::shows_description( $row ) ) {
+			$described = isset( $kept['description'] ) && is_string( $kept['description'] ) ? $kept['description'] : null;
+
+			printf(
+				'<p class="wpcpm-sponsor__field"><label for="wpcpm-profile-description">%1$s</label><textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="%2$d">%3$s</textarea><span class="wpcpm-student__note">%4$s</span></p>',
+				esc_html( $labels['description'] ),
+				(int) WPCPM_Typed_Text::drawn_limit( (string) $row['description'], self::DESCRIPTION_MAX ),
+				null !== $described ? "\n" . esc_textarea( $described ) : esc_textarea( WPCPM_Typed_Text::typed_text( (string) $row['description'] ) ),
+				esc_html__( 'A sentence or two about your company, shown with your logo where the program lists its sponsors. 300 characters at most.', 'wpcredits-program-manager' )
+			);
 		}
 
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save profile', 'wpcredits-program-manager' ) );
@@ -651,7 +790,7 @@ final class WPCPM_Sponsor_Profile {
 		}
 
 		echo '</div>';
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**

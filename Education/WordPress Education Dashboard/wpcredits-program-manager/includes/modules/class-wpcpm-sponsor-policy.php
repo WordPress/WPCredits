@@ -39,6 +39,9 @@ final class WPCPM_Sponsor_Policy {
 	const ACT_EXPRESS_INTEREST = 'express_interest';
 	const ACT_MANAGE_MEMBERS   = 'manage_members';
 	const ACT_PROVISION        = 'provision';
+	const ACT_VIEW_REPORT      = 'view_report';
+	const ACT_PLAN_EVENT       = 'plan_event';
+	const ACT_REVIEW_OFFER     = 'review_offer';
 
 	/** The one refusal's code. */
 	const REFUSAL_CODE = 'wpcpm_sponsor_unknown';
@@ -53,6 +56,19 @@ final class WPCPM_Sponsor_Policy {
 	 *
 	 * `ACT_WRITE_POSTS` gains the per-sponsor posting flag in Phase S3 (spec section 7.1);
 	 * until then a member's ground is the membership alone.
+	 *
+	 * `ACT_VIEW_REPORT` is an annual sponsor report's print view and its PDF (1.115.0). The member
+	 * ground answers who, and nothing more: a member reads a report only once it is final and only
+	 * while the tiers are live, and the routes ask both, since this map knows no report's state and
+	 * no switch.
+	 *
+	 * `ACT_PLAN_EVENT` is a sponsor's co-hosted event (1.117.0): its members plan, change and cancel
+	 * it, and a manager does on its behalf; whether the sponsor may plan one now is the event store's
+	 * allowance, asked by the handlers, since this map knows no tier and no switch. Joining an event
+	 * is not a sponsor action and asks this map nothing: who may join is who the event is for. An
+	 * event of the program's own asks this map nothing either: the management capability plans,
+	 * changes and cancels it on the Administrator Dashboard's card, and the Sponsor Dashboard's
+	 * planner refuses it.
 	 *
 	 * @return array<string, string[]>
 	 */
@@ -71,6 +87,9 @@ final class WPCPM_Sponsor_Policy {
 			self::ACT_EXPRESS_INTEREST => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_MANAGE_MEMBERS   => array( self::GROUND_MANAGER ),
 			self::ACT_PROVISION        => array( self::GROUND_MANAGER ),
+			self::ACT_VIEW_REPORT      => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_PLAN_EVENT       => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_REVIEW_OFFER     => array( self::GROUND_MANAGER ),
 		);
 	}
 
@@ -87,9 +106,9 @@ final class WPCPM_Sponsor_Policy {
 	}
 
 	/**
-	 * A subject that is a sponsor, from a record ID.
+	 * A subject that is a sponsor, from a sponsor key.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return array
 	 */
 	public static function subject_sponsor( $record ) {
@@ -144,7 +163,7 @@ final class WPCPM_Sponsor_Policy {
 		}
 
 		$given = isset( $subject['sponsor_ids'] ) ? (array) $subject['sponsor_ids'] : array();
-		$ids   = array_values( array_filter( array_map( 'strval', $given ), array( 'WPCPM_Mentors_Sync', 'is_record_id' ) ) );
+		$ids   = array_values( array_filter( array_map( 'strval', $given ), array( 'WPCPM_Sponsors_Index', 'is_key' ) ) );
 
 		foreach ( $grounds[ $action ] as $ground ) {
 			$decision = call_user_func( array( __CLASS__, 'ground_' . $ground ), $action, $ids, $user );

@@ -260,6 +260,20 @@ appears on every attendee's card - and it counts for each of them, so nobody who
 sitting in *Need a call*. Deleting it removes it from everyone. You can note everybody who was on
 your session, a student who has since moved to another mentor included.
 
+## Events from our sponsors
+
+When a sponsor holds a webinar or another online event with the program and the program has approved
+it, it is listed under *Group sessions* on your Mentor Report Card, as *Events from our sponsors*, in
+your own time zone: the title and the sponsor's name, when it runs and for how long, how many places
+are left and what it is about. **Join** takes a place and emails you a calendar invitation with the
+link to the call; **Leave** asks first, then frees the place and emails you the calendar file that
+takes the event out of your calendar. If the event is changed or canceled, you are told by email,
+with a calendar file that brings your calendar up to date. Usually the day before the event, an
+email reminds you of it, with the link to the call. The sponsor sees how many people joined, never
+who. Your students see the same events on their Student Report Card. The program's own online events
+are listed there too, each naming the WordPress Credits Program where a sponsor's names the sponsor,
+and while one of them is listed the list is headed *Events from our sponsors and the program*.
+
 ## If something looks wrong
 
 Student details come from the program records rather than being typed in here, so if a student's
@@ -372,6 +386,10 @@ it on by recording your graduation in the program records, and your card catches
 sync. From then on your time on the program counts as finished, and calls can no longer be booked.
 If your graduation looks overdue, ask your mentor, or whoever runs the program.
 
+If your track has partners, you see **In partnership with** and their logos here or in **My
+hours** - or, when neither section is on your card, under a heading of their own, **Partners of
+your track**.
+
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
@@ -481,6 +499,32 @@ If your mentor changes, a session of your former mentor's that you are on stays 
 their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
 program records show the change for you and for both mentors, you are taken off it and sent an email
 whose calendar file takes it out of your calendar.
+
+## Events from our sponsors
+
+The program's sponsors may hold a webinar or another online event with the program. Once the program
+has approved one, it appears under *My mentor call*, below your group sessions, in a list of its
+own, *Events from our sponsors*, in your own time zone: the title and the sponsor's name, when it
+runs and for how long, the places left - *Open to everyone* when there is no limit, *Full*, with no
+**Join**, when every place is taken - and what it is about.
+
+The program holds online events of its own too. They are listed in the same place, each naming the
+WordPress Credits Program where a sponsor's event names the sponsor, and while one of them is listed
+the list is headed *Events from our sponsors and the program*. You join and leave them in the same
+way.
+
+**Join** takes a place and sends you an email with a calendar invitation and the link to the call;
+the event then says *You are on it.*, with a **Join the call** link. If something changes, **Leave**
+asks first, then frees your place for somebody else and sends you the calendar file that takes the
+event out of your calendar. You can join or leave until the event ends. If the sponsor or the
+program changes the event or cancels it, you are told by email, with a calendar file that brings
+your calendar up to date. Usually the day before the event, an email reminds you of it, with the
+link to the call.
+
+The list names each event's sponsor and nobody else: it does not show who has joined.
+Administrators can see who is on an event; the sponsor sees how many people joined, never who. If a
+sponsor stops offering events, an event of theirs that you are on stays on your list, marked
+*No longer offered*, with **Leave** alone.
 
 ## Telling us how it is going
 

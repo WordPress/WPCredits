@@ -21,11 +21,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - **No gate.** A sponsor's dashboard works without an agreement, so nothing here reads one
  *   option on every request and nothing here opens or closes an account. `rebuild()` therefore
  *   writes the index's `agreement` block rather than a settled flag: what the screens need is
- *   that the cells the site just wrote to the base are visible before the sponsors sync reads
- *   them back.
- * - **No two-source rule.** With no gate to fail closed, the site's posts are the record of
- *   what happened here and Airtable's `Agreement Status` is the program's record; the card
- *   shows the first and the manager screen shows both.
+ *   that a decision taken here is visible at once, in the same request that made it.
+ * - **One record.** The site's own posts are the whole record of what happened here: no base
+ *   to keep in step with, and nothing for the card and the manager screen to disagree about.
  *
  * What is kept is everything that makes a file from outside safe to hold: the per-sponsor
  * `add_option()` lock every transition takes, the daily upload ceiling, `WPCPM_Pdf_Check` over
@@ -76,9 +74,6 @@ final class WPCPM_Sponsor_Agreement {
 	/** Post meta: the date of that decision, Y-m-d. */
 	const META_DECIDED_AT = '_wpcpm_sagr_decided_at';
 
-	/** Post meta: set when an Airtable write failed; the next sponsors sync run finishes it. */
-	const META_AIRTABLE_PENDING = '_wpcpm_sagr_airtable_pending';
-
 	/** Post meta, repeating: one row per event in the document's life. */
 	const META_EVENT = '_wpcpm_sagr_event';
 
@@ -101,18 +96,15 @@ final class WPCPM_Sponsor_Agreement {
 	const SUMMARY_ON_FILE   = 'on_file';
 
 	/**
-	 * The `Agreement Status` choices, spelled as the base spells them.
-	 *
-	 * `update_records()` sends no `typecast`, so any other spelling is a 422 for the whole
-	 * PATCH. Declared here so the spelling is asserted once, in the suite, and a renamed choice
-	 * fails a test rather than a write.
+	 * The six words a document's status is recorded under, unchanged from the base this class
+	 * used to write: renaming the words now would rename what every existing row already holds.
 	 */
-	const AIRTABLE_NOT_STARTED = 'Not started';
-	const AIRTABLE_AWAITING    = 'Awaiting review';
-	const AIRTABLE_ACCEPTED    = 'Accepted';
-	const AIRTABLE_RETURNED    = 'Returned';
-	const AIRTABLE_ON_FILE     = 'On file';
-	const AIRTABLE_REVOKED     = 'Revoked';
+	const STATUS_NOT_STARTED = 'Not started';
+	const STATUS_AWAITING    = 'Awaiting review';
+	const STATUS_ACCEPTED    = 'Accepted';
+	const STATUS_RETURNED    = 'Returned';
+	const STATUS_ON_FILE     = 'On file';
+	const STATUS_REVOKED     = 'Revoked';
 
 	/** The signed copy arrives here: `admin_post_`, multipart, a member or a manager on behalf. */
 	const ACTION_UPLOAD = 'wpcpm_sponsor_agr_upload';
@@ -216,9 +208,9 @@ final class WPCPM_Sponsor_Agreement {
 	 * with a way back. The handler refuses a logged-out request in its first three lines; the
 	 * arm exists so it can refuse it usefully.
 	 *
-	 * The cron is hooked in Task 5 of this phase and scheduled by `WPCPM_Sponsors::activate()`,
-	 * never here: scheduling belongs to the module's activation, where every other event of
-	 * this plugin's is put on the calendar.
+	 * The discard cron is hooked below and scheduled by `WPCPM_Sponsors::schedule_cron()`, on
+	 * activation and on every load, never here: scheduling belongs to the module, where every
+	 * other event of this plugin's is put on the calendar.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
@@ -313,13 +305,12 @@ final class WPCPM_Sponsor_Agreement {
 	 */
 	public static function manager_messages() {
 		return array(
-			'agreement-accepted'           => array( 'success', __( 'The agreement is accepted. Airtable says Accepted with today\'s date, and everybody at the company has been emailed.', 'wpcredits-program-manager' ) ),
+			'agreement-accepted'           => array( 'success', __( 'The agreement is accepted, with today\'s date, and everybody at the company has been emailed.', 'wpcredits-program-manager' ) ),
 			'agreement-returned'           => array( 'success', __( 'The agreement is returned. Everybody at the company has been emailed your note, with your address to reply to.', 'wpcredits-program-manager' ) ),
 			'agreement-note'               => array( 'error', __( 'Nothing was returned. The note has to be between 20 and 2000 characters: it is the whole of what the company is told, so it has to say what to change.', 'wpcredits-program-manager' ) ),
 			'agreement-note-loss'          => array( 'error', WPCPM_Typed_Text::loss_message( self::note_label(), 'return' ) ),
 			'agreement-gone'               => array( 'error', __( 'Nothing happened. That document is no longer waiting for review: somebody else has accepted, returned or withdrawn it since this page was drawn. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
 			'agreement-busy'               => array( 'error', __( 'Nothing was saved. Another change to this company\'s agreement was in flight. Try again in a moment.', 'wpcredits-program-manager' ) ),
-			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the program\'s record of this state, and the site does not record a decision the base has not agreed to.', 'wpcredits-program-manager' ) ),
 			'agreement-revoked'            => array( 'success', __( 'The agreement is out of force. The company\'s dashboard is unchanged, because it was never gated on an agreement, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the company as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::revoke_label(), 'revoke' ) ),
@@ -327,24 +318,24 @@ final class WPCPM_Sponsor_Agreement {
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this company.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstated'         => array( 'success', __( 'The agreement is back in force and everybody at the company has been emailed.', 'wpcredits-program-manager' ) ),
-			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Press Record on file again: the base already says On file, and a second press completes it here.', 'wpcredits-program-manager' ) ),
+			'agreement-not-saved'          => array( 'error', __( 'Nothing was recorded. The site could not save it just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'agreement-on-file'            => array( 'success', __( 'The agreement is recorded as on file, with the link to the copy in the program\'s Drive.', 'wpcredits-program-manager' ) ),
 			'agreement-link'               => array( 'error', __( 'Nothing was recorded. Paste the Drive link to the folder or the file: it has to be an https address on drive.google.com or docs.google.com.', 'wpcredits-program-manager' ) ),
 			'agreement-standing'           => array( 'error', __( 'Nothing was recorded. An accepted agreement already stands for this company.', 'wpcredits-program-manager' ) ),
-			'agreement-unknown'            => array( 'error', __( 'Nothing was recorded. That company is not in the sponsors index; run a sync and try again.', 'wpcredits-program-manager' ) ),
+			'agreement-unknown'            => array( 'error', __( 'Nothing was recorded. That company is not on the site; add it on the Sponsors screen and try again.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
 	/**
 	 * Every agreement post for a sponsor, newest first.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return WP_Post[]
 	 */
 	public static function posts_for( $record ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return array();
 		}
 
@@ -375,8 +366,8 @@ final class WPCPM_Sponsor_Agreement {
 	 * from, and there does not need to be: a sponsor has at most a handful of documents and
 	 * nothing on a request path asks this question.
 	 *
-	 * @param string $record Sponsors record ID.
-	 * @return array{state: string, kind: string, accepted_at: string, agreement_id: int, pending_id: int, drive_url: string, airtable_status: string}
+	 * @param string $record Sponsor key.
+	 * @return array{state: string, kind: string, accepted_at: string, agreement_id: int, pending_id: int, drive_url: string, recorded_status: string}
 	 */
 	public static function summary( $record ) {
 		$record = trim( (string) $record );
@@ -391,60 +382,50 @@ final class WPCPM_Sponsor_Agreement {
 			'agreement_id'    => $site['agreement_id'],
 			'pending_id'      => $site['pending_id'],
 			'drive_url'       => $site['drive_url'],
-			'airtable_status' => isset( $block['status'] ) ? trim( (string) $block['status'] ) : '',
+			'recorded_status' => isset( $block['status'] ) ? trim( (string) $block['status'] ) : '',
 		);
 	}
 
 	/**
-	 * Put the cells this site just wrote to the base into the index, under the lock.
+	 * Write a decision's values into the agreement block of the sponsor's row, under the lock.
 	 *
 	 * The institution class's `rebuild()` computes a gate from two sources; there is no gate
 	 * here, so this is the smaller job the sponsor module actually needs: the manager screen
-	 * and the card read `WPCPM_Sponsors_Index`, and a manager who accepts an agreement must not
-	 * have to wait for the sponsors sync to see the base agree. Every handler calls this inside
-	 * its own critical section and says so: releasing the lock and taking it again would leave
-	 * a gap for another transition to write the block from state that is about to change. A
-	 * caller holding no lock takes it here, and skips when a transition holds it, because that
-	 * transition writes the same block itself.
+	 * and the card read the agreement's status from `WPCPM_Sponsors_Index`, so each decision
+	 * writes it there in the same request, and a manager who accepts an agreement sees it on
+	 * the very next page. Every handler calls this inside its own critical section and says so:
+	 * releasing the lock and taking it again would leave a gap for another transition to write
+	 * the block from state that is about to change. So this takes no lock of its own: the caller
+	 * holds this sponsor's lock, and the one caller that ever came without it, the sponsors
+	 * sync, went in 1.111.0.
 	 *
-	 * @param string $record   Sponsors record ID.
-	 * @param array  $airtable The cells written, keyed `status`, `accepted_on`, `document`.
-	 *                         A key that is absent leaves the held value alone.
-	 * @param bool   $locked   Whether this sponsor's lock is already held by the caller. A
-	 *                         handler passes true from inside its own critical section; the
-	 *                         sponsors sync holds nothing and leaves it false.
+	 * @param string $record  Sponsor key.
+	 * @param array  $written The values the decision sets, keyed `status`, `accepted_on`,
+	 *                        `document`. A key that is absent leaves the held value alone.
 	 * @return array The block written, or an empty array when nothing was.
 	 */
-	public static function rebuild( $record, array $airtable, $locked = false ) {
+	public static function rebuild( $record, array $written ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
-			return array();
-		}
-
-		if ( ! $locked && ! self::lock( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return array();
 		}
 
 		$row   = WPCPM_Sponsors_Index::row( $record );
 		$held  = ( is_array( $row ) && isset( $row['agreement'] ) && is_array( $row['agreement'] ) ) ? $row['agreement'] : array();
 		$block = array(
-			'status'       => array_key_exists( 'status', $airtable )
-				? trim( (string) $airtable['status'] )
+			'status'       => array_key_exists( 'status', $written )
+				? trim( (string) $written['status'] )
 				: ( isset( $held['status'] ) ? (string) $held['status'] : '' ),
-			'accepted_on'  => array_key_exists( 'accepted_on', $airtable )
-				? self::date_or_empty( $airtable['accepted_on'] )
+			'accepted_on'  => array_key_exists( 'accepted_on', $written )
+				? self::date_or_empty( $written['accepted_on'] )
 				: ( isset( $held['accepted_on'] ) ? (string) $held['accepted_on'] : '' ),
-			'has_document' => array_key_exists( 'document', $airtable )
-				? ( '' !== trim( (string) $airtable['document'] ) )
+			'has_document' => array_key_exists( 'document', $written )
+				? ( '' !== trim( (string) $written['document'] ) )
 				: ! empty( $held['has_document'] ),
 		);
 
 		WPCPM_Sponsors_Index::patch( $record, array( 'agreement' => $block ) );
-
-		if ( ! $locked ) {
-			self::unlock( $record );
-		}
 
 		return $block;
 	}
@@ -530,11 +511,14 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * A manager's decision on one document, in the request cards' own shape for the
 	 * Administrator Dashboard (1.96.1): Download, Accept it, and a folded "Return with a note"
-	 * for a document waiting for review; Reinstate for one out of force. Accept it and Reinstate
-	 * ask before they post (`accept_question()`, `reinstate_question()`). The forms post to this
-	 * class's handlers, each under the nonce keyed to the document; of the three, the wp-admin
-	 * Sponsors screen draws only Reinstate, for a document past this card's list. The return field
-	 * brings the manager back to this card.
+	 * whose button is "Return it with this note" for a document waiting for review; Reinstate for
+	 * one out of force. The words are the ones the institutions' Collaboration Agreement card uses
+	 * on the same page, so the same decision reads the same whoever signed the agreement; the fold
+	 * keeps the name the posts' and the events' folds carry. Accept it and Reinstate ask before they
+	 * post (`accept_question()`, `reinstate_question()`). The forms post to this class's handlers,
+	 * each under the nonce keyed to the document; of the three, the wp-admin Sponsors screen draws
+	 * only Reinstate, for a document past this card's list. The return field brings the manager back
+	 * to this card.
 	 *
 	 * @param int    $post_id The document.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -658,11 +642,11 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
-	 * What Accept it asks before it acts: the company, what Airtable is set to, how many people at
-	 * the company are emailed, and where the agreement can be taken out of force again.
+	 * What Accept it asks before it acts: the company, that its record is set to accepted, how many
+	 * people at the company are emailed, and where the agreement can be taken out of force again.
 	 *
-	 * Asked because the press writes Airtable and emails everybody at the company, and a mail
-	 * cannot be recalled. The count is the accounts the acceptance mails, as the review facts
+	 * Asked because the press sets the record to accepted and emails everybody at the company, and a
+	 * mail cannot be recalled. The count is the accounts the acceptance mails, as the review facts
 	 * count them.
 	 *
 	 * @param int $post_id The document waiting for review.
@@ -675,8 +659,8 @@ final class WPCPM_Sponsor_Agreement {
 		return sprintf(
 			/* translators: 1: company name, 2: number of people emailed. */
 			_n(
-				'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s person at the company is emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
-				'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s people at the company are emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
+				'Accept the signed agreement from %1$s? It is recorded as accepted with today\'s date and the %2$s person at the company is emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
+				'Accept the signed agreement from %1$s? It is recorded as accepted with today\'s date and the %2$s people at the company are emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.',
 				$members,
 				'wpcredits-program-manager'
 			),
@@ -693,86 +677,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * @return string The question, translated and not escaped.
 	 */
 	public static function reinstate_question() {
-		return __( 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.', 'wpcredits-program-manager' );
-	}
-
-	/**
-	 * Finish the Airtable writes an earlier request could not make. The sponsors sync's step.
-	 *
-	 * `META_AIRTABLE_PENDING` is the mark an upload or a withdrawal leaves when the base was
-	 * unreachable at the moment the site's own state changed. Neither path fails the sponsor's
-	 * action over it, which is only honest if something later finishes the write: this is that
-	 * something, and until it existed the mark was a promise nothing kept. A handler that later
-	 * writes the cell itself takes that document's mark with it (`clear_pending()`), so a mark
-	 * names a write owed by the document that carries it. It does not name one owed by the
-	 * record: `handle_on_file()` writes the sponsor's status for a document of its own, and an
-	 * older document of the same sponsor keeps its mark, so that run sends one identical
-	 * PATCH that costs a call and changes nothing.
-	 *
-	 * The cell is written from the site's state now rather than from the status the failed
-	 * request meant to send. A mark can be hours old, and a document can have been accepted
-	 * or returned in between; the base wants what is true rather than what was true.
-	 *
-	 * Fifty at a time, because one PATCH is one HTTP call and a run that cannot reach the
-	 * base at all should spend a bounded amount of a cron run finding that out.
-	 *
-	 * @return int How many documents were cleared.
-	 */
-	public static function retry_airtable() {
-		$pending = get_posts(
-			array(
-				'post_type'        => self::POST_TYPE,
-				// Any status rather than `private` alone: a row somebody moved by hand still
-				// owes the base its cell. Core leaves the trash out of `any`, so a trashed one
-				// keeps its mark and is not written, which is the right way round.
-				'post_status'      => 'any',
-				'numberposts'      => 50,
-				'fields'           => 'ids',
-				'suppress_filters' => false,
-				'meta_key'         => self::META_AIRTABLE_PENDING,
-			)
-		);
-
-		$cleared = 0;
-
-		foreach ( (array) $pending as $post_id ) {
-			$post_id = absint( $post_id );
-			$record  = (string) get_post_meta( $post_id, self::META_SPONSOR, true );
-
-			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
-				// There is no record to write to, so the mark is not a write that is owed. It
-				// goes, or this row is read again on every run for as long as the site stands.
-				delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
-				continue;
-			}
-
-			$status = self::airtable_status_for( $record );
-
-			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => $status ) ) ) {
-				// Still unreachable. The mark stays and the next run tries again.
-				continue;
-			}
-
-			delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
-			self::rebuild( $record, array( 'status' => $status ) );
-			++$cleared;
-		}
-
-		return $cleared;
-	}
-
-	/**
-	 * Forget the mark that says one document still owes the base a write.
-	 *
-	 * `META_AIRTABLE_PENDING` was deleted by `retry_airtable()` alone, so a mark an upload left
-	 * behind when the base was unreachable outlived every later decision on that document, and
-	 * a later sync run sent one more PATCH hours later on behalf of a request whose state had
-	 * moved on. Every handler that writes the cell itself and is answered calls this.
-	 *
-	 * @param int $post_id The document.
-	 */
-	private static function clear_pending( $post_id ) {
-		delete_post_meta( absint( $post_id ), self::META_AIRTABLE_PENDING );
+		return __( 'Put this agreement back in force? Everybody at the company is emailed.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -823,10 +728,8 @@ final class WPCPM_Sponsor_Agreement {
 	 * in-review question under it, then the file. The ceiling sits above the file because a
 	 * runaway script must be refused before ten megabytes are read into this process.
 	 *
-	 * An Airtable failure does not fail the upload. The document is on this site and the
-	 * sponsor did what was asked; the post carries `META_AIRTABLE_PENDING` and the sponsors
-	 * sync's `retry_airtable()` writes the cell. Refusing here would ask the sponsor to upload
-	 * again for a fault that is not theirs and not this site's.
+	 * The document is on this site the moment the upload lands, and so is the record of it:
+	 * there is nothing else the site has to wait on or ask again.
 	 */
 	public static function handle_upload() {
 		if ( ! is_user_logged_in() ) {
@@ -926,7 +829,7 @@ final class WPCPM_Sponsor_Agreement {
 				'post_status' => self::POST_STATUS,
 				'post_author' => get_current_user_id(),
 				'post_title'  => sprintf(
-					/* translators: %s: Airtable record ID of the sponsor. */
+					/* translators: %s: the sponsor's key. */
 					__( 'Signed sponsor agreement (%s)', 'wpcredits-program-manager' ),
 					$record
 				),
@@ -955,18 +858,8 @@ final class WPCPM_Sponsor_Agreement {
 
 		// A replacement uploaded while an accepted agreement stands says nothing about the
 		// status: the copy in force is still the copy in force until this one is accepted.
-		$landed = true;
-
 		if ( empty( $summary['agreement_id'] ) ) {
-			$landed = self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_AWAITING ) );
-
-			if ( ! $landed ) {
-				// The mark the sponsors sync's `retry_airtable()` reads: the document is here
-				// and the cell is owed, so the write is finished on the next run instead.
-				update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
-			}
-
-			self::rebuild( $record, $landed ? array( 'status' => self::AIRTABLE_AWAITING ) : array(), true );
+			self::rebuild( $record, array( 'status' => self::STATUS_AWAITING ) );
 		}
 
 		self::unlock( $record );
@@ -981,10 +874,9 @@ final class WPCPM_Sponsor_Agreement {
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => __( 'A signed sponsor agreement was uploaded and is waiting for an Administrator to read it.', 'wpcredits-program-manager' ),
 				'data'     => array(
-					'size'     => (int) $stored['size'],
-					'sha256'   => (string) $stored['sha256'],
-					'flags'    => $scan['flags'],
-					'airtable' => $landed ? 'written' : 'pending',
+					'size'   => (int) $stored['size'],
+					'sha256' => (string) $stored['sha256'],
+					'flags'  => $scan['flags'],
 				),
 			)
 		);
@@ -1064,14 +956,11 @@ final class WPCPM_Sponsor_Agreement {
 	 * attached the wrong document, and "it will be deleted within thirty days" is not the
 	 * answer that person wants.
 	 *
-	 * The base is told, unlike the institutions' withdraw. The upload wrote `Awaiting review`
-	 * and nothing else, so leaving it would put a manager in front of a queue entry with no
-	 * document behind it. What is sent is `airtable_status_for()`, the status this site holds
-	 * once the withdrawn document is out of the way, and never a literal: a company whose
+	 * The record is updated too, unlike the institutions' withdraw. The upload wrote `Awaiting
+	 * review` and nothing else, so leaving it would put a manager in front of a queue entry with
+	 * no document behind it. What is written is `recorded_status_for()`, the status this site
+	 * holds once the withdrawn document is out of the way, and never a literal: a company whose
 	 * earlier document a manager sent back is still a company whose document was sent back.
-	 * A failed PATCH does not fail the withdrawal, because the file is already gone: the post
-	 * carries the pending mark instead and the sponsors sync's `retry_airtable()` writes the
-	 * cell.
 	 */
 	public static function handle_withdraw() {
 		if ( ! is_user_logged_in() ) {
@@ -1136,19 +1025,9 @@ final class WPCPM_Sponsor_Agreement {
 		if ( empty( $summary['agreement_id'] ) ) {
 			// Read after the state above is written, so the document being withdrawn is not
 			// counted. The `Not started` literal that stood here answered "is anything
-			// accepted" and nothing else, so a withdrawal wrote backwards over the `Returned`
-			// a manager had set, and the sponsors screen then printed "This site: the last
-			// document was returned. Airtable: Not started." with nothing to repair it.
-			$status = self::airtable_status_for( $record );
-
-			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => $status ) ) ) {
-				// The file is already gone, so the withdrawal stands whatever the base says;
-				// the mark is what the sponsors sync's `retry_airtable()` finishes.
-				update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
-			} else {
-				self::clear_pending( $post_id );
-				self::rebuild( $record, array( 'status' => $status ), true );
-			}
+			// accepted" and nothing else, so a withdrawal wrote backwards over a `Returned`
+			// a manager had set, and the Sponsors screen then had nothing right to print.
+			self::rebuild( $record, array( 'status' => self::recorded_status_for( $record ) ) );
 		}
 
 		self::unlock( $record );
@@ -1159,11 +1038,8 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Accept one submitted document.
 	 *
-	 * **Airtable first, and the whole thing refused when it fails.** The base is the program's
-	 * record of this state, and a site that recorded an acceptance the base never heard of
-	 * would put a manager in front of two screens that disagree with no way to tell which is
-	 * right. One PATCH, not two: the status and the date together, because a second call would
-	 * be a second chance to half-succeed.
+	 * One write, not two: the status and the date together, under the same lock that records
+	 * the acceptance, so there is no instant where the two could disagree.
 	 *
 	 * Nothing is opened by this. A sponsor's dashboard works without an agreement (decision 10),
 	 * so acceptance is a record of a fact and not a grant, and that is the whole difference from
@@ -1205,27 +1081,11 @@ final class WPCPM_Sponsor_Agreement {
 
 		$today    = wp_date( 'Y-m-d' );
 		$previous = self::summary( $record );
-		$cells    = array(
-			self::field( 'agr_status' )      => self::AIRTABLE_ACCEPTED,
-			self::field( 'agr_accepted_on' ) => $today,
-		);
 
-		// The copy being superseded is a legacy row, so `agr_document` holds the Drive link to
-		// a paper copy that is no longer the agreement. The cell is emptied in the same PATCH:
-		// the document in force from here is the one on this site, which the base cannot link.
+		// The copy being superseded is a legacy row, so its Drive link is no longer the
+		// agreement in force: the document in force from here is the one on this site, which
+		// carries no such link, and the index block is emptied of it in the same write.
 		$over_legacy = ! empty( $previous['agreement_id'] ) && self::KIND_LEGACY === $previous['kind'];
-
-		if ( $over_legacy ) {
-			$cells[ self::field( 'agr_document' ) ] = '';
-		}
-
-		if ( ! self::patch( $record, $cells ) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
-		}
-
-		// The cell is written, so an upload's failed write is no longer owed on this document.
-		self::clear_pending( $post_id );
 
 		if ( ! empty( $previous['agreement_id'] ) ) {
 			self::supersede( (int) $previous['agreement_id'] );
@@ -1251,7 +1111,7 @@ final class WPCPM_Sponsor_Agreement {
 		);
 
 		$written = array(
-			'status'      => self::AIRTABLE_ACCEPTED,
+			'status'      => self::STATUS_ACCEPTED,
 			'accepted_on' => $today,
 		);
 
@@ -1259,10 +1119,10 @@ final class WPCPM_Sponsor_Agreement {
 			$written['document'] = '';
 		}
 
-		// Inside the critical section, so nothing writes the block between the PATCH and the
-		// index. Nothing is left unguarded once the lock goes: the post is accepted now, so a
-		// second acceptance is refused by the state test rather than by the lock.
-		self::rebuild( $record, $written, true );
+		// Inside the critical section, so nothing else writes the block in between. Nothing is
+		// left unguarded once the lock goes: the post is accepted now, so a second acceptance is
+		// refused by the state test rather than by the lock.
+		self::rebuild( $record, $written );
 
 		self::unlock( $record );
 
@@ -1335,15 +1195,7 @@ final class WPCPM_Sponsor_Agreement {
 		}
 
 		$summary = self::summary( $record );
-
-		// The status is `Returned` unless an accepted agreement stands. Sending a replacement
-		// back must not tell the base that the copy in force was returned.
-		if ( empty( $summary['agreement_id'] ) && ! self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_RETURNED ) ) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
-		}
-
-		$today = wp_date( 'Y-m-d' );
+		$today   = wp_date( 'Y-m-d' );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_RETURNED );
 		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
@@ -1368,9 +1220,9 @@ final class WPCPM_Sponsor_Agreement {
 		);
 
 		if ( empty( $summary['agreement_id'] ) ) {
-			// This branch is the one that wrote the cell, so it is the one that settles the mark.
-			self::clear_pending( $post_id );
-			self::rebuild( $record, array( 'status' => self::AIRTABLE_RETURNED ), true );
+			// The status is `Returned` unless an accepted agreement stands: sending a
+			// replacement back must not record that the copy in force was returned.
+			self::rebuild( $record, array( 'status' => self::STATUS_RETURNED ) );
 		}
 
 		self::unlock( $record );
@@ -1382,10 +1234,6 @@ final class WPCPM_Sponsor_Agreement {
 
 	/**
 	 * Take an accepted agreement out of force, with a note.
-	 *
-	 * Airtable first and the whole thing refused when it fails, exactly as accept: the base is
-	 * the program's record and a document out of force here while the base says `Accepted` is a
-	 * disagreement nobody at the program can see.
 	 *
 	 * Nothing is taken away. This is the one place the sponsor module reads differently from
 	 * the institutions': there, revoking closes an account, and the dialog has to say so. Here
@@ -1450,16 +1298,6 @@ final class WPCPM_Sponsor_Agreement {
 			self::bounce( 'agreement-not-accepted' );
 		}
 
-		// The status, and nothing else. Not the date, not the document link. The agreement is
-		// still the one the program accepted and still says what it said; what changed is that
-		// it is no longer in force.
-		if ( ! self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_REVOKED ) ) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
-		}
-
-		self::clear_pending( $post_id );
-
 		update_post_meta( $post_id, self::META_STATE, self::STATE_REVOKED );
 		update_post_meta( $post_id, self::META_NOTE, wp_slash( $note ) );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
@@ -1480,7 +1318,10 @@ final class WPCPM_Sponsor_Agreement {
 			)
 		);
 
-		self::rebuild( $record, array( 'status' => self::AIRTABLE_REVOKED ), true );
+		// The status, and nothing else: not the acceptance date, not whether a document is held.
+		// The agreement is still the one the program accepted and still says what it said; what
+		// changed is that it is no longer in force.
+		self::rebuild( $record, array( 'status' => self::STATUS_REVOKED ) );
 
 		self::unlock( $record );
 
@@ -1541,14 +1382,7 @@ final class WPCPM_Sponsor_Agreement {
 		}
 
 		$kind   = (string) get_post_meta( $post_id, self::META_KIND, true );
-		$status = self::KIND_LEGACY === $kind ? self::AIRTABLE_ON_FILE : self::AIRTABLE_ACCEPTED;
-
-		if ( ! self::patch( $record, array( self::field( 'agr_status' ) => $status ) ) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
-		}
-
-		self::clear_pending( $post_id );
+		$status = self::KIND_LEGACY === $kind ? self::STATUS_ON_FILE : self::STATUS_ACCEPTED;
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_ACCEPTED );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
@@ -1580,7 +1414,7 @@ final class WPCPM_Sponsor_Agreement {
 			)
 		);
 
-		self::rebuild( $record, array( 'status' => $status ), true );
+		self::rebuild( $record, array( 'status' => $status ) );
 
 		self::unlock( $record );
 
@@ -1594,9 +1428,9 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * The route for the companies that signed before this site existed. The order is accept's:
 	 * capability, then the nonce keyed to the company, then the policy, then the link refused
-	 * by name when it is not one, then Airtable, then the post, then the index. A recorded
-	 * agreement with no link is a claim nobody can check later, which is why the link is
-	 * required and checked against two hosts.
+	 * by name when it is not one, then the post, then the index. A recorded agreement with no
+	 * link is a claim nobody can check later, which is why the link is required and checked
+	 * against two hosts.
 	 *
 	 * No mail. Nobody at the company asked for this and nothing about it is news to them.
 	 */
@@ -1621,7 +1455,7 @@ final class WPCPM_Sponsor_Agreement {
 
 		// A link is a code, not prose: the one-line cleaner removes every `%XX`, which would rewrite a
 		// Drive link with one in its query. Read as typed, and through esc_url_raw(), which keeps them,
-		// so the base and the post hold the same link.
+		// so the post holds the link that was given.
 		$drive = esc_url_raw( WPCPM_Request::posted_verbatim( self::FIELD_DRIVE ) );
 
 		if ( ! self::is_drive_link( $drive ) ) {
@@ -1639,25 +1473,13 @@ final class WPCPM_Sponsor_Agreement {
 
 		$today = wp_date( 'Y-m-d' );
 
-		if ( ! self::patch(
-			$record,
-			array(
-				self::field( 'agr_status' )      => self::AIRTABLE_ON_FILE,
-				self::field( 'agr_accepted_on' ) => $today,
-				self::field( 'agr_document' )    => $drive,
-			)
-		) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
-		}
-
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => self::POST_TYPE,
 				'post_status' => self::POST_STATUS,
 				'post_author' => get_current_user_id(),
 				'post_title'  => sprintf(
-					/* translators: %s: Airtable record ID of the sponsor. */
+					/* translators: %s: the sponsor's key. */
 					__( 'Sponsor agreement on file (%s)', 'wpcredits-program-manager' ),
 					$record
 				),
@@ -1665,8 +1487,9 @@ final class WPCPM_Sponsor_Agreement {
 			true
 		);
 
-		// The base already says On file: the flash has to say so, or the manager reads that
-		// nothing happened anywhere and files the same link twice by another route.
+		// Nothing was recorded before this, so a failed insert leaves the company exactly as it
+		// stood: this is its own reason, not a lock another press is holding, so it gets its
+		// own message rather than borrowing agreement-busy's.
 		if ( is_wp_error( $post_id ) || ! $post_id ) {
 			self::unlock( $record );
 			self::bounce( 'agreement-not-saved' );
@@ -1705,11 +1528,10 @@ final class WPCPM_Sponsor_Agreement {
 		self::rebuild(
 			$record,
 			array(
-				'status'      => self::AIRTABLE_ON_FILE,
+				'status'      => self::STATUS_ON_FILE,
 				'accepted_on' => $today,
 				'document'    => $drive,
-			),
-			true
+			)
 		);
 
 		self::unlock( $record );
@@ -1950,45 +1772,6 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
-	 * One Airtable column's name, by the key the sync's map uses.
-	 *
-	 * @param string $key A key of `WPCPM_Sponsors_Sync::fields()`.
-	 * @return string
-	 */
-	private static function field( $key ) {
-		$fields = WPCPM_Sponsors_Sync::fields();
-
-		return isset( $fields[ $key ] ) ? (string) $fields[ $key ] : '';
-	}
-
-	/**
-	 * One PATCH of one sponsor's cells.
-	 *
-	 * @param string $record Sponsors record ID.
-	 * @param array  $cells  Column name to value.
-	 * @return bool Whether the base took it. An empty answer is a refusal too: `update_records()`
-	 *              drops a record it cannot send and answers with the ones it did.
-	 */
-	private static function patch( $record, array $cells ) {
-		if ( empty( $cells ) ) {
-			return true;
-		}
-
-		$airtable = new WPCPM_Airtable();
-		$written  = $airtable->update_records(
-			(string) WPCPM_Settings::get_value( 'sponsors_table', '' ),
-			array(
-				array(
-					'id'     => $record,
-					'fields' => $cells,
-				),
-			)
-		);
-
-		return ! is_wp_error( $written ) && ! empty( $written );
-	}
-
-	/**
 	 * What the posts say about one sponsor.
 	 *
 	 * @param WP_Post[] $posts Newest first.
@@ -2050,34 +1833,32 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
-	 * The `Agreement Status` the base should be holding for one sponsor, read off this site.
+	 * The status word one sponsor's record should be holding, read off this site's own posts.
 	 *
 	 * The same source of truth `summary()` and `rebuild()` work from, mapped the way each
-	 * handler maps it: what the site would have written had the base been reachable when the
-	 * state changed. Two callers: `retry_airtable()`, which needs the status that is true
-	 * now rather than the one a failed request meant to send, and `handle_withdraw()`,
-	 * which needs the status that is true once the withdrawn document is out of the way.
+	 * handler maps it. Its one caller now is `handle_withdraw()`, which needs the status that
+	 * is true once the withdrawn document is out of the way, not the one the request began with.
 	 *
-	 * @param string $record Sponsors record ID.
-	 * @return string One of the `AIRTABLE_*` choices.
+	 * @param string $record Sponsor key.
+	 * @return string One of the `STATUS_*` choices.
 	 */
-	private static function airtable_status_for( $record ) {
+	private static function recorded_status_for( $record ) {
 		switch ( self::site_summary( self::posts_for( $record ) )['site_state'] ) {
 			case self::SUMMARY_ACCEPTED:
-				return self::AIRTABLE_ACCEPTED;
+				return self::STATUS_ACCEPTED;
 			case self::SUMMARY_ON_FILE:
-				return self::AIRTABLE_ON_FILE;
+				return self::STATUS_ON_FILE;
 			case self::SUMMARY_SUBMITTED:
-				return self::AIRTABLE_AWAITING;
+				return self::STATUS_AWAITING;
 			case self::SUMMARY_RETURNED:
-				return self::AIRTABLE_RETURNED;
+				return self::STATUS_RETURNED;
 			case self::SUMMARY_REVOKED:
-				return self::AIRTABLE_REVOKED;
+				return self::STATUS_REVOKED;
 		}
 
-		// Nothing accepted, nothing waiting and nothing sent back: the base holds no status of
-		// this site's making, which is what `Not started` says.
-		return self::AIRTABLE_NOT_STARTED;
+		// Nothing accepted, nothing waiting and nothing sent back: there is no status of this
+		// site's making yet, which is what `Not started` says.
+		return self::STATUS_NOT_STARTED;
 	}
 
 	/**
@@ -2145,7 +1926,7 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * The lock name for one sponsor.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	private static function lock_name( $record ) {
@@ -2160,7 +1941,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * `LOCK_TIMEOUT` belonged to a request that died between taking and releasing it, and is
 	 * cleared, since otherwise that one sponsor could never be written again.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return bool Whether the lock was taken.
 	 */
 	private static function lock( $record ) {
@@ -2177,7 +1958,7 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Release the transition lock.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 */
 	private static function unlock( $record ) {
 		delete_option( self::lock_name( $record ) );
@@ -2201,9 +1982,9 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * Three questions, and each has to be asked again here. Another post type is somebody
 	 * else's row; a state that has moved since the page was drawn is a second manager having
-	 * pressed the button first; and a sponsor meta that is not a record ID is a document this
-	 * handler must not carry into a PATCH, because that string is what names the row Airtable
-	 * would write.
+	 * pressed the button first; and a sponsor meta that is not a sponsor key is a document this
+	 * handler must not carry into a write, because that string is what names the row in the
+	 * sponsors index.
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $state   The `STATE_*` value the caller requires.
@@ -2220,7 +2001,7 @@ final class WPCPM_Sponsor_Agreement {
 			return null;
 		}
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( get_post_meta( $post->ID, self::META_SPONSOR, true ) ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( get_post_meta( $post->ID, self::META_SPONSOR, true ) ) ) {
 			return null;
 		}
 
@@ -2235,7 +2016,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * agreement back in force under a newer one's revocation, which is a state no screen in this
 	 * module knows how to describe.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return int
 	 */
 	private static function latest_revoked( $record ) {
@@ -2545,7 +2326,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * Every account at every step, because equal members should not learn from a colleague that
 	 * the agreement was accepted, or that it was not.
 	 *
-	 * @param string   $record  Sponsors record ID.
+	 * @param string   $record  Sponsor key.
 	 * @param string   $context Mail context, for the log.
 	 * @param callable $build   Builder in `WPCPM_Mail::send()`'s shape.
 	 * @return int How many were sent.
@@ -2568,7 +2349,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * the manager. `mail_manager()` falls back to the `sponsor_notify` addresses and then to
 	 * every program manager, so an unassigned sponsor is not a document nobody hears about.
 	 *
-	 * @param string $record  Sponsors record ID.
+	 * @param string $record  Sponsor key.
 	 * @param int    $post_id The submitted document.
 	 * @return int How many messages went out.
 	 */
@@ -2607,7 +2388,7 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Tell the company its agreement is accepted.
 	 *
-	 * @param string $record  Sponsors record ID.
+	 * @param string $record  Sponsor key.
 	 * @param int    $post_id The accepted document.
 	 * @return int How many accounts were mailed.
 	 */
@@ -2643,7 +2424,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * `&lt;` arrives as "<", "Q&amp;A" as "Q&A". It is handed over as the cleaner left it, and read
 	 * back once, as every value is (`WPCPM_Mail_Templates::fill()`).
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @param string $note   The note, as the cleaner left it.
 	 * @return int How many accounts were mailed.
 	 */
@@ -2676,7 +2457,7 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * The note is read back to what was typed, as in `mail_returned()`.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @param string $note   The note, as the cleaner left it.
 	 * @return int How many accounts were mailed.
 	 */
@@ -2701,7 +2482,7 @@ final class WPCPM_Sponsor_Agreement {
 	/**
 	 * Tell the company the agreement is back.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return int How many accounts were mailed.
 	 */
 	private static function mail_reinstated( $record ) {

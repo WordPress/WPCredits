@@ -393,9 +393,14 @@ function update_user_meta( $id, $key, $value ) {
 	return true;
 }
 // The flash slashes what it writes for core's user meta, which unslashes it; this one keeps what it
-// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's).
-function wp_slash( $value ) {
-	return $value;
+// is handed, so the slash is the identity here (bin/test-flash.php holds the flash to core's). A
+// suite whose post store unslashes on the way in, as core's does, declares core's slash itself and
+// keeps it (bin/test-sponsors-accounts.php): there a value the flash keeps comes back slashed only
+// where it holds a quote, a backslash or a NUL, and as it was given otherwise.
+if ( ! function_exists( 'wp_slash' ) ) {
+	function wp_slash( $value ) {
+		return $value;
+	}
 }
 function delete_user_meta( $id, $key ) {
 	unset( $GLOBALS['umeta'][ (int) $id ][ $key ] );

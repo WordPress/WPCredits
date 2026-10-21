@@ -315,7 +315,7 @@ echo "\n=== The Templates tab ===\n";
 
 preg_match_all( '#<h2 id="wpcpm-emails-area-[a-z-]+">([^<]*)</h2>#', $home, $areas );
 preg_match_all( '#<tr><td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td><span class="wpcpm-emails__state wpcpm-emails__state--([a-z-]+)">([^<]*)</span></td><td>([^<]*)</td><td><a href="([^"]*)">Edit<span class="screen-reader-text"> ([^<]*)</span></a></td></tr>#', $home, $rows, PREG_SET_ORDER );
-ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports, the Sponsors and the Mentor applications', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications' ) );
+ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events and the Mentor applications', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications' ) );
 ck(
 	'each row names the email, who receives it, what sends it, its state and who edited it last, and links its editor by its name',
 	array_map( function ( $row ) { return array( html_entity_decode( $row[1], ENT_QUOTES ), $row[2], $row[5], $row[6], $row[7], $row[8] ); }, array_slice( $rows, 0, 5 ) ),
@@ -328,7 +328,7 @@ ck(
 	)
 );
 ck(
-	'and after the invitations, every email of the Mentor calls, the Institutions, the Semester reports, the Sponsors and the Mentor applications, each with who receives it, as shipped text, its editor linked by its id',
+	'and after the invitations, every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events and the Mentor applications, each with who receives it, as shipped text, its editor linked by its id',
 	array_map( function ( $row ) { return html_entity_decode( $row[1], ENT_QUOTES ) . ' / ' . $row[2] . ' / ' . $row[5] . ' / ' . substr( $row[7], strlen( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' ) ); }, array_slice( $rows, 5 ) ),
 	array(
 		'Call booked, to the mentor / Mentor / Shipped text / call-booked-mentor',
@@ -386,6 +386,36 @@ ck(
 		'Codes running low / The people it concerns / Shipped text / offer-low-stock',
 		'Problem with a claimed code / Administrator / Shipped text / claim-problem',
 		'Sponsor post returned with a note / Sponsor member / Shipped text / sponsor-post-returned',
+		'Sponsor offer returned with a note / Sponsor member / Shipped text / sponsor-offer-returned',
+		'Sponsor term ending, to Administrators / Administrator / Shipped text / sponsor-term-ending',
+		'Sponsor term ended, to Administrators / Administrator / Shipped text / sponsor-term-ended',
+		'Event joined, to the person who joined / The people it concerns / Shipped text / event-joined',
+		'Program event joined, to the person who joined / The people it concerns / Shipped text / event-joined-program',
+		'Event left, to the person who left / The people it concerns / Shipped text / event-left',
+		'Program event left, to the person who left / The people it concerns / Shipped text / event-left-program',
+		'Event changed, to the people on it / The people it concerns / Shipped text / event-changed',
+		'Program event changed, to the people on it / The people it concerns / Shipped text / event-changed-program',
+		'Event canceled, to the people on it / The people it concerns / Shipped text / event-canceled',
+		'Program event canceled, to the people on it / The people it concerns / Shipped text / event-canceled-program',
+		'Event reminder, to the people on it / The people it concerns / Shipped text / event-reminder',
+		'Program event reminder, to the people on it / The people it concerns / Shipped text / event-reminder-program',
+		'Event reminder, to the sponsor / Sponsor member / Shipped text / event-reminder-sponsor',
+		'Event approved, to the sponsor / Sponsor member / Shipped text / event-approved',
+		'Event returned with a note, to the sponsor / Sponsor member / Shipped text / event-returned',
+		'Event returned with a note, to a sponsor whose tier no longer includes events / Sponsor member / Shipped text / event-returned-no-events',
+		'Event canceled with a note, to the sponsor / Sponsor member / Shipped text / event-canceled-with-note',
+		'Approved event changed, to the sponsor / Sponsor member / Shipped text / event-changed-sponsor',
+		'Approved event changed by an Administrator, to the sponsor / Sponsor member / Shipped text / event-changed-sponsor-for',
+		'Approved event canceled, to the sponsor / Sponsor member / Shipped text / event-canceled-sponsor',
+		'Approved event canceled by an Administrator, to the sponsor / Sponsor member / Shipped text / event-canceled-sponsor-for',
+		'Event planned by a sponsor, to Administrators / Administrator / Shipped text / event-planned',
+		'Event planned for a sponsor by an Administrator, to Administrators / Administrator / Shipped text / event-planned-for',
+		'Waiting event changed by its sponsor, to Administrators / Administrator / Shipped text / event-changed-waiting',
+		'Waiting event changed for a sponsor by an Administrator, to Administrators / Administrator / Shipped text / event-changed-waiting-for',
+		'Approved event changed by its sponsor, to Administrators / Administrator / Shipped text / event-changed-approved',
+		'Approved event changed for a sponsor by an Administrator, to Administrators / Administrator / Shipped text / event-changed-approved-for',
+		'Event canceled by its sponsor, to Administrators / Administrator / Shipped text / event-canceled-by-sponsor',
+		'Event canceled for a sponsor by an Administrator, to Administrators / Administrator / Shipped text / event-canceled-for',
 		'Mentor application received, to the applicant / Applicant (no account) / Shipped text / mentor-application-received',
 		'Selected to mentor: the mentors\' course / Applicant (no account) / Shipped text / mentor-selected',
 		'More information asked of a mentor applicant / Applicant (no account) / Shipped text / mentor-more-information',
@@ -396,8 +426,8 @@ ck(
 ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[44][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[59][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
-ck( 'each of the six areas has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 6, 6, true, true ) );
-// The six tables are wider than a phone and scroll sideways in a box each. Until 1.122.36 the box
+ck( 'each of the seven areas, the Sponsor events among them, has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 7, 7, true, true ) );
+// The seven tables are wider than a phone and scroll sideways in a box each. Until 1.122.36 the box
 // took no focus: a box that scrolls but cannot be focused is out of a keyboard's reach in Safari
 // when it holds no link or button, and a screen reader does not announce it. Each box is now a tab
 // stop and a region named by its area's heading, which carries an id of its own, as the
@@ -412,7 +442,7 @@ $area_box = static function ( $name ) {
 		'name'     => $name,
 	);
 };
-ck( 'each area\'s table sits alone in a box that is a tab stop and a region named by the area\'s heading, every name its own, and no table sits outside a box', scroll_boxes( $home, 'wpcpm-emails__scroll' ), array( 'boxes' => array_map( $area_box, array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Mentor applications' ) ), 'loose' => array() ) );
+ck( 'each area\'s table sits alone in a box that is a tab stop and a region named by the area\'s heading, every name its own, and no table sits outside a box', scroll_boxes( $home, 'wpcpm-emails__scroll' ), array( 'boxes' => array_map( $area_box, array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications' ) ), 'loose' => array() ) );
 preg_match_all( '#\sid="([^"]*)"#', $home, $home_ids );
 ck( 'each heading carries the id its box names, drawn as before, and no id of the tab is printed twice', array( false !== strpos( $home, '<h2 id="wpcpm-emails-area-mentor-applications">Mentor applications</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-emails-area-mentor-applications"><table class="widefat striped wpcpm-emails__templates"><thead>' ), array_keys( array_filter( array_count_values( $home_ids[1] ), static function ( $n ) { return 1 !== $n; } ) ) ), array( true, array() ) );
 ck( 'the editor\'s placeholders table is in no box: its cells wrap, so it never scrolls', array( scroll_boxes( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) ), 'wpcpm-emails__scroll' ), scroll_css_decls( $templates_css, '.wpcpm-emails__placeholders td' ) ), array( array( 'boxes' => array(), 'loose' => array( 'widefat striped wpcpm-emails__placeholders' ) ), array( 'overflow-wrap' => 'anywhere' ) ) );
@@ -690,8 +720,9 @@ ck(
 // an Administrator who keeps Tokyo's clock opens and presses them. A preview or a test is only filled
 // if each example of a placeholder its text uses is in it, where the text puts the placeholder: an
 // empty fill leaves no brace, so "no placeholder left" cannot tell it from a full one. Nor may a
-// placeholder its text uses have no example here: every one has, the dashboards being published in
-// this suite. And each ends with the footer of its audience: the signature, the address of the
+// placeholder its text uses have no example here: every one has but `joined` in the four emails
+// below, the dashboards being published in this suite.
+// And each ends with the footer of its audience: the signature, the address of the
 // audience's dashboard unless the text above it names that address already, and the closing line.
 // The addresses are written out here, as the stand-ins above publish them, so a footer built for
 // another audience, or with no values, cannot pass; an applicant or an audience of no one kind has no
@@ -700,6 +731,9 @@ ck(
 // student's elsewhere.
 $works = array();
 $wants = array();
+// An event that waits for approval has nobody on it, so the four emails about one give the people who
+// joined no example, and a preview or a test leaves that line out, as the email does.
+$waiting = array( 'event-planned', 'event-planned-for', 'event-changed-waiting', 'event-changed-waiting-for' );
 $plain = function ( $text ) {
 	return str_replace( array( "\r\n", "\r" ), "\n", html_entity_decode( (string) $text, ENT_QUOTES ) );
 };
@@ -792,7 +826,7 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 		),
 	);
 	$wants[ $id ] = array(
-		'bare'    => array(),
+		'bare'    => in_array( $id, $waiting, true ) ? array( 'joined' ) : array(),
 		'editor'  => true,
 		'preview' => array( 'left' => array(), 'gone' => array(), 'footer' => $shown_footer[1] ),
 		'test'    => array(
@@ -811,7 +845,7 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 		$drafted_shipped = array( $plain( $shown_body[1] ?? '' ), str_replace( "\r\n", "\n", $test[0]['body'] ?? '' ) );
 	}
 }
-ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
+ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, but the people who joined in the four emails about an event that waits, which has nobody on it, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
 ck(
 	'a series\' test names its three weekly sessions on the presser\'s clock, one to a line',
 	false !== strpos(
@@ -859,7 +893,7 @@ $dropped        = 0;
 $moved          = 0;
 $refusals_wrong = array();
 foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
-	if ( ! in_array( $template['module'], array( WPCPM_Mail_Catalog::MODULE_INSTITUTIONS, WPCPM_Mail_Catalog::MODULE_SPONSORS ), true ) ) {
+	if ( ! in_array( $template['module'], array( WPCPM_Mail_Catalog::MODULE_INSTITUTIONS, WPCPM_Mail_Catalog::MODULE_SPONSORS, WPCPM_Mail_Catalog::MODULE_EVENTS ), true ) ) {
 		continue;
 	}
 
@@ -889,9 +923,9 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	}
 }
 ck(
-	'a save of an Institutions or a Sponsors email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 33 emails of the two areas',
+	'a save of an Institutions, a Sponsors or a Sponsor events email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 63 emails of the three areas, the offer returned with a note among them since 1.123.18',
 	array( $dropped, $moved, $refusals_wrong ),
-	array( 18, 25, array() )
+	array( 103, 54, array() )
 );
 
 // An agreement returned, previewed as a member of the institution reads it: sent back today, on the

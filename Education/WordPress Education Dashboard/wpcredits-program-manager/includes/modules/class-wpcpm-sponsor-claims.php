@@ -82,7 +82,7 @@ final class WPCPM_Sponsor_Claims {
 	 *
 	 * The order: theirs already, then whether they may, then the lock, then (under it) the
 	 * lookup again, the code, the record on the person, the release. The code before the
-	 * person because a record with no code behind it would need undoing (plan ruling 4); the
+	 * person because a record with no code behind it would need undoing; the
 	 * lookup before the lock because a second press must return the same code, not queue.
 	 *
 	 * @param int              $offer_id Offer post ID.
@@ -275,7 +275,7 @@ final class WPCPM_Sponsor_Claims {
 		$mailed = (int) WPCPM_Sponsor_Interests::mail_manager( $offer['sponsor'], $build, self::MAIL_PROBLEM );
 
 		// Ground `system`: the log knows manager, member and system, and a claimant is neither
-		// of the first two (plan ruling 11). The claimant is the subject, so the row says who.
+		// of the first two. The claimant is the subject, so the row says who.
 		// The title goes in as stored, not read back as the mail's is: the log cleans its message
 		// and keeps it as a post, where "<3 on hosting >" read back would be taken for a tag, and
 		// every screen that prints the row escapes the stored form as it is.
@@ -425,11 +425,39 @@ final class WPCPM_Sponsor_Claims {
 	 * track or cohort; no list of anything; no name and no address, which
 	 * bin/test-sponsor-offers.php walks the result to prove.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * The trailing twelve months, the Usage card's window: `stats_for_months()` over
+	 * `month_keys()`.
+	 *
+	 * @param string $record Sponsor key.
 	 * @return array `months`, `offers` (ID to title, kind, state, total, month, series, available, claimed, void), `totals`.
 	 */
 	public static function stats( $record ) {
-		$keys    = self::month_keys();
+		return self::stats_for_months( $record, self::month_keys() );
+	}
+
+	/**
+	 * The same counts over the months a caller names, for a window that is not the trailing twelve:
+	 * the annual sponsor report counts a term's months with it, whenever it is generated.
+	 *
+	 * The series is keyed by the months as given, and `month` counts the last of them; `total`,
+	 * like the pool's counts, is every claim that stands, whatever the window. A value that is not
+	 * a `Y-m` key is dropped and a repeated one is kept once, so a series never carries a column
+	 * nobody asked for.
+	 *
+	 * @param string $record Sponsor key.
+	 * @param array  $keys   `Y-m` keys, oldest first.
+	 * @return array As `stats()` answers.
+	 */
+	public static function stats_for_months( $record, array $keys ) {
+		$months = array();
+
+		foreach ( $keys as $key ) {
+			if ( is_scalar( $key ) && 1 === preg_match( '/^\d{4}-\d{2}$/', (string) $key ) ) {
+				$months[] = (string) $key;
+			}
+		}
+
+		$keys    = array_values( array_unique( $months ) );
 		$current = end( $keys );
 		$out     = array(
 			'months' => $keys,

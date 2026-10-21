@@ -1,0 +1,29 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/sponsors",
+	"version": "1.123.18",
+	"title": "Sponsors",
+	"category": "widgets",
+	"icon": "awards",
+	"description": "The program's partners, in alphabetical order: the full list for the Partners page, or the strip of logos for the landing page. Prints nothing until the program turns the listing on in Settings.",
+	"keywords": [ "sponsor", "wpcredits", "program" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"variant": {
+			"type": "string",
+			"enum": [ "full", "strip" ],
+			"default": "full"
+		},
+		"floor": {
+			"type": "string",
+			"default": "mentor"
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": true,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

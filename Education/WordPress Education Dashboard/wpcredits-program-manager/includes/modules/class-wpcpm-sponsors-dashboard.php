@@ -19,10 +19,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * (`WPCPM_Sponsor_Policy::ungated()` is every action), so unlike the institution page there is
  * no locked branch here - a member's claim is never conditional on anything this page draws.
  *
- * Every card this page owns (`profile`, `mentors`, `interests`, `people`) is a canonical
- * disclosure, keyed `wpcpm-sponsor-<card>` so `leave()` can open the one a flash names. The
- * three acting cards live in their own files (Task 9); this class owns the page, the gate, the
- * identity, the program contact and the read-only people list.
+ * Every card on the page is drawn in the shell the Administrator Dashboard's cards share,
+ * `WPCPM_Dashboard_Card`: a section around a disclosure keyed `wpcpm-sponsor-<card>`, so `leave()`
+ * can open the one a flash names, and a link to that anchor opens it through the dashboards'
+ * opener, `assets/js/dashboard-open.js`. Each card opens by what it holds and says its state on its
+ * row, with its action after the fold while it is folded, where it has one. The cards live in their
+ * own classes; this class owns the page, the gate, the identity, the At a glance strip whose tiles
+ * link to the cards, the four groups the cards are drawn in, the read-only People card, and below
+ * the cards the program's updates and resources with the program contact.
  */
 final class WPCPM_Sponsors_Dashboard {
 
@@ -46,6 +50,11 @@ final class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	/** The module id `WPCPM_Dashboards::nothing_to_show()` knows. */
 	const MODULE = 'sponsors';
+	/**
+	 * The most characters of an event's title the At a glance tile carries: about as long as the
+	 * other tiles' labels, so the title leaves room for how many joined.
+	 */
+	const GLANCE_TITLE = 24;
 
 	/**
 	 * Hooks. Called from `WPCPM_Sponsors::boot()`.
@@ -81,16 +90,20 @@ final class WPCPM_Sponsors_Dashboard {
 	 * It depends on the mentor stylesheet, exactly as the institution page's does: the pages
 	 * share a shell - the colour tokens, the "view as" switcher, the disclosure cards, the
 	 * muted-text treatment - and defining that once means a theme styling one page has already
-	 * styled this one.
+	 * styled this one. It depends on the Administrator Dashboard's too, for the same reason: the
+	 * At a glance strip is that page's attention strip, its tiles dressed by that page's rules, so
+	 * the two strips cannot drift apart. Each sheet is registered here first by the class that owns
+	 * it, since WordPress prints nothing for a sheet whose dependency nobody registered.
 	 */
 	public static function register_assets() {
 		WPCPM_Mentors_Dashboard::register_assets();
+		WPCPM_Administrators_Dashboard::register_assets();
 
 		if ( ! wp_style_is( self::STYLE, 'registered' ) ) {
 			wp_register_style(
 				self::STYLE,
 				WPCPM_PLUGIN_URL . 'assets/css/sponsor.css',
-				array( WPCPM_Mentors_Dashboard::STYLE ),
+				array( WPCPM_Mentors_Dashboard::STYLE, WPCPM_Administrators_Dashboard::STYLE ),
 				WPCPM_VERSION
 			);
 		}
@@ -343,30 +356,41 @@ final class WPCPM_Sponsors_Dashboard {
 	 * manager came through the switcher and goes back through it; a member's stamp is the
 	 * sponsor, so the argument is not needed and not added.
 	 *
-	 * @param string $status A key of `messages()`.
-	 * @param string $card   The card to open, or ''.
-	 * @param string $record The sponsor a manager was looking at, as an Airtable record ID, or
-	 *                       ''; anything else is left out of the address, as on the Institution
-	 *                       Dashboard.
-	 * @param string $detail A sentence for the reader after the status's own, or ''. Trimmed
-	 *                       to three hundred characters: a status names the outcome, the
-	 *                       detail names the line (plan ruling 10).
+	 * @param string   $status A key of `messages()`.
+	 * @param string   $card   The card to open, or ''.
+	 * @param string   $record The sponsor a manager was looking at, as a sponsor key, or ''. A key
+	 *                         is a migrated record ID or a site key `mint_key()` made, so it is
+	 *                         checked with `WPCPM_Sponsors_Index::is_key()`, not the record-ID
+	 *                         check, once trimmed; anything else is left out of the address, as on
+	 *                         the Institution Dashboard.
+	 * @param string   $detail A sentence for the reader after the status's own, or ''. Trimmed
+	 *                         to three hundred characters: a status names the outcome, the
+	 *                         detail names the line.
+	 * @param string[] $args   The values the status's sentence names, `%1$s` and on, in its order;
+	 *                         none for a sentence that names none. Kept beside the status rather
+	 *                         than joined to it here, so a sentence that names a day stays one
+	 *                         sentence, a card's own words, filled in where the flash is read.
 	 */
-	public static function leave( $status, $card, $record = '', $detail = '' ) {
-		WPCPM_Flash::set(
-			self::FLASH,
-			array(
-				'status' => sanitize_key( (string) $status ),
-				'card'   => sanitize_key( (string) $card ),
-				'detail' => mb_substr( sanitize_text_field( (string) $detail ), 0, 300 ),
-			)
+	public static function leave( $status, $card, $record = '', $detail = '', array $args = array() ) {
+		$flash = array(
+			'status' => sanitize_key( (string) $status ),
+			'card'   => sanitize_key( (string) $card ),
+			'detail' => mb_substr( sanitize_text_field( (string) $detail ), 0, 300 ),
 		);
+
+		if ( array() !== $args ) {
+			$flash['args'] = array_map( 'sanitize_text_field', array_map( 'strval', array_values( $args ) ) );
+		}
+
+		WPCPM_Flash::set( self::FLASH, $flash );
 
 		$url = self::page_url();
 		$url = '' === $url ? home_url( '/' ) : $url;
 
-		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, trim( (string) $record ), $url );
+		$record = is_scalar( $record ) ? trim( (string) $record ) : '';
+
+		if ( WPCPM_Sponsors_Index::is_key( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $record, $url );
 		}
 
 		if ( '' !== (string) $card ) {
@@ -380,10 +404,16 @@ final class WPCPM_Sponsors_Dashboard {
 	/**
 	 * Every card's outcomes, in the reader's words.
 	 *
-	 * The union of `WPCPM_Sponsor_Profile::messages()`, `WPCPM_Sponsor_Interests::messages()`
-	 * and `WPCPM_Sponsor_Mentors::messages()`, each guarded by `class_exists()` so a checkout
-	 * missing a later phase's card still renders the page. `refused` is the base: every card's
-	 * own copy of it says the same thing, so whichever wins the merge reads identically.
+	 * The union of every card's own `messages()`, in the order the page draws the cards, each
+	 * guarded by `class_exists()` so a checkout missing a later phase's card still renders the
+	 * page. `refused` is the base: every card's own copy of it says the same thing, so whichever
+	 * wins the merge reads identically. Every card `render()` draws is in the list, the badge card
+	 * (1.113.0) and the Reports card (1.115.0) too, whose own lists are empty while they have no
+	 * form, so the cards drawn and the cards merged stay one list. The Events card's planner
+	 * (1.117.0) follows the tier card that draws it, and the logo the profile card that holds it:
+	 * their presses leave through this page's `leave()` like every card's. So does a decision of the
+	 * offers' review (1.123.18) posted without the Administrator Dashboard's way back, which follows
+	 * the Offers card it decides for.
 	 *
 	 * @return array<string, array{0: string, 1: string}> Status to notice class and sentence.
 	 */
@@ -392,7 +422,7 @@ final class WPCPM_Sponsors_Dashboard {
 			'refused' => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 
-		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
+		foreach ( array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
 			if ( class_exists( $card ) && method_exists( $card, 'messages' ) ) {
 				$messages = array_merge( $messages, (array) call_user_func( array( $card, 'messages' ) ) );
 			}
@@ -435,8 +465,8 @@ final class WPCPM_Sponsors_Dashboard {
 			return self::notice( WPCPM_Dashboards::nothing_to_show( self::MODULE, $can_manage ) );
 		}
 
-		$row     = WPCPM_Sponsors_Index::row( $record );
-		$row     = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
+		$stored  = WPCPM_Sponsors_Index::row( $record );
+		$row     = is_array( $stored ) ? $stored : WPCPM_Sponsors_Index::empty_row();
 		$flash   = WPCPM_Flash::take( self::FLASH );
 		$flash   = is_array( $flash ) ? $flash : array();
 		$context = array(
@@ -465,55 +495,75 @@ final class WPCPM_Sponsors_Dashboard {
 
 		self::render_message( $flash );
 		self::render_identity( $record, $row, $can_manage );
-		self::render_help( $record );
+		self::render_glance( $record, is_array( $stored ) ? $stored : null, $context );
 
-		// Three groups, as the owner drew them on 6 September 2026: the sponsor itself (the
-		// profile, the people who act for it, and in Phase S4 the logo and the agreement), what
-		// it offers (offers and codes, usage, what else it would support, its posts), then the
-		// mentors (its own, and the ones looking for a sponsor, both drawn by one class). The
-		// People card is this class's own and takes its place in the first group.
-		// Each group is a heading over its cards, so the three read as groups and not as one
-		// long list with the same hairline between every card (the owner, 6 September 2026).
+		// Four groups, in the order the owner approved on 27 September 2026, which is the order a
+		// sponsor works through the page: the sponsorship itself (the tier card's two cards, the tier
+		// with its term and the events, then the reports and the badge, all four drawn only while the
+		// tier ladder's launch switch is on), what the company offers (offers and codes, usage, its
+		// posts, what else it would support), the mentors (its own and the ones looking for a
+		// sponsor, both drawn by one class), and the company last (the profile and logo, the people
+		// who act for it, which is this class's own card, and the Collaboration Agreement). Each
+		// group is a heading over its cards, so the four read as groups and not as one long list with
+		// the same hairline between every card (the owner, 6 September 2026).
 		$groups = array(
 			array(
-				'id'    => 'company',
-				'title' => __( 'Your company', 'wpcredits-program-manager' ),
-				'lead'  => __( 'Your company as the program records it, with its logo, and the people who can sign in for it. Keep the profile current: what you save here is written to the program records. Accounts are attached by your program contact.', 'wpcredits-program-manager' ),
-				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Agreement_Card' ),
+				'id'    => 'sponsorship',
+				'title' => __( 'Your sponsorship', 'wpcredits-program-manager' ),
+				'lead'  => __( 'Your tier, your events, your reports and your badge.', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge' ),
 			),
 			array(
 				'id'    => 'offer',
 				'title' => __( 'What you offer', 'wpcredits-program-manager' ),
-				'lead'  => __( 'What you give the program\'s students and mentors. Publish offers: a pool of one-time codes you paste or upload, or one code or link everyone uses, switched on when ready. See how many people claimed each month, with nobody named. Tell the program what else you would like to support. Write posts that appear on the Student Report Card and the Mentor Report Card once an Administrator publishes them.', 'wpcredits-program-manager' ),
-				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts' ),
+				'lead'  => __( 'What your company gives the program\'s students and mentors, and what it wrote for them.', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests' ),
 			),
 			array(
 				'id'    => 'mentors',
 				'title' => __( 'Mentors', 'wpcredits-program-manager' ),
-				'lead'  => __( 'The mentors your company sponsors, with how many students each one guides, and the active mentors who asked to be listed as looking for a sponsor. One press tells your program contact you would like to sponsor one of them.', 'wpcredits-program-manager' ),
+				'lead'  => __( 'The mentors your company sponsors, and the ones looking for a sponsor.', 'wpcredits-program-manager' ),
 				'cards' => array( 'WPCPM_Sponsor_Mentors' ),
+			),
+			array(
+				'id'    => 'company',
+				'title' => __( 'Your company', 'wpcredits-program-manager' ),
+				'lead'  => __( 'Your company\'s details and logo, the people who can sign in for it, and the Collaboration Agreement.', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Agreement_Card' ),
 			),
 		);
 
 		foreach ( $groups as $group ) {
-			// The heading takes the eyebrow the Resources and Updates headings wear (the shared
-			// `wpcpm-student__heading` class), inside the group, under the group's own line.
-			printf( '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--%1$s"><h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">%2$s</h2>', esc_attr( $group['id'] ), esc_html( $group['title'] ) );
-			// What the group's cards do, said once here rather than inside each folded card (the
-			// owner, 6 September 2026); the cards keep only the notes that belong to a state.
-			printf( '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">%s</p>', esc_html( $group['lead'] ) );
+			// Each group in the one shape both dashboards draw their groups in, whose classes are this
+			// page's unless a page asks for its own: a group whose cards all print nothing, or nothing
+			// but white space, is not printed at all, rather than a heading and a sentence over nothing.
+			// The first group's cards print nothing while the launch switch is off, so until the program
+			// announces the tiers the page does not name that group either. What the group's cards hold
+			// is said once, in the group's own line, rather than inside each folded card (the owner, 6
+			// September 2026); the cards keep only the notes that belong to a state.
+			WPCPM_Dashboard_Card::group(
+				array(
+					'id'    => $group['id'],
+					'title' => $group['title'],
+					'lead'  => $group['lead'],
+					'cards' => static function () use ( $group, $record, $context ) {
+						foreach ( $group['cards'] as $owner ) {
+							if ( 'people' === $owner ) {
+								self::render_people( $record, $context );
+								continue;
+							}
 
-			foreach ( $group['cards'] as $owner ) {
-				if ( 'people' === $owner ) {
-					self::render_people( $record, $context );
-					continue;
-				}
-
-				self::card( $owner, $record, $context );
-			}
-
-			echo '</div>';
+							self::card( $owner, $record, $context );
+						}
+					},
+				)
+			);
 		}
+
+		// Below the cards, where the design the owner approved on 27 September 2026 puts them: the
+		// cards answer how the sponsorship is doing without a click, so they take the first screen,
+		// and what the program publishes, its guide and the program contact follow them.
+		self::render_help( $record );
 
 		echo '</div>';
 
@@ -521,7 +571,13 @@ final class WPCPM_Sponsors_Dashboard {
 	}
 
 	/**
-	 * Register (once) and enqueue the double-submit guard every form on this page carries.
+	 * Register (once) and enqueue the page's three scripts: the double-submit guard every form on
+	 * this page carries, the Copy button the Badge card carries for its embed code, and the
+	 * dashboards' opener, which the shell registers (`WPCPM_Dashboard_Card::enqueue_opener()`) and
+	 * which opens the card a link lands on (a browser following a link to a closed disclosure leaves
+	 * it closed), an At a glance tile's among them. All three are enqueued before any card is drawn,
+	 * so none waits on which cards the page holds; the Copy script does nothing on a page without a
+	 * Copy button, and the opener nothing until a fragment names a card or a link to one is pressed.
 	 */
 	private static function enqueue_forms() {
 		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
@@ -529,26 +585,46 @@ final class WPCPM_Sponsors_Dashboard {
 		}
 
 		wp_enqueue_script( 'wpcpm-forms' );
+
+		if ( ! wp_script_is( 'wpcpm-copy', 'registered' ) ) {
+			wp_register_script( 'wpcpm-copy', WPCPM_PLUGIN_URL . 'assets/js/copy.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-copy' );
+
+		WPCPM_Dashboard_Card::enqueue_opener();
 	}
 
 	/**
 	 * Draw one of the dashboard's cards, if the piece that owns it is installed.
 	 *
-	 * Phase S2 to S4's cards land as separate commits and any one of them may be absent from a
+	 * Phase S2 to S4's cards landed as separate commits and any one of them may be absent from a
 	 * checkout, so a missing card leaves a gap on the page rather than a fatal. The owners are
-	 * named now, in the S1 through S4 order, so the page order is fixed once and each phase
-	 * fills its own gap - a card that is not called from `render()` is not on the dashboard.
+	 * named in `render()`'s groups, so the page order is fixed in one place - a card that is not
+	 * called from `render()` is not on the dashboard, and a group none of whose cards drew is not
+	 * printed.
 	 *
 	 * @param string $owner     Class that owns the card.
-	 * @param string $record_id Sponsors record ID being rendered.
+	 * @param string $record_id Sponsor key being rendered.
 	 * @param array  $context   What every card is handed.
 	 */
 	private static function card( $owner, $record_id, array $context ) {
-		if ( ! class_exists( $owner ) || ! method_exists( $owner, 'render' ) ) {
+		if ( ! self::installed( $owner ) ) {
 			return;
 		}
 
 		call_user_func( array( $owner, 'render' ), $record_id, $context );
+	}
+
+	/**
+	 * Whether a card's class is installed: the one question `card()` asks before it draws a card, and
+	 * the At a glance strip before it draws that card's tile.
+	 *
+	 * @param string $owner Class that owns the card.
+	 * @return bool
+	 */
+	private static function installed( $owner ) {
+		return class_exists( $owner ) && method_exists( $owner, 'render' );
 	}
 
 	/**
@@ -560,7 +636,7 @@ final class WPCPM_Sponsors_Dashboard {
 	 * appending it to the URL changes nothing. Drawn by `WPCPM_Dashboards`, the one form all four
 	 * dashboards share, as the Institution Dashboard draws its own.
 	 *
-	 * @param string $current Sponsors record ID currently being viewed.
+	 * @param string $current Sponsor key currently being viewed.
 	 */
 	private static function render_switcher( $current ) {
 		WPCPM_Dashboards::render_switcher(
@@ -577,12 +653,18 @@ final class WPCPM_Sponsors_Dashboard {
 	}
 
 	/**
-	 * The flash a card's handler left, in the reader's words.
+	 * The flash a card's handler left, in the reader's words, with the values it carries put where
+	 * its sentence names them (`filled()`), and the detail after it.
 	 *
-	 * Nothing when the status is empty or unknown to `messages()`: a stale or hand-edited flash
-	 * must not print a blank notice.
+	 * A status whose sentence is empty carries its whole message as the detail: a refusal for words
+	 * the cleaner would take (the profile's, the Offers card's and the interests card's), whose
+	 * sentence names the box and how to keep every word. It prints the detail alone.
 	 *
-	 * @param array $flash `status`, `card`.
+	 * Nothing when the status is empty or unknown to `messages()`, when its sentence names more
+	 * values than the flash carries, or when it has neither a sentence nor a detail: a stale or
+	 * hand-edited flash must not print a blank notice, or a placeholder.
+	 *
+	 * @param array $flash `status`, `card`, `detail` and, when its sentence names values, `args`.
 	 */
 	private static function render_message( array $flash ) {
 		$status = isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : '';
@@ -597,21 +679,53 @@ final class WPCPM_Sponsors_Dashboard {
 			return;
 		}
 
-		$detail = isset( $flash['detail'] ) ? trim( (string) $flash['detail'] ) : '';
+		$own      = (string) $messages[ $status ][1];
+		$sentence = self::filled( $own, isset( $flash['args'] ) && is_array( $flash['args'] ) ? $flash['args'] : array() );
+		$detail   = isset( $flash['detail'] ) ? trim( (string) $flash['detail'] ) : '';
+
+		if ( '' === $sentence && ( '' !== $own || '' === $detail ) ) {
+			return;
+		}
 
 		printf(
 			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s%3$s</p>',
 			esc_attr( (string) $messages[ $status ][0] ),
-			esc_html( (string) $messages[ $status ][1] ),
-			'' !== $detail ? ' <span class="wpcpm-dashboard__detail">' . esc_html( $detail ) . '</span>' : ''
+			esc_html( $sentence ),
+			'' !== $detail ? ( '' !== $sentence ? ' ' : '' ) . '<span class="wpcpm-dashboard__detail">' . esc_html( $detail ) . '</span>' : ''
 		);
 	}
 
 	/**
-	 * The identity header: the sponsor's logo or initials, its name, website, product and the
-	 * facts a manager alone is shown.
+	 * A card's sentence with a flash's values in its placeholders, `%1$s` and on, or '' when it names
+	 * more values than the flash carries. A sentence that names none comes back as it is.
 	 *
-	 * @param string $record     Sponsors record ID.
+	 * @param string   $sentence The sentence, as the card's `messages()` holds it.
+	 * @param string[] $args     The values the flash carries, in the sentence's order.
+	 * @return string
+	 */
+	private static function filled( $sentence, array $args ) {
+		$wanted = 0;
+
+		if ( preg_match_all( '/%(?:(\d+)\$)?[sd]/', $sentence, $found ) ) {
+			foreach ( $found[1] as $at => $position ) {
+				$wanted = max( $wanted, '' === $position ? $at + 1 : (int) $position );
+			}
+		}
+
+		if ( 0 === $wanted ) {
+			return $sentence;
+		}
+
+		return count( $args ) < $wanted ? '' : vsprintf( $sentence, array_map( 'strval', array_values( $args ) ) );
+	}
+
+	/**
+	 * The identity header: the sponsor's logo or initials, its name, website, product and the
+	 * facts a manager alone is shown, and, once the tier ladder is announced, its badge at the
+	 * header's right - the owner asked (26 September 2026, with a screenshot) for the tier to
+	 * read at a glance in the same place the company itself is named.
+	 *
+	 * @param string $record     Sponsor key.
 	 * @param array  $row        From `WPCPM_Sponsors_Index::row()`, or `empty_row()`.
 	 * @param bool   $can_manage Whether the viewer holds CAP_MANAGE.
 	 */
@@ -625,8 +739,8 @@ final class WPCPM_Sponsors_Dashboard {
 		echo '<div class="wpcpm-sponsor__logo">';
 
 		if ( is_array( $logo ) ) {
-			// The site's own attachment, copied by the sync or uploaded by the sponsor: never an
-			// Airtable URL, which expires within hours.
+			// The site's own attachment, copied in before 1.111.0 or uploaded by the sponsor: never
+			// a link to a file held somewhere else, which can expire within hours.
 			printf( '<img class="wpcpm-sponsor__logo-image" src="%1$s" alt="" loading="lazy" decoding="async" />', esc_url( $logo['url'] ) );
 		} else {
 			printf( '<span class="wpcpm-sponsor__initials" aria-hidden="true">%s</span>', esc_html( self::initials( $name ) ) );
@@ -669,7 +783,7 @@ final class WPCPM_Sponsors_Dashboard {
 				'<p class="wpcpm-sponsor__fact wpcpm-sponsor__status">%s</p>',
 				esc_html(
 					sprintf(
-						/* translators: %s: the Airtable Status. */
+						/* translators: %s: the sponsor's status in the program. */
 						__( 'Status: %s', 'wpcredits-program-manager' ),
 						trim( (string) $row['status'] )
 					)
@@ -677,7 +791,26 @@ final class WPCPM_Sponsors_Dashboard {
 			);
 		}
 
-		echo '</div></header>';
+		echo '</div>';
+
+		// The badge, right of the details, in the space the header otherwise leaves empty:
+		// nothing while the launch switch is off, for a sponsor whose tier carries no badge, or
+		// for a row with no slug to build its address from.
+		if ( WPCPM_Sponsor_Tiers::live() && WPCPM_Sponsor_Badge::eligible( $row ) ) {
+			$slug = (string) $row['slug'];
+
+			if ( '' !== $slug ) {
+				printf(
+					'<div class="wpcpm-sponsor__badge"><img class="wpcpm-sponsor__badge-image" src="%1$s" alt="%2$s" width="%3$d" height="%4$d" loading="lazy" decoding="async" /></div>',
+					esc_url( WPCPM_Sponsor_Badge::url( $slug ) ),
+					esc_attr( WPCPM_Sponsor_Badge::light_alt( $row ) ),
+					(int) WPCPM_Sponsor_Badge::WIDTH,
+					(int) WPCPM_Sponsor_Badge::HEIGHT
+				);
+			}
+		}
+
+		echo '</header>';
 	}
 
 	/**
@@ -707,8 +840,8 @@ final class WPCPM_Sponsors_Dashboard {
 	/**
 	 * A sponsor's website as a link, or an empty string.
 	 *
-	 * The base holds addresses typed by people, so a bare `example.com` is common: given a
-	 * scheme rather than dropped.
+	 * The store holds websites as people typed them, many of the migrated ones without a scheme,
+	 * so a bare `example.com` is common: given a scheme rather than dropped.
 	 *
 	 * @param string $raw The stored value.
 	 * @return string
@@ -728,31 +861,308 @@ final class WPCPM_Sponsors_Dashboard {
 	}
 
 	/**
-	 * The Resources section, with this sponsor's own program contact in it.
+	 * The At a glance strip under the header (the owner, 27 September 2026): a tile for each figure a
+	 * sponsor reads first, each a link to the card that holds it.
+	 *
+	 * The Administrator Dashboard's attention strip (`WPCPM_Administrators_Cards::render_strip()`),
+	 * its tiles markup for markup, so one set of rules dresses both (`register_assets()`), inside a
+	 * section that is a card of this page, named for a screen reader and with no heading of its own.
+	 * Each tile is one link around its number line and its label, and a tile at zero is muted, not
+	 * hidden (the Administrator Dashboard draws no zero). A tile links to its card's anchor, which
+	 * `assets/js/dashboard-open.js` opens, and is drawn only when its card is (`glance_tiles()`).
+	 *
+	 * Nothing for a sponsor the store holds no row for, a member's stamp that outlived its sponsor:
+	 * the page is drawn on the empty row, whose floor (no tier, no mentor) is no fact about the
+	 * sponsor. And nothing when fewer than two tiles are drawn: one tile is not a strip.
+	 *
+	 * @param string     $record  Sponsor key.
+	 * @param array|null $row     The row `render()` read from `WPCPM_Sponsors_Index::row()`, or null
+	 *                            when the store holds none.
+	 * @param array      $context `can_manage`, `open`, `viewer`.
+	 */
+	private static function render_glance( $record, $row, array $context ) {
+		if ( ! is_array( $row ) ) {
+			return;
+		}
+
+		$tiles = self::glance_tiles( $record, $row, $context );
+
+		if ( count( $tiles ) < 2 ) {
+			return;
+		}
+
+		printf( '<section class="wpcpm-sponsor__card wpcpm-attention wpcpm-sponsor__glance" id="wpcpm-sponsor-glance" aria-label="%s">', esc_attr__( 'At a glance', 'wpcredits-program-manager' ) );
+		echo '<ul class="wpcpm-attention__tiles">';
+
+		foreach ( $tiles as $tile ) {
+			printf(
+				'<li class="wpcpm-attention__tile%1$s"><a class="wpcpm-attention__link" href="#wpcpm-sponsor-%2$s"><span class="wpcpm-attention__n">%3$s</span><span class="wpcpm-attention__l">%4$s</span></a></li>',
+				$tile['zero'] ? ' wpcpm-attention__tile--zero' : '',
+				esc_attr( $tile['card'] ),
+				esc_html( $tile['value'] ),
+				esc_html( $tile['label'] )
+			);
+		}
+
+		echo '</ul></section>';
+	}
+
+	/**
+	 * The strip's tiles, in the order the owner approved: the tier, the next event, the offers, the
+	 * mentors and the yearly reports. Each is drawn only when its card is, asked the way that card
+	 * asks it, and reads its figure through that card's own readers, so a tile and its card never
+	 * disagree:
+	 *
+	 * - the tier, while the launch switch is on: the effective tier, and the running term's last day
+	 *   with the days left in it, or on that day that it ends today, as the card's row says it; the
+	 *   day the term ended once it has, the one fact a sponsor whose term lapsed wants; or no term;
+	 * - the next event, while the Events card is drawn (`glance_event_tile()`);
+	 * - the offers live today, with the claims this month;
+	 * - the mentors the company sponsors, the count the card gives beside its title;
+	 * - the yearly reports, the final ones, while the Reports card is drawn, which is while there is
+	 *   a final one.
+	 *
+	 * Every tile the tiers decide is drawn only while `WPCPM_Sponsor_Tiers::live()`, as its card is:
+	 * until the launch nothing a sponsor sees names a tier. Every number is written the way the site
+	 * writes numbers.
+	 *
+	 * @param string $record  Sponsor key.
+	 * @param array  $row     The sponsor's row.
+	 * @param array  $context `viewer`, whose clock the event's day is read on.
+	 * @return array[] Each `card` (its anchor's key), `value` (the number line, as printed), `label`
+	 *                 and `zero` (whether the tile is muted).
+	 */
+	private static function glance_tiles( $record, array $row, array $context ) {
+		$tiles = array();
+		$live  = WPCPM_Sponsor_Tiers::live();
+		$today = WPCPM_Sponsor_Tiers::today();
+		$tier  = WPCPM_Sponsor_Tiers::effective( $row, $today );
+
+		if ( $live && self::installed( 'WPCPM_Sponsor_Tier_Card' ) ) {
+			// The Sponsorship card's own reading of the term, the one its row reads: a term counts only
+			// on a recorded tier above Friend, and runs through its last day.
+			$tiles[] = array(
+				'card'  => WPCPM_Sponsor_Tier_Card::CARD,
+				'value' => WPCPM_Sponsor_Tiers::label( $tier ),
+				'label' => self::glance_term( WPCPM_Sponsor_Tier_Card::term_days_left( $row, $today ), (string) $row['tier_until'] ),
+				'zero'  => false,
+			);
+
+			$event = self::glance_event_tile( $record, $row, $tier, $context );
+
+			if ( null !== $event ) {
+				$tiles[] = $event;
+			}
+		}
+
+		if ( self::installed( 'WPCPM_Sponsor_Offers' ) && method_exists( 'WPCPM_Sponsor_Offers', 'live_count' ) && class_exists( 'WPCPM_Sponsor_Claims' ) && method_exists( 'WPCPM_Sponsor_Claims', 'stats' ) ) {
+			$offers = (int) WPCPM_Sponsor_Offers::live_count( $record );
+			$stats  = WPCPM_Sponsor_Claims::stats( $record );
+			$month  = isset( $stats['totals']['month'] ) ? (int) $stats['totals']['month'] : 0;
+
+			$tiles[] = array(
+				'card'  => WPCPM_Sponsor_Offers::CARD,
+				'value' => number_format_i18n( $offers ),
+				'label' => sprintf(
+					/* translators: %s: how many times the sponsor's offers were claimed this month. */
+					_n( 'offers live, %s claim this month', 'offers live, %s claims this month', $month, 'wpcredits-program-manager' ),
+					number_format_i18n( $month )
+				),
+				'zero'  => 0 === $offers,
+			);
+		}
+
+		if ( self::installed( 'WPCPM_Sponsor_Mentors' ) && method_exists( 'WPCPM_Sponsor_Mentors', 'linked' ) ) {
+			$linked  = WPCPM_Sponsor_Mentors::linked( $record );
+			$mentors = count( (array) $linked['mentors'] ) + (int) $linked['others'];
+
+			$tiles[] = array(
+				'card'  => WPCPM_Sponsor_Mentors::CARD,
+				'value' => number_format_i18n( $mentors ),
+				'label' => __( 'mentors sponsored', 'wpcredits-program-manager' ),
+				'zero'  => 0 === $mentors,
+			);
+		}
+
+		if ( $live && self::installed( 'WPCPM_Sponsor_Report_Card' ) && class_exists( 'WPCPM_Sponsor_Report' ) ) {
+			// The Reports card's own list, the one its row counts: the final reports, a draft being the
+			// program's to write.
+			$finals = count( WPCPM_Sponsor_Report_Card::finals( $record ) );
+
+			if ( $finals > 0 ) {
+				$tiles[] = array(
+					'card'  => WPCPM_Sponsor_Report_Card::CARD,
+					'value' => number_format_i18n( $finals ),
+					'label' => _n( 'yearly report', 'yearly reports', $finals, 'wpcredits-program-manager' ),
+					'zero'  => false,
+				);
+			}
+		}
+
+		return $tiles;
+	}
+
+	/**
+	 * The tier tile's line, from the term the Sponsorship card reads: the last day with the days left
+	 * in it, or, on that day, that the term ends today, the card's own word for it; the day the term
+	 * ended once it has; or no term.
+	 *
+	 * @param int|null $left  `WPCPM_Sponsor_Tier_Card::term_days_left()`.
+	 * @param string   $until The row's `tier_until`, the term's last day.
+	 * @return string
+	 */
+	private static function glance_term( $left, $until ) {
+		if ( null === $left ) {
+			return __( 'no term', 'wpcredits-program-manager' );
+		}
+
+		$day = WPCPM_Sponsor_Tiers::format_day( $until );
+
+		if ( $left < 0 ) {
+			/* translators: %s: the last day of the term that ended. */
+			return sprintf( __( 'term ended %s', 'wpcredits-program-manager' ), $day );
+		}
+
+		if ( 0 === $left ) {
+			/* translators: %s: the last day of the term, which is today. */
+			return sprintf( __( 'to %s, ending today', 'wpcredits-program-manager' ), $day );
+		}
+
+		return sprintf(
+			/* translators: 1: the last day of the term, 2: how many days are left in it. */
+			_n( 'to %1$s, %2$s day', 'to %1$s, %2$s days', $left, 'wpcredits-program-manager' ),
+			$day,
+			number_format_i18n( $left )
+		);
+	}
+
+	/**
+	 * The next event's tile, while the Events card is drawn; null otherwise.
+	 *
+	 * Asked of the card's own test, `WPCPM_Sponsor_Tier_Card::draws_events()`, the one the card's
+	 * `render()` keeps: it is drawn while the sponsor holds the planner or has an event of its own
+	 * still to take place. The sponsor's events still to take place are read once, handed to the test
+	 * and read for the figure, the soonest of them, the one the planner lists first: its day, on the
+	 * viewer's clock as the card's row reads it (`WPCPM_Sponsor_Tier_Card::event_day()`) but short, a
+	 * month and a day, so a long date takes no second line and every tile keeps one height, the row
+	 * keeping the day whole; its title; and how many joined, or, while the program has not approved
+	 * it, that it waits for the program, since nobody can join it yet. A sponsor holding the planner with nothing to take place reads None, the
+	 * tile's zero, muted as the others' zeros are. Behind class_exists(), as the card's planner is:
+	 * without the event store there is no event to read.
+	 *
+	 * @param string $record  Sponsor key.
+	 * @param array  $row     The sponsor's row.
+	 * @param string $tier    The effective tier.
+	 * @param array  $context `viewer`.
+	 * @return array|null As `glance_tiles()` lists a tile.
+	 */
+	private static function glance_event_tile( $record, array $row, $tier, array $context ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Event' ) ) {
+			return null;
+		}
+
+		// Read once, for the card's own test and for the tile's figure alike.
+		$upcoming = WPCPM_Sponsor_Event::upcoming_of( $record );
+
+		if ( ! WPCPM_Sponsor_Tier_Card::draws_events( $record, $row, $tier, $upcoming ) ) {
+			return null;
+		}
+
+		if ( array() === $upcoming ) {
+			return array(
+				'card'  => WPCPM_Sponsor_Tier_Card::CARD_EVENTS,
+				'value' => __( 'None', 'wpcredits-program-manager' ),
+				'label' => __( 'no event planned', 'wpcredits-program-manager' ),
+				'zero'  => true,
+			);
+		}
+
+		$facts  = WPCPM_Sponsor_Event::facts( $upcoming[0] );
+		$viewer = isset( $context['viewer'] ) && $context['viewer'] instanceof WP_User ? $context['viewer'] : wp_get_current_user();
+
+		return array(
+			'card'  => WPCPM_Sponsor_Tier_Card::CARD_EVENTS,
+			'value' => WPCPM_Sponsor_Tier_Card::event_day(
+				$facts,
+				$viewer,
+				/* translators: the short day of the At a glance event tile, a month and a day; see https://www.php.net/manual/datetime.format.php */
+				__( 'M j', 'wpcredits-program-manager' )
+			),
+			'label' => WPCPM_Sponsor_Event::STATE_PLANNED === $facts['state']
+				? sprintf(
+					/* translators: %s: the event's title, cut to fit the tile. */
+					__( '%s, waiting for the program', 'wpcredits-program-manager' ),
+					self::glance_title( $facts['title'] )
+				)
+				: sprintf(
+					/* translators: 1: the event's title, cut to fit the tile, 2: how many people have joined it. */
+					_n( '%1$s, %2$s joined', '%1$s, %2$s joined', (int) $facts['joined'], 'wpcredits-program-manager' ),
+					self::glance_title( $facts['title'] ),
+					number_format_i18n( (int) $facts['joined'] )
+				),
+			'zero'  => false,
+		);
+	}
+
+	/**
+	 * An event's title cut to the tile: whole when it fits in GLANCE_TITLE characters, else to the
+	 * last word that ends within them past their middle, a word that ends on the last of them
+	 * included, or at the limit itself when none does, with an ellipsis. Measured and cut as the text
+	 * it is: a title a sponsor member saves is stored with its ampersand as an entity, so entities
+	 * are decoded first, and none is counted as several characters or cut in two; the tile escapes
+	 * the text where it prints it. Cut by characters, not bytes, so no character is halved; what
+	 * follows the title is never what is cut.
+	 *
+	 * @param string $title The event's title, as stored.
+	 * @return string The title as text, to be escaped where it is printed.
+	 */
+	private static function glance_title( $title ) {
+		$title = trim( html_entity_decode( (string) $title, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+
+		if ( mb_strlen( $title ) <= self::GLANCE_TITLE ) {
+			return $title;
+		}
+
+		// One character past the limit, so a space right after it, which ends a word that fits
+		// exactly, is found.
+		$space = mb_strrpos( mb_substr( $title, 0, self::GLANCE_TITLE + 1 ), ' ' );
+		$cut   = mb_substr( $title, 0, self::GLANCE_TITLE );
+
+		if ( false !== $space && $space > self::GLANCE_TITLE / 2 ) {
+			$cut = mb_substr( $cut, 0, $space );
+		}
+
+		return rtrim( $cut, ' ,.;:' ) . '…';
+	}
+
+	/**
+	 * The Resources section, with this sponsor's own program contact in it, below the cards.
 	 *
 	 * The section is `WPCPM_Handbook_Assistant::render_resources()`, asked for the sponsor
 	 * audience: its own handbook page, the program's Slack channel, the announcements at that
-	 * access level, and the assistant. The one thing added is the person.
+	 * access level, and the assistant. The one thing added is the person, in a third column of its
+	 * own: this page alone asks for three, so the updates, the resources and the program contact
+	 * read as one strip at the foot of the page. A sponsor with nobody assigned gets the two.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 */
 	private static function render_help( $record ) {
 		if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) || ! method_exists( 'WPCPM_Handbook_Assistant', 'render_resources' ) ) {
 			return;
 		}
 
-		echo WPCPM_Handbook_Assistant::render_resources( 'sponsor', self::contact_block( $record ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the assistant and by contact_block(), both of which escape what they interpolate.
+		echo WPCPM_Handbook_Assistant::render_resources( 'sponsor', self::contact_block( $record ), 3 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the assistant and by contact_block(), both of which escape what they interpolate.
 	}
 
 	/**
-	 * Who this sponsor writes to, as the Resources section's last word.
+	 * Who this sponsor writes to, as the Resources section's third column.
 	 *
-	 * Resolved through `WPCPM_Sponsors_Index::manager_of()`, which reads the assigned Team
-	 * Members row at read time so a renamed manager shows correctly the morning after the sync.
+	 * Resolved through `WPCPM_Sponsors_Index::manager_of()`, which reads the assigned manager's
+	 * account at read time, so a manager who renames themselves shows the new name at once.
 	 * A sponsor with nobody assigned prints nothing at all rather than a heading with a blank
-	 * under it (ruling 6: nothing, not an empty heading).
+	 * under it.
 	 *
-	 * @param string $record Sponsors record ID.
+	 * @param string $record Sponsor key.
 	 * @return string Escaped markup, or ''.
 	 */
 	private static function contact_block( $record ) {
@@ -817,22 +1227,27 @@ final class WPCPM_Sponsors_Dashboard {
 	 * do not invite each other in this release (design spec of 4 September 2026, section 14). A
 	 * manager's link opens this sponsor's accounts there (`WPCPM_Sponsors::accounts_view_url()`).
 	 *
-	 * @param string $record  Sponsors record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	private static function render_people( $record, array $context ) {
 		$members = WPCPM_Sponsor_Members::members_of( $record );
 
-		// A section around the disclosure, as every card on this page and the Institution Dashboard's
-		// semester report: the section owns the card rhythm (the rule above it, the room), the
-		// disclosure only folds. The same shape on both pages is what lets them share one skin.
-		echo '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure">';
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'People', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $members ) ) )
+		// The shell every card on this page is drawn in (WPCPM_Dashboard_Card), the same shape as the
+		// Institution Dashboard's semester report, which is what lets the two pages share one skin.
+		// Never opened by a flash: no handler lands on this card.
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'   => 'people',
+				'title' => __( 'People', 'wpcredits-program-manager' ),
+				'count' => count( $members ),
+				'state' => sprintf(
+					/* translators: %s: how many accounts act for the sponsor. */
+					_n( '%s account', '%s accounts', count( $members ), 'wpcredits-program-manager' ),
+					number_format_i18n( count( $members ) )
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
 
 		if ( empty( $members ) ) {
 			echo '<p>' . esc_html__( 'No account acts for this sponsor yet.', 'wpcredits-program-manager' ) . '</p>';
@@ -856,7 +1271,7 @@ final class WPCPM_Sponsors_Dashboard {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'To add a colleague, write to your contact at the program.', 'wpcredits-program-manager' ) . '</p>';
 		}
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**

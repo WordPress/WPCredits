@@ -1,20 +1,25 @@
 <?php
 /**
- * WPCPM_Sponsor_Logo: two optional images, one record, one write back to Airtable.
+ * WPCPM_Sponsor_Logo: two optional images, one record, kept on the site alone.
  *
- * Design spec of 4 September 2026, section 8.1 and decision 11. What is worth pinning:
+ * Design spec of 4 September 2026, section 8.1 and decision 11, narrowed by 1.111.0 (the
+ * sponsor record moved off Airtable). What is worth pinning:
  *
  * - **Every byte goes through `WPCPM_Image_Upload`.** An SVG named `.png` is refused by its
  *   content, and the class never calls `wp_handle_upload()` or reads `$_FILES` anywhere but in
  *   its one reader.
  * - **All or nothing.** Two files arrive together and one bad one refuses the pair, the way
  *   one rejected field refuses the whole profile save.
- * - **The record says the site owns the logo**, so the sync leaves it alone every three
- *   hours; Remove empties the base's `Logo` first and clears the record only if that
- *   worked, or the next sync run would copy the site's own URLs back in as Airtable's.
- * - **Airtable's `Logo` is replaced with the site's public URLs, color first**, so the base
- *   shows the picture the site shows and the WPCredits tracker keeps reading the base.
- * - **A failed PATCH never loses the logo.** The site keeps it and says so.
+ * - **The record says who owns the logo.** `source => site` after an upload; a row the
+ *   migration carried over can still read `source => airtable`, and nothing here changes that
+ *   value going forward.
+ * - **Remove clears the record outright.** Nothing here writes the logo anywhere but the site,
+ *   so there is nothing else left to keep in step.
+ * - **No `WPCPM_Airtable` class exists in this suite at all**, proved at the end: the class the
+ *   module used to write through is gone from the file, not merely unused.
+ * - **Each press checks its own nonce, keyed to the record**, asserted by name for Upload and for
+ *   Remove, and a stale Remove dies before it clears anything: both read their form through
+ *   `WPCPM_Request`, where the standard's nonce sniff cannot see a nonce gone.
  *
  * Real GD images and a real editor stand-in, as bin/test-image-upload.php uses.
  *
@@ -37,13 +42,11 @@ $GLOBALS['uid']         = 0;
 $GLOBALS['manage']      = array( 1 );
 $GLOBALS['index']       = array();
 $GLOBALS['attachments'] = array();
-$GLOBALS['patched']     = array();
 $GLOBALS['audit']       = array();
 $GLOBALS['ceiling']     = array();
 $GLOBALS['nonce']       = array();
 $GLOBALS['hooks']       = array();
-$GLOBALS['patch_fails'] = false;
-$GLOBALS['settings']    = array( 'sponsors_table' => 'tbluji8wknOZr55fa', 'logo_max_kb' => 1024 );
+$GLOBALS['settings']    = array( 'logo_max_kb' => 1024 );
 
 class WP_Error {
 	private $c, $m;
@@ -83,7 +86,9 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
-function check_admin_referer( $a ) { $GLOBALS['nonce'][] = $a; return true; }
+// The action checked is kept, so a check can read which nonce a handler asked for; with
+// `nonce_bad` set the nonce the request carries is not one for it, and core's answer is wp_die().
+function check_admin_referer( $a ) { $GLOBALS['nonce'][] = $a; if ( ! empty( $GLOBALS['nonce_bad'] ) ) { wp_die( 'The link you followed has expired.' ); } return true; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function get_user_by( $f, $v ) { return ( 'id' === $f && isset( $GLOBALS['users'][ (int) $v ] ) ) ? $GLOBALS['users'][ (int) $v ] : false; }
@@ -128,13 +133,6 @@ class WPCPM_Roles {
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
 class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
-class WPCPM_Sponsors_Sync { public static function fields() { return array( 'logo' => 'Logo', 'name' => 'Company Name' ); } }
-class WPCPM_Airtable {
-	public function update_records( $table, array $records ) {
-		$GLOBALS['patched'][] = array( $table, $records );
-		return $GLOBALS['patch_fails'] ? new WP_Error( 'wpcpm_airtable_http', 'Airtable said no.' ) : $records;
-	}
-}
 class WPCPM_Ceiling {
 	public static function claim( $key, $limit, $window, $amount = 1 ) {
 		$GLOBALS['ceiling'][ $key ] = isset( $GLOBALS['ceiling'][ $key ] ) ? $GLOBALS['ceiling'][ $key ] + 1 : 1;
@@ -153,6 +151,7 @@ class WPCPM_Sponsors_Dashboard {
 
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/../includes/class-wpcpm-request.php';
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
@@ -266,21 +265,12 @@ function ran( $method ) {
 	return 'no redirect';
 }
 
-/**
- * The cells one PATCH carried.
- *
- * @param int $which Which PATCH; 0 for the first.
- * @return array
- */
-function patched_cells( $which = 0 ) {
-	return isset( $GLOBALS['patched'][ $which ][1][0]['fields'] ) ? $GLOBALS['patched'][ $which ][1][0]['fields'] : array();
-}
-
+// 1.111.0: the index is posts now, not this option - write() is the store's own bulk path, and
+// using it here is what makes row() and rows() answer for this sponsor.
 $S = 'recSPN00000000001';
-$GLOBALS['opts']['wpcpm_sponsors_index'] = array(
-	'v'    => WPCPM_Sponsors_Index::VERSION,
-	'read' => 1757000000,
-	'rows' => array( $S => array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $S, 'name' => 'TEST Sponsor', 'status' => 'Approved' ) ) ),
+WPCPM_Sponsors_Index::write(
+	array( $S => array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $S, 'name' => 'TEST Sponsor', 'status' => 'Approved' ) ) ),
+	1757000000
 );
 $GLOBALS['users'][1]  = new WP_User( 1, array( 'administrator' ), 'Manager' );
 $GLOBALS['users'][20] = new WP_User( 20, array( 'wpcpm_sponsor' ), 'Member One' );
@@ -330,15 +320,9 @@ ck( 'the attachments carry the acting account and the titles the spec spells', a
 	$GLOBALS['attachments'][ $record['white'] ]['post_title'],
 ), array( 20, 'TEST Sponsor logo (color)', 'TEST Sponsor logo (white)' ) );
 ck( 'the nonce was keyed to the record', end( $GLOBALS['nonce'] ), 'wpcpm_sponsor_logo_' . $S );
-$cells = patched_cells( 0 );
-ck( 'Airtable\'s Logo is replaced with the two public URLs, color first', array(
-	array_keys( $cells ),
-	count( $cells['Logo'] ),
-	array_keys( $cells['Logo'][0] ),
-	0 === strpos( $cells['Logo'][0]['url'], 'https://example.test/uploads/' ),
-), array( array( 'Logo' ), 2, array( 'url', 'filename' ), true ) );
 ck( 'the identity block now draws the site\'s color logo', WPCPM_Sponsors_Index::display_logo( $S )['id'], $record['colour'] );
 ck( 'an audit row names the upload and not the file', array( end( $GLOBALS['audit'] )['kind'], isset( end( $GLOBALS['audit'] )['data']['halves'] ) ), array( 'logo_uploaded', true ) );
+ck( 'and says so plainly, nothing about the program records', end( $GLOBALS['audit'] )['message'], 'A logo was uploaded on the Sponsor Dashboard.' );
 
 echo "\n=== One half at a time ===\n";
 $before = WPCPM_Sponsors_Index::logo_record( $S );
@@ -346,14 +330,6 @@ post_logos( '', png( 500, 150 ) );
 ck( 'a white logo on its own is accepted', ran( 'handle_upload' ), 'logo-saved|profile|' . $S . '|' );
 $after = WPCPM_Sponsors_Index::logo_record( $S );
 ck( 'and leaves the color one where it was', array( $after['colour'], $after['white'] !== $before['white'] ), array( $before['colour'], true ) );
-ck( 'the PATCH still sends both, color first', count( patched_cells( 1 )['Logo'] ), 2 );
-
-echo "\n=== Airtable refusing ===\n";
-$GLOBALS['patch_fails'] = true;
-post_logos( png( 420, 130 ) );
-ck( 'a failed PATCH says so and never loses the logo', ran( 'handle_upload' ), 'logo-airtable|profile|' . $S . '|' );
-ck( 'the site record still names the new attachment', WPCPM_Sponsors_Index::logo_record( $S )['colour'] > $after['colour'], true );
-$GLOBALS['patch_fails'] = false;
 
 echo "\n=== The ceiling ===\n";
 // A fresh day again, so the count the labels below give is the count the ceiling sees.
@@ -369,36 +345,40 @@ ck( 'the ceiling is keyed to the record', array_keys( $GLOBALS['ceiling'] ), arr
 echo "\n=== Remove ===\n";
 $_POST = array( 'wpcpm_sponsor' => $S );
 $held  = WPCPM_Sponsors_Index::logo_record( $S );
-// The base first. A record cleared ahead of a PATCH that then failed would leave the site's
-// own URLs in the base under a record that no longer says the site owns them: the card would
-// stop offering Remove and the next sync run would copy those URLs back in as Airtable's.
-$GLOBALS['patch_fails'] = true;
-ck( 'a base that refuses removes nothing, and says so as an error', ran( 'handle_remove' ), 'logo-removed-airtable|profile|' . $S . '|' );
-ck( 'the site still holds the logo, and still says the site owns it', WPCPM_Sponsors_Index::logo_record( $S ), $held );
-ck( 'the audit row says the logo was left in place', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['airtable'] ), array( 'logo_removed', false ) );
-ck( 'and the message a person reads says nothing was removed', WPCPM_Sponsor_Logo::messages()['logo-removed-airtable'], array( 'error', 'Nothing was removed: the program records could not be told just now. Try again in a moment.' ) );
-$GLOBALS['patch_fails'] = false;
-ck( 'with the base told, remove clears the record', ran( 'handle_remove' ), 'logo-removed|profile|' . $S . '|' );
-ck( 'so the next sync may copy Airtable\'s again', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
+// Remove reads its form through WPCPM_Request, where the standard's nonce sniff cannot see it, so
+// only a check here notices a nonce gone: a page elsewhere could then press Remove for a member.
+$GLOBALS['nonce_bad'] = true;
+$audit_before         = count( $GLOBALS['audit'] );
+$stale_remove         = ran( 'handle_remove' );
+$GLOBALS['nonce_bad'] = false;
+ck( 'Remove with a nonce that is not its own dies before anything is cleared or logged', array( $stale_remove, WPCPM_Sponsors_Index::logo_record( $S ), count( $GLOBALS['audit'] ) ), array( 'die:The link you followed has expired.', $held, $audit_before ) );
+// Dying before the write is not the whole order: a stale page must die before the roster's claim
+// too, whose refusal of a stranger the refusal meter counts. Both end the press, so the order is
+// read in the handler itself.
+$remove_body = method_body( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php' ), 'handle_remove' );
+ck( 'Remove checks the nonce before it asks the roster\'s claim', array( strpos( $remove_body, 'check_admin_referer(' ) > 0, strpos( $remove_body, 'check_admin_referer(' ) < strpos( $remove_body, 'WPCPM_Sponsor_Roster::claim(' ) ), array( true, true ) );
+$GLOBALS['nonce'] = array();
+// Nothing here reaches Airtable any more, so Remove is a single unconditional reset:
+// no "the base refused" branch is reachable, because there is no longer a call that can refuse.
+ck( 'remove resets the record unconditionally, and says so', ran( 'handle_remove' ), 'logo-removed|profile|' . $S . '|' );
+ck( 'Remove checks the nonce keyed to the record, under its own action rather than the upload\'s', $GLOBALS['nonce'], array( 'wpcpm_sponsor_logo_remove_' . $S ) );
+ck( 'the record is cleared, colour, white and source alike', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
 ck( 'and the attachments are left in the Media Library', isset( $GLOBALS['attachments'][ $held['colour'] ] ), true );
-// Eight: the pair, the white half on its own, the one the base refused, and the ceiling
-// section's five. Then Remove's two attempts, the refused one and the one that worked.
-ck( 'remove empties the base\'s Logo too, so the next sync run has nothing to copy back', array( count( $GLOBALS['patched'] ), patched_cells( 8 ), patched_cells( 9 ) ), array( 10, array( 'Logo' => array() ), array( 'Logo' => array() ) ) );
+ck( 'the audit row says so plainly, and carries no airtable datum', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['message'], isset( end( $GLOBALS['audit'] )['data']['airtable'] ) ), array( 'logo_removed', 'The logo was removed.', false ) );
 $logo_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php' );
-ck( 'the PATCH is made before the site record is touched, read off the source', strpos( method_body( $logo_src, 'handle_remove' ), 'self::clear_airtable' ) < strpos( method_body( $logo_src, 'handle_remove' ), 'write_logo_record' ), true );
-ck( 'and the card says the logo goes from both places, and that the files stay', false !== strpos( method_body( $logo_src, 'render_inner' ), 'It goes from this site and from the program records.' ), true );
+ck( 'write_airtable(), clear_airtable() and patch_logo() are gone', array( method_exists( 'WPCPM_Sponsor_Logo', 'write_airtable' ), strpos( $logo_src, 'function clear_airtable' ), strpos( $logo_src, 'function patch_logo' ) ), array( false, false, false ) );
+ck( 'and the card says the files stay in the Media Library, nothing about two places', false !== strpos( method_body( $logo_src, 'render_inner' ), 'The files stay in the Media Library, so anything that already shows them keeps working.' ), true );
 
 // FSPON-5: the card offers Remove only for a logo this site owns, and the handler asks the
-// same question rather than trusting that it did. A nonce minted while the site owned the
-// logo stays valid for its life, and the sponsors sync can set the source back to airtable in
-// between; the PATCH would then empty the base's Logo and destroy the only copy the program
-// holds, under an audit row saying the logo was removed from the program records.
-$patched_before = count( $GLOBALS['patched'] );
+// same question rather than trusting that it did. A nonce minted while the site owned the logo
+// stays valid for its life, and the record can change in between: a second tab or another
+// member may have removed it already, and a row the migration carried over still reads
+// airtable; without this check, Remove would clear a record the site does not own, under an
+// audit row saying it was removed.
 ck( 'Remove pressed with nothing of the site\'s left is refused', ran( 'handle_remove' ), 'logo-not-site|profile|' . $S . '|' );
 WPCPM_Sponsors_Index::write_logo_record( $S, array( 'colour' => $held['colour'], 'white' => $held['white'], 'source' => 'airtable', 'airtable_id' => 'attTESTLOGO00001' ) );
-ck( 'and so is a logo the base owns, however valid the form', ran( 'handle_remove' ), 'logo-not-site|profile|' . $S . '|' );
-ck( 'neither press touched the base', count( $GLOBALS['patched'] ), $patched_before );
-ck( 'and the record the sync wrote is left exactly as it was', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => $held['colour'], 'white' => $held['white'], 'source' => 'airtable', 'airtable_id' => 'attTESTLOGO00001' ) );
+ck( 'and so is a migrated logo, however valid the form', ran( 'handle_remove' ), 'logo-not-site|profile|' . $S . '|' );
+ck( 'and the record a migrated row still holds is left exactly as it was', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => $held['colour'], 'white' => $held['white'], 'source' => 'airtable', 'airtable_id' => 'attTESTLOGO00001' ) );
 // Load-bearing, not tidying: "The card" section below expects to start from an empty record.
 WPCPM_Sponsors_Index::write_logo_record( $S, array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
 
@@ -421,9 +401,10 @@ ck( 'and a preview tile for the half that exists and a note for the one that doe
 	false !== strpos( $html, 'wpcpm-logo__empty' ),
 ), array( 1, true ) );
 ck( 'a site logo offers Remove', false !== strpos( $html, WPCPM_Sponsor_Logo::ACTION_REMOVE ), true );
-// Remove it is the one press that takes the logo off the site and out of the base, so it asks first:
-// the sentence rides on its form as a data-wpcpm-confirm mark, escaped for the attribute, and the
-// upload form beside it, whose whole purpose is the file just chosen, asks nothing.
+// Remove it is the one press that takes the uploaded logo off the site, so it asks first: the sentence
+// rides on its form as a data-wpcpm-confirm mark, escaped for the attribute, and the upload form beside
+// it, whose whole purpose is the file just chosen, asks nothing. The site is the only record of a logo
+// it holds, so the sentence names no other records the logo would go from.
 $remove_form = '';
 
 foreach ( explode( '<form', $html ) as $chunk ) {
@@ -432,11 +413,12 @@ foreach ( explode( '<form', $html ) as $chunk ) {
 	}
 }
 
-ck( 'Remove it asks "Remove the logo you uploaded?" on its form, and that is the only question on the page', array(
-	false !== strpos( (string) strstr( $remove_form, '>', true ), ' data-wpcpm-confirm="' . esc_attr( 'Remove the logo you uploaded? It goes from this site and from the program records. The files stay in the Media Library, so anything that already shows them keeps working.' ) . '"' ),
+ck( 'Remove it asks "Remove the logo you uploaded?" on its form, naming no program records, and that is the only question on the page', array(
+	false !== strpos( (string) strstr( $remove_form, '>', true ), ' data-wpcpm-confirm="' . esc_attr( 'Remove the logo you uploaded? The files stay in the Media Library, so anything that already shows them keeps working.' ) . '"' ),
 	false !== strpos( $remove_form, '>Remove it</button>' ),
 	substr_count( $html, 'data-wpcpm-confirm' ),
-), array( true, true, 1 ) );
+	strpos( $remove_form, 'program records' ),
+), array( true, true, 1, false ) );
 $GLOBALS['uid'] = 1;
 ob_start();
 WPCPM_Sponsor_Logo::render( $S, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) );
@@ -462,6 +444,18 @@ ck( 'the refusal card and the help both state the floor the upload holds', array
 	false !== strpos( $src, 'at least 200 pixels' ),
 ), array( true, true, false ) );
 ck( 'every string a person reads says color', preg_match( '/\bcolour\b/', preg_replace( "/'colour'/", '', $src ) ), 0 );
+ck( 'the upload note no longer promises to replace a program-records logo', strpos( method_body( $src, 'render_inner' ), 'replaces the logo in the program records' ), false );
+ck( 'the three reworded outcomes read as the site alone now', array(
+	WPCPM_Sponsor_Logo::messages()['logo-saved'],
+	WPCPM_Sponsor_Logo::messages()['logo-removed'],
+	WPCPM_Sponsor_Logo::messages()['logo-not-site'],
+), array(
+	array( 'success', 'Your logo is saved.' ),
+	array( 'success', 'Your logo is removed. Upload a new one whenever you like.' ),
+	array( 'error', 'There is no uploaded logo to remove here.' ),
+) );
+ck( 'and the two Airtable-only outcomes are gone', array( isset( WPCPM_Sponsor_Logo::messages()['logo-removed-airtable'] ), isset( WPCPM_Sponsor_Logo::messages()['logo-airtable'] ) ), array( false, false ) );
+ck( 'no Airtable class exists in this suite at all', class_exists( 'WPCPM_Airtable' ), false );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -297,10 +297,10 @@ p.wpcpm-settings__intro {
 	padding-top: 8px;
 }
 
-/* The Overview's waiting list: a link for each queue with something in it, its name and then its
-   count in parentheses, as core's list tables print their views, in a row that wraps onto more lines
-   as the screen narrows. Each link is one chip, so a name and its count read as one line and the
-   whole chip is the link. A queue the list cannot link yet keeps its name and count, without the
+/* The Overview's waiting list: a link for each queue with something in it, its count, set apart, and
+   then its name, as the Administrator Dashboard's strip reads a tile, in a row that wraps onto more
+   lines as the screen narrows. Each link is one chip, so a count and its name read as one line and
+   the whole chip is the link. A queue the list cannot link yet keeps its count and name, without the
    chip. */
 .wpcpm-waiting {
 	display: flex;
@@ -762,4 +762,31 @@ p.wpcpm-settings__intro {
 .wpcpm-app-action__note textarea {
 	max-width: 46em;
 	width: 100%;
+}
+
+/* The sponsor report's editor on the Sponsors screen (1.115.0). A generated section is a table
+   captioned with its heading, which a browser centers and wp-admin stacks against the next table:
+   the caption reads down the left edge, as the card's headings do, close to the table it names and
+   clear of the block before it. A narrative's label sits the same way above its box. */
+.wpcpm-sreport__table {
+	margin: 24px 0 0;
+}
+
+.wpcpm-sreport__table caption {
+	font-size: 14px;
+	font-weight: 600;
+	padding: 0 0 8px;
+	text-align: left;
+}
+
+.wpcpm-sreport__field {
+	margin: 24px 0 0;
+}
+
+.wpcpm-sreport__field p {
+	margin: 0 0 8px;
+}
+
+.wpcpm-sreport__field label {
+	font-weight: 600;
 }

@@ -16,7 +16,10 @@
  * `$GLOBALS['query_result']`, whatever was asked for, so the clash and Join all checks exercise the
  * real rules and the handlers' control flow but say nothing about the queries themselves - whether
  * a reader asks for the right post type, status or meta. Those are proven in
- * `bin/test-group-sessions.php`, whose post model answers a query the way WordPress would.
+ * `bin/test-group-sessions.php`, whose post model answers a query the way WordPress would. A check
+ * that needs one post type answered apart, as the sponsor events' placement on the two calendars
+ * does, lists that type's posts in `$GLOBALS['query_by_type']`, and every other query is answered
+ * as before.
  */
 
 if ( 'cli' !== PHP_SAPI ) {
@@ -46,6 +49,10 @@ $GLOBALS['trans'] = array();
 $GLOBALS['mail']  = array();
 $GLOBALS['caps']  = true;
 $GLOBALS['uid']   = 1;
+$GLOBALS['scripts']    = array();
+$GLOBALS['styles']     = array();
+$GLOBALS['script_src'] = array();
+$GLOBALS['style_src']  = array();
 
 /* ---- WP classes ---------------------------------------------------------- */
 class WP_Error {
@@ -245,17 +252,23 @@ function add_option( $k, $v, $x = '', $a = null ) {
 	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; }
 	$GLOBALS['opts'][ $k ] = $v; return true;
 }
+// The table the sponsor events' and the sponsor reports' locks read their held value from.
+require_once __DIR__ . '/stubs/options-table.php';
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return $GLOBALS['trans'][ $k ] ?? false; }
 function set_transient( $k, $v, $t = 0 ) { $GLOBALS['trans'][ $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['trans'][ $k ] ); return true; }
 function register_post_type( $t, $a = array() ) { return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
-function get_posts( $a = array() ) { $found = $GLOBALS['query_result'] ?? array(); return ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) ? array_map( function ( $p ) { return $p->ID; }, $found ) : $found; }
+function get_posts( $a = array() ) {
+	$type  = isset( $a['post_type'] ) && is_string( $a['post_type'] ) ? $a['post_type'] : '';
+	$found = '' !== $type && isset( $GLOBALS['query_by_type'][ $type ] ) ? $GLOBALS['query_by_type'][ $type ] : ( $GLOBALS['query_result'] ?? array() );
+	return ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) ? array_map( function ( $p ) { return $p->ID; }, $found ) : $found;
+}
 function wp_insert_post( $a, $err = false ) {
 	// An ID no post holds: the highest in the store plus one, from 1000, above every fixture keyed
 	// by hand (they sit below 1000), so a deleted post's slot is never handed out again and no
-	// fixture is overwritten (the review of 1.109.1).
+	// fixture is overwritten.
 	$id = $GLOBALS['posts'] ? max( 1000, max( array_keys( $GLOBALS['posts'] ) ) + 1 ) : 1000;
 	$p = new WP_Post();
 	$p->ID = $id;
@@ -330,7 +343,20 @@ function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] 
 function add_post_meta( $id, $k, $v, $unique = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array(); $rows[] = stripslashes_deep( $v ); $GLOBALS['pmeta'][ (int) $id ][ $k ] = $rows; $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] = true; return true; }
 // When a call was booked: now, unless a check says otherwise in `$GLOBALS['booked_at']`, as the
 // reminder sweep's checks do - a call booked inside the reminder window is not reminded at all.
-function get_post_time( $f, $gmt = false, $p = null ) { return ( is_object( $p ) && isset( $GLOBALS['booked_at'][ $p->ID ] ) ) ? $GLOBALS['booked_at'][ $p->ID ] : time(); }
+function get_post_time( $f, $gmt = false, $p = null, $translate = false ) { return ( is_object( $p ) && isset( $GLOBALS['booked_at'][ $p->ID ] ) ) ? $GLOBALS['booked_at'][ $p->ID ] : time(); }
+// Run again's migration clears a key from every post when it completes.
+function delete_post_meta_by_key( $k ) {
+	$found = false;
+
+	foreach ( array_keys( $GLOBALS['pmeta'] ) as $id ) {
+		if ( array_key_exists( $k, $GLOBALS['pmeta'][ $id ] ) ) {
+			unset( $GLOBALS['pmeta'][ $id ][ $k ], $GLOBALS['pmeta_rows'][ $id ][ $k ] );
+			$found = true;
+		}
+	}
+
+	return $found;
+}
 // Repeated rows go one at a time, the others staying, as WordPress deletes them: taking one student
 // off a session must not take the rest with them.
 function delete_post_meta( $id, $k, $v = '' ) {
@@ -410,10 +436,15 @@ function restore_previous_locale() {
 
 	return true;
 }
-function wp_style_is( $h, $l = 'enqueued' ) { return false; }
-function wp_script_is( $h, $l = 'enqueued' ) { return false; }
-function wp_register_style() {} function wp_register_script() {}
-function wp_enqueue_style() {} function wp_enqueue_script() {}
+// Real enough for enqueue_assets() to prove itself against (1.113.0): a handle's source is
+// recorded whichever call registers it, so a guard asking wp_*_is( $h, 'registered' ) reads
+// what actually ran here rather than a hardcoded no, the way every module's own guard expects.
+function wp_style_is( $h, $l = 'enqueued' ) { return 'registered' === $l ? isset( $GLOBALS['style_src'][ $h ] ) : in_array( $h, $GLOBALS['styles'], true ); }
+function wp_script_is( $h, $l = 'enqueued' ) { return 'registered' === $l ? isset( $GLOBALS['script_src'][ $h ] ) : in_array( $h, $GLOBALS['scripts'], true ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false, $media = 'all' ) { $GLOBALS['style_src'][ $h ] = $src; }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['script_src'][ $h ] = $src; }
+function wp_enqueue_style( $h, $src = '', $deps = array(), $ver = false, $media = 'all' ) { if ( '' !== $src ) { $GLOBALS['style_src'][ $h ] = $src; } $GLOBALS['styles'][] = $h; }
+function wp_enqueue_script( $h, $src = '', $deps = array(), $ver = false, $footer = false ) { if ( '' !== $src ) { $GLOBALS['script_src'][ $h ] = $src; } $GLOBALS['scripts'][] = $h; }
 function add_shortcode() {} function register_block_type() {}
 function shortcode_atts( $d, $a, $s = '' ) { return array_merge( $d, (array) $a ); }
 function has_block() { return false; } function has_shortcode() { return false; }
@@ -2550,6 +2581,20 @@ $_POST = array( 'wpcpm_op' => 'eat', 'wpcpm_tab' => 'accounts' );
 run( 'handle_members (manager, no sponsor named)', array( $sponsors, 'handle_members' ) );
 check( 'handle_members naming no sponsor comes back to the Accounts tab itself', $GLOBALS['redirected_to'], 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
 
+// 1.111.0: Add with no name, Edit of a sponsor the store does not hold, and Run again with
+// nothing held to move: the shortest path to each redirect.
+$_POST = array( 'wpcpm_name' => '' );
+
+run( 'handle_add (manager, no name)', array( $sponsors, 'handle_add' ) );
+
+$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001' );
+
+run( 'handle_edit (manager, sponsor not in the store)', array( $sponsors, 'handle_edit' ) );
+
+$_POST = array();
+
+run( 'handle_migrate (manager, nothing held)', array( $sponsors, 'handle_migrate' ) );
+
 // Capability before nonce, and the nonce before anything else, on every handler of the screen.
 // Each is found by name, so a handler added later is pressed too and has to be named below with
 // the two answers it gives. Each is pressed twice, the nonce failing both times: by a student, who
@@ -2575,18 +2620,21 @@ $expired  = 'The link you followed has expired.';
 // and it answers as a background request is answered: the capability's sentence in a JSON error
 // with a 403, for the script to show, and a failed nonce with check_ajax_referer()'s -1.
 $sponsor_refusals = array(
+	'handle_add'         => array( $no_right, $expired ),
 	'handle_bulk_invite' => array( $no_right, $expired ),
 	'handle_cancel'      => array( $no_right, $expired ),
 	'handle_claim_void'  => array( $no_right, $expired ),
+	'handle_edit'        => array( $no_right, $expired ),
 	'handle_invite'      => array( $no_right, $expired ),
 	'handle_members'     => array( $no_right, $expired ),
+	'handle_migrate'     => array( $no_right, $expired ),
 	'handle_provision'   => array( $no_right, $expired ),
 	'handle_seed'        => array( $no_right, $expired ),
 	'handle_sync'        => array( $no_right, $expired ),
 	'handle_tick'        => array( array( 'success' => false, 'data' => array( 'message' => $no_right ), 'status' => 403 ), '-1' ),
 );
 
-check( 'the screen\'s handlers, each found by name, are the nine named here with their refusals', array_keys( $sponsor_handlers ), array_keys( $sponsor_refusals ) );
+check( 'the screen\'s handlers, each found by name, are the twelve named here with their refusals', array_keys( $sponsor_handlers ), array_keys( $sponsor_refusals ) );
 
 $GLOBALS['nonce_fails'] = true;
 $GLOBALS['grants'][30]  = array( 'read' );
@@ -2657,6 +2705,319 @@ run( 'handle_problem (student, no such offer)', array( 'WPCPM_Sponsor_Tools', 'h
 
 $GLOBALS['caps'] = true;
 
+echo "\n=== WPCPM_Sponsor_Event_Planner (1.117.0) ===\n";
+
+// The Events card's three presses, each to its shortest end. This fixture's sponsors index is empty,
+// so a manager naming a sponsor is refused by the claim and sent back to the Sponsor Dashboard's
+// Events card with the one refusal; with a stale nonce each is stopped on the nonce screen before the
+// claim is asked, and flashes nothing. Plan it now, the button the planner replaced, is gone.
+$GLOBALS['uid']          = 1;
+$GLOBALS['caps']         = true;
+$sevent_results          = $GLOBALS['query_result'] ?? array();
+$GLOBALS['query_result'] = array();
+$_POST                   = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_sevent_id' => 0 );
+$sevent_left             = array();
+$sevent_died             = array();
+
+// The presses above left their own refusal pending on the channel; a page load would have taken it.
+flashed( 1, 'sponsor_dashboard' );
+
+foreach ( array( 'handle_plan', 'handle_change', 'handle_cancel' ) as $sevent_press ) {
+	// A closure, not the array callable: run() takes a callable, and a class that is not there
+	// would end the run there instead of failing this press inside run()'s own guard.
+	run( $sevent_press . ' (manager, sponsor not yet indexed)', function () use ( $sevent_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Planner', $sevent_press ) ); } );
+	$sevent_left[ $sevent_press ] = array( flashed( 1, 'sponsor_dashboard' ), (string) strstr( $GLOBALS['redirected_to'], '#' ) );
+}
+
+$GLOBALS['nonce_fails'] = true;
+
+foreach ( array( 'handle_plan', 'handle_change', 'handle_cancel' ) as $sevent_press ) {
+	run( $sevent_press . ' (a stale nonce)', function () use ( $sevent_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Planner', $sevent_press ) ); } );
+	$sevent_died[ $sevent_press ] = array( $GLOBALS['died_with'], flashed( 1, 'sponsor_dashboard' ) );
+}
+
+$GLOBALS['nonce_fails']  = false;
+$GLOBALS['query_result'] = $sevent_results;
+$sevent_refused          = array( array( 'status' => 'refused', 'card' => 'events', 'detail' => '' ), '#wpcpm-sponsor-events' );
+$sevent_stale            = array( 'The link you followed has expired.', '' );
+
+check( 'each press is refused by the claim and lands on the Events card with the one refusal', $sevent_left, array( 'handle_plan' => $sevent_refused, 'handle_change' => $sevent_refused, 'handle_cancel' => $sevent_refused ) );
+check( 'with a stale nonce each dies on the nonce screen first, and flashes nothing', $sevent_died, array( 'handle_plan' => $sevent_stale, 'handle_change' => $sevent_stale, 'handle_cancel' => $sevent_stale ) );
+check( 'Plan it now, the button the planner replaced, is gone: no handler and no action', array( method_exists( 'WPCPM_Sponsor_Tier_Card', 'handle_plan' ), defined( 'WPCPM_Sponsor_Tier_Card::ACTION_PLAN' ) ), array( false, false ) );
+
+echo "\n=== WPCPM_Sponsor_Event_Queue (1.117.0) ===\n";
+
+// The Events card's three decisions on the Administrator Dashboard, each to its shortest end.
+// With Sponsor tiers off, as this fixture's settings leave it, a manager's press goes back with the
+// switch's own sentence; switched on, an ID the site holds no event under is said as gone. With a
+// stale nonce each is stopped on the nonce screen before the capability is asked, and flashes nothing;
+// with the nonce and without the capability each meets the program's refusal. Each outcome is one the
+// Administrator Dashboard has words for, on its channel.
+$GLOBALS['uid']          = 1;
+$GLOBALS['caps']         = true;
+$queue_results           = $GLOBALS['query_result'] ?? array();
+$GLOBALS['query_result'] = array();
+$queue_settings          = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ?? null;
+$_POST                   = array( 'wpcpm_sevent_id' => 0, 'wpcpm_sevent_note' => 'A note.', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-events' );
+$queue_presses           = array( 'handle_approve', 'handle_return', 'handle_cancel' );
+$queue_left              = array();
+
+// Whatever the presses above left pending on the channel; a page load would have taken it.
+flashed( 1, WPCPM_Institutions::FLASH );
+
+foreach ( $queue_presses as $queue_press ) {
+	// A closure, not the array callable: run() takes a callable, and a class that is not there would
+	// end the run there instead of failing this press inside run()'s own guard.
+	run( $queue_press . ' (manager, Sponsor tiers off)', function () use ( $queue_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $queue_press ) ); } );
+	$queue_left['off'][ $queue_press ] = array( flashed( 1, WPCPM_Institutions::FLASH ), $GLOBALS['redirected_to'] );
+}
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( is_array( $queue_settings ) ? $queue_settings : array(), array( 'sponsor_tiers_live' => true ) );
+
+foreach ( $queue_presses as $queue_press ) {
+	run( $queue_press . ' (manager, no such event)', function () use ( $queue_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $queue_press ) ); } );
+	$queue_left['gone'][ $queue_press ] = array( flashed( 1, WPCPM_Institutions::FLASH ), $GLOBALS['redirected_to'] );
+}
+
+$GLOBALS['caps']        = false;
+$GLOBALS['nonce_fails'] = true;
+
+foreach ( $queue_presses as $queue_press ) {
+	run( $queue_press . ' (no capability, a stale nonce)', function () use ( $queue_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $queue_press ) ); } );
+	$queue_left['stale'][ $queue_press ] = array( $GLOBALS['died_with'], flashed( 1, WPCPM_Institutions::FLASH ) );
+}
+
+$GLOBALS['nonce_fails'] = false;
+
+foreach ( $queue_presses as $queue_press ) {
+	run( $queue_press . ' (no capability)', function () use ( $queue_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $queue_press ) ); } );
+	$queue_left['refused'][ $queue_press ] = array( $GLOBALS['died_with'], flashed( 1, WPCPM_Institutions::FLASH ) );
+}
+
+$GLOBALS['caps'] = true;
+
+if ( null === $queue_settings ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $queue_settings;
+}
+
+$GLOBALS['query_result'] = $queue_results;
+$_POST                   = array();
+$queue_words             = class_exists( 'WPCPM_Sponsor_Event_Queue' ) ? WPCPM_Sponsor_Event_Queue::messages() : array();
+
+check( 'with Sponsor tiers off each decision goes back with the switch\'s sentence, and switched on an ID that is no event is said as gone, each in words the Administrator Dashboard has', array( $queue_left['off'] ?? null, $queue_left['gone'] ?? null, isset( $queue_words['sevent-off'], $queue_words['sevent-gone'] ) ), array(
+	array( 'handle_approve' => array( 'sevent-off', 'https://example.test/' ), 'handle_return' => array( 'sevent-off', 'https://example.test/' ), 'handle_cancel' => array( 'sevent-off', 'https://example.test/' ) ),
+	array( 'handle_approve' => array( 'sevent-gone', 'https://example.test/' ), 'handle_return' => array( 'sevent-gone', 'https://example.test/' ), 'handle_cancel' => array( 'sevent-gone', 'https://example.test/' ) ),
+	true,
+) );
+check( 'a stale nonce stops each on the nonce screen before the capability is asked, and flashes nothing', $queue_left['stale'] ?? null, array( 'handle_approve' => array( 'The link you followed has expired.', '' ), 'handle_return' => array( 'The link you followed has expired.', '' ), 'handle_cancel' => array( 'The link you followed has expired.', '' ) ) );
+check( 'with the nonce and without the capability each meets the program\'s refusal, and flashes nothing', $queue_left['refused'] ?? null, array( 'handle_approve' => array( 'You do not have permission to manage the program.', '' ), 'handle_return' => array( 'You do not have permission to manage the program.', '' ), 'handle_cancel' => array( 'You do not have permission to manage the program.', '' ) ) );
+
+// The program's own three presses on the same card, the plan, the change and the cancel of an event
+// of its own, each to its shortest end: with Sponsor tiers off each goes back with the switch's
+// sentence; switched on, a plan with nothing typed is refused on its fields, and a change or a cancel
+// naming no event is said as gone. With a stale nonce each is stopped on the nonce screen before the
+// capability is asked, and flashes nothing; with the nonce and without the capability each meets the
+// program's refusal. Each outcome is one the Administrator Dashboard has words for, on its channel.
+$GLOBALS['uid']          = 1;
+$GLOBALS['caps']         = true;
+$program_results         = $GLOBALS['query_result'] ?? array();
+$GLOBALS['query_result'] = array();
+$program_settings        = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ?? null;
+$_POST                   = array( 'wpcpm_sevent_id' => 0, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-events' );
+$program_presses         = array( 'handle_program_plan', 'handle_program_change', 'handle_program_cancel' );
+$program_left            = array();
+
+flashed( 1, WPCPM_Institutions::FLASH );
+
+foreach ( $program_presses as $program_press ) {
+	run( $program_press . ' (manager, Sponsor tiers off)', function () use ( $program_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $program_press ) ); } );
+	$program_left['off'][ $program_press ] = array( flashed( 1, WPCPM_Institutions::FLASH ), $GLOBALS['redirected_to'] );
+}
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( is_array( $program_settings ) ? $program_settings : array(), array( 'sponsor_tiers_live' => true ) );
+
+foreach ( $program_presses as $program_press ) {
+	run( $program_press . ' (manager, nothing typed, no such event)', function () use ( $program_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $program_press ) ); } );
+	$program_left['on'][ $program_press ] = array( flashed( 1, WPCPM_Institutions::FLASH ), $GLOBALS['redirected_to'] );
+}
+
+$GLOBALS['caps']        = false;
+$GLOBALS['nonce_fails'] = true;
+
+foreach ( $program_presses as $program_press ) {
+	run( $program_press . ' (no capability, a stale nonce)', function () use ( $program_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $program_press ) ); } );
+	$program_left['stale'][ $program_press ] = array( $GLOBALS['died_with'], flashed( 1, WPCPM_Institutions::FLASH ) );
+}
+
+$GLOBALS['nonce_fails'] = false;
+
+foreach ( $program_presses as $program_press ) {
+	run( $program_press . ' (no capability)', function () use ( $program_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_Queue', $program_press ) ); } );
+	$program_left['refused'][ $program_press ] = array( $GLOBALS['died_with'], flashed( 1, WPCPM_Institutions::FLASH ) );
+}
+
+$GLOBALS['caps'] = true;
+
+if ( null === $program_settings ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $program_settings;
+}
+
+$GLOBALS['query_result'] = $program_results;
+$_POST                   = array();
+$program_words           = class_exists( 'WPCPM_Sponsor_Event_Queue' ) ? WPCPM_Sponsor_Event_Queue::messages() : array();
+
+check( 'the program\'s own presses: with Sponsor tiers off each goes back with the switch\'s sentence; switched on, a plan with nothing typed is refused on its fields and a change or a cancel naming no event is said as gone, each in words the Administrator Dashboard has', array( $program_left['off'] ?? null, $program_left['on'] ?? null, isset( $program_words['sevent-off'], $program_words['sevent-program-fields'], $program_words['sevent-gone'] ) ), array(
+	array( 'handle_program_plan' => array( 'sevent-off', 'https://example.test/' ), 'handle_program_change' => array( 'sevent-off', 'https://example.test/' ), 'handle_program_cancel' => array( 'sevent-off', 'https://example.test/' ) ),
+	array( 'handle_program_plan' => array( 'sevent-program-fields', 'https://example.test/' ), 'handle_program_change' => array( 'sevent-gone', 'https://example.test/' ), 'handle_program_cancel' => array( 'sevent-gone', 'https://example.test/' ) ),
+	true,
+) );
+check( 'a stale nonce stops each of them on the nonce screen before the capability is asked, and flashes nothing', $program_left['stale'] ?? null, array( 'handle_program_plan' => array( 'The link you followed has expired.', '' ), 'handle_program_change' => array( 'The link you followed has expired.', '' ), 'handle_program_cancel' => array( 'The link you followed has expired.', '' ) ) );
+check( 'with the nonce and without the capability each meets the program\'s refusal, and flashes nothing', $program_left['refused'] ?? null, array( 'handle_program_plan' => array( 'You do not have permission to manage the program.', '' ), 'handle_program_change' => array( 'You do not have permission to manage the program.', '' ), 'handle_program_cancel' => array( 'You do not have permission to manage the program.', '' ) ) );
+
+echo "\n=== WPCPM_Sponsor_Event_List (1.117.0) ===\n";
+
+// The two presses of the list the Student Report Card, the Mentor Report Card and the Institution
+// Dashboard draw, each to its shortest end: a lapsed login is told to log in before the nonce is
+// asked; a stale nonce stops each on the nonce screen and flashes nothing; with Sponsor tiers off,
+// as this fixture's settings leave it, each is answered with the program's 403 and flashes nothing;
+// switched on, an ID that is no event is said as gone. The Student Report Card is not published
+// here, so the way back is the front page.
+$list_presses  = array( 'handle_join', 'handle_leave' );
+$list_left     = array();
+$list_settings = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ?? null;
+$_POST         = array( 'wpcpm_sevent_id' => 0, 'wpcpm_sevent_back' => 'student' );
+
+foreach ( $list_presses as $list_press ) {
+	$GLOBALS['uid'] = 0;
+	run( $list_press . ' (logged out)', function () use ( $list_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_List', $list_press ) ); } );
+	$list_left['out'][ $list_press ] = $GLOBALS['died_with'];
+
+	$GLOBALS['uid']         = 30;
+	$GLOBALS['nonce_fails'] = true;
+	run( $list_press . ' (a stale nonce)', function () use ( $list_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_List', $list_press ) ); } );
+	$GLOBALS['nonce_fails']            = false;
+	$list_left['stale'][ $list_press ] = array( $GLOBALS['died_with'], flashed( 30, 'sevent-list' ) );
+
+	run( $list_press . ' (student, Sponsor tiers off)', function () use ( $list_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_List', $list_press ) ); } );
+	$list_left['off'][ $list_press ] = array( $GLOBALS['died_with'], flashed( 30, 'sevent-list' ), $GLOBALS['redirected_to'] );
+}
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( is_array( $list_settings ) ? $list_settings : array(), array( 'sponsor_tiers_live' => true ) );
+
+foreach ( $list_presses as $list_press ) {
+	run( $list_press . ' (student, no such event)', function () use ( $list_press ) { call_user_func( array( 'WPCPM_Sponsor_Event_List', $list_press ) ); } );
+	$list_left['gone'][ $list_press ] = array( flashed( 30, 'sevent-list' ), $GLOBALS['redirected_to'] );
+}
+
+$list_words = class_exists( 'WPCPM_Sponsor_Event_List' ) ? WPCPM_Sponsor_Event_List::messages() : array();
+
+check( 'a lapsed login is told to log in to join or to leave, before the nonce', $list_left['out'] ?? null, array( 'handle_join' => 'Please log in to join an event.', 'handle_leave' => 'Please log in to leave an event.' ) );
+check( 'a stale nonce stops each on the nonce screen, and flashes nothing', $list_left['stale'] ?? null, array( 'handle_join' => array( 'The link you followed has expired.', '' ), 'handle_leave' => array( 'The link you followed has expired.', '' ) ) );
+check( 'with Sponsor tiers off each is answered with the program\'s 403 and flashes nothing, and switched on an ID that is no event is said as gone, in words the list has', array( $list_left['off'] ?? null, $list_left['gone'] ?? null, isset( $list_words['gone'] ) ), array(
+	array( 'handle_join' => array( 'This is not available.', '', '' ), 'handle_leave' => array( 'This is not available.', '', '' ) ),
+	array( 'handle_join' => array( 'gone', 'https://example.test/' ), 'handle_leave' => array( 'gone', 'https://example.test/' ) ),
+	true,
+) );
+
+// Where the calendar draws the list: an approved event of an Approved Champion's, a month away on
+// the real clock, which the store reads here, is the one post each of the two types is answered
+// with; the calendar's own queries find nothing, as before. The list is drawn for the student and
+// the mentor on their own pages, and not for a program manager reading either page.
+$list_results            = $GLOBALS['query_result'] ?? array();
+$GLOBALS['query_result'] = array();
+$list_sponsor            = new WP_Post();
+$list_sponsor->ID        = 790;
+$list_sponsor->post_type = WPCPM_Sponsors_Index::POST_TYPE;
+$list_sponsor->post_status = 'private';
+$list_event              = new WP_Post();
+$list_event->ID          = 791;
+$list_event->post_type   = WPCPM_Sponsor_Event::POST_TYPE;
+$list_event->post_status = 'private';
+$list_event->post_title  = 'Champion webinar';
+$list_event->post_content = 'What the webinar covers.';
+$list_start              = time() + 30 * DAY_IN_SECONDS;
+$GLOBALS['posts'][790]   = $list_sponsor;
+$GLOBALS['posts'][791]   = $list_event;
+$GLOBALS['pmeta'][790]   = array(
+	WPCPM_Sponsors_Index::META_KEY => 'spoAAAA0000000001',
+	WPCPM_Sponsors_Index::META_ROW => array( 'record_id' => 'spoAAAA0000000001', 'name' => 'Champion Example', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '' ),
+);
+$GLOBALS['pmeta'][791]   = array(
+	WPCPM_Sponsor_Event::META_SPONSOR  => 'spoAAAA0000000001',
+	WPCPM_Sponsor_Event::META_START    => $list_start,
+	WPCPM_Sponsor_Event::META_END      => $list_start + HOUR_IN_SECONDS,
+	WPCPM_Sponsor_Event::META_ZONE     => 'UTC',
+	WPCPM_Sponsor_Event::META_MINUTES  => 60,
+	WPCPM_Sponsor_Event::META_PLACES   => 0,
+	WPCPM_Sponsor_Event::META_KIND     => 'co_hosted',
+	WPCPM_Sponsor_Event::META_LINK     => 'https://call.example/champion',
+	WPCPM_Sponsor_Event::META_STATE    => 'approved',
+	WPCPM_Sponsor_Event::META_REVISION => 1,
+);
+$GLOBALS['query_by_type'] = array(
+	WPCPM_Sponsors_Index::POST_TYPE => array( $list_sponsor ),
+	WPCPM_Sponsor_Event::POST_TYPE  => array( $list_event ),
+);
+WPCPM_Sponsors_Index::forget();
+$_GET = array();
+
+/**
+ * One of the two calendars, drawn for one person signed in.
+ *
+ * @param string  $which  `render_student` or `render_mentor`.
+ * @param WP_User $person Whose page it is.
+ * @param int     $uid    Who is signed in.
+ * @return string
+ */
+function list_calendar( $which, WP_User $person, $uid ) {
+	$GLOBALS['uid']  = (int) $uid;
+	$GLOBALS['caps'] = 1 === (int) $uid;
+	ob_start();
+	if ( 'render_student' === $which ) {
+		WPCPM_Call_Calendar::render_student( $person, 1 === (int) $uid );
+	} else {
+		WPCPM_Call_Calendar::render_mentor( $person );
+	}
+	return (string) ob_get_clean();
+}
+
+$list_own_student     = list_calendar( 'render_student', $GLOBALS['users'][30], 30 );
+$list_managed_student = list_calendar( 'render_student', $GLOBALS['users'][30], 1 );
+$list_own_mentor      = list_calendar( 'render_mentor', $GLOBALS['users'][20], 20 );
+$list_managed_mentor  = list_calendar( 'render_mentor', $GLOBALS['users'][20], 1 );
+
+check( 'the student on their own page gets the list once, inside the column pair after the picking column, closing the call section', array(
+	substr_count( $list_own_student, '<section class="wpcpm-sevents" id="wpcpm-sevents">' ),
+	strpos( $list_own_student, 'wpcpm-calls__col--pick' ) < strpos( $list_own_student, '<section class="wpcpm-sevents"' ),
+	'</ul></section></div></section>' === substr( $list_own_student, -31 ),
+	substr_count( $list_own_student, 'name="wpcpm_sevent_id" value="791"' ),
+), array( 1, true, true, 1 ) );
+check( 'a program manager reading the student\'s page gets no list: a Join there would be their own', strpos( $list_managed_student, 'wpcpm-sevents' ), false );
+check( 'the mentor on their own page gets the list once, in the sessions column after the panel, before the availability', array(
+	substr_count( $list_own_mentor, '<section class="wpcpm-sevents" id="wpcpm-sevents">' ),
+	strpos( $list_own_mentor, 'wpcpm-calls__col--sessions' ) < strpos( $list_own_mentor, '<section class="wpcpm-sevents"' ),
+	strpos( $list_own_mentor, '<section class="wpcpm-sevents"' ) < strpos( $list_own_mentor, 'wpcpm-calls__col--availability' ),
+	substr_count( $list_own_mentor, 'name="wpcpm_sevent_back" value="mentor"' ),
+), array( 1, true, true, 1 ) );
+check( 'a program manager viewing the mentor\'s page gets no list either', strpos( $list_managed_mentor, 'wpcpm-sevents' ), false );
+
+unset( $GLOBALS['posts'][790], $GLOBALS['posts'][791], $GLOBALS['pmeta'][790], $GLOBALS['pmeta'][791], $GLOBALS['query_by_type'] );
+WPCPM_Sponsors_Index::forget();
+$GLOBALS['uid']          = 1;
+$GLOBALS['caps']         = true;
+$GLOBALS['query_result'] = $list_results;
+$_POST                   = array();
+
+if ( null === $list_settings ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $list_settings;
+}
+
 echo "\n=== WPCPM_Sponsor_Application (Phase S5) ===\n";
 
 // The public submit as a stranger, with the form switched off (the fixture's settings hold no
@@ -2682,6 +3043,104 @@ $GLOBALS['caps'] = false;
 run( 'handle_approve (no capability)', array( 'WPCPM_Sponsor_Application', 'handle_approve' ) );
 
 $GLOBALS['caps'] = true;
+
+echo "\n=== WPCPM_Sponsor_Report_Files (1.115.0) ===\n";
+
+// A sponsor report's four routes, each to its shortest end, the way the application's are stood in
+// above: the two links for a signed-out visitor, who meets the login form; the four for a manager
+// naming a report the site does not hold; and the two forms without the capability, which meet
+// wp_die() before their nonce. The two forms' outcome has to be one the Sponsors screen has words
+// for, or the manager who pressed is told nothing.
+$GLOBALS['uid']  = 0;
+$GLOBALS['caps'] = false;
+$_GET            = array( WPCPM_Sponsor_Report_Files::ARG_REPORT => 0 );
+$_POST           = array();
+
+foreach ( array( 'handle_download', 'handle_print' ) as $route ) {
+	run( $route . ' (signed out)', array( 'WPCPM_Sponsor_Report_Files', $route ) );
+	check( $route . ' sends a signed-out visitor to the login form', $GLOBALS['redirected_to'], 'https://example.test/wp-login.php' );
+}
+
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+
+foreach ( array( 'handle_download', 'handle_print' ) as $route ) {
+	run( $route . ' (manager, no such report)', array( 'WPCPM_Sponsor_Report_Files', $route ) );
+	check( $route . ' answers a report the site does not hold with the 404', $GLOBALS['died_with'], 'That report is not one this site holds.' );
+}
+
+// The nonce first, before the report is looked up: a request without the link's nonce meets the
+// expired-link page whatever the id names, never a 404 that would tell a report from none.
+$GLOBALS['nonce_fails'] = true;
+
+foreach ( array( 'handle_download', 'handle_print' ) as $route ) {
+	run( $route . ' (manager, no such report, a nonce that fails)', array( 'WPCPM_Sponsor_Report_Files', $route ) );
+	check( $route . ' asks for the nonce before it looks the report up', $GLOBALS['died_with'], 'The link you followed has expired.' );
+}
+
+$GLOBALS['nonce_fails'] = false;
+
+$_POST = array( WPCPM_Sponsor_Report_Files::FIELD_POST => 0 );
+
+foreach ( array( 'handle_upload', 'handle_remove' ) as $form ) {
+	run( $form . ' (manager, no such report)', array( 'WPCPM_Sponsor_Report_Files', $form ) );
+
+	$status = flashed( 1, WPCPM_Sponsors::FLASH );
+
+	check( $form . ' goes back to the Sponsors screen, and says so in words the screen has', array( $GLOBALS['redirected_to'], $status, isset( WPCPM_Sponsors::messages()[ $status ] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=reports', 'sreport-pdf-gone', true ) );
+}
+
+$GLOBALS['caps'] = false;
+
+run( 'handle_upload (no capability)', array( 'WPCPM_Sponsor_Report_Files', 'handle_upload' ) );
+run( 'handle_remove (no capability)', array( 'WPCPM_Sponsor_Report_Files', 'handle_remove' ) );
+
+$GLOBALS['caps'] = true;
+$_GET            = array();
+$_POST           = array();
+
+echo "\n=== WPCPM_Sponsor_Report_Screen (1.115.0) ===\n";
+
+// The Reports card's draft, the editor's four forms and the Tier box's Not a renewal, each to its
+// shortest end: a sponsor the store does not hold, or a report the site does not hold. Each
+// outcome has to be one the Sponsors screen has words for, or the manager who pressed is told
+// nothing. Then the six without the capability and with a nonce that fails, which must meet the
+// capability's refusal: asked second, the person would meet the nonce screen instead.
+WPCPM_Sponsors_Index::forget();
+$GLOBALS['uid']          = 1;
+$GLOBALS['caps']         = true;
+$GLOBALS['query_result'] = array();
+$_POST                   = array( WPCPM_Sponsor_Report_Screen::FIELD_RECORD => 'spoZZZZ0000000099', WPCPM_Sponsor_Report_Screen::FIELD_UNTIL => '2025-09-30' );
+
+foreach ( array( 'handle_draft' => array( '&tab=reports', 'sreport-no-sponsor' ), 'handle_not_renewal' => array( '&tab=sponsors', 'sreport-owed-gone' ) ) as $form => $end ) {
+	run( $form . ' (manager, sponsor not in the store)', array( 'WPCPM_Sponsor_Report_Screen', $form ) );
+
+	$status = flashed( 1, WPCPM_Sponsors::FLASH );
+
+	check( $form . ' goes back to the Sponsors screen, and says so in words the screen has', array( $GLOBALS['redirected_to'], $status, isset( WPCPM_Sponsors::messages()[ $status ] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' . $end[0], $end[1], true ) );
+}
+
+$_POST = array( WPCPM_Sponsor_Report_Files::FIELD_POST => 0 );
+
+foreach ( array( 'handle_save', 'handle_final', 'handle_reopen', 'handle_regenerate' ) as $form ) {
+	run( $form . ' (manager, no such report)', array( 'WPCPM_Sponsor_Report_Screen', $form ) );
+
+	$status = flashed( 1, WPCPM_Sponsors::FLASH );
+
+	check( $form . ' goes back to the Sponsors screen, and says so in words the screen has', array( $GLOBALS['redirected_to'], $status, isset( WPCPM_Sponsors::messages()[ $status ] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=reports', 'sreport-gone', true ) );
+}
+
+$GLOBALS['caps']        = false;
+$GLOBALS['nonce_fails'] = true;
+
+foreach ( array( 'handle_draft', 'handle_save', 'handle_final', 'handle_reopen', 'handle_regenerate', 'handle_not_renewal' ) as $form ) {
+	run( $form . ' (no capability)', array( 'WPCPM_Sponsor_Report_Screen', $form ) );
+	check( $form . ' asks about the capability before the nonce', $GLOBALS['died_with'], 'You do not have permission to manage the program.' );
+}
+
+$GLOBALS['caps']        = true;
+$GLOBALS['nonce_fails'] = false;
+$_POST                  = array();
 
 echo "\n=== WPCPM_Duplicate_Finder (1.102.0) ===\n";
 
@@ -3044,6 +3503,39 @@ check( 'while the question pressed is still refused on its own hours error, and 
 
 unset( $GLOBALS['posts'][ $repair_saved ], $GLOBALS['pmeta'][ $repair_saved ], $GLOBALS['posts'][ $repair_removed ], $GLOBALS['pmeta'][ $repair_removed ] );
 $_POST = array();
+
+echo "\n=== WPCPM_Admin::enqueue_assets() registers the Copy button's script beside the plugin's own (1.113.0) ===\n";
+
+// Every plugin screen already gets wpcpm-admin; the handbook box's Copy button needs
+// assets/js/copy.js too, registered once and enqueued on every plugin screen, since nothing
+// here says in advance which screen holds a Copy button (today, only the Sponsors screen does).
+$admin_assets = new WPCPM_Admin();
+
+$GLOBALS['scripts']    = array();
+$GLOBALS['script_src'] = array();
+$admin_assets->enqueue_assets( 'wpcredits-program_page_wpcpm-sponsors' );
+
+check( 'both scripts are enqueued on a plugin screen, wpcpm-copy registered from assets/js/copy.js at the plugin version',
+	array(
+		in_array( 'wpcpm-admin', $GLOBALS['scripts'], true ),
+		in_array( 'wpcpm-copy', $GLOBALS['scripts'], true ),
+		isset( $GLOBALS['script_src']['wpcpm-copy'] ) ? $GLOBALS['script_src']['wpcpm-copy'] : '',
+	),
+	array( true, true, WPCPM_PLUGIN_URL . 'assets/js/copy.js' ) );
+
+$GLOBALS['scripts']    = array();
+$GLOBALS['script_src'] = array( 'wpcpm-copy' => 'https://example.test/registered-first/copy.js' );
+$admin_assets->enqueue_assets( 'wpcredits-program_page_wpcpm-sponsors' );
+
+check( 'a Copy script something else registered first is enqueued as it is, and not registered again',
+	array( in_array( 'wpcpm-copy', $GLOBALS['scripts'], true ), $GLOBALS['script_src']['wpcpm-copy'] ),
+	array( true, 'https://example.test/registered-first/copy.js' ) );
+
+$GLOBALS['scripts']    = array();
+$GLOBALS['script_src'] = array();
+$admin_assets->enqueue_assets( 'edit.php' );
+
+check( 'a screen outside the plugin gets neither script', $GLOBALS['scripts'], array() );
 
 echo "\n=== Words keep their backslashes ===\n";
 

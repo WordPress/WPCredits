@@ -5,6 +5,11 @@
    under .wpc-sponsor-page and loads both plugin stylesheets on both pages, so nothing below
    redefines a class institution.css owns - the two files would then win on different pages. */
 
+/* The At a glance strip under the header is the Administrator Dashboard's attention strip, and its
+   tiles (.wpcpm-attention__*) are dressed by administrator.css, which this sheet depends on
+   (WPCPM_Sponsors_Dashboard::register_assets()): no tile rule is copied here, so the two strips
+   cannot drift apart. The strip's section is a card of this page and takes the card rhythm below. */
+
 /* The identity header: the logo on the left, the details beside it, aligned at the top as the
    institution's icon and details are. */
 .wpcpm-sponsor__identity { align-items: flex-start; display: flex; gap: 1em; margin: 0 0 1.5em; }
@@ -31,11 +36,43 @@
 .wpcpm-sponsor__card { border-top: 1px solid var( --wpcpm-border ); margin: 2.5em 0 1.25em; padding: 2em 0 0; }
 .wpcpm-sponsor__card:last-of-type { margin-bottom: 0; }
 
-/* The forms. The text controls take the agreement panel's width (.wpcpm-agreement-panel__input). */
+/* A card's row (1.118.0) as the theme draws it (wpcredits-theme 1.29.0), value for value where this
+   sheet's own rhythm allows: after the title one phrase in the voice of a student row's preview,
+   14px/20px ink-60, and a folded card's action beside the row, the card its positioning context.
+   The theme takes a card's line and room off every card of a group, so its action sits 8px down the
+   card; here each card keeps its 2em over the row, so the action sits the same 8px down the row,
+   and inside the row's own 1.25em of side padding and its line. A folded row keeps room for the
+   widest action, Plan an event (120px), and 16px between. The disclosure gives up the 2.5em a group
+   keeps under it, as the theme's groups do: the cards' own margins keep the room between cards, and
+   under 600px the action sits 8px under its row. */
+.wpcpm-sponsor__state { color: #656a71; font-size: 14px; line-height: 20px; }
+.wpcpm-sponsor__card { position: relative; }
+.wpcpm-sponsor__card > .wpcpm-group__disclosure { margin-bottom: 0; }
+.wpcpm-sponsor__row-action { display: flex; margin: 0; position: absolute; right: calc( 1.25em + 1px ); top: calc( 2em + 8px ); }
+.wpcpm-sponsor__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary { padding-right: calc( 1.25em + 136px ); }
+
+/* The action shows only while its card is folded. The card prints it whether it is drawn open or
+   folded, and this one rule, keyed on the disclosure's own state, hides it once the card is open,
+   whatever opened it: a flash, a press on the title, a tile or the action itself. The open card's
+   body is on screen, and an action after it would come last in the reading and focus order while
+   drawn beside the title; display: none takes it out of the accessibility tree as well. A browser
+   without :has() keeps the action visible on an open card, where it links to the card's own top. */
+.wpcpm-sponsor__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-sponsor__row-action { display: none; }
+
+/* Under 600px there is no room beside the row: the action drops 8px under the row it belongs to,
+   and the row takes its room back. */
+@media ( max-width: 600px ) {
+	.wpcpm-sponsor__row-action { margin-top: 8px; position: static; }
+	.wpcpm-sponsor__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary { padding-right: 1.25em; }
+}
+
+/* The forms. The text controls take the agreement panel's width (.wpcpm-agreement-panel__input),
+   the Events card's start time box among them: the theme stretches every control it dresses to
+   this cap, so a type left off the list runs the card's whole width. */
 .wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 1em; }
 /* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
 .wpcpm-sponsor__field .wpcpm-field__required { font-weight: 400; opacity: 0.72; }
-.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
+.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form input[type="time"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
 /* A hint wraps at its control's own width, not the full card - the codes box and the file field
    sit side by side (.wpcpm-offer__file), each now with its own note under it (1.94.6). */
 .wpcpm-sponsor__field .wpcpm-student__note { max-width: 32em; margin-top: 0.25em; }
@@ -44,6 +81,10 @@
 
 /* A sub-heading inside a card: .wpcpm-people__subtitle's margin, the theme's heading size. */
 .wpcpm-sponsor__subheading { margin: 0 0 1em; }
+
+/* The Sponsorship card's lead over what a tier includes (1.123.18), "Everything in Backer, plus:":
+   a line of its own, tight over the list it leads, which keeps its own margin under it. */
+.wpcpm-sponsorship__lead { margin: 0 0 0.25em; }
 
 /* The Usage card's chart (1.96.8): a group of bars per month, one bar per offer, laid out with
    boxes so it takes the card's width at every size, the scale column on the left and the month
@@ -74,6 +115,28 @@
 @media ( max-width: 900px ) {
 	.wpcpm-chart__plot { height: 160px; }
 	.wpcpm-chart__month { padding: 0 8%; }
+}
+
+/* The Usage card's table under the chart has seven columns, more than a phone is wide: open at
+   390px it took the page to 595px (1.123.16). Below 782px it scrolls sideways inside the box the
+   card prints around it, a tab stop and a named region, so the page never widens: the box the
+   Administrator Dashboard's tables with column headers sit in (administrator.css, 1.122.35), value
+   for value at the same width. The box is positioned so that a label inside a scrolled row stays
+   in it. */
+@media ( max-width: 782px ) {
+	.wpcpm-usage__scroll {
+		display: block;
+		overflow-x: auto;
+		position: relative;
+	}
+}
+
+/* The box's focus ring is the plugin's own, as on the Administrator Dashboard's boxes, outside the
+   box, so its own overflow never clips it. Weightless inside `:where()`, so a theme's ring for a
+   tab stop wins. */
+:where( .wpcpm-usage__scroll:focus-visible ) {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
 }
 
 /* The lists. The sponsor's mentor tiles have their own block name, `wpcpm-mentor-tile`: the

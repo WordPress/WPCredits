@@ -1,6 +1,6 @@
 <?php
 /**
- * The Sponsor Dashboard's interests card: what else a sponsor would like to support.
+ * The Sponsor Dashboard's Offer more card: what else a sponsor would like to support.
  *
  * @package WPCreditsProgramManager
  */
@@ -10,17 +10,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Six checkboxes, a list of events, a note: written to the base, mailed to the assigned
- * manager, logged, and kept as history in the base's own `Sponsorship interests` column so
- * the grid holds it without the site owning it (design spec of 4 September 2026, section
- * 5.7). Ceiling five a day per account.
+ * Six checkboxes, a list of events, a note: recorded on the site, mailed to the assigned
+ * manager and logged. The history lives in the sponsor's own record, so the Sponsors screen
+ * holds it without asking anywhere else (design spec of 4 September 2026, section 5.7).
+ * Ceiling five a day per account, shared since 1.112.0 with the tier card's Talk to your program
+ * contact button (WPCPM_Sponsor_Tier_Card), which files its line through `file()` as this card's
+ * form does.
  */
 final class WPCPM_Sponsor_Interests {
 
 	const ACTION_SAVE   = 'wpcpm_sponsor_interest';
 	const CARD          = 'interests';
-	const FIELD_SUPPORT = 'How would you like to support WP Credits?';
-	const FIELD_LOG     = 'Sponsorship interests';
 	const PER_DAY       = 5;
 	const CEILING       = 'sponsor-interest';
 	const MAIL_CONTEXT  = 'sponsor-interest';
@@ -32,7 +32,7 @@ final class WPCPM_Sponsor_Interests {
 	/** The events box holds ten events of the longest a line may be, and the nine line breaks between them. */
 	const MAX_EVENTS_BOX = self::MAX_EVENTS * self::MAX_EVENT_LEN + self::MAX_EVENTS - 1;
 
-	/** The multiple select's choices, as the base spells them. */
+	/** The six choices, spelled exactly as a row's `support` list stores them: renaming one would stop it matching what rows already hold. */
 	const CHOICES = array(
 		'Provide financial support (for program costs)',
 		'Sponsor a member of the WP Credits admin team',
@@ -65,7 +65,7 @@ final class WPCPM_Sponsor_Interests {
 			// The sentence after it says how far over the note is (long_sentence()).
 			'interest-long'    => array( 'error', __( 'Nothing was sent.', 'wpcredits-program-manager' ) ),
 			'interest-ceiling' => array( 'error', __( 'Five a day is the limit. Try again tomorrow.', 'wpcredits-program-manager' ) ),
-			'interest-failed'  => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
+			'interest-failed'  => array( 'error', __( 'Your message could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'          => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -85,7 +85,7 @@ final class WPCPM_Sponsor_Interests {
 	/**
 	 * The form, as `WPCPM_Typed_Text::keep()` names it: one sponsor's interests card.
 	 *
-	 * @param string $record Sponsor record ID.
+	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	private static function typed_form( $record ) {
@@ -96,7 +96,7 @@ final class WPCPM_Sponsor_Interests {
 	 * Keep what a refused message held for the one time the form is drawn again: the two boxes as
 	 * typed, each up to its limit (both are drawn empty), and the choices as ticked.
 	 *
-	 * @param string   $record  Sponsor record ID.
+	 * @param string   $record  Sponsor key.
 	 * @param array    $typed   `events` and `note`, as posted and not yet cleaned.
 	 * @param string[] $choices The ticked choices, matched against `CHOICES`.
 	 */
@@ -112,7 +112,7 @@ final class WPCPM_Sponsor_Interests {
 	}
 
 	/**
-	 * The dated line appended to the base's history.
+	 * The dated line appended to the history the sponsor's row keeps in `interests`.
 	 *
 	 * @param string[] $choices The ticked choices.
 	 * @param string[] $events  The events named.
@@ -153,9 +153,9 @@ final class WPCPM_Sponsor_Interests {
 
 		$record = $claim['record'];
 
-		// An index the site has not read cannot be written back to: the PATCH below would be
+		// An index the site has not read cannot be written back to: the patch below would be
 		// built on nothing (an empty row's blank history), and the append would replace
-		// whatever real history the base holds with one line. A member whose sponsor left the
+		// whatever real history the row holds with one line. A member whose sponsor left the
 		// index still claims (the stamp is well-formed and ungated), so this is the one place
 		// that can catch it.
 		if ( ! is_array( $claim['row'] ) ) {
@@ -234,60 +234,71 @@ final class WPCPM_Sponsor_Interests {
 			self::leave( 'interest-empty', $record );
 		}
 
+		$filed = self::file( $record, $row, $choices, $events, $note, $viewer->display_name, $claim['decision']['ground'] );
+
+		if ( ! $filed['ok'] ) {
+			self::leave( 'interest-failed', $record );
+		}
+
+		// Nobody may be reachable: no manager assigned, an empty sponsor_notify setting, and
+		// no account holding the manage capability. The interest is still on record, but the
+		// sentence told is the true one - it never claims a mailbox that never fired.
+		self::leave( $filed['mailed'] > 0 ? 'interest-sent' : 'interest-unsent', $record );
+	}
+
+	/**
+	 * File one expression of interest: the dated line appended to the history the row keeps in
+	 * `interests` (and the ticked choices written to `support` when there are any), the store
+	 * patched, the sponsor's program manager mailed through `mail_manager()` and the audit row
+	 * written.
+	 *
+	 * The one road every interest takes: this card's form and the tier card's Talk to your program
+	 * contact button (`WPCPM_Sponsor_Tier_Card`) each validate on their own and then end here, so
+	 * the line, the mail and the log cannot drift apart between them (1.112.0). The caller has
+	 * checked the nonce, claimed the sponsor, found its row, taken the ceiling and made sure there
+	 * is something to say.
+	 *
+	 * @param string   $record  Sponsor key.
+	 * @param array    $row     The sponsor's row, as the claim read it.
+	 * @param string[] $choices The ticked choices; none leaves `support` as the row holds it.
+	 * @param string[] $events  The events named.
+	 * @param string   $note    The note, as the cleaner left it, with its line breaks.
+	 * @param string   $who     The display name of the person filing it.
+	 * @param string   $ground  The ground the claim decided on, for the audit row.
+	 * @param string   $today   The line's date, `Y-m-d`, or '' for today (`wp_date()`).
+	 * @return array `ok` (false when the store refused the write; nothing is then mailed or
+	 *               logged), `mailed` (how many were sent) and `line` (the dated line, as the
+	 *               history holds it).
+	 */
+	public static function file( $record, array $row, array $choices, array $events, $note, $who, $ground, $today = '' ) {
 		// Two forms of the one dated line. The history holds one line per message, and the card
 		// lists it line by line, so there the note's white space is folded as the one-line
 		// cleaner folds it (each run of line breaks, tabs and spaces one space), and the text is
 		// kept as the cleaner stored it, as every line before it was. The mail carries the note as
 		// it was typed: its lines, and the characters the cleaner wrote as entities, which the mail
 		// reads back once, as it reads every value (`WPCPM_Mail_Templates::fill()`).
-		$date = wp_date( 'Y-m-d' );
-		$line = self::line( $choices, $events, (string) preg_replace( '/[\r\n\t ]+/', ' ', $note ), $viewer->display_name, $date );
-		$said = self::line( $choices, $events, $note, $viewer->display_name, $date );
+		$date = '' !== $today ? $today : wp_date( 'Y-m-d' );
+		$line = self::line( $choices, $events, (string) preg_replace( '/[\r\n\t ]+/', ' ', (string) $note ), $who, $date );
+		$said = self::line( $choices, $events, $note, $who, $date );
 
-		$table    = (string) WPCPM_Settings::get_value( 'sponsors_table', '' );
-		$airtable = new WPCPM_Airtable();
-		$live     = $airtable->get_record( $table, $record );
-
-		// A stale index, or a manager's own edit in the Airtable grid since the last sync,
-		// would otherwise be overwritten by the append below: the base's current value is read
-		// right before the PATCH is built, so the index's copy is no longer the source for the
-		// append. A history that cannot even be read is a history that must not be guessed at.
-		if ( is_wp_error( $live ) ) {
-			self::leave( 'interest-failed', $record );
-		}
-
-		$history = ( is_array( $live ) && isset( $live['fields'] ) )
-			? trim( (string) WPCPM_Airtable::flatten( isset( $live['fields'][ self::FIELD_LOG ] ) ? $live['fields'][ self::FIELD_LOG ] : '' ) )
-			: '';
-		$cells   = array( self::FIELD_LOG => '' === $history ? $line : $history . "\n" . $line );
+		// The history on the row the claim just read. The store is the only copy of it, so there
+		// is no fresher one to fetch before appending to it.
+		$history = trim( (string) $row['interests'] );
+		$patch   = array( 'interests' => '' === $history ? $line : $history . "\n" . $line );
 
 		// The multiple select is written only when something was ticked: unticking everything
-		// is not a way to erase what the base already holds.
-		if ( ! empty( $choices ) ) {
-			$cells[ self::FIELD_SUPPORT ] = $choices;
-		}
-
-		$written = $airtable->update_records(
-			$table,
-			array(
-				array(
-					'id'     => $record,
-					'fields' => $cells,
-				),
-			)
-		);
-
-		if ( is_wp_error( $written ) ) {
-			self::leave( 'interest-failed', $record );
-		}
-
-		$patch = array( 'interests' => $cells[ self::FIELD_LOG ] );
-
+		// is not a way to erase what the row already holds.
 		if ( ! empty( $choices ) ) {
 			$patch['support'] = $choices;
 		}
 
-		WPCPM_Sponsors_Index::patch( $record, $patch );
+		if ( ! WPCPM_Sponsors_Index::patch( $record, $patch ) ) {
+			return array(
+				'ok'     => false,
+				'mailed' => 0,
+				'line'   => $line,
+			);
+		}
 
 		$sponsor = '' === trim( $row['name'] ) ? $record : trim( $row['name'] );
 		$build   = static function () use ( $sponsor, $said ) {
@@ -308,8 +319,8 @@ final class WPCPM_Sponsor_Interests {
 				'kind'     => self::LOG_KIND,
 				'sponsor'  => $record,
 				'subject'  => $record,
-				'actor'    => (int) $viewer->ID,
-				'ground'   => $claim['decision']['ground'],
+				'actor'    => get_current_user_id(),
+				'ground'   => $ground,
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				'message'  => $line,
 				'data'     => array(
@@ -320,16 +331,17 @@ final class WPCPM_Sponsor_Interests {
 			)
 		);
 
-		// Nobody may be reachable: no manager assigned, an empty sponsor_notify setting, and
-		// no account holding the manage capability. The interest is still on record, but the
-		// sentence told is the true one - it never claims a mailbox that never fired.
-		self::leave( $mailed > 0 ? 'interest-sent' : 'interest-unsent', $record );
+		return array(
+			'ok'     => true,
+			'mailed' => (int) $mailed,
+			'line'   => $line,
+		);
 	}
 
 	/**
 	 * Mail the sponsor's assigned program manager, or every manager when none is assigned.
 	 *
-	 * @param string   $record  Sponsor record ID.
+	 * @param string   $record  Sponsor key.
 	 * @param callable $build   The mail builder `WPCPM_Mail::send()` takes.
 	 * @param string   $context The mail log's context; this card's own by default. Every other mail
 	 *                          to a sponsor's manager routes through here under its own: the
@@ -356,9 +368,12 @@ final class WPCPM_Sponsor_Interests {
 	}
 
 	/**
-	 * The card.
+	 * The card, Offer more: a noun for a title among the page's nouns, where a question stood (the
+	 * design the owner approved on 27 September 2026), and what the card is for as its row's phrase.
+	 * Folded until a flash names it; while it is folded Tell us follows the fold, a link to the card,
+	 * whose form comes first, naming for a screen reader what it tells.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
@@ -373,12 +388,19 @@ final class WPCPM_Sponsor_Interests {
 			return isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : '';
 		};
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'What else would you like to support?', 'wpcredits-program-manager' )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'    => self::CARD,
+				'title'  => __( 'Offer more', 'wpcredits-program-manager' ),
+				'open'   => $open,
+				'state'  => __( 'Tell the program what else you would support', 'wpcredits-program-manager' ),
+				'action' => array(
+					'label'   => __( 'Tell us', 'wpcredits-program-manager' ),
+					/* translators: read after "Tell us" by a screen reader alone. */
+					'context' => __( 'what more your company would offer', 'wpcredits-program-manager' ),
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
 
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
@@ -449,7 +471,7 @@ final class WPCPM_Sponsor_Interests {
 			echo '</ul>';
 		}
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**

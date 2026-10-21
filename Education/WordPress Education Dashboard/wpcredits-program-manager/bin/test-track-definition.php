@@ -7,6 +7,10 @@
  * rule gives. What the rules must never refuse - the four original tracks' seeds and the forms
  * they compile to - is held in bin/test-track-definitions.php and bin/test-report-form.php.
  *
+ * The partners' narrative is a property of its own: text, trimmed, each line break one character,
+ * and gone when empty; measured by the save's rule alone, never by `validate()`, which every compile
+ * runs; and never in the compiled row, which the autoloaded index holds.
+ *
  * Run from the plugin root:  php bin/test-track-definition.php
  */
 
@@ -17,6 +21,7 @@ if ( 'cli' !== PHP_SAPI ) {
 define( 'ABSPATH', __DIR__ . '/' );
 
 function __( $s, $d = null ) { return $s; }
+function _n( $single, $plural, $number, $d = null ) { return 1 === (int) $number ? $single : $plural; }
 function wp_json_encode( $v, $o = 0 ) { return json_encode( $v, $o ); }
 function wp_slash( $v ) { return is_array( $v ) ? array_map( 'wp_slash', $v ) : addslashes( (string) $v ); }
 function wp_unslash( $v ) { return is_array( $v ) ? array_map( 'wp_unslash', $v ) : stripslashes( (string) $v ); }
@@ -36,6 +41,16 @@ function ck( $label, $got, $want ) {
 	global $fails, $total;
 
 	++$total;
+
+	// A check may hand over a closure, so a method or a constant this version lacks fails that one
+	// check rather than ending the run, as bin/test-sponsor-events.php's checks do.
+	if ( $got instanceof Closure ) {
+		try {
+			$got = $got();
+		} catch ( Throwable $e ) {
+			$got = 'threw ' . get_class( $e ) . ': ' . $e->getMessage();
+		}
+	}
 
 	if ( $got === $want ) {
 		printf( "ok   %s\n", $label );
@@ -112,10 +127,13 @@ ck( 'and passes with no context at all', WPCPM_Track_Definition::validate( valid
 echo "\n=== The track's rules, one at a time ===\n";
 
 ck( 'a property this version does not know', refused( function ( &$d ) { $d['colour'] = 'red'; }, $context ), array( 'unknown_property' ) );
-ck( 'a sponsors property, written by a later version, is kept and not refused', refused( function ( &$d ) { $d['sponsors'] = array( 'acme' ); }, $context ), array() );
-ck( 'normalize() leaves that property as it was', WPCPM_Track_Definition::normalize( valid() + array( 'sponsors' => array( 'acme' ) ) )['sponsors'], array( 'acme' ) );
-ck( 'a partners_narrative property, written by a later version, is kept and not refused', refused( function ( &$d ) { $d['partners_narrative'] = "Two lines\nof text"; }, $context ), array() );
-ck( 'normalize() leaves a partners_narrative property as it was, its line break included', WPCPM_Track_Definition::normalize( valid() + array( 'partners_narrative' => "Two lines\nof text" ) )['partners_narrative'], "Two lines\nof text" );
+// The partners are this version's own property, never the unknown one above, which would leave the
+// track out of every compile: a list this version's rules accept passes, and normalize() keeps it.
+ck( 'a sponsors property is one this version knows: a sponsor key there is kept and not refused', refused( function ( &$d ) { $d['sponsors'] = array( 'spoAAAA0000000001' ); }, $context ), array() );
+ck( 'normalize() leaves that property as it was', WPCPM_Track_Definition::normalize( valid() + array( 'sponsors' => array( 'spoAAAA0000000001' ) ) )['sponsors'], array( 'spoAAAA0000000001' ) );
+// So is the partners' narrative, and validate() asks nothing of it: its length is the save's rule
+// alone (below), since a refusal here would leave a published track out of every compile.
+ck( 'a partners_narrative property is one this version knows: text there is kept and not refused', refused( function ( &$d ) { $d['partners_narrative'] = 'Twelve students joined the track this term.'; }, $context ), array() );
 ck( 'a schema version the site does not read', refused( function ( &$d ) { $d['schema_version'] = 2; }, $context ), array( 'schema_version' ) );
 ck( 'no status', refused( function ( &$d ) { $d['status'] = ''; }, $context ), array( 'status_empty' ) );
 ck( 'a status over 100 characters', refused( function ( &$d ) { $d['status'] = str_repeat( 'a', 101 ); }, $context ), array( 'status_shape' ) );
@@ -213,6 +231,19 @@ ck( 'a course ID that is not a whole number', array( refused( function ( &$d ) {
 ck( 'an hours target that is not a whole number of hours', array( refused( function ( &$d ) { $d['hours_target'] = -5; }, $context ), refused( function ( &$d ) { $d['hours_target'] = '150'; }, $context ) ), array( array( 'hours_target' ), array( 'hours_target' ) ) );
 ck( 'no hours target is a track that counts none, and 0 says the same', array( refused( function ( &$d ) { unset( $d['hours_target'] ); }, $context ), refused( function ( &$d ) { $d['hours_target'] = 0; }, $context ) ), array( array(), array() ) );
 ck( 'a hue outside the palette, a reserved one included, or none', array( refused( function ( &$d ) { $d['hue'] = 'slate'; }, $context ), refused( function ( &$d ) { unset( $d['hue'] ); }, $context ) ), array( array( 'hue' ), array( 'hue' ) ) );
+ck( 'a track\'s partners, each a sponsor key, the migrated and the minted shape both', refused( function ( &$d ) { $d['sponsors'] = array( 'spoAAAA0000000001', 'recSEED0000000001' ); }, $context ), array() );
+ck( 'partners that are not a list at all', refused( function ( &$d ) { $d['sponsors'] = 'spoAAAA0000000001'; }, $context ), array( 'sponsors_shape' ) );
+ck( 'a partner that is not a string', refused( function ( &$d ) { $d['sponsors'] = array( 'spoAAAA0000000001', 7 ); }, $context ), array( 'sponsors_shape' ) );
+ck( 'a partner that is not a sponsor key', refused( function ( &$d ) { $d['sponsors'] = array( 'notakey' ); }, $context ), array( 'sponsors_key' ) );
+ck( 'the same sponsor named twice, before normalize() dedupes it', refused( function ( &$d ) { $d['sponsors'] = array( 'spoAAAA0000000001', 'spoAAAA0000000001' ); }, $context ), array( 'sponsors_repeat' ) );
+$deduped              = valid();
+$deduped['sponsors']  = array( 'spoAAAA0000000001', 'spoAAAA0000000001' );
+ck( 'and clean once normalize() dedupes it first', codes( WPCPM_Track_Definition::validate( WPCPM_Track_Definition::normalize( $deduped ), $context ) ), array() );
+$eleven = array();
+for ( $i = 1; $i <= 11; $i++ ) {
+	$eleven[] = 'spoAAAA' . str_pad( (string) $i, 10, '0', STR_PAD_LEFT );
+}
+ck( 'more than ten partners: a track is a partnership, not a listing', refused( function ( &$d ) use ( $eleven ) { $d['sponsors'] = $eleven; }, $context ), array( 'sponsors_count' ) );
 ck( 'questions that are not a list of questions', refused( function ( &$d ) { $d['questions'] = 'none'; }, $context ), array( 'questions_shape' ) );
 ck( 'an empty form is a blank track, not an error', refused( function ( &$d ) { $d['questions'] = array(); }, $context ), array() );
 
@@ -295,6 +326,27 @@ $unset['questions']['Company ']['required'] = null;
 ck( 'and so is a flag that is null', array_key_exists( 'required', WPCPM_Track_Definition::normalize( $unset )['questions']['Company '] ), false );
 ck( 'and the questions keep their order', array_keys( $clean['questions'] ), array_keys( valid()['questions'] ) );
 ck( 'normalizing twice changes nothing', WPCPM_Track_Definition::normalize( $clean ), $clean );
+$empty_sponsors             = valid();
+$empty_sponsors['sponsors'] = array();
+ck( 'an empty partner list is no partners, and is stored as nothing, the way an empty hours target is', array_key_exists( 'sponsors', WPCPM_Track_Definition::normalize( $empty_sponsors ) ), false );
+$gappy             = valid();
+$gappy['sponsors'] = array( 3 => 'spoAAAA0000000001' );
+ck( 'and a partner list with holes is reindexed to the keys it holds', WPCPM_Track_Definition::normalize( $gappy )['sponsors'], array( 'spoAAAA0000000001' ) );
+$told                       = valid();
+$told['partners_narrative'] = "  First line.\r\nSecond line.\rThird line.\n\n";
+ck( 'a partners\' narrative is trimmed and every line break kept as one newline, whichever the browser posted, and normalizing it again changes nothing',
+	array( WPCPM_Track_Definition::normalize( $told )['partners_narrative'], WPCPM_Track_Definition::normalize( WPCPM_Track_Definition::normalize( $told ) ) === WPCPM_Track_Definition::normalize( $told ) ),
+	array( "First line.\nSecond line.\nThird line.", true ) );
+$kept_or_not = array();
+foreach ( array( '', " \r\n\t ", null, array( 'Not', 'text' ) ) as $narrative ) {
+	$given                       = valid();
+	$given['partners_narrative'] = $narrative;
+	$normalized                  = WPCPM_Track_Definition::normalize( $given );
+	$kept_or_not[]               = array_key_exists( 'partners_narrative', $normalized ) ? $normalized['partners_narrative'] : 'none';
+}
+ck( 'an empty narrative, one of spaces and line breaks alone, or a null one is no narrative, stored as nothing the way an empty hours target is; one that is not text is left as it is, for the save\'s rule to refuse',
+	$kept_or_not,
+	array( 'none', 'none', 'none', array( 'Not', 'text' ) ) );
 
 echo "\n=== Storage ===\n";
 
@@ -322,7 +374,15 @@ ck( 'and none of the three properties the form never sees', $left, array() );
 ck( 'the institution flag stays: the form reads it', $fields['Alumni program: personal email']['hide_from_institution'], true );
 ck( 'everything else of a question comes through untouched', $fields['Practical: Campaign Brief - Channel'], array( 'label' => 'The channel you chose', 'type' => 'select', 'group' => 'project', 'options' => array( 'Newsletter', 'Social', 'Blog' ), 'row' => 'brief', 'stack' => true ) );
 
-ck( 'the compiled row the program map reads', WPCPM_Track_Definition::row( valid(), 42 ), array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 'course_id' => 500001, 'hours' => 120, 'hue' => 'cyan', 'automation' => false, 'post' => 42 ) );
+ck( 'the compiled row the program map reads, no partners named', WPCPM_Track_Definition::row( valid(), 42 ), array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 'course_id' => 500001, 'hours' => 120, 'hue' => 'cyan', 'sponsors' => array(), 'automation' => false, 'post' => 42 ) );
+$partnered             = valid();
+$partnered['sponsors'] = array( 'spoAAAA0000000001', 'recSEED0000000001' );
+ck( 'and carrying its partners when it has them', WPCPM_Track_Definition::row( $partnered, 42 )['sponsors'], array( 'spoAAAA0000000001', 'recSEED0000000001' ) );
+$narrated                       = valid();
+$narrated['partners_narrative'] = trim( str_repeat( 'Our partners funded the track\'s mentors this term. ', 90 ) );
+ck( 'a track with a partners\' narrative is accepted, and compiles to the very row it would without one: the index holding the row is autoloaded, and the narrative never reaches it',
+	array( codes( WPCPM_Track_Definition::validate( $narrated, $context ) ), WPCPM_Track_Definition::row( $narrated, 42 ) === WPCPM_Track_Definition::row( valid(), 42 ) ),
+	array( array(), true ) );
 $bare = valid();
 unset( $bare['hours_target'], $bare['course_url'], $bare['learn_course_id'] );
 $row = WPCPM_Track_Definition::row( $bare, '7', 1 );
@@ -367,6 +427,42 @@ ck( 'the rule reads the column verbatim, as the hours box does: hours in lower c
 ck( 'and validate() does not ask it, since compile() runs validate() on every published track and would leave one out',
 	array( refused( function ( &$d ) use ( $lab ) { $d = $lab; }, $context ), refused( function ( &$d ) use ( $elsewhere ) { $d = $elsewhere; }, $context ) ),
 	array( array(), array() ) );
+
+echo "\n=== The partners' narrative, which check() asks and compile() does not ===\n";
+
+/** What the narrative rule refused, as codes, of a copy of the valid definition holding this narrative. */
+function narrative_refusals( $narrative ) {
+	$definition                       = valid();
+	$definition['partners_narrative'] = $narrative;
+
+	return codes( WPCPM_Track_Definition::check_narrative( $definition ) );
+}
+
+ck( 'a narrative holds at most five thousand characters, the sponsor report\'s own cap on a narrative', function () { return WPCPM_Track_Definition::MAX_NARRATIVE; }, 5000 );
+ck( 'no narrative at all passes, and so do five thousand characters, counted as characters rather than bytes',
+	function () { return array( codes( WPCPM_Track_Definition::check_narrative( valid() ) ), narrative_refusals( str_repeat( "\u{00E9}", 5000 ) ) ); },
+	array( array(), array() ) );
+ck( 'while one more is refused', function () { return narrative_refusals( str_repeat( 'a', 5001 ) ); }, array( 'narrative_shape' ) );
+// The box stops at five thousand as the browser counts, a line break once, and posts each break as
+// two characters: measured as posted, a text the box allowed would be refused.
+ck( 'a line break counts once, as the box counts it, though the browser posts it as two characters: five thousand pass, one more does not',
+	function () { return array( narrative_refusals( str_repeat( 'a', 4000 ) . str_repeat( "\r\n", 999 ) . 'b' ), narrative_refusals( str_repeat( 'a', 4001 ) . str_repeat( "\r\n", 999 ) . 'b' ) ); },
+	array( array(), array( 'narrative_shape' ) ) );
+ck( 'a narrative that is not text is refused too', function () { return narrative_refusals( array( 'A line.' ) ); }, array( 'narrative_shape' ) );
+ck( 'saying what a narrative may be, in the words the track\'s page shows',
+	function () { return WPCPM_Track_Definition::check_narrative( array( 'partners_narrative' => str_repeat( 'a', 5001 ) ) ); },
+	array( array( 'code' => 'narrative_shape', 'where' => '', 'message' => 'The partners\' narrative must be text of at most 5000 characters.' ) ) );
+ck( 'and validate() asks neither, since compile() runs validate() on every published track and would leave one out',
+	array( refused( function ( &$d ) { $d['partners_narrative'] = str_repeat( 'a', 6000 ); }, $context ), refused( function ( &$d ) { $d['partners_narrative'] = array( 'Not text' ); }, $context ) ),
+	array( array(), array() ) );
+ck( 'narrative() reads a definition\'s text, and none from a definition without one, from no definition at all, or from a value that is not text',
+	function () use ( $narrated ) {
+		$listed                       = valid();
+		$listed['partners_narrative'] = array( 'Not', 'text' );
+
+		return array( WPCPM_Track_Definition::narrative( $narrated ), WPCPM_Track_Definition::narrative( valid() ), WPCPM_Track_Definition::narrative( null ), WPCPM_Track_Definition::narrative( $listed ) );
+	},
+	array( $narrated['partners_narrative'], '', '', '' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

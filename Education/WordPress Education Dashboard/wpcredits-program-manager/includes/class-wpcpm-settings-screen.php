@@ -743,9 +743,8 @@ class WPCPM_Settings_Screen {
 	 * The Connection tab: where the four tools keep their settings, how the plugin reaches Airtable,
 	 * and which table of the base holds what.
 	 *
-	 * The tutors, feedback, countries and sponsors tables and the name columns of the last two are
-	 * drawn here for the first time: they had no control, and a change to the base meant a change
-	 * to code.
+	 * The tutors, feedback and countries tables and the countries name column are drawn here for the
+	 * first time: they had no control, and a change to the base meant a change to code.
 	 *
 	 * @param array $settings Current settings.
 	 */
@@ -812,9 +811,6 @@ class WPCPM_Settings_Screen {
 		WPCPM_Settings_Rows::select_row( 'feedback_table', __( 'Feedback table', 'wpcredits-program-manager' ), $settings['feedback_table'], $tables, __( 'Where the students\' survey answers are written: one row per student, with a column per question.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'countries_table', __( 'Countries table', 'wpcredits-program-manager' ), $settings['countries_table'], $tables, __( 'Read for the name of each institution\'s country and the Administrator who looks after it.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'countries_name_field', __( 'Countries name column', 'wpcredits-program-manager' ), $settings['countries_name_field'], self::name_columns( $settings['countries_table'] ), __( 'The column of the Countries table that holds each country\'s name.', 'wpcredits-program-manager' ), WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['countries_table'] ) ) );
-		WPCPM_Settings_Rows::select_row( 'team_members_table', __( 'Team Members table', 'wpcredits-program-manager' ), $settings['team_members_table'], $tables, __( 'Read by the sponsors sync for each sponsor\'s program contact, and not the Contribution areas table above.', 'wpcredits-program-manager' ), $by_id );
-		WPCPM_Settings_Rows::select_row( 'sponsors_table', __( 'Sponsors table', 'wpcredits-program-manager' ), $settings['sponsors_table'], $tables, __( 'Read by the sponsors sync, and written to whenever a sponsor\'s record changes on this site, from an approved application to a new logo.', 'wpcredits-program-manager' ), $by_id );
-		WPCPM_Settings_Rows::select_row( 'sponsors_name_field', __( 'Sponsors name column', 'wpcredits-program-manager' ), $settings['sponsors_name_field'], self::name_columns( $settings['sponsors_table'] ), __( 'The column of the Sponsors table that holds each company\'s name, read by the sponsors sync and by the mentors sync.', 'wpcredits-program-manager' ), WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['sponsors_table'] ) ) );
 
 		$this->close_section();
 	}
@@ -822,9 +818,9 @@ class WPCPM_Settings_Screen {
 	/**
 	 * The choices of a name column whose table is chosen from the base's list, which stores the
 	 * table's ID: None first, which saves the setting blank, then the table's columns. A blank is read
-	 * as a column of the reader's own, the institutions sync's Name, the countries' Name and the
-	 * sponsors sync's Company Name, and the mentors sync, which reads the Institutions and Sponsors
-	 * tables' names too, reads the table's primary column, which it knows by the table's ID.
+	 * as a column of the reader's own, the institutions sync's Name and the countries' Name, and the
+	 * mentors sync, which reads the Institutions table's names too, reads the table's primary column,
+	 * which it knows by the table's ID.
 	 *
 	 * A table stored by its name, as a typed one could be before the tables were chosen from a list,
 	 * has no primary column the mentors sync can find: it asks for the name column itself, and a
@@ -1040,8 +1036,9 @@ class WPCPM_Settings_Screen {
 
 		// Read by a person on the settings screen, so it says the cadence outright and had to move
 		// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's, half
-		// an hour behind it. It names the three syncs the switch governs, since a manager cannot tell
-		// which from the label, and the sponsors sync, which runs regardless.
+		// an hour behind it. It names the syncs the switch governs, since a manager cannot tell which
+		// from the label; since 1.111.0, when the sponsor record moved onto the site, they are every
+		// sync the plugin runs.
 		//
 		// The WordPress.org profile reads are the *students* run's, phase 2, where a mentor's card is
 		// built (`WPCPM_Students_Sync`); the mentors run makes no WordPress.org request at all, it
@@ -1053,7 +1050,7 @@ class WPCPM_Settings_Screen {
 			esc_html( $auto_sync ),
 			checked( ! empty( $settings['auto_sync'] ), true, false ),
 			esc_html__( 'Read Airtable on a schedule', 'wpcredits-program-manager' ),
-			esc_html__( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.', 'wpcredits-program-manager' )
+			esc_html__( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $auto_sync, __( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.', 'wpcredits-program-manager' ) );
 
@@ -1395,7 +1392,7 @@ class WPCPM_Settings_Screen {
 				: ''
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Sponsors screen and on the Administrator Dashboard, and nothing becomes a sponsor until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 
@@ -1420,7 +1417,7 @@ class WPCPM_Settings_Screen {
 
 		$this->open_section(
 			__( 'When a sponsor is no longer Approved', 'wpcredits-program-manager' ),
-			__( 'What the sync does with the accounts of a sponsor whose Airtable status is no longer Approved.', 'wpcredits-program-manager' ),
+			__( 'What a change of status on the Sponsors screen does with the accounts of a sponsor that is no longer Approved.', 'wpcredits-program-manager' ),
 			'when-a-sponsor-is-no-longer-approved'
 		);
 
@@ -1443,7 +1440,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Leave their access in place', 'wpcredits-program-manager' ),
 			esc_html__( 'Nothing is ever deleted, and Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $its_accounts, __( 'Airtable\'s Status is the record: choose the other answer to have the sync remove the accounts from any sponsor whose Status is no longer Approved.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $its_accounts, __( 'The status is the record: choose the other answer to have a status change on the Sponsors screen remove the accounts of a sponsor that is no longer Approved.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 
@@ -1463,7 +1460,7 @@ class WPCPM_Settings_Screen {
 			__( 'Who is mailed', 'wpcredits-program-manager' ),
 			isset( $settings['sponsor_notify'] ) ? (string) $settings['sponsor_notify'] : '',
 			__( 'Addresses mailed in place of a sponsor\'s Administrator when it has none; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
-			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes and a warning that its codes are running low go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.', 'wpcredits-program-manager' )
+			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes, a warning that its codes are running low, the mail thirty days before its term ends and the mails about the events it plans, changes or cancels go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1474,14 +1471,14 @@ class WPCPM_Settings_Screen {
 			'offers'
 		);
 
-		// The sync's copies, the sponsors' own uploads and the logos sent with an application all go
-		// through `WPCPM_Image_Upload`, which holds each to this size.
+		// The sponsors' own uploads and the logos sent with an application both go through
+		// `WPCPM_Image_Upload`, which holds each to this size.
 		printf(
 			'<tr><th scope="row"><label for="logo_max_kb">%1$s</label></th><td><input type="number" min="100" max="8192" step="1" id="logo_max_kb" name="logo_max_kb" value="%2$d" /> %3$s<p class="description">%4$s</p></td></tr>',
 			esc_html__( 'Largest logo', 'wpcredits-program-manager' ),
 			isset( $settings['logo_max_kb'] ) ? (int) $settings['logo_max_kb'] : 1024,
 			esc_html__( 'KB', 'wpcredits-program-manager' ),
-			esc_html__( 'Applies to the logos the sync copies from Airtable, the ones sponsors upload and the ones sent with an application: PNG, JPEG and WebP only, never SVG.', 'wpcredits-program-manager' )
+			esc_html__( 'Applies to the logos sponsors upload and the ones sent with an application: PNG, JPEG and WebP only, never SVG.', 'wpcredits-program-manager' )
 		);
 
 		$sponsor_tools = __( 'Tools from our sponsors', 'wpcredits-program-manager' );
@@ -1507,6 +1504,57 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'When a pool of one-time codes falls below this many, the sponsor and its Administrator are mailed once.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $low_stock, __( 'This is the default for new offers; each offer can set its own.', 'wpcredits-program-manager' ) );
+
+		$this->close_section();
+
+		$this->render_tier_settings( $settings );
+	}
+
+	/**
+	 * The Sponsors tab's last section: the switch that launches the sponsor tiers
+	 * (`WPCPM_Sponsor_Tiers::live()`), and the grace date the daily run waits for (`grace_until()`).
+	 *
+	 * The switch keeps the name every sentence that points a manager at it uses ("while Sponsor tiers
+	 * is switched on in Settings"), so the section is headed Tiers rather than repeat it. Its one
+	 * sentence says what turning it on and off does to the Partners page; the list of everything else
+	 * it turns on is long, and waits in its fold.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_tier_settings( array $settings ) {
+		$this->open_section(
+			__( 'Tiers', 'wpcredits-program-manager' ),
+			__( 'The switch that launches the sponsor tiers, and the day through which nothing a sponsor\'s tier does not cover goes dormant.', 'wpcredits-program-manager' ),
+			'sponsor-tiers'
+		);
+
+		$tiers = __( 'Sponsor tiers', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_tiers_live" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $tiers ),
+			checked( ! empty( $settings['sponsor_tiers_live'] ), true, false ),
+			esc_html__( 'Launch the sponsor tiers', 'wpcredits-program-manager' ),
+			esc_html__( 'Turning this on is the launch: it publishes the Partners page, and turning it off returns the page to draft.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row(
+			$tiers,
+			array(
+				__( 'It also turns on the Sponsors block and its strip on the landing page, the badge a sponsor puts on its own site, the application form\'s tier question, the Handbook listing tab on the Sponsors screen, the partnership tiles a track\'s students see and the offers its partners keep for them, the description for the partner page, the caps a tier puts on posts, and the dormant state; on the Sponsor Dashboard, the At a glance tiles for the tier, the next event and the reports, the Sponsorship card, the Badge card and the badge in the Sponsor Dashboard\'s header, the Reports card and the reports a sponsor\'s members open there, and the Events card with its planner; and the events lists on the Student Report Card, the Mentor Report Card and the Institution Dashboard, with the Administrator Dashboard\'s Events card and the Overview\'s count of the events waiting, the Events card on the Sponsors screen\'s Waiting for review tab and the events in its menu bubble, and the reminders the day before each approved event.', 'wpcredits-program-manager' ),
+				__( 'Off until the program announces the tiers: while it is off, Administrators set tiers, terms and funded lines in the Tier box on the Sponsors screen, and no sponsor sees them.', 'wpcredits-program-manager' ),
+			)
+		);
+
+		WPCPM_Settings_Rows::text_row(
+			'sponsor_tier_grace_until',
+			__( 'Tier grace date', 'wpcredits-program-manager' ),
+			$settings['sponsor_tier_grace_until'],
+			__( 'Through this day, nothing a sponsor\'s tier does not cover goes dormant.', 'wpcredits-program-manager' ),
+			'date',
+			'',
+			'',
+			__( 'From the day after, the daily run applies the tiers as set.', 'wpcredits-program-manager' )
+		);
 
 		$this->close_section();
 	}

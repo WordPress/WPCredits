@@ -3184,5 +3184,83 @@ reset_world();
 $option = WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'On file', $drive, array( 'kind' => 'Legacy', 'template_version' => $typed_version ) ) );
 ck( 'a legacy row from the base keeps the template version it holds exactly', get_post_meta( $option['agreement_id'], '_wpcpm_agr_template_version', true ), $typed_version );
 
+/* ---- a decision made on the Administrator Dashboard comes back to its card -- */
+
+echo "\n=== A decision posted from the Administrator Dashboard comes back to its card ===\n";
+
+// The real way back, loaded only here, so every check above ran as it always has; and that page at
+// its contract, its address.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
+
+if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
+	/** The Administrator Dashboard at its contract: the address a decision's way back names. */
+	class WPCPM_Administrators_Dashboard {
+		/** @return string */
+		public static function page_url() { return 'https://example.test/administrator-dashboard/'; }
+	}
+}
+
+/**
+ * Run a handler and say where it sent the browser, with the outcome slug it flashed.
+ *
+ * @param string $method The handler to call.
+ * @return string[]
+ */
+function landed( $method ) {
+	unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] );
+
+	try {
+		call_user_func( array( 'WPCPM_Institution_Agreement', $method ) );
+	} catch ( Exception $e ) {
+		return array( 0 === strpos( $e->getMessage(), 'redirect: ' ) ? substr( $e->getMessage(), 10 ) : $e->getMessage(), flashed() );
+	}
+
+	return array( 'no exit', flashed() );
+}
+
+// The Administrator Dashboard's forms post its way back, and the page is where the press came from:
+// a browser sends the page's address without the card's anchor, so the referer alone lands on the
+// page with the card folded once its last document is decided.
+$to_the_card = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'agreements' );
+$the_card    = 'https://example.test/administrator-dashboard/#wpcpm-agreements';
+$the_page    = 'https://example.test/administrator-dashboard/';
+// The queue on the Institutions screen, an address other than the handler's own fallback, so the
+// press that came from it is seen to go back there.
+$the_screen  = 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=queue';
+$lands       = array();
+
+review_world();
+$GLOBALS['referer'] = $the_page;
+$_POST              = array_merge( $_POST, $to_the_card );
+$lands['accepted']  = landed( 'handle_accept' );
+
+review_world();
+$GLOBALS['referer'] = $the_page;
+$_POST              = array_merge( $_POST, $to_the_card, array( 'wpcpm_agreement_note' => 'Page 3 is not signed; please send the corrected copy.' ) );
+$lands['returned']  = landed( 'handle_return' );
+
+revoked_world();
+$GLOBALS['referer']  = $the_page;
+$_POST               = array_merge( $_POST, $to_the_card );
+$lands['reinstated'] = landed( 'handle_reinstate' );
+
+review_world( 'template', 'Not Moving Forward' );
+$GLOBALS['referer'] = $the_page;
+$_POST              = array_merge( $_POST, $to_the_card );
+$lands['refused']   = landed( 'handle_accept' );
+
+review_world();
+$GLOBALS['referer']       = $the_screen;
+$lands['from the screen'] = landed( 'handle_accept' );
+
+ck( 'a decision posted from the Administrator Dashboard lands on its Collaboration Agreements card, a refusal too; one posted from the Institutions screen goes back where it came from', $lands, array(
+	'accepted'        => array( $the_card, 'agreement-accepted' ),
+	'returned'        => array( $the_card, 'agreement-returned' ),
+	'reinstated'      => array( $the_card, 'agreement-reinstated' ),
+	'refused'         => array( $the_card, 'agreement-stage' ),
+	'from the screen' => array( $the_screen, 'agreement-accepted' ),
+) );
+$_POST = array();
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

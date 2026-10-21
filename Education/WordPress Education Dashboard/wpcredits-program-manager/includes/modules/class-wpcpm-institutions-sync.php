@@ -58,12 +58,12 @@ class WPCPM_Institutions_Sync {
 	 * Since 1.98.2 every Airtable sync shares one recurrence
 	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
 	 * them out of the same WP-Cron request and off the same Airtable rate limit: the students run
-	 * takes +0:30, the mentors run +1:00, this one +1:30, the sponsors sync +2:00. Measured from
-	 * the cycle's own start rather than from the neighbour before it, so a sync whose event is
-	 * missing cannot drag the rest along with it.
+	 * takes +0:30, the mentors run +1:00 and this one +1:30. Measured from the cycle's own start
+	 * rather than from the neighbour before it, so a sync whose event is missing cannot drag the
+	 * rest along with it.
 	 *
 	 * Minutes, not hours: +0:30 and +1:30 are not whole numbers of hours, so one unit has to serve
-	 * all four. Not seconds either, and not a constant expression on `MINUTE_IN_SECONDS`: that is
+	 * all three. Not seconds either, and not a constant expression on `MINUTE_IN_SECONDS`: that is
 	 * evaluated the first time the class is touched, and a test that loads it before defining the
 	 * time constants would fatal there instead of in the method that uses it.
 	 */

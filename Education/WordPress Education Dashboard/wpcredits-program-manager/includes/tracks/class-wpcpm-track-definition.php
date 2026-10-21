@@ -54,12 +54,24 @@ final class WPCPM_Track_Definition {
 	 */
 	const RESERVED_KEYS = array( '150h', '50h', 'dev', 'design', 'sensei', 'paused', 'pending' );
 
-	/**
-	 * Every property a track may have. `sponsors` and `partners_narrative` are written by a later
-	 * version of the plugin and read by none of this one's code: they are kept, not refused, so a
-	 * site that returns to this version after an update still reads every track it published.
-	 */
+	/** Every property a track may have. */
 	const TRACK_PROPERTIES = array( 'schema_version', 'status', 'key', 'label', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'questions', 'sponsors', 'partners_narrative' );
+
+	/**
+	 * The most sponsors one track names as partners. A track is one program's course of study and a
+	 * partner co-brands it; more than a handful would be a listing, not a partnership.
+	 */
+	const MAX_SPONSORS = 10;
+
+	/** The shape of a sponsor key, the twin of `WPCPM_Sponsors_Index::KEY_PATTERN` (this class never loads the store). */
+	const SPONSOR_KEY = '/^(rec|spo)[A-Za-z0-9]{14}\z/';
+
+	/**
+	 * The longest partners' narrative a track holds, in characters: the sponsor report's own cap on
+	 * a narrative (`WPCPM_Sponsor_Report::MAX_TEXT`), so the text a partner's report is drafted with
+	 * fits its block whole.
+	 */
+	const MAX_NARRATIVE = 5000;
 
 	/** Every property a question may have. */
 	const QUESTION_PROPERTIES = array( 'type', 'label', 'group', 'help', 'lead', 'subgroup', 'note', 'row', 'stack', 'required', 'min', 'max', 'step', 'maxlength', 'mono', 'options', 'hide_from_institution', 'airtable_type', 'learn_lesson_id', 'why' );
@@ -110,9 +122,10 @@ final class WPCPM_Track_Definition {
 	 * Trims the status and the name (the plugin trims a status everywhere it reads one), never
 	 * a column name: `key()` hashes the name, and an Airtable name can end in a space. An empty
 	 * hours target is removed rather than stored as 0, because no target and an explicit 0
-	 * already mean the same thing (decision 1.9 of the design). Every `email` question is kept
-	 * off the institution's view, and a flag that is `false` or `null` is dropped, so two definitions
-	 * that mean the same thing are the same bytes.
+	 * already mean the same thing (decision 1.9 of the design), and so is an empty partners'
+	 * narrative, which is trimmed and keeps each line break as one `\n`. Every `email` question is
+	 * kept off the institution's view, and a flag that is `false` or `null` is dropped, so two
+	 * definitions that mean the same thing are the same bytes.
 	 *
 	 * @param array $definition Track definition.
 	 * @return array
@@ -130,6 +143,33 @@ final class WPCPM_Track_Definition {
 
 		if ( array_key_exists( 'hours_target', $definition ) && ( null === $definition['hours_target'] || '' === $definition['hours_target'] ) ) {
 			unset( $definition['hours_target'] );
+		}
+
+		// The partners are a list or nothing: an empty list, a list with holes or a repeated key
+		// all read as the keys they hold, in the picker's order, and no keys at all reads as no
+		// property, the way an empty hours target does.
+		if ( array_key_exists( 'sponsors', $definition ) ) {
+			$sponsors = is_array( $definition['sponsors'] ) ? array_values( array_unique( array_filter( array_map( 'strval', $definition['sponsors'] ), 'strlen' ) ) ) : $definition['sponsors'];
+
+			if ( is_array( $sponsors ) && empty( $sponsors ) ) {
+				unset( $definition['sponsors'] );
+			} elseif ( is_array( $sponsors ) ) {
+				$definition['sponsors'] = $sponsors;
+			}
+		}
+
+		// The partners' narrative is text or nothing, as the partners are a list or nothing: each
+		// line break is kept as one `\n`, whichever the browser posted, so the save measures the
+		// length the box counted, and a text of spaces and line breaks alone reads as no property.
+		// A value that is not text is left as it is, for the save's rule to refuse.
+		if ( array_key_exists( 'partners_narrative', $definition ) ) {
+			$narrative = is_string( $definition['partners_narrative'] ) ? self::narrative_text( $definition['partners_narrative'] ) : $definition['partners_narrative'];
+
+			if ( null === $narrative || '' === $narrative ) {
+				unset( $definition['partners_narrative'] );
+			} else {
+				$definition['partners_narrative'] = $narrative;
+			}
 		}
 
 		if ( isset( $definition['questions'] ) && is_array( $definition['questions'] ) ) {
@@ -218,6 +258,10 @@ final class WPCPM_Track_Definition {
 			$errors[] = self::error( 'hue', '', __( 'Choose one of the chip colors.', 'wpcredits-program-manager' ) );
 		}
 
+		if ( isset( $definition['sponsors'] ) ) {
+			$errors = array_merge( $errors, self::validate_sponsors( $definition['sponsors'] ) );
+		}
+
 		if ( ! isset( $definition['questions'] ) || ! is_array( $definition['questions'] ) ) {
 			$errors[] = self::error( 'questions_shape', '', __( 'The track\'s questions could not be read.', 'wpcredits-program-manager' ) );
 
@@ -279,6 +323,56 @@ final class WPCPM_Track_Definition {
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * The partners' narrative rule: text of at most `MAX_NARRATIVE` characters, counted as
+	 * `normalize()` stores it, so a line break the browser posted as two characters counts once, as
+	 * the box counted it.
+	 *
+	 * **Not one of `validate()`'s rules, on purpose,** as `check_hours()` is not: `validate()` runs in
+	 * every `compile()`, where a refusal would leave a published track out of the live site, and the
+	 * narrative is nothing the live site draws. `WPCPM_Track_Store::check()` asks this one, so
+	 * nothing longer can be published or saved from a track's own screen.
+	 *
+	 * @param array $definition Track definition.
+	 * @return array[] As `validate()` answers them: one `narrative_shape`, or none.
+	 */
+	public static function check_narrative( array $definition ) {
+		if ( ! isset( $definition['partners_narrative'] ) ) {
+			return array();
+		}
+
+		$narrative = $definition['partners_narrative'];
+
+		if ( is_string( $narrative ) && self::length( self::narrative_text( $narrative ) ) <= self::MAX_NARRATIVE ) {
+			return array();
+		}
+
+		return array(
+			self::error(
+				'narrative_shape',
+				'',
+				sprintf(
+					/* translators: %d: the most characters a track's partners' narrative may hold. */
+					_n( 'The partners\' narrative must be text of at most %d character.', 'The partners\' narrative must be text of at most %d characters.', self::MAX_NARRATIVE, 'wpcredits-program-manager' ),
+					self::MAX_NARRATIVE
+				)
+			),
+		);
+	}
+
+	/**
+	 * A definition's partners' narrative, or '' for none.
+	 *
+	 * For the Track Builder's box, and for a sponsor report's draft, which hands over a track's
+	 * published copy as the store answers it: null for a track never published.
+	 *
+	 * @param mixed $definition A track definition, or anything else, which holds none.
+	 * @return string
+	 */
+	public static function narrative( $definition ) {
+		return is_array( $definition ) && isset( $definition['partners_narrative'] ) && is_string( $definition['partners_narrative'] ) ? $definition['partners_narrative'] : '';
 	}
 
 	/**
@@ -391,6 +485,47 @@ final class WPCPM_Track_Definition {
 		// it, which names the key the track keeps.
 		if ( null !== $own && $key !== $own && ( '' === $pair || $own !== $pair ) ) {
 			$errors[] = self::error( 'key_locked', '', __( 'A published track keeps its key.', 'wpcredits-program-manager' ) );
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * The partners: a list of sponsor keys, each of the store's shape, no repeats, at most
+	 * MAX_SPONSORS. Whether a key names an Approved sponsor of the right tier is not this
+	 * class's question: the Track Builder decides that at save and every reader at render, so a
+	 * partner whose term lapsed keeps its place here and simply stops rendering.
+	 *
+	 * @param mixed $sponsors The property as stored.
+	 * @return array[] Errors, `error()`-shaped.
+	 */
+	private static function validate_sponsors( $sponsors ) {
+		if ( ! is_array( $sponsors ) ) {
+			return array( self::error( 'sponsors_shape', '', __( 'The track\'s partners could not be read as a list.', 'wpcredits-program-manager' ) ) );
+		}
+
+		$errors = array();
+		$seen   = array();
+
+		foreach ( $sponsors as $key ) {
+			if ( ! is_string( $key ) ) {
+				return array( self::error( 'sponsors_shape', '', __( 'The track\'s partners could not be read as a list.', 'wpcredits-program-manager' ) ) );
+			}
+
+			if ( 1 !== preg_match( self::SPONSOR_KEY, $key ) ) {
+				$errors[] = self::error( 'sponsors_key', '', sprintf( /* translators: %s: what was stored. */ __( 'A partner must be a sponsor of this site, not %s.', 'wpcredits-program-manager' ), $key ) );
+				continue;
+			}
+
+			if ( isset( $seen[ $key ] ) ) {
+				$errors[] = self::error( 'sponsors_repeat', '', __( 'A sponsor is named twice among the track\'s partners.', 'wpcredits-program-manager' ) );
+			}
+
+			$seen[ $key ] = true;
+		}
+
+		if ( count( $sponsors ) > self::MAX_SPONSORS ) {
+			$errors[] = self::error( 'sponsors_count', '', sprintf( /* translators: %d: the most partners a track may name. */ __( 'A track names at most %d partners.', 'wpcredits-program-manager' ), self::MAX_SPONSORS ) );
 		}
 
 		return $errors;
@@ -634,7 +769,9 @@ final class WPCPM_Track_Definition {
 	 *
 	 * No `source`: every track runs from its definition, so a row has nothing to say about where
 	 * it runs from. The rows a site compiled before still carry one, which `WPCPM_Tracks::live()`
-	 * does not read.
+	 * does not read. No partners' narrative either: the index is autoloaded, read on every request,
+	 * and the one reader of the text outside the Track Builder, a sponsor report's draft, reads it
+	 * from the track's published copy.
 	 *
 	 * @param array $definition Track definition.
 	 * @param int   $post_id    The definition's post.
@@ -650,6 +787,7 @@ final class WPCPM_Track_Definition {
 			'course_id'  => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0,
 			'hours'      => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : null,
 			'hue'        => isset( $definition['hue'] ) ? (string) $definition['hue'] : '',
+			'sponsors'   => isset( $definition['sponsors'] ) && is_array( $definition['sponsors'] ) ? array_values( array_map( 'strval', $definition['sponsors'] ) ) : array(),
 			'automation' => (bool) $automation,
 			'post'       => (int) $post_id,
 		);
@@ -742,6 +880,16 @@ final class WPCPM_Track_Definition {
 	 */
 	private static function lower( $text ) {
 		return function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $text, 'UTF-8' ) : strtolower( (string) $text );
+	}
+
+	/**
+	 * A partners' narrative as it is stored: each line break one `\n`, the whole trimmed.
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	private static function narrative_text( $text ) {
+		return trim( str_replace( array( "\r\n", "\r" ), "\n", (string) $text ) );
 	}
 
 	/**

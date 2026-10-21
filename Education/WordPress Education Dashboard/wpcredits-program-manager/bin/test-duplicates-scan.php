@@ -4,7 +4,7 @@
  *
  * What each block pins, and why:
  *
- * - **It runs where the four syncs do not.** The shared three-hour recurrence, registered before
+ * - **It runs where the three syncs do not.** The shared three-hour recurrence, registered before
  *   the event is placed (an event on a recurrence WordPress cannot name is dropped without a word),
  *   150 minutes into the cycle.
  * - A run reads Students, Students Reports and Feedback page by page and keeps **only** the

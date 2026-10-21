@@ -493,6 +493,30 @@ class WPCPM_Mail {
 		return (string) get_bloginfo( 'name' );
 	}
 
+	/**
+	 * The address and name this plugin's mail leaves from.
+	 *
+	 * No message sent here names a From of its own, so every one leaves from core's default, and
+	 * this reads it the way `wp_mail()` makes it: `wordpress@` and the site's host without its
+	 * `www.`, named WordPress, each through the filter `wp_mail()` applies, so a site that changes
+	 * its sender changes this with it. A sponsor event's calendar file names this as its organizer,
+	 * so its organizer is who the mail it arrives with comes from, and never a person (1.117.0).
+	 *
+	 * A sender a mailer plugin sets later, on the message itself, is not seen here.
+	 *
+	 * @return array{email: string, name: string}
+	 */
+	public static function sender() {
+		$host  = (string) wp_parse_url( network_home_url(), PHP_URL_HOST );
+		$email = 'wordpress@' . ( 0 === strpos( $host, 'www.' ) ? substr( $host, 4 ) : $host );
+
+		return array(
+			// Core's own filters, applied here to read the sender every mail of the site leaves from.
+			'email' => (string) apply_filters( 'wp_mail_from', $email ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's hook, read, not declared.
+			'name'  => (string) apply_filters( 'wp_mail_from_name', 'WordPress' ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's hook, read, not declared.
+		);
+	}
+
 	/*
 	 * An address, masked
 	 * --------------------------------------------------------------------

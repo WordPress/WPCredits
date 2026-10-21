@@ -14,8 +14,8 @@
  *   the Approved sponsors that have none. The list is the role: an account holding the Sponsor role
  *   whose membership ended is listed, and says so.
  * - Sponsor, Member since and Status sort by what the members class writes on each account, and no
- *   query can sort by any of them: the sponsor is a record ID whose name lives in the sponsors
- *   index, the date sits inside a serialized row, and "locked today" is no meta at all. The table
+ *   query can sort by any of them: the sponsor is a key whose name lives in the sponsors index,
+ *   the date sits inside a serialized row, and "locked today" is no meta at all. The table
  *   reads every account the list may hold and orders them itself, by the value, then the name, then
  *   the ID, so no account shows on two pages while another is on none.
  * - The search reaches the sponsor's name as well as the username, the email and the name.
@@ -25,11 +25,15 @@
  *   invitations are the account views' alone.
  * - The bulk Create account creates at most ten a press, the ready ones in the view's order, each
  *   decided by the sponsor policy and made by the module's provisioning, as the manager who
- *   pressed; what it says names each sponsor it could not give an account, with the reason. A
- *   row's Create account is a nonce link to the module's provisioning handler, which reads the
- *   record with its case, gives no second account to a sponsor that has one (a double click, or a
- *   link left open while an account was attached), and comes back to the list as it stood; the
- *   form that posts the record is still served, and refused the same way.
+ *   pressed, which marks the sponsor's record in the index as having an account; what it says
+ *   names each sponsor it could not give an account, with the reason, and names the sponsors whose
+ *   record could not be found, with how such a record is marked. A row's Create account is a nonce
+ *   link to the module's provisioning handler, which reads the key with its case, gives no second
+ *   account to a sponsor that has one (a double click, or a link left open while an account was
+ *   attached), and comes back to the list as it stood; the form that posts the key is still served,
+ *   and refused the same way.
+ * - A sponsor added on the site, held by the key the site minted for it rather than a record ID it
+ *   came onto the site with, is listed, ticked, given its account and managed as the others are.
  * - The invitations: a row's goes out at once through the members class, refused for an account
  *   that is gone, one without the Sponsor role and one invited inside the gap; the ticked ones are
  *   queued through the accounts base; the card counts the accounts never sent one by any stamp.
@@ -46,10 +50,13 @@
  *
  * WordPress is stood in for as far as the screen reaches, by the stand-ins every accounts screen's
  * suite shares (bin/stubs/accounts-screen.php), with `include` modeled, since this list hands
- * WordPress the IDs its search finds by a sponsor's name. The sponsors index, the members class,
- * the sponsor policy, the module's provisioning, the mail layer, the flash, the return and the tab
- * bar are the plugin's own; Airtable's write, the audit log, the roster's locks, the sponsors sync
- * and the dashboards' pages are stood in for by their contracts. The list table is
+ * WordPress the IDs its search finds by a sponsor's name, and by the post store the index's suites
+ * share (bin/stubs/posts.php): the index keeps each sponsor as a private post, and the fixture is
+ * written and changed through the index's own writers. The sponsors index, the members class, the
+ * sponsor policy, the module's provisioning, the mail layer, the flash, the return and the tab bar
+ * are the plugin's own; the audit log, the roster's locks and the dashboards' pages are stood in for
+ * by their contracts, and nothing on the tab reaches Airtable: the mark a sponsor's record carries
+ * once it has an account is the index's. The list table is
  * bin/stubs/class-wp-list-table.php, loaded through this suite's own `wpcpm_load_accounts_tables()`;
  * its markup is close to core's and is not core's. Each step is run, and what it drew is read,
  * through the helpers the screen suites share (bin/stubs/screen-helpers.php).
@@ -81,10 +88,7 @@ $GLOBALS['locked_reads']   = 0;       // How many times the locked accounts were
 $GLOBALS['page_reads']     = 0;       // How many times the Sponsor Dashboard's address was asked for.
 $GLOBALS['inserted']       = array(); // Every account wp_insert_user() was asked to make.
 $GLOBALS['insert_fails']   = false;   // Whether WordPress refuses to make the next account.
-$GLOBALS['patched']        = array(); // Every write of the Dashboard account checkbox to Airtable.
-$GLOBALS['airtable_fails'] = false;   // Whether Airtable refuses the next write.
 $GLOBALS['audit']          = array(); // Every sponsor audit row written.
-$GLOBALS['sync_invites']   = array(); // Every account the sponsors sync was asked to invite.
 
 /* ---- WordPress, beyond the shared stand-ins ------------------------------ */
 
@@ -145,38 +149,50 @@ function wp_specialchars_decode( $text, $quotes = ENT_NOQUOTES ) {
 function wp_json_encode( $data, $options = 0, $depth = 512 ) {
 	return json_encode( $data, $options, $depth );
 }
+/**
+ * A transient dropped, as core drops one with no object cache: the option it is kept in. The
+ * sponsors index drops the public feed's cached answer whenever it forgets what it read.
+ *
+ * @param string $transient The transient's name.
+ * @return bool
+ */
+function delete_transient( $transient ) {
+	unset( $GLOBALS['opts'][ '_transient_' . $transient ], $GLOBALS['opts'][ '_transient_timeout_' . $transient ] );
+
+	return true;
+}
+/**
+ * A value slashed as core slashes it: a string `addslashes()`d, an array mapped, any other value as
+ * it is. The pair of the shared stand-ins' `wp_unslash()`, which the post store calls on the way in,
+ * so a name the index slashes as it writes is stored as it was given, as core's pair stores it.
+ * Declared here, it is the one the shared stand-ins keep in place of their identity slash, and the
+ * flash calls it too: their user meta keeps what it is handed, so a value the flash keeps would
+ * come back slashed where it holds a quote, a backslash or a NUL, and no check here flashes one.
+ *
+ * @param mixed $value The value.
+ * @return mixed
+ */
+function wp_slash( $value ) {
+	if ( is_array( $value ) ) {
+		return array_map( 'wp_slash', $value );
+	}
+
+	return is_string( $value ) ? addslashes( $value ) : $value;
+}
 
 /* ---- the plugin's other pieces, stood in for by their contracts ---------- */
 
-/** The settings, as far as the screen reads them: whether Airtable is connected, and the sponsors table's name. */
+/**
+ * The settings, as far as the screen reaches them: whether the plugin is connected to Airtable, which
+ * the accounts screen every other audience shares warns about while it is not, and the Sponsors
+ * screen, whose sponsors are the site's own records, never does; and no other value.
+ */
 class WPCPM_Settings {
 	public static $connected = true;
-	public static $values    = array( 'sponsors_table' => 'tblSPONSORS' );
+	public static $values    = array();
 	public static function is_connected() { return self::$connected; }
 	public static function get() { return self::$values; }
 	public static function get_value( $key, $fallback = null ) { return isset( self::$values[ $key ] ) ? self::$values[ $key ] : $fallback; }
-}
-
-// The shape a sponsor's record ID has, read from the Airtable class itself, so the stand-in below
-// matches what the plugin matches.
-preg_match( "/const RECORD_ID_PATTERN = '([^']+)';/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php' ), $wpcpm_test_pattern );
-define( 'WPCPM_TEST_RECORD_PATTERN', isset( $wpcpm_test_pattern[1] ) ? $wpcpm_test_pattern[1] : '/^no pattern read$/' );
-
-/**
- * Airtable, as far as provisioning reaches it: the record ID's shape and its test, which the class
- * words this way and every module that reads a record ID asks (`WPCPM_Mentors_Sync::is_record_id()`
- * among them), and the write of the Dashboard account checkbox, each kept, refused when a check asks.
- */
-class WPCPM_Airtable {
-	const RECORD_ID_PATTERN = WPCPM_TEST_RECORD_PATTERN;
-	public static function is_record_id( $value ) {
-		return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) );
-	}
-	public function update_records( $table, array $records ) {
-		$GLOBALS['patched'][] = array( $table, $records );
-
-		return $GLOBALS['airtable_fails'] ? new WP_Error( 'airtable_down', 'Airtable did not answer.' ) : array( $records[0]['id'] => true );
-	}
 }
 
 /** The Sponsor Dashboard's page, which the list names and a row's View page opens, each ask counted. */
@@ -213,20 +229,6 @@ class WPCPM_Sponsor_Roster {
 	}
 }
 
-/**
- * The sponsors sync, as far as the module's boot reaches it, and a `send_invite()` the real class
- * does not have: the way the accounts screen's own default sends one account its invitation (the
- * module's sync), kept, so a check can tell the Sponsors module's own way from that default.
- */
-class WPCPM_Sponsors_Sync {
-	public static function register_cron() {}
-	public static function send_invite( $user_id ) {
-		$GLOBALS['sync_invites'][] = (int) $user_id;
-
-		return true;
-	}
-}
-
 /** An institution's membership, which the members class refuses a sponsor's account for: read from the fixture's stamps. */
 class WPCPM_Institution_Members {
 	const META_RECORD_ID = 'wpcpm_institution_record_id';
@@ -257,6 +259,10 @@ class WPCPM_Ceiling {
 	public static function init() {}
 }
 
+// The sponsors index keeps each sponsor as a private post, its row in the post's meta: the post
+// store the index's suites share, filling only what the stand-ins above lack.
+require_once __DIR__ . '/stubs/posts.php';
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
@@ -273,13 +279,20 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 // The students sync names the stamp a student's account carries, which the members class refuses a
-// sponsor's account for, and the mentors sync the record ID's shape the index and the members read.
+// sponsor's account for. A sponsor's key is the index's own (`WPCPM_Sponsors_Index::is_key()`), so
+// no other sync is loaded.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
-require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-members.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-policy.php';
+// The rules every box of typed text uses, which the plugin loads for every screen: the Sponsors
+// screen words its refusals of a typed text with them.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
+// What the module's boot starts besides its screen, each adding its hooks and nothing else: a
+// program manager's booking link on their profile, and the public feed of the sponsors.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-manager-booking.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-feed.php';
 // The key an activation of a mentor application holds an invitation by (1.122.33), which the mail
 // layer reads where the class is loaded, as it is on the site: an account that also mentors can hold it.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
@@ -536,9 +549,7 @@ function manager( $uid ) {
 	$GLOBALS['sent']         = array();
 	$GLOBALS['scheduled']    = array();
 	$GLOBALS['inserted']     = array();
-	$GLOBALS['patched']      = array();
 	$GLOBALS['audit']        = array();
-	$GLOBALS['sync_invites'] = array();
 	$GLOBALS['insert_fails'] = false;
 	$GLOBALS['locked_reads'] = 0;
 
@@ -550,8 +561,8 @@ function manager( $uid ) {
 }
 
 /**
- * The record IDs a drawn table's rows hold, from the record ID each prints under its name in the
- * Sponsor column, in order: a row that is not ready draws no checkbox to read one from.
+ * The keys a drawn table's rows hold, from the key each prints under its name in the Sponsor
+ * column, in order: a row that is not ready draws no checkbox to read one from.
  *
  * @param string $html Markup.
  * @return string[]
@@ -583,11 +594,11 @@ function row_for( $html, $id ) {
 }
 
 /**
- * One record row of a drawn table, by the record ID it prints in its Sponsor cell, which every
- * record row prints, ready or not.
+ * One record row of a drawn table, by the key it prints in its Sponsor cell, which every record row
+ * prints, ready or not.
  *
  * @param string $html   Markup.
- * @param string $record The record ID.
+ * @param string $record The sponsor's key.
  * @return string
  */
 function record_row( $html, $record ) {
@@ -671,9 +682,10 @@ function address_lookups() {
 
 /* ---- fixtures ------------------------------------------------------------- */
 
-// Seven sponsors, made up. The record IDs run in another order than the names they stand for (Wren's
-// B before Birch's Y, Ash's A after Nova's N on the No account view), so a list sorted by the stamp
-// rather than by the name it stands for is told apart.
+// Seven sponsors, made up, each keyed by the record ID it came onto the site with. The keys run in
+// another order than the names they stand for (Wren's B before Birch's Y, Ash's A after Nova's N on
+// the No account view), so a list sorted by the stamp rather than by the name it stands for is told
+// apart.
 define( 'WREN', 'recSPONBRAVO00001' );
 define( 'BIRCH', 'recSPONYANKE00002' );
 define( 'MOSS', 'recSPONMIKEX00003' );
@@ -683,11 +695,11 @@ define( 'ASH', 'recSPONALPHA00006' );
 define( 'QUAY', 'recSPONQUEBE00007' );
 
 /**
- * One row of the sponsors index, as the sponsors sync writes it.
+ * The fields of one sponsor's row in the index that the Accounts tab reads.
  *
- * @param string $name    The name, as Airtable holds it.
+ * @param string $name    The name, as the fixture gives it.
  * @param string $status  The status.
- * @param string $email   The Contact Email, or '' for none.
+ * @param string $email   The contact address, or '' for none.
  * @param string $contact The contact person, or '' for none.
  * @return array
  */
@@ -701,12 +713,111 @@ function index_row( $name, $status, $email, $contact = '' ) {
 }
 
 /**
- * Write the sponsors index through its own class: rows keyed by record ID.
+ * Write the sponsors index through its own class, into an empty store: rows keyed by key, each a
+ * private post, as the index keeps a sponsor. The store is emptied first, so the site holds these
+ * sponsors and no other, whatever an earlier check added.
  *
- * @param array[] $rows Record ID => row.
+ * @param array[] $rows Key => row.
  */
 function write_index( array $rows ) {
+	$GLOBALS['posts'] = array();
+	$GLOBALS['pmeta'] = array();
+	WPCPM_Sponsors_Index::forget();
+
 	WPCPM_Sponsors_Index::write( $rows, 1790000000 );
+}
+
+/**
+ * Change some fields of one sponsor in the index, as the site changes them: through the index's own
+ * writer, which merges them into the row the store holds and leaves every other field as it is.
+ *
+ * @param string $record The sponsor's key.
+ * @param array  $fields Field => new value.
+ */
+function patch_index( $record, array $fields ) {
+	WPCPM_Sponsors_Index::patch( $record, $fields );
+}
+
+/**
+ * Add one sponsor to the index, as the site adds one: through the index's own writer, the row in
+ * the index's shape under its key.
+ *
+ * @param string $record The sponsor's key.
+ * @param array  $row    The row's fields; every other field is the index's default.
+ */
+function add_to_index( $record, array $row ) {
+	WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), $row, array( 'record_id' => $record ) ) );
+}
+
+/**
+ * Every sponsor's row as the store holds it now, read afresh, to be put back with `restore_index()`
+ * once a check has drawn the list under a change made for it.
+ *
+ * @return array[] Key => row.
+ */
+function kept_index() {
+	WPCPM_Sponsors_Index::forget();
+
+	return WPCPM_Sponsors_Index::rows();
+}
+
+/**
+ * Put every sponsor's row back as `kept_index()` read it, through the index's own writer.
+ *
+ * @param array[] $kept Key => row.
+ */
+function restore_index( array $kept ) {
+	foreach ( $kept as $record => $row ) {
+		WPCPM_Sponsors_Index::patch( (string) $record, $row );
+	}
+}
+
+/**
+ * The sponsors whose row in the index says they have an account, in the index's order, read from the
+ * store afresh: the mark provisioning and Attach account set, and the last account's removal clears.
+ * The site's sponsors start with none.
+ *
+ * @return string[]
+ */
+function marked() {
+	WPCPM_Sponsors_Index::forget();
+
+	$marked = array();
+
+	foreach ( WPCPM_Sponsors_Index::rows() as $record => $row ) {
+		if ( ! empty( $row['dashboard_account'] ) ) {
+			$marked[] = (string) $record;
+		}
+	}
+
+	return $marked;
+}
+
+/**
+ * A press made while a sponsor's record refuses its mark, the one way a record does: it leaves the
+ * store between the press's read of the index and its write, as a stray trash made outside the
+ * plugin does. The index is read as the request reads it, which it keeps until the request ends, the
+ * sponsor's post is trashed, the press is made, and the post is put back, so whatever follows reads
+ * the record again.
+ *
+ * @param string   $record The sponsor's key.
+ * @param callable $press  The press.
+ * @return mixed What the press returned.
+ */
+function with_record_gone( $record, callable $press ) {
+	WPCPM_Sponsors_Index::forget();
+	WPCPM_Sponsors_Index::rows();
+
+	$id = WPCPM_Sponsors_Index::post_id_of( $record );
+
+	$GLOBALS['posts'][ $id ]->post_status = 'trash';
+
+	try {
+		return $press();
+	} finally {
+		$GLOBALS['posts'][ $id ]->post_status = 'private';
+		WPCPM_Sponsors_Index::forget();
+	}
 }
 
 /**
@@ -759,20 +870,20 @@ function member_of( $record, $since = null ) {
  * was given it again. Birch Example Cloud is Approved, and Cleo, a mentor too, invited under both her
  * roles, and Hugo act for it. Moss Example Hosting is Paused, and Finn, an account older than the
  * membership facts, acts for it. The three other Approved sponsors have no account: Nova Example
- * Tools, ready, its contact address nobody's; Opal Example Studio, ready too, its name stored with a
- * space at the end and its contact address Uma's, a mentor's account, which a Create account attaches;
- * Ash Example Analytics, with no contact address. Quay Example Media has no status at all.
+ * Tools, ready, its contact address nobody's; Opal Example Studio, ready too, its name given with a
+ * space at the end, which the index trims as it stores it, and its contact address Uma's, a mentor's
+ * account, which a Create account attaches; Ash Example Analytics, with no contact address. Quay
+ * Example Media has no status at all.
  */
 function the_site() {
-	$GLOBALS['users']          = array();
-	$GLOBALS['umeta']          = array();
-	$GLOBALS['opts']           = array(
+	$GLOBALS['users']     = array();
+	$GLOBALS['umeta']     = array();
+	$GLOBALS['opts']      = array(
 		'date_format' => 'F j, Y',
 		'blogname'    => 'WPCredits',
 	);
-	$GLOBALS['no_editor']      = false;
-	$GLOBALS['locked']         = array( 22 );
-	$GLOBALS['airtable_fails'] = false;
+	$GLOBALS['no_editor'] = false;
+	$GLOBALS['locked']    = array( 22 );
 
 	WPCPM_Settings::$connected     = true;
 	WPCPM_Sponsors_Dashboard::$url = 'https://example.test/sponsor-dashboard/';
@@ -876,7 +987,7 @@ if ( isset( $argv[1] ) && 'child-notice' === $argv[1] ) {
 			'status'   => 'provisioned',
 			'created'  => 2,
 			'attached' => 0,
-			'airtable' => 0,
+			'unmarked' => 0,
 			'left'     => 0,
 			'limit'    => 10,
 		)
@@ -1147,10 +1258,10 @@ ck( 'and no address is printed anywhere on the Accounts tab on any of the three 
 		'never-invited' => array( false, array( 22, 26, 24 ) ),
 	) );
 
-// Four states of an account the site above does not hold: Otto's live stamp is no record ID at all,
+// Four states of an account the site above does not hold: Otto's live stamp is no key at all,
 // with the flag at 1, so it is printed as what it says and no View page is offered; Pia acts for
 // Quay Example Media, whose status is blank in the index; Quinn's sponsor is a record the index no
-// longer holds, so its record ID stands in for its name; and Rae keeps Wren's stamp with her flag at
+// longer holds, so its key stands in for its name; and Rae keeps Wren's stamp with her flag at
 // 0, a membership ended by hand, which acts for nobody, so the page she would be shown is not hers.
 seat( 33, 'Otto Vance', 'ovance', array( WPCPM_Roles::ROLE_SPONSOR ), array( WPCPM_Sponsor_Members::META_RECORD_ID => 'not-a-record', WPCPM_Sponsor_Members::META_ACTIVE => 1 ) );
 seat( 34, 'Pia Lowe', 'plowe', array( WPCPM_Roles::ROLE_SPONSOR ), member_of( QUAY, 1767225600 ) );
@@ -1173,7 +1284,7 @@ ck( 'a live stamp that names no record is printed as it reads, Active, with Edit
 ck( 'a sponsor whose status is blank in the index reads "no status" after its name',
 	array( $cells_of( row_for( $odd_states, 34 ) ), array_keys( $odd_ones[34] ) ),
 	array( array( 'Quay Example Media (no status)', 'January 1, 2026', 'Active' ), array( 'edit', 'view', 'invite', 'accounts' ) ) );
-ck( 'a sponsor the index no longer holds is its record ID, with no status to say, and its Manage accounts still opens that record, whose view says the index lacks it',
+ck( 'a sponsor the index no longer holds is its key, with no status to say, and its Manage accounts still opens that record, whose view says the index lacks it',
 	array( $cells_of( row_for( $odd_states, 35 ) ), array_keys( $odd_ones[35] ) ),
 	array( array( 'recSPONGONEX00099', 'January 1, 2026', 'Active' ), array( 'edit', 'view', 'invite', 'accounts' ) ) );
 ck( 'a stamp kept with the flag at 0 is a membership that ended: the sponsor is named, the membership ended, and no View page is offered, since the account acts for nobody; Manage accounts is offered all the same, for the sponsor the stamp names',
@@ -1220,14 +1331,25 @@ ck( 'with no Sponsor Dashboard page and no right to the editor, the name is plai
 	array( cell( $bare, 'name' ), array_keys( actions_in( $bare ) ), has( $bare_html, '<p class="wpcpm-warning">The Sponsor Dashboard page is missing. Re-activate the plugin to recreate it.</p>' ) ),
 	array( '<strong>Nell Ito</strong>', array( 'reinvite', 'accounts' ), true ) );
 
-$kept_index = $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ];
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ WREN ]['name'] = ' Wren & <b>Co</b> ';
-$marked                                                                    = html_of( draw( screen() ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]                         = $kept_index;
+// The index trims a name as it keeps it, so this reads what is printed whichever layer trims.
+$kept_index = kept_index();
+patch_index( WREN, array( 'name' => ' Wren & <b>Co</b> ' ) );
+$markup_drawn = html_of( draw( screen() ) );
+restore_index( $kept_index );
 
 ck( 'a sponsor\'s name is printed trimmed and as text, whatever the index holds',
-	array( cell( row_for( $marked, 21 ), 'sponsor' ), has( $marked, '<b>Co</b>' ) ),
+	array( cell( row_for( $markup_drawn, 21 ), 'sponsor' ), has( $markup_drawn, '<b>Co</b>' ) ),
 	array( 'Wren &amp; &lt;b&gt;Co&lt;/b&gt;', false ) );
+
+// A name holding a quote and a backslash, as a company's name can: the index slashes what it writes
+// and the post store unslashes it, as core's pair does, so the row and the post's title keep it whole.
+$kept_index = kept_index();
+patch_index( WREN, array( 'name' => "Wren O'Brien \\ Labs" ) );
+WPCPM_Sponsors_Index::forget();
+$quoted = array( WPCPM_Sponsors_Index::row( WREN )['name'], get_post( WPCPM_Sponsors_Index::post_id_of( WREN ) )->post_title );
+restore_index( $kept_index );
+
+ck( 'a sponsor\'s name holding a quote and a backslash is read back from the index whole, in its row and as its post\'s title', $quoted, array( "Wren O'Brien \\ Labs", "Wren O'Brien \\ Labs" ) );
 
 $GLOBALS['users'] = array_intersect_key( $GLOBALS['users'], array( 1 => true, 30 => true, 31 => true, 32 => true ) );
 $empty_list       = html_of( draw( screen() ) );
@@ -1459,10 +1581,10 @@ ck( 'whatever the case, by the sponsor\'s name, the username, the name or the em
 		'cpark@example' => array( 23 ),
 	) );
 
-$plain_index = $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ];
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ WREN ]['name'] = 'Wrén Example Labs';
-$accented                                                                  = row_ids( html_of( draw( screen( array( 's' => 'wren' ) ) ) ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]                         = $plain_index;
+$plain_index = kept_index();
+patch_index( WREN, array( 'name' => 'Wrén Example Labs' ) );
+$accented = row_ids( html_of( draw( screen( array( 's' => 'wren' ) ) ) ) );
+restore_index( $plain_index );
 
 ck( 'and by the sponsor\'s name without regard to accents, as the names are sorted: "wren" finds the accounts acting for Wrén Example Labs',
 	$accented,
@@ -1527,7 +1649,7 @@ $nova = record_row( $html, NOVA );
 $opal = record_row( $html, OPAL );
 $ash  = record_row( $html, ASH );
 
-ck( 'Nova\'s row: its name as the index holds it over its record ID, its contact address masked, Ready',
+ck( 'Nova\'s row: its name as the index holds it over its key, its contact address masked, Ready',
 	array( cell( $nova, 'sponsor' ), cell( $nova, 'contact' ), cell( $nova, 'account' ) ),
 	array( '<strong>Nova Example Tools</strong><br /><code class="wpcpm-inst-record">recSPONNOVEM00004</code>', 'h***@nova.example', 'Ready' ) );
 ck( 'Opal\'s: its name trimmed; its contact address belongs to an account already, which a Create account attaches rather than duplicates, and the row says so',
@@ -1535,7 +1657,7 @@ ck( 'Opal\'s: its name trimmed; its contact address belongs to an account alread
 	array( '<strong>Opal Example Studio</strong><br /><code class="wpcpm-inst-record">recSPONOSCAR00005</code>', 'u***@example.test', 'Ready: the account that already uses this address will be attached' ) );
 ck( 'Ash\'s: no contact address, so the Account column says where to add one, and the row\'s actions are View page and Manage accounts, where an account at another address is attached by hand',
 	array( cell( $ash, 'contact' ), cell( $ash, 'account' ), array_keys( actions_in( $ash ) ), substr_count( $ash, 'toggle-row' ) ),
-	array( 'no email', 'No Contact Email in Airtable. Add one there and sync.', array( 'view', 'accounts' ), 1 ) );
+	array( 'no email', 'No contact address on the sponsor&#039;s record. Add one on its Edit form.', array( 'view', 'accounts' ), 1 ) );
 
 $create = actions_in( $nova );
 
@@ -1574,7 +1696,7 @@ ck( 'Create account is a nonce link to the module\'s provisioning handler: the r
 			'_wpnonce'      => wp_create_nonce( 'wpcpm_sponsor_provision_' . NOVA ),
 		),
 	) );
-ck( 'a ready record\'s checkbox posts its record ID under records[], labeled with its name; the row with no contact address draws none, since Create account could only refuse it; no row posts an account',
+ck( 'a ready record\'s checkbox posts its key under records[], labeled with its name; the row with no contact address draws none, since Create account could only refuse it; no row posts an account',
 	array(
 		has( $nova, '<input type="checkbox" name="records[]" id="wpcpm-record-recSPONNOVEM00004" value="recSPONNOVEM00004" /><label for="wpcpm-record-recSPONNOVEM00004"><span class="screen-reader-text">Select Nova Example Tools</span></label>' ),
 		has( $ash, 'type="checkbox"' ),
@@ -1618,10 +1740,10 @@ ck( 'a search narrows the sponsors by name, whatever the case, and not the view\
 	array( record_ids( $record_search ), view_counts( $record_search )['no-account'], displaying( $record_search ) ),
 	array( array( OPAL ), '3', '1 item' ) );
 
-$kept_index = $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ];
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ NOVA ]['name'] = 'Nóva Example Tools';
-$accented_record                                                           = record_ids( html_of( draw( screen( array( 'wpcpm_view' => 'no-account', 's' => 'nova' ) ) ) ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]                         = $kept_index;
+$kept_index = kept_index();
+patch_index( NOVA, array( 'name' => 'Nóva Example Tools' ) );
+$accented_record = record_ids( html_of( draw( screen( array( 'wpcpm_view' => 'no-account', 's' => 'nova' ) ) ) ) );
+restore_index( $kept_index );
 
 ck( 'and without regard to accents, as the names are sorted: "nova" finds Nóva Example Tools', $accented_record, array( NOVA ) );
 
@@ -1646,30 +1768,30 @@ ck( 'no whole address is printed on the view: each contact address is masked, th
 	array( false, false, true, false ) );
 
 // Nothing ready: Nova's address gone, and Opal's the administrator's, which provisioning refuses.
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ NOVA ]['contact_email'] = '';
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ OPAL ]['contact_email'] = 'padmin@example.test';
-$none_ready                                                                          = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]                                   = $kept_index;
+patch_index( NOVA, array( 'contact_email' => '' ) );
+patch_index( OPAL, array( 'contact_email' => 'padmin@example.test' ) );
+$none_ready = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+restore_index( $kept_index );
 
 ck( 'an address that belongs to an administrator is not ready either, and says why; with nothing ready the view draws no checkbox, no Create account and nothing of what a Create account sends, and still says where else an account comes from',
 	array( cell( record_row( $none_ready, OPAL ), 'account' ), cell( record_row( $none_ready, OPAL ), 'contact' ), substr_count( $none_ready, 'name="records[]"' ), has( $none_ready, '>Create account</a>' ), has( $none_ready, $warning ), has( $none_ready, $routes ) ),
 	array( 'That address belongs to an administrator, who already reaches every sponsor.', 'p***@example.test', 0, false, false, true ) );
 
 foreach ( array( NOVA, OPAL, ASH ) as $record ) {
-	$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ $record ]['status'] = 'Paused';
+	patch_index( $record, array( 'status' => 'Paused' ) );
 }
-$none_left                                         = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ] = $kept_index;
+$none_left = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+restore_index( $kept_index );
 
 ck( 'with every Approved sponsor holding an account, the view counts none and says so, and nothing of what a Create account sends',
 	array( record_ids( $none_left ), view_counts( $none_left )['no-account'], has( $none_left, 'Every Approved sponsor has an account.' ), has( $none_left, $warning ) ),
 	array( array(), '0', true, false ) );
 
 foreach ( array( WREN, BIRCH, NOVA, OPAL, ASH ) as $record ) {
-	$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ $record ]['status'] = 'Paused';
+	patch_index( $record, array( 'status' => 'Paused' ) );
 }
-$no_approved                                       = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ] = $kept_index;
+$no_approved = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+restore_index( $kept_index );
 
 ck( 'with no sponsor Approved at all, the view says none is, so there is nothing to create, rather than that each has an account',
 	array( record_ids( $no_approved ), has( $no_approved, 'No sponsor is Approved yet, so there is nothing to create.' ), has( $no_approved, 'Every Approved sponsor has an account.' ) ),
@@ -1721,14 +1843,14 @@ the_site();
 manager( 60 );
 $both = $tick( array( OPAL, NOVA ) );
 
-ck( 'Create account on Nova and Opal provisions each once, in the view\'s order, the log naming the manager who pressed as the actor of each: an account made from Nova\'s address, and the account at Opal\'s attached, both told to Airtable and both queued an invitation',
+ck( 'Create account on Nova and Opal provisions each once, in the view\'s order, the log naming the manager who pressed as the actor of each: an account made from Nova\'s address, and the account at Opal\'s attached, both sponsors\' records marked as having an account, and no other, and both queued an invitation',
 	array(
 		$provisioned_in(),
 		$provisioned_by(),
 		count( $GLOBALS['inserted'] ),
 		isset( $GLOBALS['inserted'][0] ) ? array( $GLOBALS['inserted'][0]['user_email'], $GLOBALS['inserted'][0]['role'], $GLOBALS['inserted'][0]['display_name'] ) : null,
 		WPCPM_Sponsor_Members::sponsor_of( 32 ),
-		array_column( array_column( array_column( $GLOBALS['patched'], 1 ), 0 ), 'id' ),
+		marked(),
 		WPCPM_Mail::queue(),
 	),
 	array( array( NOVA, OPAL ), array( NOVA => 60, OPAL => 60 ), 1, array( 'hello@nova.example', WPCPM_Roles::ROLE_SPONSOR, 'Nia Example' ), OPAL, array( NOVA, OPAL ), array( 101, 32 ) ) );
@@ -1751,7 +1873,7 @@ for ( $n = 1; $n <= 12; $n++ ) {
 }
 $with_rooks = function () use ( $rooks ) {
 	foreach ( $rooks as $n => $record ) {
-		$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ $record ] = array_merge( WPCPM_Sponsors_Index::empty_row(), index_row( sprintf( 'Rook Example %02d', $n + 1 ), 'Approved', sprintf( 'office@rook%02d.example', $n + 1 ) ), array( 'record_id' => $record ) );
+		add_to_index( $record, index_row( sprintf( 'Rook Example %02d', $n + 1 ), 'Approved', sprintf( 'office@rook%02d.example', $n + 1 ) ) );
 	}
 };
 
@@ -1772,7 +1894,7 @@ ck( 'and the view says how many were created, and that one press creates at most
 // address, and refused by the members class when the press tries to attach it.
 define( 'TEAL', 'recSPONTANGO00008' );
 $with_teal = function () {
-	$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ TEAL ] = array_merge( WPCPM_Sponsors_Index::empty_row(), index_row( 'Teal Example Apps', 'Approved', 'sstudent@example.test' ), array( 'record_id' => TEAL ) );
+	add_to_index( TEAL, index_row( 'Teal Example Apps', 'Approved', 'sstudent@example.test' ) );
 };
 
 the_site();
@@ -1787,23 +1909,29 @@ ck( 'a sponsor the view lists as ready and the members class refuses is named wi
 
 the_site();
 manager( 63 );
-$GLOBALS['airtable_fails'] = true;
-$tick( array( NOVA ) );
-$GLOBALS['airtable_fails'] = false;
+with_record_gone(
+	NOVA,
+	function () use ( $tick ) {
+		return $tick( array( NOVA ) );
+	}
+);
 
-ck( 'an account made while Airtable would not take the checkbox is counted made, and the view says Airtable could not be told about it',
-	array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 101 ), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
-	array( 1, NOVA, '<div class="notice notice-success is-dismissible"><p>1 account was created and its invitation queued. Airtable could not be told about 1 of them: its Dashboard account checkbox is out of step until the next attempt.</p></div>' ) );
+ck( 'an account made while the sponsor\'s record cannot be found to mark as having an account is counted made, its record left unmarked, and the view names the sponsor after the count, with how such a record is marked',
+	array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 101 ), $provisioned_in(), marked(), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
+	array( 1, NOVA, array( NOVA ), array(), '<div class="notice notice-success is-dismissible"><p>1 account was created and its invitation queued. Not marked as having an account, because the record could not be found: Nova Example Tools. Saving a sponsor on its Edit form marks it, if the Sponsors tab lists it.</p></div>' ) );
 
 the_site();
 manager( 75 );
-$GLOBALS['airtable_fails'] = true;
-$tick( array( OPAL ) );
-$GLOBALS['airtable_fails'] = false;
+with_record_gone(
+	OPAL,
+	function () use ( $tick ) {
+		return $tick( array( OPAL ) );
+	}
+);
 
-ck( 'and an account attached while Airtable would not take the checkbox is counted attached, not made, and the view says Airtable could not be told about it',
-	array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 32 ), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
-	array( 0, OPAL, '<div class="notice notice-success is-dismissible"><p>1 existing account was attached. Airtable could not be told about 1 of them: its Dashboard account checkbox is out of step until the next attempt.</p></div>' ) );
+ck( 'and an account attached while the sponsor\'s record cannot be found is counted attached, not made, its record left unmarked, and the view names the sponsor',
+	array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 32 ), $provisioned_in(), marked(), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
+	array( 0, OPAL, array( OPAL ), array(), '<div class="notice notice-success is-dismissible"><p>1 existing account was attached. Not marked as having an account, because the record could not be found: Opal Example Studio. Saving a sponsor on its Edit form marks it, if the Sponsors tab lists it.</p></div>' ) );
 
 the_site();
 manager( 64 );
@@ -1823,8 +1951,8 @@ $kilo = array();
 foreach ( array( 'A', 'B', 'C', 'D', 'E', 'F' ) as $n => $letter ) {
 	$record = 'recSPONKILO' . $letter . sprintf( '%05d', 11 + $n );
 
-	$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ $record ] = array_merge( WPCPM_Sponsors_Index::empty_row(), index_row( 'Kilo Example ' . ( $n + 1 ), 'Approved', 'sstudent@example.test' ), array( 'record_id' => $record ) );
-	$kilo[]                                                              = $record;
+	add_to_index( $record, index_row( 'Kilo Example ' . ( $n + 1 ), 'Approved', 'sstudent@example.test' ) );
+	$kilo[] = $record;
 }
 $tick( $kilo );
 $student_why = 'That account belongs to a student. A student cannot represent a sponsor while in the program';
@@ -1856,7 +1984,7 @@ ck( 'the sponsor policy decides each ticked sponsor, and its refusal names that 
 			array(
 				'created'     => 0,
 				'attached'    => 0,
-				'airtable'    => 0,
+				'unmarked'    => 0,
 				'left'        => 0,
 				'limit'       => 10,
 				'failed'      => array( 'Nova Example Tools: ' . $policy_no, 'Opal Example Studio: ' . $policy_no ),
@@ -1890,8 +2018,8 @@ the_site();
 manager( 79 );
 $tick( array( WREN, MOSS, QUAY ) );
 
-ck( 'a sponsor with accounts already, one that is not Approved and one with no status, ticked together, create nothing: no account is made or attached, nobody is queued, Airtable is not told, and the view says there was nothing to create',
-	array( $GLOBALS['inserted'], $provisioned_in(), WPCPM_Mail::queue(), $GLOBALS['patched'], notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
+ck( 'a sponsor with accounts already, one that is not Approved and one with no status, ticked together, create nothing: no account is made or attached, nobody is queued, no record is marked, and the view says there was nothing to create',
+	array( $GLOBALS['inserted'], $provisioned_in(), WPCPM_Mail::queue(), marked(), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
 	array( array(), array(), array(), array(), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>' ) );
 
 // Nova ticked and pressed, then ticked again from the page as it stood before the first press and
@@ -1899,13 +2027,13 @@ ck( 'a sponsor with accounts already, one that is not Approved and one with no s
 the_site();
 manager( 120 );
 $tick( array( NOVA ) );
-$first_made = array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 101 ), WPCPM_Mail::queue() );
+$first_made = array( count( $GLOBALS['inserted'] ), WPCPM_Sponsor_Members::sponsor_of( 101 ), WPCPM_Mail::queue(), marked() );
 manager( 121 );
 $tick( array( NOVA ) );
 
-ck( 'the same sponsor ticked twice in a row is given one account: the second press makes and attaches nothing, queues nobody, does not tell Airtable again, and the view says there was nothing to create',
-	array( $first_made, $GLOBALS['inserted'], $provisioned_in(), WPCPM_Mail::queue(), $GLOBALS['patched'], notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
-	array( array( 1, NOVA, array( 101 ) ), array(), array(), array(), array(), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>' ) );
+ck( 'the same sponsor ticked twice in a row is given one account: the first press marks its record, the second makes and attaches nothing, queues nobody, leaves the marks as the first left them, and the view says there was nothing to create',
+	array( $first_made, $GLOBALS['inserted'], $provisioned_in(), WPCPM_Mail::queue(), marked(), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
+	array( array( 1, NOVA, array( 101 ), array( NOVA ) ), array(), array(), array(), array( NOVA ), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>' ) );
 
 the_site();
 manager( 69 );
@@ -1941,7 +2069,7 @@ the_site();
 manager( 72 );
 $tick( array( strtolower( NOVA ) ) );
 
-ck( 'a record ID is read with its case: one in another case names no sponsor the view lists ready, and nothing is created',
+ck( 'a sponsor\'s key is read with its case: one in another case names no sponsor the view lists ready, and nothing is created',
 	array( $GLOBALS['inserted'], notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
 	array( array(), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>' ) );
 
@@ -1949,7 +2077,7 @@ the_site();
 manager( 73 );
 $tick( array( NOVA . 'x', 'Nova', NOVA . "\n" ) );
 
-ck( 'and a value that is not a whole record ID creates nothing, ticked as an ID with a letter more, as a name or with a line break after it; the one pattern the table reads a sponsor\'s identifier by is the Airtable record ID\'s',
+ck( 'and a value that is not a whole key creates nothing, ticked as a key with a letter more, as a name or with a line break after it; the one pattern the table reads a sponsor\'s identifier by is the index\'s key, a record ID a sponsor came onto the site with or a key the site minted',
 	array(
 		$GLOBALS['inserted'],
 		notice_now( array( 'wpcpm_view' => 'no-account' ) ),
@@ -1964,7 +2092,7 @@ ck( 'and a value that is not a whole record ID creates nothing, ticked as an ID 
 			}
 		),
 	),
-	array( array(), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>', WPCPM_TEST_RECORD_PATTERN ) );
+	array( array(), '<div class="notice notice-info is-dismissible"><p>There was nothing to create.</p></div>', WPCPM_Sponsors_Index::KEY_PATTERN ) );
 
 // The search box sends the list's form too, with whatever the bulk select holds: without Apply, the
 // action chosen is not carried out on the rows ticked.
@@ -1984,7 +2112,7 @@ $row_link = actions_in( record_row( html_of( draw( screen( array( 'wpcpm_view' =
 $row_link = isset( $row_link['create'] ) ? $row_link['create'] : '';
 $followed = follow( $row_link, 'handle_provision' );
 
-ck( 'followed, it provisions Nova, with its record ID\'s case, under the nonce keyed to it, the log naming the manager who followed it as the actor',
+ck( 'followed, it provisions Nova, with its key\'s case, under the nonce keyed to it, the log naming the manager who followed it as the actor',
 	array( count( $GLOBALS['inserted'] ), $provisioned_in(), $provisioned_by(), WPCPM_Sponsor_Members::sponsor_of( 101 ), $GLOBALS['nonce_checks'] ),
 	array( 1, array( NOVA ), array( NOVA => 80 ), NOVA, array( 'wpcpm_sponsor_provision_' . NOVA ) ) );
 ck( 'and comes back to the view as the link says it stood, searched, which says the account was created',
@@ -2008,8 +2136,8 @@ manager( 77 );
 seat( 41, 'Ivo Grant', 'igrant', array( WPCPM_Roles::ROLE_SPONSOR ), member_of( NOVA ) );
 $stale_link = follow( $row_link, 'handle_provision' );
 
-ck( 'a link drawn before Nova had an account, followed once Ivo acts for it, makes nothing, tells Airtable nothing and queues no invitation, and says the sponsor already has an account, back on the list as it stood',
-	array( $GLOBALS['inserted'], $provisioned_in(), $GLOBALS['patched'], WPCPM_Mail::queue(), WPCPM_Sponsor_Members::sponsor_of( 41 ), link_of( $stale_link['redirect'] )[1], notice_now( array( 'wpcpm_view' => 'no-account', 's' => 'example' ) ) ),
+ck( 'a link drawn before Nova had an account, followed once Ivo acts for it, makes nothing, marks no record and queues no invitation, and says the sponsor already has an account, back on the list as it stood',
+	array( $GLOBALS['inserted'], $provisioned_in(), marked(), WPCPM_Mail::queue(), WPCPM_Sponsor_Members::sponsor_of( 41 ), link_of( $stale_link['redirect'] )[1], notice_now( array( 'wpcpm_view' => 'no-account', 's' => 'example' ) ) ),
 	array( array(), array(), array(), array(), NOVA, array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_view' => 'no-account', 's' => 'example' ), '<div class="notice notice-info is-dismissible"><p>That sponsor already has an account.</p></div>' ) );
 
 the_site();
@@ -2036,7 +2164,7 @@ ck( 'and without the program\'s capability it dies before the nonce is asked abo
 /**
  * A row's Create account for any sponsor, as a stale page or a hand-made address could carry it.
  *
- * @param string $record The sponsor's record ID.
+ * @param string $record The sponsor's key.
  * @return string
  */
 function create_link( $record ) {
@@ -2057,7 +2185,7 @@ $stale = follow( create_link( ASH ), 'handle_provision' );
 
 ck( 'one provisioning refuses, as a stale page could offer, comes back to the view, which says why: Ash has no contact address',
 	array( $GLOBALS['inserted'], link_of( $stale['redirect'] ), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
-	array( array(), $on_view, '<div class="notice notice-error is-dismissible"><p>That sponsor has no Contact Email in Airtable. Add one there and sync.</p></div>' ) );
+	array( array(), $on_view, '<div class="notice notice-error is-dismissible"><p>That sponsor has no contact address. Add one on its Edit form, then try again.</p></div>' ) );
 
 the_site();
 $with_teal();
@@ -2116,7 +2244,7 @@ the_site();
 manager( 89 );
 $odd_term  = 'a&b #1';
 $odd_state = array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_view' => 'no-account', 's' => $odd_term ) );
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ NOVA ]['name'] = 'Nova a&b #1 Example';
+patch_index( NOVA, array( 'name' => 'Nova a&b #1 Example' ) );
 $odd_list    = html_of( draw( screen( array( 'wpcpm_view' => 'no-account', 's' => $odd_term ) ) ) );
 $odd_actions = actions_in( record_row( $odd_list, NOVA ) );
 $odd_create  = link_of( isset( $odd_actions['create'] ) ? $odd_actions['create'] : '' );
@@ -2150,9 +2278,9 @@ ck( 'Ben\'s Send invite goes to the Sponsors module\'s invite handler with his a
 // Not `$sent`: at the top of a file a variable is a global, and the stand-in keeps what was sent there.
 $ben_sent = follow( $ben_link, 'handle_invite' );
 
-ck( 'followed, the members class sends Ben his invitation now, the sponsor\'s, core\'s message to him alone, and stamps his account as a sponsor\'s; the module\'s sync is never asked; then the list says the email went',
-	array( $GLOBALS['mails'], array_column( $GLOBALS['sent'], 'subject' ), array_column( $GLOBALS['sent'], 'notify' ), isset( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ) && is_int( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ), $GLOBALS['sync_invites'], link_of( $ben_sent['redirect'] ), notice_now() ),
-	array( array( 22 ), array( '[WPCredits] Your sponsor account is ready' ), array( 'user' ), true, array(), $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
+ck( 'followed, the members class sends Ben his invitation now, the sponsor\'s, core\'s message to him alone, and stamps his account as a sponsor\'s; then the list says the email went',
+	array( $GLOBALS['mails'], array_column( $GLOBALS['sent'], 'subject' ), array_column( $GLOBALS['sent'], 'notify' ), isset( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ) && is_int( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ), link_of( $ben_sent['redirect'] ), notice_now() ),
+	array( array( 22 ), array( '[WPCredits] Your sponsor account is ready' ), array( 'user' ), true, $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
 ck( 'the press came back by a redirect, so the next draw counts afresh: Ben is among the invited now, offered Resend invite',
 	array( view_counts( html_of( draw( screen() ) ) ), array_keys( actions_in( row_for( html_of( draw( screen() ) ), 22 ) ) ) ),
 	array( array( 'all' => '6', 'invited' => '4', 'never-invited' => '2', 'no-account' => '3' ), array( 'edit', 'view', 'reinvite', 'accounts' ) ) );
@@ -2464,11 +2592,11 @@ ck( 'Attach account, posted as a browser posts the form with Uma\'s address, mak
 // accounts posts (pinned above): by somebody without the program's capability each dies before the
 // nonce is asked about, and by a manager with WordPress's own sentence, the members handler's nonce
 // the only one asked about. Uma is attached to nobody and Ben still acts for Wren, each with the
-// roles they had; nobody is queued, and Airtable is not told.
+// roles they had; nobody is queued, and no record is marked.
 $attach_forged_fields = array( 'action' => 'wpcpm_sponsor_members', 'wpcpm_op' => 'attach', 'wpcpm_sponsor' => WREN, 'wpcpm_tab' => 'accounts', 'wpcpm_email' => 'uross@example.test', '_wpnonce' => 'forged' );
 $remove_forged_fields = array( 'action' => 'wpcpm_sponsor_members', 'wpcpm_op' => 'detach', 'wpcpm_sponsor' => WREN, 'wpcpm_tab' => 'accounts', 'wpcpm_user' => '22', '_wpnonce' => 'forged' );
 $members_left         = function () {
-	return array( WPCPM_Sponsor_Members::sponsor_of( 32 ), $GLOBALS['users'][32]->roles, WPCPM_Sponsor_Members::is_member( 22, WREN ), $GLOBALS['users'][22]->roles, WPCPM_Mail::queue(), $GLOBALS['patched'] );
+	return array( WPCPM_Sponsor_Members::sponsor_of( 32 ), $GLOBALS['users'][32]->roles, WPCPM_Sponsor_Members::is_member( 22, WREN ), $GLOBALS['users'][22]->roles, WPCPM_Mail::queue(), marked() );
 };
 $members_as_they_were = array( '', array( WPCPM_Roles::ROLE_MENTOR ), true, array( WPCPM_Roles::ROLE_SPONSOR ), array(), array() );
 
@@ -2478,14 +2606,14 @@ $GLOBALS['caps'] = false;
 $attach_no_right = post_to( 'handle_members', 'wpcpm_sponsor_members', $attach_forged_fields );
 $GLOBALS['caps'] = true;
 
-ck( 'Attach account pressed by somebody without the program\'s capability, with a forged nonce, dies before the nonce is asked about: nobody is attached, no role changes, nobody is queued and Airtable is not told',
+ck( 'Attach account pressed by somebody without the program\'s capability, with a forged nonce, dies before the nonce is asked about: nobody is attached, no role changes, nobody is queued and no record is marked',
 	array( $attach_no_right['died'], $GLOBALS['nonce_checks'], $members_left() ),
 	array( 'You do not have permission to manage the program.', array(), $members_as_they_were ) );
 
 manager( 138 );
 $attach_forged = post_to( 'handle_members', 'wpcpm_sponsor_members', $attach_forged_fields );
 
-ck( 'Attach account pressed by a manager with a forged nonce dies with WordPress\'s own sentence, the members handler\'s nonce the only one asked about: nobody is attached, no role changes, nobody is queued and Airtable is not told',
+ck( 'Attach account pressed by a manager with a forged nonce dies with WordPress\'s own sentence, the members handler\'s nonce the only one asked about: nobody is attached, no role changes, nobody is queued and no record is marked',
 	array( $attach_forged['died'], $GLOBALS['nonce_checks'], $members_left() ),
 	array( 'The link you followed has expired.', array( 'wpcpm_sponsor_members' ), $members_as_they_were ) );
 
@@ -2517,8 +2645,8 @@ ck( 'Moss, which is not Approved, is drawn Finn with Remove, then the sentence t
 manager( 134 );
 $gone = html_of( page_for( screen( array( 'wpcpm_sponsor' => 'recSPONGONEX00099' ) ) ) );
 
-ck( 'a record the index does not hold is said to be none, with the way back to the list, and nothing is read or printed for it: no account, no list, not the record',
-	array( has( $gone, '<p>No sponsor record has that ID. If it should be here, run the sponsors sync on the <a href="https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&#038;tab=sponsors">Sponsors</a> tab.</p>' ), back_of( $gone ), $GLOBALS['queries'], has( $gone, 'recSPONGONEX00099' ), has( $gone, '<form method="post"' ) ),
+ck( 'a record the index does not hold is said to be none, with where a sponsor is added and the way back to the list, and nothing is read or printed for it: no account, no list, not the record',
+	array( has( $gone, '<p>That link names no sponsor on this site. A sponsor is added on the <a href="https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&#038;tab=sponsors">Sponsors</a> tab.</p>' ), back_of( $gone ), $GLOBALS['queries'], has( $gone, 'recSPONGONEX00099' ), has( $gone, '<form method="post"' ) ),
 	array( true, array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts' ) ), array(), false, false ) );
 
 the_site();
@@ -2549,7 +2677,7 @@ ck( 'an account row\'s Manage accounts carries where the list stands as well: it
 the_site();
 manager( 136 );
 $odd_term = 'a&b #1';
-$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'][ NOVA ]['name'] = 'Nova a&b #1 Example';
+patch_index( NOVA, array( 'name' => 'Nova a&b #1 Example' ) );
 $odd_row  = actions_in( record_row( html_of( draw( screen( array( 'wpcpm_view' => 'no-account', 's' => $odd_term ) ) ) ), NOVA ) );
 $odd_link = link_of( isset( $odd_row['accounts'] ) ? $odd_row['accounts'] : '' );
 $odd_back = back_of( html_of( page_for( $odd_link[1] ) ) );
@@ -2560,6 +2688,130 @@ ck( 'a term holding an ampersand, a hash and a space is kept whole through a row
 		array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_sponsor' => NOVA, 'wpcpm_view' => 'no-account', 's' => $odd_term ) ),
 		array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_view' => 'no-account', 's' => $odd_term ) ),
 	) );
+
+echo "\n=== A sponsor added on the site, held by the key the site minted ===\n";
+
+// A sponsor the site creates itself is held by a key the index mints for it, `spo` and fourteen
+// characters, not by a record ID it came onto the site with. Added to the site as the scenarios
+// above add theirs, Approved, its contact address no account's: it is listed on the No account view
+// as Nova is, ticked and pressed it is given its account, which the account views list under its
+// name, Manage accounts opening its accounts, and a row's own Create account gives it one too.
+the_site();
+manager( 140 );
+$mint = WPCPM_Sponsors_Index::mint_key();
+add_to_index( $mint, index_row( 'Mint Example Works', 'Approved', 'mo@example.test', 'Mo Example' ) );
+$mint_list = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+$mint_row  = record_row( $mint_list, $mint );
+
+ck( 'a sponsor whose key the site minted is listed on the No account view with the others, the ready ones first and then by name: its name over its key, its contact address masked, Ready, its checkbox posting the key under records[], labeled with its name, and Create account, View page, then Manage accounts under its name',
+	array(
+		1 === preg_match( '/^spo[A-Za-z0-9]{14}\z/', $mint ),
+		record_ids( $mint_list ),
+		array( cell( $mint_row, 'sponsor' ), cell( $mint_row, 'contact' ), cell( $mint_row, 'account' ) ),
+		has( $mint_row, '<input type="checkbox" name="records[]" id="wpcpm-record-' . $mint . '" value="' . $mint . '" /><label for="wpcpm-record-' . $mint . '"><span class="screen-reader-text">Select Mint Example Works</span></label>' ),
+		array_keys( actions_in( $mint_row ) ),
+	),
+	array(
+		true,
+		array( $mint, NOVA, OPAL, ASH ),
+		array( '<strong>Mint Example Works</strong><br /><code class="wpcpm-inst-record">' . $mint . '</code>', 'm***@example.test', 'Ready' ),
+		true,
+		array( 'create', 'view', 'accounts' ),
+	) );
+
+$tick( array( $mint ) );
+
+ck( 'ticked and pressed, Create account gives it its account as it gives Nova hers: made from its contact address with the Sponsor role and the contact person\'s name, stamped for the minted key, logged as provisioned by the manager who pressed, its record marked as having an account and the invitation queued; the view says so and lists it no more',
+	array(
+		count( $GLOBALS['inserted'] ),
+		isset( $GLOBALS['inserted'][0] ) ? array( $GLOBALS['inserted'][0]['user_email'], $GLOBALS['inserted'][0]['role'], $GLOBALS['inserted'][0]['display_name'] ) : null,
+		WPCPM_Sponsor_Members::sponsor_of( 101 ),
+		$provisioned_by(),
+		marked(),
+		WPCPM_Mail::queue(),
+		notice_now( array( 'wpcpm_view' => 'no-account' ) ),
+		record_ids( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ) ),
+	),
+	array(
+		1,
+		array( 'mo@example.test', WPCPM_Roles::ROLE_SPONSOR, 'Mo Example' ),
+		$mint,
+		array( $mint => 140 ),
+		array( $mint ),
+		array( 101 ),
+		'<div class="notice notice-success is-dismissible"><p>1 account was created and its invitation queued.</p></div>',
+		array( NOVA, OPAL, ASH ),
+	) );
+
+$mint_accounts = row_for( html_of( draw( screen() ) ), 101 );
+$mint_manage   = actions_in( $mint_accounts );
+$mint_manage   = link_of( isset( $mint_manage['accounts'] ) ? $mint_manage['accounts'] : '' );
+$mint_view     = 'https://example.test/wp-admin/admin.php' === $mint_manage[0] ? html_of( page_for( $mint_manage[1] ) ) : '';
+
+ck( 'its account is listed on the account views as any sponsor\'s, under the name of the sponsor it acts for, and its Manage accounts opens that sponsor\'s accounts by the minted key',
+	array( $cells_of( $mint_accounts )[0], $mint_manage ),
+	array( 'Mint Example Works', array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_sponsor' => $mint ) ) ) );
+ck( 'which draw its name, the way back to the list, its account by name and address with Remove, then Attach account, each form posting the minted key',
+	array(
+		in_order(
+			(string) strstr( $mint_view, '</nav>' ),
+			array(
+				'name'   => '<h2>Mint Example Works</h2>',
+				'back'   => '>Back to the accounts</a>',
+				'mo'     => '<li>Mo Example (mo@example.test) <form',
+				'attach' => '>Attach account</button>',
+			)
+		),
+		back_of( $mint_view ),
+		array_map(
+			function ( $fields ) {
+				return array( $fields['wpcpm_op'], $fields['wpcpm_sponsor'] );
+			},
+			form_fields_of( $mint_view, 'wpcpm_sponsor_members' )
+		),
+	),
+	array(
+		array( 'name', 'back', 'mo', 'attach' ),
+		array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts' ) ),
+		array( array( 'detach', $mint ), array( 'attach', $mint ) ),
+	) );
+
+// Managed by the minted key: its two forms pressed as a browser posts them, Remove on Mo, then
+// Attach account with his address, each the next request, by somebody new.
+$mint_form = function ( $op ) use ( $mint_view ) {
+	foreach ( form_fields_of( $mint_view, 'wpcpm_sponsor_members' ) as $fields ) {
+		if ( isset( $fields['wpcpm_op'] ) && $op === $fields['wpcpm_op'] ) {
+			return $fields;
+		}
+	}
+
+	return array();
+};
+$mint_back = array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-sponsors', 'tab' => 'accounts', 'wpcpm_sponsor' => $mint ) );
+
+manager( 142 );
+$mint_removed = post_to( 'handle_members', 'wpcpm_sponsor_members', $mint_form( 'detach' ) );
+
+ck( 'Remove on its accounts takes Mo off the minted sponsor: he acts for nobody, its record is unmarked as its last account leaves, and its accounts, where the press comes back, say so',
+	array( WPCPM_Sponsor_Members::sponsor_of( 101 ), marked(), link_of( $mint_removed['redirect'] ), '' !== $mint_removed['redirect'] ? notices_in( html_of( page_for( link_of( $mint_removed['redirect'] )[1] ) ) ) : '' ),
+	array( '', array(), $mint_back, '<div class="notice notice-success is-dismissible"><p>The account no longer acts for the sponsor.</p></div>' ) );
+
+manager( 143 );
+$mint_attached = post_to( 'handle_members', 'wpcpm_sponsor_members', array_merge( $mint_form( 'attach' ), array( 'wpcpm_email' => 'mo@example.test' ) ) );
+
+ck( 'and Attach account with his address makes him act for the minted sponsor again, its record marked, and its accounts say so',
+	array( WPCPM_Sponsor_Members::sponsor_of( 101 ), marked(), link_of( $mint_attached['redirect'] ), '' !== $mint_attached['redirect'] ? notices_in( html_of( page_for( link_of( $mint_attached['redirect'] )[1] ) ) ) : '' ),
+	array( $mint, array( $mint ), $mint_back, '<div class="notice notice-success is-dismissible"><p>The account now acts for the sponsor.</p></div>' ) );
+
+the_site();
+manager( 141 );
+add_to_index( $mint, index_row( 'Mint Example Works', 'Approved', 'mo@example.test', 'Mo Example' ) );
+$mint_link     = actions_in( record_row( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ), $mint ) );
+$mint_followed = follow( isset( $mint_link['create'] ) ? $mint_link['create'] : '', 'handle_provision' );
+
+ck( 'and a row\'s own Create account, followed, provisions it under the nonce keyed to its key as minted, marks its record, and comes back to the view, which says the account was created',
+	array( count( $GLOBALS['inserted'] ), $provisioned_by(), WPCPM_Sponsor_Members::sponsor_of( 101 ), marked(), $GLOBALS['nonce_checks'], link_of( $mint_followed['redirect'] ), notice_now( array( 'wpcpm_view' => 'no-account' ) ) ),
+	array( 1, array( $mint => 141 ), $mint, array( $mint ), array( 'wpcpm_sponsor_provision_' . $mint ), $on_view, '<div class="notice notice-success is-dismissible"><p>The account was created and its invitation queued.</p></div>' ) );
 
 echo "\n=== The screen's names, and the Accounts tab top to bottom ===\n";
 
@@ -2601,25 +2853,24 @@ WPCPM_Flash::set( 'sponsors_admin', 'invited' );
 $top_to_bottom             = html_of( page_for( screen() ) );
 WPCPM_Settings::$connected = true;
 
-ck( 'the Accounts tab reads top to bottom: the press\'s notice and the warning that Airtable is not connected, each once, above the tab bar, then the accounts locked today, the invitations card and the list, and nothing under it',
+ck( 'the Accounts tab reads top to bottom: the press\'s notice, once, above the tab bar, then the accounts locked today, the invitations card and the list, and nothing under it; drawn with no connection, it prints no warning about one, since its accounts are made on the site',
 	array(
 		in_order(
 			$top_to_bottom,
 			array(
 				'notice'      => '<div class="notice notice-success is-dismissible">',
-				'warning'     => 'Airtable is not connected yet, so no sponsors can be synced.',
 				'bar'         => '<nav class="nav-tab-wrapper',
 				'locked'      => '1 sponsor account is locked out of changes for the rest of today.',
 				'invitations' => '<div class="wpcpm-card wpcpm-invites">',
 				'list'        => '<h2>Sponsor accounts <span class="wpcpm-count">6</span></h2>',
 			)
 		),
-		substr_count( $top_to_bottom, 'Airtable is not connected yet' ),
+		substr_count( $top_to_bottom, 'not connected' ),
 		substr_count( $top_to_bottom, 'is-dismissible' ),
 		substr_count( $top_to_bottom, '<div class="wpcpm-card' ),
 		substr_count( (string) strstr( $top_to_bottom, '<h2>Sponsor accounts <span' ), '<h2>' ),
 	),
-	array( array( 'notice', 'warning', 'bar', 'locked', 'invitations', 'list' ), 1, 1, 2, 1 ) );
+	array( array( 'notice', 'bar', 'locked', 'invitations', 'list' ), 0, 1, 2, 1 ) );
 ck( 'and no address is printed anywhere on it: the locked accounts are named by name and username, as the list read them', array( has( $top_to_bottom, '@' ), has( $top_to_bottom, 'Ben Okoye (bokoye)' ) ), array( false, true ) );
 
 the_site();
@@ -2634,6 +2885,7 @@ ck( 'one draw of the Accounts tab asks for the accounts locked today once, for t
 	array( 1, 1 ) );
 
 echo "\n";
+ck( 'nothing the Accounts tab draws or handles reaches Airtable: the class does not even exist in this run', class_exists( 'WPCPM_Airtable', false ), false );
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

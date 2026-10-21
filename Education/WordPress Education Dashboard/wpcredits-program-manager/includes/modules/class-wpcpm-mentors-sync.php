@@ -30,8 +30,8 @@ class WPCPM_Mentors_Sync {
 	 * Both the constant and the hook keep the word `daily` although the run has not been daily
 	 * since 1.98.2. The string is what WordPress stored in the cron array on every site already
 	 * running this, and renaming it would leave that event behind with nothing listening to it -
-	 * a sync that never fires and no error to say so. The students, institutions and sponsors
-	 * syncs carry the same scar for the same reason.
+	 * a sync that never fires and no error to say so. The students and institutions syncs carry
+	 * the same scar for the same reason.
 	 */
 	const CRON_DAILY = 'wpcpm_mentors_daily';
 
@@ -43,15 +43,15 @@ class WPCPM_Mentors_Sync {
 	 * Since 1.98.2 every Airtable sync shares one recurrence
 	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
 	 * them out of the same WP-Cron request and off the same Airtable rate limit: the students run
-	 * takes +0:30, this one +1:00, the institutions sync +1:30, the sponsors sync +2:00. Measured
-	 * from the cycle's own start rather than from the neighbour before it, so a sync whose event
-	 * is missing cannot drag the rest along with it.
+	 * takes +0:30, this one +1:00 and the institutions sync +1:30. Measured from the cycle's own
+	 * start rather than from the neighbour before it, so a sync whose event is missing cannot drag
+	 * the rest along with it.
 	 *
 	 * This run is the students run's nearest neighbour and reads the same three Airtable tables
 	 * a moment later, which is why it takes the half hour after it rather than a later gap: the
 	 * two together are the pair a manager waits on, and the pair worth keeping close.
 	 *
-	 * Minutes, not hours: +0:30 and +1:30 are not whole hours, so one unit has to serve all four.
+	 * Minutes, not hours: +0:30 and +1:30 are not whole hours, so one unit has to serve all three.
 	 * Not a constant expression on `MINUTE_IN_SECONDS` either - that is evaluated the first time
 	 * the class is touched, and a test that loads it before defining the time constants would
 	 * fatal there instead of in the method that uses it.
@@ -67,8 +67,8 @@ class WPCPM_Mentors_Sync {
 	const OPT_LOOKUPS = 'wpcpm_mentors_lookups';
 
 	/**
-	 * Every Active mentor's sponsorship facts, keyed by record: whether they are sponsored and
-	 * by whom, whether they want a sponsor, their expertise, their account. Read by the Sponsor
+	 * Every Active mentor's sponsorship facts, keyed by record: whether they are sponsored,
+	 * whether they want a sponsor, their expertise, their account. Read by the Sponsor
 	 * Dashboard's sponsored-mentors card (design spec of 4 September 2026, section 5.6), which
 	 * needs these for every Active mentor and not only the ones with accounts.
 	 */
@@ -176,37 +176,36 @@ class WPCPM_Mentors_Sync {
 			'wpcpm_mentors_fields',
 			array(
 				// Mentors table.
-				'mentor_name'            => 'Full Name',
-				'mentor_profile'         => 'WordPress profile',
-				'mentor_email'           => 'Email',
-				'mentor_status'          => 'Status',
+				'mentor_name'          => 'Full Name',
+				'mentor_profile'       => 'WordPress profile',
+				'mentor_email'         => 'Email',
+				'mentor_status'        => 'Status',
 				// The sponsorship columns, for the Sponsor Dashboard (spec section 5.6) and the
 				// future mentor scoreboard (section 13). Every name is asserted against
 				// bin/fixtures/mentors-table-fields.json by bin/test-students-sync.php.
-				'mentor_sponsored'       => 'Sponsored',
-				'mentor_wants_sponsor'   => 'Wants to be in the looking for sponsors list',
-				'mentor_sponsor_company' => 'Sponsor Company Name',
-				'mentor_expertise'       => 'Contribution Area - Expertise',
+				'mentor_sponsored'     => 'Sponsored',
+				'mentor_wants_sponsor' => 'Wants to be in the looking for sponsors list',
+				'mentor_expertise'     => 'Contribution Area - Expertise',
 				// The columns an application's answers are written to when it becomes a mentor's row
 				// (`WPCPM_Mentor_Airtable_Row`, 1.122.33), asserted against the same fixture. The last
 				// one is spelled with a right single quotation mark, as the table spells it.
-				'mentor_country'         => 'Country',
-				'mentor_languages'       => 'Languages',
-				'mentor_hours'           => 'Available hours per week',
-				'mentor_teacher'         => 'Teacher from a participating institution?',
-				'mentor_anything'        => 'Anything else you’d like us to know?',
+				'mentor_country'       => 'Country',
+				'mentor_languages'     => 'Languages',
+				'mentor_hours'         => 'Available hours per week',
+				'mentor_teacher'       => 'Teacher from a participating institution?',
+				'mentor_anything'      => 'Anything else you’d like us to know?',
 				// Students Reports table.
-				'report_name'            => 'Name',
-				'report_email'           => 'Email',
-				'report_status'          => 'Status',
-				'report_mentor'          => 'Mentor',
-				'report_instituton'      => 'Educational institution',
-				'report_profile'         => 'WordPress Profile',
-				'report_slack'           => 'Slack Name',
-				'report_team'            => 'Main Contribution Team',
-				'report_website'         => 'Personal Website URL',
-				'report_start'           => 'Internship Start Date',
-				'report_end'             => 'Internship End Date',
+				'report_name'          => 'Name',
+				'report_email'         => 'Email',
+				'report_status'        => 'Status',
+				'report_mentor'        => 'Mentor',
+				'report_instituton'    => 'Educational institution',
+				'report_profile'       => 'WordPress Profile',
+				'report_slack'         => 'Slack Name',
+				'report_team'          => 'Main Contribution Team',
+				'report_website'       => 'Personal Website URL',
+				'report_start'         => 'Internship Start Date',
+				'report_end'           => 'Internship End Date',
 				// The hours a student has logged, against the target their status carries in
 				// `WPCPM_Program::hours_target()`. A number in the base, kept as the string
 				// every other cell on this row is, and formatted where it is printed: the
@@ -220,32 +219,32 @@ class WPCPM_Mentors_Sync {
 				// drawn from it needs clamping and a percentage needs no upper faith. An unset
 				// cell is absent rather than 0, which is a student nobody has logged for yet
 				// and not a student who has done nothing.
-				'report_hours'           => 'Hours',
-				'report_link'            => 'Personal link',
-				'report_link_50h'        => '50h personal link',
-				'report_link_dev'        => 'Dev Track ONLY personal link',
+				'report_hours'         => 'Hours',
+				'report_link'          => 'Personal link',
+				'report_link_50h'      => '50h personal link',
+				'report_link_dev'      => 'Dev Track ONLY personal link',
 				// Students table, for the tutor join.
-				'student_email'          => 'Email',
-				'student_tutor'          => 'Tutor ',
-				'student_tutors'         => 'Tutors official',
+				'student_email'        => 'Email',
+				'student_tutor'        => 'Tutor ',
+				'student_tutors'       => 'Tutors official',
 				// Both live only in the Students table, not in Students Reports, which is
 				// why they arrive through the same email-keyed join the tutor does.
-				'student_study'          => 'Your field of study',
-				'student_access'         => 'Accessibility needs',
+				'student_study'        => 'Your field of study',
+				'student_access'       => 'Accessibility needs',
 				// The rest of the Students table the students sync's Students-table pass
 				// reads for the per-institution roster index (design spec section 8.1).
 				// `Educational Institutions` is plural with a capital I, and `Start Date`
 				// is this table's own column, not the reports table's `Internship Start
 				// Date`; every name here is asserted against
 				// bin/fixtures/students-table-fields.json by bin/test-students-sync.php.
-				'student_record_name'    => 'Full Name',
-				'student_status'         => 'Status',
-				'student_institution'    => 'Educational Institutions',
-				'student_start'          => 'Start Date',
-				'student_end'            => 'End Date',
-				'student_mentor'         => 'Mentor',
-				'student_profile'        => 'WP Profile',
-				'student_import_key'     => 'Site import key',
+				'student_record_name'  => 'Full Name',
+				'student_status'       => 'Status',
+				'student_institution'  => 'Educational Institutions',
+				'student_start'        => 'Start Date',
+				'student_end'          => 'End Date',
+				'student_mentor'       => 'Mentor',
+				'student_profile'      => 'WP Profile',
+				'student_import_key'   => 'Site import key',
 			)
 		);
 	}
@@ -771,10 +770,6 @@ class WPCPM_Mentors_Sync {
 		$tables = array(
 			'institutions' => array( $settings['institutions_table'], $settings['institutions_name_field'] ),
 			'teams'        => array( $settings['teams_table'], $settings['teams_name_field'] ),
-			// Sponsors, for the report form's Company field - a linked record like the other two,
-			// so it needs the same record-ID-to-name catalog before a student can be offered a
-			// choice that is safe to write back.
-			'companies'    => array( $settings['sponsors_table'], $settings['sponsors_name_field'] ),
 		);
 
 		if ( ! isset( $state['lookups'] ) || ! is_array( $state['lookups'] ) ) {
@@ -912,7 +907,6 @@ class WPCPM_Mentors_Sync {
 		return array(
 			'institutions' => ( is_array( $stored ) && ! empty( $stored['institutions'] ) ) ? (array) $stored['institutions'] : array(),
 			'teams'        => ( is_array( $stored ) && ! empty( $stored['teams'] ) ) ? (array) $stored['teams'] : array(),
-			'companies'    => ( is_array( $stored ) && ! empty( $stored['companies'] ) ) ? (array) $stored['companies'] : array(),
 		);
 	}
 
@@ -923,7 +917,7 @@ class WPCPM_Mentors_Sync {
 	 * @param array  $fields  `fields()`.
 	 * @param int    $user_id The mentor's account, or 0.
 	 * @param string $status  The status the row was read under (the sync reads Active mentors only).
-	 * @return array `name`, `profile`, `status`, `user_id`, `sponsored` (bool), `wants` (bool), `company` (record IDs), `expertise` (string[]).
+	 * @return array `name`, `profile`, `status`, `user_id`, `sponsored` (bool), `wants` (bool), `expertise` (string[]).
 	 */
 	public static function sponsorship_row( array $cells, array $fields, $user_id, $status ) {
 		$cell = static function ( $key ) use ( $cells, $fields ) {
@@ -940,7 +934,6 @@ class WPCPM_Mentors_Sync {
 			'user_id'   => (int) $user_id,
 			'sponsored' => 'Yes' === trim( WPCPM_Airtable::flatten( $cell( 'mentor_sponsored' ) ) ),
 			'wants'     => 'Yes' === trim( WPCPM_Airtable::flatten( $cell( 'mentor_wants_sponsor' ) ) ),
-			'company'   => WPCPM_Airtable::link_ids( $cell( 'mentor_sponsor_company' ) ),
 			'expertise' => $expertise,
 		);
 	}
@@ -1198,7 +1191,7 @@ class WPCPM_Mentors_Sync {
 			$settings['mentors_table'],
 			array(
 				'formula' => $airtable->formula_in( $fields['mentor_status'], array( $settings['mentor_status'] ) ),
-				'fields'  => array( $fields['mentor_name'], $fields['mentor_profile'], $fields['mentor_email'], $fields['mentor_status'], $fields['mentor_sponsored'], $fields['mentor_wants_sponsor'], $fields['mentor_sponsor_company'], $fields['mentor_expertise'] ),
+				'fields'  => array( $fields['mentor_name'], $fields['mentor_profile'], $fields['mentor_email'], $fields['mentor_status'], $fields['mentor_sponsored'], $fields['mentor_wants_sponsor'], $fields['mentor_expertise'] ),
 				'offset'  => $state['offset'],
 			)
 		);

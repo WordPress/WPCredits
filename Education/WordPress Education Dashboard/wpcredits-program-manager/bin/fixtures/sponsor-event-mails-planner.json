@@ -1,0 +1,1658 @@
+[
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example planned an event",
+        "body": "Partner Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 11, 2026 4:00 am to 5:30 am (Asia / Tokyo)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example planned an event",
+        "body": "Champion Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Champion webinar\nWhen: December 3, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example changed its event",
+        "body": "Partner Example changed its event on the Sponsor Dashboard. It is still waiting for an Administrator's approval.\n\nTitle: Partners Q&A, moved\nWhen: November 13, 2026 5:00 am to 6:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Partners Q&A, moved",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Partners Q&A, moved\nSponsor: Partner Example\nWhen: November 13, 2026 9:00 pm to 10:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Partners Q&A, moved",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Partners Q&A, moved\nSponsor: Partner Example\nWhen: November 13, 2026 9:00 pm to 10:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Partners Q&A, moved",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Partners Q&A, moved\nWhen: November 13, 2026 3:00 pm to 4:00 pm (America / New York)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example changed its event",
+        "body": "Partner Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Partners Q&A, moved\nWhen: November 14, 2026 5:00 am to 6:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Partners Q&A, moved",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Partners Q&A, moved\nWhen: November 13, 2026 3:00 pm to 4:00 pm (America / New York)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example changed its event",
+        "body": "Partner Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Partners Q&A, moved\nWhen: November 14, 2026 5:00 am to 6:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we cover.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Partners Q&A, moved",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Partners Q&A, moved\nWhen: November 13, 2026 3:00 pm to 4:00 pm (America / New York)\nLength: 60 minutes\nPlaces: 41\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example changed its event",
+        "body": "Partner Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Partners Q&A, moved\nWhen: November 14, 2026 5:00 am to 6:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 41\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we cover.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Partners Q&A, moved",
+        "body": "An event you joined is canceled.\n\nTitle: Partners Q&A, moved\nSponsor: Partner Example\nWhen: November 13, 2026 9:00 pm to 10:00 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Partners Q&A, moved",
+        "body": "An event you joined is canceled.\n\nTitle: Partners Q&A, moved\nSponsor: Partner Example\nWhen: November 13, 2026 9:00 pm to 10:00 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Partners Q&A, moved",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Partners Q&A, moved\nWhen: November 13, 2026 3:00 pm to 4:00 pm (America / New York)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example canceled its event",
+        "body": "Partner Example canceled its event on the Sponsor Dashboard.\n\nTitle: Partners Q&A, moved\nWhen: November 14, 2026 5:00 am to 6:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 41\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we cover.\nBring questions.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Champion Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Champion webinar, again\nWhen: December 2, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "paula.pausedrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Paused webinar",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Paused webinar\nWhen: December 5, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Paused Example canceled its event",
+        "body": "Paused Example canceled its event on the Sponsor Dashboard.\n\nTitle: Paused webinar\nWhen: December 5, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: no limit\nCall link: https://call.example/paused\n\nDescription:\nBefore the pause.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "An Administrator changed the event on the Sponsor Dashboard on Champion Example's behalf. It is still waiting for an Administrator's approval.\n\nTitle: Champion webinar, moved\nWhen: December 3, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example canceled its event",
+        "body": "An Administrator canceled the event on the Sponsor Dashboard on Champion Example's behalf.\n\nTitle: Champion webinar, moved\nWhen: December 3, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example planned an event",
+        "body": "Champion Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Champion webinar, third\nWhen: December 4, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Champion webinar, third",
+        "body": "An Administrator changed it on Champion Example's behalf. Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Champion webinar, third\nWhen: December 5, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "An Administrator changed the approved event on the Sponsor Dashboard on Champion Example's behalf. It stays approved.\n\nTitle: Champion webinar, third\nWhen: December 5, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, third",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, third\nSponsor: Champion Example\nWhen: December 5, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, third",
+        "body": "An Administrator canceled it on Champion Example's behalf. Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Champion webinar, third\nWhen: December 5, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example canceled its event",
+        "body": "An Administrator canceled the event on the Sponsor Dashboard on Champion Example's behalf.\n\nTitle: Champion webinar, third\nWhen: December 5, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nPeople who joined: 1\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example planned an event",
+        "body": "Champion Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Champion webinar, fourth\nWhen: December 6, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Champion webinar, fourth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Champion webinar, fourth\nWhen: December 7, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "Champion Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Champion webinar, fourth\nWhen: December 7, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nPeople who joined: 1\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fourth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 8, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Champion webinar, fourth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Champion webinar, fourth\nWhen: December 8, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "Champion Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Champion webinar, fourth\nWhen: December 8, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fourth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fourth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Champion webinar, fourth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Champion webinar, fourth\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "Champion Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Champion webinar, fourth\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fourth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fourth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, fourth",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Champion webinar, fourth\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example canceled its event",
+        "body": "Champion Example canceled its event on the Sponsor Dashboard.\n\nTitle: Champion webinar, fourth\nWhen: December 9, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nPeople who joined: 3\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example planned an event",
+        "body": "Champion Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Champion webinar, fifth\nWhen: December 10, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: no limit\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "crowd.member.1 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.2 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.3 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.4 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.5 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.6 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.7 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.8 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.9 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.10 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.11 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.12 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.13 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.14 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.15 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.16 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.17 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.18 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.19 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.20 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.21 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.22 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.23 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.24 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.25 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.26 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.27 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.28 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.29 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.30 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.31 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.32 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.33 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.34 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.35 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.36 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.37 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.38 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.39 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.40 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.41 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.42 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.43 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.44 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.45 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.46 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.47 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.48 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.49 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.50 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Champion webinar, fifth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nJoin the call: https://call.example/room?pwd=a%2Fb&id=7\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Champion webinar, fifth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Champion webinar, fifth\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: no limit\nCall link: https://call.example/room?pwd=a%2Fb&id=7",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example changed its event",
+        "body": "Champion Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Champion webinar, fifth\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: no limit\nPeople who joined: 55\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "crowd.member.1 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.2 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.3 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.4 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.5 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.6 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.7 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.8 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.9 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.10 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.11 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.12 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.13 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.14 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.15 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.16 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.17 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.18 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.19 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.20 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.21 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.22 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.23 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.24 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.25 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.26 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.27 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.28 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.29 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.30 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.31 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.32 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.33 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.34 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.35 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.36 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.37 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.38 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.39 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.40 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.41 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.42 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.43 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.44 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.45 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.46 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.47 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.48 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.49 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.50 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, fifth",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Champion webinar, fifth\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Champion Example canceled its event",
+        "body": "Champion Example canceled its event on the Sponsor Dashboard.\n\nTitle: Champion webinar, fifth\nWhen: December 11, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: no limit\nPeople who joined: 55\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "mo.contact at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Partner Example planned an event",
+        "body": "Partner Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Partners webinar, second\nWhen: November 21, 2026 10:00 am to 11:00 am (Asia / Tokyo)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "lee.lapsedrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Lapsed webinar",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: Lapsed webinar\nWhen: December 20, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Lapsed Example canceled its event",
+        "body": "Lapsed Example canceled its event on the Sponsor Dashboard.\n\nTitle: Lapsed webinar\nWhen: December 20, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: no limit\nCall link: https://call.example/lapsed\n\nDescription:\nPlanned while the term ran.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Extra Example planned an event",
+        "body": "Extra Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Extra webinar, first\nWhen: December 1, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Extra Example planned an event",
+        "body": "Extra Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Extra webinar, second\nWhen: December 10, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Extra Example planned an event",
+        "body": "Extra Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Extra webinar, third\nWhen: December 20, 2026 2:00 pm to 3:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nDescription:\nWhat we \"cover\" & more.\nBring questions.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Typed Example planned an event",
+        "body": "Typed Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Typed webinar\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed-webinar\n\nDescription:\nTyped & \"kept\".\nSecond line.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Why 2 < 3, and \"Q&A\"\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nIs 2 < 3? \"Yes\"\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Q&A with our team\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A with our team\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Ages > 5 welcome\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges > 5 welcome\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Q&A first: is 2 < 3? \"Yes\"\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A first: is 2 < 3? \"Yes\"\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Q&A for everyone\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A Q&A\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Entities typed\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A first, then 2 < 3 & \"Yes\"\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Q&A with our team\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A with our team\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Ages > 5 welcome\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges > 5 welcome\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Q&A first: is 2 < 3? \"Yes\"\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nQ&A first: is 2 < 3? \"Yes\"\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Signs typed\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nx < y > z > w\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges 8 < 12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Use 2 < 3 then 5 > 4 in the demo\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nUse 2 < 3 then 5 > 4 in the demo\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: We <3 mentors. Ages 8 < 12 welcome, adults > 18 pay\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nWe <3 mentors. Ages 8 < 12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Plain words\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlain words.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example changed its event",
+        "body": "Other Example changed its event on the Sponsor Dashboard. It is still waiting for an Administrator's approval.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges 8 < 12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Plain words\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlain words.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example changed its event",
+        "body": "Other Example changed its event on the Sponsor Dashboard. It is still waiting for an Administrator's approval.\n\nTitle: Use 2 < 3 then 5 > 4 in the demo\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nUse 2 < 3 then 5 > 4 in the demo\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: A sign at the end of a line\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges 8 <\n12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: A sign at the end of a line\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges 8 <\r\n12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: A sign at the end of a line\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nAges 8 <\t12 welcome, adults > 18 pay\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "An Administrator planned an event on the Sponsor Dashboard on Other Example's behalf. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Two lines\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nFirst line, Q&A.\r\nSecond line.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Planned again\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nPlanned again.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example planned an event",
+        "body": "Other Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: We <3 \"our\" team & Bob's, 2 < 3 > 1\nWhen: December 1, 2026 2:30 pm to 3:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nWe <3 \"our\" team & Bob's, 2 < 3 > 1\r\nSecond line, 2 < 3.\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "kim.keptplan at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: We <3 \"our\" team & Bob's, 2 < 3 > 1",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: We <3 \"our\" team & Bob's, 2 < 3 > 1\nWhen: December 1, 2026 3:30 pm to 4:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example changed its event",
+        "body": "Other Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: We <3 \"our\" team & Bob's, 2 < 3 > 1\nWhen: December 1, 2026 3:30 pm to 4:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nWe <3 \"our\" team & Bob's, 2 < 3 > 1\r\nSecond line, 2 < 3.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "kim.keptplan at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: We <3 \"our\" team & Bob's, 2 < 3 > 1",
+        "body": "Your company's event is canceled. The calendar file attached takes it off your calendar.\n\nTitle: We <3 \"our\" team & Bob's, 2 < 3 > 1\nWhen: December 1, 2026 3:30 pm to 4:15 pm (Europe / Warsaw)",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Other Example canceled its event",
+        "body": "Other Example canceled its event on the Sponsor Dashboard.\n\nTitle: We <3 \"our\" team & Bob's, 2 < 3 > 1\nWhen: December 1, 2026 3:30 pm to 4:15 pm (Europe / Warsaw)\nLength: 45 minutes\nPlaces: 25\nCall link: https://call.example/typed?pwd=a%2Fb&x=bbold/b\n\nDescription:\nWe <3 \"our\" team & Bob's, 2 < 3 > 1\r\nSecond line, 2 < 3.",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Loss Example planned an event",
+        "body": "Loss Example planned an event on the Sponsor Dashboard. Nobody else sees it until an Administrator approves it.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay\nWhen: December 10, 2026 3:00 pm to 4:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/loss\n\nDescription:\nKids < 12 free,\r\nadults > 18 pay, and 10% cashback\n\nApprove it, or return it with a note, on the Administrator Dashboard under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Ages 8 < 12 welcome, adults > 18 pay, moved",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay, moved\nSponsor: Loss Example\nWhen: December 10, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/loss\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Ages 8 < 12 welcome, adults > 18 pay, moved",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay, moved\nSponsor: Loss Example\nWhen: December 10, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/loss\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Ages 8 < 12 welcome, adults > 18 pay, moved",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay, moved\nWhen: December 10, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/loss",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "liv.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Ages 8 < 12 welcome, adults > 18 pay, moved",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay, moved\nWhen: December 10, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/loss",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Loss Example changed its event",
+        "body": "Loss Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Ages 8 < 12 welcome, adults > 18 pay, moved\nWhen: December 10, 2026 4:00 pm to 5:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/loss\n\nDescription:\nKids < 12 free,\r\nadults > 18 pay, and 10% cashback\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Get 10%cashback\nat the booth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Get 10%cashback\nat the booth\nSponsor: Loss Example\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/loss\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Get 10%cashback\nat the booth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Get 10%cashback\nat the booth\nSponsor: Loss Example\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/loss\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Get 10%cashback\nat the booth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Get 10%cashback\nat the booth\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/loss",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "liv.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Get 10%cashback\nat the booth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Get 10%cashback\nat the booth\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nCall link: https://call.example/loss",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Loss Example changed its event",
+        "body": "Loss Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Get 10%cashback\nat the booth\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: 40\nPeople who joined: 2\nCall link: https://call.example/loss\n\nDescription:\nBring a laptop,\r\nand 10%cashback.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Meet\rthe team\r\n\r\ntoday",
+        "body": "An event you joined is canceled.\n\nTitle: Meet\rthe team\r\n\r\ntoday\nSponsor: Loss Example\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Meet\rthe team\r\n\r\ntoday",
+        "body": "An event you joined is canceled.\n\nTitle: Meet\rthe team\r\n\r\ntoday\nSponsor: Loss Example\nWhen: December 10, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Get 10%cashback at the booth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Get 10%cashback at the booth\nSponsor: Loss Example\nWhen: December 20, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/store\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "yuri.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: Get 10%cashback at the booth",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: Get 10%cashback at the booth\nSponsor: Loss Example\nWhen: December 20, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nJoin the call: https://call.example/store\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Get 10%cashback at the booth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Get 10%cashback at the booth\nWhen: December 20, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: no limit\nCall link: https://call.example/store",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "liv.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is changed: Get 10%cashback at the booth",
+        "body": "Your company's event is changed. The calendar file attached replaces the one you had.\n\nTitle: Get 10%cashback at the booth\nWhen: December 20, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: no limit\nCall link: https://call.example/store",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "events at program.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Loss Example changed its event",
+        "body": "Loss Example changed its approved event on the Sponsor Dashboard. It stays approved.\n\nTitle: Get 10%cashback at the booth\nWhen: December 20, 2026 5:00 pm to 6:00 pm (Europe / Warsaw)\nLength: 60 minutes\nPlaces: no limit\nPeople who joined: 2\nCall link: https://call.example/store\n\nDescription:\nBring a laptop,\r\nand 10%cashback.\n\nThe Administrator Dashboard lists it under Events.\nhttps://site.example/administrator-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    }
+]

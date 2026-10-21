@@ -802,6 +802,15 @@
 	padding-top: 1.25em;
 }
 
+/* In a column of its own, the Sponsor Dashboard's third (1.118.0), the person is the column's only
+   block, so the rule and the room that set it apart under the guide's buttons go, as the theme
+   takes them off (wpcredits-theme 1.29.0): what divides it from the resources is the column's. */
+.wpcpm-resources__col--contact > .wpcpm-resources__contact {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
 .wpcpm-resources__contact-name {
 	font-size: 1.05em;
 	font-weight: 600;

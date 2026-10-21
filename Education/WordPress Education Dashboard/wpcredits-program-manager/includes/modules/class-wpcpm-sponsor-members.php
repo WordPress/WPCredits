@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * | Meta                         | Holds                                       |
  * | ---------------------------- | ------------------------------------------- |
- * | `wpcpm_sponsor_record_id`    | the sponsor's Airtable record ID            |
+ * | `wpcpm_sponsor_record_id`    | the sponsor's key                           |
  * | `wpcpm_sponsor_active`       | 1 while exercisable, 0 after detach         |
  * | `wpcpm_sponsor_record_id_was`| history, no power                           |
  * | `wpcpm_sponsor_membership`   | `since`, `by`, `how`                        |
@@ -76,7 +76,7 @@ final class WPCPM_Sponsor_Members {
 	 * detached account keeps `_was` and answers '' here, which is what "no power" means.
 	 *
 	 * @param int|WP_User|null $user The account; null for the current user.
-	 * @return string Airtable record ID, or ''.
+	 * @return string Sponsor key, or ''.
 	 */
 	public static function sponsor_of( $user = null ) {
 		$user = WPCPM_Roles::resolve_user( $user );
@@ -87,7 +87,7 @@ final class WPCPM_Sponsor_Members {
 
 		$record = trim( (string) get_user_meta( $user->ID, self::META_RECORD_ID, true ) );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) || 1 !== (int) get_user_meta( $user->ID, self::META_ACTIVE, true ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) || 1 !== (int) get_user_meta( $user->ID, self::META_ACTIVE, true ) ) {
 			return '';
 		}
 
@@ -110,7 +110,7 @@ final class WPCPM_Sponsor_Members {
 	 * Whether an account acts for a sponsor, or for one sponsor in particular.
 	 *
 	 * @param int|WP_User|null $user   The account.
-	 * @param string           $record A record ID, or '' for any sponsor.
+	 * @param string           $record A sponsor key, or '' for any sponsor.
 	 * @return bool
 	 */
 	public static function is_member( $user = null, $record = '' ) {
@@ -126,7 +126,7 @@ final class WPCPM_Sponsor_Members {
 	/**
 	 * The live accounts of a sponsor.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return WP_User[]
 	 */
 	public static function members_of( $record ) {
@@ -141,7 +141,7 @@ final class WPCPM_Sponsor_Members {
 	 * own people card already reads the institution twin the same way, to offer a manager the
 	 * one click that puts a removed account back.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 * @return WP_User[]
 	 */
 	public static function former_members_of( $record ) {
@@ -171,7 +171,7 @@ final class WPCPM_Sponsor_Members {
 	/**
 	 * Let an account act for a sponsor.
 	 *
-	 * The refusals, in the spec's order (section 5.1): a malformed record ID; a record not in
+	 * The refusals, in the spec's order (section 5.1): a malformed sponsor key; a sponsor not in
 	 * the index; no such account; an administrator (a manager already reaches every sponsor);
 	 * a student (a student cannot be a sponsor's representative while in the program); an
 	 * institution's representative (one person acting for a school and for a company that
@@ -188,12 +188,12 @@ final class WPCPM_Sponsor_Members {
 	public static function attach( $user_id, $record_id, $how, $actor_id ) {
 		$record_id = trim( (string) $record_id );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
-			return new WP_Error( 'wpcpm_sponsor_bad_record', __( 'That is not an Airtable record ID.', 'wpcredits-program-manager' ) );
+		if ( ! WPCPM_Sponsors_Index::is_key( $record_id ) ) {
+			return new WP_Error( 'wpcpm_sponsor_bad_record', __( 'That is not a sponsor key.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( ! WPCPM_Sponsors_Index::has( $record_id ) ) {
-			return new WP_Error( 'wpcpm_sponsor_not_indexed', __( 'That sponsor is not in the index yet. Run the sponsors sync, then try again.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_sponsor_not_indexed', __( 'That sponsor is not on the site yet. Add it on the Sponsors screen, then try again.', 'wpcredits-program-manager' ) );
 		}
 
 		$user = self::account( $user_id );
@@ -311,7 +311,7 @@ final class WPCPM_Sponsor_Members {
 
 		$record_id = trim( (string) get_user_meta( $user->ID, self::META_RECORD_ID, true ) );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record_id ) ) {
 			return new WP_Error( 'wpcpm_sponsor_member_none', __( 'That account is not attached to any sponsor.', 'wpcredits-program-manager' ) );
 		}
 
@@ -468,21 +468,21 @@ final class WPCPM_Sponsor_Members {
 	}
 
 	/**
-	 * The accounts holding a record ID under one meta key.
+	 * The accounts holding a sponsor key under one meta key.
 	 *
 	 * The comparison is left to `same_record()`, never `===` on the raw stamp: the fence
 	 * rule is that the policy alone compares sponsor IDs, and this reader is a lookup, not a
 	 * decision, so it goes through the one helper the policy's suite allows.
 	 *
 	 * @param string $meta_key `META_RECORD_ID` or `META_RECORD_ID_WAS`.
-	 * @param string $record   Airtable record ID.
+	 * @param string $record   Sponsor key.
 	 * @param bool   $live     Whether the active flag must be set too.
 	 * @return WP_User[]
 	 */
 	private static function holders( $meta_key, $record, $live ) {
 		$record = trim( (string) $record );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+		if ( ! WPCPM_Sponsors_Index::is_key( $record ) ) {
 			return array();
 		}
 
@@ -499,7 +499,7 @@ final class WPCPM_Sponsor_Members {
 				continue;
 			}
 
-			// The query matched under the database collation; record IDs are case-sensitive.
+			// The query matched under the database collation; sponsor keys are case-sensitive.
 			if ( ! self::same_record( (string) get_user_meta( $user->ID, $meta_key, true ), $record ) ) {
 				continue;
 			}
@@ -515,7 +515,7 @@ final class WPCPM_Sponsor_Members {
 	}
 
 	/**
-	 * Whether two record IDs name the same record: byte for byte, trimmed.
+	 * Whether two sponsor keys name the same sponsor: byte for byte, trimmed.
 	 *
 	 * @param string $a One.
 	 * @param string $b The other.

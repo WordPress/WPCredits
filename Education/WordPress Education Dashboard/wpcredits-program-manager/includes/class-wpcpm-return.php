@@ -30,14 +30,14 @@ final class WPCPM_Return {
 	/**
 	 * The ids the dashboard's sections carry, minus the `wpcpm-` prefix.
 	 *
-	 * Every one of the Administrator Dashboard's cards, and the attention strip above them.
+	 * Every one of the Administrator Dashboard's cards, and the attention strip above them: a
+	 * card's key, which the dashboards' shell prints as the card's anchor there, is one of these.
 	 * `offers-low`, `interests` and `sponsors` were missing while no decision was posted from
-	 * those three cards, which made `WPCPM_Administrators_Cards::card_open()`'s own contract
-	 * ("the anchor, one of WPCPM_Return::ANCHORS") false for a quarter of its callers and left
-	 * a trap for the first decision put on one of them: `field()` drops an anchor this list
-	 * does not name, silently (deep check FADMN-6).
+	 * those three cards, which made that rule false for a quarter of the cards and left a trap
+	 * for the first decision put on one of them: `field()` drops an anchor this list does not
+	 * name, silently (deep check FADMN-6).
 	 */
-	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'programs', 'mentor-engagement', 'health' );
+	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'tiers-ending', 'sponsor-reports', 'programs', 'mentor-engagement', 'health' );
 
 	/**
 	 * Print the hidden fields that bring a decision back to the dashboard.

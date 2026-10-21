@@ -37,34 +37,45 @@ final class WPCPM_Sponsor_Usage {
 	}
 
 	/**
-	 * The card.
+	 * The card. Folded until a flash names it, its row every claim that stands, in all; the export
+	 * is inside it, so nothing follows the fold.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
 		$stats = WPCPM_Sponsor_Claims::stats( $record );
 		$open  = isset( $context['open'] ) && self::CARD === $context['open'];
+		$total = (int) $stats['totals']['total'];
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Usage', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( (int) $stats['totals']['total'] ) )
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'      => self::CARD,
+				'title'    => __( 'Usage', 'wpcredits-program-manager' ),
+				// The heading's words carry an id, which names the table's box (`scroll_open()`).
+				'title_id' => true,
+				'count'    => $total,
+				'open'     => $open,
+				'state'    => sprintf(
+					/* translators: %s: how many claims of the sponsor's offers stand, in all. */
+					_n( '%s claim in all', '%s claims in all', $total, 'wpcredits-program-manager' ),
+					number_format_i18n( $total )
+				),
+			)
 		);
-		echo '<div class="wpcpm-group__body">';
-		// A privacy fact, not a description: the group lead says what the card shows; this says
-		// what it never will (spec decision 7).
+		// A privacy fact, not a description: it says what the card never shows (spec decision 7), so
+		// it stays in the card while the group's lead speaks for the group.
 		echo '<p class="wpcpm-student__note">' . esc_html__( 'Nobody is named here: the program keeps the list of who claimed, for support.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $stats['offers'] ) ) {
 			echo '<p>' . esc_html__( 'Numbers appear here once you have an offer.', 'wpcredits-program-manager' ) . '</p>';
-			echo '</div></details></section>';
+			WPCPM_Dashboard_Card::close();
 			return;
 		}
 
 		self::render_chart( $stats );
 
+		self::scroll_open();
 		echo '<table class="wpcpm-table wpcpm-usage"><thead><tr>';
 
 		foreach ( array( __( 'Offer', 'wpcredits-program-manager' ), __( 'State', 'wpcredits-program-manager' ), __( 'Claims', 'wpcredits-program-manager' ), __( 'This month', 'wpcredits-program-manager' ), __( 'Available', 'wpcredits-program-manager' ), __( 'Claimed', 'wpcredits-program-manager' ), __( 'Void', 'wpcredits-program-manager' ) ) as $head ) {
@@ -92,7 +103,7 @@ final class WPCPM_Sponsor_Usage {
 			printf( '<td>%s</td>', esc_html( number_format_i18n( (int) $stats['totals'][ $key ] ) ) );
 		}
 
-		echo '</tr></tfoot></table>';
+		echo '</tr></tfoot></table></div>';
 
 		// Not guarded with `data-wpcpm-once`: the answer is a file, so the page stays where it is and a
 		// form locked at its first press would stay locked, reading its busy word, with the download
@@ -107,7 +118,22 @@ final class WPCPM_Sponsor_Usage {
 		printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Download as CSV', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
-		echo '</div></details></section>';
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * Open the box the table scrolls in on a phone (1.123.17); the table's own closing tag is
+	 * followed by the box's.
+	 *
+	 * The Administrator Dashboard's tables with column headers sit in such a box since 1.122.35, and
+	 * this one is made the same way: below 782px sponsor.css lets the box, not the table, scroll
+	 * sideways, since a table cannot be a region without losing what makes it a table. The box is a
+	 * tab stop, so a keyboard reaches it and its arrow keys scroll it, and a region named by the
+	 * card's heading words, which the card shell gives an id (`title_id`), so a screen reader says
+	 * what scrolls: "Usage", not the count beside it. A tab stop at every width, as those are.
+	 */
+	private static function scroll_open() {
+		printf( '<div class="wpcpm-usage__scroll" tabindex="0" role="region" aria-labelledby="%s">', esc_attr( WPCPM_Dashboard_Card::title_id( 'wpcpm-sponsor-' . self::CARD ) ) );
 	}
 
 	/**

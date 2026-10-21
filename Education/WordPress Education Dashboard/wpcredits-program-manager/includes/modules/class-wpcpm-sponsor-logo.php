@@ -1,6 +1,6 @@
 <?php
 /**
- * The Sponsor Dashboard's logo card: two optional images, and the base kept in step.
+ * The Sponsor Dashboard's logo card: two optional images, stored on the site.
  *
  * @package WPCreditsProgramManager
  */
@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * A sponsor replaces the logo Airtable holds with one it uploads.
+ * A sponsor uploads the logo the site shows beside its offer.
  *
  * Design spec of 4 September 2026, decision 11 and section 8.1. Two files, each optional: the
  * color logo the dashboard and the Tools section draw, and a white one for a dark ground. Both
@@ -23,19 +23,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **All or nothing.** Two files arrive together and one bad one refuses the pair, the way one
  * rejected field refuses the whole profile save. Half a change is the thing a person cannot see.
  *
- * **The record says who owns the logo.** `wpcpm_sponsor_logo_<record>` carries `source =>
- * site` after an upload, and `WPCPM_Sponsors_Sync::phase_logos()` reads exactly that before it
- * copies anything: a logo the sponsor uploaded here is never replaced by Airtable's, even with
- * the sync running every three hours. Remove empties the base's `Logo` first and clears the
- * record only when that worked, because a cleared record with this site's own URLs still in
- * the base is a logo the sponsor can never remove: the next sponsors sync run copies those
- * URLs back in as Airtable's, and the card stops offering Remove.
- * The files stay in the Media Library either way, so a post that embeds one keeps working.
- *
- * **Airtable's `Logo` is written with the site's public URLs.** The attachment field is replaced
- * whole, color first, so the base shows the picture the site shows and the WPCredits tracker,
- * which reads the base and not this site, keeps working unchanged (spec section 14). A PATCH that
- * fails is said out loud and loses nothing: the site holds the logo either way.
+ * **The record says who owns the logo.** `wpcpm_sponsor_logo_<record>` carries `source => site`
+ * after an upload; a row the migration carried over can still read `source => airtable`, its
+ * picture already the site's own copy, and nothing here changes that value going forward.
+ * Remove clears the record outright: nothing here writes the logo anywhere else, so there is
+ * nothing left to keep in step. The files stay in the Media Library either way, so a post that
+ * embeds one keeps working.
  */
 final class WPCPM_Sponsor_Logo {
 
@@ -49,7 +42,7 @@ final class WPCPM_Sponsor_Logo {
 	/** The upload, multipart, a member or a manager on behalf. Nonce keyed to the record. */
 	const ACTION_UPLOAD = 'wpcpm_sponsor_logo';
 
-	/** Give the logo back to Airtable's. Nonce keyed to the record. */
+	/** Clear the site's logo record. Nonce keyed to the record. */
 	const ACTION_REMOVE = 'wpcpm_sponsor_logo_remove';
 
 	/** The ceiling's key stem, and how many uploads one sponsor gets a day. */
@@ -79,12 +72,11 @@ final class WPCPM_Sponsor_Logo {
 	 */
 	public static function messages() {
 		return array(
-			'logo-saved'            => array( 'success', __( 'Your logo is saved, here and in the program records.', 'wpcredits-program-manager' ) ),
-			'logo-removed'          => array( 'success', __( 'Your logo is removed here and from the program records. Upload a new one whenever you like.', 'wpcredits-program-manager' ) ),
-			'logo-removed-airtable' => array( 'error', __( 'Nothing was removed: the program records could not be told just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
-			'logo-none'             => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
-			'logo-not-site'         => array( 'error', __( 'There is no uploaded logo to remove here. The logo shown comes from Airtable; an Administrator can change it there.', 'wpcredits-program-manager' ) ),
-			'logo-refused'          => array(
+			'logo-saved'    => array( 'success', __( 'Your logo is saved.', 'wpcredits-program-manager' ) ),
+			'logo-removed'  => array( 'success', __( 'Your logo is removed. Upload a new one whenever you like.', 'wpcredits-program-manager' ) ),
+			'logo-none'     => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
+			'logo-not-site' => array( 'error', __( 'There is no uploaded logo to remove here.', 'wpcredits-program-manager' ) ),
+			'logo-refused'  => array(
 				'error',
 				sprintf(
 					/* translators: 1: the least width in pixels, 2: the longest side in pixels. */
@@ -93,10 +85,9 @@ final class WPCPM_Sponsor_Logo {
 					WPCPM_Image_Upload::MAX_SIDE
 				),
 			),
-			'logo-busy'             => array( 'error', __( 'Nothing was saved. This sponsor has used up the logo uploads one day allows. Try again tomorrow.', 'wpcredits-program-manager' ) ),
-			'logo-failed'           => array( 'error', __( 'Nothing was saved. This site could not store the image, which is this site\'s fault and not yours. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'logo-airtable'         => array( 'warning', __( 'Your logo is saved on the site, and the program records could not be told just now. The site shows the new logo; the records catch up on the next attempt.', 'wpcredits-program-manager' ) ),
-			'refused'               => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
+			'logo-busy'     => array( 'error', __( 'Nothing was saved. This sponsor has used up the logo uploads one day allows. Try again tomorrow.', 'wpcredits-program-manager' ) ),
+			'logo-failed'   => array( 'error', __( 'Nothing was saved. This site could not store the image, which is this site\'s fault and not yours. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
+			'refused'       => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -248,37 +239,32 @@ final class WPCPM_Sponsor_Logo {
 				'actor'    => get_current_user_id(),
 				'ground'   => (string) $claim['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => __( 'A logo was uploaded on the Sponsor Dashboard and written to the program records.', 'wpcredits-program-manager' ),
+				'message'  => __( 'A logo was uploaded on the Sponsor Dashboard.', 'wpcredits-program-manager' ),
 				// Which halves changed, never a path: the file is public and the log is not
 				// the place to keep a second address for it.
 				'data'     => array( 'halves' => array_keys( $accepted ) ),
 			)
 		);
 
-		if ( ! self::write_airtable( $record ) ) {
-			self::leave( 'logo-airtable', $record );
-		}
-
 		self::leave( 'logo-saved', $record );
 	}
 
 	/**
-	 * Take the uploaded logo out of the site and out of the program records.
+	 * Take the uploaded logo out of the site.
 	 *
-	 * **The base first, and nothing here changes when it refuses.** The upload replaced the
-	 * base's `Logo` with this site's public URLs, so there is no original left to come back to:
-	 * a site record cleared while those URLs stand would have the next sponsors sync run copy the
-	 * site's own picture back in as Airtable's, under a record the sponsor no longer owns, and
-	 * the Remove button (drawn only for a logo this site owns) would be gone from the card.
+	 * **Only a logo this site owns.** The card draws Remove only for a logo this site owns, and
+	 * this asks the same question of the same record rather than trusting that it did: the nonce
+	 * minted while it was true stays valid for its whole life, and the record can change in
+	 * between, a second tab or another member removing the logo first. A record that fails the
+	 * check refuses with `logo-not-site`, and nothing is touched (FSPON-5).
+	 *
+	 * **The reset is unconditional.** Nothing here writes the logo anywhere but the site, so
+	 * there is no second place that could refuse and leave the two out of step; the record is
+	 * simply cleared.
 	 *
 	 * Nothing is deleted from the Media Library. A published sponsor post that embeds the image
 	 * keeps working, and a manager who wants the file gone deletes it in wp-admin, where the
 	 * consequences of deleting an attachment are visible.
-	 *
-	 * **Only a logo this site owns.** The premise named above - that the upload already replaced
-	 * the base's `Logo` with this site's public URLs - is now checked here instead of assumed
-	 * from the button being drawn: a record that fails the check refuses with `logo-not-site`,
-	 * and nothing is PATCHed (FSPON-5).
 	 */
 	public static function handle_remove() {
 		if ( ! is_user_logged_in() ) {
@@ -297,34 +283,19 @@ final class WPCPM_Sponsor_Logo {
 
 		$record = $claim['record'];
 
-		// The card draws Remove only for a logo this site owns, and this asks the same question
-		// of the same record rather than trusting that it did. The nonce minted in that branch
-		// stays valid for its whole life, and the sponsors sync can set the source back to
-		// airtable in between; without this the PATCH below would empty the Logo of a sponsor
-		// whose picture came from the base, destroying the only copy the program holds, under an
-		// audit row saying it was removed from the program records (FSPON-5).
 		if ( 'site' !== (string) WPCPM_Sponsors_Index::logo_record( $record )['source'] ) {
 			self::leave( 'logo-not-site', $record );
 		}
 
-		// The base's Logo was replaced by the upload, so nothing of the original is left to
-		// come back. It is emptied first: a site record cleared ahead of a PATCH that then
-		// failed would leave the site's own URLs in the base with nothing here saying so.
-		$told = self::clear_airtable( $record );
-
-		if ( $told ) {
-			WPCPM_Sponsors_Index::write_logo_record(
-				$record,
-				array(
-					'colour'      => 0,
-					'white'       => 0,
-					'source'      => '',
-					'airtable_id' => '',
-				)
-			);
-
-			WPCPM_Sponsors_Index::patch( $record, array( 'logo' => array() ) );
-		}
+		WPCPM_Sponsors_Index::write_logo_record(
+			$record,
+			array(
+				'colour'      => 0,
+				'white'       => 0,
+				'source'      => '',
+				'airtable_id' => '',
+			)
+		);
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -334,14 +305,11 @@ final class WPCPM_Sponsor_Logo {
 				'actor'    => get_current_user_id(),
 				'ground'   => (string) $claim['decision']['ground'],
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => $told
-					? __( 'The logo was removed here and from the program records.', 'wpcredits-program-manager' )
-					: __( 'The logo was left in place: the program records could not be told.', 'wpcredits-program-manager' ),
-				'data'     => array( 'airtable' => (bool) $told ),
+				'message'  => __( 'The logo was removed.', 'wpcredits-program-manager' ),
 			)
 		);
 
-		self::leave( $told ? 'logo-removed' : 'logo-removed-airtable', $record );
+		self::leave( 'logo-removed', $record );
 	}
 
 	/**
@@ -349,9 +317,9 @@ final class WPCPM_Sponsor_Logo {
 	 *
 	 * A manager sees exactly what a member sees, for whichever sponsor the switcher is on:
 	 * uploading a logo on a sponsor's behalf is one of the things managers do, and a card that
-	 * hid the form from them would send them to Airtable to do it a slower way.
+	 * hid the form from them would leave them with no way to do it at all.
 	 *
-	 * @param string $record  Sponsor record ID.
+	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
@@ -372,7 +340,7 @@ final class WPCPM_Sponsor_Logo {
 	 * Remove. The profile card prints it under its form (1.96.6); `render()` above keeps the
 	 * standalone card for a site that wants one.
 	 *
-	 * @param string $record Airtable record ID.
+	 * @param string $record Sponsor key.
 	 */
 	public static function render_inner( $record ) {
 		$logo   = WPCPM_Sponsors_Index::logo_record( $record );
@@ -387,7 +355,7 @@ final class WPCPM_Sponsor_Logo {
 		echo '<p class="wpcpm-student__note">' . esc_html(
 			sprintf(
 				/* translators: %d: the least width in pixels. */
-				__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least %d pixels wide. SVG is not accepted, so export it as a PNG. What you upload here replaces the logo in the program records.', 'wpcredits-program-manager' ),
+				__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least %d pixels wide. SVG is not accepted, so export it as a PNG.', 'wpcredits-program-manager' ),
 				WPCPM_Image_Upload::LOGO_MIN_WIDTH
 			)
 		) . '</p>';
@@ -445,7 +413,7 @@ final class WPCPM_Sponsor_Logo {
 				'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-confirm="%3$s">',
 				esc_url( admin_url( 'admin-post.php' ) ),
 				esc_attr__( 'Removing', 'wpcredits-program-manager' ),
-				esc_attr__( 'Remove the logo you uploaded? It goes from this site and from the program records. The files stay in the Media Library, so anything that already shows them keeps working.', 'wpcredits-program-manager' )
+				esc_attr__( 'Remove the logo you uploaded? The files stay in the Media Library, so anything that already shows them keeps working.', 'wpcredits-program-manager' )
 			);
 			wp_nonce_field( self::ACTION_REMOVE . '_' . $record );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE ) );
@@ -525,80 +493,6 @@ final class WPCPM_Sponsor_Logo {
 				wp_delete_file( (string) $one['path'] );
 			}
 		}
-	}
-
-	/**
-	 * Write the sponsor's logo attachments to Airtable's `Logo`, color first.
-	 *
-	 * The attachment field is replaced whole, which is Airtable's only mode for one: sending
-	 * the halves the site holds is what keeps the base showing what the dashboard shows. The
-	 * URLs are the Media Library's public ones, because Airtable fetches them itself.
-	 *
-	 * @param string $record Sponsor record ID.
-	 * @return bool Whether the base took it.
-	 */
-	private static function write_airtable( $record ) {
-		$logo  = WPCPM_Sponsors_Index::logo_record( $record );
-		$cells = array();
-
-		foreach ( array( 'colour', 'white' ) as $half ) {
-			$id = (int) $logo[ $half ];
-
-			if ( $id < 1 ) {
-				continue;
-			}
-
-			$url = wp_get_attachment_url( $id );
-
-			if ( ! is_string( $url ) || '' === $url ) {
-				continue;
-			}
-
-			$cells[] = array(
-				'url'      => $url,
-				'filename' => basename( (string) wp_parse_url( $url, PHP_URL_PATH ) ),
-			);
-		}
-
-		// Nothing to send is not success: the flash that follows says the records were told.
-		if ( empty( $cells ) ) {
-			return false;
-		}
-
-		return self::patch_logo( $record, $cells );
-	}
-
-	/**
-	 * Empty the base's `Logo`: Remove takes the picture out of the program records as well.
-	 *
-	 * @param string $record Airtable record ID.
-	 * @return bool Whether the PATCH went through.
-	 */
-	private static function clear_airtable( $record ) {
-		return self::patch_logo( $record, array() );
-	}
-
-	/**
-	 * One PATCH of the `Logo` attachment field.
-	 *
-	 * @param string $record Airtable record ID.
-	 * @param array  $cells  The attachments, `url` plus `filename` each, or an empty array.
-	 * @return bool
-	 */
-	private static function patch_logo( $record, array $cells ) {
-		$fields   = WPCPM_Sponsors_Sync::fields();
-		$airtable = new WPCPM_Airtable();
-		$written  = $airtable->update_records(
-			(string) WPCPM_Settings::get_value( 'sponsors_table', '' ),
-			array(
-				array(
-					'id'     => $record,
-					'fields' => array( $fields['logo'] => $cells ),
-				),
-			)
-		);
-
-		return ! is_wp_error( $written ) && ! empty( $written );
 	}
 
 	/**

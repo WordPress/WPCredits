@@ -24,6 +24,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class WPCPM_Overview {
 
+	/** The Syncs card's id, which the waiting list's count of the syncs that need a look opens. */
+	const SYNCS_ANCHOR = 'wpcpm-syncs';
+
 	/**
 	 * Draw the screen: its heading and what it holds, the warning while Airtable is not connected,
 	 * then the four cards.
@@ -59,21 +62,27 @@ final class WPCPM_Overview {
 
 	/**
 	 * Where each count on the waiting list opens: the attention strip's tile key => the address of
-	 * the wp-admin screen that lists the tile's queue.
+	 * the wp-admin screen that lists the tile's queue, keyed in the order `counts()` builds the
+	 * tiles, which is the order the strip draws them in.
 	 *
 	 * The institutions' counts open the Institutions screen at the tab for each, named even where
 	 * it is the queue the screen opens on, so each address says where it goes: the applications,
-	 * the agreements and the mentor requests at Waiting for review, the semester reports to draft
-	 * and to review at Semester reports, and the locked accounts at Accounts. The sponsors' counts
-	 * open the Sponsors screen the same way: the applications, the sponsor posts and the signed
-	 * agreements at Waiting for review, each at the card there that lists it, and the offers running
-	 * low at Offers and codes. The mentor applications open the Mentors screen at Waiting for review
-	 * (1.122.31). Every count opens a wp-admin screen, so none of them depends on the Administrator
-	 * Dashboard's page being there.
+	 * the agreements and the mentor requests at Waiting for review, the semester reports to review
+	 * and to draft at Semester reports, and the locked accounts at Accounts. The sponsors' counts
+	 * open the Sponsors screen the same way: the applications, the sponsor posts, the events and the
+	 * signed agreements at Waiting for review, each at the card there that lists it, the events' at
+	 * the id the Administrator Dashboard's Events card links to as well; the reports to finish at
+	 * Reports; and the offers running low at Offers and codes. The mentor applications open the
+	 * Mentors screen at Waiting for review (1.122.31). The duplicated students open the Student
+	 * Duplicate Finder. No one screen holds the four syncs, so the syncs that need a look
+	 * open this page's own Syncs card, which lists each sync with the way to its screen. Every count
+	 * opens a wp-admin screen, so none of them depends on the Administrator Dashboard's page being
+	 * there.
 	 *
 	 * One map, so pointing a count at another screen, or at a tab of one, is an edit here and
-	 * nowhere else. Every tile `counts()` returns has a place in it, which bin/test-overview.php
-	 * holds the two lists to; a tile it does not place is still listed, unlinked.
+	 * nowhere else. Every tile `counts()` can return has a place in it and every place is a tile's,
+	 * which bin/test-overview.php holds the two lists to; a tile it does not place is still listed,
+	 * unlinked.
 	 *
 	 * @return array<string, string> Tile key => full address, not escaped.
 	 */
@@ -82,44 +91,49 @@ final class WPCPM_Overview {
 		$institution_reports  = admin_url( 'admin.php?page=wpcpm-institutions&tab=reports' );
 		$institution_accounts = admin_url( 'admin.php?page=wpcpm-institutions&tab=accounts' );
 		$sponsor_queue        = admin_url( 'admin.php?page=wpcpm-sponsors&tab=queue' );
+		$sponsor_reports      = admin_url( 'admin.php?page=wpcpm-sponsors&tab=reports' );
 		$sponsor_offers       = admin_url( 'admin.php?page=wpcpm-sponsors&tab=offers' );
 
 		return array(
 			'applications'         => $institution_queue,
 			'agreements'           => $institution_queue,
-			'overdue_agreements'   => $institution_queue,
-			'drafts'               => $institution_reports,
-			'due'                  => $institution_reports,
+			'reports'              => $institution_reports,
 			'requests'             => $institution_queue,
-			'overdue_requests'     => $institution_queue,
-			// Institution members, whose write path the roster's refusal ceiling locked for the day.
-			'locked'               => $institution_accounts,
-			// Each at its own card on the queue tab, the id the card carries there.
-			'sponsor_posts'        => $sponsor_queue . '#wpcpm-sponsor-posts',
-			'sponsor_agreements'   => $sponsor_queue . '#wpcpm-sponsor-agreements',
-			'sponsor_applications' => $sponsor_queue . '#wpcpm-sponsor-applications',
 			'mentor_applications'  => admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' ),
+			// Each at its own card on the queue tab, the id the card carries there; the events' card
+			// carries the id the Administrator Dashboard's Events card links to as well.
+			'sponsor_applications' => $sponsor_queue . '#wpcpm-sponsor-applications',
+			'sponsor_posts'        => $sponsor_queue . '#wpcpm-sponsor-posts',
+			'sponsor_offers'       => $sponsor_queue . '#wpcpm-sponsor-offers-review',
+			'sponsor_events'       => $sponsor_queue . '#wpcpm-sponsor-events',
+			'sponsor_agreements'   => $sponsor_queue . '#wpcpm-sponsor-agreements',
+			'sponsor_reports'      => $sponsor_reports,
 			'offers_low'           => $sponsor_offers,
 			'duplicates'           => admin_url( 'admin.php?page=wpcpm-tool-duplicate-finder' ),
+			// The Overview is the menu's top entry, so this is the page the count is printed on.
+			'syncs'                => admin_url( 'admin.php?page=' . WPCPM_Admin::MENU_SLUG ) . '#' . self::SYNCS_ANCHOR,
+			// Institution members, whose write path the roster's refusal ceiling locked for the day.
+			'locked'               => $institution_accounts,
 		);
 	}
 
 	/**
-	 * Waiting for a decision: each queue with something in it, in the strip's order, as a link to
-	 * where the queue is listed (`targets()`); then the way to the Administrator Dashboard, where the
+	 * Waiting for a decision: each tile with something in it, in the strip's order, as a link to
+	 * where its queue is listed (`targets()`); then the way to the Administrator Dashboard, where the
 	 * decisions are made.
 	 *
-	 * Each link is the queue's label, then its count in parentheses, in the `count` span core's list
-	 * tables print their views' counts in: the label is the strip's caption for the queue, not a
-	 * counted phrase, so it reads as "Agreements to review (1)" and never as "1 Agreements to review".
-	 * The count is printed as the strip prints it: in the words a tile carries for its number, a
-	 * sponsor posts or agreements count as `WPCPM_Sponsors::queue_count()` prints it, or as the
-	 * number stands.
+	 * Each link reads as the Administrator Dashboard's strip reads its tile: the tile's number
+	 * first, in a `count` span of its own so the stylesheet sets it apart, then its label. A tile
+	 * that counts two carries the first count as its number and says the second in its label, so it
+	 * reads as one line only with the number in front:
+	 * "2 Collaboration Agreements to review, 1 overdue". Every other tile reads the same way,
+	 * "1 Locked accounts", so a count reads one way on the Overview and on the strip. The number is
+	 * printed as the strip prints it: in the words a tile carries for it, a sponsor posts or
+	 * agreements count as `WPCPM_Sponsors::queue_count()` prints it, or as it stands.
 	 *
-	 * Only the queues that hold something: the strip keeps its shape so a manager learns where to
-	 * look on the page the work is done on, and here the list is what there is to do. With nothing
-	 * waiting, the card says so in the words the dashboards keep for a program manager with nothing
-	 * waiting (`WPCPM_Dashboards::empty_sentence()`).
+	 * Only the tiles whose number is above zero, as the strip draws no tile at zero, so the list is
+	 * what there is to do. With nothing waiting, the card says so in the words the dashboards keep
+	 * for a program manager with nothing waiting (`WPCPM_Dashboards::empty_sentence()`).
 	 *
 	 * @param array $counts What `WPCPM_Administrators_Cards::counts()` returned: `label`, `n` and
 	 *                      `card`, and `shown` on the sponsor posts and agreements, keyed in the
@@ -147,19 +161,19 @@ final class WPCPM_Overview {
 
 				if ( isset( $targets[ $key ] ) ) {
 					printf(
-						'<li><a href="%1$s"><span class="wpcpm-waiting__label">%2$s</span> <span class="count">(%3$s)</span></a></li>',
+						'<li><a href="%1$s"><span class="count">%2$s</span> <span class="wpcpm-waiting__label">%3$s</span></a></li>',
 						esc_url( $targets[ $key ] ),
-						esc_html( $tile['label'] ),
-						esc_html( $count )
+						esc_html( $count ),
+						esc_html( $tile['label'] )
 					);
 
 					continue;
 				}
 
 				printf(
-					'<li><span class="wpcpm-waiting__label">%1$s</span> <span class="count">(%2$s)</span></li>',
-					esc_html( $tile['label'] ),
-					esc_html( $count )
+					'<li><span class="count">%1$s</span> <span class="wpcpm-waiting__label">%2$s</span></li>',
+					esc_html( $count ),
+					esc_html( $tile['label'] )
 				);
 			}
 
@@ -192,12 +206,15 @@ final class WPCPM_Overview {
 	 * row does, prints it on a line of its own under the last run: why the last attempt was held or
 	 * failed, or that it waits for the public dashboard's build. The other rows are drawn as before.
 	 *
+	 * The card carries its id (`SYNCS_ANCHOR`), since no one screen holds all four syncs and the
+	 * waiting list's count of those that need a look opens this card (`targets()`).
+	 *
 	 * @param array $syncs What `WPCPM_Administrators_Cards::health()` returns as `syncs`: each one's
 	 *                     `label`, `progress`, `last`, `next` and `screen`, and the outcome figures'
 	 *                     `note`.
 	 */
 	public static function render_syncs( array $syncs ) {
-		echo '<div class="wpcpm-card">';
+		printf( '<div class="wpcpm-card" id="%s">', esc_attr( self::SYNCS_ANCHOR ) );
 		echo '<h2>' . esc_html__( 'Syncs', 'wpcredits-program-manager' ) . '</h2>';
 		echo '<table class="widefat striped wpcpm-list"><thead><tr>';
 		printf( '<th scope="col">%s</th>', esc_html__( 'Sync', 'wpcredits-program-manager' ) );

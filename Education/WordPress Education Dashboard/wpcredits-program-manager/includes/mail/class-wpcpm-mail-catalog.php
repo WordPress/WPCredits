@@ -34,6 +34,7 @@ final class WPCPM_Mail_Catalog {
 	const MODULE_INSTITUTIONS = 'institutions';
 	const MODULE_REPORTS      = 'reports';
 	const MODULE_SPONSORS     = 'sponsors';
+	const MODULE_EVENTS       = 'events';
 	const MODULE_MENTOR_APPS  = 'mentor-applications';
 	const MODULE_WORDPRESS    = 'wordpress';
 	const MODULE_TWO_FACTOR   = 'two-factor';
@@ -62,6 +63,7 @@ final class WPCPM_Mail_Catalog {
 			self::MODULE_INSTITUTIONS => __( 'Institutions', 'wpcredits-program-manager' ),
 			self::MODULE_REPORTS      => __( 'Semester reports', 'wpcredits-program-manager' ),
 			self::MODULE_SPONSORS     => __( 'Sponsors', 'wpcredits-program-manager' ),
+			self::MODULE_EVENTS       => __( 'Sponsor events', 'wpcredits-program-manager' ),
 			self::MODULE_MENTOR_APPS  => __( 'Mentor applications', 'wpcredits-program-manager' ),
 			self::MODULE_WORDPRESS    => __( 'WordPress', 'wpcredits-program-manager' ),
 			self::MODULE_TWO_FACTOR   => __( 'Two Factor', 'wpcredits-program-manager' ),
@@ -104,6 +106,7 @@ final class WPCPM_Mail_Catalog {
 		$n = self::MODULE_INSTITUTIONS;
 		$r = self::MODULE_REPORTS;
 		$s = self::MODULE_SPONSORS;
+		$e = self::MODULE_EVENTS;
 		$m = self::MODULE_MENTOR_APPS;
 		$w = self::MODULE_WORDPRESS;
 
@@ -191,6 +194,42 @@ final class WPCPM_Mail_Catalog {
 			'offer-low-stock'                    => array( __( 'Codes running low', 'wpcredits-program-manager' ), $s, '' ),
 			'claim-problem'                      => array( __( 'Problem with a claimed code', 'wpcredits-program-manager' ), $s, self::TYPE_ADMIN ),
 			'sponsor-post-returned'              => array( __( 'Sponsor post returned with a note', 'wpcredits-program-manager' ), $s, self::TYPE_SPONSOR ),
+			'sponsor-offer-returned'             => array( __( 'Sponsor offer returned with a note', 'wpcredits-program-manager' ), $s, self::TYPE_SPONSOR ),
+			// The thirty-day mail of a sponsor's term, to its program contact: before the last day, and
+			// once the day has passed when the daily run finds it late.
+			'sponsor-term-ending'                => array( __( 'Sponsor term ending, to Administrators', 'wpcredits-program-manager' ), $s, self::TYPE_ADMIN ),
+			'sponsor-term-ended'                 => array( __( 'Sponsor term ended, to Administrators', 'wpcredits-program-manager' ), $s, self::TYPE_ADMIN ),
+			// Sponsor events: the sponsors' events and the program's own. A person who joins, leaves or is on an
+			// event is a student, a mentor, an institution's contact or an Administrator, and the account
+			// decides; an event of the program's own says so in words of its own, so it has ids of its
+			// own; and what an Administrator did on a sponsor's behalf is said in words of its own too.
+			'event-joined'                       => array( __( 'Event joined, to the person who joined', 'wpcredits-program-manager' ), $e, '' ),
+			'event-joined-program'               => array( __( 'Program event joined, to the person who joined', 'wpcredits-program-manager' ), $e, '' ),
+			'event-left'                         => array( __( 'Event left, to the person who left', 'wpcredits-program-manager' ), $e, '' ),
+			'event-left-program'                 => array( __( 'Program event left, to the person who left', 'wpcredits-program-manager' ), $e, '' ),
+			'event-changed'                      => array( __( 'Event changed, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-changed-program'              => array( __( 'Program event changed, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-canceled'                     => array( __( 'Event canceled, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-canceled-program'             => array( __( 'Program event canceled, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-reminder'                     => array( __( 'Event reminder, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-reminder-program'             => array( __( 'Program event reminder, to the people on it', 'wpcredits-program-manager' ), $e, '' ),
+			'event-reminder-sponsor'             => array( __( 'Event reminder, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-approved'                     => array( __( 'Event approved, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-returned'                     => array( __( 'Event returned with a note, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-returned-no-events'           => array( __( 'Event returned with a note, to a sponsor whose tier no longer includes events', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-canceled-with-note'           => array( __( 'Event canceled with a note, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-changed-sponsor'              => array( __( 'Approved event changed, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-changed-sponsor-for'          => array( __( 'Approved event changed by an Administrator, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-canceled-sponsor'             => array( __( 'Approved event canceled, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-canceled-sponsor-for'         => array( __( 'Approved event canceled by an Administrator, to the sponsor', 'wpcredits-program-manager' ), $e, self::TYPE_SPONSOR ),
+			'event-planned'                      => array( __( 'Event planned by a sponsor, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-planned-for'                  => array( __( 'Event planned for a sponsor by an Administrator, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-changed-waiting'              => array( __( 'Waiting event changed by its sponsor, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-changed-waiting-for'          => array( __( 'Waiting event changed for a sponsor by an Administrator, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-changed-approved'             => array( __( 'Approved event changed by its sponsor, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-changed-approved-for'         => array( __( 'Approved event changed for a sponsor by an Administrator, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-canceled-by-sponsor'          => array( __( 'Event canceled by its sponsor, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
+			'event-canceled-for'                 => array( __( 'Event canceled for a sponsor by an Administrator, to Administrators', 'wpcredits-program-manager' ), $e, self::TYPE_ADMIN ),
 			// Mentor applications (1.122.31): the four emails to the person who applied to mentor, who
 			// has no account, and the Administrators' notice of a new application.
 			'mentor-application-received'        => array( __( 'Mentor application received, to the applicant', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),

@@ -49,6 +49,8 @@ class WP_Error {
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+// The plural with a context, which the cards' paired tiles ask for: chosen by the number as _n() chooses.
+function _nx( $single, $plural, $number, $context, $domain = 'default' ) { return _n( $single, $plural, $number, $domain ); }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -98,7 +100,9 @@ function add_submenu_page( $parent, $page_title, $menu_title, $capability, $slug
  * bin/stubs/overview-reads.php's, which the Overview's own suite shares, and there too a new site
  * holds nothing: its stand-ins also give the mentors sync's column names beside the Mentor Status
  * Checker's settings, the last duplicates scan, and the queues the Institutions and Sponsors
- * entries count for their bubbles.
+ * entries count for their bubbles. The sponsors' reports are not stood in: the real Sponsors module
+ * loaded below calls into the report classes wherever they exist, so they are left out, and the
+ * cards leave the Sponsor reports tile out with them, as a new site has no report to count.
  */
 
 class WPCPM_Mentor_Checker_Runner {
@@ -526,6 +530,23 @@ foreach ( $plugin_says as $string ) {
 
 ck( 'and none of them says program manager, the Administrators\' old name: only the plugin\'s own name keeps the words',
     array_values( array_unique( $old_title ) ), array() );
+
+// The translation template hands the translators the strings and, above each, the note written for
+// them, and a note ships though no screen shows it. The template says program manager only in the
+// plugin's own name: the header's project line, the plugin's name and the uninstall notice that names
+// the plugin. A string or a note broken over lines is read whole, as a translator reads it.
+$template = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'languages/wpcredits-program-manager.pot' );
+$template = preg_replace( array( '/"\n"/', '/\n#\.\s*/' ), array( '', ' ' ), $template );
+$old_name = array();
+
+foreach ( explode( "\n", $template ) as $line ) {
+	if ( array() !== program_managers_in( $line ) ) {
+		$old_name[] = substr( $line, 0, 120 );
+	}
+}
+
+ck( 'and the translation template, its strings and the notes written for the translators alike, says program manager only in the plugin\'s own name',
+    array( substr_count( $template, "\nmsgid " ) > 4000, $old_name ), array( true, array() ) );
 
 // Every audience draws its own screen, so none falls back to a panel of the audience base's saying
 // the audience is not built yet: the base declares the screen without drawing one, and holds no

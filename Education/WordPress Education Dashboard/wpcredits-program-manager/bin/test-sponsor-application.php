@@ -1,14 +1,28 @@
 <?php
 /**
- * The sponsor application form: its guards, its eight questions, its two logos and its two mails.
+ * The sponsor application form: its guards, its questions, its two logos and its two mails.
  *
  * Design spec of 4 September 2026, section 9.2. What each block pins, and why:
  *
- * - **The base's spelling is the fixture's.** Every one of the six columns that reach Airtable,
- *   and the three choices of `Sponsorship options`, are compared byte for byte against
- *   `bin/fixtures/sponsors-table-fields.json`; the apostrophe in "Anything else you'd like to
- *   share." is ASCII, unlike the institution table's U+2019, and the full stop is part of the
- *   name.
+ * - **The base's spelling, pinned here.** The columns an application is stored under, and the
+ *   three choices of `Sponsorship options`, are compared byte for byte against the words the
+ *   Airtable form used, written out in this suite since the Sponsors table's fixture went with
+ *   the sync (1.111.0): an application already on file keeps its answers under these exact
+ *   strings. The apostrophe in "Anything else you'd like to share." is ASCII, unlike the
+ *   institution table's U+2019, and the full stop is part of the name.
+ * - **The support question is no longer asked** (1.123.12). "How would you like to support WP
+ *   Credits?" and its note on tools are gone from the form, since the tiers cover them: nothing
+ *   draws, requires or stores it, an application without it is taken, and a stale form that posts
+ *   it anyway is taken with the answer left out. An application filed before keeps its answer, and
+ *   the answers table shows it to an Administrator as an older answer; one filed since has no row
+ *   for it at all. With the tiers not announced the support group asks nothing, so it is not drawn.
+ * - **The tier question is asked only once the tiers are announced** (1.113.0). While the
+ *   switch is off the form draws nothing about the tiers, and a tier posted anyway is dropped
+ *   rather than refused, so the answer is stored empty; once it is on, the question is the
+ *   support group's one question, six optional radios in the ladder's order, and its answer is a
+ *   key the question offers or nothing. The manager's surfaces read it whatever the switch says:
+ *   the answers table prints its label, never its key; the queue row says "Considering:" and the
+ *   tier, or "Tier: not sure yet", branched on the key; and the queue's facts carry both.
  * - **The seven guards run in the institution form's order**, through `WPCPM_Form_Guard`, and
  *   each one is exercised at its boundary with real submissions rather than by calling the guard.
  * - **Consent is a precondition and nothing else will do.** Absent, `"0"`, `"yes"` and `""` each
@@ -33,8 +47,9 @@
  *   cannot reach, under one heading that says why. The queue card says the same and links there.
  *
  * `WPCPM_Form_Guard`, `WPCPM_Ceiling`, `WPCPM_Request`, `WPCPM_Field_Value`, `WPCPM_Image_Upload`,
- * `WPCPM_Sponsors_Index` and `WPCPM_Roles` are the real files. Real GD images and a real editor
- * stand-in, as bin/test-image-upload.php uses.
+ * `WPCPM_Sponsors_Index`, `WPCPM_Sponsor_Tiers` and `WPCPM_Roles` are the real files; the tiers
+ * read their switch through the `WPCPM_Settings` stand-in below, off until a check turns it on.
+ * Real GD images and a real editor stand-in, as bin/test-image-upload.php uses.
  *
  * Run from the plugin root:  php bin/test-sponsor-application.php
  *
@@ -79,7 +94,7 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_date = '', $post_modified_gmt = '';
+	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_name = '', $post_date = '', $post_modified_gmt = '';
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -211,6 +226,7 @@ function wp_insert_post( $a, $error = false ) {
 	// and so missed every company with an ampersand in its name. Unslashed as core's insert
 	// unslashes it, so a title handed over as it stands loses a backslash.
 	$post->post_title              = str_replace( '&', '&amp;', stripslashes( (string) ( $a['post_title'] ?? '' ) ) );
+	$post->post_name               = (string) ( $a['post_name'] ?? '' );
 	$post->post_date               = gmdate( 'Y-m-d H:i:s', $GLOBALS['clock'] );
 	$post->post_modified_gmt       = $post->post_date;
 	$GLOBALS['clock']             += 60;
@@ -219,7 +235,7 @@ function wp_insert_post( $a, $error = false ) {
 }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_status( $id ) { $p = get_post( $id ); return $p ? $p->post_status : false; }
-function get_post_time( $f = 'U', $gmt = false, $post = null ) { return $post instanceof WP_Post ? (int) strtotime( $post->post_date . ' UTC' ) : 0; }
+function get_post_time( $f = 'U', $gmt = false, $post = null, $translate = false ) { return $post instanceof WP_Post ? (int) strtotime( $post->post_date . ' UTC' ) : 0; }
 function get_permalink( $id ) { return 'https://example.test/sponsor-application/'; }
 function get_page_by_path( $slug ) { foreach ( $GLOBALS['posts'] as $p ) { if ( 'page' === $p->post_type && $slug === ( $GLOBALS['slugs'][ $p->ID ] ?? '' ) ) { return $p; } } return null; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
@@ -240,6 +256,12 @@ function get_posts( $a = array() ) {
 					continue 2;
 				}
 			}
+		}
+		// The store (1.111.0) asks a bare meta_key/meta_value pair, not meta_query, and wants an
+		// exact match: decided_posts() below also sets meta_key, but only to order by it, never
+		// alongside a meta_value, so this leaves that call alone.
+		if ( isset( $a['meta_key'] ) && array_key_exists( 'meta_value', $a ) && (string) get_post_meta( $post->ID, $a['meta_key'], true ) !== (string) $a['meta_value'] ) {
+			continue;
 		}
 		$out[] = $post;
 	}
@@ -340,6 +362,7 @@ class WPCPM_Institutions {
 	}
 }
 
+require_once __DIR__ . '/stubs/posts.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -351,6 +374,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-image-upload.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+// The tier ladder, for the tier question's six choices and the switch that gates it (1.113.0).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php';
 
 $fail = 0; $checks = 0;
@@ -450,7 +475,6 @@ function answers( array $overrides = array() ) {
 		'Website'                           => 'gadgetry.example',
 		'Contact Person Full Name'          => 'Sam Sponsor',
 		'Contact Email'                     => 'maciej@a8c.com',
-		'Sponsorship options'               => 'Sponsor mentors + tools/services',
 		"Anything else you'd like to share." => 'We make gadgets and would like to help.',
 		'Privacy Policy Compliance'         => '1',
 	);
@@ -609,24 +633,15 @@ function method_body( $src, $name ) {
 	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
 }
 
-$src     = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php' );
-$fixture = json_decode( file_get_contents( WPCPM_PLUGIN_DIR . 'bin/fixtures/sponsors-table-fields.json' ), true );
+$src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php' );
 
 echo "\n-- the base's spelling, byte for byte --------------------------------\n";
 
-$missing = array();
-
-foreach ( array_keys( WPCPM_Sponsor_Application::fields() ) as $column ) {
-	if ( ! in_array( $column, $fixture['fields'], true ) ) {
-		$missing[] = $column;
-	}
-}
-
-ck( 'every one of the eight columns is in the fixture', $missing, array() );
-ck( 'and there are eight of them, in the Airtable form\'s order', array_keys( WPCPM_Sponsor_Application::fields() ), array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', 'Sponsorship options', 'Logo', "Anything else you'd like to share.", 'Privacy Policy Compliance' ) );
-ck( 'the three choices are the column\'s own, in order', WPCPM_Sponsor_Application::support_choices(), $fixture['choices']['Sponsorship options'] );
+ck( 'the eight questions, by name: the Airtable form\'s in its order less the support one (1.123.12), and the tier question where it stood', array_keys( WPCPM_Sponsor_Application::fields() ), array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', 'Tier considered', 'Logo', "Anything else you'd like to share.", 'Privacy Policy Compliance' ) );
+ck( 'the support question is not one of them, and nothing offers its choices to the form any more', array( array_key_exists( 'Sponsorship options', WPCPM_Sponsor_Application::fields() ), method_exists( 'WPCPM_Sponsor_Application', 'support_choices' ), preg_match( "/'choice' === \\\$type|'type' *=> 'choice'/", $src ) ), array( false, false, 0 ) );
+ck( 'the column an older application holds its answer under is still spelled as stored, with the three answers it can hold, in order', array( WPCPM_Sponsor_Application::COL_OPTION, WPCPM_Sponsor_Application::OPTION_CHOICES ), array( 'Sponsorship options', array( 'Sponsor one or multiple mentors', 'Sponsor mentors + tools/services', 'Other (please specify)' ) ) );
 ck( 'the "anything else" column ends with a full stop and carries an ASCII apostrophe', bin2hex( WPCPM_Sponsor_Application::COL_ANYTHING ), bin2hex( "Anything else you'd like to share." ) );
-ck( 'the radio question is labelled the way the Airtable form asks it', WPCPM_Sponsor_Application::fields()['Sponsorship options']['label'], 'How would you like to support WP Credits?' );
+ck( 'the question\'s words and its note are gone from the form\'s source, kept once as the older answer\'s label', array( substr_count( $src, 'How would you like to support WP Credits?' ), substr_count( $src, 'two hours a week' ) ), array( 1, 0 ) );
 
 $keys = array();
 
@@ -659,9 +674,7 @@ ck( 'a name is trimmed and kept', array( $clean['ok'], $clean['value'] ), array(
 ck( 'and cut to the column\'s length rather than refused', mb_strlen( WPCPM_Sponsor_Application::clean( 'Company Name', str_repeat( 'a', 300 ) )['value'] ), 200 );
 ck( 'an address that is not one is refused by name', WPCPM_Sponsor_Application::clean( 'Contact Email', 'sam at gadgetry' )['problem'], 'bad_email' );
 ck( 'a scheme-less website gets the scheme rather than a telling-off', WPCPM_Sponsor_Application::clean( 'Website', 'gadgetry.example' )['value'], 'https://gadgetry.example' );
-ck( 'a choice is the column\'s own, byte for byte', WPCPM_Sponsor_Application::clean( 'Sponsorship options', 'Sponsor one or multiple mentors' )['value'], 'Sponsor one or multiple mentors' );
-ck( 'a choice spelled any other way is refused', WPCPM_Sponsor_Application::clean( 'Sponsorship options', 'sponsor one or multiple mentors' )['problem'], 'bad_choice' );
-ck( 'no choice is an empty answer, for requiredness to catch', WPCPM_Sponsor_Application::clean( 'Sponsorship options', '' )['value'], '' );
+ck( 'a support answer is no answer clean() takes now, whatever it says: the form does not ask the question', array( WPCPM_Sponsor_Application::clean( 'Sponsorship options', 'Sponsor one or multiple mentors' )['problem'], WPCPM_Sponsor_Application::clean( 'Sponsorship options', '' )['problem'] ), array( 'unknown_field', 'unknown_field' ) );
 ck( 'consent: "1" and "true" are ticks, "yes" and "0" are not', array( WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', '1' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', 'true' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', 'yes' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', '0' )['value'] ), array( true, true, false, false ) );
 ck( 'the logo is not an answer clean() takes', WPCPM_Sponsor_Application::clean( 'Logo', 'anything' )['problem'], 'unknown_field' );
 ck( 'a column nobody asked about is refused rather than stored', WPCPM_Sponsor_Application::clean( 'Notes', 'anything' )['problem'], 'unknown_field' );
@@ -689,30 +702,137 @@ ck( 'and names its action, a nonce, a dwell token and the honeypot', array( fals
 
 $drawn = 0;
 
-foreach ( array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', 'Sponsorship options', "Anything else you'd like to share.", 'Privacy Policy Compliance' ) as $column ) {
+foreach ( array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', "Anything else you'd like to share.", 'Privacy Policy Compliance' ) as $column ) {
 	$drawn += substr_count( $form, 'wpcpm_sponsor_application[' . WPCPM_Sponsor_Application::form_key( $column ) . ']' ) > 0 ? 1 : 0;
 }
 
-ck( 'the seven answered questions are drawn, and the logo as two file inputs', array( $drawn, false !== strpos( $form, 'type="file" id="wpcpm-sponsor-application-logo-color" name="wpcpm_sapp_logo_color"' ), false !== strpos( $form, 'type="file" id="wpcpm-sponsor-application-logo-white" name="wpcpm_sapp_logo_white"' ) ), array( 7, true, true ) );
+ck( 'the six answered questions are drawn, and the logo as two file inputs', array( $drawn, false !== strpos( $form, 'type="file" id="wpcpm-sponsor-application-logo-color" name="wpcpm_sapp_logo_color"' ), false !== strpos( $form, 'type="file" id="wpcpm-sponsor-application-logo-white" name="wpcpm_sapp_logo_white"' ) ), array( 6, true, true ) );
 ck( 'the file inputs say what they take', substr_count( $form, 'accept="image/png,image/jpeg,image/webp"' ), 2 );
-ck( 'the six groups are drawn as fieldsets', substr_count( $form, '<fieldset' ), 6 );
-ck( 'the three radios carry the column\'s choices', array( substr_count( $form, 'type="radio"' ), false !== strpos( $form, 'value="Sponsor mentors + tools/services"' ) ), array( 3, true ) );
-ck( 'and the two-hours-a-week note is under them', false !== strpos( $form, 'at least one mentor, at two hours a week' ), true );
+// The support group's one question is the tier question, which the switch keeps off the form until
+// launch: a group that asks nothing is not drawn, so no heading stands over an empty box.
+ck( 'five groups are drawn as fieldsets while the tiers are not announced: the support group asks nothing then, so it is not drawn at all', array( substr_count( $form, '<fieldset' ), strpos( $form, 'How you would like to support the program' ) ), array( 5, false ) );
+ck( 'the support question is not asked (1.123.12): no label, no radio, no choice, no note on tools, nothing posted under its key', array(
+	strpos( $form, 'How would you like to support WP Credits?' ),
+	substr_count( $form, 'type="radio"' ),
+	preg_match( '/Sponsor one or multiple mentors|Sponsor mentors \+ tools\/services|Other \(please specify\)/', $form ),
+	strpos( $form, 'two hours a week' ),
+	strpos( $form, WPCPM_Sponsor_Application::form_key( 'Sponsorship options' ) ),
+	strpos( $form, 'wpcpm-field--choice' ),
+), array( false, 0, 0, false, false, false ) );
 
 echo "\n-- required fields say so ----------------------------------------------\n";
 
-// Eight `required` attributes: the four text answers, each of the three radios (a radio group
-// is required when one of its inputs is), and the consent box. Six marks: one beside each of
-// the four labels, one beside the radio group's label, one at the end of the consent sentence.
-ck( 'eight rendered `required` attributes and six visible marks', array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ), array( 8, 6 ) );
+// Five `required` attributes: the four text answers and the consent box. Five marks: one beside
+// each of the four labels and one at the end of the consent sentence. The support question's three
+// radios and its mark went with it (1.123.12).
+ck( 'five rendered `required` attributes and five visible marks', array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ), array( 5, 5 ) );
 $name_key = WPCPM_Sponsor_Application::form_key( 'Company Name' );
 ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $name_key . '">Company Name <span class="wpcpm-field__required">Required</span></label>' ), true );
-ck( 'the radio group\'s label carries it once', false !== strpos( $form, '<span class="wpcpm-field__label">How would you like to support WP Credits? <span class="wpcpm-field__required">Required</span></span>' ), true );
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, 'under it. <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the logo question and the free text carry no mark', array( false !== strpos( $form, '<span class="wpcpm-field__label">Company logo</span>' ), false !== strpos( $form, "Anything else you&#039;d like to share.</label>" ) ), array( true, true ) );
 ck( 'the policy line links a word inside the sentence', array( false !== strpos( $form, '>here</a>' ), false !== strpos( $form, 'href="' . get_privacy_policy_url() . '" rel="noopener">here</a>' ) ), array( true, true ) );
 ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'checked="checked"' ), false );
 ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-sponsor-application', 'wpcpm-forms' ) );
+
+echo "\n-- the tier question, asked once the tiers are announced (1.113.0) -----\n";
+
+// Nothing about the tiers reaches the public before launch. While the switch is off the form
+// draws nothing about them, and a tier posted anyway is dropped rather than refused: the form did
+// not ask, so the answer must not fail the submission, and it is stored empty. Once the switch is
+// on, the question is the support group's one question (the support choices went in 1.123.12), six
+// radios, the ladder's five tiers lowest first and then "Not sure yet", none of them required and
+// none of them ticked, under the group's heading, which still reads right over it.
+$tier_key  = WPCPM_Sponsor_Application::form_key( 'Tier considered' );
+$tier_name = 'wpcpm_sponsor_application[' . $tier_key . ']';
+$tier_spec = isset( WPCPM_Sponsor_Application::fields()['Tier considered'] ) ? WPCPM_Sponsor_Application::fields()['Tier considered'] : array();
+
+ck( 'the column is one constant, spelled as the answer is stored', defined( 'WPCPM_Sponsor_Application::COL_TIER' ) ? constant( 'WPCPM_Sponsor_Application::COL_TIER' ) : null, 'Tier considered' );
+ck( 'the six choices: the ladder\'s five labels keyed by tier, lowest first, then not sure yet', method_exists( 'WPCPM_Sponsor_Application', 'tier_choices' ) ? WPCPM_Sponsor_Application::tier_choices() : null, array( 'mentor' => 'Friend', 'supporter' => 'Supporter', 'backer' => 'Backer', 'champion' => 'Champion', 'partner' => 'Partner', 'unsure' => 'Not sure yet' ) );
+ck( 'the question is asked in the support group, is optional, and is one the switch gates', array( isset( $tier_spec['group'] ) ? $tier_spec['group'] : null, isset( $tier_spec['type'] ) ? $tier_spec['type'] : null, isset( $tier_spec['required'] ) ? $tier_spec['required'] : null, isset( $tier_spec['live'] ) ? $tier_spec['live'] : null ), array( 'support', 'tier', false, true ) );
+ck( 'in the words the design gives it', array( isset( $tier_spec['label'] ) ? $tier_spec['label'] : null, isset( $tier_spec['help'] ) ? $tier_spec['help'] : null ), array( 'Which tier are you considering?', 'The tiers and what each includes are on the partner page. Not sure yet is a fine answer.' ) );
+
+reset_world();
+$tier_off = WPCPM_Sponsor_Application::render();
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$tier_on  = WPCPM_Sponsor_Application::render();
+ck( 'the question is drawn only once the switch is on: off, the form names no tier and draws nothing under its key', array(
+	strpos( $tier_off, 'Which tier are you considering?' ),
+	strpos( $tier_off, $tier_name ),
+	strpos( $tier_off, 'wpcpm-field--tier' ),
+	preg_match( '/Friend|Supporter|Backer|Champion|Partner|Not sure yet/', $tier_off ),
+	substr_count( $tier_off, 'type="radio"' ),
+	false !== strpos( $tier_on, 'Which tier are you considering?' ),
+), array( false, false, false, 0, 0, true ) );
+
+$support = substr( $tier_on, (int) strpos( $tier_on, '<legend>How you would like to support the program</legend>' ) );
+$support = substr( $support, 0, (int) strpos( $support, '</fieldset>' ) );
+preg_match_all( '/name="' . preg_quote( $tier_name, '/' ) . '" value="([^"]*)"([^>]*)\/> <span>([^<]*)<\/span>/', $support, $radios );
+ck( 'on, the support group is drawn, under its heading, and asks the tier question alone, in a wrapper of its own', array(
+	substr_count( $tier_on, '<fieldset' ),
+	false !== strpos( $tier_on, '<fieldset class="wpcpm-application__group"><legend>How you would like to support the program</legend><div class="wpcpm-field wpcpm-field--tier">' ),
+	substr_count( $support, 'class="wpcpm-field ' ),
+	strpos( $support, 'How would you like to support WP Credits?' ),
+	strpos( $support, 'two hours a week' ),
+), array( 6, true, 1, false, false ) );
+ck( 'as six radios, the ladder\'s five tiers lowest first and then not sure yet, each posting its key under its label', array( $radios[1], $radios[3], substr_count( $tier_on, 'type="radio"' ) ), array( array( 'mentor', 'supporter', 'backer', 'champion', 'partner', 'unsure' ), array( 'Friend', 'Supporter', 'Backer', 'Champion', 'Partner', 'Not sure yet' ), 6 ) );
+// The lowest tier is named Friend since 1.123.13: the form's first tier choice reads Friend and
+// still posts the key 'mentor', which is what an application stores.
+ck( 'the first tier choice reads Friend and posts the key \'mentor\', and the form names no "Mentor sponsor"', array( $radios[1][0], $radios[3][0], false !== strpos( $support, 'value="mentor"' ), preg_match( '/mentor sponsor/i', $tier_on ) ), array( 'mentor', 'Friend', true, 0 ) );
+ck( 'none of them ticked or required, the label without a mark, and the form\'s own required count unchanged', array(
+	count( $radios[2] ),
+	array_values( array_filter( array_map( 'trim', $radios[2] ) ) ),
+	false !== strpos( $support, '<span class="wpcpm-field__label">Which tier are you considering?</span>' ),
+	substr_count( $tier_on, ' required="required"' ),
+	substr_count( $tier_on, 'wpcpm-field__required' ),
+), array( 6, array(), true, 5, 5 ) );
+ck( 'with the help under the radios, where every other question prints its own', false !== strpos( $support, '<span class="wpcpm-field__hint" id="wpcpm-sponsor-application-' . $tier_key . '-help">The tiers and what each includes are on the partner page. Not sure yet is a fine answer.</span>' ), true );
+
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+$dropped = WPCPM_Sponsor_Application::clean( 'Tier considered', 'backer' );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$tier_cleaned = array();
+foreach ( array( 'backer', 'unsure', 'gold', 'Backer', '' ) as $raw ) {
+	$one                  = WPCPM_Sponsor_Application::clean( 'Tier considered', $raw );
+	$tier_cleaned[ $raw ] = $one['ok'] ? array( 'kept', $one['value'] ) : array( 'refused', $one['problem'] );
+}
+ck( 'off, a tier posted anyway is dropped, not refused', array( $dropped['ok'], $dropped['value'], $dropped['problem'] ), array( true, '', '' ) );
+ck( 'on, a tier or not sure yet is kept as its key, one the ladder does not have or a label in place of a key is refused, and no answer is an answer', $tier_cleaned, array( 'backer' => array( 'kept', 'backer' ), 'unsure' => array( 'kept', 'unsure' ), 'gold' => array( 'refused', 'bad_choice' ), 'Backer' => array( 'refused', 'bad_choice' ), '' => array( 'kept', '' ) ) );
+
+$tier_seen = array();
+foreach ( array( 'off, backer posted' => array( false, 'backer' ), 'on, backer posted' => array( true, 'backer' ), 'on, nothing posted' => array( true, null ) ) as $case => $given ) {
+	reset_world();
+	$GLOBALS['settings']['sponsor_tiers_live'] = $given[0];
+	$outcome            = submit( answers( null === $given[1] ? array() : array( 'Tier considered' => $given[1] ) ) )['outcome'];
+	$row_now            = only_row();
+	$fields_now         = $row_now instanceof WP_Post ? (array) get_post_meta( $row_now->ID, WPCPM_Sponsor_Application::META_FIELDS, true ) : array();
+	$tier_seen[ $case ] = array( $outcome, array_key_exists( 'Tier considered', $fields_now ) ? $fields_now['Tier considered'] : null );
+}
+ck( 'every submission goes through, the question being optional, and stores the answer: empty while the switch is off whatever was posted, the key once it is on, empty for no answer', $tier_seen, array( 'off, backer posted' => array( 'sent', '' ), 'on, backer posted' => array( 'sent', 'backer' ), 'on, nothing posted' => array( 'sent', '' ) ) );
+
+reset_world();
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$gold = submit( answers( array( 'Tier considered' => 'gold' ) ) );
+ck( 'on, a tier the question does not offer sends the form back with the problem on the question and stores nothing', array( $gold['outcome'], isset( $gold['stash']['problems']['Tier considered'] ) ? $gold['stash']['problems']['Tier considered'] : null, count( stored() ) ), array( 'again', 'bad_choice', 0 ) );
+follow( $gold['url'] );
+ck( 'and the question says to choose one of the options offered', false !== strpos( WPCPM_Sponsor_Application::render(), '<span class="wpcpm-field__problem" id="wpcpm-sponsor-application-' . $tier_key . '-problem">Please choose one of the options offered.</span>' ), true );
+reset_world();
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$tier_back = submit( answers( array( 'Company Name' => '', 'Tier considered' => 'champion' ) ) );
+follow( $tier_back['url'] );
+ck( 'a form sent back for another answer comes back with the tier still chosen', array( $tier_back['outcome'], false !== strpos( WPCPM_Sponsor_Application::render(), 'name="' . $tier_name . '" value="champion" checked="checked"' ) ), array( 'again', true ) );
+// One gate for every `live` question, whatever its type: clean() drops it before any type branch
+// and add_required() never requires it, both through is_asked(), the one reader of the switch. The
+// tier question is the only `live` one and it is optional, and fields() is a fixed list this suite
+// cannot add a question to (a subclass cannot either: the class reads it through self::), so no
+// submission can show a required `live` question going unrequired; the gate is read off the source.
+$clean_body    = method_body( $src, 'clean' );
+$required_body = method_body( $src, 'add_required' );
+ck( 'the gate reads one truth: clean() drops an unasked question before its first type branch, add_required() never requires one, and only is_asked() reads the switch', array(
+	false !== strpos( $clean_body, "if ( ! self::is_asked( \$spec ) ) {\n\t\t\treturn self::accept( '' );" ),
+	false !== strpos( $clean_body, 'self::is_asked( $spec )' ) && strpos( $clean_body, 'self::is_asked( $spec )' ) < strpos( $clean_body, "if ( 'tier' === \$type )" ),
+	false !== strpos( $required_body, "empty( \$spec['required'] ) || ! self::is_asked( \$spec ) )" ),
+	substr_count( $src, 'WPCPM_Sponsor_Tiers::live()' ),
+), array( true, true, true, 1 ) );
 
 echo "\n-- one good application, end to end -----------------------------------\n";
 
@@ -726,8 +846,8 @@ ck( 'and filed as new, with no signals against it', array( get_post_meta( $row->
 
 $fields = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_FIELDS, true );
 
-ck( 'six columns are stored: the eight less the logo and the consent', array_keys( $fields ), array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', 'Sponsorship options', "Anything else you'd like to share." ) );
-ck( 'the website was normalized on the way in, and the choice kept byte for byte', array( $fields['Website'], $fields['Sponsorship options'] ), array( 'https://gadgetry.example', 'Sponsor mentors + tools/services' ) );
+ck( 'six columns are stored: the eight less the logo and the consent, and no support answer among them (1.123.12)', array_keys( $fields ), array( 'Company Name', 'Website', 'Contact Person Full Name', 'Contact Email', 'Tier considered', "Anything else you'd like to share." ) );
+ck( 'the website was normalized on the way in', $fields['Website'], 'https://gadgetry.example' );
 ck( 'no logo was posted, so both halves are 0', WPCPM_Sponsor_Application::logos_of( $row->ID ), array( 'colour' => 0, 'white' => 0 ) );
 
 $consent = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_CONSENT, true );
@@ -736,22 +856,43 @@ ck( 'the consent evidence names the policy, its version, the sentence, the trunc
 ck( 'the address is stored only as a hash, for duplicate flagging', get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EMAIL, true ), wp_hash( 'maciej@a8c.com' ) );
 $events = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'one event row was written, saying what happened and by whom', array( count( $events ), $events[0]['event'], $events[0]['actor'] ), array( 1, 'submitted', 0 ) );
-ck( 'the reference reads like one, and is stored on the row', array( WPCPM_Sponsor_Application::reference( $row->ID ), get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_REFERENCE, true ) ), array( 'SAPP-2026-0500', 'SAPP-2026-0500' ) );
+// The reference is SAPP-<year>-<the post's own ID> (reference(), L2364-2369): 1.111.0 seeds the
+// duplicate-detection fixture above through the real store, which now spends two post IDs of
+// its own on every reset_world(), so the row this section submits no longer lands on a literal
+// number - it lands on whatever the shared ID counter reads by now. What the check is really
+// for (the format, and the stored meta agreeing with what reference() computes) still holds
+// against the row's actual ID.
+$expected_reference = sprintf( 'SAPP-2026-%04d', $row->ID );
+ck( 'the reference reads like one, and is stored on the row', array( WPCPM_Sponsor_Application::reference( $row->ID ), get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_REFERENCE, true ) ), array( $expected_reference, $expected_reference ) );
 ck( 'the redirect carries a random id and nothing else', preg_match( '#^https://example\.test/sponsor-application/\?wpcpm_sapp=[a-z0-9]+$#', $sent['url'] ), 1 );
 
 $_GET[ WPCPM_Sponsor_Application::QUERY_STASH ] = $sent['id'];
 $page = WPCPM_Sponsor_Application::render();
-ck( 'the confirmation names the reference and draws no form', array( false !== strpos( $page, 'SAPP-2026-0500' ), strpos( $page, '<form' ) ), array( true, false ) );
+ck( 'the confirmation names the reference and draws no form', array( false !== strpos( $page, $expected_reference ), strpos( $page, '<form' ) ), array( true, false ) );
 ck( 'and is gone on the next page load, which shows the plain form again', array( strpos( WPCPM_Sponsor_Application::render(), 'SAPP-' ), false !== strpos( WPCPM_Sponsor_Application::render(), '<form' ) ), array( false, true ) );
 
 echo "\n-- the two mails ------------------------------------------------------\n";
 
 ck( 'one message to the applicant, through the single exit, with its own context', array( count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'], $GLOBALS['mail'][0]['context'] ), array( 1, 'maciej@a8c.com', 'sponsor-applied' ) );
-ck( 'the subject carries the site and the reference', $GLOBALS['mail'][0]['subject'], '[WordPress Education] We have your application: SAPP-2026-0500' );
+ck( 'the subject carries the site and the reference', $GLOBALS['mail'][0]['subject'], '[WordPress Education] We have your application: ' . $expected_reference );
 ck( 'the body says what happens next and names the compliance check, and carries no link to confirm anything', array( false !== strpos( $GLOBALS['mail'][0]['body'], 'What happens next' ), false !== strpos( $GLOBALS['mail'][0]['body'], 'licensing and trademark' ), strpos( $GLOBALS['mail'][0]['body'], 'admin-post.php' ) ), array( true, true, false ) );
 ck( 'one message to the managers, through the sponsors module\'s own setting', array( count( $GLOBALS['managermail'] ), $GLOBALS['managermail'][0]['context'], $GLOBALS['managermail'][0]['setting'] ), array( 1, 'sponsor-application', 'sponsor_notify' ) );
 ck( 'naming the company in the subject and linking the queue row', array( $GLOBALS['managermail'][0]['subject'], false !== strpos( $GLOBALS['managermail'][0]['body'], 'page=wpcpm-sponsors&wpcpm_sapp_id=' . $row->ID ) ), array( '[WordPress Education] New sponsor application from Gadgetry Inc', true ) );
 ck( 'the managers\' mail does not carry the applicant\'s own writing', strpos( $GLOBALS['managermail'][0]['body'], 'We make gadgets' ), false );
+// The support question went in 1.123.12, and no email ever printed its answer: none of the five
+// application emails in Tools > Emails offers a placeholder for it or names it, and the two sent for
+// an application without it name it nowhere, so there is no label left with nothing after it.
+$app_mail_marks = array();
+foreach ( array( 'sponsor-applied', 'sponsor-applied-no-logo', 'sponsor-application', 'sponsor-information', 'sponsor-declined' ) as $mail_id ) {
+	$entry                      = WPCPM_Mail_Templates::get( $mail_id );
+	$app_mail_marks[ $mail_id ] = array(
+		is_array( $entry ),
+		array_values( preg_grep( '/option|support|sponsorship/i', array_keys( (array) ( is_array( $entry ) && isset( $entry['placeholders'] ) ? $entry['placeholders'] : array() ) ) ) ),
+		preg_match( '/support WP Credits|Sponsorship option|two hours a week/i', is_array( $entry ) ? (string) $entry['subject'] . (string) $entry['body'] : '' ),
+	);
+}
+ck( 'the five application emails offer no placeholder for the support answer and name it nowhere', $app_mail_marks, array_fill_keys( array( 'sponsor-applied', 'sponsor-applied-no-logo', 'sponsor-application', 'sponsor-information', 'sponsor-declined' ), array( true, array(), 0 ) ) );
+ck( 'and the two mails sent for this application name neither the question nor an answer to it', preg_match( '/support WP Credits|Sponsorship|tools\/services|two hours a week/i', $GLOBALS['mail'][0]['subject'] . $GLOBALS['mail'][0]['body'] . $GLOBALS['managermail'][0]['subject'] . $GLOBALS['managermail'][0]['body'] ), 0 );
 
 echo "\n-- consent is a precondition ------------------------------------------\n";
 
@@ -771,7 +912,7 @@ $sent = submit( answers( array( 'Privacy Policy Compliance' => '0' ) ) );
 ck( 'a refusal hands back what was typed, and never the tick', array( $sent['stash']['values']['Company Name'], array_key_exists( 'Privacy Policy Compliance', $sent['stash']['values'] ) ), array( 'Gadgetry Inc', false ) );
 follow( $sent['url'] );
 $back = WPCPM_Sponsor_Application::render();
-ck( 'the form comes back with the answers in it, the radio on, the consent box unticked, and says what to do', array( false !== strpos( $back, 'value="Gadgetry Inc"' ), false !== strpos( $back, 'value="Sponsor mentors + tools/services" required="required" checked="checked"' ), strpos( $back, 'value="1" required="required" checked' ), false !== strpos( $back, 'tick the last box' ) ), array( true, true, false, true ) );
+ck( 'the form comes back with the answers in it, the consent box unticked, and says what to do', array( false !== strpos( $back, 'value="Gadgetry Inc"' ), false !== strpos( $back, 'We make gadgets and would like to help.</textarea>' ), strpos( $back, 'value="1" required="required" checked' ), false !== strpos( $back, 'tick the last box' ) ), array( true, true, false, true ) );
 
 echo "\n-- the honeypot -------------------------------------------------------\n";
 
@@ -917,8 +1058,32 @@ $missing = submit( answers( array( 'Company Name' => '', 'Website' => '   ' ) ) 
 ck( 'a missing answer is a message naming each field, storing nothing', array( $missing['outcome'], $missing['stash']['problems']['Company Name'], $missing['stash']['problems']['Website'], count( stored() ) ), array( 'again', 'required', 'required', 0 ) );
 reset_world();
 ck( 'a refused answer keeps its own reason rather than being called missing', submit( answers( array( 'Contact Email' => 'sam at gadgetry' ) ) )['stash']['problems']['Contact Email'], 'bad_email' );
-reset_world();
-ck( 'no radio ticked is required', submit( answers( array( 'Sponsorship options' => '' ) ) )['stash']['problems']['Sponsorship options'], 'required' );
+// The support question is no longer asked (1.123.12), so nothing can require it: the good
+// application above carries no answer to it and is taken. A form drawn before the update and sent
+// after it still posts the old radio under its key: that is taken too, and the answer is not kept,
+// since the question a stranger answered is not one the form asks any more.
+foreach ( array( 'with the tiers not announced' => false, 'with the tiers announced' => true ) as $case => $live ) {
+	reset_world();
+	$GLOBALS['settings']['sponsor_tiers_live'] = $live;
+	$without      = submit( answers() );
+	$without_row  = only_row();
+	$without_kept = $without_row instanceof WP_Post ? (array) get_post_meta( $without_row->ID, WPCPM_Sponsor_Application::META_FIELDS, true ) : array();
+	$without_was  = $without_row instanceof WP_Post ? get_post_meta( $without_row->ID, WPCPM_Sponsor_Application::META_STATE, true ) : null;
+	reset_world();
+	$GLOBALS['settings']['sponsor_tiers_live'] = $live;
+	$stale      = submit( answers( array( 'Sponsorship options' => 'Sponsor mentors + tools/services' ) ) );
+	$stale_row  = only_row();
+	$stale_kept = $stale_row instanceof WP_Post ? (array) get_post_meta( $stale_row->ID, WPCPM_Sponsor_Application::META_FIELDS, true ) : array();
+	ck( "$case, an application with no support answer is taken and stored new, and a stale form's answer is taken and left out", array(
+		$without['outcome'],
+		$without_was,
+		isset( $without['stash']['problems'] ) ? $without['stash']['problems'] : array(),
+		array_key_exists( 'Sponsorship options', $without_kept ),
+		$stale['outcome'],
+		array_key_exists( 'Sponsorship options', $stale_kept ),
+		false !== strpos( implode( '|', array_map( 'strval', $stale_kept ) ), 'tools/services' ),
+	), array( 'sent', 'new', array(), false, 'sent', false, false ) );
+}
 reset_world();
 submit( answers( array( "Anything else you'd like to share." => '' ) ) );
 ck( 'and the free text is genuinely optional', count( stored() ), 1 );
@@ -1193,9 +1358,16 @@ echo "\n-- the editor's preview -----------------------------------------------\
 define( 'REST_REQUEST', true );
 reset_world();
 $preview = WPCPM_Sponsor_Application::render();
-ck( 'the editor is shown no form and no token, the groups and how many questions each asks', array( strpos( $preview, '<form' ), strpos( $preview, WPCPM_Sponsor_Application::TOKEN_FIELD ), substr_count( $preview, '<li>' ), false !== strpos( $preview, '2 questions' ) ), array( false, false, 6, true ) );
+ck( 'the editor is shown no form and no token, the groups the form draws and how many questions each asks', array( strpos( $preview, '<form' ), strpos( $preview, WPCPM_Sponsor_Application::TOKEN_FIELD ), substr_count( $preview, '<li>' ), false !== strpos( $preview, '2 questions' ) ), array( false, false, 5, true ) );
+// The summary is what the form asks, so it counts the tier question only while the form draws it,
+// and, the support question gone (1.123.12), it lists the support group only then: a group the form
+// does not draw is not one the summary names with "0 questions".
+$support_line = '<li><strong>How you would like to support the program</strong> ';
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$preview_on = WPCPM_Sponsor_Application::render();
+ck( 'the support group is in the summary only once the switch is on, with its one question (1.113.0, 1.123.12)', array( strpos( $preview, 'How you would like to support the program' ), strpos( $preview, '0 questions' ), false !== strpos( $preview_on, $support_line . '1 question</li>' ), substr_count( $preview_on, '<li>' ) ), array( false, false, true, 6 ) );
 
-/* ---- part 2: the six states and the six decisions (Task 3) --------------- */
+/* ---- part 2: the six states and the six decisions ------------------------ */
 
 // The functions and classes below are declared at the top level of the file, so PHP hoists
 // them: they exist from the first line of the run even though they are written here.
@@ -1251,10 +1423,10 @@ class WPCPM_Sponsors {
 	const FLASH = 'sponsors_admin';
 }
 if ( ! class_exists( 'WPCPM_Sponsor_Approval' ) ) {
-	/** The approval, at its contract: journalled, answering what the test says. Task 5's real class is never loaded here. */
+	/** The approval, at its contract: journalled, answering what the test says. The real approval class is never loaded here. */
 	class WPCPM_Sponsor_Approval {
-		public static function approve( $application_id, $manager_id ) {
-			$GLOBALS['approve_calls'][] = array( (int) $application_id, (int) $manager_id );
+		public static function approve( $application_id, $manager_id, $test = false ) {
+			$GLOBALS['approve_calls'][] = array( (int) $application_id, (int) $manager_id, (bool) $test );
 			return $GLOBALS['approve_answer'];
 		}
 		/**
@@ -1366,7 +1538,7 @@ foreach ( array_unique( $found[1] ) as $slug ) {
 	}
 }
 $mapped = array();
-foreach ( array( 'wpcpm_sapp_unknown', 'wpcpm_sapp_state', 'wpcpm_sapp_busy', 'wpcpm_sapp_fields', 'wpcpm_sapp_no_email', 'wpcpm_sapp_name', 'wpcpm_sapp_airtable', 'wpcpm_sapp_account', 'wpcpm_sapp_actor', 'anything-else' ) as $code ) {
+foreach ( array( 'wpcpm_sapp_unknown', 'wpcpm_sapp_state', 'wpcpm_sapp_busy', 'wpcpm_sapp_fields', 'wpcpm_sapp_no_email', 'wpcpm_sapp_name', 'wpcpm_sapp_record', 'wpcpm_sapp_account', 'wpcpm_sapp_actor', 'anything-else' ) as $code ) {
 	$mapped[] = isset( WPCPM_Sponsor_Application::manager_messages()[ WPCPM_Sponsor_Application::approval_outcome( $code ) ] );
 }
 ck( 'every status a decision leaves has a sentence, and every approval refusal maps to one', array( $leaves, in_array( false, $mapped, true ) ), array( array(), false ) );
@@ -1687,7 +1859,7 @@ ck( 'Reject as spam is refused too, and moves nothing', array( flashed( decide( 
 update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::STATE_INFO );
 ck( 'and so is Put back in the queue, on the one open state that offers it', array( flashed( decide( 'handle_reopen', $id ) ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ) ), array( 'sapp-half-done', 'info' ) );
 ck( 'the refusal has a sentence naming the record and the way out', array(
-	false !== strpos( WPCPM_Sponsor_Application::manager_messages()['sapp-half-done'][1], 'an Airtable record already exists for it' ),
+	false !== strpos( WPCPM_Sponsor_Application::manager_messages()['sapp-half-done'][1], 'a sponsor record already exists for it' ),
 	false !== strpos( WPCPM_Sponsor_Application::manager_messages()['sapp-half-done'][1], 'Press Approve again to finish' ),
 ), array( true, true ) );
 
@@ -1734,7 +1906,7 @@ $amp_html = (string) ob_get_clean();
 // The stub esc_attr() encodes twice, so the typed name comes out as one entity and the kses-filtered title as two: only the typed one may appear.
 $amp_fixed = 'Smith ' . esc_attr( '&' ) . ' Jones Ltd';
 $amp_buggy = 'Smith ' . esc_attr( '&amp;' ) . ' Jones Ltd';
-ck( 'a company name with an ampersand is printed from the stored fields as typed, never from the kses-filtered title (S5 review)', array( false !== strpos( $amp_html, $amp_fixed ), $amp_fixed === $amp_buggy || false === strpos( $amp_html, $amp_buggy ), $amp_fixed !== $amp_buggy ), array( true, true, true ) );
+ck( 'a company name with an ampersand is printed from the stored fields as typed, never from the kses-filtered title', array( false !== strpos( $amp_html, $amp_fixed ), $amp_fixed === $amp_buggy || false === strpos( $amp_html, $amp_buggy ), $amp_fixed !== $amp_buggy ), array( true, true, true ) );
 ob_start();
 WPCPM_Sponsor_Application::render_details( $amp );
 $details_html = (string) ob_get_clean();
@@ -1753,14 +1925,18 @@ as_manager();
 $id = seed_application();
 $GLOBALS['approve_calls']  = array();
 $GLOBALS['approve_answer'] = array( 'record' => 'recSPN00000000009', 'user_id' => 40, 'offer_id' => 0, 'term_id' => 0 );
-ck( 'Approve hands the application and the manager to the approval and says so', array( flashed( decide( 'handle_approve', $id ) ), $GLOBALS['approve_calls'] ), array( 'sapp-approved', array( array( $id, 3 ) ) ) );
+ck( 'Approve hands the application and the manager to the approval and says so', array( flashed( decide( 'handle_approve', $id ) ), $GLOBALS['approve_calls'] ), array( 'sapp-approved', array( array( $id, 3, false ) ) ) );
+$GLOBALS['approve_calls'] = array();
+ck( 'with the test box ticked, it hands the approval a test sponsor, and a value the box never posts is no tick (1.123.18)', array( flashed( decide( 'handle_approve', $id, array( 'wpcpm_test' => '1' ) ) ), flashed( decide( 'handle_approve', $id, array( 'wpcpm_test' => 'yes' ) ) ), $GLOBALS['approve_calls'] ), array( 'sapp-approved', 'sapp-approved', array( array( $id, 3, true ), array( $id, 3, false ) ) ) );
 $GLOBALS['approve_calls']  = array();
-$GLOBALS['approve_answer'] = new WP_Error( 'wpcpm_sapp_airtable', 'Airtable said no.' );
-ck( 'an approval refused by the base is the base\'s sentence', flashed( decide( 'handle_approve', $id ) ), 'sapp-airtable' );
 $GLOBALS['approve_answer'] = new WP_Error( 'wpcpm_sapp_account', 'That address belongs to a student.' );
 ck( 'and one refused at the account is the account\'s', flashed( decide( 'handle_approve', $id ) ), 'sapp-account' );
 $GLOBALS['approve_answer'] = new WP_Error( 'wpcpm_sapp_busy', 'Locked.' );
 ck( 'and a lock is a lock', flashed( decide( 'handle_approve', $id ) ), 'sapp-busy' );
+// A row the store refused is not the account's failure, and
+// the account's sentence ("the sponsor record was created") would say the opposite of what happened.
+$GLOBALS['approve_answer'] = new WP_Error( 'wpcpm_sapp_record', 'The sponsor record could not be saved just now. Press Approve again in a moment.' );
+ck( 'and a row the store refused is its own outcome, with its own sentence', array( flashed( decide( 'handle_approve', $id ) ), WPCPM_Sponsor_Application::approval_outcome( 'wpcpm_sapp_record' ), isset( WPCPM_Sponsor_Application::manager_messages()['sapp-record'] ) ? WPCPM_Sponsor_Application::manager_messages()['sapp-record'] : null ), array( 'sapp-record', 'sapp-record', array( 'error', 'The sponsor record could not be saved just now. Press Approve again in a moment.' ) ) );
 
 // Minor 2 of the S5 review: the detail was read inside `manager_messages()`, so every caller
 // of that map consumed it - `WPCPM_Sponsor_Approval::status_sentence()` builds the map in the
@@ -1770,7 +1946,7 @@ WPCPM_Flash::set( WPCPM_Sponsor_Application::FLASH_DETAIL, array( 'status' => 's
 WPCPM_Sponsor_Application::manager_messages();
 WPCPM_Sponsor_Application::manager_messages();
 $plain = WPCPM_Sponsor_Application::manager_messages()['sapp-account'][1];
-ck( 'building the map does not take the carried detail, however often it is built', WPCPM_Sponsor_Application::sentence_for( 'sapp-account', $plain ), 'The Airtable record was created, but the account could not be made. The site said: That address belongs to a student. Press Approve again once that is fixed.' );
+ck( 'building the map does not take the carried detail, however often it is built', WPCPM_Sponsor_Application::sentence_for( 'sapp-account', $plain ), 'The sponsor record was created, but the account could not be made. The site said: That address belongs to a student. Press Approve again once that is fixed.' );
 ck( 'and printing it takes it once: the next notice gets the plain sentence', WPCPM_Sponsor_Application::sentence_for( 'sapp-account', $plain ), $plain );
 WPCPM_Flash::set( WPCPM_Sponsor_Application::FLASH_DETAIL, array( 'status' => 'sapp-account', 'detail' => 'That address belongs to a student.' ) );
 ck( 'a detail tagged to another status is never printed behind it', WPCPM_Sponsor_Application::sentence_for( 'sapp-spam', 'Marked as spam.' ), 'Marked as spam.' );
@@ -1812,7 +1988,7 @@ update_post_meta( $id, WPCPM_Sponsor_Application::META_SIGNALS, array( 'in-base'
 ob_start();
 WPCPM_Sponsor_Application::render_actions( get_post( $id ), 'new' );
 $flagged = (string) ob_get_clean();
-ck( 'a company already in the base is warned about on Approve, and sent to Create account on the Sponsors screen\'s Accounts tab instead', array(
+ck( 'a company already on the site is warned about on Approve, and sent to Create account on the Sponsors screen\'s Accounts tab instead', array(
 	false !== strpos( $flagged, 'already holds a sponsor with this name or website' ),
 	false !== strpos( $flagged, esc_attr( "If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
 	strpos( $flagged, 'Sponsors card' ),
@@ -1861,6 +2037,134 @@ $no_open = (string) ob_get_clean();
 ck( 'render_decision() draws the same four forms by ID for a manager, and no renderer of the four draws anything for an account that is not one', array( substr_count( $by_id, '<form' ), $no_decision, $no_details, $no_actions, $no_open ), array( 4, '', '', '', '' ) );
 ck( 'and the Administrator Dashboard\'s call keeps its heading over them', substr_count( $by_id, '<h3>What happens next</h3>' ), 1 );
 as_manager();
+
+echo "\n-- the tier answer, where a manager reads it (1.113.0) -------------------\n";
+
+// A manager's surfaces read the record whatever the switch says: the answers table prints the
+// answer's label and never its key, the queue's facts carry both, and the queue row gives it one
+// line straight after the contact line. An answer the question does not offer reads as no answer
+// everywhere, the way no answer does.
+reset_world();
+as_manager();
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$tier_rows = array(
+	'Backer Co' => seed_application( array( 'Company Name' => 'Backer Co', 'Tier considered' => 'backer' ) ),
+	'Unsure Co' => seed_application( array( 'Company Name' => 'Unsure Co', 'Contact Email' => 'maciej+unsure@a8c.com', 'Tier considered' => 'unsure' ) ),
+	'Silent Co' => seed_application( array( 'Company Name' => 'Silent Co', 'Contact Email' => 'maciej+silent@a8c.com' ) ),
+	'Odd Co'    => seed_application( array( 'Company Name' => 'Odd Co', 'Contact Email' => 'maciej+odd@a8c.com' ) ),
+);
+// A key the question does not offer, as a row written by hand would hold it.
+update_post_meta( $tier_rows['Odd Co'], WPCPM_Sponsor_Application::META_FIELDS, array_merge( (array) get_post_meta( $tier_rows['Odd Co'], WPCPM_Sponsor_Application::META_FIELDS, true ), array( 'Tier considered' => 'gold' ) ) );
+
+$tier_facts = static function () {
+	$out = array();
+	foreach ( WPCPM_Sponsor_Application::queue_facts() as $fact ) {
+		$out[ $fact['company'] ] = array( isset( $fact['tier_requested'] ) ? $fact['tier_requested'] : null, isset( $fact['tier_requested_label'] ) ? $fact['tier_requested_label'] : null );
+	}
+	return $out;
+};
+$tier_lines = static function () {
+	ob_start();
+	WPCPM_Sponsor_Application::render_queue( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
+	$out = array();
+	foreach ( array_slice( explode( '<li class="wpcpm-queue-item">', (string) ob_get_clean() ), 1 ) as $item ) {
+		$company         = preg_match( '#<span class="wpcpm-inst-name__text">([^<]*)</span>#', $item, $found ) ? $found[1] : '?';
+		$out[ $company ] = preg_match( '#<p class="wpcpm-queue-country">[^<]*</p><p class="wpcpm-queue-tier">([^<]*)</p>#', $item, $found ) ? $found[1] : ( false !== strpos( $item, 'wpcpm-queue-tier' ) ? 'drawn somewhere else' : '' );
+	}
+	return $out;
+};
+$tier_cells = static function () use ( $tier_rows ) {
+	$out = array();
+	foreach ( $tier_rows as $company => $id ) {
+		ob_start();
+		WPCPM_Sponsor_Application::render_details( get_post( $id ) );
+		$out[ $company ] = preg_match( '#<th scope="row">Which tier are you considering\?<br /><code class="wpcpm-inst-record">Tier considered</code></th><td>(.*?)</td></tr>#', (string) ob_get_clean(), $found ) ? $found[1] : null;
+	}
+	return $out;
+};
+
+$no_answer    = '<span class="wpcpm-inst-muted">no answer</span>';
+$expect_facts = array( 'Backer Co' => array( 'backer', 'Backer' ), 'Unsure Co' => array( 'unsure', 'Not sure yet' ), 'Silent Co' => array( '', '' ), 'Odd Co' => array( '', '' ) );
+// Not sure yet is an answer and no tier, so the queue row gives it a sentence of its own rather
+// than "Considering: Not sure yet"; the answers table keeps the question's own label for it.
+$expect_lines = array( 'Backer Co' => 'Considering: Backer', 'Unsure Co' => 'Tier: not sure yet', 'Silent Co' => '', 'Odd Co' => '' );
+$expect_cells = array( 'Backer Co' => 'Backer', 'Unsure Co' => 'Not sure yet', 'Silent Co' => $no_answer, 'Odd Co' => $no_answer );
+ck( 'the queue\'s facts carry the answer as its key and its label, and two empty strings for none or for one the question does not offer', $tier_facts(), $expect_facts );
+ck( 'the queue row says it on one line straight after the contact line, not sure yet as a sentence of its own, and a row with no answer says nothing', $tier_lines(), $expect_lines );
+ck( 'the answers table prints the label and never the key, and no answer for none or for one the question does not offer', $tier_cells(), $expect_cells );
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+ck( 'and all three read the same with the switch off: a manager reads the record whatever the switch says', array( $tier_facts(), $tier_lines(), $tier_cells() ), array( $expect_facts, $expect_lines, $expect_cells ) );
+
+echo "\n-- an older application's support answer (1.123.12) ----------------------\n";
+
+// The form stopped asking "How would you like to support WP Credits?" in 1.123.12, and an
+// application filed before still holds its answer under `Sponsorship options`. The answers table,
+// which the Sponsors screen's opened application and the Administrator Dashboard's card both draw,
+// shows that answer where the form asked it, after the contact address and before the tier, labeled
+// as an older answer; an application filed since has no row for it at all, never an empty one, and
+// neither has an older one whose answer is empty. The queue's row and facts never carried it.
+reset_world();
+as_manager();
+$older_rows = array(
+	'Older Co' => seed_application( array( 'Company Name' => 'Older Co' ) ),
+	'Newer Co' => seed_application( array( 'Company Name' => 'Newer Co', 'Contact Email' => 'maciej+newer@a8c.com' ) ),
+	'Blank Co' => seed_application( array( 'Company Name' => 'Blank Co', 'Contact Email' => 'maciej+blank@a8c.com' ) ),
+	'Typed Co' => seed_application( array( 'Company Name' => 'Typed Co', 'Contact Email' => 'maciej+typed@a8c.com' ) ),
+);
+// What the form stored before 1.123.12, written by hand as that form wrote it.
+$older_answers = array(
+	'Older Co' => 'Sponsor mentors + tools/services',
+	'Blank Co' => '',
+	'Typed Co' => 'Other <b>(please specify)</b>',
+);
+foreach ( $older_answers as $company => $answer ) {
+	update_post_meta( $older_rows[ $company ], WPCPM_Sponsor_Application::META_FIELDS, array_merge( (array) get_post_meta( $older_rows[ $company ], WPCPM_Sponsor_Application::META_FIELDS, true ), array( 'Sponsorship options' => $answer ) ) );
+}
+$older_label = 'How would you like to support WP Credits? (older answer, no longer asked)';
+$older_th    = '<th scope="row">' . $older_label . '<br /><code class="wpcpm-inst-record">Sponsorship options</code></th>';
+$older_table = static function ( $id ) {
+	ob_start();
+	WPCPM_Sponsor_Application::render_details( get_post( $id ) );
+	return (string) ob_get_clean();
+};
+$older_read = static function () use ( $older_rows, $older_th, $older_table ) {
+	$out = array();
+	foreach ( $older_rows as $company => $id ) {
+		$html            = $older_table( $id );
+		$answers         = substr( $html, (int) strpos( $html, 'wpcpm-app-answers' ) );
+		$answers         = substr( $answers, 0, (int) strpos( $answers, '</table>' ) );
+		$out[ $company ] = array(
+			substr_count( $answers, '<tr>' ),
+			preg_match( '#' . preg_quote( $older_th, '#' ) . '<td>(.*?)</td></tr>#', $html, $found ) ? $found[1] : null,
+			substr_count( $html, 'Sponsorship options' ),
+			substr_count( $html, 'How would you like to support WP Credits?' ),
+		);
+	}
+	return $out;
+};
+// Eight rows for the eight questions, and a ninth for an older application's answer.
+$older_expect = array(
+	'Older Co' => array( 9, 'Sponsor mentors + tools/services', 1, 1 ),
+	'Newer Co' => array( 8, null, 0, 0 ),
+	'Blank Co' => array( 8, null, 0, 0 ),
+	'Typed Co' => array( 9, 'Other &lt;b&gt;(please specify)&lt;/b&gt;', 1, 1 ),
+);
+ck( 'an older application shows its support answer as an older answer, escaped; one filed since, or one whose answer is empty, has no row for it', $older_read(), $older_expect );
+$older_html = $older_table( $older_rows['Older Co'] );
+ck( 'the older answer stands where the form asked it: after the contact address, before the tier question', array(
+	strpos( $older_html, '<code class="wpcpm-inst-record">Contact Email</code>' ) < strpos( $older_html, $older_th ),
+	strpos( $older_html, $older_th ) < strpos( $older_html, '<code class="wpcpm-inst-record">Tier considered</code>' ),
+), array( true, true ) );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+ck( 'and it reads the same with the tiers announced: a manager reads the record whatever the switch says', $older_read(), $older_expect );
+$older_facts = array();
+foreach ( WPCPM_Sponsor_Application::queue_facts() as $fact ) {
+	$older_facts[ $fact['company'] ] = false !== strpos( serialize( $fact ), 'tools/services' ) || false !== strpos( serialize( $fact ), 'please specify' );
+}
+ob_start();
+WPCPM_Sponsor_Application::render_queue( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
+$older_queue = (string) ob_get_clean();
+ck( 'the queue\'s facts and its rows never carried the answer, older or not, so they draw the same four rows without it', array( $older_facts, strpos( $older_queue, 'tools/services' ), substr_count( $older_queue, '<li class="wpcpm-queue-item">' ) ), array( array( 'Older Co' => false, 'Newer Co' => false, 'Blank Co' => false, 'Typed Co' => false ), false, 4 ) );
 
 echo "\n-- where an opened application is decided -------------------------------\n";
 
@@ -2061,7 +2365,7 @@ $card = queue_card();
 WPCPM_Administrators_Dashboard::$url = '';
 $card_no_page                        = queue_card();
 WPCPM_Administrators_Dashboard::$url = $dashboard;
-ck( 'the queue card says what it is for and where its applications are decided', false !== strpos( $card, '<p class="description">Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the base already holds. Applications are decided on the Administrator Dashboard, where approving creates the Airtable record, the account, the category, the logo record and the first offer in one press.</p>' ), true );
+ck( 'the queue card says what it is for and where its applications are decided', false !== strpos( $card, '<p class="description">Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, where approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.</p>' ), true );
 ck( 'under the list, before Recently decided, one line opens the card on the Administrator Dashboard; the rows keep their own way to open each here, and nothing on the card is a form', array(
 	substr_count( $card, '<p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p>' ),
 	false !== strpos( $card, '</ol><p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p><section class="wpcpm-sapp-decided">' ),
@@ -2075,7 +2379,7 @@ $post = end( $rows );
 ob_start();
 WPCPM_Sponsor_Application::render_details( $post );
 $matches = (string) ob_get_clean();
-ck( 'what the base already has sends a manager to Create account on the Sponsors screen\'s Accounts tab when the company is already there', array(
+ck( 'what the site already has sends a manager to Create account on the Sponsors screen\'s Accounts tab when the company is already there', array(
 	false !== strpos( $matches, esc_html( "Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
 	strpos( $matches, 'Sponsors card' ),
 ), array( true, false ) );
@@ -2114,7 +2418,7 @@ ck( 'past its own cap, every row drawn ends with the way to its own item there: 
 	isset( $card_limit[1] ) ? (int) $card_limit[1] : 0,
 ), array( WPCPM_Sponsor_Application::QUEUE_MAX, true, WPCPM_Sponsor_Application::QUEUE_MAX ) );
 
-/* ---- part 3: the retention run (Task 6) --------------------------------- */
+/* ---- part 3: the retention run ------------------------------------------ */
 
 /** Forget every ceiling row, so a block that seeds more than five rows from one address may. */
 function clear_ceilings() {
@@ -2241,7 +2545,7 @@ ck( 'decided_posts() answers newest decision first, bounded, and never an open r
 ck( 'and the bound holds', count( WPCPM_Sponsor_Application::decided_posts( 1 ) ), 1 );
 $tie = (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true );
 update_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, $tie );
-ck( 'two decisions in one second are ordered by ID, newest first (Task 4 review)', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ), array( max( $d1, $d2 ), min( $d1, $d2 ) ) );
+ck( 'two decisions in one second are ordered by ID, newest first', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ), array( max( $d1, $d2 ), min( $d1, $d2 ) ) );
 // The tiebreak has to be in the query as well as in the sort after it: the sort can only
 // arrange the window the query returned, so a tie straddling the bound was settled by whatever
 // order MySQL felt like, and the row the card showed could change between two loads of the
@@ -2280,6 +2584,25 @@ $typed_question = 'Which plan sits in C:\drafts, two \\\\ in a row, and what doe
 decide( 'handle_info', $row->ID, array( 'wpcpm_question' => wp_slash( $typed_question ) ) );
 $events = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'a manager\'s question is kept in the history exactly as typed', end( $events )['note'], $typed_question );
+
+ck( 'the application never constructs WPCPM_Airtable: the class does not even exist in this run', class_exists( 'WPCPM_Airtable' ), false );
+
+echo "\n-- the test box beside Approve (1.123.18) -------------------------------\n";
+reset_world();
+as_manager();
+// Beside Approve, the test box (1.123.18): ticked already for a company whose name starts with
+// "TEST", the program's own convention for a test application, and clear for any other. It sits in
+// the Approve form, before its button, so one press approves a test application into a test sponsor.
+$t_box  = static function ( $ticked ) { return '<p class="wpcpm-app-action__test"><label><input type="checkbox" name="wpcpm_test" value="1"' . ( $ticked ? ' checked' : '' ) . ' /> Test sponsor: not listed publicly</label></p><button type="submit" class="button button-primary">Approve</button>'; };
+$t_real = get_post( seed_application( array( 'Company Name' => 'Gadgetry Real' ) ) );
+$t_test = get_post( seed_application( array( 'Company Name' => 'TEST - Dashboard trial' ) ) );
+ob_start();
+WPCPM_Sponsor_Application::render_actions( $t_real, 'new' );
+$t_real_html = (string) ob_get_clean();
+ob_start();
+WPCPM_Sponsor_Application::render_actions( $t_test, 'new' );
+$t_test_html = (string) ob_get_clean();
+ck( 'the Approve form carries the test box before its button, clear for a real company and ticked for one named TEST, and no other form carries it', array( false !== strpos( $t_real_html, $t_box( false ) ), false !== strpos( $t_test_html, $t_box( true ) ), substr_count( $t_real_html, 'name="wpcpm_test"' ) ), array( true, true, 1 ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

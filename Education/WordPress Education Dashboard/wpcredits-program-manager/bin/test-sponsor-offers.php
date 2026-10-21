@@ -11,12 +11,18 @@
  *   fingerprint, never unsealed to compare, and the option is not autoloaded. A paste is all or
  *   nothing, refused by line number.
  * - The state machine: a pool cannot go live empty, ended is final, the kind is fixed once the
- *   pool holds anything.
- * - The primary offer writes exactly three Airtable fields and never the coupon link.
- * - (Task 4) Two claims under the lock take two codes; the same person twice gets the same
+ *   pool holds anything. Since 1.123.18 no tier caps live offers: the partner page offers products
+ *   at any level, separately from the levels, so with the tiers announced a Friend, a Supporter
+ *   and a Champion alike switch on as many as they like, two presses that arrive together both
+ *   land, and a Save that reopens an expired live offer goes through; the New offer form and a
+ *   dormant offer say so in those words.
+ * - The primary offer's text, instructions and link live on the offer post alone now;
+ *   a save never reaches Airtable, and seed() takes what the migration held for the four legacy
+ *   fields as an argument, never a row it reads for itself.
+ * - Two claims under the lock take two codes; the same person twice gets the same
  *   code; a manager's void frees the person; low stock mails once and re-arms on adding; the
  *   stats carry no name and no address.
- * - (Task 6) The cards and their handlers claim through WPCPM_Sponsor_Roster::claim() and check
+ * - The cards and their handlers claim through WPCPM_Sponsor_Roster::claim() and check
  *   the offer's sponsor before anything else.
  *
  * Run from the plugin root:  php bin/test-sponsor-offers.php
@@ -39,6 +45,8 @@ $GLOBALS['next_post'] = 900;
 $GLOBALS['flash']     = array();
 $GLOBALS['settings']  = array();
 $GLOBALS['program']   = array();
+$GLOBALS['object_cache'] = false;
+$GLOBALS['meta_cache']   = array();
 
 class WP_Error {
 	private $c, $m, $d;
@@ -56,7 +64,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_title = '', $post_status = 'private', $post_author = 0;
+	public $ID = 0, $post_type = '', $post_title = '', $post_name = '', $post_status = 'private', $post_author = 0;
 	public function __construct( array $a ) { foreach ( $a as $k => $v ) { $this->$k = $v; } }
 }
 class WPCPM_Test_Die extends Exception {}
@@ -162,6 +170,7 @@ function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, 
 function wp_safe_redirect( $url, $status = 302 ) { $GLOBALS['redirected'] = $url; throw new WPCPM_Test_Redirect( $url ); }
 function wp_get_referer() { return $GLOBALS['referer'] ?? false; }
 function nocache_headers() {}
+function human_time_diff( $from, $to = 0 ) { return max( 1, (int) round( ( (int) $to - (int) $from ) / 60 ) ) . ' mins'; }
 function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https://example.test/logo-' . (int) $id . '.png'; }
 
 // The post store: enough of posts, meta and get_posts() for the offers to live in.
@@ -170,27 +179,62 @@ function wp_get_attachment_image_url( $id, $size = 'thumbnail' ) { return 'https
 function wpcpm_test_title( $slashed ) { $title = stripslashes( (string) $slashed ); return current_user_can( 'unfiltered_html' ) ? $title : wpcpm_test_kses_title( $title ); }
 function wp_insert_post( array $args, $wp_error = false ) {
 	$id = $GLOBALS['next_post']++;
-	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => wpcpm_test_title( $args['post_title'] ?? '' ), 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	// The words unslashed, as core's insert unslashes them; the title through wpcpm_test_title().
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => wpcpm_test_title( $args['post_title'] ?? '' ), 'post_name' => stripslashes( (string) ( $args['post_name'] ?? '' ) ), 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
 	return $id;
 }
+// The words unslashed, as core's update unslashes them through its insert; the title through
+// wpcpm_test_title(), each title write counted.
 function wp_update_post( array $args ) {
 	$id = (int) $args['ID'];
-	if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = wpcpm_test_title( $args['post_title'] ); $GLOBALS['title_writes'] = ( $GLOBALS['title_writes'] ?? 0 ) + 1; }
+	if ( isset( $GLOBALS['posts'][ $id ] ) ) {
+		if ( isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = wpcpm_test_title( $args['post_title'] ); $GLOBALS['title_writes'] = ( $GLOBALS['title_writes'] ?? 0 ) + 1; }
+		foreach ( array( 'post_name', 'post_status' ) as $field ) { if ( isset( $args[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = stripslashes( (string) $args[ $field ] ); } }
+	}
 	return $id;
 }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
-function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
-// As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// While $GLOBALS['object_cache'] is on, a post's meta is answered from this request's own copy,
+// taken at its first read and kept until a write of this request's own or wp_cache_delete() drops
+// it, as core's object cache answers; another request's write reaches the table alone.
+function get_post_meta( $id, $k, $single = false ) {
+	if ( ! empty( $GLOBALS['object_cache'] ) ) {
+		if ( ! array_key_exists( (int) $id, $GLOBALS['meta_cache'] ) ) { $GLOBALS['meta_cache'][ (int) $id ] = $GLOBALS['pmeta'][ (int) $id ] ?? array(); }
+		return $GLOBALS['meta_cache'][ (int) $id ][ $k ] ?? '';
+	}
+	return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? '';
+}
+// $GLOBALS['before_write'] and $GLOBALS['after_write'], each `array( offer ID, meta key, step )`,
+// are another request's step, run once just before or just after this one writes that key of the
+// named offer: the other request's write landing between this request's count and its write, or
+// between its write and its count after it. As core's, what is written is unslashed first, at any
+// depth, so words reach it as slashed copies.
+function update_post_meta( $id, $k, $v ) {
+	another_request( 'before_write', $id, $k );
+	$GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v );
+	unset( $GLOBALS['meta_cache'][ (int) $id ] );
+	another_request( 'after_write', $id, $k );
+	return true;
+}
+function another_request( $when, $id, $k ) {
+	if ( isset( $GLOBALS[ $when ] ) && (int) $GLOBALS[ $when ][0] === (int) $id && $k === $GLOBALS[ $when ][1] ) {
+		$step = $GLOBALS[ $when ][2];
+		unset( $GLOBALS[ $when ] );
+		$step();
+	}
+}
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
-function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
+function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ], $GLOBALS['meta_cache'][ (int) $id ] ); return true; }
 function get_posts( array $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
 		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
-		if ( isset( $args['post_status'] ) && $post->post_status !== $args['post_status'] ) { continue; }
+		// post_status can be a single status or a list, as core's own get_posts() takes it (the
+		// store's post_id_of() and delete_all() pass a list, naming every status, in place of
+		// 'any').
+		if ( isset( $args['post_status'] ) && 'any' !== $args['post_status'] && ! in_array( $post->post_status, (array) $args['post_status'], true ) ) { continue; }
 		$ok = true;
 		foreach ( (array) ( $args['meta_query'] ?? array() ) as $clause ) {
 			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
@@ -198,9 +242,16 @@ function get_posts( array $args ) {
 			if ( isset( $clause['compare'] ) && 'EXISTS' === $clause['compare'] ) { if ( ! $have ) { $ok = false; } continue; }
 			if ( ! $have || (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ] !== (string) $clause['value'] ) { $ok = false; }
 		}
+		// The store (1.111.0) asks a bare meta_key/meta_value pair, not meta_query.
+		if ( $ok && isset( $args['meta_key'] ) && array_key_exists( 'meta_value', $args ) ) {
+			$have = get_post_meta( $id, $args['meta_key'], true );
+			if ( (string) $have !== (string) $args['meta_value'] ) { $ok = false; }
+		}
 		if ( $ok ) { $out[] = $post; }
 	}
 	usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
+	if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) { return array_map( static function ( $p ) { return $p->ID; }, $out ); }
 	return $out;
 }
 
@@ -218,11 +269,8 @@ class WPCPM_Test_DB {
 	}
 }
 $wpdb = new WPCPM_Test_DB();
-function wp_cache_delete( $key, $group = '' ) { return true; }
+function wp_cache_delete( $key, $group = '' ) { if ( 'post_meta' === $group ) { unset( $GLOBALS['meta_cache'][ (int) $key ] ); } return true; }
 
-class WPCPM_Airtable {
-	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
-}
 class WPCPM_Roles {
 	const ROLE_STUDENT = 'wpcpm_student'; const ROLE_MENTOR = 'wpcpm_mentor'; const ROLE_INSTITUTION = 'wpcpm_institution'; const ROLE_SPONSOR = 'wpcpm_sponsor'; const ROLE_ADMIN = 'administrator'; const CAP_MANAGE = 'wpcpm_manage_program';
 	public static function user_has_role( $user, $role ) { return $user instanceof WP_User && in_array( $role, $user->roles, true ); }
@@ -285,6 +333,7 @@ class WPCPM_Institution_Export {
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 // The template registry, which every email's builder fills its words from since 1.122.22.
@@ -294,23 +343,30 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+// The shell the Offers and Usage cards are drawn in.
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
+// The review of a sponsor member's offers and changes (1.123.18), and the fields that bring its
+// decisions back to the Administrator Dashboard.
+require_once __DIR__ . '/../includes/class-wpcpm-return.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offer-review.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php';
 
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
-$A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $T = 'recTEAM0000000001';
+// 1.111.0: the manager is a site user id now, not a Team Members record.
+$A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
 	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
-WPCPM_Sponsors_Index::write_team( array( $T => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
-$GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
+$GLOBALS['settings'] = array( 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
 	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
 	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
@@ -330,7 +386,7 @@ $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM
 $GLOBALS['umeta'][6] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $B, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 // The shape the students sync writes: the status under `program`, with `is_past` beside it.
 $GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' => false ), 21 => array( 'program' => 'Graduate', 'is_past' => true ), 22 => array( 'program' => 'Paused', 'is_past' => false ), 23 => array( 'program' => 'Developer Track', 'is_past' => false ), 24 => array( 'program' => 'In Sensei', 'is_past' => false ) );
-$GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
+$GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
 
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; $GLOBALS['redirected'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left'] ?? array( 'redirect', $GLOBALS['redirected'] ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
 function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
@@ -360,21 +416,34 @@ ck( 'an offer that is not one reads as null', WPCPM_Sponsor_Offers::read( 999999
 echo "\n=== Seeding from the index ===\n";
 $a1 = WPCPM_Sponsor_Offers::seed( $A );
 ck( 'the sheet link makes a pool of codes', is_int( $a1 ), true );
+// 1.111.0: offer, instructions and more_info left the row's shape too (the primary offer is
+// the record now); the row that comes back from the store never carries them, so seed() titles
+// the draft with the sponsor's name and leaves the rest for a manager to fill in, rather than
+// copying text the store no longer has anywhere to read from.
 $offer = WPCPM_Sponsor_Offers::read( $a1 );
-ck( 'titled with the sponsor name, the text from Offer, the instructions and the link from the base', array( $offer['title'], $offer['text'], $offer['instructions'], $offer['url'] ), array( 'Mango Example', 'One year of the premium plugin', 'Enter the code at checkout.', 'https://plugins.mango-example.com/wpcredits' ) );
+ck( 'titled with the sponsor name, the rest left for a manager to fill in', array( $offer['title'], $offer['text'], $offer['instructions'], $offer['url'] ), array( 'Mango Example', '', '', '' ) );
 ck( 'a draft, primary, kind codes, students only, the default threshold', array( $offer['state'], $offer['primary'], $offer['kind'], $offer['audience'], $offer['low'] ), array( 'draft', true, 'codes', array(), 10 ) );
-// The synced sponsors index already holds the raw coupon_link (it is a cache of Airtable's own
-// field, written by WPCPM_Sponsors_Sync, not by seed()), so it is excluded here on purpose: this
-// check is for what seed() itself might copy into new storage, not for the index's own read of
-// the base.
+// The old index option, which only the migration reads, held the raw coupon_link as Airtable's
+// copy of the field (written by the sponsors sync before 1.111.0, never by seed()), so it is
+// excluded here on purpose: this check is for what seed() itself might copy into new storage.
 $opts_without_index = $GLOBALS['opts'];
 unset( $opts_without_index[ WPCPM_Sponsors_Index::OPT_NAME ] );
 ck( 'the sheet address is not stored anywhere', strpos( serialize( $opts_without_index ) . serialize( $GLOBALS['pmeta'] ), 'docs.google.com' ), false );
 ck( 'seeding again does nothing', WPCPM_Sponsor_Offers::seed( $A ), false );
+// 1.111.0: coupon_link left the row's shape the instant it is stored (empty_row() never carries
+// it, so insert()/shape() drop it on the way in, not only on the way out) - seed() cannot read
+// a link back from the store to decide "shared" any more for a sponsor coming through it, so
+// every newly seeded offer is a pool now, same as A's. Shared-offer behavior itself (claiming,
+// the ledger, the low-stock exemption) is still covered below, on an offer built to be shared
+// on purpose rather than inferred from a link the store no longer keeps.
 $b1 = WPCPM_Sponsor_Offers::seed( $B );
-ck( 'a checkout link that is not the sheet makes a shared offer', WPCPM_Sponsor_Offers::read( $b1 )['kind'], 'shared' );
-ck( 'holding that link as the shared code', WPCPM_Sponsor_Codes::shared( $b1 ), 'https://cirrus-example.example/checkout?code=WPCREDITS' );
-ck( 'and not in the clear', strpos( serialize( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( $b1 ) ] ), 'WPCREDITS' ), false );
+ck( 'a checkout link is no longer read back from the store, so B also seeds a pool of codes', WPCPM_Sponsor_Offers::read( $b1 )['kind'], 'codes' );
+ck( 'with nothing added yet, its pool is empty', WPCPM_Sponsor_Codes::counts( $b1 )['available'], 0 );
+// A manager turns B's offer into a shared one from the Offers card (kind_is_fixed() only
+// refuses this once the pool holds something, and nothing has been added yet): the rest of
+// this suite's shared-offer coverage is built on that offer, not on seed()'s now-impossible
+// detection.
+update_post_meta( $b1, WPCPM_Sponsor_Offers::META_KIND, WPCPM_Sponsor_Offers::KIND_SHARED );
 $D = 'recSPONSOR0000004';
 WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $D => array( 'name' => 'Drive Sheet', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Four', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A sheet of codes', 'instructions' => '', 'more_info' => '', 'coupon_link' => 'https://drive.google.com/open?id=x', 'manager' => '', 'mentors' => array() ) ) ), time() );
 $d_seed = WPCPM_Sponsor_Offers::seed( $D );
@@ -382,6 +451,52 @@ ck( 'a coupon sheet shared as a Drive link is the sheet too, so it seeds a pool 
 ck( 'an unknown sponsor cannot be seeded', WPCPM_Sponsor_Offers::seed( 'recNOTINDEXED0001' )->get_error_code(), 'wpcpm_offer_sponsor' );
 ck( 'offers_of() lists by sponsor', array( array_keys( WPCPM_Sponsor_Offers::offers_of( $A ) ), array_keys( WPCPM_Sponsor_Offers::offers_of( $B ) ) ), array( array( $a1 ), array( $b1 ) ) );
 ck( 'find() with the wrong sponsor is null', array( WPCPM_Sponsor_Offers::find( $a1, $B ), WPCPM_Sponsor_Offers::find( $a1, $A )['id'] ), array( null, $a1 ) );
+
+// 1.111.0: the store's row never carries offer, instructions, more_info or coupon_link at all
+// (they left empty_row() the same release), unlike the four fixtures above, which still set them
+// because they were written before that shape changed. seed() must read a row like this one
+// without a notice and hand back an empty draft rather than the base's old text.
+$E = 'recSPONSOR0000005';
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $E, 'name' => 'No Legacy Fields', 'status' => 'Approved' ) ) );
+// The bare cast a pre-isset() seed() used to do (`(string) $row['offer']`) also lands on '' for
+// a missing key - PHP warns "Undefined array key" and then treats the null as '' - so the three
+// empty strings below hold either way and prove nothing about the isset() guard on their own.
+// Capturing every warning raised during the call is what actually tells the two apart.
+$e_warnings = array();
+set_error_handler(
+	static function ( $errno, $errstr ) use ( &$e_warnings ) {
+		$e_warnings[] = $errstr;
+		return true;
+	}
+);
+$e_seed = WPCPM_Sponsor_Offers::seed( $E );
+restore_error_handler();
+$e_offer = WPCPM_Sponsor_Offers::read( $e_seed );
+ck( 'seed() tolerates a row without the four legacy keys, raising no warning',
+	array( is_int( $e_seed ), $e_offer['text'], $e_offer['instructions'], $e_offer['url'], $e_warnings ),
+	array( true, '', '', '', array() )
+);
+
+echo "\n=== Seeding with legacy values ===\n";
+// The migration (class-wpcpm-sponsors-migration.php, seed_offer()) is the one caller left that
+// ever has these four: it reads them off the row it held before the store dropped them, and
+// hands them to seed() as $legacy, never as a row seed() goes and reads for itself. This is the
+// only way left to prove seed() still applies today's rules to them, sheet-hosts rule included.
+$F        = 'recSPONSOR0000006';
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $F, 'name' => 'Mango Legacy', 'status' => 'Approved' ) ) );
+$f_legacy = array( 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit' );
+$f1       = WPCPM_Sponsor_Offers::seed( $F, $f_legacy );
+$f_offer  = WPCPM_Sponsor_Offers::read( $f1 );
+ck( 'titled with the sponsor name, the text, the instructions and the link taken from $legacy', array( $f_offer['title'], $f_offer['text'], $f_offer['instructions'], $f_offer['url'] ), array( 'Mango Legacy', 'One year of the premium plugin', 'Enter the code at checkout.', 'https://plugins.mango-example.com/wpcredits' ) );
+ck( 'a draft, primary, and the sheet link is still exempt: a pool of codes, not shared', array( $f_offer['state'], $f_offer['primary'], $f_offer['kind'] ), array( 'draft', true, 'codes' ) );
+ck( 'the sheet address is not stored anywhere', strpos( serialize( $GLOBALS['pmeta'] ) . serialize( $GLOBALS['opts'] ), 'docs.google.com' ), false );
+ck( 'seeding again does nothing, legacy values or not', WPCPM_Sponsor_Offers::seed( $F, $f_legacy ), false );
+$G  = 'recSPONSOR0000007';
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $G, 'name' => 'Cirrus Legacy', 'status' => 'Approved' ) ) );
+$g1 = WPCPM_Sponsor_Offers::seed( $G, array( 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS2' ) );
+ck( 'a checkout link that is not the sheet still makes a shared offer', WPCPM_Sponsor_Offers::read( $g1 )['kind'], 'shared' );
+ck( 'holding that link as the shared code', WPCPM_Sponsor_Codes::shared( $g1 ), 'https://cirrus-example.example/checkout?code=WPCREDITS2' );
+ck( 'and not in the clear', strpos( serialize( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( $g1 ) ] ), 'WPCREDITS2' ), false );
 
 echo "\n=== Cleaning a posted offer ===\n";
 $raw = array( 'title' => ' Premium plugin ', 'text' => 'A year', 'instructions' => 'Checkout', 'url' => 'plugins.mango-example.com/x', 'kind' => 'codes', 'audience' => array( 'mentors', 'students', 'bogus' ), 'low' => '2000', 'expires' => '2026-12-31' );
@@ -433,7 +548,7 @@ ck( 'so nothing was added', WPCPM_Sponsor_Codes::counts( $a1 ), array( 'availabl
 $repeats   = WPCPM_Sponsor_Codes::add( $a1, implode( "\n", array_fill( 0, 100, 'SAME-1' ) ) );
 $sentences = $repeats->get_error_data();
 ck( 'ninety-nine bad lines make ten sentences and a closing count, and add nothing', array( count( $sentences ), $sentences[0], end( $sentences ), WPCPM_Sponsor_Codes::counts( $a1 )['total'] ), array( 11, 'Line 2 repeats line 1.', 'and 89 more lines have problems.', 20 ) );
-// Task 3 fix round 1: the closing sentence used sprintf() for a count, so exactly eleven faulty
+// The closing sentence once used sprintf() for a count, so exactly eleven faulty
 // lines (ten named, one more) printed the ungrammatical "and 1 more lines have problems"; _n()
 // must choose the singular there, and the plural must still read right at every other count.
 $eleven = WPCPM_Sponsor_Codes::add( $a1, implode( "\n", array_fill( 0, 12, 'ELEVEN-1' ) ) )->get_error_data();
@@ -460,6 +575,8 @@ $empty = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Empty pool', 'kind
 ck( 'a pool cannot go live empty', WPCPM_Sponsor_Offers::set_state( $empty, 'live' )->get_error_code(), 'wpcpm_offer_empty' );
 ck( 'nor can a shared offer with nothing to share', array( WPCPM_Sponsor_Codes::set_shared( $b1, '' ), WPCPM_Sponsor_Offers::set_state( $b1, 'live' )->get_error_code() ), array( true, 'wpcpm_offer_empty' ) );
 WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
+ck( 'holding that link as the shared code', WPCPM_Sponsor_Codes::shared( $b1 ), 'https://cirrus-example.example/checkout?code=WPCREDITS' );
+ck( 'and not in the clear', strpos( serialize( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( $b1 ) ] ), 'WPCREDITS' ), false );
 ck( 'with codes it goes live', WPCPM_Sponsor_Offers::set_state( $a1, 'live' ), true );
 ck( 'a state that is not one is refused', WPCPM_Sponsor_Offers::set_state( $a1, 'gone' )->get_error_code(), 'wpcpm_offer_state' );
 ck( 'live cannot go back to draft', WPCPM_Sponsor_Offers::set_state( $a1, 'draft' )->get_error_code(), 'wpcpm_offer_transition' );
@@ -475,22 +592,405 @@ ck( 'no last day, live for good', WPCPM_Sponsor_Offers::is_live( $live, '2030-01
 $live['state'] = 'paused';
 ck( 'paused is not live whatever the day', WPCPM_Sponsor_Offers::is_live( $live ), false );
 ck( 'live() lists the live ones', array_keys( WPCPM_Sponsor_Offers::live() ), array( $a1 ) );
-ck( 'and all() lists every offer', array_keys( WPCPM_Sponsor_Offers::all() ), array( $a1, $b1, $d_seed, $empty ) );
+ck( 'and all() lists every offer', array_keys( WPCPM_Sponsor_Offers::all() ), array( $a1, $b1, $d_seed, $e_seed, $f1, $g1, $empty ) );
 
-echo "\n=== The mirror ===\n";
+echo "\n=== The tier's cap and the dormant state ===\n";
+ck(
+	'states() has six states, Waiting for review among them, and a sponsor\'s only move out of dormant is to end it',
+	array(
+		WPCPM_Sponsor_Offers::states(),
+		WPCPM_Sponsor_Offers::transitions()[ WPCPM_Sponsor_Offers::STATE_DORMANT ],
+		array_filter(
+			WPCPM_Sponsor_Offers::transitions(),
+			static function ( $moves ) {
+				return in_array( WPCPM_Sponsor_Offers::STATE_DORMANT, $moves, true );
+			}
+		),
+	),
+	array(
+		array( 'draft', 'review', 'live', 'paused', 'ended', 'dormant' ),
+		array( 'ended' ),
+		array(),
+	)
+);
+
+// The contexts the card is rendered with for the rest of this section.
+$a_ctx = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][5] );
+$b_ctx = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][6] );
+
+// Throwaway offers under B, dedicated to proving the fifth state: $dorm_main is created, brought
+// live, then taken dormant, and left dormant for the card-render checks further down; the other
+// three prove set_dormant()/wake() touch nothing they should not.
+$dorm_main = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Dormant test offer', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $dorm_main, 'DORM-MAIN-CODE' );
+WPCPM_Sponsor_Offers::set_state( $dorm_main, 'live' );
+WPCPM_Sponsor_Offers::set_dormant( $dorm_main );
+ck( 'read() keeps the dormant state instead of reading it as a draft', WPCPM_Sponsor_Offers::read( $dorm_main )['state'], 'dormant' );
+ck( 'a sponsor cannot resume a dormant offer: the move is refused as a transition', WPCPM_Sponsor_Offers::set_state( $dorm_main, 'live' )->get_error_code(), 'wpcpm_offer_transition' );
+
+$dorm_draft = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Draft, never live', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$dorm_paused = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Paused offer', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $dorm_paused, 'DORM-PAUSED-CODE' );
+WPCPM_Sponsor_Offers::set_state( $dorm_paused, 'live' );
+WPCPM_Sponsor_Offers::set_state( $dorm_paused, 'paused' );
+// dormant is never a target anywhere in transitions(), whatever the offer's own state - not just
+// from live, which the refusal above already covers on its own (review finding, test gap).
+ck(
+	'a sponsor cannot post dormant: set_state() refuses it as a transition from every state',
+	array(
+		WPCPM_Sponsor_Offers::set_state( $a1, 'dormant' )->get_error_code(),
+		WPCPM_Sponsor_Offers::set_state( $dorm_draft, 'dormant' )->get_error_code(),
+		WPCPM_Sponsor_Offers::set_state( $dorm_paused, 'dormant' )->get_error_code(),
+	),
+	array( 'wpcpm_offer_transition', 'wpcpm_offer_transition', 'wpcpm_offer_transition' )
+);
+
+$dorm_live2 = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Second live, for wake()', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $dorm_live2, 'DORM-LIVE2-CODE' );
+WPCPM_Sponsor_Offers::set_state( $dorm_live2, 'live' );
+ck(
+	'set_dormant() takes a live offer down and wake() brings a dormant one back, and neither touches any other state',
+	array(
+		WPCPM_Sponsor_Offers::set_dormant( $dorm_draft ),
+		WPCPM_Sponsor_Offers::read( $dorm_draft )['state'],
+		WPCPM_Sponsor_Offers::set_dormant( $dorm_live2 ),
+		WPCPM_Sponsor_Offers::read( $dorm_live2 )['state'],
+		WPCPM_Sponsor_Offers::read( $dorm_live2 )['event']['what'],
+		WPCPM_Sponsor_Offers::wake( $dorm_paused ),
+		WPCPM_Sponsor_Offers::read( $dorm_paused )['state'],
+		WPCPM_Sponsor_Offers::wake( $dorm_live2 ),
+		WPCPM_Sponsor_Offers::read( $dorm_live2 )['state'],
+		WPCPM_Sponsor_Offers::read( $dorm_live2 )['event']['what'],
+	),
+	array( false, 'draft', true, 'dormant', 'dormant', false, 'paused', true, 'live', 'woken' )
+);
+ck( 'state_label() knows Dormant', WPCPM_Sponsor_Offers::state_label( WPCPM_Sponsor_Offers::STATE_DORMANT ), 'Dormant' );
+
+// The switch is still off here (the suite's settings never set sponsor_tiers_live by default):
+// nothing about the tiers reaches a sponsor, a dormant offer's own reason included, so $dorm_main
+// reads as held back by the program, naming no tier.
+$card_b_off = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+ck(
+	'with the switch off a dormant offer reads that the program holds it back, and names no tier',
+	array(
+		false !== strpos( $card_b_off, 'Dormant: held back by the program. You can end it.' ),
+		false !== strpos( $card_b_off, 'your tier' ),
+	),
+	array( true, false )
+);
+
+// The switch is off here still: B, tier '', brings a second offer live too, while the tiers are
+// unannounced as once they are.
+$cap_b2 = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Second offer, cap check', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $cap_b2, 'CAP-B2-CODE' );
+$first_on  = WPCPM_Sponsor_Offers::set_state( $b1, 'live' );
+$second_on = WPCPM_Sponsor_Offers::set_state( $cap_b2, 'live' );
+ck(
+	'with the switch off a Friend switches a second offer on',
+	array(
+		WPCPM_Sponsors_Index::row( $B )['tier'],
+		$first_on,
+		$second_on,
+	),
+	array( '', true, true )
+);
+
+// The New offer form's note: nothing while the switch is off; once it is on, the rule the partner
+// page gives, the same at every tier, naming none.
+$note_off = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$note_on = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+ck(
+	'the New offer form says offers are separate from the tiers while the switch is on, and nothing while it is off',
+	array(
+		false !== strpos( $note_off, 'separate from the tiers' ),
+		false !== strpos( $note_on, '<p class="wpcpm-student__note">Offers are separate from the tiers: your company may have any number of live offers, whatever its tier.</p>' ),
+		false !== strpos( $note_on, 'Your tier, ' ),
+	),
+	array( false, true, false )
+);
+
+// With the switch on, a Supporter switches a second offer on beside the first: the partner page
+// offers products at any level, separately from the levels, and the handler lands the move.
+WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'supporter' ) );
+$cap_a2 = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Second live attempt', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $cap_a2, 'CAP-A2-CODE' );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $cap_a2, 'wpcpm_state' => 'live' ), array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
+$approved_a2 = WPCPM_Sponsor_Offers::approve( $cap_a2 );
+ck(
+	'with the switch on a Supporter\'s second offer is sent for review through the card\'s press and, approved, goes live beside the first: no tier stops it',
+	array(
+		$r[0],
+		$approved_a2,
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $cap_a2 ) ),
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $a1 ) ),
+	),
+	array( 'offer-sent', true, true, true )
+);
+// No tier caps live offers, so the code that counted a tier's slots and its sentences are gone
+// (1.123.18): nothing counts the slots before a switch or after it, and no refusal names a cap.
+$offers_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php' );
+ck( 'no cap on live offers is left to count or to word: cap_reason(), the recount, its revert and the cap\'s sentences are gone', array(
+	method_exists( 'WPCPM_Sponsor_Offers', 'cap_reason' ),
+	method_exists( 'WPCPM_Sponsor_Offers', 'reopen' ),
+	array_key_exists( 'offer-cap', WPCPM_Sponsor_Offers::messages() ),
+	preg_match_all( '/wpcpm_offer_cap|offer_cap\(|includes no live offers|live offers? at a time|includes one live offer|includes %2\$d live offer|Your tier, %/', $offers_src ),
+), array( false, false, false, 0 ) );
+
+// A Friend switches an offer on too: the switch is on, B's tier is still unset, and B already has
+// three live, the one woken above among them. Ended right after, so B carries a past offer for the card's "Active" vs. "Ended and
+// expired" split further down.
+$cap_b3 = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Third attempt', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $cap_b3, 'CAP-B3-CODE' );
+ck(
+	'a Friend switches a fourth offer on while the switch is on',
+	array( WPCPM_Sponsor_Offers::set_state( $cap_b3, 'live' ), WPCPM_Sponsor_Offers::read( $cap_b3 )['state'], WPCPM_Sponsor_Offers::live_count( $B ) ),
+	array( true, 'live', 4 )
+);
+WPCPM_Sponsor_Offers::set_state( $cap_b3, 'ended' );
+
+// A Champion switches on as many: a third beside the two, as any tier would.
+WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'champion' ) );
+$cap_a3   = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Third live attempt', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $cap_a3, 'CAP-A3-CODE' );
+$third_live = WPCPM_Sponsor_Offers::set_state( $cap_a3, 'live' );
+ck(
+	'a Champion switches on any number',
+	array(
+		true,
+		$third_live,
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $a1 ) ),
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $cap_a2 ) ),
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $cap_a3 ) ),
+	),
+	array( true, true, true, true, true )
+);
+ck(
+	'live_count() counts one sponsor\'s live offers today and leaves the named offer out',
+	array(
+		WPCPM_Sponsor_Offers::live_count( $A ),
+		WPCPM_Sponsor_Offers::live_count( $A, $cap_a2 ),
+	),
+	array( 3, 2 )
+);
+
+// An offer past its last day is still, technically, in state live - but is_live() says no: with the
+// other two ended, A is a Supporter again with a1 alone, whose last day is yesterday, and a fresh
+// offer goes live beside it.
+WPCPM_Sponsor_Offers::set_state( $cap_a2, 'ended' );
+WPCPM_Sponsor_Offers::set_state( $cap_a3, 'ended' );
+WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'supporter' ) );
+WPCPM_Sponsor_Offers::save( $a1, array( 'expires' => '2026-09-04' ) );
+$cap_a4 = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Past the expired one', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $cap_a4, 'CAP-A4-CODE' );
+ck(
+	'an offer past its last day is not live, and a fresh offer goes live beside it',
+	array(
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $a1 ) ),
+		WPCPM_Sponsor_Offers::set_state( $cap_a4, 'live' ),
+		WPCPM_Sponsor_Offers::is_live( WPCPM_Sponsor_Offers::read( $cap_a4 ) ),
+	),
+	array( false, true, true )
+);
+
+// Editing a live-but-expired offer's last day back into the open, with the switch on and cap_a4
+// live beside it: no tier caps live offers, so the save goes through.
+$title_a1 = WPCPM_Sponsor_Offers::read( $a1 )['title'];
+$r        = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => $title_a1, 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck(
+	'moving an expired live offer\'s last day back into the open goes through, another offer live beside it',
+	array( $r[0], WPCPM_Sponsor_Offers::read( $a1 )['expires'], WPCPM_Sponsor_Offers::live_count( $A ) ),
+	array( 'offer-saved', '', 2 )
+);
+// cap_a4 was only ever in play for the two checks above; ended now, so A is back to a1 alone,
+// live and unexpired, which is what nothing after this point assumes otherwise.
+WPCPM_Sponsor_Offers::set_state( $cap_a4, 'ended' );
+
+// No tier caps live offers: dormant is only ever written when a tier stops covering an offer, so
+// none is sent there now, but an offer the daily run parked under the caps before 1.123.18 stays
+// dormant until the next daily run, WPCPM_Sponsor_Tiers_Run, wakes it - the sentence must say
+// so, not print "0 live offers".
+WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'champion' ) );
+$dorm_champion = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Dormant under an unlimited tier', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $dorm_champion, 'DORM-CHAMPION-CODE' );
+WPCPM_Sponsor_Offers::set_state( $dorm_champion, 'live' );
+WPCPM_Sponsor_Offers::set_dormant( $dorm_champion );
+$card_a_champion = card( 'WPCPM_Sponsor_Offers', $A, $a_ctx );
+ck(
+	'a dormant offer reads that offers are separate from the tiers and that the next daily run brings it back',
+	false !== strpos( $card_a_champion, 'Dormant: offers are separate from the tiers now, so it resumes by itself on the next daily run. You can end it.' ),
+	true
+);
+
+// The New offer form's note, self-contained: nothing while the switch is off, and the one rule at a
+// Supporter and a Champion alike.
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
+WPCPM_Sponsors_Index::patch( $B, array( 'tier' => 'supporter' ) );
+$shape_none = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$shape_one = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+WPCPM_Sponsors_Index::patch( $B, array( 'tier' => 'champion' ) );
+$shape_any = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+$offers_rule = 'Offers are separate from the tiers: your company may have any number of live offers, whatever its tier.';
+ck(
+	'the New offer form\'s note is the one rule at every tier, and nothing while the switch is off',
+	array(
+		false !== strpos( $shape_none, $offers_rule ),
+		false !== strpos( $shape_one, $offers_rule ),
+		false !== strpos( $shape_any, $offers_rule ),
+		strpos( $shape_one . $shape_any, 'at a time' ),
+	),
+	array( false, true, true, false )
+);
+
+// The card, for the dormant offer minted at the top of this section: it sits between the Active
+// offers heading and the Ended and expired offers heading (cap_b3 is what puts that second heading
+// on the card at all), its sentence says the next daily run brings it back, and its only move is to
+// end it.
+WPCPM_Sponsors_Index::patch( $B, array( 'tier' => 'supporter' ) );
+$card_b          = card( 'WPCPM_Sponsor_Offers', $B, $b_ctx );
+$active_pos      = strpos( $card_b, '<h4 class="wpcpm-sponsor__subheading">Active offers</h4>' );
+$dorm_pos        = strpos( $card_b, 'id="wpcpm-offer-' . $dorm_main . '"' );
+$past_pos        = strpos( $card_b, '<h4 class="wpcpm-sponsor__subheading">Ended and expired offers</h4>' );
+$dorm_form_start = strpos( $card_b, 'id="wpcpm-offer-state-' . $dorm_main . '"' );
+$dorm_form_end   = strpos( $card_b, '</form>', $dorm_form_start );
+$dorm_form       = substr( $card_b, $dorm_form_start, $dorm_form_end - $dorm_form_start );
+ck(
+	'the card draws a dormant offer under Active offers with its sentence and End this offer alone',
+	array(
+		false !== strpos( $card_b, 'wpcpm-offer wpcpm-offer--dormant' ),
+		false !== strpos( $card_b, 'Dormant: offers are separate from the tiers now, so it resumes by itself on the next daily run. You can end it.' ),
+		false !== $active_pos && false !== $dorm_pos && false !== $past_pos && $active_pos < $dorm_pos && $dorm_pos < $past_pos,
+		false !== strpos( $dorm_form, 'value="live"' ),
+		false !== strpos( $dorm_form, 'value="paused"' ),
+		false !== strpos( $dorm_form, 'value="ended"' ),
+	),
+	array( true, true, true, false, false, true )
+);
+
+// Cleanup: every setting and every sponsor's tier return to how the rest of the file finds them.
+// The throwaway offers made only for this section under $A go with them, so offers_of( $A )
+// still counts what the rest of the file expects; B keeps its offers (nothing later counts them
+// exactly), but the extra ones this section brought live are ended first.
+WPCPM_Sponsors_Index::patch( $A, array( 'tier' => '' ) );
+WPCPM_Sponsors_Index::patch( $B, array( 'tier' => '' ) );
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
+foreach ( array( $cap_a2, $cap_a3, $cap_a4, $dorm_champion ) as $throwaway ) {
+	WPCPM_Sponsor_Codes::delete( $throwaway );
+	wp_delete_post( $throwaway, true );
+}
+foreach ( array( $dorm_live2, $cap_b2 ) as $extra_live ) {
+	WPCPM_Sponsor_Offers::set_state( $extra_live, 'ended' );
+}
+
+echo "\n=== Two presses together, with no cap to count ===\n";
+// Two presses of Make live that arrive together, one on each of a Supporter's two drafts: each
+// counts the other as a draft, and the other press's write lands between this press's count and
+// its own. The object cache is on, so this request holds its first read of the other offer. No
+// tier caps live offers since 1.123.18 and nothing counts them, so both presses land.
+$C = 'recSPONSOR0000003';
+WPCPM_Sponsors_Index::insert( array( 'record_id' => $C, 'name' => 'Racing Example', 'status' => 'Approved', 'tier' => 'supporter' ) );
+$GLOBALS['users'][7] = new WP_User( 7, array( 'wpcpm_sponsor' ), 'Rep Three', 'rep.three@example.test' );
+$GLOBALS['umeta'][7] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $C, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+
+$race_mine  = WPCPM_Sponsor_Offers::create( $C, array( 'title' => 'Pressed here', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$race_other = WPCPM_Sponsor_Offers::create( $C, array( 'title' => 'Pressed in another tab', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $race_mine, 'RACE-MINE-CODE' );
+WPCPM_Sponsor_Codes::set_shared( $race_other, 'RACE-OTHER-CODE' );
+
+/** The states the table holds, past this request's copy: what every request reads next. */
+function states_in_table( array $ids ) {
+	return array_map( static function ( $id ) { return $GLOBALS['pmeta'][ $id ]['_wpcpm_offer_state'] ?? ''; }, $ids );
+}
+
+/** How many of a sponsor's offers are live today as the table holds them: what the next request counts. */
+function live_in_table( $record ) {
+	$GLOBALS['meta_cache'] = array();
+	return WPCPM_Sponsor_Offers::live_count( $record );
+}
+
+/** The other press's write, landing just before this request writes its own offer's state. */
+function race_other_press( $mine, $other ) {
+	$GLOBALS['before_write'] = array(
+		$mine,
+		'_wpcpm_offer_state',
+		static function () use ( $other ) {
+			$GLOBALS['pmeta'][ $other ]['_wpcpm_offer_state'] = 'live';
+		},
+	);
+}
+
+$GLOBALS['object_cache'] = true;
+race_other_press( $race_mine, $race_other );
+$raced = WPCPM_Sponsor_Offers::set_state( $race_mine, 'live' );
+ck(
+	'two presses that arrive together both land: nothing counts a sponsor\'s live offers',
+	array( $raced, isset( $GLOBALS['before_write'] ), states_in_table( array( $race_mine, $race_other ) ), live_in_table( $C ) ),
+	array( true, false, array( 'live', 'live' ), 2 )
+);
+
+// The same through the card's own press, from an offer that was paused: it lands, and the trail
+// records the move.
+$GLOBALS['pmeta'][ $race_other ]['_wpcpm_offer_state'] = 'draft';
+$GLOBALS['pmeta'][ $race_mine ]['_wpcpm_offer_state']  = 'paused';
+$GLOBALS['meta_cache']                                 = array();
+$race_trail                                            = count( $GLOBALS['audit'] );
+$GLOBALS['uid']                                        = 7;
+race_other_press( $race_mine, $race_other );
+$r = post( array( 'wpcpm_sponsor' => $C, 'wpcpm_offer' => $race_mine, 'wpcpm_state' => 'live' ), array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
+ck(
+	'through the card, an offer switched on from paused lands beside the one another tab switched on, and the trail records the move',
+	array( $r[0], states_in_table( array( $race_mine, $race_other ) ), count( $GLOBALS['audit'] ) - $race_trail ),
+	array( 'offer-state-saved', array( 'live', 'live' ), 1 )
+);
+WPCPM_Sponsor_Offers::set_state( $race_mine, 'ended' );
+WPCPM_Sponsor_Offers::set_state( $race_other, 'ended' );
+
+// A Save that reopens an expired live offer, with another tab's Make live on a second offer landing
+// between this press's count and its write: no tier caps live offers, so the save goes through,
+// renamed, its last day open again, and the two are live.
+$reopen_mine  = WPCPM_Sponsor_Offers::create( $C, array( 'title' => 'Reopened here', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$reopen_other = WPCPM_Sponsor_Offers::create( $C, array( 'title' => 'Switched on in another tab', 'kind' => 'shared', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $reopen_mine, 'REOPEN-MINE-CODE' );
+WPCPM_Sponsor_Codes::set_shared( $reopen_other, 'REOPEN-OTHER-CODE' );
+$GLOBALS['pmeta'][ $reopen_mine ]['_wpcpm_offer_state']   = 'live';
+$GLOBALS['pmeta'][ $reopen_mine ]['_wpcpm_offer_expires'] = '2026-09-04';
+$GLOBALS['meta_cache']                                    = array();
+$GLOBALS['before_write']                                  = array( $reopen_mine, '_wpcpm_offer_expires', static function () use ( $reopen_other ) { $GLOBALS['pmeta'][ $reopen_other ]['_wpcpm_offer_state'] = 'live'; } );
+$r = post( array( 'wpcpm_sponsor' => $C, 'wpcpm_offer' => $reopen_mine, 'wpcpm_title' => 'Reopened here, renamed', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+ck(
+	'a Save that reopens an expired live offer goes through with another offer switched on in between: the offer is open again at once, both are live, and the new title waits for review',
+	array( $r[0], isset( $GLOBALS['before_write'] ), $GLOBALS['pmeta'][ $reopen_mine ]['_wpcpm_offer_expires'], $GLOBALS['posts'][ $reopen_mine ]->post_title, WPCPM_Sponsor_Offers::read( $reopen_mine )['proposed']['title'], states_in_table( array( $reopen_mine, $reopen_other ) ), live_in_table( $C ) ),
+	array( 'offer-changes-waiting', false, '', 'Reopened here', 'Reopened here, renamed', array( 'live', 'live' ), 2 )
+);
+
+$GLOBALS['uid']          = 5;
+$GLOBALS['object_cache'] = false;
+$GLOBALS['meta_cache']   = array();
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
+foreach ( array( $race_mine, $race_other, $reopen_mine, $reopen_other ) as $throwaway ) {
+	WPCPM_Sponsor_Codes::delete( $throwaway );
+	wp_delete_post( $throwaway, true );
+}
+
+echo "\n=== A minted key is accepted everywhere a record id was ===\n";
+$SPO = 'spoAAAA0000000001';
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $SPO => array( 'name' => 'Minted Sponsor', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Five', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A minted offer', 'instructions' => '', 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ) ) ), time() );
+$spo_seed = WPCPM_Sponsor_Offers::seed( $SPO );
+ck( 'offers_of() lists a spo sponsor', array_keys( WPCPM_Sponsor_Offers::offers_of( $SPO ) ), array( $spo_seed ) );
+
+echo "\n=== No more mirror ===\n";
+// mirror() is gone: the primary offer's text, instructions and link live on the offer post
+// alone now. WPCPM_Sponsor_Offers::mirror() no longer exists to call, so the proof is what is
+// left: save() writes only the offer post, never the index's now-absent offer/more_info keys.
 WPCPM_Sponsor_Offers::save( $a1, array( 'text' => 'Two years of the premium plugin', 'url' => 'https://plugins.mango-example.com/wpcredits2' ) );
-$GLOBALS['patched'] = array();
-ck( 'the primary offer writes exactly three fields, spelled as the base spells them', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $a1 ) ), $GLOBALS['patched'][0][1][0]['fields'] ), array( true, array( 'Offer' => 'Two years of the premium plugin', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.mango-example.com/wpcredits2' ) ) );
-ck( 'to the sponsor\'s record in the sponsors table', array( $GLOBALS['patched'][0][0], $GLOBALS['patched'][0][1][0]['id'] ), array( 'tblSPONSORS', $A ) );
-ck( 'and the index at once', array( WPCPM_Sponsors_Index::row( $A )['offer'], WPCPM_Sponsors_Index::row( $A )['more_info'] ), array( 'Two years of the premium plugin', 'https://plugins.mango-example.com/wpcredits2' ) );
-ck( 'the coupon link is never written', strpos( serialize( $GLOBALS['patched'] ), 'Coupon' ), false );
-ck( 'a second offer is not mirrored and says nothing', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $empty ) ), count( $GLOBALS['patched'] ) ), array( true, 1 ) );
-$GLOBALS['airtable_fail'] = true;
-ck( 'a failed PATCH is reported, and the index is left as it was', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $a1 ) ), WPCPM_Sponsors_Index::row( $A )['offer'] ), array( false, 'Two years of the premium plugin' ) );
-unset( $GLOBALS['airtable_fail'] );
+ck( 'save() writes the offer post and nothing else', WPCPM_Sponsor_Offers::read( $a1 )['text'], 'Two years of the premium plugin' );
+ck( 'the index carries no offer or more_info key to have mirrored into', array( array_key_exists( 'offer', WPCPM_Sponsors_Index::row( $A ) ), array_key_exists( 'more_info', WPCPM_Sponsors_Index::row( $A ) ) ), array( false, false ) );
+ck( 'and mirror() itself is gone', method_exists( 'WPCPM_Sponsor_Offers', 'mirror' ), false );
 
 echo "\n=== Claims: under the lock ===\n";
-// What Task 3 left in the live offer: index 0 claimed by 20 (ledger only), index 1 void, 2 to 19 void, MORE-1 to MORE-3 available at 20 to 22.
+// What the checks above left in the live offer: index 0 claimed by 20 (ledger only), index 1 void, 2 to 19 void, MORE-1 to MORE-3 available at 20 to 22.
 $GLOBALS['sent'] = array();
 $first = WPCPM_Sponsor_Claims::claim( $a1, $GLOBALS['users'][22] );
 ck( 'a claim takes the first available code and says it is new', array( $first['new'], $first['code'], $first['index'] ), array( true, 'MORE-1', 20 ) );
@@ -557,6 +1057,30 @@ $a_stats = $stats['offers'][ $a1 ];
 ck( 'the live offer: claims that stand, this month, and the pool by state', array( $a_stats['total'], $a_stats['month'], $a_stats['available'], $a_stats['claimed'], $a_stats['void'] ), array( 5, 5, 0, 5, 20 ) );
 ck( 'the series puts them in this month', $a_stats['series'][ gmdate( 'Y-m' ) ], 5 );
 ck( 'and the totals add the offers up', array( $stats['totals']['total'], $stats['totals']['available'], $stats['totals']['claimed'], $stats['totals']['void'] ), array( 5, 0, 5, 20 ) );
+// The general form the annual sponsor report reads: the months a caller hands over, not the
+// trailing twelve. A fixed list of two months long gone, then the same two with the current month
+// last. The series is keyed by the list as given, `month` is the list's last month, and `total`
+// stays every claim that stands, whatever the list; stats() is this over month_keys().
+$fixed_past = WPCPM_Sponsor_Claims::stats_for_months( $A, array( '2020-01', '2020-02' ) );
+$fixed_now  = WPCPM_Sponsor_Claims::stats_for_months( $A, array( '2020-01', '2020-02', gmdate( 'Y-m' ) ) );
+ck( 'stats_for_months() counts over the months it is handed: the list as given, the series keyed by it, its last month the month',
+	array(
+		$fixed_past['months'],
+		$fixed_past['offers'][ $a1 ]['series'],
+		array( $fixed_past['offers'][ $a1 ]['month'], $fixed_past['offers'][ $a1 ]['total'], $fixed_past['totals']['month'], $fixed_past['totals']['total'] ),
+		array_keys( $fixed_now['offers'][ $a1 ]['series'] ),
+		array( $fixed_now['offers'][ $a1 ]['series'][ gmdate( 'Y-m' ) ], $fixed_now['offers'][ $a1 ]['month'], $fixed_now['offers'][ $a1 ]['total'] ),
+		WPCPM_Sponsor_Claims::stats_for_months( $A, WPCPM_Sponsor_Claims::month_keys() ) === $stats,
+	),
+	array(
+		array( '2020-01', '2020-02' ),
+		array( '2020-01' => 0, '2020-02' => 0 ),
+		array( 0, 5, 0, 5 ),
+		array( '2020-01', '2020-02', gmdate( 'Y-m' ) ),
+		array( 5, 5, 5 ),
+		true,
+	)
+);
 $flat = array( 'keys' => array(), 'values' => array() );
 walk( $stats, $flat );
 ck( 'no value in the stats is an address', array_values( array_filter( $flat['values'], 'is_email' ) ), array() );
@@ -597,7 +1121,39 @@ echo "\n=== The Offers card ===\n";
 $GLOBALS['uid'] = 5;
 $context = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][5] );
 $html    = card( 'WPCPM_Sponsor_Offers', $A, $context );
-ck( 'the card is the canonical section around a disclosure, with the count of offers', array( false !== strpos( $html, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure">' ), false !== strpos( $html, '<span class="wpcpm-group__count">3</span>' ) ), array( true, true ) );
+ck( 'the card is the canonical section around a disclosure, with the count of offers', array( false !== strpos( $html, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure"' ), false !== strpos( $html, '<span class="wpcpm-group__count">3</span>' ) ), array( true, true ) );
+// What the company offers is live state, so the card is open whatever a flash says (the design the
+// owner approved on 27 September 2026). Its row says how many offers are live today and how many
+// claims stand this month, the readers the At a glance tile reads. New offer follows its fold, a link
+// to the card, whose body opens on the form for a new offer: the stylesheets hide it while the card is
+// open, as they hide every card's action then, so it shows once the sponsor folds the card. A claim
+// from an earlier month counts in all, on the Usage card's row, and not this month: one of the five
+// is moved two months back for these two rows.
+$backdated = array();
+foreach ( WPCPM_Sponsor_Offers::offers_of( $A ) as $offer ) {
+	$pool_key = WPCPM_Sponsor_Codes::option_name( $offer['id'] );
+	if ( empty( $backdated ) && ! empty( $GLOBALS['opts'][ $pool_key ]['claims'] ) ) {
+		$backdated = array( $pool_key, $GLOBALS['opts'][ $pool_key ] );
+		$first     = array_keys( $GLOBALS['opts'][ $pool_key ]['claims'] )[0];
+		$GLOBALS['opts'][ $pool_key ]['claims'][ $first ]['at'] = time() - 62 * DAY_IN_SECONDS;
+	}
+}
+$offers_row = card( 'WPCPM_Sponsor_Offers', $A, $context );
+$usage_row  = card( 'WPCPM_Sponsor_Usage', $A, $context );
+$flashed    = card( 'WPCPM_Sponsor_Usage', $A, array_merge( $context, array( 'open' => 'usage' ) ) );
+if ( ! empty( $backdated ) ) {
+	$GLOBALS['opts'][ $backdated[0] ] = $backdated[1];
+}
+$new_offer = '</div></div></div></details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="#wpcpm-sponsor-offers">New offer<span class="screen-reader-text"> for the program&#039;s students and mentors</span></a></p></section>';
+ck( 'the Offers card is open, its row the offers live and the claims this month, its body opening on the form for a new offer, and New offer after the fold, naming what it makes for a screen reader and hidden by the stylesheets while the card is open; the Usage card folds until a flash names it, its row every claim that stands, with no action', array(
+	0 === strpos( $offers_row, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Offers and codes <span class="wpcpm-group__count">3</span></h3><span class="wpcpm-sponsor__state">1 live, 4 claims this month</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body"><div class="wpcpm-offers__cols"><div class="wpcpm-offers__col wpcpm-offers__col--new">' ),
+	substr( $offers_row, -strlen( $new_offer ) ) === $new_offer,
+	1 === substr_count( $offers_row, 'wpcpm-sponsor__row-action' ),
+	0 === strpos( $usage_row, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-usage" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">5</span></h3><span class="wpcpm-sponsor__state">5 claims in all</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ),
+	substr( $usage_row, -strlen( '</form></div></details></section>' ) ),
+	false !== strpos( $flashed, '<details id="wpcpm-sponsor-usage" class="wpcpm-group wpcpm-group__disclosure" open>' ),
+	count( $backdated ),
+), array( true, true, true, true, '</form></div></details></section>', true, 2 ) );
 ck( 'each offer has an edit form with its own nonce, the state buttons it may press, and the codes box for a pool', array( false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_SAVE . '_' . $a1 ), false !== strpos( $html, 'name="wpcpm_state" value="paused"' ), false !== strpos( $html, 'name="wpcpm_codes"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_CODES_ADD . '_' . $a1 ) ), array( true, true, true, true ) );
 ck( 'the counts are drawn, and the pool never shows a code', array( false !== strpos( $html, '0 available' ), strpos( $html, 'LATE-' ), strpos( $html, 'WPCE-' ) ), array( true, false, false ) );
 ck( 'a live pool below its threshold warns', false !== strpos( $html, 'wpcpm-offer__warning' ), true );
@@ -613,12 +1169,15 @@ $html_b = card( 'WPCPM_Sponsor_Offers', $B, $context );
 ck( 'a shared offer shows its own link in the form and no codes box of its own: the one codes box on the page is the new-offer form\'s', array( false !== strpos( $html_b, 'value="https://cirrus-example.example/checkout?code=WPCREDITS"' ), substr_count( $html_b, 'name="wpcpm_codes"' ), false !== strpos( $html_b, 'id="wpcpm-offer-new-codes"' ) ), array( true, 1, true ) );
 
 echo "\n=== The Offers card: saving ===\n";
-$GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$GLOBALS['audit'] = array();
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => 'Premium plugin, one year', 'wpcpm_text' => 'One year free', 'wpcpm_instructions' => 'Enter the code at checkout.', 'wpcpm_url' => 'https://plugins.mango-example.com/wpcredits2', 'wpcpm_audience' => array( 'mentors' ), 'wpcpm_low' => '5', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-ck( 'a member saves an offer and lands on the Offers card', array( $r[0], $r[1], $r[2] ), array( 'offer-saved', 'offers', $A ) );
+ck( 'a member saves a live offer and lands on the Offers card, the changed words waiting for review (1.123.18)', array( $r[0], $r[1], $r[2] ), array( 'offer-changes-waiting', 'offers', $A ) );
 $saved = WPCPM_Sponsor_Offers::read( $a1 );
-ck( 'the fields were written', array( $saved['title'], $saved['text'], $saved['audience'], $saved['low'] ), array( 'Premium plugin, one year', 'One year free', array( 'mentors' ), 5 ) );
-ck( 'the primary offer was mirrored: exactly the three fields', $GLOBALS['patched'][0][1][0]['fields'], array( 'Offer' => 'One year free', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.mango-example.com/wpcredits2' ) );
+ck( 'the audience and the warning are written at once, and the title and the link wait beside the offer', array( $saved['audience'], $saved['low'], $saved['proposed']['title'], $saved['proposed']['url'], 'Premium plugin, one year' === $saved['title'] ), array( array( 'mentors' ), 5, 'Premium plugin, one year', 'https://plugins.mango-example.com/wpcredits2', false ) );
+WPCPM_Sponsor_Offers::approve( $a1 );
+$saved = WPCPM_Sponsor_Offers::read( $a1 );
+ck( 'approved, the fields were written', array( $saved['title'], $saved['text'], $saved['instructions'], $saved['url'], $saved['audience'], $saved['low'], $saved['proposed'] ), array( 'Premium plugin, one year', 'One year free', 'Enter the code at checkout.', 'https://plugins.mango-example.com/wpcredits2', array( 'mentors' ), 5, array() ) );
+ck( 'a save never mirrors: the audit datum is gone', array_key_exists( 'mirrored', end( $GLOBALS['audit'] )['data'] ), false );
 ck( 'and logged with the field names, never the values', array( end( $GLOBALS['audit'] )['kind'], in_array( 'title', end( $GLOBALS['audit'] )['data']['fields'], true ), strpos( serialize( end( $GLOBALS['audit'] ) ), 'One year free' ) ), array( 'offer_saved', true, false ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => '', 'wpcpm_text' => 'x' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a save without a title is rejected, with the reason as the detail', array( $r[0], $r[3] ), array( 'offer-rejected', 'Give the offer a title.' ) );
@@ -657,10 +1216,10 @@ wp_delete_file_stub( $_FILES['wpcpm_codes_file']['tmp_name'] );
 $_FILES = array();
 ck( 'an uploaded file is cleaned like a paste: the BOM and control characters go, the percent signs stay', WPCPM_Sponsor_Offers::clean_upload_text( "\xEF\xBB\xBFA-1\r\nB%202\x07\n" ), "A-1\r\nB%202\n" );
 $GLOBALS['uid'] = 5;
-$GLOBALS['airtable_fail'] = true;
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => 'Premium plugin, one year', 'wpcpm_text' => 'Two years free' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-unset( $GLOBALS['airtable_fail'] );
-ck( 'when the base cannot be reached the save stands here and the flash says the records lag', array( $r[0], WPCPM_Sponsor_Offers::read( $a1 )['text'] ), array( 'offer-mirror-failed', 'Two years free' ) );
+ck( 'a save never mirrors: an ordinary save is all that happens now, whatever the base is doing, the member\'s change waiting for review', array( $r[0], WPCPM_Sponsor_Offers::read( $a1 )['proposed']['text'] ), array( 'offer-changes-waiting', 'Two years free' ) );
+WPCPM_Sponsor_Offers::approve( $a1 );
+ck( 'offer-mirror-failed is not a status any more', isset( WPCPM_Sponsor_Offers::messages()['offer-mirror-failed'] ), false );
 
 echo "\n=== The Offers card: states and codes ===\n";
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_state' => 'live' ), array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
@@ -704,6 +1263,28 @@ $export_at   = (int) strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Usag
 $export_open = (int) strrpos( substr( $html, 0, $export_at ), '<form ' );
 $export_form = substr( $html, $export_open, (int) strpos( $html, '</form>', $export_at ) - $export_open );
 ck( 'the export form is a plain post: no once-guard and no busy word, because its answer is a file and the page never unloads', array( 0 === strpos( $export_form, '<form method="post"' ), false === strpos( $export_form, 'data-wpcpm-once' ), false === strpos( $export_form, 'data-wpcpm-busy' ), false !== strpos( $export_form, 'Download as CSV' ) ), array( true, true, true, true ) );
+// A sponsor with no offer: the card stops after its sentence, and still ends its body, its
+// disclosure and its section, the one card that ends them in two places.
+$no_offer = card( 'WPCPM_Sponsor_Usage', 'recNOOFFERS000001', $context );
+ck( 'a sponsor with no offer: the numbers are promised for later, and the card ends there, whole', array( false !== strpos( $no_offer, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-usage" class="wpcpm-group wpcpm-group__disclosure">' ), substr( $no_offer, -strlen( '<p>Numbers appear here once you have an offer.</p></div></details></section>' ) ), strpos( $no_offer, '<table' ) ), array( true, '<p>Numbers appear here once you have an offer.</p></div></details></section>', false ) );
+// The table sits in a box of its own (1.123.17), as the Administrator Dashboard's tables with
+// column headers do since 1.122.35: a tab stop, so a keyboard reaches it and scrolls it on a phone,
+// and a region named by the card's heading words, which carry an id for it, not the count beside
+// them. A card with no offer has no table, so no box.
+$usage_box = preg_match_all( '#<div class="wpcpm-usage__scroll"([^>]*)>(.*?)</div>#s', $html, $usage_found, PREG_SET_ORDER ) ? $usage_found : array();
+ck( 'the Usage table sits alone in a box that is a tab stop and a region named by the card\'s heading words, not its count', array(
+	count( $usage_box ),
+	isset( $usage_box[0] ) ? trim( $usage_box[0][1] ) : null,
+	isset( $usage_box[0] ) ? ( 0 === strpos( $usage_box[0][2], '<table class="wpcpm-table wpcpm-usage">' ) && '</table>' === substr( $usage_box[0][2], -8 ) ) : null,
+	false !== strpos( $html, '<h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">' ),
+	substr_count( $html, 'id="wpcpm-sponsor-usage-title"' ),
+	false !== strpos( $html, '</tr></tfoot></table></div><form method="post"' ),
+), array( 1, 'tabindex="0" role="region" aria-labelledby="wpcpm-sponsor-usage-title"', true, true, 1, true ) );
+ck( 'with no offer there is no table and no box, and the heading reads as it does with one', array( substr_count( $no_offer, 'wpcpm-usage__scroll' ), false !== strpos( $no_offer, '<h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">0</span></h3>' ) ), array( 0, true ) );
+$no_offer_row = card( 'WPCPM_Sponsor_Offers', 'recNOOFFERS000001', $context );
+$one_claim    = array( card( 'WPCPM_Sponsor_Offers', $B, $context ), card( 'WPCPM_Sponsor_Usage', $B, $context ) );
+ck( 'one claim is one, on the Offers row and on the Usage row', array( false !== strpos( $one_claim[0], '<span class="wpcpm-sponsor__state">1 live, 1 claim this month</span>' ), false !== strpos( $one_claim[1], '<span class="wpcpm-sponsor__state">1 claim in all</span>' ) ), array( true, true ) );
+ck( 'and its rows count nothing and say so: no offer live and no claim, and nothing claimed in all', array( false !== strpos( $no_offer_row, '<span class="wpcpm-sponsor__state">0 live, 0 claims this month</span>' ), false !== strpos( $no_offer, '<span class="wpcpm-sponsor__state">0 claims in all</span>' ) ), array( true, true ) );
 
 echo "\n=== The Offers and codes card in two columns (1.97.1) ===\n";
 $card_html = card( 'WPCPM_Sponsor_Offers', $A, $context );
@@ -721,6 +1302,27 @@ $found   = array_map( static function ( $n ) use ( $first ) { return strpos( $fi
 $ordered = ! in_array( false, $found, true );
 for ( $i = 1; $ordered && $i < count( $found ); $i++ ) { $ordered = $found[ $i ] > $found[ $i - 1 ]; }
 ck( 'an open offer reads as text first (1.97.4): the details list, then Edit this offer over the form, then the state block with its title, its sentence and its moves, in that order', array( $ordered, substr_count( $first, '<div class="wpcpm-offer__detail"><dt>' ) >= 5, false !== strpos( $first, '<dt>Open to</dt><dd>Current students' ), false === strpos( $first, ' form="wpcpm-offer-state-' ) ), array( true, true, true, true ) );
+// An offer switched on but past its last day is over: it sits under "Ended and expired offers", which
+// the row's count of live offers leaves it out of, so its pill says Expired, not Live.
+$a1_expires = WPCPM_Sponsor_Offers::read( $a1 )['expires'];
+WPCPM_Sponsor_Offers::save( $a1, array( 'expires' => '2020-01-01' ) );
+$expired_card = card( 'WPCPM_Sponsor_Offers', $A, $context );
+$expired_at   = strpos( $expired_card, 'id="wpcpm-offer-' . $a1 . '"' );
+$expired_head = false === $expired_at ? '' : substr( $expired_card, $expired_at, (int) strpos( $expired_card, '</summary>', $expired_at ) - $expired_at );
+WPCPM_Sponsor_Offers::save( $a1, array( 'expires' => $a1_expires ) );
+// An offer the sponsor ended is ended, whatever its last day: under the same heading, it keeps its
+// own pill. B's third offer was ended in the tiers section above.
+$ended_card = card( 'WPCPM_Sponsor_Offers', $B, $context );
+$ended_at   = strpos( $ended_card, 'id="wpcpm-offer-' . $cap_b3 . '"' );
+$ended_head = false === $ended_at ? '' : substr( $ended_card, $ended_at, (int) strpos( $ended_card, '</summary>', $ended_at ) - $ended_at );
+ck( 'an offer switched on but past its last day is listed under Ended and expired offers wearing Expired, not Live, and an ended one keeps Ended', array(
+	WPCPM_Sponsor_Offers::read( $a1 )['state'],
+	false !== $expired_at && $expired_at > (int) strpos( $expired_card, '<h4 class="wpcpm-sponsor__subheading">Ended and expired offers</h4>' ),
+	false !== strpos( $expired_head, '<span class="wpcpm-offer__state">Expired</span>' ),
+	strpos( $expired_head, '<span class="wpcpm-offer__state">Live</span>' ),
+	WPCPM_Sponsor_Offers::read( $cap_b3 )['state'],
+	false !== strpos( $ended_head, '<span class="wpcpm-offer__state">Ended</span>' ),
+), array( 'live', true, true, false, 'ended', true ) );
 ck( 'is_past(): ended, or past the last day named; a draft or a live offer with days left is in play', array( WPCPM_Sponsor_Offers::is_past( array( 'state' => 'ended', 'expires' => '' ) ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'live', 'expires' => '2026-09-05' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'live', 'expires' => '2026-09-06' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'paused', 'expires' => '2026-12-31' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'draft', 'expires' => '' ) ) ), array( true, true, false, false, false ) );
 $chart = substr( $html, (int) strpos( $html, '<figure class="wpcpm-chart wpcpm-usage__chart">' ) );
 $chart = substr( $chart, 0, (int) strpos( $chart, '</figure>' ) );
@@ -781,6 +1383,14 @@ WPCPM_Sponsor_Claims::delete_all();
 ck( 'uninstall forgets every claim, every pool and every lock', array( isset( $GLOBALS['umeta'][22][ WPCPM_Sponsor_Claims::META_CLAIMS ] ), isset( $GLOBALS['opts'][ $pool_name ] ), count( array_filter( array_keys( $GLOBALS['opts'] ), static function ( $k ) { return 0 === strpos( $k, WPCPM_Sponsor_Claims::LOCK_PREFIX ); } ) ) ), array( false, false, 0 ) );
 
 echo "\n=== House rules ===\n";
+// The guides say the rule the card says: offers are separate from the tiers, and no tier caps them
+// (1.123.18). The sponsors' guide and the Administrators' say it, and neither names a cap by tier.
+$offer_guides = (string) file_get_contents( __DIR__ . '/../docs/sections/41-sponsor-offers.md' ) . (string) file_get_contents( __DIR__ . '/../docs/sections/34-admin-operations.md' ) . (string) file_get_contents( __DIR__ . '/../docs/sections/31-admin-settings.md' );
+ck( 'the guides say offers are separate from the tiers and name no cap on live offers by tier', array(
+	false !== strpos( $offer_guides, 'Above the form, a line says that offers are separate from the tiers: as the program\'s partner page says, partners at any level may offer free access to their products, so your company may have any number of live offers, whatever its tier.' ),
+	false !== strpos( $offer_guides, 'since 1.123.18 no tier caps live offers' ),
+	preg_match_all( '/one live offer at a time|includes no live offers?|live offers? (?:your|its) tier includes|caps a tier puts on live offers|one at a time for a Supporter/i', $offer_guides ),
+), array( true, true, 0 ) );
 foreach ( array( 'class-wpcpm-sponsor-codes.php', 'class-wpcpm-sponsor-offers.php' ) as $file ) {
 	$src = (string) file_get_contents( __DIR__ . '/../includes/modules/' . $file );
 	ck( 'no em or en dash in ' . $file, preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
@@ -811,6 +1421,19 @@ ck( 'a new offer keeps its title, text and instructions exactly as typed', array
 WPCPM_Sponsor_Offers::save( $typed_id, array( 'title' => $typed_edit, 'text' => $typed_edit, 'instructions' => $typed_edit ) );
 $typed_got = WPCPM_Sponsor_Offers::read( $typed_id );
 ck( 'and a saved one the new words', array( $typed_got['title'] ?? null, $typed_got['text'] ?? null, $typed_got['instructions'] ?? null ), array( $typed_edit, $typed_edit, $typed_edit ) );
+
+// The scan covers the whole module, with no file excused: the sponsor record lives on the site
+// since 1.111.0, and the sponsors sync, the last file that reached the base, went with it.
+$module_files  = glob( __DIR__ . '/../includes/modules/class-wpcpm-sponsor*.php' );
+$still_reaches = array();
+foreach ( $module_files as $module_file ) {
+	if ( false !== strpos( (string) file_get_contents( $module_file ), 'WPCPM_Airtable' ) ) {
+		$still_reaches[] = basename( $module_file );
+	}
+}
+sort( $still_reaches );
+ck( 'no file of the sponsors module names WPCPM_Airtable any more', array( count( $module_files ) > 20, $still_reaches ), array( true, array() ) );
+ck( 'this suite defines no WPCPM_Airtable class at all', class_exists( 'WPCPM_Airtable' ), false );
 
 echo "\n=== Text people type keeps every word ===\n";
 
@@ -974,7 +1597,10 @@ $r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => str_repeat(
 ck( 'an emoji is one character to the count, as typed: 121 characters is refused by one', array( $r[0], $r[3] ), array( 'offer-rejected', 'The title is 1 character over the limit of 120. Shorten it and save again.' ) );
 
 echo "\n--- A row imported from the program records keeps its stored form ---\n";
+// On this line the migration hands seed() what the records held for the legacy fields, `$legacy`
+// below; the rows give the sponsor's name, which is the offer's title.
 $E = 'recSPONSOR0000005'; $F = 'recSPONSOR0000006'; $G = 'recSPONSOR0000007';
+$legacy = static function ( $offer, $instructions ) { return array( 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '' ); };
 $row = static function ( $name, $offer, $instructions ) { return array( 'name' => $name, 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ); };
 $whole_text  = str_repeat( '&amp;', 200 ) . str_repeat( 'x', 300 );
 $whole_instr = str_repeat( '&quot;', 800 ) . str_repeat( 'x', 3200 );
@@ -984,24 +1610,24 @@ WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array(
 	$G => $row( str_repeat( 'n', 130 ), str_repeat( 'x', 600 ), str_repeat( 'y', 5000 ) ),
 ) ), time() );
 $GLOBALS['uid'] = 1;
-$e_id = WPCPM_Sponsor_Offers::seed( $E );
+$e_id = WPCPM_Sponsor_Offers::seed( $E, $legacy( $whole_text, $whole_instr ) );
 $e    = WPCPM_Sponsor_Offers::read( $e_id );
 ck( 'a text of 500 characters and instructions of 4,000, each longer than that in the form the records hold them, are imported whole, byte for byte', array( $e['text'] === $whole_text, $e['instructions'] === $whole_instr, WPCPM_Typed_Text::typed_length( $e['text'] ), WPCPM_Typed_Text::typed_length( $e['instructions'] ) ), array( true, true, 500, 4000 ) );
-$f_id = WPCPM_Sponsor_Offers::seed( $F );
+$f_id = WPCPM_Sponsor_Offers::seed( $F, $legacy( $t_team_mem, $t_ages_mem ) );
 $f    = WPCPM_Sponsor_Offers::read( $f_id );
 ck( 'the form the records hold a "<3" and a ">" in is imported as it is, and its boxes draw it as typed', array( $f['text'], $f['instructions'] ), array( $t_team_mem, $t_ages_mem ) );
 $GLOBALS['uid'] = 5;
 $f_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $F, $ctx ), $f_id );
 ck( 'the imported text\'s box shows what was meant and takes the limit and the 3 held', array( $f_boxes['text']['shown'], $f_boxes['text']['maxlength'], $f_boxes['instructions']['shown'], $f_boxes['instructions']['maxlength'] ), array( $t_team_box, 503, $t_ages, 4000 ) );
 $GLOBALS['uid'] = 1;
-$g_id = WPCPM_Sponsor_Offers::seed( $G );
+$g_id = WPCPM_Sponsor_Offers::seed( $G, $legacy( str_repeat( 'x', 600 ), str_repeat( 'y', 5000 ) ) );
 $g    = WPCPM_Sponsor_Offers::read( $g_id );
 ck( 'an import over the limit is cut to it, as it always was: nobody is there to refuse it to', array( mb_strlen( $g['title'] ), mb_strlen( $g['text'] ), mb_strlen( $g['instructions'] ) ), array( 120, 500, 4000 ) );
 // Cut on a whole character as typed: an entity or a line break that straddles the limit is kept or
 // left out whole, never split into a stray "&q" or a lone CR.
 $K = 'recSPONSOR0000008';
 WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $K => $row( 'Cut Example', str_repeat( 'x', 498 ) . '&quot;yy', str_repeat( 'x', 3999 ) . "\r\nyy" ) ) ), time() );
-$k = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $K ) );
+$k = WPCPM_Sponsor_Offers::read( WPCPM_Sponsor_Offers::seed( $K, $legacy( str_repeat( 'x', 498 ) . '&quot;yy', str_repeat( 'x', 3999 ) . "\r\nyy" ) ) );
 ck( 'an import over the limit is cut on a whole character as typed: an entity and a line break at the limit stay whole', array( $k['text'], WPCPM_Typed_Text::typed_length( $k['text'] ), $k['instructions'] === str_repeat( 'x', 3999 ) . "\r\n", WPCPM_Typed_Text::typed_length( $k['instructions'] ) ), array( str_repeat( 'x', 498 ) . '&quot;y', 500, true, 4000 ) );
 // The seeded title is the sponsor's name, cut the same way. An application stores the name as the
 // cleaner leaves it, a "<" that opens no tag as `&lt;` and the quote marks after it as `&quot;`, so
@@ -1198,6 +1824,200 @@ card( 'WPCPM_Sponsor_Offers', $A, $ctx );
 $GLOBALS['title_writes'] = 0;
 $r = post( wpcpm_test_unedited( $A, $h_id, array( 'wpcpm_title' => 'Free hosting for all students' ) ), $k_save );
 ck( 'edited, the title is written as the person left it', array( $r[0], WPCPM_Sponsor_Offers::read( $h_id )['title'], $GLOBALS['title_writes'] ), array( 'offer-saved', 'Free hosting for all students', 1 ) );
+
+echo "\n=== The review: a member's offer, and a change to a live one, wait for an Administrator (1.123.18) ===\n";
+// The partner page offers products at any level, and the Foundation decides how they are shared:
+// so an offer a sponsor member makes, and a change a member makes to what students see of a live
+// one, wait for an Administrator's review, the way a sponsor's post does. The Sponsor tiers switch
+// is off here, as before the launch: the review is not a tier's and names none.
+$Rv = 'WPCPM_Sponsor_Offer_Review';
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['flash'] = array();
+$ctx_m   = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][5] );
+$ctx_mgr = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
+$k_state   = array( 'WPCPM_Sponsor_Offers', 'handle_state' );
+$k_discard = array( 'WPCPM_Sponsor_Offers', 'handle_discard' );
+$k_approve = array( $Rv, 'handle_approve' );
+$k_return  = array( $Rv, 'handle_return' );
+$rv_new = array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => '0', 'wpcpm_title' => 'Reviewed hosting', 'wpcpm_text' => 'A year of hosting.', 'wpcpm_instructions' => 'Use the link.', 'wpcpm_url' => 'https://plugins.mango-example.com/reviewed', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'https://plugins.mango-example.com/checkout?c=REVIEW1', 'wpcpm_low' => '10', 'wpcpm_expires' => '' );
+/** Whether a current student is shown an offer, and the words they are shown of it. */
+function rv_student_sees( $offer_id ) {
+	foreach ( WPCPM_Sponsor_Tools::offers_for( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, 20 ) as $shown ) {
+		if ( (int) $shown['id'] === (int) $offer_id ) {
+			return array( $shown['title'], $shown['text'], $shown['url'], WPCPM_Sponsor_Codes::shared( $offer_id ) );
+		}
+	}
+	return null;
+}
+/** The ids of what waits for review, oldest first. */
+function rv_waiting() { return array_map( static function ( $row ) { return array( (int) $row['id'], $row['change'] ); }, WPCPM_Sponsor_Offer_Review::waiting_all() ); }
+
+ck( 'the review has its own state, Waiting for review, from which a sponsor may take the offer back or end it, and nobody but the program puts it live', array( WPCPM_Sponsor_Offers::STATE_REVIEW, in_array( 'review', WPCPM_Sponsor_Offers::states(), true ), WPCPM_Sponsor_Offers::transitions()['review'], WPCPM_Sponsor_Offers::state_label( 'review' ) ), array( 'review', true, array( 'draft', 'ended' ), 'Waiting for review' ) );
+ck( 'approving and returning are an Administrator\'s alone, as publishing a post is', WPCPM_Sponsor_Policy::grounds()[ WPCPM_Sponsor_Policy::ACT_REVIEW_OFFER ], array( 'manager' ) );
+
+$r     = post( $rv_new, $k_save );
+$rv1   = wpcpm_test_newest( $A );
+$rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
+ck( 'a member\'s new offer is a draft that is not approved, and the card says it is reviewed before anybody sees it', array( $r[0], $rv1_o['state'], $rv1_o['approved'], WPCPM_Sponsor_Offers::messages()['offer-created-review'] ), array( 'offer-created-review', 'draft', false, array( 'success', 'Your offer was created as a draft. Send it for review when it is ready: students and mentors see it once an Administrator approves it.' ) ) );
+$html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+$form = substr( $html, (int) strpos( $html, 'id="wpcpm-offer-state-' . $rv1 . '"' ), 900 );
+ck( 'its state says it goes to the program when it is sent, and its button says Send for review', array( false !== strpos( $html, 'A draft: nobody but you sees it. Send it for review when it is ready: students and mentors see it once an Administrator approves it.' ), false !== strpos( $form, 'name="wpcpm_state" value="live">Send for review</button>' ) ), array( true, true ) );
+ck( 'the New offer form says plainly that a new offer and a change wait for review, and names no tier while the switch is off', array( false !== strpos( $html, '<p class="wpcpm-student__note">A new offer, and every change to what students see of a live one, waits for an Administrator&#039;s review before students and mentors see it.</p>' ), preg_match( '/\btiers?\b/i', substr( $html, 0, (int) strpos( $html, '<form' ) ) ) ), array( true, 0 ) );
+
+$r     = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1, 'wpcpm_state' => 'live' ), $k_state );
+$rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
+ck( 'Send for review puts it in Waiting for review, stamped with who sent it and when, and nobody sees it: no student, no live count', array( $r[0], $rv1_o['state'], $rv1_o['submitted']['by'], $rv1_o['submitted']['at'] > 0, rv_student_sees( $rv1 ), WPCPM_Sponsor_Offers::is_live( $rv1_o ), WPCPM_Sponsor_Offers::messages()['offer-sent'][1] ), array( 'offer-sent', 'review', 5, true, null, false, 'Sent for review. Students and mentors see the offer once an Administrator approves it.' ) );
+ck( 'and it is in the queue, as a new offer', rv_waiting(), array( array( $rv1, 'new' ) ) );
+$html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+$form = substr( $html, (int) strpos( $html, 'id="wpcpm-offer-state-' . $rv1 . '"' ), 900 );
+ck( 'the card shows it waiting, with Take it back and End this offer', array( false !== strpos( $html, '<span class="wpcpm-offer__state">Waiting for review</span>' ), false !== strpos( $html, 'Waiting for review: nobody but you sees it until an Administrator approves it.' ), false !== strpos( $form, 'value="draft">Take it back</button>' ), false !== strpos( $form, 'value="ended"' ), strpos( $form, 'value="live"' ) ), array( true, true, true, true, false ) );
+
+/** The Offers card's line, as its fold shows it. */
+function rv_line( $html ) { return preg_match( '#<span class="wpcpm-sponsor__state">([^<]*)</span>#', $html, $m ) ? $m[1] : null; }
+ck( 'and the card\'s line, folded, says one offer waits for review beside the live ones and the claims', (bool) preg_match( '#^\d+ live, 1 waiting for review, \d+ claims? this month$#', (string) rv_line( $html ) ), true );
+
+$r = post( array( 'wpcpm_offer' => $rv1 ), $k_approve );
+ck( 'a member\'s own Approve is refused, and the offer still waits', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'] ), array( 'refused', 'review' ) );
+
+$GLOBALS['uid'] = 1;
+$r     = post( array( 'wpcpm_offer' => $rv1 ), $k_approve );
+$rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
+ck( 'an Administrator approves it: live and approved, out of the queue, and a current student sees it', array( $r[0], $rv1_o['state'], $rv1_o['approved'], $rv1_o['submitted'], rv_waiting(), rv_student_sees( $rv1 ) ), array( 'offer-approved', 'live', true, array(), array(), array( 'Reviewed hosting', 'A year of hosting.', 'https://plugins.mango-example.com/reviewed', 'https://plugins.mango-example.com/checkout?c=REVIEW1' ) ) );
+ck( 'the approval is on the sponsor\'s trail, naming the offer and nothing it says', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['subject'], end( $GLOBALS['audit'] )['ground'], end( $GLOBALS['audit'] )['message'] ), array( 'offer_approved', (string) $rv1, 'manager', 'An offer was approved.' ) );
+ck( 'once approved, the card\'s line says nothing waits', (bool) preg_match( '#^\d+ live, \d+ claims? this month$#', (string) rv_line( card( 'WPCPM_Sponsor_Offers', $A, $ctx_m ) ) ), true );
+$r = post( array( 'wpcpm_offer' => $rv1 ), $k_approve );
+ck( 'an offer with nothing waiting cannot be approved again', $r[0], 'offer-not-waiting' );
+
+// A change to what students see of the live offer: its words, its link or its shared code.
+$GLOBALS['uid'] = 5;
+$r     = post( wpcpm_test_unedited( $A, $rv1, array( 'wpcpm_text' => 'Two years of hosting.', 'wpcpm_shared' => 'https://plugins.mango-example.com/checkout?c=REVIEW2' ) ), $k_save );
+$rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
+ck( 'a member\'s change to a live offer waits: the offer students see keeps its words and its code, and the change is held beside it', array( $r[0], $rv1_o['state'], $rv1_o['text'], WPCPM_Sponsor_Codes::shared( $rv1 ), $rv1_o['proposed']['text'], $rv1_o['proposed']['shared'], $rv1_o['submitted']['by'], rv_student_sees( $rv1 )[1] ), array( 'offer-changes-waiting', 'live', 'A year of hosting.', 'https://plugins.mango-example.com/checkout?c=REVIEW1', 'Two years of hosting.', 'https://plugins.mango-example.com/checkout?c=REVIEW2', 5, 'A year of hosting.' ) );
+ck( 'the held shared code is sealed at rest, as the one students see is, and reads back as typed', array( false === strpos( serialize( get_post_meta( $rv1, WPCPM_Sponsor_Offers::META_PROPOSED, true ) ), 'REVIEW2' ), $rv1_o['proposed']['shared'] ), array( true, 'https://plugins.mango-example.com/checkout?c=REVIEW2' ) );
+ck( 'the change is in the queue, as changes, each field with what students see now and what it would be', array( rv_waiting(), WPCPM_Sponsor_Offer_Review::waiting_all()[0]['fields'] ), array( array( array( $rv1, 'changes' ) ), array( array( 'What you get', 'A year of hosting.', 'Two years of hosting.' ), array( 'The shared code or link', 'https://plugins.mango-example.com/checkout?c=REVIEW1', 'https://plugins.mango-example.com/checkout?c=REVIEW2' ) ) ) );
+$html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+$boxes = wpcpm_test_boxes( $html, $rv1 );
+ck( 'the card says the change waits and students see the offer as it reads, its form draws the change, and Discard the changes is offered', array( false !== strpos( $html, 'Your changes wait for an Administrator&#039;s review. Until they are approved, students and mentors see the offer as it reads above.' ), $boxes['text']['shown'], false !== strpos( $html, 'value="wpcpm_offer_discard"' ), false !== strpos( $html, '>Discard the changes</button>' ) ), array( true, 'Two years of hosting.', true, true ) );
+ck( 'the card\'s line counts the waiting change as one waiting for review', (bool) preg_match( '#^\d+ live, 1 waiting for review, #', (string) rv_line( $html ) ), true );
+$r = post( wpcpm_test_unedited( $A, $rv1, array( 'wpcpm_expires' => '2027-06-30' ) ), $k_save );
+ck( 'a change of the last day alone takes effect at once, and the waiting change stays as it was', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['expires'], WPCPM_Sponsor_Offers::read( $rv1 )['proposed']['text'], rv_waiting() ), array( 'offer-changes-waiting', '2027-06-30', 'Two years of hosting.', array( array( $rv1, 'changes' ) ) ) );
+
+// Returned with a note: the offer stays as students see it, the change stays the member's to mend.
+$GLOBALS['uid'] = 1; $GLOBALS['sent'] = array();
+$r = post( array( 'wpcpm_offer' => $rv1, 'wpcpm_note' => '' ), $k_return );
+ck( 'a return needs a note, and nothing moves without one', array( $r[0], rv_waiting() ), array( 'offer-note-missing', array( array( $rv1, 'changes' ) ) ) );
+$r = post( array( 'wpcpm_offer' => $rv1, 'wpcpm_note' => str_repeat( 'n', 2001 ) ), $k_return );
+ck( 'and one longer than 2,000 characters as typed is refused, nothing moved', array( $r[0], rv_waiting() ), array( 'offer-note-long', array( array( $rv1, 'changes' ) ) ) );
+$r     = post( array( 'wpcpm_offer' => $rv1, 'wpcpm_note' => 'Say how long the two years run.' ), $k_return );
+$rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
+ck( 'returned: the offer is live as it was, the change kept for the member with the note, out of the queue', array( $r[0], $rv1_o['state'], $rv1_o['text'], $rv1_o['proposed']['text'], $rv1_o['note'], $rv1_o['returned'] > 0, rv_waiting() ), array( 'offer-returned', 'live', 'A year of hosting.', 'Two years of hosting.', 'Say how long the two years run.', true, array() ) );
+$mail = end( $GLOBALS['sent'] );
+ck( 'the member who sent it is emailed the note, from the template registry, with the way to the Offers card', array( $mail[0], $mail[1], $mail[2], $mail[3]['subject'], false !== strpos( $mail[3]['body'], "Hello Rep One,\n\nAn Administrator read your offer \"Reviewed hosting\" and sent it back with this note:\n\nSay how long the two years run." ), false !== strpos( $mail[3]['body'], 'https://example.test/sponsor-dashboard/#wpcpm-sponsor-offers' ) ), array( 'user', 5, 'sponsor-offer-returned', 'Your offer "Reviewed hosting" needs a change before students see it', true, true ) );
+ck( 'the return is on the trail, with the note\'s length and never the note', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data'], false !== strpos( (string) json_encode( end( $GLOBALS['audit'] ) ), 'two years' ) ), array( 'offer_returned', array( 'offer' => $rv1, 'change' => 'changes', 'note_length' => 31 ), false ) );
+$GLOBALS['uid'] = 5;
+$html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+ck( 'the card shows the returned change with its note, escaped, as a returned post shows', array( false !== strpos( $html, 'An Administrator returned your changes with a note. Students and mentors still see the offer as it reads above.' ), false !== strpos( $html, '<p class="wpcpm-offer__note">Say how long the two years run.</p>' ) ), array( true, true ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1 ), $k_discard );
+ck( 'Discard the changes drops the change and its note at once, and the form draws the offer as approved', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['proposed'], WPCPM_Sponsor_Offers::read( $rv1 )['note'], wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_m ), $rv1 )['text']['shown'] ), array( 'offer-changes-discarded', array(), '', 'A year of hosting.' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1 ), $k_discard );
+ck( 'with no change waiting there is nothing to discard', $r[0], 'offer-no-changes' );
+$r = post( wpcpm_test_unedited( $A, $rv1, array( 'wpcpm_text' => 'Two years of hosting, from the day you claim.' ) ), $k_save );
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_offer' => $rv1 ), $k_approve );
+ck( 'sent again and approved, the change is what students see now, and nothing is held any more', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['text'], WPCPM_Sponsor_Offers::read( $rv1 )['proposed'], rv_student_sees( $rv1 )[1] ), array( 'offer-approved', 'Two years of hosting, from the day you claim.', array(), 'Two years of hosting, from the day you claim.' ) );
+
+// A new offer returned with a note goes back to the member as a draft.
+$GLOBALS['uid'] = 5;
+post( array_merge( $rv_new, array( 'wpcpm_title' => 'Second reviewed offer', 'wpcpm_shared' => 'SECOND-CODE' ) ), $k_save );
+$rv2 = wpcpm_test_newest( $A );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv2, 'wpcpm_state' => 'live' ), $k_state );
+$GLOBALS['uid'] = 1; $GLOBALS['sent'] = array();
+$r     = post( array( 'wpcpm_offer' => $rv2, 'wpcpm_note' => 'Add how to redeem it & a "link".' ), $k_return );
+$rv2_o = WPCPM_Sponsor_Offers::read( $rv2 );
+ck( 'a new offer returned goes back to the member as a draft with the note, unapproved, and the member is emailed', array( $r[0], $rv2_o['state'], $rv2_o['approved'], $rv2_o['note'], end( $GLOBALS['sent'] )[2] ), array( 'offer-returned', 'draft', false, 'Add how to redeem it & a "link".', 'sponsor-offer-returned' ) );
+$GLOBALS['uid'] = 5;
+$html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
+ck( 'its card says it was returned and shows the note, escaped', array( false !== strpos( $html, 'Returned by the program with a note: change the offer, then send it for review again.' ), false !== strpos( $html, '<p class="wpcpm-offer__note">Add how to redeem it &amp; a &quot;link&quot;.</p>' ) ), array( true, true ) );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv2, 'wpcpm_state' => 'live' ), $k_state );
+ck( 'sent for review again, it waits once more, and the old note is gone', array( WPCPM_Sponsor_Offers::read( $rv2 )['state'], WPCPM_Sponsor_Offers::read( $rv2 )['note'], rv_waiting() ), array( 'review', '', array( array( $rv2, 'new' ) ) ) );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv2, 'wpcpm_state' => 'draft' ), $k_state );
+ck( 'Take it back makes it a draft again at once, out of the queue', array( WPCPM_Sponsor_Offers::read( $rv2 )['state'], rv_waiting() ), array( 'draft', array() ) );
+// A waiting offer whose codes were voided has nothing to give: it cannot be approved.
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv2, 'wpcpm_state' => 'live' ), $k_state );
+WPCPM_Sponsor_Codes::set_shared( $rv2, '' );
+$GLOBALS['uid'] = 1;
+$r = post( array( 'wpcpm_offer' => $rv2 ), $k_approve );
+ck( 'a waiting offer with nothing left to give is not approved, and still waits', array( $r[0], WPCPM_Sponsor_Offers::read( $rv2 )['state'] ), array( 'offer-approve-empty', 'review' ) );
+WPCPM_Sponsor_Offers::set_state( $rv2, 'ended' );
+
+// Switching off and ending take effect at once, with no review.
+$GLOBALS['uid'] = 5;
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1, 'wpcpm_state' => 'paused' ), $k_state );
+ck( 'a member pauses a live offer at once: nobody sees it, nothing waits', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 ), rv_waiting() ), array( 'offer-state-saved', 'paused', null, array() ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1, 'wpcpm_state' => 'live' ), $k_state );
+ck( 'and resumes it at once: what was approved needs no second review', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 )[1] ), array( 'offer-state-saved', 'live', 'Two years of hosting, from the day you claim.' ) );
+
+// The program's own staff need no review, here as on the Sponsors screen.
+$GLOBALS['uid'] = 1;
+$r    = post( array_merge( $rv_new, array( 'wpcpm_title' => 'Made by the program', 'wpcpm_shared' => 'PROGRAM-CODE' ) ), $k_save );
+$rv3  = wpcpm_test_newest( $A );
+$r2   = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv3, 'wpcpm_state' => 'live' ), $k_state );
+$r3   = post( wpcpm_test_unedited( $A, $rv3, array( 'wpcpm_text' => 'Changed by the program.' ) ), $k_save );
+ck( 'an Administrator\'s offer is approved as it is made, goes live at the press, and a change of theirs is what students see at once', array( $r[0], $r2[0], $r3[0], WPCPM_Sponsor_Offers::read( $rv3 )['state'], WPCPM_Sponsor_Offers::read( $rv3 )['proposed'], rv_student_sees( $rv3 )[1], rv_waiting() ), array( 'offer-created', 'offer-state-saved', 'offer-saved', 'live', array(), 'Changed by the program.', array() ) );
+WPCPM_Sponsor_Offers::set_state( $rv3, 'ended' );
+$seeded = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Seeded by the program', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
+ck( 'what the program seeds is approved as it is made', WPCPM_Sponsor_Offers::read( $seeded )['approved'], true );
+wp_delete_post( $seeded, true );
+
+// An offer that was live before this release has no approval stamp: it reads as approved and stays
+// live, and a member's change to it waits like any other. A draft from before reads as not approved.
+$GLOBALS['uid'] = 5;
+$legacy = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Live before the review', 'kind' => 'shared', 'text' => 'Old words.', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::set_shared( $legacy, 'LEGACY-CODE' );
+update_post_meta( $legacy, WPCPM_Sponsor_Offers::META_STATE, WPCPM_Sponsor_Offers::STATE_LIVE );
+delete_post_meta( $legacy, WPCPM_Sponsor_Offers::META_APPROVED );
+$legacy_draft = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Draft before the review', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+delete_post_meta( $legacy_draft, WPCPM_Sponsor_Offers::META_APPROVED );
+ck( 'an offer live before this release reads as approved and a student sees it; a draft from before reads as not approved', array( WPCPM_Sponsor_Offers::read( $legacy )['approved'], rv_student_sees( $legacy )[1], WPCPM_Sponsor_Offers::read( $legacy_draft )['approved'] ), array( true, 'Old words.', false ) );
+$r = post( wpcpm_test_unedited( $A, $legacy, array( 'wpcpm_text' => 'New words.' ) ), $k_save );
+ck( 'and a member\'s change to it waits for review like any other, students still reading the old words', array( $r[0], rv_student_sees( $legacy )[1], WPCPM_Sponsor_Offers::read( $legacy )['proposed']['text'] ), array( 'offer-changes-waiting', 'Old words.', 'New words.' ) );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $legacy ), $k_discard );
+// A paused or a dormant offer from before reads as approved too: resumed by its sponsor, or woken by
+// the daily run, it goes live with no review, as it would have before the update.
+$legacy_paused  = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Paused before the review', 'kind' => 'codes', 'text' => 'Paused words.', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$legacy_dormant = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Dormant before the review', 'kind' => 'codes', 'text' => 'Dormant words.', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+update_post_meta( $legacy_paused, WPCPM_Sponsor_Offers::META_STATE, WPCPM_Sponsor_Offers::STATE_PAUSED );
+update_post_meta( $legacy_dormant, WPCPM_Sponsor_Offers::META_STATE, WPCPM_Sponsor_Offers::STATE_DORMANT );
+delete_post_meta( $legacy_paused, WPCPM_Sponsor_Offers::META_APPROVED );
+delete_post_meta( $legacy_dormant, WPCPM_Sponsor_Offers::META_APPROVED );
+ck( 'a paused and a dormant offer from before the release read as approved, and nothing of either waits', array( WPCPM_Sponsor_Offers::read( $legacy_paused )['approved'], WPCPM_Sponsor_Offers::read( $legacy_dormant )['approved'], WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $legacy_paused ) ), WPCPM_Sponsor_Offers::is_waiting( WPCPM_Sponsor_Offers::read( $legacy_dormant ) ) ), array( true, true, false, false ) );
+foreach ( array( $legacy, $legacy_draft, $legacy_paused, $legacy_dormant, $rv1, $rv2, $rv3 ) as $rv_id ) {
+	WPCPM_Sponsor_Codes::delete( $rv_id );
+	wp_delete_post( $rv_id, true );
+}
+
+// The decision's forms, as the Administrator Dashboard draws them.
+$GLOBALS['uid'] = 5;
+post( array_merge( $rv_new, array( 'wpcpm_title' => 'Drawn & "decided"' ) ), $k_save );
+$rv4 = wpcpm_test_newest( $A );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv4, 'wpcpm_state' => 'live' ), $k_state );
+$GLOBALS['uid'] = 1;
+ob_start();
+WPCPM_Sponsor_Offer_Review::render_item( WPCPM_Sponsor_Offer_Review::waiting_all()[0], 'dashboard' );
+$item = ob_get_clean();
+ck( 'an item reads the offer as students would, then Approve and the folded Return with a note, in the posts\' own words', array(
+	false !== strpos( $item, '<article class="wpcpm-administrator__item wpcpm-sponsor-offer" id="wpcpm-sponsor-offer-' . $rv4 . '">' ),
+	false !== strpos( $item, 'Drawn &amp; &quot;decided&quot;' ),
+	false !== strpos( $item, 'A new offer' ),
+	false !== strpos( $item, '<dt>What you get</dt><dd>A year of hosting.</dd>' ),
+	false !== strpos( $item, 'value="wpcpm_offer_approve"' ) && false !== strpos( $item, '>Approve</button>' ),
+	false !== strpos( $item, '<summary class="button">Return with a note</summary>' ),
+	false !== strpos( $item, '>Return it with this note</button>' ),
+	false !== strpos( $item, 'name="wpcpm_return" value="dashboard"' ),
+), array( true, true, true, true, true, true, true, true ) );
+WPCPM_Sponsor_Codes::delete( $rv4 );
+wp_delete_post( $rv4, true );
+$GLOBALS['uid'] = 5;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

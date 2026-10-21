@@ -152,7 +152,7 @@ function wp_insert_post( $a, $error = false ) {
 	$GLOBALS['posts'][ $post->ID ] = $post;
 	return $post->ID;
 }
-function get_post_time( $f, $gmt = false, $post = null ) { return strtotime( $post->post_date_gmt . ' UTC' ); }
+function get_post_time( $f, $gmt = false, $post = null, $translate = false ) { return strtotime( $post->post_date_gmt . ' UTC' ); }
 function get_post_meta( $id, $key = '', $single = false ) {
 	$rows = $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? array();
 	return $single ? ( $rows ? $rows[0] : '' ) : $rows;

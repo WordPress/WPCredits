@@ -122,6 +122,7 @@ function wp_count_posts( $t ) { $o = new stdClass(); $o->publish = count( $GLOBA
 function is_admin() { return false; }
 function wp_trim_words_stub() {}
 function rest_url( $p = '' ) { return 'https://example.test/wp-json/' . $p; }
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function wp_create_nonce( $a ) { return 'nonce'; }
 function register_rest_route() {}
 function wp_enqueue_script() {} function wp_localize_script() {}
@@ -209,6 +210,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
+
+// The real menu class and the real Settings screen, for their slugs: the Resources' way into wp-admin
+// links the screens the menu registers, each address through the admin_url() stand-in above.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
@@ -1041,6 +1047,83 @@ ck( 'the student card is split the same way',
     ),
     array( true, true ) );
 
+// The Sponsor Dashboard's own variant (the design the owner approved on 27 September 2026): the
+// section sits below the cards there, as a strip of three columns, the program contact the third
+// rather than the last block of the help column. Asked for by that page alone, so every other
+// caller keeps its two columns, and an extra block stays the help column's last. The section keeps
+// the two-column modifier beside its own, so what the theme draws between columns, and how it
+// stacks them on a narrow screen, holds for three. There it follows the page's groups, each an h2,
+// so it opens with an h2 of its own, for a screen reader only, and its columns' h3 headings read as
+// its own rather than as the last group's.
+$sponsor_three   = WPCPM_Handbook_Assistant::render_resources( 'sponsor', '<div class="wpcpm-resources__contact">Ola</div>', 3 );
+$institution_two = WPCPM_Handbook_Assistant::render_resources( 'institution', '<div class="wpcpm-resources__contact">Ola</div>' );
+$three_no_extra  = WPCPM_Handbook_Assistant::render_resources( 'sponsor', '', 3 );
+$contact_column  = '<div class="wpcpm-resources__col wpcpm-resources__col--contact"><div class="wpcpm-resources__contact">Ola</div></div></section>';
+ck( 'the sponsor\'s section in three columns: the updates, the resources, then the program contact in a column of its own',
+    array(
+        0 === strpos( $sponsor_three, '<section class="wpcpm-student__section wpcpm-handbook__resources wpcpm-resources--split wpcpm-resources--split-3"><h2 class="screen-reader-text">Updates and resources</h2><div class="wpcpm-resources__col wpcpm-resources__col--updates">' ),
+        strpos( $sponsor_three, 'wpcpm-resources__col--updates' ) < strpos( $sponsor_three, 'wpcpm-resources__col--help' ) && strpos( $sponsor_three, 'wpcpm-resources__col--help' ) < strpos( $sponsor_three, 'wpcpm-resources__col--contact' ),
+        substr( $sponsor_three, -strlen( $contact_column ) ) === $contact_column,
+        substr_count( $sponsor_three, 'Ola' ),
+        substr_count( $sponsor_three, 'class="wpcpm-resources__col wpcpm-resources__col--' ),
+        substr_count( $sponsor_three, '<section' ),
+        false !== strpos( $sponsor_three, 'Sponsor guide' ) && false !== strpos( $sponsor_three, 'Need help?' ),
+    ),
+    array( true, true, true, 1, 3, 1, true ) );
+ck( 'every other caller keeps the two columns: an institution\'s contact is the help column\'s last block, and a mentor\'s section has no third column and no heading of its own',
+    array(
+        0 === strpos( $institution_two, '<section class="wpcpm-student__section wpcpm-handbook__resources wpcpm-resources--split"><div class="wpcpm-resources__col wpcpm-resources__col--updates">' ),
+        array( strpos( $institution_two, '<h2' ), strpos( $mentor_section, '<h2' ), strpos( $three_no_extra, '<h2' ) ),
+        substr( $institution_two, -strlen( '<div class="wpcpm-resources__contact">Ola</div></div></section>' ) ),
+        array( strpos( $institution_two, 'wpcpm-resources--split-3' ), strpos( $institution_two, 'wpcpm-resources__col--contact' ), substr_count( $institution_two, 'class="wpcpm-resources__col wpcpm-resources__col--' ) ),
+        array( strpos( $mentor_section, 'wpcpm-resources--split-3' ), strpos( $mentor_section, 'wpcpm-resources__col--contact' ), substr_count( $mentor_section, 'class="wpcpm-resources__col wpcpm-resources__col--' ) ),
+    ),
+    array( true, array( false, false, false ), '<div class="wpcpm-resources__contact">Ola</div></div></section>', array( false, false, 2 ), array( false, false, 2 ) ) );
+ck( 'and three columns asked for with no contact to put in the third are the two, with no empty column',
+    array(
+        0 === strpos( $three_no_extra, '<section class="wpcpm-student__section wpcpm-handbook__resources wpcpm-resources--split"><div class="wpcpm-resources__col' ),
+        strpos( $three_no_extra, 'wpcpm-resources--split-3' ),
+        strpos( $three_no_extra, 'wpcpm-resources__col--contact' ),
+    ),
+    array( true, false, false ) );
+
+// A program manager's Resources, on the Administrator Dashboard, end with the way into wp-admin:
+// the settings, the program's overview and the tools, under a heading of the column's own kind and
+// in the Updates column's list, so every piece is one the section already wears, after the note
+// under Need help?. Only there, and only for somebody who holds the capability every one of the
+// three screens asks for.
+$GLOBALS['uid']        = 4;
+$administrator_section = WPCPM_Handbook_Assistant::render_resources( 'administrator' );
+$manager_links         = '<h3 class="wpcpm-student__heading">For administrators</h3><ul class="wpcpm-updates">'
+	. '<li class="wpcpm-updates__item"><a class="wpcpm-updates__link" href="https://example.test/wp-admin/admin.php?page=wpcpm-settings">Settings</a></li>'
+	. '<li class="wpcpm-updates__item"><a class="wpcpm-updates__link" href="https://example.test/wp-admin/admin.php?page=wpcpm">Overview</a></li>'
+	. '<li class="wpcpm-updates__item"><a class="wpcpm-updates__link" href="https://example.test/wp-admin/admin.php?page=wpcpm-tools">Tools</a></li>'
+	. '</ul>';
+ck( 'an Administrator\'s Resources end with Settings, Overview and Tools in wp-admin, under their own heading, in the Updates column\'s list, after the note under Need help?',
+    array(
+        substr( $administrator_section, -strlen( $manager_links . '</div></section>' ) ) === $manager_links . '</div></section>',
+        false !== strpos( $administrator_section, 'get an answer.</p>' . $manager_links ),
+        strpos( $administrator_section, 'WordPress Credits handbook' ) < strpos( $administrator_section, 'For administrators' ),
+        substr_count( $administrator_section, '<h3 ' ),
+    ),
+    array( true, true, true, 3 ) );
+$GLOBALS['uid']      = 2;
+$not_a_manager       = WPCPM_Handbook_Assistant::render_resources( 'administrator' );
+$GLOBALS['uid']      = 4;
+$managers_elsewhere  = array(
+	'student'     => WPCPM_Handbook_Assistant::render_resources( 'student' ),
+	'mentor'      => WPCPM_Handbook_Assistant::render_resources( 'mentor' ),
+	'institution' => WPCPM_Handbook_Assistant::render_resources( 'institution', '<div class="wpcpm-resources__contact">Ola</div>' ),
+	'sponsor'     => WPCPM_Handbook_Assistant::render_resources( 'sponsor', '<div class="wpcpm-resources__contact">Ola</div>', 3 ),
+);
+$GLOBALS['uid']      = 2;
+ck( 'and nobody else\'s: an account without the capability on the administrator\'s section, and a manager reading any other audience\'s, get no heading and no way into wp-admin',
+    array(
+        array( false !== strpos( $not_a_manager, 'For administrators' ), false !== strpos( $not_a_manager, '/wp-admin/' ), false !== strpos( $not_a_manager, 'WordPress Credits handbook' ) ),
+        array_map( static function ( $section ) { return false !== strpos( $section, 'For administrators' ) || false !== strpos( $section, '/wp-admin/' ); }, $managers_elsewhere ),
+    ),
+    array( array( false, false, true ), array( 'student' => false, 'mentor' => false, 'institution' => false, 'sponsor' => false ) ) );
+
 // `wp_kses_post()` strips `<svg>` outright, so a caller that filtered this would silently
 // drop the mark and leave an empty button. Both callers echo it directly.
 foreach ( array( 'students', 'mentors' ) as $side ) {
@@ -1072,6 +1155,12 @@ ck( 'the guide still shows with no provider configured, and the button does not'
         false !== strpos( $no_provider, 'Need help?' ),
     ),
     array( true, false ) );
+// With no Need help? and no note, the way into wp-admin follows the guide's buttons.
+$GLOBALS['uid'] = 4;
+ck( 'and an Administrator\'s way into wp-admin then follows the guide\'s buttons',
+    array( false !== strpos( WPCPM_Handbook_Assistant::render_resources( 'administrator' ), 'WordPress Credits handbook</a></p><h3 class="wpcpm-student__heading">For administrators</h3>' ) ),
+    array( true ) );
+$GLOBALS['uid'] = 2;
 
 // Narrowing the audience to mentors must not take the Student guide off the student's card.
 $settings['handbook_provider'] = 'gemini';

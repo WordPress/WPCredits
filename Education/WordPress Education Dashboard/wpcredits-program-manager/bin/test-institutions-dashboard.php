@@ -36,6 +36,9 @@
  *   read as text: `sanitize_key()` lowercases, and `2026-H1` is not `2026-h1`.
  * - Open question 12: an account that both mentors and acts for an institution lands on the
  *   Mentor Report Card, so `login_redirect` steps aside for it.
+ * - The events from the program's sponsors (1.117.0): the list is drawn for a contact of the
+ *   institution on its own page, after the modules and outside their order, and never for a program
+ *   manager looking through the switcher, nor for a locked account, which sees no module either.
  *
  * Run from the plugin root:  php bin/test-institutions-dashboard.php
  */
@@ -1436,6 +1439,40 @@ ck( 'and none of them changed the order of a page that is not theirs', $GLOBALS[
 
 $_POST = array();
 $GLOBALS['uid'] = 0;
+
+echo "\n=== The events from the program's sponsors (1.117.0) ===\n";
+
+// Declared here and not with the other cards, so every render above ran without it, as a checkout
+// without the class would: the page guards the call. What the list draws is its own suite's
+// (bin/test-sponsor-event-list.php); this page's part is whom it asks the list to draw for.
+if ( ! class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+	/** Stands in for the list: records whom it was drawn for, and on which page, and marks where. */
+	class WPCPM_Sponsor_Event_List {
+		const BACK_INSTITUTION = 'institution';
+		public static function render( $viewer, $back ) {
+			$GLOBALS['sevents'][] = array( $viewer instanceof WP_User ? (int) $viewer->ID : 0, (string) $back );
+			echo '<section class="wpcpm-sevents" data-stub="sevents"></section>';
+		}
+	}
+}
+
+$GLOBALS['sevents'] = array();
+$html               = render_as( 2 );
+ck(
+	'a contact of the institution on its own page gets the list, once, as themselves, on the Institution Dashboard\'s key, after the modules',
+	array( $GLOBALS['sevents'], strrpos( $html, 'id="wpcpm-module-' ) < strpos( $html, 'data-stub="sevents"' ), substr_count( $html, 'data-stub="sevents"' ) ),
+	array( array( array( 2, 'institution' ) ), true, 1 )
+);
+
+$GLOBALS['sevents'] = array();
+render_as( $manager, array( 'wpcpm_institution_view' => $krakow ) );
+render_as( $manager );
+ck( 'a program manager looking through the switcher, or landing on the first institution, is not offered it: a Join would be their own', $GLOBALS['sevents'], array() );
+
+$GLOBALS['sevents'] = array();
+delete_option( 'wpcpm_agreement_' . $krakow );
+$html = render_as( 2 );
+ck( 'a locked account, which sees no module, gets no list either', array( $GLOBALS['sevents'], strpos( $html, 'data-stub="sevents"' ) ), array( array(), false ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

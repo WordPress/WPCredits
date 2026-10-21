@@ -429,16 +429,23 @@ class WPCPM_Handbook_Assistant {
 	 * ask questions - those govern the "Need help?" button beside it and nothing else. Hiding a
 	 * handbook link because an API key is missing would make no sense to anybody.
 	 *
-	 * @param string $audience `student`, `mentor` or `institution`, deciding which guide is
-	 *                         linked.
+	 * @param string $audience `student`, `mentor`, `institution`, `administrator` or `sponsor`,
+	 *                         deciding which guide is linked. `administrator` also ends the
+	 *                         resources with the way into wp-admin, for a program manager.
 	 * @param string $extra    Markup for this audience alone, printed under the buttons and
 	 *                         already escaped by its caller. The institution's own contact goes
 	 *                         here: it is the one thing on this section that differs per reader,
 	 *                         and it belongs beside the guide rather than in a section of its
 	 *                         own at the foot of a page that already has several.
+	 * @param int    $columns  2, the section every page draws: the updates, then the resources with
+	 *                         the extra markup under the buttons. 3 is the Sponsor Dashboard's,
+	 *                         which draws the section below its cards as one strip: the extra
+	 *                         markup, its program contact, in a third column of its own, under one
+	 *                         heading for a screen reader, since there the section follows the
+	 *                         page's groups. With no extra markup to put there, three are the two.
 	 * @return string
 	 */
-	public static function render_resources( $audience = '', $extra = '' ) {
+	public static function render_resources( $audience = '', $extra = '', $columns = 2 ) {
 		$guides = self::guides();
 		$guide  = isset( $guides[ $audience ] ) ? $guides[ $audience ] : null;
 
@@ -461,8 +468,19 @@ class WPCPM_Handbook_Assistant {
 
 		// Two halves of one section rather than two sections: they are both "things to go and
 		// read", and stacking them would put two bordered blocks at the foot of a card that
-		// already has several.
-		$out = '<section class="wpcpm-student__section wpcpm-handbook__resources wpcpm-resources--split">';
+		// already has several. The three-column strip keeps the two-column modifier beside its
+		// own, so what a theme draws between the columns, and how it stacks them on a narrow
+		// screen, holds for the third column too, and only the number of tracks is its own.
+		$three = 3 === (int) $columns && '' !== $extra;
+		$out   = '<section class="wpcpm-student__section wpcpm-handbook__resources wpcpm-resources--split' . ( $three ? ' wpcpm-resources--split-3' : '' ) . '">';
+
+		// The strip of three follows the Sponsor Dashboard's groups, each headed by an h2, so without a
+		// heading of its own its columns' h3 headings would read as the last group's in an outline.
+		// One h2 for the section, for a screen reader alone, since the columns name themselves on
+		// screen; the columns keep their h3, one level under it.
+		if ( $three ) {
+			$out .= '<h2 class="screen-reader-text">' . esc_html__( 'Updates and resources', 'wpcredits-program-manager' ) . '</h2>';
+		}
 
 		// Updates first, and on the left. What is new changes; the guide and the assistant do
 		// not, and a fixed pair of buttons in the first column trains people to skip the half of
@@ -527,13 +545,57 @@ class WPCPM_Handbook_Assistant {
 			);
 		}
 
+		// On the Administrator Dashboard the page decides, and wp-admin is where the program is set
+		// up and its tools run, so the resources end with the way to its Settings, Overview and
+		// Tools screens. Only for the capability those screens ask for: a link to a screen that
+		// refuses its reader is a dead end.
+		if ( 'administrator' === $audience && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$out .= self::render_manager_links();
+		}
+
 		// Last, because it names a person: whoever is reading has come here for somewhere to go,
-		// and the human being is the answer when the two links above are not.
-		$out .= $extra;
+		// and the human being is the answer when the two links above are not. In the strip of
+		// three the person is the last column rather than the last block of this one.
+		if ( ! $three ) {
+			$out .= $extra;
+		}
 
 		$out .= '</div>';
 
+		if ( $three ) {
+			$out .= '<div class="wpcpm-resources__col wpcpm-resources__col--contact">' . $extra . '</div>';
+		}
+
 		return $out . '</section>';
+	}
+
+	/**
+	 * A program manager's way into wp-admin: Settings, the Overview and the Tools screen, under a
+	 * heading of the Resources column's own kind and in the Updates column's list, so every piece
+	 * of it is one the section already wears on every dashboard and a theme that dresses the
+	 * section has dressed this too. The addresses are the ones the plugin's menu registers.
+	 *
+	 * @return string
+	 */
+	private static function render_manager_links() {
+		$links = array(
+			array( __( 'Settings', 'wpcredits-program-manager' ), WPCPM_Settings_Screen::SETTINGS_SLUG ),
+			array( __( 'Overview', 'wpcredits-program-manager' ), WPCPM_Admin::MENU_SLUG ),
+			array( __( 'Tools', 'wpcredits-program-manager' ), WPCPM_Admin::TOOLS_SLUG ),
+		);
+
+		$out  = sprintf( '<h3 class="wpcpm-student__heading">%s</h3>', esc_html__( 'For administrators', 'wpcredits-program-manager' ) );
+		$out .= '<ul class="wpcpm-updates">';
+
+		foreach ( $links as $link ) {
+			$out .= sprintf(
+				'<li class="wpcpm-updates__item"><a class="wpcpm-updates__link" href="%1$s">%2$s</a></li>',
+				esc_url( admin_url( 'admin.php?page=' . $link[1] ) ),
+				esc_html( $link[0] )
+			);
+		}
+
+		return $out . '</ul>';
 	}
 
 	/**

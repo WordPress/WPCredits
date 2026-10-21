@@ -1,0 +1,656 @@
+[
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is approved: Partners \"Q&A\" in C:\\talks",
+        "body": "An Administrator approved your company's event. The calendar file attached adds it to your calendar.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 10, 2026 2:00 pm to 3:30 pm (America / New York)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nYour event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "pia.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is approved: Partners \"Q&A\" in C:\\talks",
+        "body": "An Administrator approved your company's event. The calendar file attached adds it to your calendar.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 11, 2026 4:00 am to 5:30 am (Asia / Tokyo)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nYour event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: Champion webinar",
+        "body": "An Administrator returned your company's event with this note:\n\nMove it to a weekday & say who \"hosts\" it.\nThe slides are in C:\\shared.\n\nTitle: Champion webinar\nWhen: December 1, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: Champion webinar, again",
+        "body": "An Administrator returned your company's event with this note:\n\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nKids < 12 learn \"blocks\" & themes.\r\nDone.\n\nTitle: Champion webinar, again\nWhen: December 3, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Partners \"Q&A\" in C:\\talks",
+        "body": "An event you joined is canceled.\n\nTitle: Partners \"Q&A\" in C:\\talks\nSponsor: Partner Example\nWhen: November 10, 2026 7:00 pm to 8:30 pm (Europe / Lisbon)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "mo.manager at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Partners \"Q&A\" in C:\\talks",
+        "body": "An event you joined is canceled.\n\nTitle: Partners \"Q&A\" in C:\\talks\nSponsor: Partner Example\nWhen: November 10, 2026 8:00 pm to 9:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "bea.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Partners \"Q&A\" in C:\\talks",
+        "body": "An event you joined is canceled.\n\nTitle: Partners \"Q&A\" in C:\\talks\nSponsor: Partner Example\nWhen: November 10, 2026 4:00 pm to 5:30 pm (America / Sao Paulo)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "pat.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Partners \"Q&A\" in C:\\talks",
+        "body": "An Administrator canceled your company's event, with this note:\n\nThe host is ill; we will plan another date with you.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 10, 2026 2:00 pm to 3:30 pm (America / New York)\n\nThe 3 people who joined it have been told.\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "pia.partnerrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Partners \"Q&A\" in C:\\talks",
+        "body": "An Administrator canceled your company's event, with this note:\n\nThe host is ill; we will plan another date with you.\n\nTitle: Partners \"Q&A\" in C:\\talks\nWhen: November 11, 2026 4:00 am to 5:30 am (Asia / Tokyo)\n\nThe 3 people who joined it have been told.\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, third",
+        "body": "An Administrator canceled your company's event, with this note:\n\nNot this one.\n\nTitle: Champion webinar, third\nWhen: December 5, 2026 11:00 am to 12:30 pm (Europe / Warsaw)",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is approved: Champion webinar, fourth",
+        "body": "An Administrator approved your company's event.\n\nTitle: Champion webinar, fourth\nWhen: December 7, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nYour event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fourth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fourth\nSponsor: Champion Example\nWhen: December 7, 2026 10:00 am to 11:30 am (Europe / Lisbon)",
+        "headers": [],
+        "files": 0
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, fourth",
+        "body": "An Administrator canceled your company's event, with this note:\n\nThe room fell through.\n\nTitle: Champion webinar, fourth\nWhen: December 7, 2026 11:00 am to 12:30 pm (Europe / Warsaw)",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, fifth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, fifth\nSponsor: Champion Example\nWhen: December 9, 2026 10:00 am to 11:30 am (Europe / Lisbon)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, fifth",
+        "body": "An Administrator canceled your company's event, with this note:\n\nThe host cannot make it.\n\nTitle: Champion webinar, fifth\nWhen: December 9, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, sixth",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, sixth\nSponsor: Champion Example\nWhen: December 11, 2026 10:00 am to 11:30 am (Europe / Lisbon)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, sixth",
+        "body": "An Administrator canceled your company's event, with this note:\n\nMoved to the new year.\n\nTitle: Champion webinar, sixth\nWhen: December 11, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe 1 person who joined it has been told.\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.1 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.2 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.3 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.4 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.5 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.6 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.7 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.8 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.9 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.10 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.11 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.12 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.13 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.14 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.15 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.16 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.17 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.18 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.19 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.20 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.21 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.22 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.23 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.24 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.25 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.26 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.27 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.28 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.29 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.30 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.31 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.32 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.33 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.34 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.35 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.36 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.37 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.38 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.39 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.40 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.41 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.42 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.43 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.44 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.45 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.46 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.47 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.48 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.49 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "crowd.member.50 at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: Champion webinar, seventh",
+        "body": "An event you joined is canceled.\n\nTitle: Champion webinar, seventh\nSponsor: Champion Example\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "chris.championrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Champion webinar, seventh",
+        "body": "An Administrator canceled your company's event, with this note:\n\nThe speaker is unwell.\n\nTitle: Champion webinar, seventh\nWhen: December 13, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe 55 people who joined are being told.\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "paula.pausedrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: Paused planned",
+        "body": "An Administrator returned your company's event with this note:\n\nPlease wait for your renewal.\n\nTitle: Paused planned\nWhen: December 20, 2026 10:00 am to 11:30 am (Europe / Warsaw)\n\nThe event is canceled. Your company no longer holds the tier that includes events.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event changed: The partners session",
+        "body": "An event you joined has changed. Here is what it is now:\n\nTitle: The partners session\nHosted by the WordPress Credits Program\nWhen: November 20, 2026 3:00 pm to 4:00 pm (Europe / Lisbon)\nLength: 60 minutes\nJoin the call: https://meet.example/partners?pwd=a%2Fb\n\nThe calendar file attached replaces the one you had.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "zelda.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: The partners session",
+        "body": "An event you joined is canceled.\n\nTitle: The partners session\nHosted by the WordPress Credits Program\nWhen: November 20, 2026 3:00 pm to 4:00 pm (Europe / Lisbon)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "bea.privacywalk at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Event canceled: The partners session",
+        "body": "An event you joined is canceled.\n\nTitle: The partners session\nHosted by the WordPress Credits Program\nWhen: November 20, 2026 12:00 pm to 1:00 pm (America / Sao Paulo)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sid.signsrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is approved: We <3 \"our\" team & Bob's > all",
+        "body": "An Administrator approved your company's event. The calendar file attached adds it to your calendar.\n\nTitle: We <3 \"our\" team & Bob's > all\nWhen: December 15, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\nYour event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [],
+        "files": 1
+    },
+    {
+        "to": "sid.signsrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: We <3 \"our\" team & Bob's > all",
+        "body": "An Administrator canceled your company's event, with this note:\n\nAges > 5: we <3 \"our\" team & Bob's\r\nSee you, 2 < 3.\n\nTitle: We <3 \"our\" team & Bob's > all\nWhen: December 15, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "sid.signsrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: We <3 \"our\" team & Bob's > all",
+        "body": "An Administrator returned your company's event with this note:\n\nAges > 5: we <3 \"our\" team & Bob's\r\nSee you, 2 < 3.\n\nTitle: We <3 \"our\" team & Bob's > all\nWhen: December 17, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: Loss webinar",
+        "body": "An Administrator returned your company's event with this note:\n\nKids < 12 free,\r\nadults > 18 pay\n\nTitle: Loss webinar\nWhen: December 9, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event is canceled: Loss meetup",
+        "body": "An Administrator canceled your company's event, with this note:\n\nGet 10% cashback at the booth\n\nTitle: Loss meetup\nWhen: December 10, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe calendar file attached takes it off your calendar.",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 1
+    },
+    {
+        "to": "lou.lossrep at people.example",
+        "context": "sponsor-event",
+        "subject": "[WordPress Education] Your event was returned: Loss workshop",
+        "body": "An Administrator returned your company's event with this note:\n\nKids < 5, see &#009; list. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nTitle: Loss workshop\nWhen: December 11, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\nThe event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+        "headers": [
+            "Reply-To: Mira Manager <mira.manager at people.example>"
+        ],
+        "files": 0
+    }
+]

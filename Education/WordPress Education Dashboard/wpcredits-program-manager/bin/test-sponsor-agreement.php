@@ -14,9 +14,14 @@
  *   meets the login form rather than a bare refusal.
  * - **Accept writes once and tells the sponsor; return needs a note; revoke takes nothing away
  *   but the document's force**, because a sponsor's dashboard was never gated on it.
- * - **An Airtable failure never fails the site action** on the upload path: the document is
- *   stored, the post carries the pending mark, and the sponsor is not asked to upload again.
+ * - **The site's own posts are the whole record of every transition**, written into the
+ *   sponsors index at once, with no other system to wait on or fail against.
  * - **What the cron forgets and what uninstall keeps.**
+ * - **Each press checks the nonce minted for it**, keyed to the document or, for On file, to the
+ *   sponsor: Upload, Accept, Withdraw, Return, Revoke, Reinstate and On file are asserted by name,
+ *   and Withdraw, Return, Revoke, Reinstate and On file are each pressed once with a nonce minted
+ *   for another action, which dies before anything is written. The handlers read the form through
+ *   `WPCPM_Request`, where the standard's nonce sniff cannot see a nonce gone.
  * - **The Administrator Dashboard's row speaks the institution side's words**, Accept it, Return
  *   it with this note and Reinstate, and the manager's mail says the document is read on the
  *   Sponsors screen and decided on the dashboard.
@@ -59,8 +64,6 @@ $GLOBALS['journal']     = array();
 $GLOBALS['forgotten']   = array();
 $GLOBALS['notes']       = array();
 $GLOBALS['store_fails'] = false;
-$GLOBALS['patched']     = array();
-$GLOBALS['patch_fails'] = false;
 $GLOBALS['ceiling']     = array();
 $GLOBALS['audit']       = array();
 $GLOBALS['mail']        = array();
@@ -73,7 +76,6 @@ $GLOBALS['hooks']       = array();
 $GLOBALS['referer']     = '';
 $GLOBALS['post_types']  = array();
 $GLOBALS['settings']    = array(
-	'sponsors_table'            => 'tbluji8wknOZr55fa',
 	'agreement_max_mb'          => 10,
 	// Higher than the site's own default of five. This one process runs more uploads than a
 	// day allows, and what the ceiling has to prove is where it sits in the source: refusing a
@@ -100,7 +102,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = 'post', $post_title = '', $post_status = 'draft', $post_author = 0, $post_date = '', $post_date_gmt = '2026-09-06 09:00:00';
+	public $ID = 0, $post_type = 'post', $post_title = '', $post_name = '', $post_status = 'draft', $post_author = 0, $post_date = '', $post_date_gmt = '2026-09-06 09:00:00';
 	// $post_date defaults to today, not a literal: a fixture that never sets its own post_date
 	// would otherwise drift with every day that passes and eventually read as long overdue.
 	public function __construct( array $a ) { $this->post_date = gmdate( 'Y-m-d' ) . ' 09:00:00'; foreach ( $a as $k => $v ) { $this->$k = $v; } }
@@ -197,12 +199,23 @@ function get_posts( array $args ) {
 			if ( isset( $clause['compare'] ) && 'IN' === $clause['compare'] ) { $keep = $keep && in_array( $have, (array) $clause['value'], true ); continue; }
 			$keep = $keep && (string) $have === (string) $clause['value'];
 		}
-		// A bare meta_key, which core reads as "this key is set". retry_airtable() asks this way.
-		if ( $keep && isset( $args['meta_key'] ) ) { $keep = '' !== (string) get_post_meta( $p->ID, $args['meta_key'], true ); }
+		// A bare meta_key, which core reads as "this key is set", is supported here too, kept
+		// for any caller that asks that way. The store (1.111.0) asks a different way, meta_key
+		// with meta_value, wanting an exact match rather than mere presence: post_id_of() would
+		// otherwise find whichever sponsor post happened to come first, not the one whose key
+		// it was actually asked for.
+		if ( $keep && isset( $args['meta_key'] ) ) {
+			$have = (string) get_post_meta( $p->ID, $args['meta_key'], true );
+			$keep = array_key_exists( 'meta_value', $args ) ? $have === (string) $args['meta_value'] : '' !== $have;
+		}
 		if ( $keep ) { $out[] = $p; }
 	}
 	usort( $out, static function ( $a, $b ) { return $b->ID - $a->ID; } );
-	if ( isset( $args['orderby']['date'] ) && 'ASC' === $args['orderby']['date'] ) { $out = array_reverse( $out ); }
+	// The store also asks for order the flat way, orderby 'ID' and order 'ASC', rather than the
+	// nested orderby('date') shape below.
+	$asc = ( isset( $args['orderby']['date'] ) && 'ASC' === $args['orderby']['date'] )
+		|| ( isset( $args['orderby'] ) && 'ID' === $args['orderby'] && isset( $args['order'] ) && 'ASC' === strtoupper( (string) $args['order'] ) );
+	if ( $asc ) { $out = array_reverse( $out ); }
 	if ( isset( $args['offset'] ) ) { $out = array_slice( $out, (int) $args['offset'] ); }
 	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
 	if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) { return array_map( static function ( $p ) { return $p->ID; }, $out ); }
@@ -250,17 +263,6 @@ class WPCPM_Roles {
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
 class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
-class WPCPM_Sponsors_Sync {
-	public static function fields() {
-		return array( 'name' => 'Company Name', 'logo' => 'Logo', 'agr_status' => 'Agreement Status', 'agr_accepted_on' => 'Agreement Accepted On', 'agr_document' => 'Agreement Document' );
-	}
-}
-class WPCPM_Airtable {
-	public function update_records( $table, array $records ) {
-		$GLOBALS['patched'][] = array( $table, $records );
-		return $GLOBALS['patch_fails'] ? new WP_Error( 'wpcpm_airtable_http', 'Airtable said no.' ) : $records;
-	}
-}
 // The private store, in memory, journalling every call: half the assertions below are about a
 // call that must not have happened.
 class WPCPM_Private_Files {
@@ -347,6 +349,7 @@ class WPCPM_Sponsors_Dashboard {
 
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
@@ -439,16 +442,6 @@ function ran( $method ) {
 }
 
 /**
- * The cells one PATCH carried.
- *
- * @param int $which Which PATCH; 0 for the first.
- * @return array
- */
-function patched_cells( $which = 0 ) {
-	return isset( $GLOBALS['patched'][ $which ][1][0]['fields'] ) ? $GLOBALS['patched'][ $which ][1][0]['fields'] : array();
-}
-
-/**
  * Every message sent so far, as `context to address`.
  *
  * @return string[]
@@ -521,26 +514,28 @@ function method_with_doc( $source, $name ) {
 }
 
 /**
- * Seed one sponsor into the index.
+ * Seed one sponsor into the store.
  *
- * @param string $record Sponsor record ID.
+ * 1.111.0: the index is posts now, not the option this suite used to write by hand - insert()
+ * is the store's own seeding path, and using it here is what makes row() and rows() answer for
+ * a sponsor this function has seeded.
+ *
+ * @param string $record Sponsor key.
  * @param string $name   Company name.
  * @param array  $block  The `agreement` block.
  */
 function seed_index( $record, $name, array $block = array() ) {
-	$rows = isset( $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'] ) ? $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ]['rows'] : array();
-
-	$rows[ $record ] = array_merge(
-		WPCPM_Sponsors_Index::empty_row(),
-		array(
-			'record_id' => $record,
-			'name'      => $name,
-			'status'    => 'Approved',
-			'agreement' => array_merge( array( 'status' => '', 'accepted_on' => '', 'has_document' => false ), $block ),
+	WPCPM_Sponsors_Index::insert(
+		array_merge(
+			WPCPM_Sponsors_Index::empty_row(),
+			array(
+				'record_id' => $record,
+				'name'      => $name,
+				'status'    => 'Approved',
+				'agreement' => array_merge( array( 'status' => '', 'accepted_on' => '', 'has_document' => false ), $block ),
+			)
 		)
 	);
-
-	$GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ] = array( 'v' => WPCPM_Sponsors_Index::VERSION, 'read' => $GLOBALS['clock'], 'rows' => $rows );
 }
 
 $S = 'recSPN00000000001';
@@ -560,13 +555,13 @@ ck( 'the post type name is under twenty-one characters', strlen( WPCPM_Sponsor_A
 ck( 'and invisible everywhere', array( $type['public'], $type['publicly_queryable'], $type['show_ui'], $type['show_in_rest'], $type['exclude_from_search'] ), array( false, false, false, false, true ) );
 ck( 'the states are the six the spec names', array( WPCPM_Sponsor_Agreement::STATE_SUBMITTED, WPCPM_Sponsor_Agreement::STATE_ACCEPTED, WPCPM_Sponsor_Agreement::STATE_RETURNED, WPCPM_Sponsor_Agreement::STATE_WITHDRAWN, WPCPM_Sponsor_Agreement::STATE_SUPERSEDED, WPCPM_Sponsor_Agreement::STATE_REVOKED ), array( 'submitted', 'accepted', 'returned', 'withdrawn', 'superseded', 'revoked' ) );
 ck( 'the kinds are two: no template exists', array( WPCPM_Sponsor_Agreement::KIND_OWN, WPCPM_Sponsor_Agreement::KIND_LEGACY ), array( 'own', 'legacy' ) );
-ck( 'the Airtable choices are spelled as the base spells them', array(
-	WPCPM_Sponsor_Agreement::AIRTABLE_NOT_STARTED,
-	WPCPM_Sponsor_Agreement::AIRTABLE_AWAITING,
-	WPCPM_Sponsor_Agreement::AIRTABLE_ACCEPTED,
-	WPCPM_Sponsor_Agreement::AIRTABLE_RETURNED,
-	WPCPM_Sponsor_Agreement::AIRTABLE_ON_FILE,
-	WPCPM_Sponsor_Agreement::AIRTABLE_REVOKED,
+ck( 'the six status words are spelled as the base once spelled them', array(
+	WPCPM_Sponsor_Agreement::STATUS_NOT_STARTED,
+	WPCPM_Sponsor_Agreement::STATUS_AWAITING,
+	WPCPM_Sponsor_Agreement::STATUS_ACCEPTED,
+	WPCPM_Sponsor_Agreement::STATUS_RETURNED,
+	WPCPM_Sponsor_Agreement::STATUS_ON_FILE,
+	WPCPM_Sponsor_Agreement::STATUS_REVOKED,
 ), array( 'Not started', 'Awaiting review', 'Accepted', 'Returned', 'On file', 'Revoked' ) );
 ck( 'nothing is settled before anything happens', WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::SUMMARY_NONE );
 ck( 'and a malformed record answers none rather than warning', WPCPM_Sponsor_Agreement::summary( 'nonsense' )['state'], WPCPM_Sponsor_Agreement::SUMMARY_NONE );
@@ -619,7 +614,6 @@ $GLOBALS['settings']['agreement_uploads_per_day'] = $held_limit;
 $GLOBALS['ceiling'] = array();
 
 echo "\n=== The upload that works ===\n";
-$GLOBALS['patched'] = array();
 post_file( $good, 'Signed agreement.pdf' );
 ck( 'the sponsor is told it landed', ran( 'handle_upload' ), 'agreement-uploaded|agreement|' . $S . '|' );
 $listed = WPCPM_Sponsor_Agreement::posts_for( $S );
@@ -638,8 +632,7 @@ ck( 'the bytes are in the private store and the post points at them by path and 
 ), array( array( 'store' ), true ) );
 ck( 'the uploader\'s filename is kept for display only', (string) get_post_meta( $first, WPCPM_Sponsor_Agreement::META_ORIGINAL_NAME, true ), 'Signed-agreement.pdf' );
 ck( 'the nonce was keyed to the record', end( $GLOBALS['nonce'] ), 'wpcpm_sponsor_agr_upload_' . $S );
-ck( 'Airtable is told it is awaiting review, and told nothing else', patched_cells( 0 ), array( 'Agreement Status' => 'Awaiting review' ) );
-ck( 'the index block is in step at once, without waiting for a sync', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Awaiting review' );
+ck( 'an upload records Awaiting review in the row at once', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Awaiting review' );
 ck( 'the summary is submitted and names the document', array( WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::summary( $S )['pending_id'] ), array( 'submitted', $first ) );
 ck( 'the assigned manager is told once and the sponsor\'s accounts are not mailed', mail_log(), array( 'sponsor-agreement-received to maciej@a8c.com' ) );
 // The document is decided on the Administrator Dashboard, the one place that accepts or returns it,
@@ -658,65 +651,31 @@ post_file( $good );
 ck( 'a second document while one waits is refused', ran( 'handle_upload' ), 'agreement-in-review|agreement|' . $S . '|' );
 ck( 'and the store was not touched again', $GLOBALS['journal'], array( 'store' ) );
 
-echo "\n=== Airtable refusing an upload ===\n";
-$GLOBALS['patch_fails'] = true;
-$GLOBALS['uid']         = 21;
-$_POST                  = array( 'wpcpm_sponsor' => $S, 'wpcpm_sponsor_agr_signed' => '1' );
-update_post_meta( $first, WPCPM_Sponsor_Agreement::META_STATE, WPCPM_Sponsor_Agreement::STATE_WITHDRAWN );
-post_file( $good );
-ck( 'the upload still succeeds: a base that is down does not cost the sponsor its document', ran( 'handle_upload' ), 'agreement-uploaded|agreement|' . $S . '|' );
-$second = (int) WPCPM_Sponsor_Agreement::posts_for( $S )[0]->ID;
-ck( 'and the post is marked for the next sync to finish', (int) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), 1 );
-$GLOBALS['patch_fails'] = false;
-
 echo "\n=== Withdraw ===\n";
-$_POST = array( 'wpcpm_sponsor_agr_post' => $second );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $first );
+// Withdraw and the four decisions of a manager's below read their form through WPCPM_Request,
+// where the standard's nonce sniff cannot see it, so only these checks notice a nonce gone: a page
+// elsewhere could then press one for whoever is signed in. A nonce minted for another action is
+// refused before the document is so much as looked at.
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_UPLOAD . '_' . $S;
+$journal_before        = $GLOBALS['journal'];
+$stale_withdraw        = ran( 'handle_withdraw' );
+$GLOBALS['nonce_held'] = null;
+ck( 'Withdraw with a nonce that is not its own dies before the file or the document is touched', array( $stale_withdraw, (string) get_post_meta( $first, WPCPM_Sponsor_Agreement::META_STATE, true ), $GLOBALS['journal'] ), array( 'die:403:The link you followed has expired.', 'submitted', $journal_before ) );
+$GLOBALS['nonce'] = array();
 ck( 'the sponsor takes it back', ran( 'handle_withdraw' ), 'agreement-withdrawn|agreement|' . $S . '|' );
-ck( 'the file goes at once rather than on the cron\'s schedule', array( (string) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_STATE, true ), in_array( 'forget', $GLOBALS['journal'], true ) ), array( 'withdrawn', true ) );
-ck( 'the post is kept, because the history is what the next manager reads', get_post( $second ) instanceof WP_Post, true );
-ck( 'with nothing else standing, the base is told the queue entry is gone', patched_cells( count( $GLOBALS['patched'] ) - 1 ), array( 'Agreement Status' => 'Not started' ) );
-ck( 'nothing is mailed: nothing happened anybody else needs telling about', count( $GLOBALS['mail'] ), 2 );
+ck( 'Withdraw checks the nonce keyed to the document', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_withdraw_' . $first ) );
+ck( 'the file goes at once rather than on the cron\'s schedule', array( (string) get_post_meta( $first, WPCPM_Sponsor_Agreement::META_STATE, true ), in_array( 'forget', $GLOBALS['journal'], true ) ), array( 'withdrawn', true ) );
+ck( 'the post is kept, because the history is what the next manager reads', get_post( $first ) instanceof WP_Post, true );
+ck( 'with nothing else standing, the record shows the queue entry is gone', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Not started' );
+ck( 'nothing is mailed: nothing happened anybody else needs telling about', count( $GLOBALS['mail'] ), 1 );
 ck( 'a second press finds nothing to withdraw', ran( 'handle_withdraw' ), 'agreement-gone|agreement||' );
 
-echo "\n=== The sync finishes a write the base refused, on the next run ===\n";
-// The upload the base refused above was withdrawn once the base was answering again, and the
-// withdrawal wrote the cell itself, so nothing here is owed: the mark names a write, not a
-// document (FAGRM-2). The block under it is the one that leaves a write genuinely owed, and
-// that is where the retry is read.
-$GLOBALS['patched'] = array();
-ck( 'a withdrawal whose own write landed takes the upload\'s mark with it', (string) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), '' );
-ck( 'so the run has nothing to finish and sends nothing', array( WPCPM_Sponsor_Agreement::retry_airtable(), $GLOBALS['patched'] ), array( 0, array() ) );
-
-$W = 'recSPN00000000005';
-seed_index( $W, 'Retry Sponsor' );
-$GLOBALS['users'][22] = new WP_User( 22, array( 'wpcpm_sponsor' ), 'Member Three', 'maciej@a8c.com' );
-$GLOBALS['umeta'][22] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $W, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
-$GLOBALS['uid']       = 22;
-$_POST                = array( 'wpcpm_sponsor' => $W, 'wpcpm_sponsor_agr_signed' => '1' );
-post_file( $good );
-ran( 'handle_upload' );
-$owed                   = (int) WPCPM_Sponsor_Agreement::posts_for( $W )[0]->ID;
-$_POST                  = array( 'wpcpm_sponsor_agr_post' => $owed );
-$GLOBALS['patch_fails'] = true;
-ck( 'a withdrawal the base refused still withdraws, and marks the document', array( ran( 'handle_withdraw' ), (int) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 'agreement-withdrawn|agreement|' . $W . '|', 1 ) );
-ck( 'a run with the base still down clears nothing and keeps the mark', array( WPCPM_Sponsor_Agreement::retry_airtable(), (int) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 0, 1 ) );
-$GLOBALS['patch_fails'] = false;
-$GLOBALS['patched']     = array();
-ck( 'the next run writes Not started, clears the mark and answers with the count', array( WPCPM_Sponsor_Agreement::retry_airtable(), patched_cells( 0 ), (string) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 1, array( 'Agreement Status' => 'Not started' ), '' ) );
-ck( 'the index block is in step with what was written', WPCPM_Sponsors_Index::row( $W )['agreement']['status'], 'Not started' );
-ck( 'and a run with nothing owed writes nothing at all', array( WPCPM_Sponsor_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
-$sync_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' );
-ck( 'the sponsors sync, which runs every three hours, is what calls it, behind a guard', array(
-	false !== strpos( $sync_src, "class_exists( 'WPCPM_Sponsor_Agreement' )" ),
-	false !== strpos( $sync_src, "'retry_airtable'" ),
-	false !== strpos( method_body( $sync_src, 'run_tick' ), 'self::phase_agreements( $state )' ),
-), array( true, true, true ) );
-
-echo "\n=== A withdrawal writes what the site holds, and settles the mark it left (FAGRM-1, FAGRM-2) ===\n";
+echo "\n=== A withdrawal writes what the site holds (FAGRM-1) ===\n";
 // FAGRM-1: handle_withdraw() sent the `Not started` literal whenever no accepted agreement
-// stood, which moved the base's Agreement Status backwards over a `Returned` the program had
-// written itself, and left the manager screen reading "This site: the last document was
-// returned. Airtable: Not started." with nothing to repair it.
+// stood, which moved the record backwards over a `Returned` the program had written itself,
+// and left the manager screen reading "This site: the last document was returned." with
+// nothing to repair it once the replacement above it was taken back too.
 $Y = 'recSPN00000000007';
 seed_index( $Y, 'Returned Sponsor' );
 $GLOBALS['users'][23] = new WP_User( 23, array( 'wpcpm_sponsor' ), 'Member Four', 'maciej@a8c.com' );
@@ -733,16 +692,15 @@ $GLOBALS['uid'] = 23;
 $_POST          = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
 post_file( $good );
 ran( 'handle_upload' );
-$replacing          = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacing );
-ck( 'withdrawing a replacement while a returned document stands sends that document\'s status', array( ran( 'handle_withdraw' ), patched_cells( 0 ) ), array( 'agreement-withdrawn|agreement|' . $Y . '|', array( 'Agreement Status' => 'Returned' ) ) );
-ck( 'so the index block, the card and the base say one thing between them', array( WPCPM_Sponsors_Index::row( $Y )['agreement']['status'], WPCPM_Sponsor_Agreement::summary( $Y )['state'] ), array( 'Returned', 'returned' ) );
+$replacing = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
+$_POST     = array( 'wpcpm_sponsor_agr_post' => $replacing );
+ck( 'withdraw records the status the remaining documents give', array( ran( 'handle_withdraw' ), WPCPM_Sponsors_Index::row( $Y )['agreement']['status'] ), array( 'agreement-withdrawn|agreement|' . $Y . '|', 'Returned' ) );
+ck( 'so the index block and the card agree', WPCPM_Sponsor_Agreement::summary( $Y )['state'], 'returned' );
 
 // The other half of that sentence, and the one shape the section above cannot show, because
 // what it does is nothing: with an accepted agreement standing, the withdrawal of a
-// replacement never reaches the write at all. The accepted document is what the base already
-// says, so a PATCH here could only write the same value or a worse one.
+// replacement never reaches the write at all. The accepted document is the one in force, so a
+// write here could only record the same value or a worse one.
 $Z = 'recSPN00000000008';
 seed_index( $Z, 'Accepted Sponsor' );
 $GLOBALS['users'][24] = new WP_User( 24, array( 'wpcpm_sponsor' ), 'Member Five', 'maciej@a8c.com' );
@@ -759,28 +717,9 @@ $GLOBALS['uid'] = 24;
 $_POST          = array( 'wpcpm_sponsor' => $Z, 'wpcpm_sponsor_agr_signed' => '1' );
 post_file( $good );
 ran( 'handle_upload' );
-$replacement        = (int) WPCPM_Sponsor_Agreement::posts_for( $Z )[0]->ID;
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacement );
-ck( 'withdrawing a replacement while an accepted agreement stands writes nothing to the base', array( ran( 'handle_withdraw' ), $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $Z )['agreement']['status'] ), array( 'agreement-withdrawn|agreement|' . $Z . '|', array(), 'Accepted' ) );
-
-// FAGRM-2: the mark an upload leaves when the base is unreachable was deleted by
-// retry_airtable() alone, so it outlived every later decision on the document and a later
-// sync run sent one more PATCH hours later on behalf of a request whose state had moved on.
-$GLOBALS['uid']         = 23;
-$_POST                  = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
-$GLOBALS['patch_fails'] = true;
-post_file( $good );
-ran( 'handle_upload' );
-$marked                 = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
-$GLOBALS['patch_fails'] = false;
-ck( 'an upload the base refused leaves the mark behind', (int) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), 1 );
-$GLOBALS['uid'] = 1;
-$_POST          = array( 'wpcpm_sponsor_agr_post' => $marked );
-ran( 'handle_accept' );
-ck( 'an accept that wrote the cell itself takes the mark with it', array( (string) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 'accepted', '' ) );
-$GLOBALS['patched'] = array();
-ck( 'so the next retry finds nothing owed and writes nothing', array( WPCPM_Sponsor_Agreement::retry_airtable(), $GLOBALS['patched'] ), array( 0, array() ) );
+$replacement = (int) WPCPM_Sponsor_Agreement::posts_for( $Z )[0]->ID;
+$_POST       = array( 'wpcpm_sponsor_agr_post' => $replacement );
+ck( 'withdrawing a replacement while an accepted agreement stands leaves the record alone', array( ran( 'handle_withdraw' ), WPCPM_Sponsors_Index::row( $Z )['agreement']['status'] ), array( 'agreement-withdrawn|agreement|' . $Z . '|', 'Accepted' ) );
 
 echo "\n=== A member of one sponsor cannot touch another's document ===\n";
 $GLOBALS['uid'] = 20;
@@ -857,18 +796,29 @@ ck( 'and every check runs before anything is stored', array(
 ), array( true, true, true, true ) );
 ck( 'the upload checks that the file came from this request', false !== strpos( method_body( $source, 'arrived_by_post' ), 'is_uploaded_file( $path )' ), true );
 ck( 'the lock is taken before the in-review question is asked', strpos( $upload, 'self::lock( $record )' ) < strpos( $upload, "summary( \$record )" ), true );
-// Every handler writes the index inside its own critical section and says so: a rebuild after
-// the unlock would take the lock again, and skip silently whenever anything else held it.
+// Every handler writes the index inside its own critical section and says so: rebuild() takes
+// no lock of its own, so a rebuild after the unlock would write the block from state another
+// transition may be changing.
 foreach ( array( 'handle_upload', 'handle_withdraw', 'handle_accept', 'handle_return', 'handle_revoke', 'handle_reinstate', 'handle_on_file' ) as $handler ) {
 	$one = method_body( $source, $handler );
 	ck( $handler . '() rebuilds under its own lock, then releases it', strpos( $one, 'self::rebuild(' ) < strrpos( $one, 'self::unlock( $record )' ), true );
 }
-ck( 'and the retry, run every three hours with the sponsors sync, which holds no lock, lets rebuild() take it', false !== strpos( method_body( $source, 'retry_airtable' ), "self::rebuild( \$record, array( 'status' => \$status ) )" ), true );
+// So rebuild() takes no lock of its own and has no flag to ask whether it should. The one caller
+// that ever reached it without the lock was the sponsors sync, which went in 1.111.0; a flag left
+// behind would read as a second way in that nothing uses.
+$rebuild = method_body( $source, 'rebuild' );
+ck( 'rebuild() takes and releases no lock of its own, and no caller passes it a lock flag',
+	array(
+		1 === preg_match( '/function rebuild\( \$record, array \$written \) \{/', $source ),
+		strpos( $rebuild, 'self::lock(' ),
+		strpos( $rebuild, 'self::unlock(' ),
+		preg_match( '/self::rebuild\([^;]*,\s*true\s*\);/s', $source ),
+	),
+	array( true, false, false, 0 ) );
 
 echo "\n=== Accept ===\n";
 $GLOBALS['uid']     = 1;
 $GLOBALS['referer'] = 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors';
-$GLOBALS['patched'] = array();
 $GLOBALS['mail']    = array();
 $_POST              = array( 'wpcpm_sponsor_agr_post' => $live );
 ck( 'the manager accepts it', ran( 'handle_accept' ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
@@ -878,9 +828,7 @@ ck( 'the document is accepted, with who and when', array(
 	(int) get_post_meta( $live, WPCPM_Sponsor_Agreement::META_DECIDED_BY, true ),
 	(string) get_post_meta( $live, WPCPM_Sponsor_Agreement::META_DECIDED_AT, true ),
 ), array( 'accepted', 1, wp_date( 'Y-m-d' ) ) );
-ck( 'one PATCH carries the status and the date, and nothing else', patched_cells( 0 ), array( 'Agreement Status' => 'Accepted', 'Agreement Accepted On' => wp_date( 'Y-m-d' ) ) );
-ck( 'and one PATCH, not two', count( $GLOBALS['patched'] ), 1 );
-ck( 'the index block says accepted at once', array( WPCPM_Sponsors_Index::row( $S )['agreement']['status'], WPCPM_Sponsors_Index::row( $S )['agreement']['accepted_on'] ), array( 'Accepted', wp_date( 'Y-m-d' ) ) );
+ck( 'accept records Accepted with today\'s date', array( WPCPM_Sponsors_Index::row( $S )['agreement']['status'], WPCPM_Sponsors_Index::row( $S )['agreement']['accepted_on'] ), array( 'Accepted', wp_date( 'Y-m-d' ) ) );
 ck( 'the summary is accepted and names the document', array( WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::summary( $S )['agreement_id'] ), array( 'accepted', $live ) );
 ck( 'both accounts are told', mail_log(), array( 'sponsor-agreement-accepted to maciej@a8c.com', 'sponsor-agreement-accepted to maciej@a8c.com' ) );
 ck( 'the nonce was keyed to the document', end( $GLOBALS['nonce'] ), 'wpcpm_sponsor_agr_accept_' . $live );
@@ -913,13 +861,18 @@ $_POST          = array( 'wpcpm_sponsor_agr_post' => $sent, 'wpcpm_sponsor_agr_n
 ran( 'handle_return' );
 ck( 'a note under twenty characters returns nothing', end( $GLOBALS['flash'] )[1], 'agreement-note' );
 ck( 'and the document is still waiting', (string) get_post_meta( $sent, WPCPM_Sponsor_Agreement::META_STATE, true ), 'submitted' );
-$GLOBALS['mail']    = array();
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $sent, 'wpcpm_sponsor_agr_note' => "Page 4 is unsigned.\n\nPlease sign it and upload the whole document again." );
+$GLOBALS['mail'] = array();
+$_POST           = array( 'wpcpm_sponsor_agr_post' => $sent, 'wpcpm_sponsor_agr_note' => "Page 4 is unsigned.\n\nPlease sign it and upload the whole document again." );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_ACCEPT . '_' . $sent;
+$stale_return          = ran( 'handle_return' );
+$GLOBALS['nonce_held'] = null;
+ck( 'Return with a nonce minted for Accept dies before the document is returned or anybody is mailed', array( $stale_return, (string) get_post_meta( $sent, WPCPM_Sponsor_Agreement::META_STATE, true ), count( $GLOBALS['mail'] ) ), array( 'die:403:The link you followed has expired.', 'submitted', 0 ) );
+$GLOBALS['nonce'] = array();
 ran( 'handle_return' );
 ck( 'a note of twenty characters or more returns it', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $sent, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 'agreement-returned', 'returned' ) );
+ck( 'Return checks the nonce keyed to the document', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_return_' . $sent ) );
 ck( 'the note is kept on the document with its line breaks', false !== strpos( (string) get_post_meta( $sent, WPCPM_Sponsor_Agreement::META_NOTE, true ), "\n" ), true );
-ck( 'the accepted copy that stands keeps the base saying Accepted', array( count( $GLOBALS['patched'] ), WPCPM_Sponsors_Index::row( $S )['agreement']['status'] ), array( 0, 'Accepted' ) );
+ck( 'the accepted copy that stands keeps the record saying Accepted', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Accepted' );
 ck( 'and both accounts get the note', mail_log(), array( 'sponsor-agreement-returned to maciej@a8c.com', 'sponsor-agreement-returned to maciej@a8c.com' ) );
 
 seed_index( $T, 'Other Sponsor' );
@@ -928,33 +881,41 @@ $GLOBALS['uid']       = 21;
 $_POST                = array( 'wpcpm_sponsor' => $T, 'wpcpm_sponsor_agr_signed' => '1' );
 post_file( $good );
 ran( 'handle_upload' );
-$lonely             = (int) WPCPM_Sponsor_Agreement::posts_for( $T )[0]->ID;
-$GLOBALS['uid']     = 1;
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $lonely, 'wpcpm_sponsor_agr_note' => 'The signature block is empty on every page.' );
+$lonely         = (int) WPCPM_Sponsor_Agreement::posts_for( $T )[0]->ID;
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $lonely, 'wpcpm_sponsor_agr_note' => 'The signature block is empty on every page.' );
 ran( 'handle_return' );
-ck( 'with nothing accepted, the base is told Returned', patched_cells( 0 ), array( 'Agreement Status' => 'Returned' ) );
+ck( 'with nothing accepted, the record says Returned', WPCPM_Sponsors_Index::row( $T )['agreement']['status'], 'Returned' );
 
 echo "\n=== Revoke and reinstate ===\n";
-$GLOBALS['patched'] = array();
-$GLOBALS['mail']    = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacement );
+$GLOBALS['mail'] = array();
+$_POST           = array( 'wpcpm_sponsor_agr_post' => $replacement );
 ran( 'handle_revoke' );
 ck( 'a revoke with no note revokes nothing', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 'agreement-revoke-note', 'accepted' ) );
-ck( 'and the base was never asked', count( $GLOBALS['patched'] ), 0 );
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacement, 'wpcpm_sponsor_agr_note' => 'The company asked us to put this one out of force.' );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $replacement, 'wpcpm_sponsor_agr_note' => 'The company asked us to put this one out of force.' );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_REINSTATE . '_' . $replacement;
+$stale_revoke          = ran( 'handle_revoke' );
+$GLOBALS['nonce_held'] = null;
+ck( 'Revoke with a nonce minted for Reinstate dies before the agreement leaves force or anybody is mailed', array( $stale_revoke, (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_STATE, true ), WPCPM_Sponsors_Index::row( $S )['agreement']['status'], count( $GLOBALS['mail'] ) ), array( 'die:403:The link you followed has expired.', 'accepted', 'Accepted', 0 ) );
+$GLOBALS['nonce'] = array();
 ran( 'handle_revoke' );
 ck( 'the accepted document is revoked', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 'agreement-revoked', 'revoked' ) );
-ck( 'the base is told the status and nothing else', patched_cells( 0 ), array( 'Agreement Status' => 'Revoked' ) );
+ck( 'Revoke checks the nonce keyed to the document', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_revoke_' . $replacement ) );
+ck( 'the record says Revoked', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Revoked' );
 ck( 'no account is closed: a sponsor\'s dashboard was never gated on an agreement', array( count( WPCPM_Sponsor_Members::members_of( $S ) ), (int) get_user_meta( 20, WPCPM_Sponsor_Members::META_ACTIVE, true ) ), array( 1, 1 ) );
 ck( 'and the accounts are told, with the note', count( $GLOBALS['mail'] ), 1 );
 ck( 'a second press finds nothing in force to revoke', ran( 'handle_revoke' ) && 'agreement-not-accepted' === end( $GLOBALS['flash'] )[1], true );
 
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacement );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $replacement );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_REVOKE . '_' . $replacement;
+$stale_reinstate       = ran( 'handle_reinstate' );
+$GLOBALS['nonce_held'] = null;
+ck( 'Reinstate with a nonce minted for Revoke dies before the agreement is back in force', array( $stale_reinstate, (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_STATE, true ), WPCPM_Sponsors_Index::row( $S )['agreement']['status'] ), array( 'die:403:The link you followed has expired.', 'revoked', 'Revoked' ) );
+$GLOBALS['nonce'] = array();
 ran( 'handle_reinstate' );
 ck( 'reinstating puts it back in force', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 'agreement-reinstated', 'accepted' ) );
-ck( 'the base goes back to Accepted for an uploaded copy', patched_cells( 0 ), array( 'Agreement Status' => 'Accepted' ) );
+ck( 'Reinstate checks the nonce keyed to the document', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_reinstate_' . $replacement ) );
+ck( 'the record goes back to Accepted for an uploaded copy', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Accepted' );
 ck( 'the date is today, not the day it was first accepted', (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_DECIDED_AT, true ), wp_date( 'Y-m-d' ) );
 ck( 'the revocation note went with the revocation: an agreement in force carries none', (string) get_post_meta( $replacement, WPCPM_Sponsor_Agreement::META_NOTE, true ), '' );
 ck( 'reinstating twice is refused', ran( 'handle_reinstate' ) && 'agreement-not-revoked' === end( $GLOBALS['flash'] )[1], true );
@@ -962,19 +923,33 @@ ck( 'reinstating twice is refused', ran( 'handle_reinstate' ) && 'agreement-not-
 echo "\n=== On file ===\n";
 $U = 'recSPN00000000003';
 seed_index( $U, 'Legacy Sponsor' );
-$GLOBALS['patched'] = array();
-$GLOBALS['mail']    = array();
-$_POST              = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_drive' => 'http://drive.google.com/drive/folders/abc' );
+$GLOBALS['mail'] = array();
+$_POST           = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_drive' => 'http://drive.google.com/drive/folders/abc' );
 ran( 'handle_on_file' );
 ck( 'a link that is not https on a Drive host records nothing', end( $GLOBALS['flash'] )[1], 'agreement-link' );
 $_POST = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_drive' => 'https://example.test/agreement.pdf' );
 ran( 'handle_on_file' );
 ck( 'nor does one on another host', end( $GLOBALS['flash'] )[1], 'agreement-link' );
-ck( 'and nothing was written', count( $GLOBALS['patched'] ), 0 );
+ck( 'and nothing was recorded', WPCPM_Sponsors_Index::row( $U )['agreement']['status'], '' );
 $_POST = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_drive' => 'https://drive.google.com/drive/folders/abc' );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_UPLOAD . '_' . $U;
+$stale_on_file         = ran( 'handle_on_file' );
+$GLOBALS['nonce_held'] = null;
+ck( 'On file with a nonce that is not its own dies before anything is recorded', array( $stale_on_file, WPCPM_Sponsor_Agreement::posts_for( $U ), WPCPM_Sponsors_Index::row( $U )['agreement']['status'] ), array( 'die:403:The link you followed has expired.', array(), '' ) );
+// Dying before the write is not the whole order: each of the five checks its nonce before it asks
+// who may act, as the sponsor policy answers it, whose refusal ends the press the same way. The
+// order is read in each handler itself.
+$agreement_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement.php' );
+$nonce_order   = array();
+foreach ( array( 'handle_withdraw' => 'self::may_act(', 'handle_return' => 'self::may_act(', 'handle_revoke' => 'self::may_act(', 'handle_reinstate' => 'self::may_act(', 'handle_on_file' => 'WPCPM_Sponsor_Policy::decide(' ) as $handler => $asks ) {
+	$body                    = method_body( $agreement_src, $handler );
+	$nonce_order[ $handler ] = strpos( $body, 'check_admin_referer(' ) > 0 && strpos( $body, 'check_admin_referer(' ) < strpos( $body, $asks );
+}
+ck( 'Withdraw, Return, Revoke, Reinstate and On file each check the nonce before they ask who may act', $nonce_order, array( 'handle_withdraw' => true, 'handle_return' => true, 'handle_revoke' => true, 'handle_reinstate' => true, 'handle_on_file' => true ) );
+$GLOBALS['nonce'] = array();
 ran( 'handle_on_file' );
 ck( 'a Drive link records the agreement as on file', end( $GLOBALS['flash'] )[1], 'agreement-on-file' );
-ck( 'the base gets the status, the date and the link in one PATCH', patched_cells( 0 ), array( 'Agreement Status' => 'On file', 'Agreement Accepted On' => wp_date( 'Y-m-d' ), 'Agreement Document' => 'https://drive.google.com/drive/folders/abc' ) );
+ck( 'On file checks the nonce keyed to the sponsor', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_on_file_' . $U ) );
 $legacy = (int) WPCPM_Sponsor_Agreement::posts_for( $U )[0]->ID;
 ck( 'a legacy post stands for it, accepted and with the link', array(
 	(string) get_post_meta( $legacy, WPCPM_Sponsor_Agreement::META_KIND, true ),
@@ -982,7 +957,7 @@ ck( 'a legacy post stands for it, accepted and with the link', array(
 	(string) get_post_meta( $legacy, WPCPM_Sponsor_Agreement::META_DRIVE_URL, true ),
 ), array( 'legacy', 'accepted', 'https://drive.google.com/drive/folders/abc' ) );
 ck( 'the summary reads on file rather than accepted', WPCPM_Sponsor_Agreement::summary( $U )['state'], 'on_file' );
-ck( 'the index says On file and holds a document', array( WPCPM_Sponsors_Index::row( $U )['agreement']['status'], WPCPM_Sponsors_Index::row( $U )['agreement']['has_document'] ), array( 'On file', true ) );
+ck( 'on file records the Drive link as a document held', WPCPM_Sponsors_Index::row( $U )['agreement'], array( 'status' => 'On file', 'accepted_on' => wp_date( 'Y-m-d' ), 'has_document' => true ) );
 ck( 'no mail: nobody at the company asked for this and it is not news to them', count( $GLOBALS['mail'] ), 0 );
 ran( 'handle_on_file' );
 ck( 'recording it twice is refused', end( $GLOBALS['flash'] )[1], 'agreement-standing' );
@@ -991,48 +966,48 @@ ck( 'a legacy row has no file, so downloading it is the same 404 as a document t
 
 $V = 'recSPN00000000004';
 seed_index( $V, 'Unlucky Sponsor' );
-$GLOBALS['patched']      = array();
 $GLOBALS['insert_fails'] = true;
 $_POST                   = array( 'wpcpm_sponsor' => $V, 'wpcpm_sponsor_agr_drive' => 'https://drive.google.com/drive/folders/xyz' );
 ran( 'handle_on_file' );
-ck( 'when the site cannot write the row after the base was told, the flash says exactly that', end( $GLOBALS['flash'] )[1], 'agreement-not-saved' );
-ck( 'and the base was indeed told', array( count( $GLOBALS['patched'] ), patched_cells( 0 )['Agreement Status'] ), array( 1, 'On file' ) );
+// Nothing is written before the post, so a failed insert leaves the company exactly as it
+// stood, and the manager can simply try again; the flash names that reason on its own,
+// rather than the lock-contention wording agreement-busy carries.
+ck( 'a failed insert gets its own message, not the lock\'s busy one', end( $GLOBALS['flash'] )[1], 'agreement-not-saved' );
 ck( 'while the site holds nothing for it', WPCPM_Sponsor_Agreement::summary( $V )['state'], 'none' );
 $GLOBALS['insert_fails'] = false;
 $_POST = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_post' => $legacy, 'wpcpm_sponsor_agr_note' => 'The paper copy this row stands for was superseded by a new one.' );
 ran( 'handle_revoke' );
 ck( 'a legacy row can be revoked too', (string) get_post_meta( $legacy, WPCPM_Sponsor_Agreement::META_STATE, true ), 'revoked' );
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $legacy );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $legacy );
 ran( 'handle_reinstate' );
-ck( 'and comes back as On file, not Accepted', patched_cells( 0 ), array( 'Agreement Status' => 'On file' ) );
+ck( 'and comes back as On file, not Accepted', WPCPM_Sponsors_Index::row( $U )['agreement']['status'], 'On file' );
 $_POST = array( 'wpcpm_sponsor' => $U, 'wpcpm_sponsor_agr_signed' => '1' );
 post_file( $good );
 ran( 'handle_upload' );
-$signed_copy        = (int) WPCPM_Sponsor_Agreement::posts_for( $U )[0]->ID;
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $signed_copy );
+$signed_copy = (int) WPCPM_Sponsor_Agreement::posts_for( $U )[0]->ID;
+$_POST       = array( 'wpcpm_sponsor_agr_post' => $signed_copy );
 ran( 'handle_accept' );
-ck( 'a signed copy accepted over an on-file row clears the base\'s link to the paper one', patched_cells( 0 ), array( 'Agreement Status' => 'Accepted', 'Agreement Accepted On' => wp_date( 'Y-m-d' ), 'Agreement Document' => '' ) );
-ck( 'and the index stops saying the base holds a document, while the legacy row is superseded', array(
+ck( 'a signed copy accepted over an on-file row records the acceptance and clears the document flag', array(
+	WPCPM_Sponsors_Index::row( $U )['agreement']['status'],
+	WPCPM_Sponsors_Index::row( $U )['agreement']['accepted_on'],
 	WPCPM_Sponsors_Index::row( $U )['agreement']['has_document'],
-	(string) get_post_meta( $legacy, WPCPM_Sponsor_Agreement::META_STATE, true ),
-), array( false, 'superseded' ) );
+), array( 'Accepted', wp_date( 'Y-m-d' ), false ) );
+ck( 'and the legacy row is superseded', (string) get_post_meta( $legacy, WPCPM_Sponsor_Agreement::META_STATE, true ), 'superseded' );
 
 // A link is a code, not prose: the one-line cleaner removes every "%" followed by two hexadecimal
-// digits, and a Drive link can carry them in its query.
+// digits, and a Drive link can carry them in its query. On this line the post holds the link and
+// the row says a document is held.
 $O     = 'recSPN00000000010';
 $O_url = 'https://drive.google.com/drive/folders/abc?usp=sharing&q=Collaboration%20Agreement%202026';
 seed_index( $O, 'Octet Sponsor' );
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor' => $O, 'wpcpm_sponsor_agr_drive' => $O_url );
+$_POST = array( 'wpcpm_sponsor' => $O, 'wpcpm_sponsor_agr_drive' => $O_url );
 ran( 'handle_on_file' );
 $O_post = WPCPM_Sponsor_Agreement::posts_for( $O )[0] ?? null;
-ck( 'a Drive link with percent octets in its query is recorded with them, in the base and on the post', array(
+ck( 'a Drive link with percent octets in its query is recorded with them on the post, and the row holds a document', array(
 	end( $GLOBALS['flash'] )[1],
-	patched_cells( 0 )['Agreement Document'] ?? null,
 	$O_post ? (string) get_post_meta( (int) $O_post->ID, WPCPM_Sponsor_Agreement::META_DRIVE_URL, true ) : null,
-), array( 'agreement-on-file', $O_url, $O_url ) );
+	WPCPM_Sponsors_Index::row( $O )['agreement']['has_document'] ?? null,
+), array( 'agreement-on-file', $O_url, true ) );
 
 echo "\n=== Only a program manager ===\n";
 $GLOBALS['uid'] = 20;
@@ -1040,20 +1015,6 @@ foreach ( array( 'handle_accept', 'handle_return', 'handle_revoke', 'handle_rein
 	ck( $method . '() refuses a sponsor account before it reads anything', substr( ran( $method ), 0, 7 ), 'die:403' );
 }
 $GLOBALS['uid'] = 1;
-
-echo "\n=== Airtable refusing a manager transition ===\n";
-$GLOBALS['patch_fails'] = true;
-$GLOBALS['uid']         = 21;
-$_POST                  = array( 'wpcpm_sponsor' => $T, 'wpcpm_sponsor_agr_signed' => '1' );
-post_file( $good );
-ran( 'handle_upload' );
-$pending        = (int) WPCPM_Sponsor_Agreement::posts_for( $T )[0]->ID;
-$GLOBALS['uid'] = 1;
-$_POST          = array( 'wpcpm_sponsor_agr_post' => $pending );
-ran( 'handle_accept' );
-ck( 'an acceptance the base refused changes nothing here either', array( end( $GLOBALS['flash'] )[1], (string) get_post_meta( $pending, WPCPM_Sponsor_Agreement::META_STATE, true ) ), array( 'agreement-airtable', 'submitted' ) );
-ck( 'and the lock is released, so the next press can try again', get_option( 'wpcpm_sponsor_agr_lock_' . $T, 'free' ), 'free' );
-$GLOBALS['patch_fails'] = false;
 
 echo "\n=== The daily discard ===\n";
 $GLOBALS['clock'] = time();
@@ -1176,15 +1137,15 @@ ck( 'a document waiting for review gets Download, Accept and the folded Return, 
 // note under the fold, whose summary keeps its own words. Accept it asks first, as the institution
 // side's Accept on the same page does, and in the same place, the button: a No posts nothing, so the
 // page's double-submit guard never sees a press that went nowhere.
-$accept_asks = 'data-wpcpm-confirm="Accept the signed agreement from Other Sponsor? Airtable is set to Accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab."';
+$accept_asks = 'data-wpcpm-confirm="Accept the signed agreement from Other Sponsor? It is recorded as accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab."';
 ck( 'its buttons read Accept it and, under the fold Return with a note, Return it with this note, as the institution side\'s do', array(
 	false !== strpos( $row, '<button type="submit" class="button button-primary" ' . $accept_asks . '>Accept it</button>' ),
 	false !== strpos( $row, '<summary class="button">Return with a note</summary>' ),
 	false !== strpos( $row, '<button type="submit" class="button">Return it with this note</button>' ),
 	strpos( $row, '>Accept<' ),
-	strpos( $row, 'Send back with this note' ),
+	strpos( $row, 'Send back' ),
 ), array( true, true, true, false, false ) );
-ck( 'Accept it asks before it acts, naming the company, what Airtable is set to, how many people at the company are emailed and where it can be taken out of force; Return asks nothing, its note is the press', array(
+ck( 'Accept it asks before it acts, naming the company, that it is recorded as accepted, how many people at the company are emailed and where it can be taken out of force; Return asks nothing, its note is the press', array(
 	substr_count( $row, 'data-wpcpm-confirm="' ),
 	false !== strpos( $row, $accept_asks ),
 	false !== strpos( $row, '<form class="wpcpm-sponsor-agreement__form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once>' ),
@@ -1216,17 +1177,31 @@ ob_start();
 WPCPM_Sponsor_Agreement::render_decision( $gone, WPCPM_Return::DASHBOARD );
 $row = (string) ob_get_clean();
 ck( 'an agreement out of force gets the way back and, being a Drive copy, no download', array( false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ), false !== strpos( $row, 'wpcpm_sponsor_agr_download' ), false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ) ), array( true, false, false ) );
-ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" data-wpcpm-confirm="Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
-ck( 'the question is the one the class keeps for every page that reinstates, the Sponsors screen\'s Agreements tab included', WPCPM_Sponsor_Agreement::reinstate_question(), 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.' );
+ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" data-wpcpm-confirm="Put this agreement back in force? Everybody at the company is emailed.">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
+ck( 'the question is the one the class keeps for every page that reinstates, the Sponsors screen\'s Agreements tab included', WPCPM_Sponsor_Agreement::reinstate_question(), 'Put this agreement back in force? Everybody at the company is emailed.' );
+// The words are the institution's own where the dashboard draws them: its review block's Accept it
+// and Return it with this note, and the Reinstate the Collaboration Agreements card offers a
+// revoked agreement. Read from the two sources, since this suite draws neither.
+$institution_words = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-panel.php' ) . (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-cards.php' );
+ck( 'and the three are the institution\'s: Accept it and Return it with this note in its review block, Reinstate on its revoked agreements', array(
+	false !== strpos( $institution_words, "esc_html__( 'Accept it', 'wpcredits-program-manager' )" ),
+	false !== strpos( $institution_words, "esc_html__( 'Return it with this note', 'wpcredits-program-manager' )" ),
+	false !== strpos( $institution_words, "esc_html__( 'Reinstate', 'wpcredits-program-manager' )" ),
+), array( true, true, true ) );
 ck( 'revoked_all() lists it', in_array( $gone, WPCPM_Sponsor_Agreement::revoked_all(), true ), true );
 wp_delete_post( $gone, true );
 
-$GLOBALS['patched'] = array();
-$_POST              = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboard' );
+$_POST = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboard' );
 // That channel is the Institutions screen's, whose own agreement outcomes share this class's keys, so
 // the outcome goes there under the class's prefix and the page reads the company's words under it.
 ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel, under the class\'s prefix', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'sponsor-agreement-accepted' ), 'sponsor-' ) );
 $_POST = array();
+
+echo "\n=== A minted key is accepted everywhere a record id was ===\n";
+$SPO     = 'spoAAAA0000000001';
+$spo_doc = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Minted sponsor document' ) );
+update_post_meta( $spo_doc, WPCPM_Sponsor_Agreement::META_SPONSOR, $SPO );
+ck( 'posts_for() finds a spo sponsor\'s documents', array_map( static function ( $post ) { return $post->ID; }, WPCPM_Sponsor_Agreement::posts_for( $SPO ) ), array( $spo_doc ) );
 
 echo "\n=== Notes keep their backslashes ===\n";
 // Post meta unslashes what it is handed, as core's does, and a note is read from the form
@@ -1411,11 +1386,12 @@ $k_note  = "Kids <12 free, adults >18 pay.\r\nA second line, \"quoted\" & C:\\dr
 $k_back  = array( 'wpcpm_sponsor_agr_post' => $k_doc, 'wpcpm_return' => 'dashboard' );
 $k_dash  = 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements';
 $k_event = count( (array) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_EVENT ) );
-$GLOBALS['kept_typing'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$GLOBALS['kept_typing'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$k_block = WPCPM_Sponsors_Index::row( $K )['agreement'] ?? null;
 $_POST  = $k_back + array( 'wpcpm_sponsor_agr_note' => $k_note );
 $landed = ran( 'handle_return' );
 ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Administrator Dashboard, with the sentence for a return, naming the box by its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::manager_messages()['agreement-note-loss'] ?? null ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note-loss' ), array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "A note for the company". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) ) );
-ck( 'and nothing is done: the document waits, no note or decision on it, no event, no word to the base, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_DECIDED_BY, true ), count( (array) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $k_event, $GLOBALS['patched'], $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $K, $GLOBALS['opts'] ) ), array( 'submitted', '', '', 0, array(), array(), array(), false ) );
+ck( 'and nothing is done: the document waits, no note or decision on it, no event, no change to the row, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_DECIDED_BY, true ), count( (array) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $k_event, ( WPCPM_Sponsors_Index::row( $K )['agreement'] ?? null ) === $k_block, $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $K, $GLOBALS['opts'] ) ), array( 'submitted', '', '', 0, true, array(), array(), false ) );
 ck( 'the document\'s Return with a note draws open, its box holding the note as it was typed, a line break as the box counts it', agr_note_box( $k_doc ), array( 'shown' => str_replace( "\r\n", "\n", $k_note ), 'open' => true ) );
 ck( 'and only once: drawn again, the box is empty and the fold closed', agr_note_box( $k_doc ), array( 'shown' => '', 'open' => false ) );
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => "\r\n" . $k_note );
@@ -1442,15 +1418,15 @@ ck( 'and so does a note over its limit, kept up to the box\'s limit of 2,000', a
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => '   ' );
 ck( 'a note left empty keeps nothing: there is nothing to give back', array( ran( 'handle_return' ), end( $GLOBALS['flash'] ), $GLOBALS['kept_typing'][1] ?? array() ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-note' ), array() ) );
 
-// Refused and kept, then posted with the fix while the base refuses it: the document still waits,
-// and its box is not filled with the typing the fix replaced.
+// Refused and kept, then posted with the fix while another press holds the company's lock: the
+// document still waits, and its box is not filled with the typing the fix replaced.
 $_POST = $k_back + array( 'wpcpm_sponsor_agr_note' => $k_note );
 ran( 'handle_return' );
-$GLOBALS['patch_fails'] = true;
-$_POST                  = $k_back + array( 'wpcpm_sponsor_agr_note' => 'Kids under 12 free, adults over 18 pay.' );
-$k_fixed                = ran( 'handle_return' );
-$GLOBALS['patch_fails'] = false;
-ck( 'a typing a refusal kept goes when the form is posted again, so a press the base refused draws the box empty, not with what the fix replaced', array( $k_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-airtable' ), 'submitted', array( 'shown' => '', 'open' => false ) ) );
+$GLOBALS['opts'][ WPCPM_Sponsor_Agreement::LOCK_PREFIX . $K ] = time();
+$_POST   = $k_back + array( 'wpcpm_sponsor_agr_note' => 'Kids under 12 free, adults over 18 pay.' );
+$k_fixed = ran( 'handle_return' );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Agreement::LOCK_PREFIX . $K ] );
+ck( 'a typing a refusal kept goes when the form is posted again, so a press refused for the lock draws the box empty, not with what the fix replaced', array( $k_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $k_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), agr_note_box( $k_doc ) ), array( $k_dash, array( 'institutions_dashboard', 'sponsor-agreement-busy' ), 'submitted', array( 'shown' => '', 'open' => false ) ) );
 
 $k_keeps = "We <3 WordPress.\r\nAges 8 < 12 welcome, adults > 18 pay, 100% of them, Q&A: \"blocks\" & themes, &amp; and &copy; typed out, and \xF0\x9F\x98\x80";
 $GLOBALS['mail'] = array();
@@ -1476,11 +1452,12 @@ $v_other = agr_in_force( 'recSPN00000000016', 32 );
 $v_tab   = 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=agreements';
 $v_event = count( (array) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_EVENT ) );
 $GLOBALS['referer']     = $v_tab;
-$GLOBALS['kept_typing'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$GLOBALS['kept_typing'] = array(); $GLOBALS['mail'] = array(); $GLOBALS['audit'] = array();
+$v_block = WPCPM_Sponsors_Index::row( $V2 )['agreement'] ?? null;
 $_POST  = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => $k_note );
 $landed = ran( 'handle_revoke' );
 ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Agreements tab, with the sentence for Take it out of force, naming the box by the first words of its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::manager_messages()['agreement-revoke-loss'] ?? null ), array( $v_tab, array( 'sponsors_admin', 'agreement-revoke-loss' ), array( 'error', 'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is out of force, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then take it out of force again.' ) ) );
-ck( 'and nothing is done: the agreement stays in force, no note or decision on it, no event, no word to the base, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), count( (array) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $v_event, $GLOBALS['patched'], $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $V2, $GLOBALS['opts'] ), WPCPM_Sponsors_Index::row( $V2 )['agreement']['status'] ), array( 'accepted', '', 0, array(), array(), array(), false, 'Accepted' ) );
+ck( 'and nothing is done: the agreement stays in force, no note or decision on it, no event, no change to the row, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), count( (array) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $v_event, ( WPCPM_Sponsors_Index::row( $V2 )['agreement'] ?? null ) === $v_block, $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $V2, $GLOBALS['opts'] ), WPCPM_Sponsors_Index::row( $V2 )['agreement']['status'] ), array( 'accepted', '', 0, true, array(), array(), false, 'Accepted' ) );
 ck( 'the form gets the note back as it was typed, a line break as the box counts it', WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ), str_replace( "\r\n", "\n", $k_note ) );
 ck( 'and only once: asked again, there is nothing', WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ), null );
 
@@ -1509,15 +1486,15 @@ ck( 'and so does a note over its limit, kept up to the box\'s limit of 2,000', a
 $_POST = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => '   ' );
 ck( 'a note left empty keeps nothing: there is nothing to give back', array( ran( 'handle_revoke' ), end( $GLOBALS['flash'] ), $GLOBALS['kept_typing'][1] ?? array() ), array( $v_tab, array( 'sponsors_admin', 'agreement-revoke-note' ), array() ) );
 
-// Refused and kept, then pressed with the fix while the base refuses it: the agreement stays in
-// force, and its form does not get back the typing the fix replaced.
+// Refused and kept, then pressed with the fix while another press holds the company's lock: the
+// agreement stays in force, and its form does not get back the typing the fix replaced.
 $_POST = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => $k_note );
 ran( 'handle_revoke' );
-$GLOBALS['patch_fails'] = true;
-$_POST                  = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => 'Kids under 12 free, adults over 18 pay.' );
-$v_fixed                = ran( 'handle_revoke' );
-$GLOBALS['patch_fails'] = false;
-ck( 'a typing a refusal kept goes when the form is posted again, so a press the base refused gets nothing back, not what the fix replaced', array( $v_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ) ), array( $v_tab, array( 'sponsors_admin', 'agreement-airtable' ), 'accepted', null ) );
+$GLOBALS['opts'][ WPCPM_Sponsor_Agreement::LOCK_PREFIX . $V2 ] = time();
+$_POST   = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => 'Kids under 12 free, adults over 18 pay.' );
+$v_fixed = ran( 'handle_revoke' );
+unset( $GLOBALS['opts'][ WPCPM_Sponsor_Agreement::LOCK_PREFIX . $V2 ] );
+ck( 'a typing a refusal kept goes when the form is posted again, so a press refused for the lock gets nothing back, not what the fix replaced', array( $v_fixed, end( $GLOBALS['flash'] ), (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ) ), array( $v_tab, array( 'sponsors_admin', 'agreement-busy' ), 'accepted', null ) );
 
 $GLOBALS['mail'] = array();
 $_POST           = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => $k_keeps );
@@ -1535,6 +1512,12 @@ ck( 'wp_handle_upload() is never called', preg_match( '/wp_handle_upload|move_up
 ck( '$_FILES is read in one helper and nowhere else', substr_count( method_with_doc( $source, 'uploaded_file' ), '$_FILES' ), substr_count( $source, '$_FILES' ) );
 ck( 'the download is the only action with a nopriv arm', substr_count( $source, "'admin_post_nopriv_'" ), 1 );
 ck( 'and the scan is the extraction\'s, not a second copy', preg_match( '/function (decode_names|names_contain|inflated_streams|inflate)\(/', $source ), 0 );
+
+// 1.111.0: the site alone is the record of every transition, and the one-line retry_airtable()
+// stub the sponsors sync called went with the sync, so nothing in the class carries the base's
+// name any more: no pending mark, no retry, no field map.
+ck( 'no pending mark, no retry and no mention of Airtable exists in the class', preg_match( '/airtable/i', $source ), 0 );
+ck( 'no Airtable class exists', class_exists( 'WPCPM_Airtable' ), false );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

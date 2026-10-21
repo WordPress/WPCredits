@@ -1,6 +1,6 @@
 <?php
 /**
- * The shape shared by the four modules that own an Airtable sync.
+ * The shape shared by the three modules that own an Airtable sync.
  *
  * @package WPCredits_Program_Manager
  */
@@ -8,9 +8,15 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A module with a sync: the Students, Mentors, Institutions and Sponsors modules.
+ * A module with a sync: the Students, Mentors and Institutions modules.
  *
- * Each of the first three used to carry its own copy of the same three handlers (start, cancel, the
+ * The Sponsors module extends this class too and syncs nothing: its sponsors are the site's own
+ * records. It keeps the class for the screen's shared parts, the way back to the tab a press was
+ * made on (`redirect_back()`) and the notice the press leaves there (`render_status_notice()`);
+ * its `sync_class()` names no class, its `sync_messages()` holds none of the sync's outcomes, and
+ * the sync handlers it inherits are hooked by nothing.
+ *
+ * Each of the three used to carry its own copy of the same three handlers (start, cancel, the
  * AJAX tick), the same capability-then-nonce check, the same redirect, and a map of outcome
  * sentences that had drifted three ways: one screen said "Sync started" with a dash and one
  * without, one told the reader to "see the error below" and two did not, and the outcome
@@ -24,7 +30,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * A module says which sync it owns (`sync_class()`), which flash channel its screen reads
  * (`flash_key()`) and, where the sync's tick method has another name, how to tick it
- * (`run_sync_tick()`). Everything else here is the same for all four, on purpose. The
+ * (`run_sync_tick()`). Everything else here is the same for all three, on purpose. The
  * capability-then-nonce check, the way back to a tab and the notice a press leaves are the module
  * base's (`WPCPM_Module`), which asks every module for its flash channel and serves a module
  * without a sync too.
@@ -146,8 +152,10 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	 *
 	 * The sync's own words (`sync_messages()`) point to the last sync's error, which a screen drawn in
 	 * tabs prints on the tab that runs the sync alone; on its other tabs the sentence would point
-	 * nowhere, so this one sends the reader to the screen again. The Institutions and Sponsors screens
-	 * both print it.
+	 * nowhere, so this one sends the reader to the screen again. The Institutions screen prints it on
+	 * every tab but Sync and storage and Accounts; the Sponsors screen, which runs no sync and prints
+	 * no error below the notice on any tab, on every tab but Accounts. On both, Accounts words `error`
+	 * for the invitation.
 	 *
 	 * @return array{0: string, 1: string} Notice type and sentence.
 	 */
@@ -164,6 +172,6 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	 * @param array $extra The screen's own outcomes, merged over the shared three.
 	 */
 	protected function render_status_notice( array $extra = array() ) {
-		$this->render_notice_from( array_merge( self::sync_messages(), $extra ) );
+		$this->render_notice_from( array_merge( static::sync_messages(), $extra ) );
 	}
 }

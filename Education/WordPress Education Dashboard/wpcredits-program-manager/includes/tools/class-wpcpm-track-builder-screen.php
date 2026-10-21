@@ -84,6 +84,7 @@ final class WPCPM_Track_Builder_Screen {
 
 		printf( '<td><strong>%s</strong>', esc_html( (string) $row['label'] ) );
 		self::render_course( $row );
+		self::render_partners( $row );
 		echo '</td>';
 
 		printf( '<td>%s<br /><code class="wpcpm-tracks__key">%s</code></td>', esc_html( (string) $row['status'] ), esc_html( (string) $row['key'] ) );
@@ -231,7 +232,7 @@ final class WPCPM_Track_Builder_Screen {
 	 * pixels (the design's decision 27). The wrapper carries `wpcpm-dashboard` because that is the
 	 * element the plugin's stylesheet sets its tokens on; without it the form would draw untokened.
 	 *
-	 * @param array $args `track`, `label`, `fields`, `state` and `course`, as
+	 * @param array $args `track`, `label`, `fields`, `state`, `course` and `partners`, as
 	 *                    `WPCPM_Track_Builder::preview()` gives them, the screen's `url`, and the
 	 *                    `flash` the last press left.
 	 */
@@ -274,9 +275,14 @@ final class WPCPM_Track_Builder_Screen {
 			return;
 		}
 
-		// The course decides where the hours box sits, as it does on the student's page (TRACKS-3).
+		// The course decides where the hours box sits, as it does on the student's page (TRACKS-3),
+		// and the partnership line follows them there.
 		echo '<div class="wpcpm-dashboard wpcpm-tracks__preview">';
-		WPCPM_Student_Report_Form::render_preview( $fields, isset( $args['course'] ) ? (string) $args['course'] : '' );
+		WPCPM_Student_Report_Form::render_preview(
+			$fields,
+			isset( $args['course'] ) ? (string) $args['course'] : '',
+			isset( $args['partners'] ) ? (string) $args['partners'] : ''
+		);
 		echo '</div>';
 	}
 
@@ -408,8 +414,8 @@ final class WPCPM_Track_Builder_Screen {
 	 * That publishing adds this track's status to the program's settings.
 	 *
 	 * The preflight says so (decision 13, 7.2 step 2) and nothing showed it: a person publishing a
-	 * track had no way to see, before pressing the button, that doing so changes Settings (final
-	 * review, finding 5). It says so of every track, a published track's status being what its
+	 * track had no way to see, before pressing the button, that doing so changes Settings. It says
+	 * so of every track, a published track's status being what its
 	 * students carry; the line is drawn when the preflight says so.
 	 *
 	 * @param array $flight The preflight's answer.
@@ -428,7 +434,7 @@ final class WPCPM_Track_Builder_Screen {
 	 *
 	 * Design spec 7.2 asks for the name, the type and the options, because this list is what
 	 * somebody takes to Airtable to create the column: a wrong guess at the type earns
-	 * `wpcpm_track_column_conflict` the next time this track is published (Task 9 review, L8).
+	 * `wpcpm_track_column_conflict` the next time this track is published.
 	 *
 	 * @param string $column The column name.
 	 * @param array  $field  What `WPCPM_Track_Columns::field()` answered for it: `type`, and for
@@ -472,7 +478,7 @@ final class WPCPM_Track_Builder_Screen {
 	 * @param int   $track     The track.
 	 * @param array $choices   The preflight's `choices` (`reports` and `students`, each `ok`,
 	 *                         `near` or `missing`), so item 3 shows which table has the choice
-	 *                         already and which does not (final review, finding 4).
+	 *                         already and which does not.
 	 * @return void
 	 */
 	private static function render_checklist( array $checklist, $track, array $choices = array() ) {
@@ -531,7 +537,7 @@ final class WPCPM_Track_Builder_Screen {
 	/**
 	 * The Status choice's state on each table, so checklist item 3 is not the only place a person
 	 * can see it: the preflight works this out for both tables (spec 7.1) and only turned a `near`
-	 * state into a warning above, leaving `ok` and `missing` unshown (final review, finding 4).
+	 * state into a warning above, leaving `ok` and `missing` unshown.
 	 *
 	 * @param array $choices `reports` and `students`, each `ok`, `near` or `missing`.
 	 * @return void
@@ -580,7 +586,7 @@ final class WPCPM_Track_Builder_Screen {
 	 * Publish is drawn only when it could actually succeed. With columns pending and no schema
 	 * token, `WPCPM_Track_Publish::run()` can only refuse with `wpcpm_track_columns_by_hand` -
 	 * design spec 7.2 waits for the preflight to find the columns instead - so that combination
-	 * withholds the button rather than handing over one that can only fail (Task 9 review, M1).
+	 * withholds the button rather than handing over one that can only fail.
 	 *
 	 * A publish that creates columns is drawn with a box for the track's name, which the handler
 	 * compares before anything is created (PUBLISH-LEARN-3).
@@ -746,8 +752,9 @@ final class WPCPM_Track_Builder_Screen {
 
 		foreach ( self::track_labels() as $field => $heading ) {
 			// The course's ID is not typed since T3c: it is what the link resolves to, shown on the
-			// row after the link (decision 31).
-			if ( 'learn_course_id' === $field ) {
+			// row after the link (decision 31). The partners are ticked, not typed, on the row after
+			// the key chip color's, and their narrative is written in a box of many lines under them.
+			if ( 'learn_course_id' === $field || 'sponsors' === $field || 'partners_narrative' === $field ) {
 				continue;
 			}
 
@@ -762,6 +769,11 @@ final class WPCPM_Track_Builder_Screen {
 
 			if ( 'course_url' === $field ) {
 				self::render_course_row( $form );
+			}
+
+			if ( 'hue' === $field ) {
+				self::render_partners_row( $form, $typed );
+				self::render_narrative_row( $form, $typed );
 			}
 		}
 
@@ -808,6 +820,87 @@ final class WPCPM_Track_Builder_Screen {
 		}
 
 		printf( '<tr><th scope="row">%1$s</th><td>%2$s</td></tr>', esc_html__( 'Learn course', 'wpcredits-program-manager' ), esc_html( $text ) );
+	}
+
+	/**
+	 * The track's partners, a box each, on the row after the key chip color's.
+	 *
+	 * The boxes are one group, named for screen readers, as the Sponsors screen's lists are. The
+	 * hidden empty value comes first and is posted whatever is ticked, so the handler tells a picker
+	 * with nothing ticked from a form that drew none, as those lists do too. Each choice is a sponsor
+	 * that may be named today, or one the track names already: one that no longer qualifies, or that
+	 * the sponsors store does not know, carries its note and stays ticked until somebody unticks it.
+	 *
+	 * With nothing to offer and nothing named, the row says so and draws no box and no hidden value,
+	 * as the mentor picker's empty row does, so a save leaves the partners as they are.
+	 *
+	 * @param array $form  The track as `WPCPM_Track_Builder::form()` gives it.
+	 * @param array $typed What a refused Save carried back: its `sponsors`, when there, are the
+	 *                     boxes ticked in place of the ones the track names.
+	 */
+	private static function render_partners_row( array $form, array $typed ) {
+		$choices = isset( $form['partner_choices'] ) && is_array( $form['partner_choices'] ) ? $form['partner_choices'] : array();
+		$stored  = isset( $form['sponsors'] ) && is_array( $form['sponsors'] ) ? $form['sponsors'] : array();
+		$ticked  = array_map( 'strval', array_key_exists( 'sponsors', $typed ) && is_array( $typed['sponsors'] ) ? $typed['sponsors'] : $stored );
+		$heading = self::track_labels()['sponsors'];
+
+		if ( array() === $choices ) {
+			printf(
+				'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p></td></tr>',
+				esc_html( $heading ),
+				esc_html__( 'No sponsor is at the Partner tier yet.', 'wpcredits-program-manager' )
+			);
+
+			return;
+		}
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><fieldset><legend class="screen-reader-text">%1$s</legend><input type="hidden" name="%2$s[]" value="" />',
+			esc_html( $heading ),
+			esc_attr( WPCPM_Track_Partners::FIELD )
+		);
+
+		foreach ( $choices as $record => $choice ) {
+			printf(
+				'<label><input type="checkbox" name="%1$s[]" value="%2$s"%3$s /> %4$s</label><br />',
+				esc_attr( WPCPM_Track_Partners::FIELD ),
+				esc_attr( (string) $record ),
+				in_array( (string) $record, $ticked, true ) ? ' checked' : '',
+				esc_html( self::partner_name( (array) $choice ) )
+			);
+		}
+
+		printf(
+			'</fieldset><p class="description">%s</p></td></tr>',
+			esc_html__( 'The sponsors that co-brand this track. Only Approved sponsors at the Partner tier are offered; a sponsor whose term ended, or that is paused, stays ticked here until you untick it and stops showing on the site by itself.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The partners' narrative, a box of many lines on the row after the partners'.
+	 *
+	 * One text for all of the track's partners, which each partner's annual report starts its block
+	 * for the track with when the report is drafted, from the track as last published. The site
+	 * drafts a partner's report the day after that partner's term ends, so the help says a rewrite is
+	 * published before the next partner's term ends. Drawn whatever the partners' row offers, since
+	 * the text is the track's and a manager may write it before the first partner's term. The box
+	 * stops at the length the save allows, which counts a line break once, as the box does.
+	 *
+	 * @param array $form  The track as `WPCPM_Track_Builder::form()` gives it.
+	 * @param array $typed What a refused Save carried back: its `partners_narrative`, when there, is
+	 *                     the text drawn in place of the track's.
+	 */
+	private static function render_narrative_row( array $form, array $typed ) {
+		$stored = isset( $form['partners_narrative'] ) && is_string( $form['partners_narrative'] ) ? $form['partners_narrative'] : '';
+		$text   = array_key_exists( 'partners_narrative', $typed ) && is_scalar( $typed['partners_narrative'] ) ? (string) $typed['partners_narrative'] : $stored;
+
+		printf(
+			'<tr><th scope="row"><label for="wpcpm_partners_narrative">%1$s</label></th><td><textarea id="wpcpm_partners_narrative" name="wpcpm_partners_narrative" rows="8" class="large-text" maxlength="%2$d">%3$s</textarea><p class="description">%4$s</p></td></tr>',
+			esc_html( self::track_labels()['partners_narrative'] ),
+			(int) WPCPM_Track_Definition::MAX_NARRATIVE,
+			esc_textarea( $text ),
+			esc_html__( 'One text for all of this track\'s partners; rewrite it each term. When a partner\'s annual report is drafted, which the site does the day after that partner\'s term ends, its block for this track starts with this text as the track was last published: after rewriting it, publish the track before the next partner\'s term ends. Each report keeps its own copy, edited on the report.', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**
@@ -864,13 +957,15 @@ final class WPCPM_Track_Builder_Screen {
 	 */
 	public static function track_labels() {
 		return array(
-			'label'           => __( 'Name', 'wpcredits-program-manager' ),
-			'status'          => __( 'Airtable status', 'wpcredits-program-manager' ),
-			'key'             => __( 'Key', 'wpcredits-program-manager' ),
-			'course_url'      => __( 'Learn course', 'wpcredits-program-manager' ),
-			'learn_course_id' => __( 'Learn course ID', 'wpcredits-program-manager' ),
-			'hours_target'    => __( 'Hours target', 'wpcredits-program-manager' ),
-			'hue'             => __( 'Key chip color', 'wpcredits-program-manager' ),
+			'label'              => __( 'Name', 'wpcredits-program-manager' ),
+			'status'             => __( 'Airtable status', 'wpcredits-program-manager' ),
+			'key'                => __( 'Key', 'wpcredits-program-manager' ),
+			'course_url'         => __( 'Learn course', 'wpcredits-program-manager' ),
+			'learn_course_id'    => __( 'Learn course ID', 'wpcredits-program-manager' ),
+			'hours_target'       => __( 'Hours target', 'wpcredits-program-manager' ),
+			'hue'                => __( 'Key chip color', 'wpcredits-program-manager' ),
+			'sponsors'           => __( 'Partners', 'wpcredits-program-manager' ),
+			'partners_narrative' => __( 'Partners\' narrative', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -939,7 +1034,7 @@ final class WPCPM_Track_Builder_Screen {
 			esc_html(
 				sprintf(
 					/* translators: %s: the name of the track being copied. */
-					__( 'Copying %s. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course and no hours target, which are set on its page.', 'wpcredits-program-manager' ),
+					__( 'Copying %s. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course, no hours target, no partners and no partners\' narrative, which are set on its page.', 'wpcredits-program-manager' ),
 					(string) $form['from']
 				)
 			)
@@ -1008,6 +1103,57 @@ final class WPCPM_Track_Builder_Screen {
 		}
 
 		echo '<br /><a class="wpcpm-tracks__course" href="' . esc_url( $course ) . '">' . esc_html__( 'Learn course', 'wpcredits-program-manager' ) . '</a>';
+	}
+
+	/**
+	 * The partners the track names, under its name: a lapsed or unknown one with its note, so the
+	 * list shows what a save would keep before anybody opens the track.
+	 *
+	 * @param array $row One row.
+	 */
+	private static function render_partners( array $row ) {
+		$partners = isset( $row['partners'] ) && is_array( $row['partners'] ) ? $row['partners'] : array();
+
+		if ( array() === $partners ) {
+			return;
+		}
+
+		$names = array();
+
+		foreach ( $partners as $partner ) {
+			$names[] = self::partner_name( (array) $partner );
+		}
+
+		$sentence = sprintf(
+			/* translators: %s: the sponsors partnering on the track, separated by commas. */
+			__( 'Partners: %s', 'wpcredits-program-manager' ),
+			implode( ', ', $names )
+		);
+
+		echo '<br /><span class="wpcpm-tracks__partners">' . esc_html( $sentence ) . '</span>';
+	}
+
+	/**
+	 * A partner's name, with the note a lapsed or unknown one carries: the words the picker and the
+	 * list share.
+	 *
+	 * @param array $choice `label` and `note`, as `WPCPM_Track_Partners::choices()` gives them.
+	 * @return string
+	 */
+	private static function partner_name( array $choice ) {
+		$label = isset( $choice['label'] ) ? (string) $choice['label'] : '';
+		$note  = isset( $choice['note'] ) ? (string) $choice['note'] : '';
+
+		if ( '' === $note ) {
+			return $label;
+		}
+
+		return sprintf(
+			/* translators: 1: a sponsor's name, 2: a note on it, "no longer a Partner" or "unknown sponsor". */
+			__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+			$label,
+			$note
+		);
 	}
 
 	/**

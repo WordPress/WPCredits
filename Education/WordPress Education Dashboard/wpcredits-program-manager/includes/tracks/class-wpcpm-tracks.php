@@ -12,14 +12,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Hands the compiled tracks to the program map, the form, the chips and the automation guard.
  *
- * **The live site never reads a `wpcpm_track` post.** `WPCPM_Program::labels()` runs for every
- * row of every roster, which rules out a query, so the tracks are compiled into options
- * (`WPCPM_Track_Store::compile()`) and everything here reads only those: `OPT_TRACKS`,
+ * **The program map and the forms never read a `wpcpm_track` post.** `WPCPM_Program::labels()`
+ * runs for every row of every roster, which rules out a query, so the tracks are compiled into
+ * options (`WPCPM_Track_Store::compile()`) and everything here reads only those: `OPT_TRACKS`,
  * autoloaded and small, and one `OPT_FIELDS_PREFIX` option per track holding its form, read on
  * the pages that draw one. The design gives a second reason for the options, that editing a
  * published track must not change the form students see until somebody publishes the change,
  * and it holds because the compile reads what was published, never what was last saved
- * (`WPCPM_Track_Store::META_PUBLISHED`).
+ * (`WPCPM_Track_Store::META_PUBLISHED`). A sponsor report's draft reads each partner track's
+ * published copy once (`WPCPM_Sponsor_Report::pull_narratives()`), for the partners' narrative the
+ * index leaves out.
  *
  * **The index is the program map's only source.** `WPCPM_Program`'s five maps start empty and
  * the filters here fill them, one row per live track, so a status the index does not hold is on no
@@ -145,6 +147,36 @@ final class WPCPM_Tracks {
 				return is_array( $row ) && isset( $row['key'] );
 			}
 		);
+	}
+
+	/**
+	 * The live tracks a sponsor is a partner of, from the compiled rows: the program map and the
+	 * forms never read a track post. Key, label and post, in the tracks' own order; a sponsor
+	 * report's draft reads each one's published copy once, through its post
+	 * (`WPCPM_Sponsor_Report::pull_narratives()`).
+	 *
+	 * @param string $record A sponsor key.
+	 * @return array[] Each `key`, `label`, `post`.
+	 */
+	public static function partner_tracks( $record ) {
+		$record = trim( (string) $record );
+		$out    = array();
+
+		if ( '' === $record ) {
+			return $out;
+		}
+
+		foreach ( self::live() as $row ) {
+			if ( isset( $row['sponsors'] ) && is_array( $row['sponsors'] ) && in_array( $record, $row['sponsors'], true ) ) {
+				$out[] = array(
+					'key'   => (string) $row['key'],
+					'label' => (string) $row['label'],
+					'post'  => isset( $row['post'] ) ? (int) $row['post'] : 0,
+				);
+			}
+		}
+
+		return $out;
 	}
 
 	/**

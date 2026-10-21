@@ -30,7 +30,7 @@ function sanitize_text_field( $t ) { return trim( strip_tags( (string) $t ) ); }
 function sanitize_textarea_field( $t ) { return trim( strip_tags( (string) $t ) ); }
 function absint( $n ) { return abs( (int) $n ); }
 function wp_date( $f, $t = null ) { return '2026-09-05 10:00'; }
-function get_post_time( $f, $gmt, $post ) { return 1757000000 + (int) $post->ID; }
+function get_post_time( $f, $gmt, $post, $translate = false ) { return 1757000000 + (int) $post->ID; }
 function add_action() {}
 function register_post_type() {}
 
@@ -129,6 +129,31 @@ ck( 'and every kind when none is named', count( WPCPM_Institution_Audit::sponsor
 ck( 'capped', count( WPCPM_Institution_Audit::sponsor_entries( '', 2 ) ), 2 );
 ck( 'and none of them is the institution row', in_array( $I, array_column( WPCPM_Institution_Audit::sponsor_entries(), 'institution' ), true ), false );
 
+echo "\n=== A minted key is accepted everywhere a record id was ===\n";
+// WPCPM_Sponsors_Index is never loaded in this suite, so this also proves the fallback pattern
+// works with the real class absent, not only the real is_key().
+$SPO     = 'spoAAAA0000000001';
+$spo_row = WPCPM_Institution_Audit::record_sponsor( array_merge( $base, array( 'kind' => 'member_added', 'sponsor' => $SPO, 'message' => 'Minted sponsor.', 'data' => array() ) ) );
+ck( 'record_sponsor() writes a row for a spo key', is_int( $spo_row ) && $spo_row > 0, true );
+
+echo "\n=== Writing a row about the program's own work ===\n";
+
+// An event the program plans itself is about no institution and no sponsor. Asked through a guard,
+// so a writer that is not there fails these checks rather than ending the run.
+$program_write = static function ( array $entry ) {
+	return method_exists( 'WPCPM_Institution_Audit', 'record_program' ) ? WPCPM_Institution_Audit::record_program( $entry ) : new WP_Error( 'no_writer', 'record_program() is not there' );
+};
+$prog = $program_write( array_merge( $base, array( 'kind' => 'sponsor_event_planned', 'sponsor' => $A, 'institution' => $I, 'message' => 'A program event was planned for August 20, 2027.', 'data' => array( 'start' => 1818514800, 'joined' => 0 ) ) ) );
+ck( 'a row about the program\'s own work is written', is_int( $prog ) && $prog > 0, true );
+ck( 'under the program\'s key, which holds program, and the key is the log stem\'s', array( is_int( $prog ) ? get_post_meta( $prog, defined( 'WPCPM_Institution_Audit::META_PROGRAM' ) ? constant( 'WPCPM_Institution_Audit::META_PROGRAM' ) : '_wpcpm_log_program', true ) : 'no row', defined( 'WPCPM_Institution_Audit::META_PROGRAM' ) ? constant( 'WPCPM_Institution_Audit::META_PROGRAM' ) : 'undefined' ), array( 'program', '_wpcpm_log_program' ) );
+ck( 'and under neither the sponsor key nor the institution key, whatever the entry named', array( is_int( $prog ), is_int( $prog ) && isset( $GLOBALS['pmeta'][ $prog ][ WPCPM_Institution_Audit::META_SPONSOR ] ), is_int( $prog ) && isset( $GLOBALS['pmeta'][ $prog ][ WPCPM_Institution_Audit::META_INSTITUTION ] ) ), array( true, false, false ) );
+ck( 'the row as every row keeps it: the kind, the subject, the actor, the ground, the evidence and the facts; private, its title naming the program', is_int( $prog ) ? array( get_post_meta( $prog, WPCPM_Institution_Audit::META_KIND, true ), get_post_meta( $prog, WPCPM_Institution_Audit::META_SUBJECT, true ), get_post_meta( $prog, WPCPM_Institution_Audit::META_ACTOR, true ), get_post_meta( $prog, WPCPM_Institution_Audit::META_GROUND, true ), get_post_meta( $prog, WPCPM_Institution_Audit::META_EVIDENCE, true ), get_post_meta( $prog, WPCPM_Institution_Audit::META_DATA, true ), $GLOBALS['posts'][ $prog ]->post_status, $GLOBALS['posts'][ $prog ]->post_title ) : 'no row', array( 'sponsor_event_planned', '5', 3, 'manager', 'index', array( 'start' => 1818514800, 'joined' => 0 ), 'private', 'sponsor_event_planned on program - 2026-09-05 10:00' ) );
+$bad = $program_write( array_merge( $base, array( 'kind' => 'sponsor_event_planned', 'ground' => 'nobody' ) ) );
+ck( 'the ground is checked as for every row', is_wp_error( $bad ) ? $bad->get_error_code() : '', 'wpcpm_audit_ground' );
+$bad = $program_write( array_merge( $base, array( 'kind' => '' ) ) );
+ck( 'and the kind', is_wp_error( $bad ) ? $bad->get_error_code() : '', 'wpcpm_audit_kind' );
+ck( 'no reader of a sponsor\'s or an institution\'s rows lists it', array( is_int( $prog ), in_array( $prog, array_column( WPCPM_Institution_Audit::sponsor_entries(), 'id' ), true ), in_array( $prog, array_column( WPCPM_Institution_Audit::entries_for_sponsor( $A ), 'id' ), true ), in_array( $prog, array_column( WPCPM_Institution_Audit::entries_for( $I ), 'id' ), true ) ), array( true, false, false, false ) );
+
 echo "\n=== A row's words keep their backslashes ===\n";
 // The message goes into `wp_insert_post()` and the data into post meta, which unslash what they
 // are handed, as core's do: a typed note or a name a row carries keeps a backslash only when both
@@ -142,5 +167,5 @@ ck( 'and so are the words in its data', $typed_entry['data']['name'] ?? null, $t
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash in the class', preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php' ) ), 0 );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 23 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 31 );
 exit( $fail ? 1 : 0 );

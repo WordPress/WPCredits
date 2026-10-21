@@ -87,6 +87,28 @@ ck( 'a course added where there was none is a change',
     WPCPM_Track_Diff::between( track(), changed( function ( &$t ) { $t['course_url'] = 'https://learn.wordpress.org/course/marketing/'; } ) )['track'],
     array( 'course_url' ) );
 
+ck( 'a changed hue and a changed partner list are both named, sponsors last in TRACK\'s order',
+    WPCPM_Track_Diff::between( track(), changed( function ( &$t ) { $t['hue'] = 'blue'; $t['sponsors'] = array( 'spoAAAA0000000001' ); } ) )['track'],
+    array( 'hue', 'sponsors' ) );
+
+ck( 'the same partners in a new order are a change: normalize() keeps the picker\'s order and flat() compares a list position by position, so this is not read as the same partners listed differently',
+    WPCPM_Track_Diff::between(
+        changed( function ( &$t ) { $t['sponsors'] = array( 'spoAAAA0000000001', 'recSEED0000000001' ); } ),
+        changed( function ( &$t ) { $t['sponsors'] = array( 'recSEED0000000001', 'spoAAAA0000000001' ); } )
+    )['track'],
+    array( 'sponsors' ) );
+
+// The partners' narrative is the track's own too: History names it, in the saves and in what
+// publishing would change, since each partner's annual report reads the published text.
+ck( 'a partners\' narrative written, changed or taken out is named, last in TRACK\'s order, and the same text is no change',
+    array(
+        WPCPM_Track_Diff::between( track(), changed( function ( &$t ) { $t['hue'] = 'blue'; $t['partners_narrative'] = 'Twelve students joined this year.'; } ) )['track'],
+        WPCPM_Track_Diff::between( changed( function ( &$t ) { $t['partners_narrative'] = 'Twelve students joined this year.'; } ), changed( function ( &$t ) { $t['partners_narrative'] = 'Fourteen students joined this year.'; } ) )['track'],
+        WPCPM_Track_Diff::between( changed( function ( &$t ) { $t['partners_narrative'] = 'Twelve students joined this year.'; } ), track() )['track'],
+        WPCPM_Track_Diff::between( changed( function ( &$t ) { $t['partners_narrative'] = 'Twelve students joined this year.'; } ), changed( function ( &$t ) { $t['partners_narrative'] = 'Twelve students joined this year.'; } ) )['same'],
+    ),
+    array( array( 'hue', 'partners_narrative' ), array( 'partners_narrative' ), array( 'partners_narrative' ), true ) );
+
 ck( 'and the questions are not the track',
     WPCPM_Track_Diff::between( track(), changed( function ( &$t ) { $t['questions']['Question A']['label'] = 'Renamed'; } ) )['track'],
     array() );

@@ -2,20 +2,29 @@
 /**
  * Approval: the one path from a sponsor application to a record, a row, an account and the rest.
  *
- * Design spec of 4 September 2026, section 9.3. What each block pins, and why:
+ * Design spec of 4 September 2026, section 9.3, amended for the site-side record (1.111.0).
+ * What each block pins, and why:
  *
- * - **The Airtable write is first, and nothing follows a failed one.** The suite makes the
- *   create fail and asserts the journal holds one entry, the state is untouched, no stamp and
- *   no event were written, the lock is released, and the reason comes back.
- * - **The payload is the spec's, byte for byte.** Ten cells in the spec's order, the two
- *   attachments' public URLs under `Logo` with the color one first, `Privacy Policy Compliance`
- *   and `Dashboard account` as PHP booleans, `Status` `Approved`, every name from the sync's
- *   map and pinned against the fixture. No `typecast`.
- * - **The side effects run in the spec's order**, and the journal says so: create, account,
+ * - **The key is minted first, and it cannot fail.** `WPCPM_Sponsors_Index::mint_key()` always
+ *   answers with a fresh `spo` key, so the suite pins instead that the earlier refusals (no
+ *   address, no name, a conflicting account) still write nothing and release the lock, and that
+ *   `WPCPM_Airtable` is never constructed at all: the stub is gone from this file, so a call to
+ *   it would be a fatal, not a failed check.
+ * - **A row the store refuses stops the approval.** The `wp_insert_post()`
+ *   stand-in refuses the store's next row once; the approval answers with its own code and
+ *   sentence before the account is asked for, keeps the key stamped, writes no event, releases
+ *   the lock, and the next press inserts the row under the same key.
+ * - **The row is the application's answers, shaped for the store.** Name, website, status,
+ *   option, anything, contact person, the address lowercased, consent, the dashboard flag and
+ *   today's date, inserted through the real `WPCPM_Sponsors_Index`; and the tier the applicant
+ *   said it was considering (1.113.0), kept only when it is a tier of the real
+ *   `WPCPM_Sponsor_Tiers` or its "not sure yet", so no answer, an unknown one and an application
+ *   from before the question all leave `tier_requested` empty.
+ * - **The side effects run in the spec's order**, and the journal says so: key, row, account,
  *   category, logo record, offer, invitation, log.
  * - **Every half is stamped the moment it lands, and a second press finishes the rest.** The
- *   suite kills a run at the account step, ages the lock it left, presses again, and asserts
- *   one record, one index row, one account, one invitation.
+ *   suite kills a run at the account step, ages the lock it left, presses again, and asserts one
+ *   key, one index row, one account, one invitation - the same key both times.
  * - **The account half is the shipped provisioning path.** `WPCPM_Sponsors::provision_account()`
  *   is asked, and its refusal is the approval's refusal; it is stood in for here at its contract,
  *   refusing a record the index does not hold exactly as the real one does, which is what makes
@@ -23,8 +32,8 @@
  * - **The lock.** Taken after the refusals that write nothing, released on every exit after it,
  *   and never touched by a refusal that came before it.
  *
- * `WPCPM_Sponsors_Index` and `WPCPM_Roles` are the real files; everything else is stood in for
- * at its contract.
+ * `WPCPM_Sponsors_Index`, `WPCPM_Sponsor_Tiers` and `WPCPM_Roles` are the real files; everything
+ * else is stood in for at its contract.
  *
  * Run from the plugin root:  php bin/test-sponsor-approval.php
  *
@@ -52,14 +61,13 @@ $GLOBALS['next_id']        = 300;
 $GLOBALS['next_user']      = 40;
 $GLOBALS['journal']        = array();
 $GLOBALS['audit']          = array();
-$GLOBALS['created']        = array();
 $GLOBALS['members']        = array();
 $GLOBALS['mail_queue']     = array();
 $GLOBALS['seeded']         = array();
-$GLOBALS['create_answer']   = null;
 $GLOBALS['account_answer']  = null;
 $GLOBALS['category_answer'] = null;
 $GLOBALS['account_dies']    = false;
+$GLOBALS['insert_fails']    = false;
 $GLOBALS['manager_can']     = true;
 
 class WP_Error {
@@ -70,7 +78,7 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_date = '';
+	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_name = '', $post_date = '';
 }
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
@@ -89,6 +97,16 @@ function sanitize_email( $s ) { return trim( (string) $s ); }
 function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
+/** mint_key()'s own alphabet; journals 'key' so the order check sees exactly when it ran. */
+function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+	$alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	$out      = '';
+	for ( $i = 0; $i < (int) $length; $i++ ) {
+		$out .= $alphabet[ random_int( 0, strlen( $alphabet ) - 1 ) ];
+	}
+	$GLOBALS['journal'][] = 'key';
+	return $out;
+}
 
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; $GLOBALS['opts_autoload'][ $k ] = $a; return true; }
@@ -109,14 +127,28 @@ function get_post_meta( $id, $key = '', $single = false ) {
 function add_post_meta( $id, $key, $value, $unique = false ) { $GLOBALS['pmeta'][ (int) $id ][ $key ][] = $value; return true; }
 function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
 function wp_insert_post( $a, $error = false ) {
+	// A database that refuses the store's next row, once: the approval's own refusal for a row
+	// that did not land. Nothing is written and nothing is
+	// journaled, as nothing is on a site whose insert failed.
+	if ( $GLOBALS['insert_fails'] && class_exists( 'WPCPM_Sponsors_Index' ) && WPCPM_Sponsors_Index::POST_TYPE === ( $a['post_type'] ?? '' ) ) {
+		$GLOBALS['insert_fails'] = false;
+		return $error ? new WP_Error( 'db_insert_error', 'Could not insert post into the database.' ) : 0;
+	}
 	$post                          = new WP_Post();
 	$post->ID                      = $GLOBALS['next_id']++;
 	$post->post_type               = $a['post_type'] ?? 'post';
 	$post->post_status             = $a['post_status'] ?? 'publish';
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
 	$post->post_title              = $a['post_title'] ?? '';
+	$post->post_name               = $a['post_name'] ?? '';
 	$post->post_date               = gmdate( 'Y-m-d H:i:s' );
 	$GLOBALS['posts'][ $post->ID ] = $post;
+	// The store's own post type only: journals 'row' so the order check sees the index insert,
+	// and an application post (seed_application()'s own wp_insert_post() call, same function)
+	// never counts as one.
+	if ( class_exists( 'WPCPM_Sponsors_Index' ) && WPCPM_Sponsors_Index::POST_TYPE === $post->post_type ) {
+		$GLOBALS['journal'][] = 'row';
+	}
 	return $post->ID;
 }
 /** The one call the approval makes on an attachment: moving its author to the account. */
@@ -126,7 +158,7 @@ function wp_update_post( $a, $error = false ) {
 		$GLOBALS['journal'][]     = 'logo';
 		$GLOBALS['authored'][ $id ] = (int) $a['post_author'];
 		// The form stores a stranger's files private; approval publishes them in the same
-		// write that moves the author (S5 review).
+		// write that moves the author.
 		$GLOBALS['statused'][ $id ] = (string) ( $a['post_status'] ?? '' );
 	}
 	return $id;
@@ -174,13 +206,10 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
+require_once __DIR__ . '/stubs/posts.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
-
-class WPCPM_Mentors_Sync {
-	public static function is_record_id( $value ) { return (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) ); }
-}
 
 /** The form, at its contract: the post type, the states, the meta keys, the columns, the logos. */
 class WPCPM_Sponsor_Application {
@@ -208,6 +237,7 @@ class WPCPM_Sponsor_Application {
 	const COL_PERSON     = 'Contact Person Full Name';
 	const COL_EMAIL      = 'Contact Email';
 	const COL_OPTION     = 'Sponsorship options';
+	const COL_TIER       = 'Tier considered';
 	const COL_ANYTHING   = "Anything else you'd like to share.";
 	public static function open_states() { return array( 'new', 'held', 'info' ); }
 	/** The real writer's shape: the event row, and the decision time for a terminal event (clean-up 1.98.1). */
@@ -220,53 +250,6 @@ class WPCPM_Sponsor_Application {
 		$stored = get_post_meta( (int) $post_id, self::META_LOGOS, true );
 		$stored = is_array( $stored ) ? $stored : array();
 		return array( 'colour' => isset( $stored['colour'] ) ? (int) $stored['colour'] : 0, 'white' => isset( $stored['white'] ) ? (int) $stored['white'] : 0 );
-	}
-}
-
-/** Only the field map. Checked against the fixture at the foot of this file. */
-class WPCPM_Sponsors_Sync {
-	public static function fields() {
-		return array(
-			'name'              => 'Company Name',
-			'website'           => 'Website',
-			'contact_person'    => 'Contact Person Full Name',
-			'contact_email'     => 'Contact Email',
-			'status'            => 'Status',
-			'option'            => 'Sponsorship options',
-			'support'           => 'How would you like to support WP Credits?',
-			'product_type'      => 'Type of product',
-			'offer'             => 'Offer',
-			'instructions'      => 'Brief instructions',
-			'more_info'         => 'More info link',
-			'coupon_link'       => 'Coupon code/discount link',
-			'anything'          => "Anything else you'd like to share.",
-			'manager'           => 'Person of contact',
-			'mentors'           => 'Mentors',
-			'logo'              => 'Logo',
-			'consent'           => 'Privacy Policy Compliance',
-			'agr_status'        => 'Agreement Status',
-			'agr_accepted_on'   => 'Agreement Accepted On',
-			'agr_document'      => 'Agreement Document',
-			'interests'         => 'Sponsorship interests',
-			'dashboard_account' => 'Dashboard account',
-		);
-	}
-}
-
-class WPCPM_Settings {
-	public static function get() { return array( 'sponsors_table' => 'tbluji8wknOZr55fa' ); }
-	public static function get_value( $key, $fallback = null ) { $s = self::get(); return array_key_exists( $key, $s ) ? $s[ $key ] : $fallback; }
-}
-
-/** The one call approval makes on the base, journalled, answering what the test says. */
-class WPCPM_Airtable {
-	public function __construct( $settings = null ) {}
-	public function create_records( $table, array $records ) {
-		$GLOBALS['journal'][] = 'create';
-		$GLOBALS['created'][] = array( 'table' => $table, 'records' => $records );
-		if ( $GLOBALS['create_answer'] instanceof WP_Error ) { return $GLOBALS['create_answer']; }
-		if ( is_array( $GLOBALS['create_answer'] ) ) { return $GLOBALS['create_answer']; }
-		return array( 'recSPN00000000009' );
 	}
 }
 
@@ -333,7 +316,7 @@ class WPCPM_Institution_Audit {
 	const EVIDENCE_INDEX = 'index'; const EVIDENCE_CACHE = 'cache'; const EVIDENCE_LIVE = 'live';
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system';
 	public static function record_sponsor( array $entry ) {
-		if ( '' === sanitize_key( (string) ( $entry['kind'] ?? '' ) ) || ! WPCPM_Mentors_Sync::is_record_id( (string) ( $entry['sponsor'] ?? '' ) ) || ! in_array( (string) ( $entry['ground'] ?? '' ), array( 'manager', 'member', 'system' ), true ) || ! in_array( (string) ( $entry['evidence'] ?? '' ), array( 'index', 'cache', 'live' ), true ) ) {
+		if ( '' === sanitize_key( (string) ( $entry['kind'] ?? '' ) ) || ! WPCPM_Sponsors_Index::is_key( (string) ( $entry['sponsor'] ?? '' ) ) || ! in_array( (string) ( $entry['ground'] ?? '' ), array( 'manager', 'member', 'system' ), true ) || ! in_array( (string) ( $entry['evidence'] ?? '' ), array( 'index', 'cache', 'live' ), true ) ) {
 			return new WP_Error( 'wpcpm_audit', 'refused' );
 		}
 		$GLOBALS['journal'][] = 'audit';
@@ -343,6 +326,9 @@ class WPCPM_Institution_Audit {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+// The tier ladder, for which answers to the tier question the record may keep (1.113.0). Only its
+// pure half is read, so no settings stand-in is needed.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-approval.php';
 
 $fail = 0; $checks = 0;
@@ -364,6 +350,9 @@ function reset_world() {
 	$GLOBALS['opts_autoload']  = array();
 	$GLOBALS['posts']          = array();
 	$GLOBALS['pmeta']          = array();
+	// The store (1.111.0) caches rows() for the request; clearing the posts out from under it
+	// without this would leave a prior section's rows answering here too.
+	WPCPM_Sponsors_Index::forget();
 	// A reserved address, and deliberately not the applicant's: the manager pressing Approve is
 	// somebody else, and an account already sitting at the contact address would be attached
 	// rather than created, which is the one thing this suite must not stub away.
@@ -374,19 +363,18 @@ function reset_world() {
 	$GLOBALS['statused']       = array();
 	$GLOBALS['journal']        = array();
 	$GLOBALS['audit']          = array();
-	$GLOBALS['created']        = array();
 	$GLOBALS['members']        = array();
 	$GLOBALS['mail_queue']     = array();
 	$GLOBALS['seeded']         = array();
-	$GLOBALS['create_answer']   = null;
 	$GLOBALS['account_answer']  = null;
 	$GLOBALS['category_answer'] = null;
 	$GLOBALS['account_dies']    = false;
+	$GLOBALS['insert_fails']    = false;
 	$GLOBALS['next_id']         = 300;
 	$GLOBALS['next_user']       = 40;
 }
 
-/** The six answers as the form stores them. */
+/** The six answers as the form stored them before the tier question joined them (1.113.0). */
 function stored_answers() {
 	return array(
 		'Company Name'                      => 'TEST Sponsor',
@@ -439,43 +427,7 @@ function events_of( $id ) {
 	return array_map( static function ( $row ) { return $row['event']; }, (array) get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT, false ) );
 }
 
-$fixture = json_decode( file_get_contents( WPCPM_PLUGIN_DIR . 'bin/fixtures/sponsors-table-fields.json' ), true );
-
-echo "=== The base's spelling, byte for byte ===\n";
-$missing = array();
-foreach ( WPCPM_Sponsors_Sync::fields() as $column ) {
-	if ( ! in_array( $column, $fixture['fields'], true ) ) { $missing[] = $column; }
-}
-ck( 'every column the map names is in the fixture', $missing, array() );
-ck( 'and Approved is a Status the column offers', in_array( WPCPM_Sponsors_Index::STATUS_APPROVED, $fixture['choices']['Status'], true ), true );
-ck( 'the stored choice is one the column offers', in_array( stored_answers()['Sponsorship options'], $fixture['choices']['Sponsorship options'], true ), true );
-
-echo "\n=== The payload ===\n";
-reset_world();
-$id      = seed_application();
-$payload = WPCPM_Sponsor_Approval::payload( stored_answers(), WPCPM_Sponsor_Application::logos_of( $id ) );
-ck( 'ten cells, in the spec\'s order, byte for byte', $payload, array(
-	'Company Name'                      => 'TEST Sponsor',
-	'Website'                           => 'https://test-sponsor.example',
-	'Contact Person Full Name'          => 'Rep One',
-	'Contact Email'                     => 'maciej@a8c.com',
-	'Sponsorship options'               => 'Sponsor mentors + tools/services',
-	"Anything else you'd like to share." => 'We make widgets.',
-	'Privacy Policy Compliance'         => true,
-	'Status'                            => 'Approved',
-	'Logo'                              => array(
-		array( 'url' => 'https://example.test/uploads/test-sponsor-logo.png', 'filename' => 'test-sponsor-logo.png' ),
-		array( 'url' => 'https://example.test/uploads/test-sponsor-logo-white.png', 'filename' => 'test-sponsor-logo-white.png' ),
-	),
-	'Dashboard account'                 => true,
-) );
-ck( 'the two booleans are booleans, never strings', array( $payload['Privacy Policy Compliance'] === true, $payload['Dashboard account'] === true ), array( true, true ) );
-$without = WPCPM_Sponsor_Approval::payload( stored_answers(), array( 'colour' => 0, 'white' => 0 ) );
-ck( 'with no attachment there is no Logo cell at all', array( array_key_exists( 'Logo', $without ), count( $without ) ), array( false, 9 ) );
-$white_only = WPCPM_Sponsor_Approval::payload( stored_answers(), array( 'colour' => 0, 'white' => 641 ) );
-ck( 'a white logo alone is one entry', count( $white_only['Logo'] ), 1 );
-
-echo "\n=== Refusals before the lock ===\n";
+echo "=== Refusals before the lock ===\n";
 reset_world();
 $page              = new WP_Post();
 $page->ID          = 42;
@@ -491,7 +443,7 @@ ck( 'an actor who cannot manage the program', approve( $id )->get_error_code(), 
 $GLOBALS['manage'] = array( 3 );
 $id = seed_application( 'new', array( WPCPM_Sponsor_Application::META_FIELDS => array() ) );
 ck( 'an application with no answers', approve( $id )->get_error_code(), 'wpcpm_sapp_fields' );
-ck( 'none of which took the lock or wrote to the base', array( count( preg_grep( '/^wpcpm_sapp_lock_/', array_keys( $GLOBALS['opts'] ) ) ), $GLOBALS['journal'] ), array( 0, array() ) );
+ck( 'none of which took the lock or journaled anything', array( count( preg_grep( '/^wpcpm_sapp_lock_/', array_keys( $GLOBALS['opts'] ) ) ), $GLOBALS['journal'] ), array( 0, array() ) );
 
 echo "\n=== The lock ===\n";
 reset_world();
@@ -515,7 +467,7 @@ reset_world();
 $GLOBALS['users'][50] = new WP_User( 50, 'maciej@a8c.com', 'existing' );
 $id      = seed_application();
 $refused = approve( $id );
-ck( 'the contact address already belongs to somebody else\'s account, refused before Airtable is asked', array( $refused->get_error_code(), $GLOBALS['journal'], $GLOBALS['created'] ), array( 'wpcpm_sapp_conflict', array(), array() ) );
+ck( 'the contact address already belongs to somebody else\'s account, refused before a record is minted', array( $refused->get_error_code(), $GLOBALS['journal'] ), array( 'wpcpm_sapp_conflict', array() ) );
 ck( 'nothing was stamped, the state is untouched, and the lock is released', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), array( '', 'new', false ) );
 $id2                = seed_application( 'new', array( WPCPM_Sponsor_Application::META_USER => 50 ) );
 $GLOBALS['journal'] = array();
@@ -526,37 +478,91 @@ echo "\n=== One press, everything in the spec's order ===\n";
 reset_world();
 $id     = seed_application();
 $result = approve( $id );
-ck( 'the answer names the record, the account, the offer and the category', $result, array( 'record' => 'recSPN00000000009', 'user_id' => 40, 'offer_id' => 501, 'term_id' => 77 ) );
-ck( 'the side effects ran in the spec\'s order: create, account, category, logo, offer, invitation, log', $GLOBALS['journal'], array( 'create', 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ) );
-ck( 'the base was written once, to the sponsors table, with the payload', array( count( $GLOBALS['created'] ), $GLOBALS['created'][0]['table'], $GLOBALS['created'][0]['records'][0]['fields'] ), array( 1, 'tbluji8wknOZr55fa', WPCPM_Sponsor_Approval::payload( stored_answers(), array( 'colour' => 640, 'white' => 641 ) ) ) );
-ck( 'and never with typecast', isset( $GLOBALS['created'][0]['records'][0]['typecast'] ), false );
-ck( 'the record and the account are stamped on the application, and the state is approved', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ) ), array( 'recSPN00000000009', 40, 'approved' ) );
-ck( 'three events say what the site did', events_of( $id ), array( 'record created', 'account created', 'approved' ) );
+$record = is_array( $result ) ? (string) $result['record'] : '';
+ck( 'the answer names a key, the account, the offer and the category', array( $result['user_id'], $result['offer_id'], $result['term_id'] ), array( 40, 501, 77 ) );
+ck( 'the side effects ran in the spec\'s order: key, row, account, category, logo, offer, invite, audit', $GLOBALS['journal'], array( 'key', 'row', 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ) );
+$row = WPCPM_Sponsors_Index::row( $record );
+ck( 'a press mints a spo key, stamps it and inserts the Approved row with the application\'s answers', array(
+	WPCPM_Sponsors_Index::is_key( $record ),
+	0 === strpos( $record, 'spo' ),
+	get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ),
+	$row['name'],
+	$row['website'],
+	$row['status'],
+	$row['option'],
+	$row['anything'],
+	$row['contact_person'],
+	$row['contact_email'],
+	$row['consent'],
+	$row['dashboard_account'],
+	$row['created'],
+), array(
+	true,
+	true,
+	$record,
+	'TEST Sponsor',
+	'https://test-sponsor.example',
+	'Approved',
+	'Sponsor mentors + tools/services',
+	'We make widgets.',
+	'Rep One',
+	'maciej@a8c.com',
+	true,
+	true,
+	gmdate( 'Y-m-d' ),
+) );
+ck( 'the account is stamped, and the state is approved', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ) ), array( 40, 'approved' ) );
+ck( 'three events say what the site did', events_of( $id ), array( 'sponsor record created on the site', 'account created', 'approved' ) );
 ck( 'and the approval stamps the decision time Recently decided sorts by (clean-up 1.98.1)', (int) get_post_meta( $id, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, true );
-$row = WPCPM_Sponsors_Index::row( 'recSPN00000000009' );
-ck( 'the index row is the application\'s answers, Approved, with a dashboard account, the address as the sync stores it', array( $row['name'], $row['website'], $row['status'], $row['contact_person'], $row['contact_email'], $row['option'], $row['anything'], $row['consent'], $row['dashboard_account'] ), array( 'TEST Sponsor', 'https://test-sponsor.example', 'Approved', 'Rep One', 'maciej@a8c.com', 'Sponsor mentors + tools/services', 'We make widgets.', true, true ) );
-ck( 'the logo record says the site owns both halves', WPCPM_Sponsors_Index::logo_record( 'recSPN00000000009' ), array( 'colour' => 640, 'white' => 641, 'source' => 'site', 'airtable_id' => '' ) );
+ck( 'the logo record says the site owns both halves', WPCPM_Sponsors_Index::logo_record( $record ), array( 'colour' => 640, 'white' => 641, 'source' => 'site', 'airtable_id' => '' ) );
 ck( 'and the attachments now belong to the account, and are published in the same write', array( $GLOBALS['authored'], $GLOBALS['statused'] ), array( array( 640 => 40, 641 => 40 ), array( 640 => 'inherit', 641 => 'inherit' ) ) );
 ck( 'the account was invited once, through the queue', $GLOBALS['mail_queue'], array( 40 ) );
 $entry = end( $GLOBALS['audit'] );
-ck( 'the log row names the approval, the record, the manager and what was made', array( $entry['kind'], $entry['sponsor'], $entry['actor'], $entry['ground'], $entry['evidence'], $entry['data'] ), array( 'application_approved', 'recSPN00000000009', 3, 'manager', 'live', array( 'application' => $id, 'user' => 40, 'offer' => 501, 'term' => 77 ) ) );
+ck( 'the log row names the approval, the record, the manager and what was made', array( $entry['kind'], $entry['sponsor'], $entry['actor'], $entry['ground'], $entry['evidence'], $entry['data'] ), array( 'application_approved', $record, 3, 'manager', 'live', array( 'application' => $id, 'user' => 40, 'offer' => 501, 'term' => 77 ) ) );
 ck( 'the lock is released', get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ), false );
 ck( 'and nothing this class wrote is autoloaded', in_array( true, array_values( $GLOBALS['opts_autoload'] ), true ), false );
 ck( 'a second press of a decided application is refused', approve( $id )->get_error_code(), 'wpcpm_sapp_state' );
 
-echo "\n=== Nothing after a failed write ===\n";
-reset_world();
-$id = seed_application();
-$GLOBALS['create_answer'] = new WP_Error( 'wpcpm_airtable_http', 'Airtable said no.' );
-$refused = approve( $id );
-ck( 'a failed create is the base\'s refusal, and nothing else happened', array( $refused->get_error_code(), $GLOBALS['journal'] ), array( 'wpcpm_sapp_airtable', array( 'create' ) ) );
-ck( 'no stamp, no event, no row, the state untouched, the lock released', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), events_of( $id ), WPCPM_Sponsors_Index::rows(), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), array( '', array(), array(), 'new', false ) );
-$GLOBALS['journal']       = array();
-$GLOBALS['create_answer'] = array();
-ck( 'an answer with no record ID is a failed write too', array( approve( $id )->get_error_code(), $GLOBALS['journal'], get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ) ), array( 'wpcpm_sapp_airtable', array( 'create' ), '' ) );
-$GLOBALS['create_answer'] = null;
-$GLOBALS['journal']       = array();
-ck( 'so the next press starts clean, and creates', array( is_array( approve( $id ) ), $GLOBALS['journal'][0] ), array( true, 'create' ) );
+echo "\n=== The tier the applicant was considering, onto the record (1.113.0) ===\n";
+// The application stores the tier question's key, and approval copies it into `tier_requested`,
+// which the Sponsors screen's Tier box reads. Only what the question offers is copied: a tier or
+// "not sure yet". No answer, a tier the ladder does not have, a label in place of its key, and an
+// application filed before the question existed all leave the field empty.
+$requested = array();
+foreach ( array( 'backer' => 'backer', 'unsure' => 'unsure', 'no answer' => '', 'unknown tier' => 'gold', 'a label' => 'Backer', 'before the question' => null ) as $case => $answer ) {
+	reset_world();
+	$answers = stored_answers();
+	if ( null !== $answer ) {
+		$answers['Tier considered'] = $answer;
+	}
+	$result             = approve( seed_application( 'new', array(), $answers ) );
+	$requested[ $case ] = is_array( $result ) ? WPCPM_Sponsors_Index::row( $result['record'] )['tier_requested'] : 'refused';
+}
+ck( 'an application considering Backer gives the record Backer, one not sure yet gives it not sure yet, and anything else leaves it empty', $requested, array( 'backer' => 'backer', 'unsure' => 'unsure', 'no answer' => '', 'unknown tier' => '', 'a label' => '', 'before the question' => '' ) );
+
+echo "\n=== The support question, no longer asked (1.123.12) ===\n";
+// The form stopped asking "How would you like to support WP Credits?" in 1.123.12, since the tiers
+// cover it. An application filed since holds no answer under `Sponsorship options`, and approving
+// it makes the same record, with the Sponsorship option left empty for an Administrator to set on
+// the Edit form if the program wants one; an application filed before still carries its answer to
+// the record, as it always did (the main approval above).
+$support = array();
+foreach ( array( 'filed since' => null, 'filed before' => 'Sponsor one or multiple mentors' ) as $case => $answer ) {
+	reset_world();
+	$answers = stored_answers();
+	unset( $answers['Sponsorship options'] );
+	$answers['Tier considered'] = 'backer';
+	if ( null !== $answer ) {
+		$answers['Sponsorship options'] = $answer;
+	}
+	$result           = approve( seed_application( 'new', array(), $answers ) );
+	$row              = is_array( $result ) ? WPCPM_Sponsors_Index::row( $result['record'] ) : array();
+	$support[ $case ] = is_array( $result ) ? array( $row['name'], $row['status'], $row['option'], $row['tier_requested'], $row['anything'] ) : array( 'refused', $result->get_error_code() );
+}
+ck( 'an application with no support answer is approved into the same record with the option empty, and one filed before keeps its answer on the record', $support, array(
+	'filed since'  => array( 'TEST Sponsor', 'Approved', '', 'backer', 'We make widgets.' ),
+	'filed before' => array( 'TEST Sponsor', 'Approved', 'Sponsor one or multiple mentors', 'backer', 'We make widgets.' ),
+) );
 
 echo "\n=== A press that died at the account, finished by the next ===\n";
 reset_world();
@@ -568,14 +574,15 @@ try {
 } catch ( Exception $e ) {
 	$died = true;
 }
-ck( 'the run died after the record landed', array( $died, $GLOBALS['journal'], get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ) ), array( true, array( 'create', 'account' ), 'recSPN00000000009' ) );
+$half_record = WPCPM_Sponsor_Approval::stamped_record( $id );
+ck( 'the run died after the key and the row landed', array( $died, $GLOBALS['journal'], WPCPM_Sponsors_Index::is_key( $half_record ) ), array( true, array( 'key', 'row', 'account' ), true ) );
 ck( 'and left its lock behind', is_int( get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), true );
 ck( 'which the queue reads as half done', WPCPM_Sponsor_Approval::is_half_done( $id ), true );
 update_option( WPCPM_Sponsor_Approval::lock_name( $id ), time() - WPCPM_Sponsor_Approval::LOCK_TIMEOUT - 1, false );
 $GLOBALS['journal'] = array();
 $result = approve( $id );
-ck( 'the next press creates nothing and finishes the rest in order', array( is_array( $result ), $GLOBALS['journal'], count( $GLOBALS['created'] ) ), array( true, array( 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ), 1 ) );
-ck( 'one record, one account, one invitation', array( $result['record'], count( $GLOBALS['users'] ) - 1, $GLOBALS['mail_queue'] ), array( 'recSPN00000000009', 1, array( 40 ) ) );
+ck( 'the half-done path finishes the rest in order, minting no second key and inserting no second row', array( is_array( $result ), $GLOBALS['journal'], $result['record'] ), array( true, array( 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ), $half_record ) );
+ck( 'one record, one account, one invitation', array( $result['record'], count( $GLOBALS['users'] ) - 1, $GLOBALS['mail_queue'] ), array( $half_record, 1, array( 40 ) ) );
 ck( 'and the queue no longer calls it half done', WPCPM_Sponsor_Approval::is_half_done( $id ), false );
 
 echo "\n=== The account refused, then sorted out ===\n";
@@ -584,10 +591,12 @@ $id = seed_application();
 $GLOBALS['account_answer'] = array( 'status' => 'provision-refused', 'user_id' => 0, 'created' => false, 'already' => false, 'detail' => 'That account belongs to a student.' );
 $refused = approve( $id );
 ck( 'the provisioning path\'s refusal is the approval\'s, with its own words', array( $refused->get_error_code(), $refused->get_error_message() ), array( 'wpcpm_sapp_account', 'That account belongs to a student.' ) );
-ck( 'the record stands stamped, the state is still open, the lock is released, and nothing after the account ran', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ), $GLOBALS['journal'] ), array( 'recSPN00000000009', 'new', false, array( 'create', 'account' ) ) );
+$half_record = WPCPM_Sponsor_Approval::stamped_record( $id );
+ck( 'the record stands stamped, the state is still open, the lock is released, and nothing after the row ran', array( WPCPM_Sponsors_Index::is_key( $half_record ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ), $GLOBALS['journal'] ), array( true, 'new', false, array( 'key', 'row', 'account' ) ) );
 $GLOBALS['account_answer'] = null;
 $GLOBALS['journal']        = array();
-ck( 'once the account is sorted out, the next press finishes without a second record', array( is_array( approve( $id ) ), $GLOBALS['journal'][0], count( $GLOBALS['created'] ) ), array( true, 'account', 1 ) );
+$result = approve( $id );
+ck( 'once the account is sorted out, the next press finishes without a second record', array( is_array( $result ), $GLOBALS['journal'][0], $result['record'] ), array( true, 'account', $half_record ) );
 
 echo "\n=== A category failure refuses after the record and the account ===\n";
 reset_world();
@@ -595,45 +604,90 @@ $id                          = seed_application();
 $GLOBALS['category_answer'] = 0;
 $refused                    = approve( $id );
 ck( 'ensure_terms() answering with no term refuses the approval', $refused->get_error_code(), 'wpcpm_sapp_category' );
-ck( 'the record and the account already stand, the state is still open, and the lock is released', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), array( 'recSPN00000000009', 40, 'new', false ) );
+$half_record = WPCPM_Sponsor_Approval::stamped_record( $id );
+ck( 'the record and the account already stand, the state is still open, and the lock is released', array( WPCPM_Sponsors_Index::is_key( $half_record ), get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), array( true, 40, 'new', false ) );
 $GLOBALS['category_answer'] = null;
 $GLOBALS['journal']         = array();
 $result                     = approve( $id );
-ck( 'the second press completes without a second record or a second account', array( is_array( $result ), $GLOBALS['journal'], count( $GLOBALS['created'] ) ), array( true, array( 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ), 1 ) );
-ck( 'and writes no second record created or account created event', events_of( $id ), array( 'record created', 'account created', 'approved' ) );
+ck( 'the second press completes without a second record or a second account', array( is_array( $result ), $GLOBALS['journal'], $result['record'] ), array( true, array( 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ), $half_record ) );
+ck( 'and writes no second record created or account created event', events_of( $id ), array( 'sponsor record created on the site', 'account created', 'approved' ) );
 
-echo "\n=== An account attached rather than created is stamped all the same ===\n";
+echo "\n=== A row the store refuses stops the approval, and the next press inserts it ===\n";
+// A failed insert used to go on to the account, which the
+// provisioning path refused for a key the store does not hold, and the manager read "the sponsor
+// record was created" under it; pressing Add as that sentence advised made a second record under
+// a second key. The refusal is the approval's own now, before the account is asked for.
+reset_world();
+$id                      = seed_application();
+$GLOBALS['insert_fails'] = true;
+$refused                 = approve( $id );
+$half_record             = WPCPM_Sponsor_Approval::stamped_record( $id );
+ck( 'a row the store refuses stops the approval with its own code and sentence, before the account is asked for', array( is_wp_error( $refused ) ? $refused->get_error_code() : 'approved', is_wp_error( $refused ) ? $refused->get_error_message() : '', $GLOBALS['journal'] ), array( 'wpcpm_sapp_record', 'The sponsor record could not be saved just now. Press Approve again in a moment.', array( 'key' ) ) );
+ck( 'the key stays stamped, the store holds no row, no account is made, the state is untouched and the lock is released', array( WPCPM_Sponsors_Index::is_key( $half_record ), WPCPM_Sponsors_Index::has( $half_record ), count( $GLOBALS['users'] ) - 1, get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), get_option( WPCPM_Sponsor_Approval::lock_name( $id ) ) ), array( true, false, 0, 'new', false ) );
+ck( 'and the history names no record the store does not hold', events_of( $id ), array() );
+$GLOBALS['journal'] = array();
+$result             = approve( $id );
+ck( 'the next press inserts the row under the stamped key and finishes, minting no second key', array( is_array( $result ), $GLOBALS['journal'], is_array( $result ) ? $result['record'] : '', array_keys( WPCPM_Sponsors_Index::rows() ) ), array( true, array( 'row', 'account', 'category', 'logo', 'logo', 'offer', 'invite', 'audit' ), $half_record, array( $half_record ) ) );
+ck( 'and the history says the record was created once, by the press that created it', events_of( $id ), array( 'sponsor record created on the site', 'account created', 'approved' ) );
+
+echo "\n=== A second press creates no second record ===\n";
 reset_world();
 $id                        = seed_application();
 $GLOBALS['users'][77]      = new WP_User( 77, 'attached@example.test', 'attached' );
 $GLOBALS['account_answer'] = array( 'status' => 'provision-attached', 'user_id' => 77, 'created' => false, 'already' => true, 'detail' => '' );
 $result                    = approve( $id );
 ck( 'the account is stamped on the application even though it was attached, not created', array( is_array( $result ), get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ) ), array( true, 77 ) );
-ck( 'but no account created event is written for an account that was only attached', events_of( $id ), array( 'record created', 'approved' ) );
+ck( 'but no account created event is written for an account that was only attached', events_of( $id ), array( 'sponsor record created on the site', 'approved' ) );
 
 echo "\n=== The halves that answer for themselves ===\n";
 reset_world();
-$id = seed_application();
-approve( $id );
+$id     = seed_application();
+$first  = approve( $id );
 update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, 'new' );
 $GLOBALS['journal'] = array();
 $again = approve( $id );
-ck( 'a press over halves already done attaches nothing new, seeds nothing, invites nobody, and still logs', array( is_array( $again ), $GLOBALS['journal'], $again['offer_id'], count( $GLOBALS['mail_queue'] ) ), array( true, array( 'account', 'category', 'logo', 'logo', 'offer', 'audit' ), 0, 1 ) );
-ck( 'and writes no second account stamp or event', events_of( $id ), array( 'record created', 'account created', 'approved', 'approved' ) );
+ck( 'a second press creates no second record: the same key both times, and no key or row step run again', array( $again['record'], $again['record'] === $first['record'], $GLOBALS['journal'] ), array( $first['record'], true, array( 'account', 'category', 'logo', 'logo', 'offer', 'audit' ) ) );
+ck( 'and attaches nothing new, seeds nothing, invites nobody', array( $again['offer_id'], count( $GLOBALS['mail_queue'] ) ), array( 0, 1 ) );
+ck( 'and writes no second account stamp or event', events_of( $id ), array( 'sponsor record created on the site', 'account created', 'approved', 'approved' ) );
 
 echo "\n=== Without a logo ===\n";
 reset_world();
 $id     = seed_application( 'new', array(), array(), false );
 $result = approve( $id );
-ck( 'no attachment, no logo step and no Logo cell', array( $GLOBALS['journal'], array_key_exists( 'Logo', $GLOBALS['created'][0]['records'][0]['fields'] ) ), array( array( 'create', 'account', 'category', 'offer', 'invite', 'audit' ), false ) );
-ck( 'and the logo record is untouched, so the next sync may copy the base\'s', WPCPM_Sponsors_Index::logo_record( 'recSPN00000000009' ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
+ck( 'no attachment, no logo step', $GLOBALS['journal'], array( 'key', 'row', 'account', 'category', 'offer', 'invite', 'audit' ) );
+ck( 'and the logo record stays untouched', WPCPM_Sponsors_Index::logo_record( $result['record'] ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
 
 echo "\n=== The index's insert ===\n";
 reset_world();
 ck( 'a malformed record is refused', WPCPM_Sponsors_Index::insert( array( 'record_id' => 'nope', 'name' => 'X' ) ), false );
-ck( 'a row is inserted, shaped, and found', array( WPCPM_Sponsors_Index::insert( array( 'record_id' => 'recSPN00000000001', 'name' => 'Inserted ', 'status' => 'Approved' ) ), WPCPM_Sponsors_Index::has( 'recSPN00000000001' ), WPCPM_Sponsors_Index::row( 'recSPN00000000001' )['name'], WPCPM_Sponsors_Index::row( 'recSPN00000000001' )['dashboard_account'] ), array( true, true, 'Inserted ', false ) );
+// 1.111.0: the store trims the name on the way in (the site is the record now, so nothing
+// needs the base's exact bytes the way the old, option-backed index did); the input keeps its
+// trailing space on purpose, to prove that trim happens.
+ck( 'a row is inserted, shaped, and found', array( WPCPM_Sponsors_Index::insert( array( 'record_id' => 'recSPN00000000001', 'name' => 'Inserted ', 'status' => 'Approved' ) ), WPCPM_Sponsors_Index::has( 'recSPN00000000001' ), WPCPM_Sponsors_Index::row( 'recSPN00000000001' )['name'], WPCPM_Sponsors_Index::row( 'recSPN00000000001' )['dashboard_account'] ), array( true, true, 'Inserted', false ) );
 WPCPM_Sponsors_Index::insert( array( 'record_id' => 'recSPN00000000001', 'name' => 'Renamed', 'status' => 'Approved' ) );
 ck( 'inserting again replaces the row and adds no second', array( count( WPCPM_Sponsors_Index::rows() ), WPCPM_Sponsors_Index::row( 'recSPN00000000001' )['name'] ), array( 1, 'Renamed' ) );
+
+echo "\n=== A test application, approved into a test sponsor (1.123.18) ===\n";
+// Beside Approve sits "Test sponsor: not listed publicly": ticked, the record the approval makes is
+// a test sponsor from its first write, so it is listed nowhere public; the box is the
+// Administrator's to tick, so approve() reads nothing from the name.
+reset_world();
+$t_result = WPCPM_Sponsor_Approval::approve( seed_application(), 3, true );
+ck( 'approved with the box ticked, the record is a test sponsor', is_array( $t_result ) ? WPCPM_Sponsors_Index::row( $t_result['record'] )['test'] : 'refused', true );
+reset_world();
+$t_result = approve( seed_application() );
+ck( 'and approved without it, it is not', is_array( $t_result ) ? WPCPM_Sponsors_Index::row( $t_result['record'] )['test'] : 'refused', false );
+reset_world();
+$t_id                    = seed_application();
+$GLOBALS['account_dies'] = true;
+try {
+	WPCPM_Sponsor_Approval::approve( $t_id, 3, false );
+} catch ( Exception $e ) {
+	unset( $e );
+}
+update_option( WPCPM_Sponsor_Approval::lock_name( $t_id ), time() - WPCPM_Sponsor_Approval::LOCK_TIMEOUT - 1, false );
+$t_result = WPCPM_Sponsor_Approval::approve( $t_id, 3, true );
+ck( 'a press that finishes a half-done approval leaves the record flagged as its own box said', array( is_array( $t_result ), WPCPM_Sponsors_Index::row( WPCPM_Sponsor_Approval::stamped_record( $t_id ) )['test'] ), array( true, true ) );
 
 echo "\n=== Uninstall ===\n";
 reset_world();
@@ -647,7 +701,7 @@ $src     = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/clas
 $approve = substr( $src, (int) strpos( $src, 'function approve(' ) );
 $approve = substr( $approve, 0, (int) strpos( $approve, "\n\t}\n" ) );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
-ck( 'the lock comes after the refusals that write nothing and before the base', strpos( $approve, 'self::lock(' ) > strpos( $approve, 'self::approvable()' ) && strpos( $approve, 'self::lock(' ) < strpos( $approve, 'self::create(' ), true );
+ck( 'the lock comes after the refusals that write nothing and before the record', strpos( $approve, 'self::lock(' ) > strpos( $approve, 'self::approvable()' ) && strpos( $approve, 'self::lock(' ) < strpos( $approve, 'WPCPM_Sponsors_Index::mint_key(' ), true );
 ck( 'the record is stamped before the row, the row before the account, the account before the rest', array(
 	strpos( $approve, 'WPCPM_Sponsor_Application::META_RECORD, $record' ) < strpos( $approve, 'WPCPM_Sponsors_Index::insert(' ),
 	strpos( $approve, 'WPCPM_Sponsors_Index::insert(' ) < strpos( $approve, 'WPCPM_Sponsors::provision_account(' ),
@@ -658,8 +712,9 @@ ck( 'the record is stamped before the row, the row before the account, the accou
 	strpos( $approve, 'WPCPM_Mail::queue_invites(' ) < strpos( $approve, 'WPCPM_Institution_Audit::record_sponsor(' ),
 ), array( true, true, true, true, true, true, true ) );
 ck( 'accounts come from the shipped provisioning path alone', array( strpos( $src, 'wp_insert_user(' ), strpos( $src, 'WPCPM_Roles::insert_user(' ) ), array( false, false ) );
-ck( 'the payload sends no typecast and reads every name from the sync\'s map', array( strpos( $src, 'typecast' ), substr_count( substr( $src, (int) strpos( $src, 'function payload(' ) ), "\$fields['" ) >= 10 ), array( false, true ) );
-ck( 'the approval class never touches the Dashboard account column twice: no PATCH at all', strpos( $src, 'update_records(' ), false );
+ck( 'no typecast anywhere in the file: there is no payload left to send one in', strpos( $src, 'typecast' ), false );
+ck( 'the approval class never touches the Dashboard account column: no PATCH, no create_records, at all', array( strpos( $src, 'update_records(' ), strpos( $src, 'create_records(' ) ), array( false, false ) );
+ck( 'the approval never constructs WPCPM_Airtable: the class does not even exist in this run', class_exists( 'WPCPM_Airtable' ), false );
 
 $sponsors = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php' );
 ck( 'provision() is the account half plus its four side effects, in one body each', array( substr_count( $sponsors, 'function provision_account(' ), substr_count( $sponsors, 'self::provision_account(' ), strpos( $sponsors, 'wp_insert_user(' ) ), array( 1, 1, false ) );

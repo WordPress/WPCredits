@@ -13,6 +13,11 @@
  * index once. Every option read and every option added are noted too, and a check can make an add
  * lose, as it does when another request wrote the row after this one read that it was not there.
  *
+ * The partners' narrative travels with the definition and the published copy and never reaches the
+ * compiled index; `check()` measures its length, which the Track Builder's Save asks first and
+ * `publish()` asks itself, so no longer one goes live, while `compile()` does not ask it, so a
+ * published copy holding one keeps running.
+ *
  * Run from the plugin root:  php bin/test-track-store.php
  */
 
@@ -51,6 +56,7 @@ $GLOBALS['adds']       = array();
 $GLOBALS['add_loses']  = array();
 
 function __( $s, $d = null ) { return $s; }
+function _n( $single, $plural, $number, $d = null ) { return 1 === (int) $number ? $single : $plural; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function wp_json_encode( $v, $o = 0 ) { return json_encode( $v, $o ); }
 function wp_slash( $v ) { return is_array( $v ) ? array_map( 'wp_slash', $v ) : ( is_string( $v ) ? addslashes( $v ) : $v ); }
@@ -486,6 +492,21 @@ ck( 'nor once another track is published and everything compiles again (the desi
 
 WPCPM_Track_Store::publish( $alpha );
 ck( 'until it is published itself', array( WPCPM_Tracks::rows()['Alpha Track']['label'], WPCPM_Track_Store::state( $alpha ) ), array( 'Alpha Track, renamed', 'published' ) );
+
+echo "\n=== A track's partners round-trip through the store and compile ===\n";
+
+$partner_id = WPCPM_Track_Store::create( track( 'Partner Track', 'partner-x' ) );
+WPCPM_Track_Store::save( $partner_id, array_merge( track( 'Partner Track', 'partner-x' ), array( 'sponsors' => array( 'spoAAAA0000000001', 'recSEED0000000001' ) ) ) );
+ck( 'the store keeps the partners once saved', WPCPM_Track_Store::get( $partner_id )['sponsors'], array( 'spoAAAA0000000001', 'recSEED0000000001' ) );
+
+WPCPM_Track_Store::publish( $partner_id );
+ck( 'published, its compiled row carries the same partners', WPCPM_Tracks::rows()['Partner Track']['sponsors'], array( 'spoAAAA0000000001', 'recSEED0000000001' ) );
+ck( 'a definition without partners compiles to none', WPCPM_Tracks::rows()['Alpha Track']['sponsors'], array() );
+
+// Taken off the live index once its state is read (a published track can only be unpublished, not
+// deleted), the same discipline publish_new() keeps below, so a track this section made is not
+// one more clash for every check that compiles everything after it.
+WPCPM_Track_Store::unpublish( $partner_id );
 
 echo "\n=== What publish() refuses ===\n";
 
@@ -1079,6 +1100,52 @@ ck( 'while a published copy that breaks it still compiles: the rule is not the c
     array( isset( $rows['Hours Track'] ), array_key_exists( 'Hours in research lab', get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'hours-track' ) ), isset( get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $hours_track ] ) ),
     array( true, true, false ) );
 
+echo "\n=== A track's partners' narrative: kept with the definition and its published copy, never in the index ===\n";
+
+// The one text each partner's annual report starts its block for the track with, read from the
+// published copy when a report is drafted: so it travels with a save and a publish, as the rest of
+// a track does, and stays out of the compiled index, which every request loads.
+$narrated_id = WPCPM_Track_Store::create( track( 'Narrated Track', 'narrated' ) );
+$narrative   = "Twelve students joined the track this year.\n\nTheir mentors kept notes in C:\\mentors, weekly.";
+WPCPM_Track_Store::save( $narrated_id, array_merge( track( 'Narrated Track', 'narrated' ), array( 'partners_narrative' => '  ' . str_replace( "\n", "\r\n", $narrative ) . "\r\n" ) ) );
+
+ck( 'the store keeps the narrative once saved, trimmed, each line break one character, and its backslash whole',
+    WPCPM_Track_Store::get( $narrated_id )['partners_narrative'] ?? 'none',
+    $narrative );
+
+$narrated_published = WPCPM_Track_Store::publish( $narrated_id );
+$narrated_row       = WPCPM_Tracks::rows()['Narrated Track'] ?? null;
+
+ck( 'published, its copy carries the same text, and its compiled row none: the row is the one the track would compile to without it, and the index holding it is autoloaded',
+    array( $narrated_published, WPCPM_Track_Store::published( $narrated_id )['partners_narrative'] ?? 'none', $narrated_row === WPCPM_Track_Definition::row( track( 'Narrated Track', 'narrated' ), $narrated_id ), $GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ] ?? null ),
+    array( $narrated_id, $narrative, true, true ) );
+
+WPCPM_Track_Store::save( $narrated_id, array_merge( track( 'Narrated Track', 'narrated' ), array( 'partners_narrative' => 'Next term, two more mentors join.' ) ) );
+
+ck( 'a narrative edited on a published track is a change not yet published, and the published copy keeps the text it went live with',
+    array( WPCPM_Track_Store::state( $narrated_id ), WPCPM_Track_Store::published( $narrated_id )['partners_narrative'] ?? 'none' ),
+    array( 'changed', $narrative ) );
+
+$too_long = array_merge( track( 'Narrated Track', 'narrated' ), array( 'partners_narrative' => str_repeat( 'a', 5001 ) ) );
+WPCPM_Track_Store::save( $narrated_id, $too_long );
+$refused_long = WPCPM_Track_Store::publish( $narrated_id );
+
+ck( 'check() refuses a narrative over five thousand characters, and so publish() refuses one saved by any other road, the copy students have left as it was',
+    array( array_column( WPCPM_Track_Store::check( $narrated_id, $too_long ), 'code' ), $refused_long instanceof WP_Error ? array_column( $refused_long->get_error_data()['errors'], 'code' ) : $refused_long, WPCPM_Track_Store::published( $narrated_id )['partners_narrative'] ?? 'none' ),
+    array( array( 'narrative_shape' ), array( 'narrative_shape' ), $narrative ) );
+
+WPCPM_Track_Store::save( $narrated_id, array_merge( track( 'Narrated Track', 'narrated' ), array( 'partners_narrative' => $narrative ) ) );
+tamper( $narrated_id, function ( &$copy ) { $copy['partners_narrative'] = str_repeat( 'a', 6000 ); } );
+$rows = WPCPM_Track_Store::compile();
+
+ck( 'while a published copy holding a longer one still compiles: the rule is not the compile\'s, and the narrative is nothing the live site draws',
+    array( isset( $rows['Narrated Track'] ), isset( get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $narrated_id ] ) ),
+    array( true, false ) );
+
+// Taken off the live index again, as the partners' section above takes its own, so this track is
+// not one more for every check that compiles everything after it.
+WPCPM_Track_Store::unpublish( $narrated_id );
+
 echo "\n=== publish() puts live the definition it is handed (PUBLISH-LEARN-1) ===\n";
 
 // The publish run hands over the definition its preflight judged and created columns for. A draft
@@ -1149,7 +1216,7 @@ ck( 'a limit below one reads as one',
     array( count( WPCPM_Track_Store::revisions( $hist, 0 ) ), count( WPCPM_Track_Store::revisions( $hist, -5 ) ) ), array( 2, 2 ) );
 
 // A revision whose own copy of the definition is gone reads as one that kept none, not as a
-// broken one: History says so of it (the T3b Task 2 review).
+// broken one: History says so of it.
 $raw = $GLOBALS['pmeta'][ $all[2]['id'] ][ WPCPM_Track_Store::META_DEFINITION ];
 unset( $GLOBALS['pmeta'][ $all[2]['id'] ][ WPCPM_Track_Store::META_DEFINITION ] );
 
@@ -1607,41 +1674,55 @@ ck( 'and rows as 1.110.4 wrote them, each naming where its track ran from, recom
 	array( get_option( WPCPM_Tracks::OPT_TRACKS ) === $before['index'], array_keys( WPCPM_Tracks::rows() ) ),
 	array( true, array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Growth Track' ) ) );
 
-echo "\n=== A track a later version published, holding what this version keeps and never reads ===\n";
+echo "\n=== A published track holding partners and a narrative: the index carries the partners, its published copy the text ===\n";
 
-// A later version writes a partners' narrative, free text, on a track's definition, beside the
-// sponsors it names, and publishes the track. A site that returns to this version keeps running that
-// track, so compile() has to index it rather than set it aside, and the index it writes is autoloaded
-// on every request, so none of the text may reach it, nor the track's form.
+// A track's definition holds the sponsors it names as partners and a partners' narrative, free text,
+// both properties this version knows, so compile() indexes a published track that holds them rather
+// than setting it aside. The index it writes is autoloaded on every request: it carries the partners,
+// since `WPCPM_Tracks::partner_tracks()` finds a sponsor's tracks in the rows, and none of the text,
+// which a sponsor report's draft reads from the copy the track was published with. The form holds
+// neither.
 fresh_site();
-$later_copy                       = track( 'Later Track', 'later' );
-$later_copy['sponsors']           = array( 'recSPONSOR0000001' );
-$later_copy['partners_narrative'] = "Two lines\nof text from the partners";
-$later                            = WPCPM_Track_Store::create( $later_copy );
+$partnered_copy                       = track( 'Partnered Track', 'partnered' );
+$partnered_copy['sponsors']           = array( 'recSPONSOR0000001' );
+$partnered_copy['partners_narrative'] = "Two lines\nof text from the partners";
+$partnered                            = WPCPM_Track_Store::create( $partnered_copy );
 
-// As the later version's publish left it: the post published and the copy it was published with.
-wp_update_post( array( 'ID' => $later, 'post_status' => 'publish' ) );
-update_post_meta( $later, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( $later_copy ) ) );
+// As a publish leaves it: the post published and the copy it was published with.
+wp_update_post( array( 'ID' => $partnered, 'post_status' => 'publish' ) );
+update_post_meta( $partnered, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( $partnered_copy ) ) );
 
 $rows  = WPCPM_Track_Store::compile();
 $index = serialize( get_option( WPCPM_Tracks::OPT_TRACKS ) );
-$form  = serialize( get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'later' ) );
+$form  = serialize( get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'partnered' ) );
 
-ck( 'compile() indexes the track under its status and sets nothing aside, and neither the autoloaded index nor the form holds any of the narrative or the sponsors, while the copy it was published with keeps both as they were written',
+ck( 'compile() indexes the track under its status and sets nothing aside, and the autoloaded index carries its partners and none of the narrative, while the form holds neither',
 	array(
 		array_keys( $rows ),
 		get_option( WPCPM_Track_Store::OPT_SKIPPED ),
 		$GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ],
+		get_option( WPCPM_Tracks::OPT_TRACKS )['Partnered Track']['sponsors'] ?? 'none',
 		false !== strpos( $index . $form, 'from the partners' ),
-		false !== strpos( $index . $form, 'recSPONSOR0000001' ),
-		array_intersect_key( (array) WPCPM_Track_Store::published( $later ), array_flip( array( 'sponsors', 'partners_narrative' ) ) ),
+		false !== strpos( $form, 'recSPONSOR0000001' ),
 	),
 	array(
-		array( 'Later Track' ),
+		array( 'Partnered Track' ),
 		array(),
 		true,
+		array( 'recSPONSOR0000001' ),
 		false,
 		false,
+	) );
+
+ck( 'and this version reads both: partner_tracks() finds the track by its partner in the index, and the narrative is read from the copy it was published with, which keeps both as they were written',
+	array(
+		WPCPM_Tracks::partner_tracks( 'recSPONSOR0000001' ),
+		WPCPM_Track_Definition::narrative( WPCPM_Track_Store::published( $partnered ) ),
+		array_intersect_key( (array) WPCPM_Track_Store::published( $partnered ), array_flip( array( 'sponsors', 'partners_narrative' ) ) ),
+	),
+	array(
+		array( array( 'key' => 'partnered', 'label' => 'Partnered Track', 'post' => $partnered ) ),
+		"Two lines\nof text from the partners",
 		array(
 			'sponsors'           => array( 'recSPONSOR0000001' ),
 			'partners_narrative' => "Two lines\nof text from the partners",

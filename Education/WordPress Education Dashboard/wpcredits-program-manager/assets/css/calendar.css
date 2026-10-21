@@ -680,6 +680,16 @@
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 }
 
+/* The group sessions and the events from the program's sponsors are drawn after the two columns,
+   inside the pair, to sit under the booked calls and the picker alike. A grid places a child that
+   follows the two in one cell of a new row, half the card, and both blocks were squeezed there,
+   the sessions as much as the events: each spans the pair instead. Below 900px the one column is
+   the whole row already. */
+.wpcpm-calls__cols > .wpcpm-sessions,
+.wpcpm-calls__cols > .wpcpm-sevents {
+	grid-column: 1 / -1;
+}
+
 /* The booked list already spaces its own items, and it is the whole of its column. */
 .wpcpm-calls__col--booked .wpcpm-calls__list {
 	margin-bottom: 0;

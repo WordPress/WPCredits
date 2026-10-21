@@ -9,12 +9,18 @@
  *   Settings, under the heading the menu gives the page, and only for a manager.
  * - **The counts are the Administrator Dashboard's.** The cards class is the real one, its
  *   `collect()` and `counts()` reading stand-ins for the classes that own the data
- *   (bin/stubs/overview-reads.php), so a number here is the attention strip's number there: the
- *   queues with something in them, in the strip's order, each its label and then its count in
- *   parentheses, as core's list tables print their views, linking to where the queue is listed
- *   (`WPCPM_Overview::targets()`): a wp-admin screen for every tile, the sponsor posts among them,
+ *   (bin/stubs/overview-reads.php, and the sponsors' reports below), so a number here is the
+ *   attention strip's number there: the tiles with something in them, in the strip's order, and
+ *   none at zero whatever the card is handed, each read as the strip reads it, its number and then
+ *   its label, which says the second count of a tile that counts two, linking to where the queue
+ *   is listed (`WPCPM_Overview::targets()`): a wp-admin screen for every tile, the sponsor
+ *   posts among them, and for the syncs, which no one screen holds, the Syncs card on this page,
  *   whether or not the Administrator Dashboard's page is there. A tile added to the strip fails
- *   here until it is given a place to link to.
+ *   here once the busy world holds something for it, until it is given a place to link to, and a
+ *   place no tile has fails until it goes. Each of the eleven tiles whose card on the
+ *   Administrator Dashboard has a row action links where that action does, read out of the card
+ *   the strip's tile opens, as the dashboard draws it; the syncs and the locked accounts, whose
+ *   card has no row action, are left out.
  * - **Decisions have one home.** The card links to the Administrator Dashboard, or says its page
  *   is missing in the words the dashboard class keeps for it, which the Administrators screen
  *   prints too, and nothing on the screen posts anything.
@@ -63,6 +69,11 @@ function __( $text, $domain = null ) {
 }
 function _n( $single, $plural, $number, $domain = null ) {
 	return __( 1 === (int) $number ? $single : $plural );
+}
+// The plural with a context, which the cards' paired tiles ask for: chosen by the number as _n()
+// chooses; the context only tells a translator which sense of the words is meant.
+function _nx( $single, $plural, $number, $context, $domain = 'default' ) {
+	return _n( $single, $plural, $number, $domain );
 }
 function esc_html( $text ) {
 	return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8', false );
@@ -116,7 +127,7 @@ function number_format_i18n( $number, $decimals = 0 ) {
 function get_post( $id ) {
 	return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null;
 }
-function get_post_time( $format = 'U', $gmt = false, $post = null ) {
+function get_post_time( $format = 'U', $gmt = false, $post = null, $translate = false ) {
 	return $post instanceof WP_Post ? (int) strtotime( $post->post_date_gmt . ' UTC' ) : 0;
 }
 function get_post_meta( $id, $key = '', $single = false ) {
@@ -144,7 +155,8 @@ require_once __DIR__ . '/stubs/caps.php';
 
 /* ---- the program, as the Overview reads it ----------------------------------- */
 
-// Every class the cards read, answering from $GLOBALS['overview_reads'].
+// Every class the cards read, answering from $GLOBALS['overview_reads'], but the sponsors' reports,
+// stood in below.
 require_once __DIR__ . '/stubs/overview-reads.php';
 
 /** The Institutions module's open states, as the module lists them, which the applications' total is counted over. */
@@ -161,10 +173,83 @@ class WPCPM_Tools {
 	}
 }
 
+/*
+ * The sponsors' annual reports, the store and its screen, which this suite alone stands in, from
+ * the same world (`sponsor_drafts` and `sponsor_due`): bin/test-admin-menu.php loads the real Sponsors
+ * module beside the shared stand-ins, and the module, wherever the two classes exist, calls members
+ * of both that these do not have (bin/stubs/overview-reads.php says so too).
+ */
+
+/**
+ * The sponsors' annual reports, through the report's store: the drafts, each read back with its
+ * sponsor and its term's last day and no final stamp, and the terms owed a report. No report is
+ * marked final: those are a record, which the tile does not count.
+ */
+class WPCPM_Sponsor_Report {
+	/** The drafts the suite seeded, as posts. */
+	public static function queue() {
+		$drafts = array();
+
+		foreach ( array_keys( (array) wpcpm_overview_holds( 'sponsor_drafts', array() ) ) as $post_id ) {
+			$post = get_post( $post_id );
+
+			if ( $post instanceof WP_Post ) {
+				$drafts[] = $post;
+			}
+		}
+
+		return $drafts;
+	}
+
+	public static function due( $today = '' ) {
+		return (array) wpcpm_overview_holds( 'sponsor_due', array() );
+	}
+
+	public static function final_since( $timestamp ) {
+		return array();
+	}
+
+	/** A draft carries no stamp. */
+	public static function final_at( WP_Post $post ) {
+		return array();
+	}
+
+	public static function sponsor_of( WP_Post $post ) {
+		return self::fact( $post, 'sponsor' );
+	}
+
+	public static function until_of( WP_Post $post ) {
+		return self::fact( $post, 'until' );
+	}
+
+	/**
+	 * One fact the world holds of a draft, or '' for a fact it leaves out.
+	 *
+	 * @param WP_Post $post The draft.
+	 * @param string  $key  `sponsor` or `until`.
+	 * @return string
+	 */
+	private static function fact( WP_Post $post, $key ) {
+		$drafts = (array) wpcpm_overview_holds( 'sponsor_drafts', array() );
+
+		return isset( $drafts[ $post->ID ][ $key ] ) ? (string) $drafts[ $post->ID ][ $key ] : '';
+	}
+}
+
+/** The Sponsors screen's reports: the address that opens a report's editor, as the real one builds it. */
+class WPCPM_Sponsor_Report_Screen {
+	public static function editor_url( $post_id ) {
+		return admin_url( 'admin.php?page=wpcpm-sponsors&tab=reports&wpcpm_sreport=' . (int) $post_id );
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
+// The dashboards' card shell, which draws the Administrator Dashboard's cards whose row actions a
+// check reads.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-outcome-figures.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
@@ -296,13 +381,14 @@ function modules_in( $words ) {
 }
 
 /**
- * The cards the screen draws, in order: each one's heading => what the card holds under it.
+ * The cards the screen draws, in order: each one's heading => what the card holds under it, whether
+ * or not the card carries an id.
  *
  * @param string $html The screen.
  * @return array<string, string>
  */
 function cards_of( $html ) {
-	preg_match_all( '#<div class="wpcpm-card"><h2>(.*?)</h2>(.*?)</div>#s', (string) $html, $found, PREG_SET_ORDER );
+	preg_match_all( '#<div class="wpcpm-card"(?: id="[^"]*")?><h2>(.*?)</h2>(.*?)</div>#s', (string) $html, $found, PREG_SET_ORDER );
 
 	$cards = array();
 
@@ -327,14 +413,14 @@ function card( $html, $heading ) {
 }
 
 /**
- * The waiting list's links, in order: where each goes, its label, and the count after it, read from
- * inside its parentheses.
+ * The waiting list's links, in order, each in the order it reads: where it goes, the count in front,
+ * and the label after it.
  *
  * @param string $card The Waiting for a decision card.
  * @return array[]
  */
 function waiting_of( $card ) {
-	preg_match_all( '#<li><a href="([^"]*)"><span class="wpcpm-waiting__label">(.*?)</span> <span class="count">\((.*?)\)</span></a></li>#s', (string) $card, $found, PREG_SET_ORDER );
+	preg_match_all( '#<li><a href="([^"]*)"><span class="count">(.*?)</span> <span class="wpcpm-waiting__label">(.*?)</span></a></li>#s', (string) $card, $found, PREG_SET_ORDER );
 
 	$links = array();
 
@@ -346,14 +432,14 @@ function waiting_of( $card ) {
 }
 
 /**
- * Every chip on the waiting list, in order, whether it links anywhere or not: where it goes, or ''
- * for a chip without a link, its label, and the count read from inside its parentheses.
+ * Every chip on the waiting list, in order, whether it links anywhere or not, each in the order it
+ * reads: where it goes, or '' for a chip without a link, the count in front, and the label after it.
  *
  * @param string $card The Waiting for a decision card.
  * @return array[]
  */
 function chips_of( $card ) {
-	preg_match_all( '#<li>(?:<a href="([^"]*)">)?<span class="wpcpm-waiting__label">(.*?)</span> <span class="count">\((.*?)\)</span>(?:</a>)?</li>#s', (string) $card, $found, PREG_SET_ORDER );
+	preg_match_all( '#<li>(?:<a href="([^"]*)">)?<span class="count">(.*?)</span> <span class="wpcpm-waiting__label">(.*?)</span>(?:</a>)?</li>#s', (string) $card, $found, PREG_SET_ORDER );
 
 	$chips = array();
 
@@ -362,6 +448,18 @@ function chips_of( $card ) {
 	}
 
 	return $chips;
+}
+
+/**
+ * What each chip on the waiting list says, in order, as a person reads it, whatever its markup.
+ *
+ * @param string $card The Waiting for a decision card.
+ * @return string[]
+ */
+function chip_words( $card ) {
+	preg_match_all( '#<li>(.*?)</li>#s', (string) $card, $found );
+
+	return array_map( 'words_of', $found[1] );
 }
 
 /**
@@ -430,6 +528,27 @@ function strip_tiles( array $counts ) {
 }
 
 /**
+ * Where each of the strip's tiles links on the Administrator Dashboard, by tile: the strip draws a
+ * tile for each entry of `counts()`, in its order, each linking to the id of the card the entry's
+ * `card` names.
+ *
+ * @param array $counts What `counts()` returned.
+ * @return array<string, string> Tile key => the address as printed; none when the strip drew more or
+ *                               fewer tiles than `counts()` holds.
+ */
+function strip_links( array $counts ) {
+	$drawn = capture(
+		static function () use ( $counts ) {
+			WPCPM_Administrators_Cards::render_strip( $counts );
+		}
+	);
+
+	preg_match_all( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="([^"]*)">#', $drawn['html'], $found );
+
+	return count( $found[1] ) === count( $counts ) ? array_combine( array_keys( $counts ), $found[1] ) : array();
+}
+
+/**
  * The counts the Administrator Dashboard's strip reads, while the program holds what a check says.
  *
  * @param array $world What the program holds.
@@ -457,6 +576,29 @@ function target_of( $key ) {
 	return is_array( $targets ) && isset( $targets[ $key ] ) ? esc_url( $targets[ $key ] ) : '(no target)';
 }
 
+/**
+ * A card of the Administrator Dashboard, read out of the card as its own renderer draws it: the id
+ * its section carries, the first thing drawn, which the strip's tile for the card links to, and the
+ * address its row action carries, the link the shell prints after the fold, the last thing in the
+ * section.
+ *
+ * @param callable $draw What draws the card.
+ * @return string[] The id as printed, or '(no id)', then the address as printed, or '(no action)'
+ *                  for a card without one; or, in both places, what drawing it threw.
+ */
+function card_drawn( callable $draw ) {
+	$drawn = capture( $draw );
+
+	if ( '' !== $drawn['threw'] ) {
+		return array( 'threw ' . $drawn['threw'], 'threw ' . $drawn['threw'] );
+	}
+
+	return array(
+		1 === preg_match( '#^<section class="wpcpm-administrator__card" id="([^"]*)">#', $drawn['html'], $id ) ? $id[1] : '(no id)',
+		1 === preg_match( '#</details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="([^"]*)">.*?</a></p></section>$#s', $drawn['html'], $action ) ? $action[1] : '(no action)',
+	);
+}
+
 function has( $haystack, $needle ) {
 	return false !== strpos( (string) $haystack, (string) $needle );
 }
@@ -465,6 +607,13 @@ function has( $haystack, $needle ) {
 
 $GLOBALS['opts']['date_format'] = 'j F Y';
 $GLOBALS['opts']['time_format'] = 'H:i';
+
+// Every sync finished a run an hour ago, inside the six hours the Syncs and health card allows, so no
+// sync needs a look until a world says one failed, and a world that holds nothing has nothing
+// waiting. The Syncs block below puts in place the runs its rows read.
+foreach ( array( WPCPM_Students_Sync::OPT_LAST, WPCPM_Mentors_Sync::OPT_LAST, WPCPM_Institutions_Sync::OPT_LAST ) as $last_run ) {
+	$GLOBALS['opts'][ $last_run ] = time() - HOUR_IN_SECONDS;
+}
 
 // The Administrator Dashboard's page, published: the page the decisions are made on, and the one
 // place the sponsor posts waiting are listed, so the map is read with it there. A check that needs
@@ -483,6 +632,12 @@ foreach ( array( 601 => gmdate( 'Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS ), 6
 
 	$GLOBALS['posts'][ $post_id ] = $post;
 }
+
+// A sponsor's report drafted and not finished yet.
+$report_draft              = new WP_Post();
+$report_draft->ID          = 961;
+$report_draft->post_status = 'private';
+$GLOBALS['posts'][961]     = $report_draft;
 
 // The Student Duplicate Finder's last scan, twelve duplicated students in it.
 $scan = array(
@@ -504,7 +659,11 @@ $three = array(
 	'duplicates'    => $scan,
 );
 
-// Every queue with something in it.
+// Every tile with something in it: every queue, the Events card in use with an event waiting, a
+// sponsor's report drafted and a term owed one, and a sync whose last run failed. It has to hold
+// something for every tile `counts()` can build: `counts()` drops a tile at zero, so the checks of
+// the map below see only the tiles this world feeds, and a tile the strip gains is checked once it
+// is fed here.
 $busy = array(
 	'applications'         => 3,
 	'agreements'           => array( 601, 602 ),
@@ -522,6 +681,7 @@ $busy = array(
 	),
 	'locked'               => array( 21 ),
 	'sponsor_posts'        => array( array( 'id' => 905 ) ),
+	'sponsor_offers'       => array( array( 'id' => 931 ) ),
 	'sponsor_agreements'   => array(
 		913 => array(
 			'post_id' => 913,
@@ -529,6 +689,29 @@ $busy = array(
 		),
 	),
 	'sponsor_applications' => array( array( 'id' => 950 ) ),
+	'events_shown'         => true,
+	'sponsor_events'       => array( array( 'id' => 971 ) ),
+	'sponsor_drafts'       => array(
+		961 => array(
+			'sponsor' => 'recSPN00000000002',
+			'until'   => '2026-06-30',
+		),
+	),
+	'sponsor_due'          => array(
+		array(
+			'sponsor' => 'recSPN00000000003',
+			'name'    => 'Example Sponsor',
+			'until'   => '2026-08-31',
+		),
+	),
+	'progress'             => array(
+		'mentors' => array(
+			'running' => false,
+			'phase'   => '',
+			'label'   => '',
+			'error'   => 'The last run stopped before it finished.',
+		),
+	),
 	'mentor_applications'  => 2,
 	'offers'               => array(
 		941 => array(
@@ -603,33 +786,76 @@ echo "\n=== Waiting for a decision ===\n";
 $counts  = counts_for( $three );
 $waiting = card( draw( $three ), 'Waiting for a decision' );
 
-ck( 'three queues with something in them are three links, in the strip\'s order, each the strip\'s label and then its number in parentheses, to the screen that holds the queue',
+ck( 'three queues with something in them are three links, in the strip\'s order, each its number and then the strip\'s label, to the screen that holds the queue',
 	waiting_of( $waiting ),
 	array(
-		array( target_of( 'applications' ), $counts['applications']['label'], '2' ),
-		array( target_of( 'sponsor_posts' ), $counts['sponsor_posts']['label'], '1' ),
-		array( target_of( 'duplicates' ), $counts['duplicates']['label'], '12' ),
+		array( target_of( 'applications' ), '2', $counts['applications']['label'] ),
+		array( target_of( 'sponsor_posts' ), '1', $counts['sponsor_posts']['label'] ),
+		array( target_of( 'duplicates' ), '12', $counts['duplicates']['label'] ),
 	) );
 
-$zero_labels = array();
+// The strip draws no tile at zero, so `counts()` returns none, and a queue with nothing in it has
+// nothing to print here.
+ck( 'and a queue with nothing in it has no chip: the strip counts the three queues that hold something and no other, and the list holds their three chips and nothing else',
+	array( array_keys( $counts ), substr_count( $waiting, '<li>' ), count( chips_of( $waiting ) ) ),
+	array( array( 'applications', 'sponsor_posts', 'duplicates' ), 3, 3 ) );
 
-foreach ( $counts as $tile ) {
-	if ( 0 === (int) $tile['n'] && has( $waiting, '>' . esc_html( $tile['label'] ) . '<' ) ) {
-		$zero_labels[] = $tile['label'];
+// The card keeps that rule itself as well, whatever it is handed. `counts()` hands it no tile at
+// zero, so the card is handed one directly, alone and beside a tile above zero.
+$at_zero     = array(
+	'label' => 'Institution applications waiting',
+	'n'     => 0,
+	'card'  => 'applications',
+);
+$zero_alone  = capture(
+	static function () use ( $at_zero ) {
+		WPCPM_Overview::render_waiting( array( 'applications' => $at_zero ) );
 	}
-}
+);
+$zero_beside = capture(
+	static function () use ( $at_zero ) {
+		WPCPM_Overview::render_waiting(
+			array(
+				'applications' => $at_zero,
+				'locked'       => array(
+					'label' => 'Locked accounts',
+					'n'     => 1,
+					'card'  => 'health',
+				),
+			)
+		);
+	}
+);
 
-ck( 'and a queue with nothing in it has no link: eleven of the fourteen are zero, and none of them is on the list of three',
-	array( count( array_filter( $counts, static function ( $tile ) { return 0 === (int) $tile['n']; } ) ), count( waiting_of( $waiting ) ), $zero_labels ),
-	array( 11, 3, array() ) );
+ck( 'and a tile at zero handed to the card has no chip either: alone, the card says nothing is waiting and lists nothing; beside a tile above zero, the list holds that tile\'s chip alone',
+	array(
+		$zero_alone['threw'],
+		1 === preg_match( '#^<div class="wpcpm-card"><h2>Waiting for a decision</h2><p>Nothing is waiting for an Administrator right now\.</p>#', $zero_alone['html'] ),
+		has( $zero_alone['html'], '<ul' ),
+		$zero_beside['threw'],
+		chips_of( $zero_beside['html'] ),
+	),
+	array( '', true, false, '', array( array( target_of( 'locked' ), '1', 'Locked accounts' ) ) ) );
 
 $busy_counts = counts_for( $busy );
 $busy_html   = draw( $busy );
 $busy_links  = waiting_of( card( $busy_html, 'Waiting for a decision' ) );
 
 ck( 'with every queue waiting, the list is the Administrator Dashboard\'s strip, tile for tile: the same numbers, the same labels, the same order',
-	array( count( $busy_links ), array_map( static function ( $link ) { return array( $link[2], $link[1] ); }, $busy_links ) ),
-	array( 14, strip_tiles( $busy_counts ) ) );
+	array( count( $busy_links ), array_map( static function ( $link ) { return array( $link[1], $link[2] ); }, $busy_links ) ),
+	array( 15, strip_tiles( $busy_counts ) ) );
+
+// A tile that counts two carries the first as its number and says the second in its label, so its
+// chip says both only with the number in front, as the strip's tile reads.
+$busy_read = chip_words( card( $busy_html, 'Waiting for a decision' ) );
+
+ck( 'a tile that counts two reads as the strip reads it, both counts on the chip: its number, then the label that says the second',
+	count( $busy_read ) === count( $busy_counts ) ? array_intersect_key( array_combine( array_keys( $busy_counts ), $busy_read ), array_flip( array( 'agreements', 'reports', 'requests' ) ) ) : $busy_read,
+	array(
+		'agreements' => '2 Collaboration Agreements to review, 1 overdue',
+		'reports'    => '1 Semester reports to review, 1 due for drafting',
+		'requests'   => '2 Mentor requests open, 1 overdue',
+	) );
 
 $busy_targets = array();
 
@@ -649,11 +875,11 @@ ck( 'and the sponsor posts open the Sponsors screen at their card on Waiting for
 		array_filter(
 			$busy_links,
 			static function ( $link ) use ( $busy_counts ) {
-				return $link[1] === $busy_counts['sponsor_posts']['label'];
+				return $link[2] === $busy_counts['sponsor_posts']['label'];
 			}
 		)
 	),
-	array( array( esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts' ), 'Sponsor posts to review', '1' ) ) );
+	array( array( esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts' ), '1', 'Sponsor posts to review' ) ) );
 
 // A sponsor queue counts everything waiting, and not the oldest fifty the Administrator Dashboard's
 // card lists: the applications in full, as the Sponsors screen's applications card counts them, and
@@ -671,11 +897,13 @@ $sponsor_chips  = static function ( $posts, $agreements = null, $applications = 
 
 	return chips_of( card( draw( $world ), 'Waiting for a decision' ) );
 };
+// The three sponsor chips as the list reads them, in the strip's order, the applications first: where
+// each goes, its count in front, then the strip's name for its queue.
 $sponsor_queues = static function ( $posts, $agreements, $applications ) {
 	return array(
-		array( target_of( 'sponsor_posts' ), 'Sponsor posts to review', $posts ),
-		array( target_of( 'sponsor_agreements' ), 'Sponsor agreements to review', $agreements ),
-		array( target_of( 'sponsor_applications' ), 'Sponsor applications waiting', $applications ),
+		array( target_of( 'sponsor_applications' ), $applications, 'Sponsor applications waiting' ),
+		array( target_of( 'sponsor_posts' ), $posts, 'Sponsor posts to review' ),
+		array( target_of( 'sponsor_agreements' ), $agreements, 'Sponsor Collaboration Agreements to review' ),
 	);
 };
 
@@ -691,37 +919,92 @@ ck( 'with the three queues of three sizes, each chip counts its own queue',
 	$sponsor_chips( WPCPM_Administrators_Cards::LIMIT + 7, WPCPM_Administrators_Cards::LIMIT + 1, 3 ),
 	$sponsor_queues( (string) ( WPCPM_Administrators_Cards::LIMIT + 7 ), (string) ( WPCPM_Administrators_Cards::LIMIT + 1 ), '3' ) );
 
-// The map is the class's, read as the class holds it: a tile the strip gains without a screen here
-// fails this check until it is given one.
+// The map is the class's, read as the class holds it: a place for each tile the strip can draw,
+// keyed in the order `counts()` builds the tiles, which is the order the strip draws them in.
 $targets = attempt(
 	static function () {
 		return WPCPM_Overview::targets();
 	}
 );
-$keys    = array_keys( counts_for( array() ) );
+$tiles   = array( 'applications', 'agreements', 'reports', 'requests', 'mentor_applications', 'sponsor_applications', 'sponsor_posts', 'sponsor_offers', 'sponsor_events', 'sponsor_agreements', 'sponsor_reports', 'offers_low', 'duplicates', 'syncs', 'locked' );
 
-ck( 'every tile the strip counts has a place to link to, and every place on the map is a tile\'s',
-	is_array( $targets ) ? array( array_values( array_diff( $keys, array_keys( $targets ) ) ), array_values( array_diff( array_keys( $targets ), $keys ) ) ) : $targets,
-	array( array(), array() ) );
+ck( 'the map places the fifteen tiles the strip can draw, in the strip\'s order, and nothing else',
+	is_array( $targets ) ? array_keys( $targets ) : $targets,
+	$tiles );
 
-ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen at the tab for each, the applications, the posts and the signed agreements on Waiting for review, each at its own card there, and the offers running low on Offers and codes; the mentor applications the Mentors screen at Waiting for review; and the duplicated students the Student Duplicate Finder',
+// With every tile above zero the strip draws them all. `counts()` drops a tile at zero, so a tile the
+// strip gains without a place here fails this check once the busy world holds something for it, until
+// it is given one; a place left for a tile the strip lost fails it until it goes, whatever the busy
+// world holds.
+ck( 'every tile the strip counts has a place to link to, and every place on the map is a tile\'s: with every tile above zero, the strip\'s keys are the map\'s, in the same order',
+	array_keys( $busy_counts ),
+	is_array( $targets ) ? array_keys( $targets ) : $targets );
+
+ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the mentor applications the Mentors screen at Waiting for review; the sponsors\' the Sponsors screen at the tab for each, the applications, the posts and the signed agreements on Waiting for review, each at its own card there, the events on that tab at the id the Administrator Dashboard\'s Events card links to, the reports on Reports and the offers running low on Offers and codes; the duplicated students the Student Duplicate Finder; and the syncs this page\'s own Syncs card',
 	$targets,
 	array(
 		'applications'         => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
 		'agreements'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
-		'overdue_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
-		'drafts'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
-		'due'                  => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
+		'reports'              => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
 		'requests'             => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
-		'overdue_requests'     => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
-		'locked'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
-		'sponsor_posts'        => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts',
-		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements',
-		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-applications',
 		'mentor_applications'  => 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=queue',
+		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-applications',
+		'sponsor_posts'        => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts',
+		'sponsor_offers'       => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-offers-review',
+		'sponsor_events'       => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-events',
+		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-agreements',
+		'sponsor_reports'      => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=reports',
 		'offers_low'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers',
 		'duplicates'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder',
+		'syncs'                => 'https://site.example/wp-admin/admin.php?page=wpcpm#wpcpm-syncs',
+		'locked'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
 	) );
+
+// No one screen holds the three syncs, so their count opens the Syncs card on this page: the page the
+// menu's top entry opens, at the id the card carries, which nothing else on the page carries.
+ck( 'and the syncs open the Syncs card on this page: the Overview\'s own address at the card\'s id, which the card alone carries',
+	array(
+		is_array( $targets ) && isset( $targets['syncs'] ) ? $targets['syncs'] : '(no target)',
+		substr_count( $busy_html, 'id="wpcpm-syncs"' ),
+		1 === preg_match( '#<div class="wpcpm-card" id="wpcpm-syncs"><h2>Syncs</h2>#', $busy_html ),
+	),
+	array( admin_url( 'admin.php?page=' . WPCPM_Admin::MENU_SLUG ) . '#wpcpm-syncs', 1, true ) );
+
+// A tile opens from here the place its card on the Administrator Dashboard opens in wp-admin, so the
+// two pages cannot send one queue to two places. Each card is drawn empty by its own renderer, the
+// Duplicated students card from what its reader gives a site with no scan yet, which carries the
+// finder's address, and the Events card while Sponsor tiers is on, which it waits for; its id and its
+// row action are read out of it. The strip's tile has to open that card, so a tile pointed at another
+// card fails here too. Twelve cards carry a row action; the syncs and the locked accounts are left
+// out, since their card, Syncs and health, has none.
+$GLOBALS['overview_reads'] = array( 'events_shown' => true );
+$cards_drawn               = array(
+	'applications'         => card_drawn( static function () { WPCPM_Administrators_Cards::render_applications( array() ); } ),
+	'agreements'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_agreements( array() ); } ),
+	'reports'              => card_drawn( static function () { WPCPM_Administrators_Cards::render_reports( array() ); } ),
+	'requests'             => card_drawn( static function () { WPCPM_Administrators_Cards::render_requests( array() ); } ),
+	'sponsor_applications' => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_applications( array() ); } ),
+	'sponsor_posts'        => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_posts( array() ); } ),
+	'sponsor_offers'       => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_offers( array() ); } ),
+	'sponsor_events'       => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_events( array() ); } ),
+	'sponsor_agreements'   => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_agreements( array() ); } ),
+	'sponsor_reports'      => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_reports( array() ); } ),
+	'offers_low'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_offers_low( array() ); } ),
+	'duplicates'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_duplicates( WPCPM_Administrators_Cards::duplicates() ); } ),
+);
+$GLOBALS['overview_reads'] = array();
+$busy_strip                = strip_links( $busy_counts );
+$tiles_open                = array();
+$cards_open                = array();
+
+foreach ( $cards_drawn as $key => $drawn_card ) {
+	$tiles_open[ $key ] = array( isset( $busy_strip[ $key ] ) ? $busy_strip[ $key ] : '(no tile)', target_of( $key ) );
+	$cards_open[ $key ] = array( '#' . $drawn_card[0], $drawn_card[1] );
+}
+
+ck( 'each tile opens the place its card on the Administrator Dashboard opens: the strip\'s tile links to the card, and the chip here to the address the card\'s row action carries, for the eleven cards that carry one, the four institution cards, the six sponsor cards and the Duplicated students card; the syncs and the locked accounts are left out, since their card, Syncs and health, has no row action',
+	$tiles_open,
+	$cards_open );
 
 // A tile the map does not place yet is still counted, since what waits is the card's point, but it
 // links nowhere rather than to an address nobody wrote.
@@ -739,8 +1022,8 @@ $unplaced = capture(
 	}
 );
 
-ck( 'a tile without a screen on the map is still on the list, its label and count, unlinked',
-	array( $unplaced['threw'], 1 === preg_match( '#<li><span class="wpcpm-waiting__label">Events to review</span> <span class="count">\(4\)</span></li>#', $unplaced['html'] ), has( $unplaced['html'], 'href=""' ) ),
+ck( 'a tile without a screen on the map is still on the list, its count and label, unlinked',
+	array( $unplaced['threw'], 1 === preg_match( '#<li><span class="count">4</span> <span class="wpcpm-waiting__label">Events to review</span></li>#', $unplaced['html'] ), has( $unplaced['html'], 'href=""' ) ),
 	array( '', true, false ) );
 
 $nothing = card( draw(), 'Waiting for a decision' );
@@ -805,7 +1088,7 @@ ck( 'and while the page is missing, the card says so in the words the dashboard 
 $chips_page_gone = array();
 
 foreach ( array_keys( $busy_counts ) as $key ) {
-	$chips_page_gone[] = array( target_of( $key ), $busy_counts[ $key ]['label'], (string) $busy_counts[ $key ]['n'] );
+	$chips_page_gone[] = array( target_of( $key ), (string) $busy_counts[ $key ]['n'], $busy_counts[ $key ]['label'] );
 }
 
 ck( 'and while the page is missing, every count still opens its screen, the sponsor posts\' their card on the Sponsors screen, at the same address the map gives with the page there',
@@ -815,13 +1098,13 @@ ck( 'and while the page is missing, every count still opens its screen, the spon
 echo "\n=== Syncs ===\n";
 
 // Students never ran and have a next run booked; mentors ran and have none; institutions are
-// running now, though their next run is booked; sponsors ran and run again.
+// running now, though their next run is booked. The sponsors have no sync: they are the site's own
+// records.
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LAST ] );
 $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LAST ]        = 1756990000;
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LAST ]   = 1756980000;
-$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_LAST ]       = 1756880000;
 $GLOBALS['next'][ WPCPM_Students_Sync::CRON_AUTO ]      = 1757100000;
 $GLOBALS['next'][ WPCPM_Institutions_Sync::CRON_DAILY ] = 1757200000;
-$GLOBALS['next'][ WPCPM_Sponsors_Sync::CRON_DAILY ]     = 1756993600;
 
 $syncs_world = array(
 	'progress' => array(
@@ -836,9 +1119,9 @@ $syncs_world = array(
 
 $syncs = card( draw( $syncs_world ), 'Syncs' );
 
-ck( 'a table with a row for each audience\'s sync, in the dashboard\'s order, and the outcome figures last, headed Sync, Last run and Next run',
+ck( 'a table with a row for each audience\'s sync, in the dashboard\'s order, the students\', the mentors\' and the institutions\', none for the sponsors, who have no sync, and the outcome figures last, headed Sync, Last run and Next run',
 	array( columns_of( $syncs ), array_column( rows_of( $syncs ), 0 ) ),
-	array( array( 'Sync', 'Last run', 'Next run' ), array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Outcome figures' ) ) );
+	array( array( 'Sync', 'Last run', 'Next run' ), array( 'Students', 'Mentors', 'Institutions', 'Outcome figures' ) ) );
 
 ck( 'each audience\'s name opens the screen its sync is run from, at the tab that runs it; each run is the site\'s date and time, or Never, or Not scheduled; and a sync running now says so in place of its next run',
 	rows_of( $syncs ),
@@ -846,7 +1129,6 @@ ck( 'each audience\'s name opens the screen its sync is run from, at the tab tha
 		array( 'Students', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-students&tab=sync' ), 'Never', gmdate( 'j F Y H:i', 1757100000 ) ),
 		array( 'Mentors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=sync' ), gmdate( 'j F Y H:i', 1756990000 ), 'Not scheduled' ),
 		array( 'Institutions', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=sync' ), gmdate( 'j F Y H:i', 1756980000 ), 'Running now' ),
-		array( 'Sponsors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=sponsors' ), gmdate( 'j F Y H:i', 1756880000 ), gmdate( 'j F Y H:i', 1756993600 ) ),
 		array( 'Outcome figures', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-settings&tab=connection' ), 'Never Not connected.', 'Not scheduled' ),
 	) );
 
@@ -956,7 +1238,7 @@ $everything = draw( array_merge( $busy, $syncs_world ) );
 
 ck( 'nothing on the screen says module, with every queue waiting, every sync and every tool on it',
 	array( count( waiting_of( card( $everything, 'Waiting for a decision' ) ) ), count( rows_of( card( $everything, 'Syncs' ) ) ), modules_in( words_of( $everything ) ) ),
-	array( 14, 5, array() ) );
+	array( 15, 4, array() ) );
 
 // Decisions have one home, the Administrator Dashboard: this screen links to it and to the queues,
 // and posts nothing itself.
@@ -982,8 +1264,8 @@ $GLOBALS['tools']               = $probes;
 ck( 'every printed value is escaped: not one tag arrives as a tag, and each arrives as text, the strip\'s labels, the numbers, the audiences, the dates, the tools and their lines, the page\'s own words and the addresses among them',
 	array(
 		substr_count( $tagged, '<x>' ),
-		has( $tagged, 'Applications waiting &lt;x&gt;' ),
-		has( $tagged, '<span class="count">(3 &lt;x&gt;)</span>' ),
+		has( $tagged, 'Institution applications waiting &lt;x&gt;' ),
+		has( $tagged, '<span class="count">3 &lt;x&gt;</span>' ),
 		has( $tagged, '>Students &lt;x&gt;</a>' ),
 		has( $tagged, gmdate( 'j F Y H:i', 1756990000 ) . ' &lt;x&gt;' ),
 		has( $tagged, '>Quiet &lt;x&gt;</a>' ),
@@ -1008,7 +1290,7 @@ ck( 'the waiting list is a row of links without list markers, which wraps onto m
 
 // A chip is one line: the count keeps its figures in columns at the label's own size, and no rule
 // is left for the number the chip used to set apart above its label.
-ck( 'and each chip reads as one line: the count in tabular figures at the label\'s size, and no rule left for a number set apart',
+ck( 'and each chip reads as one line: the count in tabular figures at the label\'s size, and no rule left for a number set above its label',
 	array(
 		1 === preg_match( '/\.wpcpm-waiting \.count \{[^}]*font-variant-numeric: tabular-nums;/s', $css ),
 		1 === preg_match( '/\.wpcpm-waiting \.count \{[^}]*font-size:/s', $css ),

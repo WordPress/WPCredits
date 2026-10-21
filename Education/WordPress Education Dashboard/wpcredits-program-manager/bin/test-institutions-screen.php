@@ -1657,7 +1657,7 @@ ck( 'no em or en dash anywhere in the module', preg_match( "/\xE2\x80\x93|\xE2\x
 $files_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php' );
 ck( 'nor in the private-files class', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", $files_src ), 0 );
 ck( 'nor in the CSS section', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", substr( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), strpos( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), 'Institutions screen' ) ) ), 0 );
-// The key's own add_option() moved into WPCPM_Secret in 1.94.0 (Sponsors S2 task 1), so the
+// The key's own add_option() moved into WPCPM_Secret in 1.94.0, so the
 // option-writing this assertion is about now spans both files; comment lines are stripped
 // first from each, because both writers explain themselves in prose that names the function,
 // and counting that prose would make this assertion pass or fail for the wrong reason.
@@ -4586,7 +4586,7 @@ ck( 'the map is built as read here: the screen\'s own outcomes with the agreemen
 		false !== strpos( $map_body, '$invitations = $this->accounts_messages();' ),
 		1 === preg_match( '/if \( self::TAB_ACCOUNTS !== \$tab \) \{\s*unset\( \$invitations\[\'error\'\] \);/', $map_body ),
 		false !== strpos( body_of_method( $module_src, 'render_admin_page' ), '$this->render_status_notice( $this->outcome_messages( $tab ) );' ),
-		false !== strpos( body_of_method( $sync_src, 'render_status_notice' ), 'array_merge( self::sync_messages(), $extra )' ),
+		false !== strpos( body_of_method( $sync_src, 'render_status_notice' ), 'array_merge( static::sync_messages(), $extra )' ),
 		false !== strpos( body_of_method( $trait_src, 'accounts_messages' ), 'WPCPM_Mail::invite_notices()' ),
 	),
 	array( true, true, true, true, true, true, true, true ) );

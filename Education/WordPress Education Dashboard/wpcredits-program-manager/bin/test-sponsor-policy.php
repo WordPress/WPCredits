@@ -38,7 +38,6 @@ class WPCPM_Roles {
 	const CAP_MANAGE = 'wpcpm_manage_program';
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
-class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
 // The real class (class-wpcpm-sponsor-members.php), not a hand copy of its own three
 // questions: a hand copy can drift from what sponsor_of() actually reads, which is exactly
 // the shape of bug FSUIT-7's own refusal check exists to catch. Nothing more is needed for
@@ -50,6 +49,7 @@ class WPCPM_Sponsors_Index {
 	public static function rows() { return $GLOBALS['index']; }
 	public static function has( $r ) { return isset( $GLOBALS['index'][ $r ] ); }
 	public static function row( $r ) { return isset( $GLOBALS['index'][ $r ] ) ? $GLOBALS['index'][ $r ] : null; }
+	public static function is_key( $v ) { return 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $v ); }
 }
 class WPCPM_Ceiling {
 	public static function claim( $key, $limit, $window, $amount = 1 ) { $n = isset( $GLOBALS['buckets'][ $key ] ) ? $GLOBALS['buckets'][ $key ] : 0; if ( $n + $amount > $limit ) { return false; } $GLOBALS['buckets'][ $key ] = $n + $amount; return true; }
@@ -128,7 +128,21 @@ $expected_map = array(
 	$P::ACT_EXPRESS_INTEREST => array( $M, $m ),
 	$P::ACT_MANAGE_MEMBERS  => array( $M ),
 	$P::ACT_PROVISION       => array( $M ),
+	// A sponsor report's print view and its PDF (1.115.0), written as its value so that the row is
+	// read as the string every route hands decide(). The member ground reads a final report only,
+	// and only while the tiers are live: the routes check both, since the policy knows neither.
+	'view_report'           => array( $M, $m ),
+	// A sponsor's co-hosted event (1.117.0), written as its value for the same reason: the planner's
+	// three handlers claim it, its members plan, change and cancel it, and a manager does on its
+	// behalf. Joining one is by audience and asks this map nothing.
+	'plan_event'            => array( $M, $m ),
+	// The review of a sponsor member's offer and of a change to a live one (1.123.18): approved or
+	// returned with a note by an Administrator alone, as a post is published.
+	'review_offer'          => array( $M ),
 );
+ck( 'ACT_REVIEW_OFFER is the action the offers\' review claims', defined( 'WPCPM_Sponsor_Policy::ACT_REVIEW_OFFER' ) ? constant( 'WPCPM_Sponsor_Policy::ACT_REVIEW_OFFER' ) : 'undefined', 'review_offer' );
+ck( 'ACT_VIEW_REPORT is the action a sponsor report\'s routes ask about', defined( 'WPCPM_Sponsor_Policy::ACT_VIEW_REPORT' ) ? constant( 'WPCPM_Sponsor_Policy::ACT_VIEW_REPORT' ) : 'undefined', 'view_report' );
+ck( 'ACT_PLAN_EVENT is the action the event planner claims', defined( 'WPCPM_Sponsor_Policy::ACT_PLAN_EVENT' ) ? constant( 'WPCPM_Sponsor_Policy::ACT_PLAN_EVENT' ) : 'undefined', 'plan_event' );
 ck( 'grounds() is exactly the spec\'s table, in order, the manager ground first on every row', $P::grounds(), $expected_map );
 ck( 'ungated() is every action: the sponsor agreement is not a gate', $P::ungated(), array_keys( $expected_map ) );
 $subject_a = $P::subject_sponsor( $A );
@@ -246,6 +260,12 @@ foreach ( (array) glob( __DIR__ . '/../includes/modules/class-wpcpm-sponsor*.php
 	if ( preg_match( '/wpcpm_sponsor(_record_id)?[^;]*===/', (string) file_get_contents( $path ), $mm ) ) { $offenders[ basename( $path ) ] = substr( $mm[0], 0, 80 ); }
 }
 ck( 'no sponsor file but the policy compares a sponsor ID with ===', $offenders, array() );
+// The glob is the rule, so a file of the module that it did not name would never be scanned: the
+// report's PDF and printed document (1.115.0) are named like every other sponsor file, and so is
+// the event store (1.117.0), whose post type name holds the very literal the scan looks for.
+$scanned = array_map( 'basename', (array) glob( __DIR__ . '/../includes/modules/class-wpcpm-sponsor*.php' ) );
+ck( 'the scan reaches the sponsor report\'s store, its numbers, and its PDF and printed document', array_values( array_intersect( array( 'class-wpcpm-sponsor-report.php', 'class-wpcpm-sponsor-report-numbers.php', 'class-wpcpm-sponsor-report-files.php' ), $scanned ) ), array( 'class-wpcpm-sponsor-report.php', 'class-wpcpm-sponsor-report-numbers.php', 'class-wpcpm-sponsor-report-files.php' ) );
+ck( 'and the sponsor event store, whose own class it is', array( in_array( 'class-wpcpm-sponsor-event.php', $scanned, true ), false !== strpos( (string) @file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php' ), 'final class WPCPM_Sponsor_Event' ) ), array( true, true ) );
 ck( 'no em or en dash in the two classes', preg_match( '/\x{2013}|\x{2014}/u', file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php' ) . file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php' ) ), 0 );
 
 // Counted by ck() itself: a literal here is arithmetic nobody maintains.

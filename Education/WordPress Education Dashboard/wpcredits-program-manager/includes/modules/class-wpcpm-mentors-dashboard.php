@@ -128,22 +128,11 @@ class WPCPM_Mentors_Dashboard {
 		}
 
 		// The same test the toolbar link uses - the role *or* an Airtable link - and not the
-		// role alone. `is_mentor()` counts somebody matched to a record without holding the role,
-		// which is how a mentor provisioned before the role existed, or one whose role was
-		// removed and restored by hand, is still recognised. Testing the role here meant the
-		// toolbar offered them their page while the redirects behaved as though they were not
-		// a mentor at all: they logged in and stayed on the wp-admin dashboard.
-		if ( ! self::is_mentor( $user ) ) {
-			return false;
-		}
-
-		// ...but not somebody whose mentoring has ended. Going inactive removes the role and sets
-		// this flag to 0 while deliberately leaving the Airtable link in place, so
-		// `is_mentor()` still says yes - and the page it would send them to has nothing on it.
-		// A held role outranks the flag: that is an explicit grant, and an account given the
-		// role by hand has no flag at all.
-		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR )
-			&& '0' === (string) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_ACTIVE, true ) ) {
+		// role alone, narrowed to a mentor whose mentoring has not ended: see is_active_mentor().
+		// Testing the role here meant the toolbar offered them their page while the redirects
+		// behaved as though they were not a mentor at all: they logged in and stayed on the
+		// wp-admin dashboard. And the page a mentor who has left would be sent to has nothing on it.
+		if ( ! self::is_active_mentor( $user ) ) {
 			return false;
 		}
 
@@ -843,6 +832,35 @@ class WPCPM_Mentors_Dashboard {
 		}
 
 		return '' !== trim( (string) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_RECORD_ID, true ) );
+	}
+
+	/**
+	 * Whether a user is a mentor whose mentoring has not ended.
+	 *
+	 * `is_mentor()`, narrowed once. It counts somebody matched to a record without holding the role,
+	 * which is how a mentor provisioned before the role existed, or one whose role was removed and
+	 * restored by hand, is still recognized. Going inactive removes the role and sets the sync's
+	 * Active flag to 0 while deliberately leaving the Airtable link in place, so `is_mentor()` still
+	 * says yes for somebody who no longer mentors. A held role outranks the flag: that is an explicit
+	 * grant, and an account given the role by hand has no flag at all.
+	 *
+	 * One reader for both of its askers: the login routing, and the sponsor events' audiences
+	 * (1.117.0), so the two cannot come to disagree about who is still a mentor.
+	 *
+	 * @param int|WP_User|null $user Optional user; defaults to the current user.
+	 * @return bool
+	 */
+	public static function is_active_mentor( $user = null ) {
+		$user = WPCPM_Roles::resolve_user( $user );
+
+		// Resolved once and checked here: handed on unresolved, a user ID that names nobody would
+		// reach is_mentor() as null and be read as the current user.
+		if ( ! $user instanceof WP_User || ! $user->exists() || ! self::is_mentor( $user ) ) {
+			return false;
+		}
+
+		return WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR )
+			|| '0' !== (string) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_ACTIVE, true );
 	}
 
 	/**

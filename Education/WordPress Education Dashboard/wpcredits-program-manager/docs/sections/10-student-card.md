@@ -62,6 +62,10 @@ it on by recording your graduation in the program records, and your card catches
 sync. From then on your time on the program counts as finished, and calls can no longer be booked.
 If your graduation looks overdue, ask your mentor, or whoever runs the program.
 
+If your track has partners, you see **In partnership with** and their logos here or in **My
+hours** - or, when neither section is on your card, under a heading of their own, **Partners of
+your track**.
+
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is

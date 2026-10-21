@@ -133,7 +133,6 @@ class WPCPM_Roles {
 	public static function user_has_role( $user, $role ) { return $user instanceof WP_User && in_array( $role, $user->roles, true ); }
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
-class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
 class WPCPM_Students_Sync { const META_RECORD_ID = 'wpcpm_student_record_id'; }
 class WPCPM_Institution_Members {
 	const META_RECORD_ID = 'wpcpm_institution_record_id'; const META_ACTIVE = 'wpcpm_institution_active';
@@ -142,6 +141,7 @@ class WPCPM_Institution_Members {
 class WPCPM_Sponsors_Index {
 	public static function has( $record ) { return isset( $GLOBALS['index'][ $record ] ); }
 	public static function row( $record ) { return isset( $GLOBALS['index'][ $record ] ) ? $GLOBALS['index'][ $record ] : null; }
+	public static function is_key( $v ) { return 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $v ); }
 }
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index';
@@ -307,6 +307,12 @@ foreach ( WPCPM_Sponsor_Posts::caps() as $cap ) { get_user_by( 'id', 20 )->add_c
 $GLOBALS['audit'] = array();
 WPCPM_Sponsor_Members::maybe_repair_detached();
 ck( 'a second call does nothing at all: the repair runs once per site', array( caps_of( 20 ), $GLOBALS['audit'] ), array( array( 'subscriber', 'edit_posts', 'delete_posts', 'upload_files' ), array() ) );
+
+echo "\n=== A minted key is accepted everywhere a record id was ===\n";
+$SPO = 'spoAAAA0000000001';
+$GLOBALS['index'][ $SPO ] = array( 'record_id' => $SPO, 'name' => 'Minted Sponsor', 'website' => '', 'product_type' => '', 'status' => 'Approved' );
+person( 15, array( 'subscriber' ), 'Rep Three' );
+ck( 'a minted spo key attaches like a record id', WPCPM_Sponsor_Members::attach( 15, $SPO, WPCPM_Sponsor_Members::HOW_MANAGER, 1 ), true );
 
 echo "\n=== One account's invitation, sent now ===\n";
 /**

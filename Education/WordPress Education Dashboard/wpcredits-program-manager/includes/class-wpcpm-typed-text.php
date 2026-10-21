@@ -28,10 +28,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The places that use these rules are the sponsor screens' typed texts: the Offers card's title,
  * text and instructions, with the offer's mails and the usage CSV (`WPCPM_Sponsor_Offers`,
  * `WPCPM_Sponsor_Claims`); the interests card's Anything else and events
- * (`WPCPM_Sponsor_Interests`); the profile's typed texts (`WPCPM_Sponsor_Profile`); the question
- * to an applicant and the reason a rejection is kept with (`WPCPM_Sponsor_Application`); and the
- * notes a sponsor post and a Collaboration Agreement are returned with, and the note an agreement
- * is taken out of force with (`WPCPM_Sponsor_Posts`, `WPCPM_Sponsor_Agreement`). Each counts such a
+ * (`WPCPM_Sponsor_Interests`); the profile's typed texts, the description for the partner page
+ * among them (`WPCPM_Sponsor_Profile`); the title and the description of a sponsor's co-hosted
+ * event, in the Events card's Plan and Change forms, with their mails
+ * (`WPCPM_Sponsor_Event_Planner`, `WPCPM_Sponsor_Event`); on the Administrator Dashboard's Events
+ * card, the title and the description of the program's own events and the note a sponsor's event
+ * is returned or canceled with (`WPCPM_Sponsor_Event_Queue`); the question to an applicant and the
+ * reason a rejection is kept with (`WPCPM_Sponsor_Application`); the notes
+ * a sponsor post and a Collaboration Agreement are returned with, and the note an agreement is taken
+ * out of force with (`WPCPM_Sponsor_Posts`, `WPCPM_Sponsor_Agreement`); the name, the contact
+ * person, What the sponsorship funds and the notes on the Sponsors screen's Add and Edit forms
+ * (`WPCPM_Sponsors`; the Add form has no funded line); and the narratives of a sponsor's annual
+ * report, in its editor (`WPCPM_Sponsor_Report`, `WPCPM_Sponsor_Report_Screen`). Each counts such a
  * text the way it draws and mails it. On the institution side four boxes refuse a loss and count
  * their text as typed by the same rules: the question to an applicant, mailed as typed, and the
  * reason a rejection is kept with (`WPCPM_Institutions`), the note a signed agreement is returned
@@ -219,7 +227,8 @@ final class WPCPM_Typed_Text {
 	 * "for students" on two lines, as a cell written in the base's grid can be, would post back as
 	 * "Free hostingfor students" if it were drawn as it is stored. A box drawn this way posts back
 	 * the stored value with each break a space, which the box's unedited test reads as the stored
-	 * value: the profile's one-line boxes and the Offers card's title. A CR LF is one break.
+	 * value: the profile's one-line boxes, the Offers card's title, the Sponsors screen's one-line
+	 * boxes and its Website, and the title in the event planner's Change form. A CR LF is one break.
 	 *
 	 * @param string $value The value as stored.
 	 * @return string
@@ -433,14 +442,15 @@ final class WPCPM_Typed_Text {
 	 * it is shown on is the caller's.
 	 *
 	 * A form says what its own button does: a save, a send ("Tell the program", "Send this
-	 * question"), a return with a note, Take it out of force, Reject, or the two that close a
-	 * request from an institution, Mark as handled and Decline. Each action has a whole sentence of
-	 * its own, saying what did not happen and what to press again, so that none is built from
-	 * pieces a translator meets apart. An action this method does not know reads as a save.
+	 * question"), Plan the event, a return with a note, Take it out of force, Reject, a cancel with a
+	 * note ("Cancel with this note"), or the two that close a request from an institution, Mark as
+	 * handled and Decline. Each action has a whole sentence of its own, saying what did not happen
+	 * and what to press again, so that none is built from pieces a translator meets apart. An action
+	 * this method does not know reads as a save.
 	 *
 	 * @param string $label  The name of the box, as its form labels it.
-	 * @param string $action What the form's button does: `save`, `send`, `return`, `revoke`,
-	 *                       `reject`, `handle` or `decline`. Default `save`.
+	 * @param string $action What the form's button does: `save`, `send`, `plan`, `return`, `revoke`,
+	 *                       `reject`, `cancel`, `handle` or `decline`. Default `save`.
 	 * @return string
 	 */
 	public static function loss_message( $label, $action = 'save' ) {
@@ -449,6 +459,12 @@ final class WPCPM_Typed_Text {
 				return sprintf(
 					/* translators: %s: the name of the box, such as Anything else. */
 					__( 'Nothing was sent, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then send it again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'plan':
+				return sprintf(
+					/* translators: %s: the name of the box, such as Title. */
+					__( 'Nothing was planned, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then plan the event again.', 'wpcredits-program-manager' ),
 					(string) $label
 				);
 			case 'return':
@@ -467,6 +483,12 @@ final class WPCPM_Typed_Text {
 				return sprintf(
 					/* translators: %s: the name of the box, such as Why, for the next Administrator who reads this. */
 					__( 'Nothing was rejected, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then reject the application again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'cancel':
+				return sprintf(
+					/* translators: %s: the name of the box, such as A note for the sponsor. */
+					__( 'Nothing was canceled, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then cancel it again.', 'wpcredits-program-manager' ),
 					(string) $label
 				);
 			case 'handle':

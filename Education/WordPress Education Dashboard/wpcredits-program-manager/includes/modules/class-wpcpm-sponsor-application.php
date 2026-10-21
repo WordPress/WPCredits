@@ -19,13 +19,16 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
 /**
  * The form a company fills in to ask to sponsor the program, and everything that guards it.
  *
- * The institution application's shape with the sponsor's eight questions (design spec of
- * 4 September 2026, section 9.2, and decision 8: the form on the site replaces the Airtable
- * form). The order the checks run in is the design and is the institution form's: the
- * per-actor ceiling, the nonce, the switch, the honeypot, the dwell token, consent, the fields,
- * requiredness, the two logo files, content scoring and the site-wide degrade, the duplicate
- * flags, then storage and the two mails. Every check with a number lives in `WPCPM_Form_Guard`,
- * so the two public forms cannot drift apart on what "too many" means.
+ * The institution application's shape with the sponsor's questions (design spec of 4 September
+ * 2026, section 9.2, and decision 8: the form on the site replaced the Airtable form in
+ * 1.97.0): the Airtable form's eight less the support question, which the tiers cover and which
+ * the form stopped asking in 1.123.12, and since 1.113.0 which tier the company is considering,
+ * asked only once the program has announced the tiers. The order the checks run in is the
+ * design and is the institution form's: the per-actor ceiling, the nonce, the switch, the
+ * honeypot, the dwell token, consent, the fields, requiredness, the two logo files, content
+ * scoring and the site-wide degrade, the duplicate flags, then storage and the two mails. Every
+ * check with a number lives in `WPCPM_Form_Guard`, so the two public forms cannot drift apart
+ * on what "too many" means.
  *
  * **Two files, after the ceiling and before the row.** The logos are the one thing this form
  * takes that is not text. They are accepted through `WPCPM_Image_Upload` (PNG, JPEG or WebP by
@@ -39,7 +42,7 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  * address or name (the institution rule), and a sponsor the index already holds with the same
  * name or website host. Both flags stay on a `new` row: a stranger who submits first using a
  * company's published address must not be able to edit or suppress the genuine submission,
- * and a company already in the base is a fact for the manager, who rejects and creates its account
+ * and a company already on the site is a fact for the manager, who rejects and creates its account
  * on the Sponsors screen's Accounts tab, from its No account view, instead of approving a second
  * record.
  *
@@ -122,12 +125,17 @@ class WPCPM_Sponsor_Application {
 	const TOKEN_FIELD = 'wpcpm_sponsor_application_token';
 
 	/**
-	 * The eight columns, spelled as the base spells them.
+	 * The nine columns, spelled exactly as the answers are stored.
 	 *
-	 * `COL_ANYTHING` ends with a full stop and carries an ASCII apostrophe, unlike the
-	 * institution table's U+2019; both are pinned in `bin/fixtures/sponsors-table-fields.json`
-	 * and asserted by `bin/test-sponsor-application.php`, because `create_records()` sends no
-	 * `typecast` and a name spelled any other way is a 422 for the whole record at approval.
+	 * The first eight are the Airtable form's, spelled as they have always been stored;
+	 * `COL_TIER` joined them in 1.113.0 and holds a key of `tier_choices()`, never its label.
+	 * `COL_OPTION` is the support question's, which the form no longer asks (1.123.12): it is
+	 * kept for the applications filed before, which hold their answer under it, and which the
+	 * answers table and the approval still read. `COL_ANYTHING` ends with a full stop and
+	 * carries an ASCII apostrophe, unlike the institution table's U+2019. All nine are pinned word
+	 * for word by `bin/test-sponsor-application.php`, because an application already on file has
+	 * its answers keyed by these exact strings: renaming one here would silently orphan every
+	 * answer stored under it.
 	 */
 	const COL_NAME     = 'Company Name';
 	const COL_WEBSITE  = 'Website';
@@ -137,6 +145,20 @@ class WPCPM_Sponsor_Application {
 	const COL_LOGO     = 'Logo';
 	const COL_ANYTHING = "Anything else you'd like to share.";
 	const COL_CONSENT  = 'Privacy Policy Compliance';
+	const COL_TIER     = 'Tier considered';
+
+	/**
+	 * The three answers the support question offered (`COL_OPTION`), spelled as an application
+	 * filed before 1.123.12 stores them and as the sponsor record keeps them; the Sponsors screen's
+	 * Add and Edit forms offer the same three for the record (1.111.0), and the form offers them no
+	 * more. Pinned by `bin/test-sponsor-application.php`: an answer already on file is stored under
+	 * one of these exact spellings.
+	 */
+	const OPTION_CHOICES = array(
+		'Sponsor one or multiple mentors',
+		'Sponsor mentors + tools/services',
+		'Other (please specify)',
+	);
 
 	const STATE_NEW      = 'new';
 	const STATE_HELD     = 'held';
@@ -145,7 +167,7 @@ class WPCPM_Sponsor_Application {
 	const STATE_APPROVED = 'approved';
 	const STATE_REJECTED = 'rejected';
 
-	/** Post meta: the cleaned answers, keyed by Airtable column name. Immutable after insert. */
+	/** Post meta: the cleaned answers, keyed by column name (`COL_*`). Immutable after insert. */
 	const META_FIELDS = '_wpcpm_sapp_fields';
 
 	/** Post meta: one of the `STATE_*` values. */
@@ -166,7 +188,7 @@ class WPCPM_Sponsor_Application {
 	/** Post meta: `array( 'colour' => attachment ID or 0, 'white' => attachment ID or 0 )`. */
 	const META_LOGOS = '_wpcpm_sapp_logos';
 
-	/** Post meta: the Airtable record approval created. */
+	/** Post meta: the sponsor's key, minted by approval. */
 	const META_RECORD = '_wpcpm_sapp_record';
 
 	/** Post meta: the account approval created. */
@@ -204,7 +226,7 @@ class WPCPM_Sponsor_Application {
 	 *
 	 * Computed the way `SIGNAL_ACCOUNT` is and never written to `META_SIGNALS`, because it is
 	 * true only until somebody presses Approve again. Added by the S5 review, which found that
-	 * an application whose Airtable record already exists looked like any other in the queue
+	 * an application whose sponsor record already exists looked like any other in the queue
 	 * and could still be rejected: the applicant got the neutral decline while a record with
 	 * Status Approved, an index row and possibly an account with a membership stood for them.
 	 */
@@ -520,10 +542,14 @@ class WPCPM_Sponsor_Application {
 	 */
 
 	/**
-	 * The eight questions, keyed by the exact Airtable column name, in the Airtable form's order.
+	 * The eight questions, keyed by the exact column name, in the order the form asks them.
 	 *
-	 * Keyed by column name because that is what the record is created from: an approval writes
-	 * six of these keys straight through. The logo is two files and the consent is a
+	 * The Airtable form's in the order the form has always asked them, less the support question
+	 * and its note on tools, which the tiers cover and the form no longer asks (1.123.12;
+	 * `retired()` keeps its words for the applications filed before, which hold an answer to
+	 * it), and the tier question where the support one stood, which the form asks only
+	 * while `is_asked()` says so. Keyed by column name because that is what the record is created
+	 * from: an approval writes these keys through. The logo is two files and the consent is a
 	 * precondition, and neither is ever in the stored fields; `server_held()` names them.
 	 *
 	 * @return array<string, array> Column name => spec.
@@ -563,12 +589,14 @@ class WPCPM_Sponsor_Application {
 				'auto'     => 'email',
 				'help'     => __( 'We send the acknowledgement here, and the account when the program says yes.', 'wpcredits-program-manager' ),
 			),
-			self::COL_OPTION   => array(
+			self::COL_TIER     => array(
 				'group'    => 'support',
-				'label'    => __( 'How would you like to support WP Credits?', 'wpcredits-program-manager' ),
-				'type'     => 'choice',
-				'required' => true,
-				'help'     => __( 'Sponsoring tools or services also means sponsoring at least one mentor, at two hours a week.', 'wpcredits-program-manager' ),
+				'label'    => __( 'Which tier are you considering?', 'wpcredits-program-manager' ),
+				'type'     => 'tier',
+				'required' => false,
+				'help'     => __( 'The tiers and what each includes are on the partner page. Not sure yet is a fine answer.', 'wpcredits-program-manager' ),
+				// Asked only once the program has announced the tiers: see is_asked() and clean().
+				'live'     => true,
 			),
 			self::COL_LOGO     => array(
 				'group'    => 'logo',
@@ -595,6 +623,11 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The six groups the questions are asked in, in order.
 	 *
+	 * A group that asks nothing right now is neither drawn nor counted in the editor's summary
+	 * (`count_in_group()`): since the support question went (1.123.12), the support group's one
+	 * question is the tier question, so until the tiers are announced it has none, and its heading
+	 * must not stand over an empty box. With the tier question it reads right as it is.
+	 *
 	 * @return array<string, string> Group key => heading.
 	 */
 	public static function groups() {
@@ -614,7 +647,7 @@ class WPCPM_Sponsor_Application {
 	 * Hashed rather than used raw because one column name ends with a full stop and carries an
 	 * apostrophe, and a form field name is not the place for either.
 	 *
-	 * @param string $column Airtable column name.
+	 * @param string $column Column name (`COL_*`).
 	 * @return string
 	 */
 	public static function form_key( $column ) {
@@ -622,19 +655,50 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * The three choices the support question offers, spelled as the column spells them.
+	 * The questions the form no longer asks whose answers an older application still holds, keyed
+	 * by the column it holds them under, each with the words the answers table labels it with.
 	 *
-	 * Pinned in `bin/fixtures/sponsors-table-fields.json`: `create_records()` sends no
-	 * `typecast`, so a choice spelled any other way is a 422 for the whole record.
+	 * One so far: the support question, which the tiers cover and the form stopped asking in
+	 * 1.123.12. Its label says plainly that it is an older answer, so an Administrator reading an
+	 * application filed before does not take it for a question the applicant was asked today. Never
+	 * cleaned, required or stored: `clean()` refuses a column `fields()` does not hold, and
+	 * `clean_all()` reads only the ones it does, so a stale form that posts it is taken without it.
 	 *
-	 * @return string[]
+	 * @return array<string, string> Column name => label.
 	 */
-	public static function support_choices() {
+	public static function retired() {
 		return array(
-			'Sponsor one or multiple mentors',
-			'Sponsor mentors + tools/services',
-			'Other (please specify)',
+			self::COL_OPTION => __( 'How would you like to support WP Credits? (older answer, no longer asked)', 'wpcredits-program-manager' ),
 		);
+	}
+
+	/**
+	 * The six choices the tier question offers: the ladder's five tiers, lowest first, keyed by
+	 * tier and labeled as the ladder labels them, then the application's "not sure yet".
+	 *
+	 * The key is what a radio posts and the application stores, the label what the applicant
+	 * reads. `+` keeps the ladder's order and appends the sixth, which is a value of
+	 * `tier_requested` alone and never a tier.
+	 *
+	 * @return array<string, string> Key => label.
+	 */
+	public static function tier_choices() {
+		return WPCPM_Sponsor_Tiers::labels() + array( WPCPM_Sponsor_Tiers::UNSURE => __( 'Not sure yet', 'wpcredits-program-manager' ) );
+	}
+
+	/**
+	 * Whether the form asks a question at all right now.
+	 *
+	 * A question marked `live` is asked only once the program has announced the tiers, because
+	 * nothing about the tiers reaches the public before launch. The one reader of that switch for
+	 * the form: `render_form()`, the editor's summary, `clean()` and `add_required()` all ask
+	 * here, so a question the form does not draw is not counted, not stored and not required.
+	 *
+	 * @param array $spec The question's spec, from `fields()`.
+	 * @return bool
+	 */
+	private static function is_asked( array $spec ) {
+		return empty( $spec['live'] ) || WPCPM_Sponsor_Tiers::live();
 	}
 
 	/**
@@ -653,9 +717,9 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * Clean one posted answer into the shape Airtable takes, or refuse it with a reason.
+	 * Clean one posted answer into its stored shape, or refuse it with a reason.
 	 *
-	 * @param string $column Airtable column name.
+	 * @param string $column Column name (`COL_*`).
 	 * @param mixed  $raw    Posted value.
 	 * @return array{ok:bool,value:mixed,problem:string}
 	 */
@@ -664,21 +728,27 @@ class WPCPM_Sponsor_Application {
 		$spec   = isset( $fields[ $column ] ) ? $fields[ $column ] : null;
 
 		// A key nobody asked about, and the logo, which is files and not an answer. Refused
-		// rather than stored: the fields meta is what an approval writes to Airtable.
+		// rather than stored: the fields meta is what an approval reads to build the sponsor's row.
 		if ( null === $spec || 'logos' === $spec['type'] ) {
 			return self::refuse( 'unknown_field' );
 		}
 
+		// Dropped, not refused, while the tiers are not announced: a `live` question is not on the
+		// form then, and a value posted anyway must not fail the whole submission.
+		if ( ! self::is_asked( $spec ) ) {
+			return self::accept( '' );
+		}
+
 		$type = $spec['type'];
 
-		if ( 'choice' === $type ) {
+		if ( 'tier' === $type ) {
 			$value = is_scalar( $raw ) ? trim( (string) $raw ) : '';
 
 			if ( '' === $value ) {
 				return self::accept( '' );
 			}
 
-			return in_array( $value, self::support_choices(), true ) ? self::accept( $value ) : self::refuse( 'bad_choice' );
+			return array_key_exists( $value, self::tier_choices() ) ? self::accept( $value ) : self::refuse( 'bad_choice' );
 		}
 
 		if ( 'consent' === $type ) {
@@ -866,14 +936,21 @@ class WPCPM_Sponsor_Application {
 		$out .= '<ul class="wpcpm-application__groups">';
 
 		foreach ( self::groups() as $key => $heading ) {
+			$count = self::count_in_group( $key );
+
+			// A group the form does not draw is not one the summary names (see groups()).
+			if ( $count < 1 ) {
+				continue;
+			}
+
 			$out .= sprintf(
 				'<li><strong>%1$s</strong> %2$s</li>',
 				esc_html( $heading ),
 				esc_html(
 					sprintf(
 						/* translators: %d: how many questions this group asks. */
-						_n( '%d question', '%d questions', self::count_in_group( $key ), 'wpcredits-program-manager' ),
-						self::count_in_group( $key )
+						_n( '%d question', '%d questions', $count, 'wpcredits-program-manager' ),
+						$count
 					)
 				)
 			);
@@ -896,7 +973,7 @@ class WPCPM_Sponsor_Application {
 		$count = 0;
 
 		foreach ( self::fields() as $spec ) {
-			if ( $spec['group'] === $group ) {
+			if ( $spec['group'] === $group && self::is_asked( $spec ) ) {
 				++$count;
 			}
 		}
@@ -1020,6 +1097,12 @@ class WPCPM_Sponsor_Application {
 		$fields = self::fields();
 
 		foreach ( self::groups() as $group => $heading ) {
+			// A group that asks nothing right now is not drawn, so no heading stands over an empty
+			// box: the support group, until the tiers are announced (see groups()).
+			if ( self::count_in_group( $group ) < 1 ) {
+				continue;
+			}
+
 			printf(
 				'<fieldset class="wpcpm-application__group"><legend>%s</legend>',
 				esc_html( $heading )
@@ -1027,6 +1110,12 @@ class WPCPM_Sponsor_Application {
 
 			foreach ( $fields as $column => $spec ) {
 				if ( $spec['group'] !== $group ) {
+					continue;
+				}
+
+				// Nothing about the tiers reaches the public before launch: a question marked
+				// `live` is drawn only once the program has announced them.
+				if ( ! self::is_asked( $spec ) ) {
 					continue;
 				}
 
@@ -1052,7 +1141,7 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * One question.
 	 *
-	 * @param string $column  Airtable column name.
+	 * @param string $column  Column name (`COL_*`).
 	 * @param array  $spec    Its spec.
 	 * @param mixed  $value   Its value from a failed attempt, or null.
 	 * @param string $problem The problem slug from that attempt, or ''.
@@ -1063,9 +1152,10 @@ class WPCPM_Sponsor_Application {
 		$name     = self::FIELD_ANSWERS . '[' . $key . ']';
 		$type     = $spec['type'];
 		$required = ! empty( $spec['required'] ) ? ' required="required"' : '';
-		// The label's own mark, printed wherever $required is: the radio group gets it once
-		// beside its label, because each radio carries the attribute and the group is what a
-		// person reads as one question.
+		// The label's own mark, printed wherever $required is. A required radio group would get
+		// it once beside its label, because each radio carries the attribute and the group is what
+		// a person reads as one question; the form's one radio group, the tier question, is
+		// optional, so it carries neither.
 		$required_mark = '' !== $required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '';
 		$invalid       = '' !== $problem ? ' aria-invalid="true"' : '';
 		$says          = array();
@@ -1081,7 +1171,7 @@ class WPCPM_Sponsor_Application {
 		$describedby = empty( $says ) ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $says ) ) . '"';
 
 		// The radios and the two files carry their own wrappers; a `<p>` cannot hold a block.
-		$wrapper = in_array( $type, array( 'choice', 'logos' ), true ) ? 'div' : 'p';
+		$wrapper = in_array( $type, array( 'tier', 'logos' ), true ) ? 'div' : 'p';
 
 		printf(
 			'<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s">',
@@ -1102,7 +1192,10 @@ class WPCPM_Sponsor_Application {
 			);
 
 			self::render_policy_line();
-		} elseif ( 'choice' === $type ) {
+		} elseif ( 'tier' === $type ) {
+			// A radio group with the tiers for choices: each radio posts its key and shows its
+			// label, so what is stored never depends on how a label is worded. Optional in its
+			// spec, so no radio carries `required` and the label carries no mark.
 			printf(
 				'<span class="wpcpm-field__label">%1$s%2$s</span>',
 				esc_html( $spec['label'] ),
@@ -1111,14 +1204,14 @@ class WPCPM_Sponsor_Application {
 
 			$picked = is_scalar( $value ) ? (string) $value : '';
 
-			foreach ( self::support_choices() as $choice ) {
+			foreach ( self::tier_choices() as $choice => $label ) {
 				printf(
 					'<label class="wpcpm-field__check"><input type="radio" name="%1$s" value="%2$s"%3$s%4$s /> <span>%5$s</span></label>',
 					esc_attr( $name ),
 					esc_attr( $choice ),
 					$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
 					checked( $picked === $choice, true, false ),
-					esc_html( $choice )
+					esc_html( $label )
 				);
 			}
 		} elseif ( 'logos' === $type ) {
@@ -1563,7 +1656,7 @@ class WPCPM_Sponsor_Application {
 	 * from the values here so that no failure path can repopulate a tick.
 	 *
 	 * @param array $posted The posted answers, keyed by form key.
-	 * @return array{values:array,problems:array} Both keyed by Airtable column name.
+	 * @return array{values:array,problems:array} Both keyed by column name (`COL_*`).
 	 */
 	private static function clean_all( array $posted ) {
 		$values   = array();
@@ -1604,7 +1697,8 @@ class WPCPM_Sponsor_Application {
 	 */
 	private static function add_required( array $values, array $problems ) {
 		foreach ( self::fields() as $column => $spec ) {
-			if ( in_array( $spec['type'], array( 'consent', 'logos' ), true ) || isset( $problems[ $column ] ) || empty( $spec['required'] ) ) {
+			// A question the form does not ask right now cannot be required of anybody.
+			if ( in_array( $spec['type'], array( 'consent', 'logos' ), true ) || isset( $problems[ $column ] ) || empty( $spec['required'] ) || ! self::is_asked( $spec ) ) {
 				continue;
 			}
 
@@ -1713,7 +1807,7 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The company's name as the applicant wrote it, for everything a person reads.
 	 *
-	 * `post_title` has been through kses (S5 review): "Smith & Jones" is stored as
+	 * `post_title` has been through kses: "Smith & Jones" is stored as
 	 * "Smith &amp; Jones" on the post, and printing that through `esc_html()` shows the entity
 	 * itself. The stored fields hold the name as it was typed; the title is only the fallback
 	 * for a row whose fields are gone.
@@ -1939,7 +2033,7 @@ class WPCPM_Sponsor_Application {
 	 * account it creates and publishes them. The titles are the ones `WPCPM_Sponsor_Logo`
 	 * gives, so the Media Library reads the same whichever way a logo arrived.
 	 *
-	 * **Private, and named `sapp-<24 characters>`** (S5 review). These are files a stranger
+	 * **Private, and named `sapp-<24 characters>`.** These are files a stranger
 	 * uploaded through a form on the open internet, and nobody has looked at them yet: as
 	 * ordinary `inherit` attachments they were served from `/wp-content/uploads/` and listed by
 	 * the unauthenticated `wp/v2/media` endpoint under the title the applicant chose. The
@@ -2026,7 +2120,7 @@ class WPCPM_Sponsor_Application {
 	 * unslash what they are handed, and the answers and the browser's name were read unslashed,
 	 * so a backslash in them would otherwise be gone.
 	 *
-	 * @param array  $values  Cleaned values, keyed by Airtable column name.
+	 * @param array  $values  Cleaned values, keyed by column name (`COL_*`).
 	 * @param string $state   One of the `STATE_*` values.
 	 * @param array  $signals Why it is in that state.
 	 * @return int The post ID, or 0.
@@ -2125,7 +2219,7 @@ class WPCPM_Sponsor_Application {
 	 * Open means new, held or waiting for information. Compared on the hashed address and on
 	 * the trimmed, lowercased name.
 	 *
-	 * The name comes from `META_FIELDS` and never from `post_title` (S5 review). WordPress runs
+	 * The name comes from `META_FIELDS` and never from `post_title`. WordPress runs
 	 * a title through kses on the way in for anybody without `unfiltered_html`, which every
 	 * applicant is, so a company called "Smith & Jones" is stored as "Smith &amp; Jones" on the
 	 * post and as the applicant wrote it in the meta: comparing titles would miss the duplicate
@@ -2159,13 +2253,14 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The index rows that already carry this company's name or website host.
 	 *
-	 * Against the index and not a live search (spec 9.2): the Sponsors table is thirty rows
-	 * read whole on every sync run, and the name is compared the way the index compares names,
-	 * trimmed and lowercased, because ten records in the base end in a space.
+	 * Against the store's own rows (spec 9.2): about thirty sponsors, which `rows()` reads in one
+	 * query and holds for the rest of the request, so looking through all of them costs nothing
+	 * a narrower search would save. The name is compared trimmed and lowercased on both sides:
+	 * an applicant's spacing and capitals do not make a different company.
 	 *
 	 * @param string $name    The company's name.
 	 * @param string $website The website, in any spelling.
-	 * @return array Matching rows keyed by record ID, in the index's order.
+	 * @return array Matching rows keyed by sponsor key, in the store's order.
 	 */
 	public static function index_matches( $name, $website ) {
 		$key  = trim( mb_strtolower( (string) $name ) );
@@ -2191,8 +2286,9 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The host of a website, lowercased, with the scheme and a leading `www.` dropped.
 	 *
-	 * The base's url column is full of scheme-less values, so a website is compared as the
-	 * thing a person means by it rather than as the string they typed.
+	 * Many of the websites the migration carried over have no scheme, and people type them that
+	 * way too, so a website is compared as the thing a person means by it rather than as the
+	 * string they typed.
 	 *
 	 * @param string $url A website, in any spelling.
 	 * @return string The host, or '' when there is none to be had.
@@ -2292,7 +2388,7 @@ class WPCPM_Sponsor_Application {
 
 		// Two decisions in one second tie on the meta, and MySQL promises nothing about the
 		// order of a tie: the ID breaks it, newest first, as the list did before it was
-		// bounded (Task 4 review). The window fetched is small, so the sort costs nothing;
+		// bounded. The window fetched is small, so the sort costs nothing;
 		// the one case it cannot settle is a tie straddling the bound itself, which needs
 		// two decisions in the same second at the fifty-first row.
 		usort(
@@ -2472,7 +2568,7 @@ class WPCPM_Sponsor_Application {
 	 * Acknowledge the application to the applicant.
 	 *
 	 * Through `WPCPM_Mail::send_to()`, the single exit for all plugin mail. No link to confirm
-	 * the address (plan ruling 10): the manager's compliance check is the human contact.
+	 * the address: the manager's compliance check is the human contact.
 	 *
 	 * @param int $post_id Application post ID.
 	 * @return bool Whether the message was handed off.
@@ -2635,7 +2731,7 @@ class WPCPM_Sponsor_Application {
 	 * Merged into `WPCPM_Sponsors::messages()` for the Sponsors screen and into the
 	 * Administrator Dashboard's own map, so one sentence serves both surfaces.
 	 *
-	 * Side-effect free, deliberately (S5 review): this map is built by anything that wants any
+	 * Side-effect free, deliberately: this map is built by anything that wants any
 	 * of its sentences, including `WPCPM_Sponsor_Approval::status_sentence()` in the middle of
 	 * a POST, and reading the one-shot detail here meant the first of those callers took it and
 	 * the manager read the sentence without it. `sentence_for()` resolves the detail instead,
@@ -2645,7 +2741,7 @@ class WPCPM_Sponsor_Application {
 	 */
 	public static function manager_messages() {
 		return array(
-			'sapp-approved'     => array( 'success', __( 'The application is approved. The Airtable record, the account, the category, the logo and the first offer are in place, and the welcome is queued.', 'wpcredits-program-manager' ) ),
+			'sapp-approved'     => array( 'success', __( 'The application is approved. The sponsor record, the account, the category, the logo and the first offer are in place, and the welcome is queued.', 'wpcredits-program-manager' ) ),
 			'sapp-info'         => array( 'success', __( 'The question was sent, with your address to reply to. The application waits on the applicant.', 'wpcredits-program-manager' ) ),
 			'sapp-rejected'     => array( 'success', __( 'The application is rejected. The applicant got a short acknowledgement with no reason in it; your note stays on this site.', 'wpcredits-program-manager' ) ),
 			'sapp-spam'         => array( 'success', __( 'The application is marked as spam. Nothing was sent to the address on it.', 'wpcredits-program-manager' ) ),
@@ -2654,7 +2750,7 @@ class WPCPM_Sponsor_Application {
 			'sapp-purged-kept'  => array( 'success', __( 'The application was deleted for good. Its logo files stay in the Media Library as the sponsor\'s logo. Only its reference and the date are kept.', 'wpcredits-program-manager' ) ),
 			'sapp-unknown'      => array( 'error', __( 'There is no sponsor application with that ID.', 'wpcredits-program-manager' ) ),
 			'sapp-state'        => array( 'error', __( 'That application is not in a state this decision applies to. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
-			'sapp-half-done'    => array( 'error', __( 'This application\'s approval is half done: an Airtable record already exists for it. Press Approve again to finish, then decide what you like.', 'wpcredits-program-manager' ) ),
+			'sapp-half-done'    => array( 'error', __( 'This application\'s approval is half done: a sponsor record already exists for it. Press Approve again to finish, then decide what you like.', 'wpcredits-program-manager' ) ),
 			'sapp-question'     => array( 'error', __( 'Nothing was sent. The question has to be at least 10 characters: it is the whole of what the applicant is told.', 'wpcredits-program-manager' ) ),
 			/* translators: %s: the longest question allowed, in characters. */
 			'sapp-too-long'     => array( 'error', sprintf( __( 'Nothing was sent. The question is longer than %s characters: shorten it and send it again.', 'wpcredits-program-manager' ), number_format_i18n( self::MAX_NOTE ) ) ),
@@ -2666,8 +2762,8 @@ class WPCPM_Sponsor_Application {
 			'sapp-not-sent'     => array( 'error', __( 'The message could not be handed off, so the application was left as it was. The Mail section on Settings says why.', 'wpcredits-program-manager' ) ),
 			'sapp-busy'         => array( 'error', __( 'That application is being approved right now. Give it a minute, then look at it again.', 'wpcredits-program-manager' ) ),
 			'sapp-incomplete'   => array( 'error', __( 'That application holds no company name or no address, so there is nothing to create a record from.', 'wpcredits-program-manager' ) ),
-			'sapp-airtable'     => array( 'error', __( 'Airtable could not be written, so nothing else happened and the application is where it was. Try again once the base answers.', 'wpcredits-program-manager' ) ),
-			'sapp-account'      => array( 'error', __( 'The Airtable record was created, but the account could not be made. Press Approve again once the problem is fixed.', 'wpcredits-program-manager' ) ),
+			'sapp-record'       => array( 'error', __( 'The sponsor record could not be saved just now. Press Approve again in a moment.', 'wpcredits-program-manager' ) ),
+			'sapp-account'      => array( 'error', __( 'The sponsor record was created, but the account could not be made. Press Approve again once the problem is fixed.', 'wpcredits-program-manager' ) ),
 			'account-conflict'  => array( 'error', __( 'Nothing was approved. The contact address already belongs to an account on this site, so approving would hand that person a sponsor\'s dashboard. Ask the company for another address, or, if the company is already a sponsor here, attach the existing account on purpose from Manage accounts on the Sponsors screen\'s Accounts tab.', 'wpcredits-program-manager' ) ),
 			'category-failed'   => array( 'error', __( 'The record and the account are made, but the Sponsors category could not be. Press Approve again to finish: neither the record nor the account will be made a second time.', 'wpcredits-program-manager' ) ),
 			'sapp-failed'       => array( 'error', __( 'The approval did not land. What did land is stamped on the application, and pressing Approve again completes the rest.', 'wpcredits-program-manager' ) ),
@@ -2700,7 +2796,7 @@ class WPCPM_Sponsor_Application {
 
 		return sprintf(
 			/* translators: %s: why the account step failed, from WordPress or the provisioning path. */
-			__( 'The Airtable record was created, but the account could not be made. The site said: %s Press Approve again once that is fixed.', 'wpcredits-program-manager' ),
+			__( 'The sponsor record was created, but the account could not be made. The site said: %s Press Approve again once that is fixed.', 'wpcredits-program-manager' ),
 			$detail
 		);
 	}
@@ -2749,7 +2845,7 @@ class WPCPM_Sponsor_Application {
 			'wpcpm_sapp_no_email' => 'sapp-incomplete',
 			'wpcpm_sapp_name'     => 'sapp-incomplete',
 			'wpcpm_sapp_conflict' => 'account-conflict',
-			'wpcpm_sapp_airtable' => 'sapp-airtable',
+			'wpcpm_sapp_record'   => 'sapp-record',
 			'wpcpm_sapp_account'  => 'sapp-account',
 			'wpcpm_sapp_category' => 'category-failed',
 		);
@@ -2792,7 +2888,7 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * The answers as they were stored, keyed by Airtable column name.
+	 * The answers as they were stored, keyed by column name (`COL_*`).
 	 *
 	 * @param WP_Post $post The application.
 	 * @return array
@@ -2878,7 +2974,7 @@ class WPCPM_Sponsor_Application {
 	 * Approve one application: the record, the account, the category, the logo, the offer.
 	 *
 	 * The work lives in `WPCPM_Sponsor_Approval`, because it is ordered steps with a lock
-	 * around them and the first of them talks to Airtable.
+	 * around them and the first of them mints the record.
 	 */
 	public static function handle_approve() {
 		$post = self::begin( self::ACTION_APPROVE );
@@ -2887,7 +2983,8 @@ class WPCPM_Sponsor_Application {
 			self::leave( 'sapp-state' );
 		}
 
-		$result = WPCPM_Sponsor_Approval::approve( (int) $post->ID, get_current_user_id() );
+		// The box beside Approve (1.123.18): ticked, the record is a test sponsor, never listed publicly.
+		$result = WPCPM_Sponsor_Approval::approve( (int) $post->ID, get_current_user_id(), '1' === WPCPM_Request::posted_text( 'wpcpm_test', '' ) );
 
 		if ( is_wp_error( $result ) ) {
 			// The detail travels with the status, tagged to it, so `sentence_for()` can print
@@ -2986,12 +3083,12 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Reject one application, and tell the applicant nothing but that it was decided.
 	 *
-	 * The acknowledgement carries no reason (plan ruling 11): a reason written for a colleague
+	 * The acknowledgement carries no reason: a reason written for a colleague
 	 * reads differently to the person it is about, and the program has no obligation to give
 	 * one. The manager's reason stays on the application's own history.
 	 *
-	 * A half-done approval is refused (S5 review): rejecting one would send the applicant the
-	 * neutral decline while an Airtable record with Status Approved, an index row and possibly
+	 * A half-done approval is refused: rejecting one would send the applicant the
+	 * neutral decline while a sponsor record with Status Approved, an index row and possibly
 	 * an account with a membership already stood for them.
 	 *
 	 * The reason is optional and never sent anywhere, and it is measured as the question is: a
@@ -3056,7 +3153,7 @@ class WPCPM_Sponsor_Application {
 	 * else's. The row stays until the retention run removes it, so the decision can be undone
 	 * by a manager who disagrees.
 	 *
-	 * A half-done approval is refused, as it is in `handle_reject()` (S5 review): the record
+	 * A half-done approval is refused, as it is in `handle_reject()`: the record
 	 * that already stands for the company is not something a spam mark takes back.
 	 */
 	public static function handle_spam() {
@@ -3079,7 +3176,7 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Put a decided application back in the queue.
 	 *
-	 * A half-done approval is refused (S5 review). It can only be one that was held or waiting
+	 * A half-done approval is refused. It can only be one that was held or waiting
 	 * on the applicant when Approve was pressed, since `is_half_done()` answers for an
 	 * undecided row alone; putting it "back" would say the row is untouched when a record with
 	 * Status Approved already stands for the company.
@@ -3106,7 +3203,7 @@ class WPCPM_Sponsor_Application {
 	 *
 	 * No half-done guard, and none is possible: `is_half_done()` is true only for a row in one
 	 * of the states Approve accepts, and this refuses everything but the three decided ones,
-	 * so the two can never describe the same application (S5 review).
+	 * so the two can never describe the same application.
 	 */
 	public static function handle_purge() {
 		$post = self::begin( self::ACTION_PURGE );
@@ -3117,7 +3214,7 @@ class WPCPM_Sponsor_Application {
 
 		// Read before the row goes, because the sentence differs by it: an approved
 		// application's attachments are the sponsor's logo and `forget()` leaves them where
-		// they are, and a flash that said they went with it would be a lie (S5 review).
+		// they are, and a flash that said they went with it would be a lie.
 		$approved = self::STATE_APPROVED === self::state_of( $post );
 
 		if ( ! self::forget( $post, 0, get_current_user_id() ) ) {
@@ -3136,7 +3233,7 @@ class WPCPM_Sponsor_Application {
 	 *
 	 * `wp_delete_post( $id, true )`: no trash, because a retention rule that leaves the row in
 	 * the trash has not deleted anything. The two attachments go with a spam, held or rejected
-	 * row (plan ruling 20, held added by FANON-3); an approved application's attachments are
+	 * row; an approved application's attachments are
 	 * the sponsor's logo in the Media Library and stay, as spec section 11 promises the logos
 	 * survive.
 	 *
@@ -3339,16 +3436,22 @@ class WPCPM_Sponsor_Application {
 		if ( in_array( $state, self::open_states(), true ) ) {
 			$confirm = sprintf(
 				/* translators: 1: company name, 2: contact email address. */
-				__( 'Create an Airtable record with Status Approved and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
+				__( 'Create a sponsor record with Status Approved and a site account for %1$s, and email a password-set link to %2$s? The record can be edited on the Sponsors screen afterward.', 'wpcredits-program-manager' ),
 				$name,
 				'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
 			);
 
-			// The in-base flag, said again where it matters most: approving a company the base
-			// already holds creates a second record (plan ruling 17).
+			// The in-base flag, said again where it matters most: approving a company the site
+			// already holds creates a second record.
 			if ( in_array( self::SIGNAL_IN_BASE, self::signals_of( $post ), true ) ) {
-				$confirm = __( 'The base already holds a sponsor with this name or website, and approving creates a second record. If it is the same company, reject this application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . ' ' . $confirm;
+				$confirm = __( 'The site already holds a sponsor with this name or website, and approving creates a second one. If it is the same company, reject this application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . ' ' . $confirm;
 			}
+
+			// The test box beside Approve (1.123.18): ticked already for a company named by the
+			// program's convention for a test, "TEST" first, and for one whose half-done approval
+			// left a test sponsor's record, so a press that finishes it keeps the flag.
+			$stamped = trim( (string) get_post_meta( $post->ID, self::META_RECORD, true ) );
+			$test    = WPCPM_Sponsors_Index::is_test_name( self::stored_name( $post ) ) || ( WPCPM_Sponsors_Index::is_key( $stamped ) && WPCPM_Sponsors_Index::is_test( $stamped ) );
 
 			self::render_decision_form(
 				$post,
@@ -3358,6 +3461,7 @@ class WPCPM_Sponsor_Application {
 					'label'   => __( 'Approve', 'wpcredits-program-manager' ),
 					'class'   => 'button button-primary',
 					'confirm' => $confirm,
+					'test'    => $test,
 				)
 			);
 
@@ -3432,7 +3536,7 @@ class WPCPM_Sponsor_Application {
 					'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
 					// Two sentences, chosen by the state: `forget()` deletes the logo files of
 					// an application nobody approved and leaves an approved one's, because
-					// those are the sponsor's logo in the Media Library (S5 review).
+					// those are the sponsor's logo in the Media Library.
 					'confirm' => self::STATE_APPROVED === $state
 						? sprintf(
 							/* translators: %s: company name. */
@@ -3541,7 +3645,9 @@ class WPCPM_Sponsor_Application {
 	 *
 	 * @param WP_Post $post The application.
 	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`, `required`,
-	 *                      and `kept`, what a refused press of this form typed into its box, or null.
+	 *                      `kept`, what a refused press of this form typed into its box, or null, and
+	 *                      `test`, for Approve alone, whether its test box is drawn ticked, or null for
+	 *                      no box (1.123.18).
 	 */
 	private static function render_decision_form( WP_Post $post, array $args ) {
 		$args = array_merge(
@@ -3555,6 +3661,7 @@ class WPCPM_Sponsor_Application {
 				'prompt'   => '',
 				'required' => false,
 				'kept'     => null,
+				'test'     => null,
 			),
 			$args
 		);
@@ -3588,6 +3695,15 @@ class WPCPM_Sponsor_Application {
 				// The parser drops one line feed right after the opening tag, so a kept typing
 				// that begins with a line break keeps it.
 				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : ''
+			);
+		}
+
+		// Approve's own box (1.123.18): the record it makes is a test sponsor, never listed publicly.
+		if ( is_bool( $args['test'] ) ) {
+			printf(
+				'<p class="wpcpm-app-action__test"><label><input type="checkbox" name="wpcpm_test" value="1"%1$s /> %2$s</label></p>',
+				$args['test'] ? ' checked' : '',
+				esc_html__( 'Test sponsor: not listed publicly', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -3656,9 +3772,38 @@ class WPCPM_Sponsor_Application {
 	private static function render_half_done_mark() {
 		printf(
 			'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--half-done" title="%1$s">%2$s</span> %3$s</p>',
-			esc_attr__( 'An earlier press of Approve created the Airtable record for this application and then stopped, so a record with Status Approved already stands for the company.', 'wpcredits-program-manager' ),
+			esc_attr__( 'An earlier press of Approve created the sponsor record for this application and then stopped, so a record with Status Approved already stands for the company.', 'wpcredits-program-manager' ),
 			esc_html__( 'approval half done', 'wpcredits-program-manager' ),
 			esc_html__( 'Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * What an application answered to the tier question: the key and its label as the question
+	 * offers them, or two empty strings for no answer.
+	 *
+	 * An answer the question does not offer reads as no answer, whatever the switch says: the
+	 * stored fields are what a stranger posted, and only `tier_choices()` says what the question
+	 * can have meant. The queue's facts, the queue row and the answers table all read it here, so
+	 * the three agree on what the answer is; how each one words it is its own.
+	 *
+	 * @param array $fields The stored answers, keyed by column name.
+	 * @return array{key:string,label:string}
+	 */
+	private static function tier_answer( array $fields ) {
+		$key     = isset( $fields[ self::COL_TIER ] ) && is_scalar( $fields[ self::COL_TIER ] ) ? (string) $fields[ self::COL_TIER ] : '';
+		$choices = self::tier_choices();
+
+		if ( ! isset( $choices[ $key ] ) ) {
+			return array(
+				'key'   => '',
+				'label' => '',
+			);
+		}
+
+		return array(
+			'key'   => $key,
+			'label' => $choices[ $key ],
 		);
 	}
 
@@ -3668,7 +3813,8 @@ class WPCPM_Sponsor_Application {
 	 * @param int $limit Most rows to return.
 	 * @return array[] `id`, `reference`, `company`, `website`, `person`, `email`, `at`, `state`,
 	 *                 `state_label`, `signals`, `held`, `duplicate`, `in_base`, `account`,
-	 *                 `half_done`, oldest first.
+	 *                 `half_done`, `tier_requested` (the tier question's key, or '') and
+	 *                 `tier_requested_label` (its label, or ''), oldest first.
 	 */
 	public static function queue_facts( $limit = self::QUEUE_MAX ) {
 		$rows = array();
@@ -3679,6 +3825,7 @@ class WPCPM_Sponsor_Application {
 			$signals = self::signals_of( $post );
 			$state   = self::state_of( $post );
 			$name    = self::stored_name( $post );
+			$tier    = self::tier_answer( $fields );
 
 			if ( self::email_conflict( (int) $post->ID, $email ) ) {
 				$signals[] = self::SIGNAL_ACCOUNT;
@@ -3689,21 +3836,23 @@ class WPCPM_Sponsor_Application {
 			}
 
 			$rows[] = array(
-				'id'          => (int) $post->ID,
-				'reference'   => self::reference_of( $post ),
-				'company'     => '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ),
-				'website'     => self::website_of( $fields ),
-				'person'      => isset( $fields[ self::COL_PERSON ] ) ? (string) $fields[ self::COL_PERSON ] : '',
-				'email'       => $email,
-				'at'          => (int) get_post_time( 'U', true, $post ),
-				'state'       => $state,
-				'state_label' => self::state_label( $state ),
-				'signals'     => $signals,
-				'held'        => self::STATE_HELD === $state,
-				'duplicate'   => in_array( self::SIGNAL_DUPLICATE, $signals, true ),
-				'in_base'     => in_array( self::SIGNAL_IN_BASE, $signals, true ),
-				'account'     => in_array( self::SIGNAL_ACCOUNT, $signals, true ),
-				'half_done'   => in_array( self::SIGNAL_HALF_DONE, $signals, true ),
+				'id'                   => (int) $post->ID,
+				'reference'            => self::reference_of( $post ),
+				'company'              => '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ),
+				'website'              => self::website_of( $fields ),
+				'person'               => isset( $fields[ self::COL_PERSON ] ) ? (string) $fields[ self::COL_PERSON ] : '',
+				'email'                => $email,
+				'at'                   => (int) get_post_time( 'U', true, $post ),
+				'state'                => $state,
+				'state_label'          => self::state_label( $state ),
+				'signals'              => $signals,
+				'held'                 => self::STATE_HELD === $state,
+				'duplicate'            => in_array( self::SIGNAL_DUPLICATE, $signals, true ),
+				'in_base'              => in_array( self::SIGNAL_IN_BASE, $signals, true ),
+				'account'              => in_array( self::SIGNAL_ACCOUNT, $signals, true ),
+				'half_done'            => in_array( self::SIGNAL_HALF_DONE, $signals, true ),
+				'tier_requested'       => $tier['key'],
+				'tier_requested_label' => $tier['label'],
 			);
 		}
 
@@ -3725,7 +3874,7 @@ class WPCPM_Sponsor_Application {
 
 	/**
 	 * The queue card: every open application, oldest first, with the way to open each, and
-	 * `render_decided()`'s list of the decided ones under it in the same card (S5 review).
+	 * `render_decided()`'s list of the decided ones under it in the same card.
 	 *
 	 * @param string $screen_url The Sponsors screen's URL, which the Open links carry.
 	 */
@@ -3740,7 +3889,7 @@ class WPCPM_Sponsor_Application {
 			esc_html__( 'Sponsor applications', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $waiting ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the base already holds. Applications are decided on the Administrator Dashboard, where approving creates the Airtable record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, where approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'Nothing is waiting. New applications appear here.', 'wpcredits-program-manager' ) . '</p>';
@@ -3861,7 +4010,7 @@ class WPCPM_Sponsor_Application {
 		);
 
 		// The same row is drawn under "Recently decided", where "waiting since" would be a
-		// lie: a decided row says when the decision was taken instead (S5 review).
+		// lie: a decided row says when the decision was taken instead.
 		$decided = in_array( $state, self::decided_states(), true );
 		$when    = $decided ? self::decided_at( $post ) : (int) get_post_time( 'U', true, $post );
 
@@ -3897,6 +4046,26 @@ class WPCPM_Sponsor_Application {
 			)
 		);
 
+		// A manager's screen, so the answer is read whatever the switch says. Branched on the key,
+		// never on the label a translation may reword: not sure yet is an answer and no tier, so
+		// it reads as a sentence of its own rather than as something being considered.
+		$tier = self::tier_answer( $fields );
+
+		if ( WPCPM_Sponsor_Tiers::UNSURE === $tier['key'] ) {
+			printf( '<p class="wpcpm-queue-tier">%s</p>', esc_html__( 'Tier: not sure yet', 'wpcredits-program-manager' ) );
+		} elseif ( '' !== $tier['key'] ) {
+			printf(
+				'<p class="wpcpm-queue-tier">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the tier the applicant is considering. */
+						__( 'Considering: %s', 'wpcredits-program-manager' ),
+						$tier['label']
+					)
+				)
+			);
+		}
+
 		if ( self::STATE_HELD === $state ) {
 			printf(
 				'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--held" title="%1$s">%2$s</span> %3$s</p>',
@@ -3926,9 +4095,9 @@ class WPCPM_Sponsor_Application {
 		if ( in_array( self::SIGNAL_IN_BASE, $signals, true ) ) {
 			printf(
 				'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--duplicate" title="%1$s">%2$s</span> %3$s</p>',
-				esc_attr__( 'The sponsors index already holds a company with this name or this website.', 'wpcredits-program-manager' ),
-				esc_html__( 'already in the base', 'wpcredits-program-manager' ),
-				esc_html__( 'Approving would create a second record; open it and read what the base has.', 'wpcredits-program-manager' )
+				esc_attr__( 'The site already holds a company with this name or this website.', 'wpcredits-program-manager' ),
+				esc_html__( 'already on the site', 'wpcredits-program-manager' ),
+				esc_html__( 'Approving would create a second record; open it and read what the site has.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -3965,8 +4134,8 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * One application, open: the checks, every answer, the logos, the base, and where it is decided
-	 * (`render_here()`).
+	 * One application, open: the checks, every answer, the logos, the matches on the site, and where
+	 * it is decided (`render_here()`).
 	 *
 	 * It prints the applicant's answers directly rather than through `render_details()`, which
 	 * is why it asks the capability itself the way every renderer in this module now does: the
@@ -4021,7 +4190,7 @@ class WPCPM_Sponsor_Application {
 
 	/**
 	 * The application in full for a card that is not the Sponsors screen: the answers, the
-	 * logo files and what the base already holds, without the heading and without the
+	 * logo files and what the site already holds, without the heading and without the
 	 * decisions, which the card draws itself (spec 10, the Administrator Dashboard's card).
 	 *
 	 * The capability is asked here for the same reason `render_decision()` asks it: every
@@ -4042,9 +4211,16 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Every answer the applicant gave, in the order the form asked for them.
 	 *
-	 * The question is printed as the applicant read it, with the Airtable column under it,
-	 * because the manager deciding this is the person who will look the record up in the base.
-	 * Every value is printed escaped: this is a stranger's prose on an admin screen.
+	 * The question is printed as the applicant read it, with the column name under it, so the
+	 * manager can match it against what is stored. Every value is printed escaped: this is a
+	 * stranger's prose on an admin screen. The tier question is printed whatever the switch
+	 * says, as its answer's label and never the key, and as no answer on an application filed
+	 * while the form did not ask it.
+	 *
+	 * A question the form no longer asks (`retired()`) is printed only for an application that
+	 * holds an answer to it, under its older-answer label, where the form asked it: the support
+	 * question stood just before the tier question. An application filed since it went has no row
+	 * for it at all, rather than a "no answer" for a question nobody was asked.
 	 *
 	 * @param WP_Post $post The application.
 	 */
@@ -4058,6 +4234,10 @@ class WPCPM_Sponsor_Application {
 			$column = (string) $column;
 			$label  = ! empty( $spec['label'] ) ? (string) $spec['label'] : $column;
 
+			if ( self::COL_TIER === $column ) {
+				self::render_older_answers( $fields );
+			}
+
 			if ( self::COL_LOGO === $column ) {
 				$count = ( $logos['colour'] > 0 ? 1 : 0 ) + ( $logos['white'] > 0 ? 1 : 0 );
 				$value = $count > 0
@@ -4069,22 +4249,58 @@ class WPCPM_Sponsor_Application {
 					: '';
 			} elseif ( self::COL_CONSENT === $column ) {
 				$value = self::consent_line( get_post_meta( (int) $post->ID, self::META_CONSENT, true ) );
+			} elseif ( self::COL_TIER === $column ) {
+				$value = self::tier_answer( $fields )['label'];
 			} else {
 				$answer = isset( $fields[ $column ] ) ? $fields[ $column ] : '';
 				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
 			}
 
-			printf(
-				'<tr><th scope="row">%1$s<br /><code class="wpcpm-inst-record">%2$s</code></th><td>%3$s</td></tr>',
-				esc_html( $label ),
-				esc_html( $column ),
-				'' !== trim( $value )
-					? esc_html( $value )
-					: '<span class="wpcpm-inst-muted">' . esc_html__( 'no answer', 'wpcredits-program-manager' ) . '</span>'
-			);
+			self::render_answer_row( $label, $column, $value );
 		}
 
 		echo '</tbody></table>';
+	}
+
+	/**
+	 * The rows of the questions the form no longer asks, for an application that answered them.
+	 *
+	 * Only a scalar answer with something in it is printed: the support question was one radio
+	 * group, so an older application holds one of its choices as a string, and a row for an empty
+	 * one would say "no answer" to a question nobody is asked any more. Printed as stored, escaped,
+	 * and never checked against `OPTION_CHOICES`: it is what the applicant was offered then.
+	 *
+	 * @param array $fields The stored answers, keyed by column name.
+	 */
+	private static function render_older_answers( array $fields ) {
+		foreach ( self::retired() as $column => $label ) {
+			$answer = isset( $fields[ $column ] ) && is_scalar( $fields[ $column ] ) ? trim( (string) $fields[ $column ] ) : '';
+
+			if ( '' === $answer ) {
+				continue;
+			}
+
+			self::render_answer_row( $label, (string) $column, $answer );
+		}
+	}
+
+	/**
+	 * One row of the answers table: the question as the applicant read it, the column under it,
+	 * and the answer, or a quiet "no answer".
+	 *
+	 * @param string $label  The question's words.
+	 * @param string $column The column the answer is stored under.
+	 * @param string $value  The answer, as text.
+	 */
+	private static function render_answer_row( $label, $column, $value ) {
+		printf(
+			'<tr><th scope="row">%1$s<br /><code class="wpcpm-inst-record">%2$s</code></th><td>%3$s</td></tr>',
+			esc_html( $label ),
+			esc_html( $column ),
+			'' !== trim( (string) $value )
+				? esc_html( $value )
+				: '<span class="wpcpm-inst-muted">' . esc_html__( 'no answer', 'wpcredits-program-manager' ) . '</span>'
+		);
 	}
 
 	/**
@@ -4147,7 +4363,7 @@ class WPCPM_Sponsor_Application {
 		echo '<h3>' . esc_html__( 'Logo', 'wpcredits-program-manager' ) . '</h3>';
 
 		if ( $logos['colour'] < 1 && $logos['white'] < 1 ) {
-			echo '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval, or the sponsors sync copies the one in the base.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}
@@ -4176,7 +4392,7 @@ class WPCPM_Sponsor_Application {
 	 * What the sponsors index already holds under this company's name or website.
 	 *
 	 * The name is the one in `META_FIELDS`, as it is in `has_open_duplicate()` and for the same
-	 * reason (S5 review): `post_title` has been through kses, so "Smith & Jones" is stored
+	 * reason: `post_title` has been through kses, so "Smith & Jones" is stored
 	 * there as "Smith &amp; Jones" and matches nothing in the index.
 	 *
 	 * @param WP_Post $post The application.
@@ -4185,10 +4401,10 @@ class WPCPM_Sponsor_Application {
 		$fields  = self::fields_of( $post );
 		$matches = self::index_matches( self::name_of( $fields ), self::website_of( $fields ) );
 
-		echo '<h3>' . esc_html__( 'What the base already has', 'wpcredits-program-manager' ) . '</h3>';
+		echo '<h3>' . esc_html__( 'What the site already has', 'wpcredits-program-manager' ) . '</h3>';
 
 		if ( empty( $matches ) ) {
-			echo '<p>' . esc_html__( 'No sponsor in the index carries this name or this website. Approving creates a record.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'No sponsor on the site carries this name or this website. Approving creates one.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}
@@ -4298,7 +4514,7 @@ class WPCPM_Sponsor_Application {
 			'files-skipped'          => __( 'The site had already taken the day\'s applications when this one arrived, so the logo files it came with were not read or kept. The company can send the logo after approval; nothing else about the application was affected.', 'wpcredits-program-manager' ),
 			'mail-ceiling'           => __( 'The day\'s limit on acknowledgements had been reached when it arrived, so no message was sent to the applicant.', 'wpcredits-program-manager' ),
 			self::SIGNAL_DUPLICATE   => __( 'Another open application already named this company or this address. Nothing is ever merged: open both and decide.', 'wpcredits-program-manager' ),
-			self::SIGNAL_IN_BASE     => __( 'The sponsors index already holds a sponsor with this name or website. Approving creates a second record.', 'wpcredits-program-manager' ),
+			self::SIGNAL_IN_BASE     => __( 'The site already holds a sponsor with this name or website. Approving creates a second record.', 'wpcredits-program-manager' ),
 			self::SIGNAL_LOGO_FAILED => __( 'A logo file was accepted but the Media Library refused to store it. The company can upload it again after approval.', 'wpcredits-program-manager' ),
 		);
 	}

@@ -24,6 +24,15 @@
  * The emails whose subject carries what a person wrote, an offer's title or a post's, keep that
  * subject as plain text, as their code always did (`plain_subject`, in the sender).
  *
+ * The sponsors live on this site, each one a private post, and not in an Airtable table: the
+ * interest's last sentence says where its history is kept here, on the Sponsors screen, and the
+ * company's name falls back to its key on the site. The thirty-day mail of a sponsor's term, which
+ * the daily run sends, is two templates, one for a term that ends and one for a term found already
+ * over, word for word as the run wrote them, but the head of the subject, which names the site, as
+ * every other Sponsors email's does (`{site_name}`), where the run wrote "[WordPress Credits]"; and
+ * the sponsor's name, the tier and the day are needed in both, the name since it opens the body, as
+ * it is in every Sponsor events email whose line it opens or fills.
+ *
  * @package WPCreditsProgramManager
  */
 
@@ -31,15 +40,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// The day an example email is about, on the site's clock, a number of whole days from today (before
+// today with a negative number).
+$wpcpm_day = static function ( $days = 0 ) {
+	return ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( ( $days < 0 ? '-' : '+' ) . abs( (int) $days ) . ' days' )->format( 'Y-m-d' );
+};
+
 // Every placeholder an email of the area may have: what each means and its example, a value or a
 // function that works one out when a preview or a test asks for it. An email takes the ones it uses
 // (`$wpcpm_take`).
-$wpcpm_placeholders = static function () {
-	// The day an example email is about, on the site's clock, a number of whole days from today.
-	$day = static function ( $days = 0 ) {
-		return ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( ( $days < 0 ? '-' : '+' ) . abs( (int) $days ) . ' days' )->format( 'Y-m-d' );
-	};
-
+$wpcpm_placeholders = static function () use ( $wpcpm_day ) {
 	return array(
 		'site_name'          => array(
 			'means'   => __( 'The site\'s name.', 'wpcredits-program-manager' ),
@@ -48,7 +58,7 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'company_name'       => array(
-			'means'   => __( 'The company\'s name; its Airtable record when the site holds no name for it.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The company\'s name; its key on the site when the site holds no name for it.', 'wpcredits-program-manager' ),
 			'example' => 'Example Hosting',
 		),
 		'reference'          => array(
@@ -90,8 +100,8 @@ $wpcpm_placeholders = static function () {
 		),
 		'uploaded_on'        => array(
 			'means'   => __( 'The day the signed Collaboration Agreement was uploaded.', 'wpcredits-program-manager' ),
-			'example' => static function () use ( $day ) {
-				return $day( -1 );
+			'example' => static function () use ( $wpcpm_day ) {
+				return $wpcpm_day( -1 );
 			},
 		),
 		'uploaded_by'        => array(
@@ -112,14 +122,14 @@ $wpcpm_placeholders = static function () {
 		),
 		'accepted_on'        => array(
 			'means'   => __( 'The day the Collaboration Agreement was accepted.', 'wpcredits-program-manager' ),
-			'example' => static function () use ( $day ) {
-				return $day();
+			'example' => static function () use ( $wpcpm_day ) {
+				return $wpcpm_day();
 			},
 		),
 		'reinstated_on'      => array(
 			'means'   => __( 'The day the Collaboration Agreement was put back in force.', 'wpcredits-program-manager' ),
-			'example' => static function () use ( $day ) {
-				return $day();
+			'example' => static function () use ( $wpcpm_day ) {
+				return $wpcpm_day();
 			},
 		),
 		'returned_by'        => array(
@@ -138,7 +148,7 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'interest'           => array(
-			'means'     => __( 'What the sponsor said, as the dated line the Sponsors table keeps: the day, who, the ways ticked, the events and the note as typed. The email needs it, in its body.', 'wpcredits-program-manager' ),
+			'means'     => __( 'What the sponsor said, as the dated line its history on the Sponsors screen keeps: the day, who, the ways ticked, the events and the note as typed. The email needs it, in its body.', 'wpcredits-program-manager' ),
 			'example'   => static function () {
 				return WPCPM_Sponsor_Interests::line( array( 'Sponsor a mentor or multiple mentors' ), array(), 'We could host a study day in the spring.', 'Ada Okonjo', wp_date( 'Y-m-d' ) );
 			},
@@ -200,6 +210,10 @@ $wpcpm_placeholders = static function () {
 			'means'   => __( 'The post\'s author, whose account may hold no name. The email needs it.', 'wpcredits-program-manager' ),
 			'example' => 'Ada Okonjo',
 		),
+		'member_name'        => array(
+			'means'   => __( 'The sponsor member who sent the offer or the change for review, whose account may hold no name. The email needs it.', 'wpcredits-program-manager' ),
+			'example' => 'Ada Okonjo',
+		),
 		'post_title'         => array(
 			'means'   => __( 'The post\'s title, as its author wrote it, which may be empty. The email needs it.', 'wpcredits-program-manager' ),
 			'example' => 'Our first study day',
@@ -208,6 +222,26 @@ $wpcpm_placeholders = static function () {
 			'means'   => __( 'The list of posts in wp-admin, where the author edits it.', 'wpcredits-program-manager' ),
 			'example' => static function () {
 				return admin_url( 'edit.php' );
+			},
+		),
+		'tier'               => array(
+			'means'   => __( 'The tier whose term ends, as the sponsor holds it until its last day.', 'wpcredits-program-manager' ),
+			// The tiers' own label where the tiers are loaded, as on every screen; the word itself where a
+			// check reads the registry without them.
+			'example' => static function () {
+				return class_exists( 'WPCPM_Sponsor_Tiers' ) ? WPCPM_Sponsor_Tiers::label( WPCPM_Sponsor_Tiers::CHAMPION ) : 'Champion';
+			},
+		),
+		'term_end'           => array(
+			'means'   => __( 'The term\'s last day.', 'wpcredits-program-manager' ),
+			'example' => static function () use ( $wpcpm_day ) {
+				return class_exists( 'WPCPM_Sponsor_Tiers' ) ? WPCPM_Sponsor_Tiers::format_day( $wpcpm_day( 30 ) ) : $wpcpm_day( 30 );
+			},
+		),
+		'sponsor_edit_link'  => array(
+			'means'   => __( 'The sponsor\'s Edit form on the Sponsors screen, where a renewal moves the day.', 'wpcredits-program-manager' ),
+			'example' => static function () {
+				return class_exists( 'WPCPM_Sponsors' ) ? WPCPM_Sponsors::edit_url( 'spoEXAMPLE0000001' ) : admin_url( 'admin.php?page=wpcpm-sponsors&tab=sponsors' );
 			},
 		),
 	);
@@ -244,6 +278,16 @@ $wpcpm_as_applied = array(
 	'company_name' => array(
 		'means' => __( 'The company\'s name as the application gave it.', 'wpcredits-program-manager' ),
 	),
+);
+
+// In the email about a term that is over, the tier is the one whose term ended, and the term's last
+// day is already past: five days ago, in its preview and its test.
+$wpcpm_over             = array();
+$wpcpm_over['tier']     = array( 'means' => __( 'The tier whose term ended, as the sponsor held it until its last day.', 'wpcredits-program-manager' ) );
+$wpcpm_over['term_end'] = array(
+	'example' => static function () use ( $wpcpm_day ) {
+		return class_exists( 'WPCPM_Sponsor_Tiers' ) ? WPCPM_Sponsor_Tiers::format_day( $wpcpm_day( -5 ) ) : $wpcpm_day( -5 );
+	},
 );
 
 // The application's acknowledgement, with the logo kept or with the line saying it was not.
@@ -488,7 +532,7 @@ return array(
 		),
 		'body'         => sprintf(
 			/* translators: 1: company name, 2: the dated line. */
-			__( "%1\$s said on the Sponsor Dashboard:\n\n%2\$s\n\nThe full history is in the Sponsorship interests column of the Sponsors table.", 'wpcredits-program-manager' ),
+			__( "%1\$s said on the Sponsor Dashboard:\n\n%2\$s\n\nThe full history is on the Sponsors screen.", 'wpcredits-program-manager' ),
 			'{company_name}',
 			'{interest}'
 		),
@@ -565,5 +609,62 @@ return array(
 			'{edit_link}'
 		),
 		'placeholders' => $wpcpm_take( array( 'post_title', 'author_name', 'note', 'edit_link' ), array( 'post_title', 'author_name', 'note' ) ),
+	),
+	'sponsor-offer-returned'       => array(
+		'trigger'      => __( 'When an Administrator sends back a sponsor\'s offer, or a change to a live one, with a note: to the sponsor member who sent it for review.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: %s: the offer's title. */
+			__( 'Your offer "%s" needs a change before students see it', 'wpcredits-program-manager' ),
+			'{offer_title}'
+		),
+		'body'         => sprintf(
+			/* translators: 1: the member's name, 2: the offer's title, 3: the Administrator's note, 4: the Offers card on the Sponsor Dashboard. */
+			__( "Hello %1\$s,\n\nAn Administrator read your offer \"%2\$s\" and sent it back with this note:\n\n%3\$s\n\nChange it on the Offers card and send it for review again: %4\$s", 'wpcredits-program-manager' ),
+			'{member_name}',
+			'{offer_title}',
+			'{note}',
+			'{offers_link}'
+		),
+		'placeholders' => $wpcpm_take( array( 'offer_title', 'member_name', 'note', 'offers_link' ), array( 'offer_title', 'member_name', 'note' ) ),
+	),
+	'sponsor-term-ending'          => array(
+		'trigger'      => __( 'Thirty days before a sponsor\'s term ends, or on the first daily run after, once a term: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: company name, 3: the tier whose term ends, 4: the term's last day. */
+			__( '[%1$s] %2$s: the %3$s term ends on %4$s', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{company_name}',
+			'{tier}',
+			'{term_end}'
+		),
+		'body'         => sprintf(
+			/* translators: 1: company name, 2: the tier whose term ends, 3: the term's last day, 4: the sponsor's Edit form on the Sponsors screen. */
+			__( "%1\$s's %2\$s term ends on %3\$s. Renewal is moving the day on the Sponsors screen: %4\$s\n\nFrom the day after, the sponsor reads as a Friend, and once the grace date has passed, the daily run puts what a Friend's tier does not cover to dormant, while Sponsor tiers is on in Settings.", 'wpcredits-program-manager' ),
+			'{company_name}',
+			'{tier}',
+			'{term_end}',
+			'{sponsor_edit_link}'
+		),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'company_name', 'tier', 'term_end', 'sponsor_edit_link' ), array( 'company_name', 'tier', 'term_end' ) ),
+	),
+	'sponsor-term-ended'           => array(
+		'trigger'      => __( 'When the daily run finds a sponsor\'s term already over before its thirty-day mail went, once a term: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: company name, 3: the tier whose term ended, 4: the term's last day. */
+			__( '[%1$s] %2$s: the %3$s term ended on %4$s', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{company_name}',
+			'{tier}',
+			'{term_end}'
+		),
+		'body'         => sprintf(
+			/* translators: 1: company name, 2: the tier whose term ended, 3: the term's last day, 4: the sponsor's Edit form on the Sponsors screen. */
+			__( "%1\$s's %2\$s term ended on %3\$s. Renewal is moving the day on the Sponsors screen: %4\$s\n\nFrom the day after, the sponsor reads as a Friend, and once the grace date has passed, the daily run puts what a Friend's tier does not cover to dormant, while Sponsor tiers is on in Settings.", 'wpcredits-program-manager' ),
+			'{company_name}',
+			'{tier}',
+			'{term_end}',
+			'{sponsor_edit_link}'
+		),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'company_name', 'tier', 'term_end', 'sponsor_edit_link' ), array( 'company_name', 'tier', 'term_end' ), $wpcpm_over ),
 	),
 );

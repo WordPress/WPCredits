@@ -779,7 +779,7 @@ ck( 'and the 150-hour form still asks it where it always did',
     ),
     array( true, false ) );
 
-// The divider mechanism itself went with Task 8, but on this track the pair still follows the
+// The divider mechanism itself is gone, but on this track the pair still follows the
 // Practical lesson rather than sitting under the section legend, so it carries a `lead` of its
 // own now, where a `divider` used to open it; the other tracks do not.
 ck( 'the team pair is named on the developer track, where the divider used to open it',
@@ -1343,7 +1343,7 @@ ck( 'lesson sub-headings are headings', array( false !== strpos( $edit, '<h4 cla
 ck( 'the marks say their scale once, in the heading over them', false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade, 0 to 100</h4>' ), true );
 ck( 'the read-only card has the same headings', false !== strpos( $read, '<h4 class="wpcpm-report__sub">Optional courses</h4>' ), true );
 
-// The last hairline becomes a heading (Task 8): the one run that still opened with a bare rule
+// The last hairline becomes a heading: the one run that still opened with a bare rule
 // now names itself, like every other run on the card.
 ck( 'the reflection posts are named, and no hairline is left', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Your reflection posts</h4>' ), strpos( $edit, 'wpcpm-report__rule' ) ), array( true, false ) );
 
@@ -1579,6 +1579,35 @@ ck( 'with a course, the preview draws the button that opens it, then the hours b
 ck( 'with none, the hours box alone, as the section of its own draws it, and no button',
 	array( substr_count( $no_course, 'Open your course' ), substr_count( $no_course, 'wpcpm-student__course-cols' ), substr_count( $no_course, '<div class="wpcpm-report__body wpcpm-report__body--preview"><div class="wpcpm-hours">' ) ),
 	array( 0, 0, 1 ) );
+
+// A track's partnership line sits where the student's page puts it: after the course button and the
+// hours box, after the box alone, or on its own, and before the report in every case. The line is
+// the partners class's own HTML (bin/test-track-partners.php), handed over as it was built.
+$partner_line = '<div class="wpcpm-student__partners"><p class="wpcpm-student__partners-lead">In partnership with</p><ul class="wpcpm-student__partners-list"><li class="wpcpm-student__partner"><span class="wpcpm-student__partner-name">Acme Tools</span></li></ul></div>';
+
+ob_start();
+WPCPM_Student_Report_Form::render_preview( $course_fields, 'https://learn.wordpress.org/course/wordpress-credits/', $partner_line );
+$with_course_line = ob_get_clean();
+ob_start();
+WPCPM_Student_Report_Form::render_preview( $course_fields, '', $partner_line );
+$no_course_line = ob_get_clean();
+ob_start();
+WPCPM_Student_Report_Form::render_preview( array( 'Notes' => array( 'type' => 'textarea', 'label' => 'Notes', 'group' => 'project' ) ), '', $partner_line );
+$bare_line = ob_get_clean();
+ob_start();
+WPCPM_Student_Report_Form::render_preview( $course_fields, 'https://learn.wordpress.org/course/wordpress-credits/', '' );
+$with_course_none = ob_get_clean();
+
+ck( 'the partnership line follows the course columns, the hours box alone, or opens the preview, and comes before the report each time',
+	array(
+		substr_count( $with_course_line, '</div></div>' . $partner_line . '<div class="wpcpm-report">' ),
+		strpos( $with_course_line, $course_button ) < strpos( $with_course_line, $partner_line ),
+		substr_count( $no_course_line, '</div>' . $partner_line . '<div class="wpcpm-report">' ),
+		strpos( $no_course_line, 'class="wpcpm-hours"' ) < strpos( $no_course_line, $partner_line ),
+		substr_count( $bare_line, '<div class="wpcpm-report__body wpcpm-report__body--preview">' . $partner_line . '<div class="wpcpm-report">' ),
+	),
+	array( 1, true, 1, true, 1 ) );
+ck( 'and with no line, the preview is what it was', $with_course_none, $with_course );
 
 echo "\n=== The report a mentor opens shows the hours, read only ===\n";
 

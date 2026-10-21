@@ -4,7 +4,10 @@
  * the editor fence, the Posts card, publish and return, the byline (Sponsors module, S3), and
  * the three WPCPM_Content_Access surfaces that gate a sponsor post at the Students and mentors
  * level: the real class is loaded here rather than stood in for, because each of those three
- * could be made a no-op with the whole battery green.
+ * could be made a no-op with the whole battery green. Publish, Return and the posting switch each
+ * check the nonce keyed to what they act on, asserted by name, and a stale switch dies before the
+ * flag moves: they read their form through `WPCPM_Request`, where the standard's nonce sniff
+ * cannot see a nonce gone.
  *
  * Run from the plugin root:  php bin/test-sponsor-posts.php
  *
@@ -36,6 +39,7 @@ $GLOBALS['flash']     = array();
 $GLOBALS['kept_typing'] = array();
 $GLOBALS['index']     = array();
 $GLOBALS['grants']    = array();
+$GLOBALS['settings']  = array();
 $GLOBALS['now']       = '2026-09-06 10:00:00';
 
 class WP_Error {
@@ -99,7 +103,7 @@ function get_queried_object() { return isset( $GLOBALS['post'] ) ? $GLOBALS['pos
 function get_preview_post_link( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID . '&preview=true' : ''; }
 function get_edit_post_link( $id, $c = 'display' ) { return 'https://example.test/wp-admin/post.php?post=' . (int) $id . '&action=edit'; }
 function get_the_date( $f, $p ) { return '2026-09-06'; }
-function get_post_time( $f = 'U', $gmt = false, $p = null ) { return 1788600000; }
+function get_post_time( $f = 'U', $gmt = false, $p = null, $translate = false ) { return 1788600000; }
 function get_the_modified_date( $f, $p ) { return '2026-09-06'; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
@@ -125,6 +129,9 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_post( $p = null ) { if ( null === $p ) { return isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null; } if ( $p instanceof WP_Post ) { return $p; } return isset( $GLOBALS['posts'][ (int) $p ] ) ? $GLOBALS['posts'][ (int) $p ] : null; }
+// The editor fence's clamp reads a post's status as it stands before this
+// save, to tell an edit of something already in flight from a brand new submission.
+function get_post_status( $p = null ) { $p = get_post( $p ); return $p instanceof WP_Post ? $p->post_status : false; }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
 // As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); $GLOBALS['calls'][] = array( 'update_post_meta', (int) $id, $k, $v ); return true; }
@@ -134,7 +141,8 @@ function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k
 function wp_insert_post( $a, $e = false ) { $id = $GLOBALS['next_post']++; $a['ID'] = $id; $GLOBALS['posts'][ $id ] = new WP_Post( $a ); return $id; }
 // `edit_date` is an instruction to wp_update_post, never a column: core reads it and drops it.
 function wp_update_post( $a, $e = false ) { $id = (int) $a['ID']; if ( ! isset( $GLOBALS['posts'][ $id ] ) ) { return 0; } foreach ( $a as $k => $v ) { if ( 'edit_date' !== $k ) { $GLOBALS['posts'][ $id ]->$k = $v; } } $GLOBALS['calls'][] = array( 'wp_update_post', $id, $a ); return $id; }
-function wp_publish_post( $p ) { $id = $p instanceof WP_Post ? $p->ID : (int) $p; $GLOBALS['posts'][ $id ]->post_status = 'publish'; $GLOBALS['calls'][] = array( 'wp_publish_post', $id ); }
+// $GLOBALS['publish_fails']: a wake() check leaves the status untouched, the way a failed $wpdb->update() would, without wp_publish_post() itself answering anything to say so.
+function wp_publish_post( $p ) { $id = $p instanceof WP_Post ? $p->ID : (int) $p; if ( empty( $GLOBALS['publish_fails'] ) ) { $GLOBALS['posts'][ $id ]->post_status = 'publish'; } $GLOBALS['calls'][] = array( 'wp_publish_post', $id ); }
 function wp_is_post_revision( $p ) { return false; }
 function wp_is_post_autosave( $p ) { return false; }
 function get_posts( array $args ) {
@@ -144,10 +152,29 @@ function get_posts( array $args ) {
 	foreach ( $GLOBALS['posts'] as $p ) {
 		if ( 'post' !== $p->post_type || ! in_array( $p->post_status, $statuses, true ) ) { continue; }
 		if ( isset( $args['meta_key'] ) ) { $have = (string) get_post_meta( $p->ID, $args['meta_key'], true ); if ( isset( $args['meta_compare'] ) && 'EXISTS' === $args['meta_compare'] ) { if ( '' === $have ) { continue; } } elseif ( $have !== (string) ( $args['meta_value'] ?? '' ) ) { continue; } }
+		// pending_all()'s own EXISTS / NOT EXISTS pair, relation AND.
+		// Anything else is a fatal with the clause printed, so a query this stand-in does not
+		// model is never read as a silent pass.
+		if ( isset( $args['meta_query'] ) ) {
+			$excluded = false;
+			foreach ( $args['meta_query'] as $mq_key => $clause ) {
+				if ( 'relation' === $mq_key ) {
+					if ( 'AND' !== $clause ) { die( 'get_posts: unmodeled meta_query relation ' . var_export( $clause, true ) ); }
+					continue;
+				}
+				if ( ! is_array( $clause ) || ! isset( $clause['key'], $clause['compare'] ) || ! in_array( $clause['compare'], array( 'EXISTS', 'NOT EXISTS' ), true ) ) {
+					die( 'get_posts: unmodeled meta_query clause ' . var_export( $clause, true ) );
+				}
+				$has = '' !== (string) get_post_meta( $p->ID, $clause['key'], true );
+				if ( ( 'EXISTS' === $clause['compare'] && ! $has ) || ( 'NOT EXISTS' === $clause['compare'] && $has ) ) { $excluded = true; }
+			}
+			if ( $excluded ) { continue; }
+		}
 		$out[] = $p;
 	}
 	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
-	return $out;
+	// clear_dormant_stamps() asks for ids alone, the way every other suite's get_posts() already answers it.
+	return ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) ? array_map( static function ( $p ) { return (int) $p->ID; }, $out ) : $out;
 }
 // Terms: one flat table keyed by id, with slug and parent, the way core answers.
 function term_exists( $slug, $tax = '', $parent = null ) { foreach ( $GLOBALS['terms'] as $id => $t ) { if ( $t['slug'] === $slug ) { return array( 'term_id' => $id, 'term_taxonomy_id' => $id ); } } return null; }
@@ -174,8 +201,9 @@ function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
 function is_singular( $t = '' ) { return ! empty( $GLOBALS['singular'] ); }
 function in_the_loop() { return ! empty( $GLOBALS['singular'] ); }
 function is_main_query() { return true; }
-// A nonce that fails on demand dies with WordPress's own sentence, not through wp_die() below,
-// whose answer keeps only the status and so would read as the capability's refusal.
+// A nonce that fails on demand, one the request carries for another action, dies with WordPress's
+// own sentence, not through wp_die() below, whose answer keeps only the status and so would read as
+// the capability's refusal; what a handler reached before it dies is what that nonce failed to guard.
 function check_admin_referer( $a ) { $GLOBALS['calls'][] = array( 'nonce', $a ); if ( ! empty( $GLOBALS['nonce_fails'] ) ) { throw new WPCPM_Test_Redirect( 'The link you followed has expired.' ); } return true; }
 function wp_safe_redirect( $u ) { throw new WPCPM_Test_Redirect( $u ); }
 function wp_die( $m, $t = '', $a = array() ) { throw new WPCPM_Test_Redirect( 'die:' . ( is_int( $t ) ? $t : ( isset( $a['response'] ) ? (int) $a['response'] : 0 ) ) ); }
@@ -195,7 +223,6 @@ class WPCPM_Roles {
 	public static function user_has_role( $user, $role ) { return $user instanceof WP_User && in_array( $role, $user->roles, true ); }
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
-class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
 class WPCPM_Students_Sync { const META_RECORD_ID = 'wpcpm_student_record_id'; }
 class WPCPM_Institution_Members {
 	const META_RECORD_ID = 'wpcpm_institution_record_id'; const META_ACTIVE = 'wpcpm_institution_active';
@@ -206,6 +233,9 @@ class WPCPM_Sponsors_Index {
 	public static function row( $record ) { return isset( $GLOBALS['index'][ $record ] ) ? $GLOBALS['index'][ $record ] : null; }
 	public static function display_logo( $record ) { return $GLOBALS['logo'] ?? array(); }
 	public static function empty_row() { return array( 'record_id' => '', 'name' => '', 'website' => '', 'status' => '' ); }
+	public static function is_key( $v ) { return 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $v ); }
+	public static function is_test( $sponsor ) { $row = is_array( $sponsor ) ? $sponsor : self::row( (string) $sponsor ); return is_array( $row ) && ! empty( $row['test'] ); }
+	public static function test_keys() { return array_keys( array_filter( $GLOBALS['index'], static function ( $row ) { return ! empty( $row['test'] ); } ) ); }
 }
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index';
@@ -262,6 +292,9 @@ class WPCPM_Sponsors {
 	public static function accounts_view_url( $record ) { return admin_url( 'admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . rawurlencode( (string) $record ) ); }
 }
 class WPCPM_Institutions { const FLASH = 'institutions'; }
+// The tier ladder's one setting read here: the launch switch. The real WPCPM_Settings has more;
+// this suite asks nothing else of it.
+class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function leave( $status, $card, $record = '', $detail = '' ) { throw new WPCPM_Test_Redirect( $status . '|' . $card . '|' . $record . '|' . $detail ); }
@@ -283,6 +316,11 @@ require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
+// The tier ladder (1.112.0): the post cap, Write a post's own sentence, and dormant posts all
+// read it now.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
+// The shell the Posts card is drawn in.
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php';
 
 $fail = 0; $checks = 0;
@@ -372,7 +410,7 @@ reset_calls();
 WPCPM_Sponsor_Posts::init();
 $hooked = array_map( static function ( $c ) { return $c[1]; }, array_merge( calls( 'add_filter' ), calls( 'add_action' ) ) );
 sort( $hooked );
-ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'disable_categories_dropdown', 'get_terms_args', 'get_the_author_display_name', 'init', 'oembed_response_data', 'pre_get_posts', 'rest_after_insert_post', 'rest_attachment_query', 'rest_category_query', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
+ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'disable_categories_dropdown', 'get_terms_args', 'get_the_author_display_name', 'init', 'jetpack_subscriptions_exclude_these_categories', 'oembed_response_data', 'pre_get_posts', 'pre_get_posts', 'rest_after_insert_post', 'rest_attachment_query', 'rest_category_query', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
 ck( 'the hooks that need two or more arguments ask for them', array( in_array( array( 'add_action', 'save_post_post', 20, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'wp_insert_post_data', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'get_the_author_display_name', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'the_content', 6, 1 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'oembed_response_data', 20, 2 ), $GLOBALS['calls'], true ) ), array( true, true, true, true, true ) );
 $GLOBALS['uid'] = 1;
 $untouched = array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_date' => '2030-01-01 00:00:00', 'post_date_gmt' => '2030-01-01 00:00:00' );
@@ -490,6 +528,385 @@ WPCPM_Sponsor_Posts::set_posting( $S, true, 1 );
 ck( 'an empty card says so in the page\'s own words', false !== strpos( card( $S2, 1 ), '<p class="wpcpm-student__note">No posts yet.</p>' ), true );
 $html = card( $S, 20, 'posts' );
 ck( 'the card opens when the flash names it', false !== strpos( $html, '<details id="wpcpm-sponsor-posts" class="wpcpm-group wpcpm-group__disclosure" open>' ), true );
+// The action is printed whatever opened the card, and the stylesheets hide it while the card is open:
+// open, the card shows its own Write a post button, and the one after the fold waits for the card to
+// be folded.
+ck( 'and opened by it, the card shows its own Write a post and still prints the one after its fold, which the stylesheets hide while the card is open', array( substr_count( $html, 'wpcpm-sponsor__row-action' ), substr_count( $html, 'href="https://example.test/wp-admin/post-new.php"' ) ), array( 1, 2 ) );
+// Folded otherwise, its row how many posts are published and how many wait for review, read by each
+// post's own state, and Write a post after the fold, the same address as the button inside,
+// wherever the button inside is drawn: for a member, with posting on and room in the tier (the
+// design the owner approved on 27 September 2026), naming for a screen reader what it opens. The
+// card's first line says where a published post appears, which the group's lead no longer says.
+$write_row = '</div></details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="https://example.test/wp-admin/post-new.php">Write a post<span class="screen-reader-text"> in the WordPress editor</span></a></p></section>';
+$member    = card( $S, 20 );
+$manager   = card( $S, 1 );
+WPCPM_Sponsor_Posts::set_posting( $S, false, 1 );
+$off       = card( $S, 20 );
+WPCPM_Sponsor_Posts::set_posting( $S, true, 1 );
+ck( 'the row: folded, the published and the waiting counted, Write a post after the fold for a member who may write, and none for a manager or with posting off; the first line says where a published post appears', array(
+	0 === strpos( $member, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-posts" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Posts <span class="wpcpm-group__count">2</span></h3><span class="wpcpm-sponsor__state">0 published, 1 waiting</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ),
+	substr( $member, -strlen( $write_row ) ) === $write_row,
+	array( substr_count( $manager, 'wpcpm-sponsor__row-action' ), substr_count( $off, 'wpcpm-sponsor__row-action' ), substr( $manager, -strlen( '</div></details></section>' ) ) ),
+	false !== strpos( $manager, '<span class="wpcpm-sponsor__state">0 published, 1 waiting</span>' ),
+	false !== strpos( $member, '<div class="wpcpm-group__body"><p class="wpcpm-student__note">A post appears under your offer in Tools from our sponsors, on the Student Report Card and the Mentor Report Card, once an Administrator publishes it.</p>' ),
+	false !== strpos( $manager, '<div class="wpcpm-group__body"><p class="wpcpm-student__note">A post appears under your offer in Tools from our sponsors' ),
+), array( true, true, array( 0, 0, '</div></details></section>' ), true, true, true ) );
+
+echo "\n=== The tier ladder: the post cap, Write a post, and dormant posts ===\n";
+// Fresh sponsors throughout, never $S or $S2: those two carry posts the rest of this file
+// depends on, and post_count() would count them against a cap they were never meant to test.
+$T1 = 'recTIER0000000001';
+$GLOBALS['index'][ $T1 ] = array( 'record_id' => $T1, 'name' => 'TEST Mentor Tier Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::MENTOR );
+$GLOBALS['users'][60] = new WP_User( 60, array( 'wpcpm_sponsor' ), 'Mentor Tier Member' );
+WPCPM_Sponsor_Members::attach( 60, $T1, 'manager', 1 );
+$html = card( $T1, 60 );
+ck( 'with the switch off Write a post is drawn as before, whatever the tier', false !== strpos( $html, 'href="https://example.test/wp-admin/post-new.php"' ), true );
+
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$html = card( $T1, 60 );
+// The next tier up from a Friend, Supporter, includes no posts either, so the sentence
+// names the tier posts start at rather than sending the sponsor to "the next tier".
+ck(
+	'with the switch on a Friend reads that its tier includes no posts and that posts start at Backer, and keeps the way into wp-admin',
+	array(
+		false !== strpos( $html, 'Your tier, Friend, includes no posts. Posts start at Backer: talk to your program contact.' ),
+		strpos( $html, 'the next tier' ),
+		false !== strpos( $html, 'href="https://example.test/wp-admin/edit.php"' ),
+		strpos( $html, 'post-new.php' ),
+	),
+	array( true, false, true, false )
+);
+$T0 = 'recTIER0000000010';
+$GLOBALS['index'][ $T0 ] = array( 'record_id' => $T0, 'name' => 'TEST Supporter Tier Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::SUPPORTER );
+$GLOBALS['users'][59] = new WP_User( 59, array( 'wpcpm_sponsor' ), 'Supporter Tier Member' );
+WPCPM_Sponsor_Members::attach( 59, $T0, 'manager', 1 );
+ck( 'and a Supporter reads the same sentence, true for it too', false !== strpos( card( $T0, 59 ), 'Your tier, Supporter, includes no posts. Posts start at Backer: talk to your program contact.' ), true );
+
+$T2 = 'recTIER0000000002';
+$GLOBALS['index'][ $T2 ] = array( 'record_id' => $T2, 'name' => 'TEST Backer One', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$GLOBALS['users'][61] = new WP_User( 61, array( 'wpcpm_sponsor' ), 'Backer Member One' );
+WPCPM_Sponsor_Members::attach( 61, $T2, 'manager', 1 );
+$t2_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 61, 'post_title' => 'Backer post in flight' ) );
+$GLOBALS['pmeta'][ $t2_post ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T2;
+$html = card( $T2, 61 );
+ck(
+	'a Backer with one post in flight reads the tier\'s sentence in place of Write a post',
+	array(
+		false !== strpos( $html, 'Your tier, Backer, includes one post at a time, in review or published. The next can follow once the program returns this one or takes it down.' ),
+		strpos( $html, 'post-new.php' ),
+	),
+	array( true, false )
+);
+
+$T3 = 'recTIER0000000003';
+$GLOBALS['index'][ $T3 ] = array( 'record_id' => $T3, 'name' => 'TEST Backer Two', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$GLOBALS['users'][62] = new WP_User( 62, array( 'wpcpm_sponsor' ), 'Backer Member Two' );
+WPCPM_Sponsor_Members::attach( 62, $T3, 'manager', 1 );
+$html = card( $T3, 62 );
+ck( 'a Backer with nothing in flight and nothing published reads Write a post', false !== strpos( $html, 'href="https://example.test/wp-admin/post-new.php"' ), true );
+
+$T4 = 'recTIER0000000004';
+$GLOBALS['index'][ $T4 ] = array( 'record_id' => $T4, 'name' => 'TEST Champion', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::CHAMPION );
+$GLOBALS['users'][63] = new WP_User( 63, array( 'wpcpm_sponsor' ), 'Champion Member' );
+WPCPM_Sponsor_Members::attach( 63, $T4, 'manager', 1 );
+// The partner page gives a Champion two self-written posts, the Backer's and a second, and a
+// Partner everything in Champion: two at a time since 1.123.18, where a Champion's and a Partner's
+// were any number.
+$t4_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 63, 'post_title' => 'Champion post 0' ) );
+$GLOBALS['pmeta'][ $t4_post ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T4;
+$html = card( $T4, 63 );
+ck( 'a Champion with one post published reads Write a post, with room for its second', array( false !== strpos( $html, 'href="https://example.test/wp-admin/post-new.php"' ), false !== strpos( $html, '<span class="wpcpm-sponsor__state">1 published, 0 waiting</span>' ), 1 === substr_count( $html, '<p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="https://example.test/wp-admin/post-new.php">Write a post<span class="screen-reader-text"> in the WordPress editor</span></a></p></section>' ) ), array( true, true, true ) );
+$t4_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 63, 'post_title' => 'Champion post 1' ) );
+$GLOBALS['pmeta'][ $t4_post ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T4;
+$html = card( $T4, 63 );
+ck( 'and with two, its tier\'s two, reads the tier\'s sentence in place of Write a post, its row counting the two published', array( false !== strpos( $html, 'Your tier, Champion, includes 2 posts at a time, in review or published.' ), strpos( $html, 'post-new.php' ), false !== strpos( $html, '<span class="wpcpm-sponsor__state">2 published, 0 waiting</span>' ) ), array( true, false, true ) );
+$GLOBALS['index'][ $T4 ]['tier'] = WPCPM_Sponsor_Tiers::PARTNER;
+$html = card( $T4, 63 );
+ck( 'a Partner holds the same two', array( false !== strpos( $html, 'Your tier, Partner, includes 2 posts at a time, in review or published.' ), strpos( $html, 'post-new.php' ) ), array( true, false ) );
+$GLOBALS['index'][ $T4 ]['tier'] = WPCPM_Sponsor_Tiers::CHAMPION;
+
+$T5 = 'recTIER0000000005';
+$GLOBALS['index'][ $T5 ] = array( 'record_id' => $T5, 'name' => 'TEST Fence Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$GLOBALS['users'][64] = new WP_User( 64, array( 'wpcpm_sponsor' ), 'Fence Member' );
+WPCPM_Sponsor_Members::attach( 64, $T5, 'manager', 1 );
+$t5_pub = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 64, 'post_title' => 'Fence published post' ) );
+$GLOBALS['pmeta'][ $t5_pub ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T5;
+$GLOBALS['uid']     = 64;
+$fence_new    = WPCPM_Sponsor_Posts::filter_insert_data( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64, 'post_title' => 'A new submission' ), array( 'ID' => 0 ) );
+$fence_resave = WPCPM_Sponsor_Posts::filter_insert_data( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64 ), array( 'ID' => $t5_pub ) );
+ck( 'the fence keeps a submission beyond the cap a draft', array( $fence_new['post_status'], $fence_resave['post_status'] ), array( 'draft', 'pending' ) );
+
+$t5_pending = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64, 'post_title' => 'Fence pending post' ) );
+$GLOBALS['pmeta'][ $t5_pending ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T5;
+// A draft in the mix (review finding): post_count() must still answer 2, 1, 1 - a count that
+// quietly included drafts would pass unnoticed without one here to catch it.
+$t5_draft = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'draft', 'post_author' => 64, 'post_title' => 'Fence draft, never counted' ) );
+$GLOBALS['pmeta'][ $t5_draft ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T5;
+ck(
+	'post_count() counts pending and published and leaves the named post out',
+	array(
+		WPCPM_Sponsor_Posts::post_count( $T5 ),
+		WPCPM_Sponsor_Posts::post_count( $T5, $t5_pub ),
+		WPCPM_Sponsor_Posts::post_count( $T5, $t5_pending ),
+	),
+	array( 2, 1, 1 )
+);
+
+// Review finding: the clamp used to draft an edit of a post already in flight - a dormant one
+// included - whenever the sponsor's other posts alone reached the cap, which is the normal
+// state while any post sits dormant. $T5 is well over its cap of one by now (published, pending
+// and dormant all at once); re-saving the dormant post or the genuine pending one must still
+// leave both pending, and only a truly new post is drafted.
+$t5_dormant = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 64, 'post_title' => 'Fence dormant post' ) );
+$GLOBALS['pmeta'][ $t5_dormant ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T5;
+WPCPM_Sponsor_Posts::set_dormant( $t5_dormant );
+$resave_dormant = WPCPM_Sponsor_Posts::filter_insert_data( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64 ), array( 'ID' => $t5_dormant ) );
+$resave_pending = WPCPM_Sponsor_Posts::filter_insert_data( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64 ), array( 'ID' => $t5_pending ) );
+$still_new      = WPCPM_Sponsor_Posts::filter_insert_data( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 64, 'post_title' => 'Another new one' ), array( 'ID' => 0 ) );
+ck(
+	'the fence leaves a pending post pending when it is re-saved, even with the sponsor over its cap',
+	array( $resave_dormant['post_status'], $resave_pending['post_status'], $still_new['post_status'] ),
+	array( 'pending', 'pending', 'draft' )
+);
+// The Posts row counts what is published and what waits for a program manager's review, each by its
+// own state; a dormant post is held back by the program, neither published nor waiting for a
+// review, so the row counts it as neither. $T5 holds one of each by now.
+$t5_row = preg_match( '#<span class="wpcpm-sponsor__state">(.*?)</span>#', card( $T5, 64 ), $t5_state ) ? $t5_state[1] : null;
+ck( 'the row counts one published and one waiting, and the dormant post as neither', $t5_row, '1 published, 1 waiting' );
+
+$T6 = 'recTIER0000000006';
+$GLOBALS['index'][ $T6 ] = array( 'record_id' => $T6, 'name' => 'TEST Refused Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$t6_pub = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_title' => 'Refused sponsor published' ) );
+$GLOBALS['pmeta'][ $t6_pub ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T6;
+$t6_pending = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'Refused sponsor pending' ) );
+$GLOBALS['pmeta'][ $t6_pending ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T6;
+ck(
+	'Publish is refused beyond the cap with post-cap, and the post stays pending',
+	array(
+		press( 1, array( 'wpcpm_post' => $t6_pending ) ),
+		get_post( $t6_pending )->post_status,
+	),
+	// No detail (review finding): the Sponsor Dashboard's flash already prints post-cap's own
+	// sentence from messages(), so a second, nearly identical one is not sent as well.
+	array( 'post-cap|posts|' . $T6 . '|', 'pending' )
+);
+
+$T7 = 'recTIER0000000007';
+$GLOBALS['index'][ $T7 ] = array( 'record_id' => $T7, 'name' => 'TEST Allowed Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$t7_pending = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'Allowed sponsor pending' ) );
+$GLOBALS['pmeta'][ $t7_pending ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T7;
+ck(
+	'Publish goes through within the cap',
+	array(
+		press( 1, array( 'wpcpm_post' => $t7_pending ) ),
+		get_post( $t7_pending )->post_status,
+	),
+	array( 'post-published|posts|' . $T7 . '|', 'publish' )
+);
+
+$T8 = 'recTIER0000000008';
+$GLOBALS['index'][ $T8 ] = array( 'record_id' => $T8, 'name' => 'TEST Dormant Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$GLOBALS['users'][68] = new WP_User( 68, array( 'wpcpm_sponsor' ), 'Dormant Member' );
+WPCPM_Sponsor_Members::attach( 68, $T8, 'manager', 1 );
+// A companion post that stays published, filling the Backer's one slot (review finding): without
+// it, $t8_post is the sponsor's only post, so the moment it goes dormant published_of() reads 0,
+// which is "room" (below) rather than "no room" - the scenario this card check means to prove.
+$t8_keep = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Dormant sponsor, the one that stays published' ) );
+$GLOBALS['pmeta'][ $t8_keep ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+$t8_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Dormant sponsor post' ) );
+$GLOBALS['pmeta'][ $t8_post ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+$t8_before_date     = get_post( $t8_post )->post_date;
+$t8_before_date_gmt = get_post( $t8_post )->post_date_gmt;
+ck(
+	'set_dormant() takes a published post back to pending with the stamp, and the queue leaves it out',
+	array(
+		WPCPM_Sponsor_Posts::set_dormant( $t8_post ),
+		get_post( $t8_post )->post_status,
+		'' !== (string) get_post_meta( $t8_post, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		WPCPM_Sponsor_Posts::state_of( get_post( $t8_post ) ),
+		in_array( $t8_post, array_column( WPCPM_Sponsor_Posts::pending_all(), 'id' ), true ),
+		WPCPM_Sponsor_Posts::set_dormant( $t8_post ),
+	),
+	array( true, 'pending', true, 'dormant', false, false )
+);
+
+$html = card( $T8, 68 );
+ck( 'the card says why a dormant post is held back', false !== strpos( $html, 'Dormant: your tier includes one published post at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them.' ), true );
+
+// Nothing about the tiers before the switch is on, and a tier with no cap is a wait for the next
+// daily run, never a false "0 published posts".
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+ck( 'the dormant note names no tier while the switch is off', WPCPM_Sponsor_Posts::dormant_note( $T8 ), 'Held back by the program: not shown right now. It returns by itself when the program sets it live again.' );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$GLOBALS['index'][ $T8 ]['tier'] = WPCPM_Sponsor_Tiers::CHAMPION;
+ck( 'a tier with no cap waits on the next run rather than reading a false zero', WPCPM_Sponsor_Posts::dormant_note( $T8 ), 'Held back until the next daily run, which brings back what your tier has room for.' );
+$GLOBALS['index'][ $T8 ]['tier'] = WPCPM_Sponsor_Tiers::BACKER;
+
+// A tier that already has room reads the same as no cap at all - a
+// manager raised the tier since the run parked this post, so it is a wait for the run, not a
+// decision still to make. $T3 (Backer, "nothing in flight" above) is still empty otherwise, so
+// this one post alone gives it room the moment it goes dormant.
+$t3_dormant = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 62, 'post_title' => 'Backer Two, dormant with room' ) );
+$GLOBALS['pmeta'][ $t3_dormant ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T3;
+WPCPM_Sponsor_Posts::set_dormant( $t3_dormant );
+ck( 'a dormant post with room under its tier reads that the next daily run brings it back', WPCPM_Sponsor_Posts::dormant_note( $T3 ), 'Held back until the next daily run, which brings back what your tier has room for.' );
+
+// set_dormant()'s own day, asked for by name (review finding): no sponsor needed, just the meta.
+$explicit_day_post = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_title' => 'An explicit dormant date' ) );
+WPCPM_Sponsor_Posts::set_dormant( $explicit_day_post, '2027-01-01' );
+ck( 'set_dormant() with an explicit day writes exactly that day', get_post_meta( $explicit_day_post, WPCPM_Sponsor_Posts::META_DORMANT, true ), '2027-01-01' );
+
+// An edited post is a new submission. $t8_edit
+// goes dormant and is then saved by its own member, the way a real edit reaches enforce() on
+// save_post_post - classic or REST, both raise it, so no second fix belongs in enforce_rest() as
+// well.
+$t8_edit = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Edited after going dormant' ) );
+$GLOBALS['pmeta'][ $t8_edit ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+WPCPM_Sponsor_Posts::set_dormant( $t8_edit );
+$GLOBALS['uid'] = 68;
+WPCPM_Sponsor_Posts::enforce( $t8_edit, get_post( $t8_edit ) );
+ck(
+	'a member\'s edit of a dormant post takes the stamp off: it stays pending, joins the queue, and wake() leaves it alone',
+	array(
+		get_post_meta( $t8_edit, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		WPCPM_Sponsor_Posts::state_of( get_post( $t8_edit ) ),
+		get_post( $t8_edit )->post_status,
+		in_array( $t8_edit, array_column( WPCPM_Sponsor_Posts::pending_all(), 'id' ), true ),
+		WPCPM_Sponsor_Posts::wake( $t8_edit ),
+	),
+	array( '', 'pending', 'pending', true, false )
+);
+
+$t8_plain = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 68, 'post_title' => 'A plain submission' ) );
+$GLOBALS['pmeta'][ $t8_plain ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+ck(
+	'wake() publishes a stamped post, clears the stamp and moves no date, and never a post the sponsor submitted',
+	array(
+		WPCPM_Sponsor_Posts::wake( $t8_post ),
+		get_post( $t8_post )->post_status,
+		get_post_meta( $t8_post, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		get_post( $t8_post )->post_date,
+		get_post( $t8_post )->post_date_gmt,
+		WPCPM_Sponsor_Posts::wake( $t8_plain ),
+		get_post( $t8_plain )->post_status,
+	),
+	array( true, 'publish', '', $t8_before_date, $t8_before_date_gmt, false, 'pending' )
+);
+
+// Review finding: wp_publish_post() answers nothing and never checks its own write, so a failed
+// one must not be read as a wake that happened - the stamp stays, and the post is not silently
+// handed to the queue as a submission nobody made.
+$t8_publish_fails = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Dormant, the publish does not take' ) );
+$GLOBALS['pmeta'][ $t8_publish_fails ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+WPCPM_Sponsor_Posts::set_dormant( $t8_publish_fails );
+$GLOBALS['publish_fails'] = true;
+$failed_wake = WPCPM_Sponsor_Posts::wake( $t8_publish_fails );
+$GLOBALS['publish_fails'] = false;
+ck(
+	'wake() keeps the stamp and answers false when the publish did not take',
+	array(
+		$failed_wake,
+		get_post( $t8_publish_fails )->post_status,
+		get_post_meta( $t8_publish_fails, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+	),
+	array( false, 'pending', '2026-09-05' )
+);
+
+// Review finding: no check read the call wake() actually makes. $t8_post is already published by
+// the check above, so a fresh dormant post proves it here, isolated with reset_calls() from
+// set_dormant()'s own wp_update_post() call a moment earlier.
+$t8_call_check = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Dormant, checking the call wake() makes' ) );
+$GLOBALS['pmeta'][ $t8_call_check ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T8;
+WPCPM_Sponsor_Posts::set_dormant( $t8_call_check );
+reset_calls();
+WPCPM_Sponsor_Posts::wake( $t8_call_check );
+ck(
+	'wake() publishes through wp_publish_post(), not a content re-save',
+	array(
+		in_array( array( 'wp_publish_post', $t8_call_check ), $GLOBALS['calls'], true ),
+		array_filter( calls( 'wp_update_post' ), static function ( $c ) use ( $t8_call_check ) { return $c[1] === $t8_call_check; } ),
+	),
+	array( true, array() )
+);
+
+// Publish and Return each take the stamp off too, whatever the run left there (the review of
+// 1.112.0). $T4 is a Champion with room for two: its two published posts go back to draft first,
+// so the cap stays out of this - it is about the stamp alone.
+foreach ( WPCPM_Sponsor_Posts::published_of( $T4 ) as $t4_published ) {
+	wp_update_post( array( 'ID' => (int) $t4_published->ID, 'post_status' => 'draft' ) );
+}
+$t4_to_publish = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 63, 'post_title' => 'Champion dormant, about to be published' ) );
+$GLOBALS['pmeta'][ $t4_to_publish ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T4;
+WPCPM_Sponsor_Posts::set_dormant( $t4_to_publish );
+$t4_to_return = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 63, 'post_title' => 'Champion dormant, about to be returned' ) );
+$GLOBALS['pmeta'][ $t4_to_return ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T4;
+WPCPM_Sponsor_Posts::set_dormant( $t4_to_return );
+$publish_result = press( 1, array( 'wpcpm_post' => $t4_to_publish ) );
+$return_result  = press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $t4_to_return, 'wpcpm_note' => 'A manager\'s note.' ) );
+ck(
+	'Publish and Return take the stamp off a dormant post',
+	array(
+		$publish_result,
+		get_post( $t4_to_publish )->post_status,
+		get_post_meta( $t4_to_publish, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		$return_result,
+		get_post( $t4_to_return )->post_status,
+		get_post_meta( $t4_to_return, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+	),
+	array( 'post-published|posts|' . $T4 . '|', 'publish', '', 'post-returned|posts|' . $T4 . '|', 'draft', '' )
+);
+
+// The delete_all() call below wipes every posting flag, every term record and OPT_APPLIED, which
+// would otherwise reach every later check in this file (review finding); snapshotting and
+// restoring $GLOBALS['opts'] keeps this check's own proof - the stamps it wrote are gone - while
+// nothing after this point reads a different world than the one that came before it. delete_all()
+// also runs clear_dormant_stamps(), which removes the stamps of the earlier dormant fixtures
+// still standing at this point ($t3_dormant, $t5_dormant, $t8_publish_fails): their posts stay
+// pending, so a later pending_all() call would now read them as submissions rather than dormant
+// posts - not restored with $GLOBALS['opts'], since no check after this one asks about any of them.
+$opts_before_delete_all = $GLOBALS['opts'];
+$stamp_pending = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 68, 'post_title' => 'Leftover dormant stamp, pending' ) );
+update_post_meta( $stamp_pending, WPCPM_Sponsor_Posts::META_DORMANT, '2026-09-01' );
+$stamp_published = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 68, 'post_title' => 'Leftover dormant stamp, published' ) );
+update_post_meta( $stamp_published, WPCPM_Sponsor_Posts::META_DORMANT, '2026-09-02' );
+WPCPM_Sponsor_Posts::delete_all();
+ck(
+	'delete_all() clears the stamps and leaves the posts',
+	array(
+		get_post_meta( $stamp_pending, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		get_post_meta( $stamp_published, WPCPM_Sponsor_Posts::META_DORMANT, true ),
+		get_post( $stamp_pending ) instanceof WP_Post,
+		get_post( $stamp_published ) instanceof WP_Post,
+	),
+	array( '', '', true, true )
+);
+$GLOBALS['opts'] = $opts_before_delete_all;
+
+// The window itself (review finding): pending_all()'s old PHP-side skip still let an older
+// dormant post spend a slot of $limit before being dropped, so a tight window could come back
+// with nothing at all. Isolated in its own copy of $GLOBALS['posts'], the way the review's own
+// reproduction proved it: with the dormant post older (first, so first in this stand-in's
+// insertion-ordered "oldest first") and the window one post wide, the query itself must skip it
+// rather than spend the window's one slot on it.
+$T9 = 'recTIER0000000009';
+$GLOBALS['index'][ $T9 ] = array( 'record_id' => $T9, 'name' => 'TEST Window Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$older_dormant = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_title' => 'Older dormant post' ) );
+$GLOBALS['pmeta'][ $older_dormant ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T9;
+WPCPM_Sponsor_Posts::set_dormant( $older_dormant );
+$newer_submission = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'Newer genuine submission' ) );
+$GLOBALS['pmeta'][ $newer_submission ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T9;
+$posts_before_window_check = $GLOBALS['posts'];
+$GLOBALS['posts']          = array(
+	$older_dormant    => $GLOBALS['posts'][ $older_dormant ],
+	$newer_submission => $GLOBALS['posts'][ $newer_submission ],
+);
+$window            = array_column( WPCPM_Sponsor_Posts::pending_all( 1 ), 'id' );
+$GLOBALS['posts']  = $posts_before_window_check;
+ck( 'pending_all() leaves dormant posts out by query, so an older dormant post cannot push a submission out of the window', $window, array( $newer_submission ) );
+
+// Nothing after this point in the file expects the switch on: every later check runs the way it
+// always has, the switch off, as the rest of the suite was written before tiers existed.
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
 
 echo "\n=== Publish and return ===\n";
 function press( $uid, $post ) { $GLOBALS['uid'] = $uid; $_POST = $post; try { if ( isset( $post['wpcpm_action'] ) && 'return' === $post['wpcpm_action'] ) { WPCPM_Sponsor_Posts::handle_return(); } else { WPCPM_Sponsor_Posts::handle_publish(); } } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
@@ -520,21 +937,31 @@ $GLOBALS['pmeta'][ $pending3 ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
 ck( 'a return note is kept exactly as typed', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $pending3, 'wpcpm_note' => $typed_note ) ), get_post_meta( $pending3, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ) ), array( 'post-returned|posts|' . $S . '|', $typed_note ) );
 $stranger = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post' ) );
 ck( 'a post with no sponsor stamp is not this handler\'s to publish', press( 1, array( 'wpcpm_post' => $stranger ) ), 'refused|posts||' );
-ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-note-long', 'post-note-loss', 'post-not-pending', 'post-failed' ) );
+ck( 'every outcome has a sentence', array_keys( WPCPM_Sponsor_Posts::messages() ), array( 'post-published', 'post-returned', 'post-note-missing', 'post-note-long', 'post-note-loss', 'post-not-pending', 'post-cap', 'post-failed' ) );
 
 echo "\n=== The posting switch (wp-admin) ===\n";
 function flags( $uid, $post ) { $GLOBALS['uid'] = $uid; $_POST = $post; try { WPCPM_Sponsor_Posts::handle_flags(); } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
 $GLOBALS['flash'] = array();
 ck( 'a member cannot switch the flag', flags( 20, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), 'die:403' );
+// The switch reads its form through WPCPM_Request, where the standard's nonce sniff cannot see it,
+// so only a check here notices a nonce gone: a page elsewhere could then turn a sponsor's posting
+// off in a signed-in manager's name.
+$posting_before         = WPCPM_Sponsor_Posts::posting_enabled( $S );
+$flags_before           = get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' );
+$GLOBALS['nonce_fails'] = true;
+$stale_flags            = flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) );
+$GLOBALS['nonce_fails'] = false;
+ck( 'a switch whose nonce is not its own dies with WordPress\'s sentence before the flag is written or a flash is set: the sponsor\'s stored flags and its posting flag are as they were, and nothing is flashed', array( $stale_flags, get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' ), WPCPM_Sponsor_Posts::posting_enabled( $S ), $GLOBALS['flash'] ), array( 'The link you followed has expired.', $flags_before, $posting_before, array() ) );
+// And before the sponsor policy is asked, not only before the write: the order is read in the
+// handler itself, since a policy asked first would end the press the same way.
+$flags_src  = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
+$flags_body = substr( $flags_src, (int) strpos( $flags_src, 'public static function handle_flags()' ) );
+$flags_body = substr( $flags_body, 0, (int) strpos( $flags_body, "\n\t}\n" ) );
+ck( 'the switch checks the nonce before it asks the sponsor policy', array( strpos( $flags_body, 'check_admin_referer(' ) > 0, strpos( $flags_body, 'check_admin_referer(' ) < strpos( $flags_body, 'WPCPM_Sponsor_Policy::decide(' ) ), array( true, true ) );
 ck( 'a manager switches it off and is sent back to the sponsor\'s accounts on the Sponsors screen\'s Accounts tab, where the switch is, with the flash', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . $S, false, array( 'sponsors_admin', 'posting-off' ) ) );
 reset_calls();
 ck( 'and on again, back to the same accounts', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '1' ) ), WPCPM_Sponsor_Posts::posting_enabled( $S ), end( $GLOBALS['flash'] )[1] ), array( 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts&wpcpm_sponsor=' . $S, true, 'posting-on' ) );
 ck( 'the switch asks one nonce, its own action keyed to the sponsor its form names', calls( 'nonce' ), array( array( 'nonce', 'wpcpm_sponsor_flags_' . $S ) ) );
-$flags_before           = get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' );
-$GLOBALS['flash']       = array();
-$GLOBALS['nonce_fails'] = true;
-ck( 'with a nonce that fails, the manager meets WordPress\'s sentence, the sponsor\'s posting flag is as it was and nothing is flashed', array( flags( 1, array( 'wpcpm_sponsor' => $S, 'wpcpm_on' => '0' ) ), get_option( WPCPM_Sponsor_Posts::OPT_FLAGS_PREFIX . $S, 'none' ), WPCPM_Sponsor_Posts::posting_enabled( $S ), $GLOBALS['flash'] ), array( 'The link you followed has expired.', $flags_before, true, array() ) );
-$GLOBALS['nonce_fails'] = false;
 ck( 'a manager naming a record the index does not hold is refused, back on the Accounts tab itself: that record names no sponsor\'s accounts to come back to', flags( 1, array( 'wpcpm_sponsor' => 'recNOPE0000000001', 'wpcpm_on' => '0' ) ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=accounts' );
 ck( 'with the one sentence', end( $GLOBALS['flash'] )[1], 'refused' );
 ck( 'and no flag is left behind for it', get_option( 'wpcpm_sponsor_flags_recNOPE0000000001', 'none' ), 'none' );
@@ -666,6 +1093,13 @@ $GLOBALS['uid'] = 1;
 ck( 'a manager keeps every category and the filter', array( WPCPM_Sponsor_Posts::scope_categories( array( 'per_page' => 100 ), null ), WPCPM_Sponsor_Posts::hide_category_filter( false, 'post' ) ), array( array( 'per_page' => 100 ), false ) );
 $GLOBALS['uid'] = 20;
 
+echo "\n=== A minted key is accepted everywhere a record id was ===\n";
+$SPO = 'spoAAAA0000000001';
+$GLOBALS['index'][ $SPO ] = array( 'record_id' => $SPO, 'name' => 'TEST Minted Sponsor', 'website' => '', 'status' => 'Approved' );
+$minted = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 20, 'post_title' => 'Minted key post' ) );
+WPCPM_Sponsor_Posts::pin( $minted, $SPO );
+ck( 'pin() stamps a spo key', get_post_meta( $minted, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ), $SPO );
+
 echo "\n=== The return note: counted, kept and mailed as typed ===\n";
 // A manager's words, and the form the cleaner hands them back in: "<3 our " is a "<" that opens no
 // tag, written `&lt;`; the tags go; the lone ">" stays; "< 12 welcome, adults >" is kept as typed;
@@ -786,6 +1220,102 @@ $GLOBALS['mail'] = array();
 $k_clean = posts_pending( 'Clean guide' );
 ck( 'a note the cleaner keeps whole returns the post as before: kept as the cleaner left it, mailed as typed, and nothing kept for the form', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $k_clean, 'wpcpm_note' => $k_keeps ) ), get_post( $k_clean )->post_status, get_post_meta( $k_clean, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), isset( $GLOBALS['mail'][0]['mail']['body'] ) && false !== strpos( $GLOBALS['mail'][0]['mail']['body'], WPCPM_Typed_Text::mail_text( sanitize_textarea_field( $k_keeps ) ) ), $GLOBALS['kept_typing'][1] ?? array() ), array( 'post-returned|posts|' . $S . '|', 'draft', sanitize_textarea_field( $k_keeps ), true, array() ) );
 $GLOBALS['manage'] = array( 1 );
+
+echo "\n=== Jetpack's subscriber emails (1.123.18) ===\n";
+// Jetpack Subscriptions emails a post to the site's subscribers whenever it moves to publish, each
+// time it does, so a sponsor post an Administrator approves, and a dormant one the daily run wakes,
+// would be announced, again and again. Two guards, either enough: the Sponsors category and each
+// sponsor's own under it are on the list Jetpack's filter leaves out, and every sponsor post
+// carries Jetpack's own "do not email" mark, set on a member's save, on Publish and on a wake,
+// before the post is published. The filter is Jetpack's to apply: without Jetpack, nothing calls it.
+if ( ! function_exists( 'get_term_children' ) ) {
+	/** Core's reader of a term's children, from the stand-in terms. */
+	function get_term_children( $id, $tax ) { $kids = array(); foreach ( $GLOBALS['terms'] as $tid => $t ) { if ( (int) $t['parent'] === (int) $id ) { $kids[] = $tid; $kids = array_merge( $kids, get_term_children( $tid, $tax ) ); } } return $kids; }
+}
+/** Where in the calls since the last reset_calls() a call stands, or -1. */
+function jp_at( $call ) { $at = array_search( $call, $GLOBALS['calls'], true ); return false === $at ? -1 : (int) $at; }
+$jp_parent = (int) get_term_by( 'slug', WPCPM_Sponsor_Posts::PARENT_SLUG, 'category' )->term_id;
+$jp_kids   = get_term_children( $jp_parent, 'category' );
+sort( $jp_kids );
+$jp_left   = WPCPM_Sponsor_Posts::exclude_from_subscriptions( array( 'news' ) );
+ck( 'the Sponsors category and every sponsor\'s own under it are left out of Jetpack\'s subscriber emails, beside what the site already left out', array( $jp_left, count( $jp_kids ) > 0 ), array( array_merge( array( 'news', $jp_parent ), $jp_kids ), true ) );
+ck( 'a value that is not a list is read as an empty one', WPCPM_Sponsor_Posts::exclude_from_subscriptions( '' ), array_merge( array( $jp_parent ), $jp_kids ) );
+$jp_terms         = $GLOBALS['terms'];
+$GLOBALS['terms'] = array();
+reset_calls();
+ck( 'with no Sponsors category yet the list is left as it was, and the filter creates none', array( WPCPM_Sponsor_Posts::exclude_from_subscriptions( array( 'news' ) ), calls( 'wp_insert_term' ) ), array( array( 'news' ), array() ) );
+$GLOBALS['terms'] = $jp_terms;
+
+$GLOBALS['uid'] = 20;
+$jp_saved = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 20, 'post_title' => 'Jetpack guide' ) );
+WPCPM_Sponsor_Posts::pin( $jp_saved, $S );
+ck( 'a member\'s save marks the post for Jetpack never to email it', get_post_meta( $jp_saved, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, true ), 1 );
+ck( 'the mark is Jetpack\'s own key', WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, '_jetpack_dont_email_post_to_subs' );
+
+$jp_post = posts_pending( 'Approved without a mark' );
+unset( $GLOBALS['pmeta'][ $jp_post ][ WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL ] );
+reset_calls();
+$jp_r = press( 1, array( 'wpcpm_post' => $jp_post ) );
+ck( 'Publish marks a post that has no mark, before it publishes it, so Jetpack reads the mark the moment the post goes live', array( $jp_r, get_post( $jp_post )->post_status, get_post_meta( $jp_post, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, true ), jp_at( array( 'update_post_meta', $jp_post, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, 1 ) ) > -1 && jp_at( array( 'update_post_meta', $jp_post, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, 1 ) ) < (int) array_search( 'wp_update_post', array_column( $GLOBALS['calls'], 0 ), true ) ), array( 'post-published|posts|' . $S . '|', 'publish', 1, true ) );
+
+$jp_dormant = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 20, 'post_title' => 'Dormant, from before the mark' ) );
+$GLOBALS['pmeta'][ $jp_dormant ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
+WPCPM_Sponsor_Posts::set_dormant( $jp_dormant );
+unset( $GLOBALS['pmeta'][ $jp_dormant ][ WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL ] );
+reset_calls();
+ck( 'a wake marks a post published before the mark existed, before it publishes it again', array( WPCPM_Sponsor_Posts::wake( $jp_dormant ), get_post_meta( $jp_dormant, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, true ), jp_at( array( 'update_post_meta', $jp_dormant, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, 1 ) ) > -1 && jp_at( array( 'update_post_meta', $jp_dormant, WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL, 1 ) ) < jp_at( array( 'wp_publish_post', $jp_dormant ) ) ), array( true, 1, true ) );
+$jp_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
+ck( 'nothing asks for Jetpack: no class or function of its is called, only its filter hooked and its key written', preg_match( '/\bJetpack(?:_[A-Za-z]+)?::|\bjetpack_[a-z_]+\(/', $jp_src ), 0 );
+
+echo "\n=== A test sponsor's posts in the site's listings (1.123.18) ===\n";
+// A test sponsor is never listed publicly, and a sponsor post is a post of the site, which the
+// blog, its archives, its feeds and its search list to the students and mentors its level admits.
+// On the front end, for anybody but an Administrator, a listing leaves out every post stamped with
+// a test sponsor's key; a query the plugin's own cards make stands outside by name, as it does the
+// access gate, so the test sponsor's own members keep their Posts card, and a single post's own
+// page is the gate's to answer.
+if ( ! class_exists( 'WP_Query' ) ) {
+	/** Enough of core's query for the listings' filter: its vars, and whether it is a single post's. */
+	class WP_Query {
+		public $vars = array();
+		public $singular = false;
+		public function __construct( array $vars = array(), $singular = false ) { $this->vars = $vars; $this->singular = $singular; }
+		public function get( $k ) { return isset( $this->vars[ $k ] ) ? $this->vars[ $k ] : ''; }
+		public function set( $k, $v ) { $this->vars[ $k ] = $v; }
+		public function is_singular() { return $this->singular; }
+	}
+}
+$tp_test = 'spoTESTPOSTS00001';
+$GLOBALS['index'][ $tp_test ] = array( 'record_id' => $tp_test, 'name' => 'TEST - Posts', 'status' => 'Approved', 'test' => true );
+$tp_clause = array(
+	'relation' => 'OR',
+	array(
+		'key'     => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+		'compare' => 'NOT EXISTS',
+	),
+	array(
+		'key'     => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+		'value'   => array( $tp_test ),
+		'compare' => 'NOT IN',
+	),
+);
+/** The meta query a listing is left with once the filter has read it, as a viewer and on a screen. */
+function tp_listed( WP_Query $q, $uid, $admin = false ) { $GLOBALS['uid'] = $uid; $GLOBALS['is_admin'] = $admin; WPCPM_Sponsor_Posts::hide_test_posts( $q ); $GLOBALS['is_admin'] = false; return $q->get( 'meta_query' ); }
+ck( 'the blog index, an archive, a feed or a search, read by anybody but an Administrator, signed in or not, leaves the test sponsor\'s posts out, beside what the query already asked', array(
+	tp_listed( new WP_Query(), 20 ),
+	tp_listed( new WP_Query( array( 'post_type' => 'post', 'meta_query' => array( array( 'key' => 'x', 'value' => 'y' ) ) ) ), 0 ),
+	tp_listed( new WP_Query( array( 'post_type' => array( 'post', 'page' ) ) ), 0 ),
+), array( array( $tp_clause ), array( array( 'key' => 'x', 'value' => 'y' ), $tp_clause ), array( $tp_clause ) ) );
+ck( 'an Administrator\'s listing, wp-admin, a single post\'s page, a query that names other post types and the plugin\'s own ungated queries are left as they were', array(
+	tp_listed( new WP_Query(), 1 ),
+	tp_listed( new WP_Query(), 20, true ),
+	tp_listed( new WP_Query( array(), true ), 20 ),
+	tp_listed( new WP_Query( array( 'post_type' => 'page' ) ), 20 ),
+	tp_listed( new WP_Query( array( 'post_type' => 'post', WPCPM_Content_Access::QUERY_UNGATED => true ) ), 20 ),
+), array( '', '', '', '', '' ) );
+unset( $GLOBALS['index'][ $tp_test ] );
+ck( 'with no test sponsor on the site, nothing is added to any listing', tp_listed( new WP_Query(), 20 ), '' );
+$GLOBALS['uid'] = 20;
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );

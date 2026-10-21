@@ -220,7 +220,7 @@ $unused = dwell_token( 'scope-a', 50, 'act', 'AbCdEf012346' );
 ck( 'a spelling tried before the genuine use is refused and spends no claim', array( WPCPM_Form_Guard::check_token( 'scope-a', '0' . $unused ), WPCPM_Form_Guard::check_token( 'scope-a', $unused ) ), array( 'spam', 'ok' ) );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
-// Well shaped (three parts), so the refusals below are the scope's and the signature's, not the shape's (Task 3 review).
+// Well shaped (three parts), so the refusals below are the scope's and the signature's, not the shape's.
 ck( 'a token minted for another form is a forgery on this one', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-b', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
 ck( 'a token nobody signed is refused', WPCPM_Form_Guard::check_token( 'scope-a', ( time() - 60 ) . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ), 'spam' );
 ck( 'and so is one that is not a token at all', WPCPM_Form_Guard::check_token( 'scope-a', 'nonsense' ), 'spam' );

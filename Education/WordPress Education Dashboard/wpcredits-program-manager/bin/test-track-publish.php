@@ -308,7 +308,7 @@ ck( 'the column the base already has is ready, and the other is one to create',
     array( $flight['columns']['ready'], $flight['columns']['create'] ),
     array( array( 'What you did' ), array( 'Brand new' ) ) );
 
-// L8 (Task 9 review): the by-hand list needs the name, the type and the options, not just the
+// The by-hand list needs the name, the type and the options, not just the
 // name, so the column to create carries what WPCPM_Track_Columns::field() says of it.
 ck( 'and the column to create carries its Airtable type, for the by-hand list',
     $flight['columns']['detail'], array( 'Brand new' => array( 'name' => 'Brand new', 'type' => 'singleLineText' ) ) );
@@ -627,7 +627,7 @@ ck( 'the log carries the columns, so the record survives the screen',
 
 ck( 'and the lock is let go', array_key_exists( WPCPM_Track_Publish::OPT_LOCK, $GLOBALS['opts'] ), false );
 
-echo "\n=== One run at a time, and a killed run does not wedge it forever (final review, finding 2) ===\n";
+echo "\n=== One run at a time, and a killed run does not wedge it forever ===\n";
 
 fresh_run();
 $fresh = WPCPM_Track_Publish::run( 7, 5 );
@@ -702,7 +702,7 @@ ck( 'it says everything the two runs created together',
 ck( 'and the record is cleared once the track is live',
     get_post_meta( 7, WPCPM_Track_Publish::META_RUN, true ), '' );
 
-echo "\n=== A resumed run does not trust its own record over the base (final review, finding 1) ===\n";
+echo "\n=== A resumed run does not trust its own record over the base ===\n";
 
 fresh_run();
 WPCPM_Track_Store::$definitions = array(
@@ -845,7 +845,7 @@ ck( 'handed a ready preflight, the run reads the base no second time, creates it
     array( WPCPM_Airtable::$reads, WPCPM_Airtable::$calls, $ran, WPCPM_Track_Store::$handed ),
     array( 1, array( 'fetch_schema', 'create_field' ), array( 'created' => array( 'Brand new' ), 'published' => true ), array( $handed['definition'] ) ) );
 
-// The consent gap Task 9's review found (item 14a): the press's own reading of the base failed, so
+// The consent gap this pins: the press's own reading of the base failed, so
 // it asked for no name, and a run that read the base again created the columns when the second
 // reading answered. Handed the refusal, the run keeps to it whatever the base says now.
 fresh_run();

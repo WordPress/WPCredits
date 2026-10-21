@@ -600,15 +600,20 @@ ck( 'it is plain text: a label goes in as given, and escaping it is the caller\'
 $GLOBALS['domains'] = array();
 $actions            = array(
 	'send'    => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
+	'plan'    => WPCPM_Typed_Text::loss_message( 'Title', 'plan' ),
 	'return'  => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
 	'revoke'  => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
 	'reject'  => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
+	'cancel'  => WPCPM_Typed_Text::loss_message( 'A note for the sponsor', 'cancel' ),
 	'handle'  => WPCPM_Typed_Text::loss_message( 'What you did about it', 'handle' ),
 	'decline' => WPCPM_Typed_Text::loss_message( 'What you did about it', 'decline' ),
 );
 ck( 'for a form that sends, it says nothing was sent and to send it again',
     $actions['send'],
     'Nothing was sent, because WordPress would remove part of what you typed in "Anything else". To keep every word, put a space after each "<" (or write "less than") and after each "%", then send it again.' );
+ck( 'for Plan the event, that nothing was planned and to plan the event again',
+    $actions['plan'],
+    'Nothing was planned, because WordPress would remove part of what you typed in "Title". To keep every word, put a space after each "<" (or write "less than") and after each "%", then plan the event again.' );
 ck( 'for a return, that nothing was returned and to return it again',
     $actions['return'],
     'Nothing was returned, because WordPress would remove part of what you typed in "A note for the author". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' );
@@ -618,19 +623,22 @@ ck( 'for Take it out of force, that nothing was revoked and to take it out of fo
 ck( 'for a rejection, that nothing was rejected and to reject the application again',
     $actions['reject'],
     'Nothing was rejected, because WordPress would remove part of what you typed in "Why, for the next Administrator who reads this". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' );
+ck( 'for Cancel with this note, that nothing was canceled and to cancel it again',
+    $actions['cancel'],
+    'Nothing was canceled, because WordPress would remove part of what you typed in "A note for the sponsor". To keep every word, put a space after each "<" (or write "less than") and after each "%", then cancel it again.' );
 ck( 'for Mark as handled, that nothing was marked as handled and to mark it as handled again',
     $actions['handle'],
     'Nothing was marked as handled, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then mark it as handled again.' );
 ck( 'for Decline, that nothing was declined and to decline it again',
     $actions['decline'],
     'Nothing was declined, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then decline it again.' );
-ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array_fill( 0, 6, 'wpcredits-program-manager' ) );
+ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array_fill( 0, 8, 'wpcredits-program-manager' ) );
 ck( 'and a form that saves, named or not, keeps the first sentence, as does an action the method does not know', array( WPCPM_Typed_Text::loss_message( 'Offer text', 'save' ), WPCPM_Typed_Text::loss_message( 'Offer text' ), WPCPM_Typed_Text::loss_message( 'Offer text', 'publish' ), WPCPM_Typed_Text::loss_message( 'Offer text', true ) ), array( $said, $said, $said, $said ) );
 // Each sentence is one msgid, with a translators comment right above it, never built from pieces.
 $tt_src  = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-typed-text.php' );
 $tt_body = substr( $tt_src, (int) strpos( $tt_src, 'public static function loss_message(' ) );
 $tt_body = substr( $tt_body, 0, (int) strpos( $tt_body, "\n\t}\n" ) );
-ck( 'the seven sentences are seven whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|returned|revoked|rejected|marked as handled|declined), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 7, 7 ) );
+ck( 'the nine sentences are nine whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|planned|returned|revoked|rejected|canceled|marked as handled|declined), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 9, 9 ) );
 
 echo "\n=== keep(), kept() and forget(): a refused form gets back what was typed, once ===\n";
 
