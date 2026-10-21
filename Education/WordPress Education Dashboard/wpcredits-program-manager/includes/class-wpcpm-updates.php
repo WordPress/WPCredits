@@ -28,6 +28,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ever bypassed - `suppress_filters`, a caching layer that hands back somebody else's rows, a
  * future caller that builds the list a different way. An access list with one enforcement point
  * fails silently and completely; this one fails closed.
+ *
+ * **Private posts reach the Administrator Dashboard's column alone** (1.123.19). The biweekly
+ * site update is a private post at the Administrators level, so that Jetpack never emails or
+ * syndicates it; that column lists it for an Administrator who may read it, and every other
+ * card lists published posts only, as before.
  */
 class WPCPM_Updates {
 
@@ -108,7 +113,27 @@ class WPCPM_Updates {
 	}
 
 	/**
-	 * Published updates to show, newest first.
+	 * The post statuses a card lists, given whose card it is.
+	 *
+	 * Private as well as published on the Administrator Dashboard's column, where the biweekly
+	 * site update is listed (owner, 21 October 2026); published alone everywhere else, so a
+	 * private post never reaches a student's, mentor's, institution's or sponsor's card, even
+	 * when an Administrator is the one looking at it.
+	 *
+	 * @param string $audience Whose card.
+	 * @return string[]
+	 */
+	private static function statuses_for( $audience ) {
+		return 'administrator' === $audience ? array( 'publish', 'private' ) : array( 'publish' );
+	}
+
+	/**
+	 * Updates to show, newest first: published ones, and private ones on the Administrator
+	 * Dashboard's column.
+	 *
+	 * A private post passes a third gate there: `read_post`, which is core's own answer to
+	 * whether this reader may open a private post (`read_private_posts`, or being its author).
+	 * WordPress does not ask it of a query that names the private status, so this does.
 	 *
 	 * **Two gates, and they are not the same question.**
 	 *
@@ -123,7 +148,8 @@ class WPCPM_Updates {
 	 * entitled to. Called without an audience, it is `can_view()` alone as before.
 	 *
 	 * @param int    $max      Stop once this many have been found.
-	 * @param string $audience `student` or `mentor`; empty to ask the viewer only.
+	 * @param string $audience `student`, `mentor`, `institution`, `administrator` or `sponsor`;
+	 *                         empty to ask the viewer only.
 	 * @return WP_Post[]
 	 */
 	public static function posts( $max = self::LIMIT, $audience = '' ) {
@@ -140,7 +166,7 @@ class WPCPM_Updates {
 		$found = get_posts(
 			array(
 				'post_type'           => 'post',
-				'post_status'         => 'publish',
+				'post_status'         => self::statuses_for( $audience ),
 				'cat'                 => $term->term_id,
 				'numberposts'         => $max * 4,
 				'orderby'             => 'date',
@@ -158,6 +184,10 @@ class WPCPM_Updates {
 			}
 
 			if ( ! WPCPM_Content_Access::can_view( $post ) ) {
+				continue;
+			}
+
+			if ( 'private' === $post->post_status && ! current_user_can( 'read_post', $post->ID ) ) {
 				continue;
 			}
 
@@ -208,6 +238,15 @@ class WPCPM_Updates {
 
 		$out .= '<ul class="wpcpm-updates">';
 
+		// The title alone, as every other link in the column: core puts "Private: " before a
+		// private post's title, and only Administrators are ever shown one here. Taken off again
+		// below, so no other title on the page loses the prefix.
+		$plain_title = static function () {
+			return '%s';
+		};
+
+		add_filter( 'private_title_format', $plain_title );
+
 		foreach ( $posts as $post ) {
 			$out .= sprintf(
 				'<li class="wpcpm-updates__item"><a class="wpcpm-updates__link" href="%1$s">%2$s</a>'
@@ -217,6 +256,8 @@ class WPCPM_Updates {
 				esc_html( get_the_date( '', $post ) )
 			);
 		}
+
+		remove_filter( 'private_title_format', $plain_title );
 
 		$out .= '</ul>';
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.18
+Stable tag: 1.123.19
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,11 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.19 =
+
+* The Administrator Dashboard's *Program updates and announcements* column lists private posts as well as published ones: a post in *Updates* whose visibility is *Private* and whose access level is *Administrators only* appears there for the Administrators, by its title alone, without WordPress's "Private:" before it. The biweekly site update is such a post, filed under *Site updates* too, so the site never emails it to subscribers or shares it outside the site, and the Administrators' Slack channel gets only its link. No other card lists a private post, whoever is looking at it, and the Administrator guide's *Program updates and announcements* section says so.
+* For developers: `WPCPM_Updates::posts()` asks for `publish` and `private` on the `administrator` audience (the private `statuses_for()`) and `publish` on every other, and a private post must also pass `current_user_can( 'read_post', $id )`. `render_column()` adds a `private_title_format` filter returning `%s` for its list and removes it after.
 
 = 1.123.18 =
 

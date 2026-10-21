@@ -1813,6 +1813,13 @@ from the *Updates* category, filtered by the same access levels - so a post set 
 appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in
 the right place; there is nothing else to configure.
 
+The Administrator Dashboard's column lists private posts too: a post in *Updates* whose visibility
+is *Private* and whose access level is *Administrators only* appears there for the Administrators,
+and on no other card. The biweekly site update is one, filed under *Site updates* as well; the link
+to it in the Administrators' Slack channel opens it for anybody signed in as an Administrator. A
+private post is never emailed to the site's subscribers or shared outside the site, which is why the
+update is private rather than published.
+
 ### Viewing a page as its owner
 
 The Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard

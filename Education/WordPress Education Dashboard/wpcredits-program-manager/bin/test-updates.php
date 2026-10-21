@@ -27,6 +27,7 @@ $GLOBALS['users'] = array();
 $GLOBALS['caps']  = array();
 $GLOBALS['uid']   = 0;
 $GLOBALS['terms'] = array();
+$GLOBALS['filters'] = array();
 
 class WP_Error {
 	private $code, $message;
@@ -63,8 +64,21 @@ function esc_attr( $s ) { return esc_html( $s ); }
 function esc_url( $s ) { return $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
-function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {} function register_post_meta() {}
+// A small filter registry, so the column's own `private_title_format` filter really runs and
+// really comes off again: core prefixes a private post's title with "Private: ", and the
+// Administrator Dashboard's column prints the title alone.
+function apply_filters( $t, $v, ...$args ) {
+	foreach ( $GLOBALS['filters'][ $t ] ?? array() as $f ) { $v = $f( $v, ...$args ); }
+	return $v;
+}
+function add_filter( $t, $f, $priority = 10, $accepted = 1 ) { $GLOBALS['filters'][ $t ][] = $f; return true; }
+function remove_filter( $t, $f, $priority = 10 ) {
+	foreach ( $GLOBALS['filters'][ $t ] ?? array() as $i => $g ) {
+		if ( $g === $f ) { unset( $GLOBALS['filters'][ $t ][ $i ] ); return true; }
+	}
+	return false;
+}
+function add_action() {} function register_post_meta() {}
 function add_meta_box() {} function wp_nonce_field() {} function selected( $a, $b, $e = true ) { return ''; }
 function wp_enqueue_style() {} function is_admin() { return false; }
 function is_singular() { return false; }
@@ -84,7 +98,23 @@ function user_can( $user, $cap ) {
 
 	return in_array( $cap, $GLOBALS['caps'][ $id ] ?? array(), true );
 }
-function current_user_can( $cap ) { return user_can( $GLOBALS['uid'], $cap ); }
+// `read_post` as core maps it for the posts seeded here: a private post needs
+// `read_private_posts`, or to be the reader's own; any other status is readable.
+function current_user_can( $cap, ...$args ) {
+	if ( 'read_post' === $cap ) {
+		$post = get_post( $args[0] ?? 0 );
+
+		if ( ! $post ) { return false; }
+
+		if ( 'private' === $post->post_status ) {
+			return user_can( $GLOBALS['uid'], 'read_private_posts' ) || ( $GLOBALS['uid'] > 0 && $GLOBALS['uid'] === (int) $post->post_author );
+		}
+
+		return true;
+	}
+
+	return user_can( $GLOBALS['uid'], $cap );
+}
 
 function get_post( $post = null ) {
 	if ( $post instanceof WP_Post ) { return $post; }
@@ -99,7 +129,19 @@ function get_permalink( $post = null ) {
 	$post = get_post( $post );
 	return $post ? 'https://example.test/?p=' . $post->ID : '';
 }
-function get_the_title( $post = null ) { $post = get_post( $post ); return $post ? $post->post_title : ''; }
+// As core's get_the_title() on the front end: a private post's title goes through
+// `private_title_format`, "Private: %s" unless something filters it.
+function get_the_title( $post = null ) {
+	$post = get_post( $post );
+
+	if ( ! $post ) { return ''; }
+
+	if ( 'private' === $post->post_status ) {
+		return sprintf( apply_filters( 'private_title_format', 'Private: %s', $post ), $post->post_title );
+	}
+
+	return $post->post_title;
+}
 function get_the_date( $format = '', $post = null ) { $post = get_post( $post ); return $post ? $post->post_date : ''; }
 function get_term_link( $term ) { return 'https://example.test/category/' . ( is_object( $term ) ? $term->slug : $term ) . '/'; }
 
@@ -113,7 +155,7 @@ function get_term_by( $field, $value, $taxonomy = 'category' ) {
 }
 
 /**
- * Posts in a category, newest first, honouring `numberposts`.
+ * Posts in a category, newest first, honouring `numberposts` and `post_status`.
  *
  * Deliberately does **not** apply the access meta query. `WPCPM_Content_Access::filter_queries()`
  * would do that on a real site, and stubbing it in would hide whether `WPCPM_Updates` filters
@@ -121,12 +163,15 @@ function get_term_by( $field, $value, $taxonomy = 'category' ) {
  * filter is bypassed.
  */
 function get_posts( $args = array() ) {
-	$cat   = (int) ( $args['cat'] ?? 0 );
-	$limit = (int) ( $args['numberposts'] ?? 5 );
-	$out   = array();
+	$cat      = (int) ( $args['cat'] ?? 0 );
+	$limit    = (int) ( $args['numberposts'] ?? 5 );
+	$statuses = (array) ( $args['post_status'] ?? 'publish' );
+	$out      = array();
+
+	$GLOBALS['last_statuses'] = $statuses;
 
 	foreach ( $GLOBALS['posts'] as $post ) {
-		if ( 'publish' !== $post->post_status || ! in_array( $cat, $post->cats, true ) ) {
+		if ( ! in_array( $post->post_status, $statuses, true ) || ! in_array( $cat, $post->cats, true ) ) {
 			continue;
 		}
 
@@ -173,14 +218,16 @@ function ck( $label, $got, $want ) {
  * @param string $title Title.
  * @param string $date  Date, used for ordering.
  * @param string $level Access level.
- * @param array  $cats  Category IDs.
+ * @param array  $cats   Category IDs.
+ * @param string $status Post status.
  */
-function seed_post( $id, $title, $date, $level, $cats = array( 7 ) ) {
+function seed_post( $id, $title, $date, $level, $cats = array( 7 ), $status = 'publish' ) {
 	$post              = new WP_Post();
 	$post->ID          = $id;
 	$post->post_title  = $title;
 	$post->post_date   = $date;
 	$post->cats        = $cats;
+	$post->post_status = $status;
 	$GLOBALS['posts'][ $id ] = $post;
 
 	update_post_meta( $id, WPCPM_Content_Access::META_KEY, $level );
@@ -479,6 +526,80 @@ ck( 'a title is escaped, not printed',
         false !== strpos( $column, 'Bread &amp; ' ),
     ),
     array( false, true, true ) );
+
+echo "\n=== Private posts, on the Administrator Dashboard only ===\n";
+
+// The biweekly site update is a private post at the Administrators level (owner, 21 October
+// 2026): never published, so Jetpack never emails or syndicates it, and listed in the
+// Administrator Dashboard's column for the Administrators who may read it. Every other card,
+// and the viewer's own view, lists published posts alone, as before.
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+seed_post( 500, 'Announcement', '2026-10-01 10:00:00', 'public' );
+seed_post( 501, 'Site update', '2026-10-09 10:00:00', WPCPM_Roles::ROLE_ADMIN, array( 7 ), 'private' );
+seed_post( 502, 'Private at the public level', '2026-10-05 10:00:00', 'public', array( 7 ), 'private' );
+seed_post( 503, 'Private elsewhere', '2026-10-10 10:00:00', WPCPM_Roles::ROLE_ADMIN, array( 8 ), 'private' );
+seed_post( 504, 'Draft update', '2026-10-11 10:00:00', WPCPM_Roles::ROLE_ADMIN, array( 7 ), 'draft' );
+
+// An Administrator as the site has them: the program's capability and core's private reading.
+$GLOBALS['users'][16] = new WP_User( 16, 'administrator' );
+$GLOBALS['caps'][16]  = array( WPCPM_Roles::CAP_MANAGE, 'read_private_posts' );
+
+/**
+ * The titles a card lists for the current reader, in the column's order.
+ *
+ * @param string $audience Whose card.
+ * @return string[]
+ */
+function titles_for( $audience ) {
+	$titles = array();
+
+	foreach ( WPCPM_Updates::posts( 20, $audience ) as $post ) {
+		$titles[] = $post->post_title;
+	}
+
+	return $titles;
+}
+
+$GLOBALS['uid'] = 16;
+
+ck( 'an Administrator\'s column lists the private updates with the published ones, newest first', titles_for( 'administrator' ), array( 'Site update', 'Private at the public level', 'Announcement' ) );
+ck( 'and asks for published and private posts, and nothing else', $GLOBALS['last_statuses'], array( 'publish', 'private' ) );
+
+$column = WPCPM_Updates::render_column( 'administrator' );
+
+ck( 'the rendered column links the private update by its title alone, without core\'s "Private: "',
+    array(
+        false !== strpos( $column, '>Site update</a>' ),
+        false !== strpos( $column, 'Private: ' ),
+        false !== strpos( $column, 'https://example.test/?p=501' ),
+    ),
+    array( true, false, true ) );
+ck( 'and takes its title filter off again, so every other title on the page keeps core\'s prefix', array( get_the_title( 501 ), get_the_title( 500 ) ), array( 'Private: Site update', 'Announcement' ) );
+ck( 'a private post in another category, and a draft in this one, are not listed', array( false !== strpos( $column, 'Private elsewhere' ), false !== strpos( $column, 'Draft update' ) ), array( false, false ) );
+
+foreach ( array( 'student', 'mentor', 'institution', 'sponsor', '' ) as $audience ) {
+	ck( sprintf( 'the %s keeps published posts alone, for an Administrator too', '' === $audience ? 'viewer\'s own view' : $audience . ' card' ), in_array( 'Site update', titles_for( $audience ), true ) || in_array( 'Private at the public level', titles_for( $audience ), true ), false );
+}
+
+ck( 'and asks for published posts alone', $GLOBALS['last_statuses'], array( 'publish' ) );
+
+// Fails closed: the program's capability without core's private reading reads no private post,
+// and neither does anybody else, whatever card they are shown.
+$GLOBALS['uid'] = $people['manager']['id'];
+ck( 'a manager who cannot read private posts gets the published ones alone', titles_for( 'administrator' ), array( 'Announcement' ) );
+
+foreach ( array( 'student', 'mentor', 'institution', 'logged out' ) as $who ) {
+	$GLOBALS['uid'] = $people[ $who ]['id'];
+	ck( sprintf( 'a %s shown the administrator card reads no private post', $who ), titles_for( 'administrator' ), array( 'Announcement' ) );
+}
+
+// A private post's author reads it, as core lets them and as the access level's author rule
+// does (1.95.1), whatever its level.
+$GLOBALS['posts'][501]->post_author = $people['mentor']['id'];
+$GLOBALS['uid']                     = $people['mentor']['id'];
+ck( 'its author reads their own private post on the administrator card', titles_for( 'administrator' ), array( 'Site update', 'Announcement' ) );
+$GLOBALS['posts'][501]->post_author = 0;
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
