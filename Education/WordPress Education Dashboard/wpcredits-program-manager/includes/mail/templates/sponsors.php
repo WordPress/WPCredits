@@ -404,7 +404,8 @@ return array(
 			array(
 				__( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us.', 'wpcredits-program-manager' ),
 				__( 'We have read your company\'s application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news.', 'wpcredits-program-manager' ),
-				__( 'You are welcome to apply again later, for example when your products or the program change. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
+				// No reason is guessed for applying again (1.123.24, from the sponsor feedback of 22 October 2026).
+				__( 'You are welcome to apply again later. A new application is read on its own merits, and this decision does not count against it.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",

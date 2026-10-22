@@ -50,6 +50,8 @@
  * sent as recorded, byte for byte, but those `changes()` lists, each change with the item of the
  * 1.122.23 plan it comes from and the exact text it changes
  * (docs/plans/2026-10-11-mail-fixes-1-122-23.md); the calendar files are as recorded in every case.
+ * What 1.123.24 changes after them, the site's address in the footer, is
+ * bin/stubs/mail-since-1-123-24.php's, run over every recorded body where it is compared.
  *
  * Run from the plugin root:  php bin/test-calls-reports-text.php
  * Record (once, against 1.122.20, before the move):  php bin/test-calls-reports-text.php --record
@@ -221,6 +223,7 @@ require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -949,13 +952,17 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
-			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], body_as( $name, $mail['body'] ) );
+			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) );
 			ck( $name . ' #' . $n . ': the headers and the calendar files, byte for byte' . $as, array( $now['headers'], $now['attachments'] ), array( $mail['headers'], $mail['attachments'] ) );
 		}
 	}
 }
 
 ck( 'every change listed is made, to a case of one of the two recordings, and changes what its recording holds', array( $GLOBALS['stale'], array_values( array_diff( $listed, $changed ) ) ), array( array(), array() ) );
+
+// 1.123.24: the site's address on the line under the signature's first, in every recorded email, none
+// of whose bodies names the home page whole, and no sponsor rejection among them.
+ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.24 sends it, and nothing else of 1.123.24 is in them', $GLOBALS['wpcpm_since_1_123_24'], array( 'declined' => 0, 'site_line' => 96, 'site_kept' => 0 ) );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.
@@ -1019,7 +1026,7 @@ $two_roles                   = emails_of( $cases['booked-call'] );
 ck(
 	'a mentor who is also a student is sent the mentor\'s booking as a mentor: the Mentor Report Card once, in the body, and no Student Report Card in the footer',
 	array( isset( $two_roles[0] ) ? $two_roles[0]['body'] : null, WPCPM_Mail_Capture::type_of( $GLOBALS['users'][20], WPCPM_Mail_Catalog::get( isset( $two_roles[0] ) ? $two_roles[0]['context'] : '' )['audience'] ?? '' ) ),
-	array( $recorded['cases']['booked-call'][0]['body'] ?? '', WPCPM_Mail_Catalog::TYPE_MENTOR )
+	array( wpcpm_mail_since_1_123_24( $recorded['cases']['booked-call'][0]['body'] ?? '' ), WPCPM_Mail_Catalog::TYPE_MENTOR )
 );
 $GLOBALS['users'][20]->roles = array( WPCPM_Roles::ROLE_MENTOR );
 

@@ -500,7 +500,7 @@ preg_match_all( '#<tr><td><code>\{([a-z_]+)\}</code>( <span class="wpcpm-emails_
 ck( 'its placeholders are listed with what each means and its example, the set-password link marked required', array_map( function ( $row ) { return array( $row[1], '' !== $row[2] ); }, $placeholders ), array( array( 'site_name', false ), array( 'set_password_link', true ), array( 'username', false ), array( 'login_url', false ), array( 'dashboard_link', false ) ) );
 ck( 'each example on one line, the empty ones said to be empty', array( html_entity_decode( $placeholders[1][4] ?? '', ENT_QUOTES ), html_entity_decode( $placeholders[4][4] ?? '', ENT_QUOTES ) ), array( 'To set your password, visit the following address:  https://example.test/wp-login.php?login=ada.example&key=EXAMPLE-KEY-NOT-A-REAL-LINK&action=rp', 'https://example.test/student-report-card/' ) );
 preg_match( '#<div class="wpcpm-emails__preview"><p><strong>Subject:</strong> ([^<]*)</p><pre class="wpcpm-emails__text">(.*?)</pre></div>#s', $editor, $preview );
-ck( 'the preview is the email filled with the examples, ending with the footer as a student\'s does, the Student Report Card\'s address named once, in the body', array( html_entity_decode( $preview[1] ?? '', ENT_QUOTES ), false !== strpos( $preview[2] ?? '', 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), substr( html_entity_decode( $preview[2] ?? '', ENT_QUOTES ), -strlen( "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n" ) ), substr_count( $preview[2] ?? '', 'https://example.test/student-report-card/' ) ), array( '[WordPress Credits] Welcome to the WordPress Credits Program', true, "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n", 1 ) );
+ck( 'the preview is the email filled with the examples, ending with the footer as a student\'s does, the site\'s address on its line (1.123.24) and the Student Report Card\'s address named once, in the body', array( html_entity_decode( $preview[1] ?? '', ENT_QUOTES ), false !== strpos( $preview[2] ?? '', 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), substr( html_entity_decode( $preview[2] ?? '', ENT_QUOTES ), -strlen( "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n" ) ), substr_count( $preview[2] ?? '', 'https://example.test/student-report-card/' ) ), array( '[WordPress Credits] Welcome to the WordPress Credits Program', true, "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n", 1 ) );
 
 echo "\n=== Who may press ===\n";
 
@@ -665,7 +665,7 @@ ck(
 	array( html_entity_decode( $booked[1] ?? '', ENT_QUOTES ), html_entity_decode( $booked[2] ?? '', ENT_QUOTES ) ),
 	array(
 		'[WordPress Credits] Call booked with Ada Okonjo',
-		'Ada Okonjo booked a call with you on ' . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 3:00 pm to 3:30 pm.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist\n\nWhat the student would like to discuss:\nMy first plugin, and how to get it reviewed\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.",
+		'Ada Okonjo booked a call with you on ' . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 3:00 pm to 3:30 pm.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist\n\nWhat the student would like to discuss:\nMy first plugin, and how to get it reviewed\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program.",
 	)
 );
 
@@ -777,10 +777,12 @@ $footer_of = function ( array $template, $text ) use ( $dashboards, $several ) {
 	}
 
 	$page = '' === $template['audience'] ? ( $several[ $template['module'] ] ?? $several[''] ) : ( $dashboards[ $template['audience'] ] ?? '' );
+	// The site's address since 1.123.24, but where the body names the home page standing whole.
+	$site = 1 === preg_match( '~https://example\.test/?(?=$|[\s<>"\')\]]|[.,;:!?](?:$|\s))~', substr( $text, 0, $at ) ) ? '' : "https://example.test/\n";
 
 	return array(
 		substr( $text, $at + 5 ),
-		"WordPress Credits, WordPress Education\n" . ( '' !== $page && false === strpos( substr( $text, 0, $at ), $page ) ? $page . "\n" : '' ) . 'This email comes from the WordPress Credits program.' . ( "\n" === substr( $template['body'], -1 ) ? "\n" : '' ),
+		"WordPress Credits, WordPress Education\n" . $site . ( '' !== $page && false === strpos( substr( $text, 0, $at ), $page ) ? $page . "\n" : '' ) . 'This email comes from the WordPress Credits program.' . ( "\n" === substr( $template['body'], -1 ) ? "\n" : '' ),
 	);
 };
 foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
@@ -948,7 +950,7 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 	$previews[ $who ] = array( html_entity_decode( $shown_returned[1] ?? '', ENT_QUOTES ), str_replace( "\r\n", "\n", html_entity_decode( $shown_returned[2] ?? '', ENT_QUOTES ) ) );
 	$wanted[ $who ]   = array(
 		'[WordPress Credits] Your signed agreement needs a change',
-		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
+		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
 	);
 }
 $GLOBALS['opts']['timezone_string'] = $site_zone;
@@ -985,10 +987,10 @@ $footer_tab = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) 
 preg_match_all( '#<tr><td><code>\{([a-z_]+)\}</code>#', $footer_tab, $footer_placeholders );
 ck( 'it is the editor without a Subject, its box holding the shipped footer', array( false !== strpos( $footer_tab, '<h2>Signature and footer</h2>' ), box( $footer_tab, 'wpcpm-email-subject' ), box( $footer_tab, 'wpcpm-email-body' ), false !== strpos( $footer_tab, 'All templates' ) ), array( true, null, WPCPM_Mail_Templates::footer_shipped(), false ) );
 ck( 'it says where the block goes, the separator line shown as code, and lists its four placeholders, the site\'s public address among them since 1.122.37', array( false !== strpos( $footer_tab, '<p class="description">Every email the plugin sends ends with this block, after a line holding <code>-- </code>. It is not added to the emails WordPress and the Two Factor plugin send themselves.</p>' ), $footer_placeholders[1] ), array( true, array( 'site_name', 'site_link', 'dashboard_link', 'program_contact' ) ) );
-ck( 'its preview ends a line of text with the footer', false !== strpos( $footer_tab, "The text of the email.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.</pre>" ), true );
+ck( 'its preview ends a line of text with the footer, the site\'s address on its second line (1.123.24)', false !== strpos( $footer_tab, "The text of the email.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.</pre>" ), true );
 preg_match( '#<tr><td><code>\{dashboard_link\}</code>.*?</td><td>.*?</td><td>(.*?)</td></tr>#s', $footer_tab, $footer_dashboard_row );
 $footer_table_address = $footer_dashboard_row[1] ?? null;
-ck( 'and the address its table gives as the example of {dashboard_link} is the one its preview fills in: the Administrator Dashboard\'s', array( $footer_table_address, null !== $footer_table_address && false !== strpos( $footer_tab, "-- \nWordPress Credits, WordPress Education\n" . $footer_table_address . "\nThis email comes from" ) ), array( 'https://example.test/administrator-dashboard/', true ) );
+ck( 'and the address its table gives as the example of {dashboard_link} is the one its preview fills in: the Administrator Dashboard\'s', array( $footer_table_address, null !== $footer_table_address && false !== strpos( $footer_tab, "-- \nWordPress Credits, WordPress Education\nhttps://example.test/\n" . $footer_table_address . "\nThis email comes from" ) ), array( 'https://example.test/administrator-dashboard/', true ) );
 preg_match( '#<tr><td><code>\{site_link\}</code></td><td>(.*?)</td><td>(.*?)</td></tr>#s', $footer_tab, $site_row );
 ck( 'its {site_link} row says what it is, plainly, and that an email naming it already leaves its line out, as the {dashboard_link} row says for its own, and gives the home page as its example', array( html_entity_decode( $site_row[1] ?? '', ENT_QUOTES ), $site_row[2] ?? null ), array( 'The site\'s public address, the same for everyone. Empty for an email that names it already, which leaves its line out.', 'https://example.test/' ) );
 
@@ -1021,7 +1023,7 @@ ck( 'the note sits 1em under the preview\'s box, its lead sentence closer to the
 new_administrator();
 $GLOBALS['mail'] = array();
 press( 'handle_save', array( 'wpcpm_email' => 'footer', 'wpcpm_then' => 'test', 'body' => WPCPM_Mail_Templates::footer_shipped() ) );
-ck( 'its test, of the shipped footer, says the same in plain words: it went to an Administrator, so its link is the Administrator Dashboard, and everybody else gets their own page', array( count( $GLOBALS['mail'] ), 0 === strpos( $GLOBALS['mail'][0]['body'] ?? '', "This is how every email the plugin sends ends. This test went to you, an Administrator, so the dashboard link below is the Administrator Dashboard.\n\nIn everybody else's emails, that line links to their own page, unless the email names that page already:\nStudents: Student Report Card, https://example.test/student-report-card/\n" ), substr( $GLOBALS['mail'][0]['body'] ?? '', -strlen( "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) ) ), array( 1, true, "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) );
+ck( 'its test, of the shipped footer, says the same in plain words: it went to an Administrator, so its link is the Administrator Dashboard, and everybody else gets their own page', array( count( $GLOBALS['mail'] ), 0 === strpos( $GLOBALS['mail'][0]['body'] ?? '', "This is how every email the plugin sends ends. This test went to you, an Administrator, so the dashboard link below is the Administrator Dashboard.\n\nIn everybody else's emails, that line links to their own page, unless the email names that page already:\nStudents: Student Report Card, https://example.test/student-report-card/\n" ), substr( $GLOBALS['mail'][0]['body'] ?? '', -strlen( "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) ) ), array( 1, true, "\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program." ) );
 
 new_administrator();
 ck( 'a footer that uses {site_link} is saved from the tab', press( 'handle_save', array( 'wpcpm_email' => 'footer', 'body' => "WordPress Credits, WordPress Education\r\n{site_link}\r\n{dashboard_link}" ) ), 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=footer' );

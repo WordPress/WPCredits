@@ -51,7 +51,7 @@
 								components.Placeholder,
 								{ label: __( 'Institution Application Form', 'wpcredits-program-manager' ) },
 								__(
-									'Nothing to preview. The form is not shown until the site has a published privacy policy and the program is taking applications.',
+									'Nothing to preview. The form is not shown until the program is taking applications.',
 									'wpcredits-program-manager'
 								)
 							);

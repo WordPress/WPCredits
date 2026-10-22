@@ -1693,8 +1693,9 @@ ck( 'every query the stand-ins were sent is one they model', array( class_exists
 $GLOBALS['run_complete'] = true;
 
 // What every mail of the suite says, as the recording made before the event and term emails moved
-// into the template registry holds it (bin/stubs/mail-recording.php).
-foreach ( wpcpm_recording_checks( 'sponsor-event-mails-list.json', '6b823d154b980a2d8a843b5f4b55c318440e1730a67d31771d0a6b74b16995c4', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), array(), "-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
+// into the template registry holds it (bin/stubs/mail-recording.php), each ending with the footer as
+// it reads since 1.123.24, the site's address under its first line.
+foreach ( wpcpm_recording_checks( 'sponsor-event-mails-list.json', '6b823d154b980a2d8a843b5f4b55c318440e1730a67d31771d0a6b74b16995c4', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), array(), "-- \nWordPress Credits, WordPress Education\nhttps://site.example/\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
 	ck( $recorded_check[0], $recorded_check[1], $recorded_check[2] );
 }
 

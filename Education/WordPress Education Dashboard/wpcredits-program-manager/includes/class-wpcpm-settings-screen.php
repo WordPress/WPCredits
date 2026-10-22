@@ -1088,13 +1088,27 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
+	 * What each application form's switch says in its fold of the privacy policy its form links:
+	 * since 1.123.24, the WordPress.org privacy policy (`WPCPM_Form_Guard::POLICY_URL`), not the page
+	 * the site sets under Settings > Privacy. Until then each row warned under its switch while the
+	 * site had no such page, since the form showed the public nothing without one; it no longer waits
+	 * on one, so the row's fold says instead which policy an applicant agrees to, the same words on
+	 * the three rows.
+	 *
+	 * @return string
+	 */
+	private static function policy_note() {
+		return __( 'The form\'s consent box links to the WordPress.org privacy policy, not to this site\'s own privacy page.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * The Students and mentors tab's last section, the mentor application form (1.122.31): whether
 	 * it takes applications, whether a selected applicant is made a mentor on the site (1.122.33),
 	 * who is told of each application, the link the selection email gives, and when a selected
 	 * application lapses.
 	 *
-	 * Drawn as the Sponsors tab draws its form's switch: off by default, the privacy policy named on
-	 * the same row because the form shows nothing without one, and the page's address under it.
+	 * Drawn as the Sponsors tab draws its form's switch: off by default, the privacy policy the form
+	 * links named in the row's fold (`policy_note()`), and the page's address under it.
 	 *
 	 * @param array $settings Current settings.
 	 */
@@ -1105,22 +1119,18 @@ class WPCPM_Settings_Screen {
 			'mentor-applications'
 		);
 
-		$policy_url   = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
 		$apply_url    = class_exists( 'WPCPM_Mentor_Application_Form' ) ? (string) WPCPM_Mentor_Application_Form::page_url() : '';
 		$applications = __( 'Applications from mentors', 'wpcredits-program-manager' );
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s',
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
 			esc_html( $applications ),
 			checked( ! empty( $settings['mentor_applications_enabled'] ), true, false ),
 			esc_html__( 'Take mentor applications through the form on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' ),
-			'' === $policy_url
-				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings > Privacy.', 'wpcredits-program-manager' ) . '</p>'
-				: ''
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, array( __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ), self::policy_note() ) );
 
 		// Make mentors from applications (1.122.33): off until the launch (owner item 1), the one switch
 		// `WPCPM_Mentor_Activation::enabled()` reads before it makes anybody a mentor.
@@ -1189,27 +1199,21 @@ class WPCPM_Settings_Screen {
 
 		// The public application form. Off by default and switched on here, because turning it
 		// on publishes a page that strangers can post to, which is not a thing to inherit from
-		// an update. The privacy policy is named on the same row rather than in a document
-		// nobody will read at the moment they need it: the form refuses to render at all
-		// without one, so a switch that looks on while the page shows nothing is exactly the
-		// confusion this line exists to prevent.
-		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
-		$apply_url  = class_exists( 'WPCPM_Institution_Application' ) ? (string) WPCPM_Institution_Application::page_url() : '';
+		// an update. The privacy policy the form links is named in the row's fold rather than in a
+		// document nobody will read at the moment they need it (`policy_note()`).
+		$apply_url = class_exists( 'WPCPM_Institution_Application' ) ? (string) WPCPM_Institution_Application::page_url() : '';
 
 		$applications = __( 'Applications from institutions', 'wpcredits-program-manager' );
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s',
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
 			esc_html( $applications ),
 			checked( ! empty( $settings['applications_enabled'] ), true, false ),
 			esc_html__( 'Take applications through the form on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' ),
-			'' === $policy_url
-				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings > Privacy.', 'wpcredits-program-manager' ) . '</p>'
-				: ''
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, array( __( 'Every submission is stored for an Administrator to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ), self::policy_note() ) );
 
 		// Beside the applications switch, because the two are the same kind of decision: both
 		// open a route by which people outside the program put names into it, and a site that
@@ -1373,26 +1377,21 @@ class WPCPM_Settings_Screen {
 
 		// The public application form, first on the tab because a sponsor's life on the site begins
 		// with it. Off by default and switched on here, because turning it on publishes a page that
-		// strangers can post to. The privacy policy is named on the same row: the form refuses to
-		// render at all without one, so a switch that looks on while the page shows nothing is
-		// exactly the confusion this line exists to prevent.
-		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
-		$apply_url  = class_exists( 'WPCPM_Sponsor_Application' ) ? (string) WPCPM_Sponsor_Application::page_url() : '';
+		// strangers can post to. The privacy policy the form links is named in the row's fold
+		// (`policy_note()`).
+		$apply_url = class_exists( 'WPCPM_Sponsor_Application' ) ? (string) WPCPM_Sponsor_Application::page_url() : '';
 
 		$applications = __( 'Applications from sponsors', 'wpcredits-program-manager' );
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s',
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
 			esc_html( $applications ),
 			checked( ! empty( $settings['sponsor_applications_enabled'] ), true, false ),
 			esc_html__( 'Take sponsor applications through the form on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' ),
-			'' === $policy_url
-				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings > Privacy.', 'wpcredits-program-manager' ) . '</p>'
-				: ''
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, __( 'Every submission is stored for an Administrator to read on the Sponsors screen and on the Administrator Dashboard, and nothing becomes a sponsor until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $applications, array( __( 'Every submission is stored for an Administrator to read on the Sponsors screen and on the Administrator Dashboard, and nothing becomes a sponsor until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ), self::policy_note() ) );
 
 		$this->close_section();
 

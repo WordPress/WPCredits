@@ -50,6 +50,10 @@
  * invitation before comparing, as bin/test-invitation-text.php does for the changes made to its own
  * recording, and checks it fell once on each of the three invitations and nowhere else.
  *
+ * And the footer has gained a line since, on purpose, in 1.123.24: the site's address under the
+ * signature's first line. bin/stubs/mail-since-1-123-24.php puts it into each recorded email, this
+ * recording's and M1's, and the suite checks it fell on all sixteen of this one's.
+ *
  * Run from the plugin root:  php bin/test-mentor-activation-text.php
  * Record (once, against 1.122.33):  php bin/test-mentor-activation-text.php --record
  */
@@ -60,6 +64,7 @@ if ( 'cli' !== PHP_SAPI ) {
 
 require_once __DIR__ . '/stubs/mentor-applications.php';
 require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 
 $GLOBALS['sent']       = array();
 $GLOBALS['settings']   = array();
@@ -896,6 +901,14 @@ if ( is_array( $recorded ) && isset( $recorded['cases'] ) ) {
 
 ck( 'and 1.122.38\'s one line, the Translation Track\'s after the Design Track\'s, is put into the welcome of each of its three mentor invitations, and into nothing else', $translation_lines, 3 );
 
+// And what 1.123.24 changed, put into it too: the site's address on the line under the signature's
+// first, in every recorded email but one whose body names the home page whole.
+if ( is_array( $recorded ) && isset( $recorded['cases'] ) ) {
+	$recorded['cases'] = wpcpm_mails_since_1_123_24( $recorded['cases'] );
+}
+
+ck( 'and 1.123.24\'s site address is put into the footer of every recorded email, and nothing else of 1.123.24', $GLOBALS['wpcpm_since_1_123_24'], array( 'declined' => 0, 'site_line' => 16, 'site_kept' => 0 ) );
+
 echo "\n=== Every email of every case, as recorded ===\n";
 
 $as_sent = array();
@@ -929,6 +942,8 @@ echo "\n=== The emails M1 recorded, in these cases ===\n";
 // and the two notices, and its 'more-information-then-selected' case the selection's email.
 $first = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/mentor-applications-1-122-31.json' ), true );
 $first = isset( $first['cases'] ) ? $first['cases'] : array();
+// As 1.123.24 sends them, the site's address in their footers (bin/stubs/mail-since-1-123-24.php).
+$first = wpcpm_mails_since_1_123_24( $first );
 $mine  = array(
 	'applied'  => isset( $first['applied'] ) ? $first['applied'] : array(),
 	'selected' => isset( $first['more-information-then-selected'][4] ) ? $first['more-information-then-selected'][4] : null,
@@ -970,13 +985,14 @@ const WELCOME_LINKS = array(
 /**
  * The links an invitation to a mentor may hold besides the welcome's seven: the link that sets the
  * password (with the fake key), the login page, and the Mentor Report Card, the invitation's own
- * lines that are no part of the welcome.
+ * lines that are no part of the welcome, and the site's home page, which the footer names since
+ * 1.123.24.
  *
  * @param string $link A link found in a body.
  * @return bool
  */
 function own_link( $link ) {
-	return 1 === preg_match( '#^https://example\.test/wp-login\.php\?login=[A-Za-z0-9-]+&key=TEST-KEY-NOT-A-REAL-LINK&action=rp$#', $link ) || in_array( $link, array( 'https://example.test/wp-login.php', 'https://example.test/mentor-report-card/' ), true );
+	return 1 === preg_match( '#^https://example\.test/wp-login\.php\?login=[A-Za-z0-9-]+&key=TEST-KEY-NOT-A-REAL-LINK&action=rp$#', $link ) || in_array( $link, array( 'https://example.test/wp-login.php', 'https://example.test/mentor-report-card/', 'https://example.test/' ), true );
 }
 
 // Across the invitations: the welcome's first line, its bracketed line, the program's Reply-To, and

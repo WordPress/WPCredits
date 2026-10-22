@@ -34,6 +34,10 @@
  * The recording is made once: `--record` refuses when the file is there, and the suite pins the
  * file's sha256, so a recording made again from later code can never stand in for 1.122.31's.
  *
+ * The footer has gained a line since, on purpose, in 1.123.24: the site's address under the
+ * signature's first line. bin/stubs/mail-since-1-123-24.php puts it into each recorded email where
+ * it is compared, and the suite checks it fell on all twenty-two.
+ *
  * Run from the plugin root:  php bin/test-mentor-applications-text.php
  * Record (once, against 1.122.31):  php bin/test-mentor-applications-text.php --record
  */
@@ -43,6 +47,7 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 require_once __DIR__ . '/stubs/mentor-applications.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 
 $GLOBALS['sent']       = array();
 $GLOBALS['settings']   = array();
@@ -424,10 +429,14 @@ foreach ( cases() as $name => $case ) {
 
 		ck( $name . ' #' . $n . ': logged under its own id', $sent['context'], $mail['context'] );
 		ck( $name . ' #' . $n . ': the subject, byte for byte', $sent['subject'], $mail['subject'] );
-		ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included', $sent['body'], $mail['body'] );
+		ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included, the site\'s address in it as 1.123.24 adds it', $sent['body'], wpcpm_mail_since_1_123_24( $mail['body'] ) );
 		ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached', array( $sent['headers'], $sent['files'] ), array( $mail['headers'], 0 ) );
 	}
 }
+
+// 1.123.24: the site's address on the line under the signature's first, in each of the 22 recorded
+// emails, none of whose bodies names the home page whole.
+ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.24 sends it, and nothing else of 1.123.24 is in them', $GLOBALS['wpcpm_since_1_123_24'], array( 'declined' => 0, 'site_line' => 22, 'site_kept' => 0 ) );
 
 echo "\n=== What the cases say, apart from the recording ===\n";
 

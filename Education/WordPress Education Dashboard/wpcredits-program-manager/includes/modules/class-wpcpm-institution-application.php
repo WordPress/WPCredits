@@ -39,10 +39,11 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  *
  * **Consent is a precondition, not an answer.** The key absent, `"0"`, `"yes"`, anything but
  * `"1"` or `"true"` refuses the whole submission and stores nothing. What is stored instead is
- * the evidence: the sentence as it was rendered, the policy's URL and post ID, and the
- * policy's own `post_modified_gmt`. "They agreed" is worthless if nobody can say what they
- * agreed to, and the policy page is editable. If the site has no privacy policy at all the
- * form refuses to render, because there is then nothing to agree to.
+ * the evidence: the sentence as it was rendered and the address of the policy agreed to. "They
+ * agreed" is worthless if nobody can say what they agreed to. The policy is WordPress.org's since
+ * 1.123.24 (`WPCPM_Form_Guard::POLICY_URL`), so the form no longer waits on the site having a
+ * privacy page; an application filed before names the site's own page, its post ID and its
+ * `post_modified_gmt`, the page being editable.
  *
  * **Why the anti-spam is here at all.** Not to protect consent: the base's own numbers say the
  * Airtable form never dropped a tick (design spec section 3). It is spam control on a page
@@ -566,7 +567,7 @@ class WPCPM_Institution_Application {
 			),
 			'Privacy Policy Compliance'            => array(
 				'group'    => 'consent',
-				'label'    => __( 'I confirm I have read the privacy policy and that this institution can share students\' details with the program under it.', 'wpcredits-program-manager' ),
+				'label'    => __( 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.', 'wpcredits-program-manager' ),
 				'type'     => 'consent',
 				'required' => true,
 			),
@@ -771,7 +772,8 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
-	 * The site's privacy policy, or an empty string when it has none.
+	 * The privacy policy the form links and asks the applicant to agree to: WordPress.org's since
+	 * 1.123.24 (`WPCPM_Form_Guard::POLICY_URL`), never empty.
 	 *
 	 * @return string
 	 */
@@ -782,14 +784,15 @@ class WPCPM_Institution_Application {
 	/**
 	 * Render the answer this request carries, the form, the confirmation, or nothing.
 	 *
-	 * Three things stop the *form* being drawn, and all three answer a manager with one
-	 * sentence and the public with nothing: the form being switched off, the site having no
-	 * privacy policy, and the countries map being empty. Nothing, rather than an apology,
-	 * because a page that says "this form is broken" to a stranger who followed a link from a
-	 * conference talk is worse than a page that says nothing, and because two of the three are
-	 * states only somebody with the settings screen can do anything about.
+	 * Two things stop the *form* being drawn, and both answer a manager with one sentence and
+	 * the public with nothing: the form being switched off, and the countries map being empty.
+	 * Nothing, rather than an apology, because a page that says "this form is broken" to a
+	 * stranger who followed a link from a conference talk is worse than a page that says nothing,
+	 * and because both are states only somebody with the settings screen can do anything about.
+	 * The site having no privacy page was a third until 1.123.24, when the form began linking the
+	 * WordPress.org privacy policy instead.
 	 *
-	 * **None of the three stops a sentence, and that is a fix rather than a nicety.** While the
+	 * **Neither stops a sentence, and that is a fix rather than a nicety.** While the
 	 * refusals returned before `render_message()` ran, two things were true and both were
 	 * wrong. `closed` could never be read by anybody: `handle_submit()` stashes it only when
 	 * the form is switched off, which is exactly the state the first refusal returned in, so
@@ -862,7 +865,7 @@ class WPCPM_Institution_Application {
 
 		// Nothing to say and nothing to draw is nothing at all, wrapper included: an empty div
 		// on a page a stranger followed a link to is the same silence with markup in it, and it
-		// is what the three refusals answered with before any of them could carry a sentence.
+		// is what the refusals answered with before any of them could carry a sentence.
 		if ( '' === $body ) {
 			return '';
 		}
@@ -878,7 +881,7 @@ class WPCPM_Institution_Application {
 	 * Why the form itself cannot be drawn, or an empty string when it can.
 	 *
 	 * Lifted out of `render()` so that the answer a redirect carries can be drawn whether or
-	 * not the form can be. Each of the three is a sentence for a program manager and silence
+	 * not the form can be. Each of the two is a sentence for a program manager and silence
 	 * for everybody else; `render()` decides who hears it.
 	 *
 	 * @param array $countries The countries map, already read.
@@ -887,13 +890,6 @@ class WPCPM_Institution_Application {
 	private static function closed_reason( array $countries ) {
 		if ( ! self::is_open() ) {
 			return __( 'The application form is switched off. Turn on "Applications from institutions" on the Institutions tab of WPCredits Program > Settings when the program is ready to take them.', 'wpcredits-program-manager' );
-		}
-
-		// The privacy gate. On the live site the policy page is still a draft, so this branch
-		// is the one that runs, and it must not print a form asking somebody to agree to a
-		// document that does not exist.
-		if ( '' === self::policy_url() ) {
-			return __( 'This form is not shown yet: applicants are asked to agree to the privacy policy, and this site has no published privacy policy page. Set one under Settings > Privacy.', 'wpcredits-program-manager' );
 		}
 
 		if ( empty( $countries ) ) {
@@ -1304,8 +1300,9 @@ class WPCPM_Institution_Application {
 	 * The line under the consent box, linking the policy the applicant is agreeing to.
 	 *
 	 * Rendered as a link to the policy and not as its text: the wording stored on the
-	 * application is this sentence plus the policy's own modified date, and a policy quoted in
-	 * full here would be a second copy to keep true.
+	 * application is the consent sentence and the policy's address, and a policy quoted in full
+	 * here would be a second copy to keep true. The policy is WordPress.org's since 1.123.24,
+	 * which the sentence names, and the link opens where the form is, as it always has.
 	 *
 	 * The link is one word inside the sentence rather than the sentence's last two words after
 	 * a colon, so it reads as a sentence and a translator can put the word where their own
@@ -1314,19 +1311,13 @@ class WPCPM_Institution_Application {
 	 * around it enforces.
 	 */
 	private static function render_policy_line() {
-		$policy = self::policy_url();
-
-		if ( '' === $policy ) {
-			return;
-		}
-
 		printf(
 			'<span class="wpcpm-field__hint">%s</span>',
 			wp_kses(
 				sprintf(
-					/* translators: %1$s: opening link tag to the privacy policy, %2$s: closing link tag. */
-					__( 'You can read the privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
-					'<a href="' . esc_url( $policy ) . '" rel="noopener">',
+					/* translators: %1$s: opening link tag to the WordPress.org privacy policy, %2$s: closing link tag. */
+					__( 'You can read the WordPress.org privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
+					'<a href="' . esc_url( self::policy_url() ) . '" rel="noopener">',
 					'</a>'
 				),
 				array(
@@ -1498,10 +1489,11 @@ class WPCPM_Institution_Application {
 			self::bounce( 'expired', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		// 3. Both of these are the settings screen's business rather than the applicant's, and
-		// neither can be reached from a form this site drew: the form is not rendered at all
-		// when either is true. A post arriving anyway is somebody replaying an old page.
-		if ( ! self::is_open() || '' === self::policy_url() ) {
+		// 3. The switch is the settings screen's business rather than the applicant's, and cannot
+		// be reached from a form this site drew: the form is not rendered at all while it is off.
+		// A post arriving anyway is somebody replaying an old page. The site having no privacy
+		// page was checked here too until 1.123.24, when the form began linking WordPress.org's.
+		if ( ! self::is_open() ) {
 			self::bounce( 'closed' );
 		}
 
@@ -2026,13 +2018,13 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
-	 * What was agreed to, and to which version of it.
+	 * What was agreed to.
 	 *
-	 * The sentence as it was rendered, the policy's address and post ID, and the policy's own
-	 * `post_modified_gmt`. The last one is the point: "they agreed" is worth nothing if nobody
-	 * can say what the document said that day, and a privacy policy is an ordinary page
-	 * somebody can edit. The record is the guard's since 1.97.0: one shape for both public
-	 * forms.
+	 * The sentence as it was rendered and the address of the policy, WordPress.org's since
+	 * 1.123.24, with no post ID and no modified time, a page on another site having neither that
+	 * this site can read. An application filed before holds the site's own page's ID and its
+	 * `post_modified_gmt`, and the queue reads both shapes. The record is the guard's since
+	 * 1.97.0: one shape for every public form.
 	 *
 	 * @return array
 	 */

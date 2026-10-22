@@ -27,6 +27,10 @@
  *   everybody, left out where the body names it standing whole, never where it names a page under
  *   it; and what `{dashboard_link}` becomes for each kind of person, the page of their kind while it
  *   is published, which the footer's test says, since it goes to an Administrator.
+ * - **The site's address in every email** (1.123.24). The shipped footer prints `{site_link}` on
+ *   the line under the signature's first, the owner having approved it on 22 October 2026: left out,
+ *   with no empty line, where the body names the home page whole, and printed once where a
+ *   recipient's dashboard is the home page itself.
  *
  * Run from the plugin root:  php bin/test-mail-templates.php
  */
@@ -1135,26 +1139,34 @@ ck(
 
 echo "\n=== The signature and footer ===\n";
 
-ck( 'the footer ships as the owner approved it, word for word', WPCPM_Mail_Templates::footer_shipped(), "WordPress Credits, WordPress Education\n{dashboard_link}\nThis email comes from the WordPress Credits program. Questions? Write to {program_contact}." );
+// Four lines since 1.123.24: the site's address joined the signature, the owner approving it on 22
+// October 2026, under the wording approved on 10 October 2026.
+ck( 'the footer ships as the owner approved it, word for word, the site\'s address on its second line', WPCPM_Mail_Templates::footer_shipped(), "WordPress Credits, WordPress Education\n{site_link}\n{dashboard_link}\nThis email comes from the WordPress Credits program. Questions? Write to {program_contact}." );
 
 $student_account = new WP_User( 30, 'Lu Example', 'lu@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
 $mentor_student  = new WP_User( 31, 'Mo Example', 'mo@example.test', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) );
 
 $GLOBALS['site_name_read'] = 0;
-ck( 'to an applicant with no account: a blank line, the "-- " line, then the footer with no dashboard line, and no contact sentence while Contact address in emails is empty', WPCPM_Mail_Templates::add_footer( "Thanks for applying.\nWe will write soon.", null, 'institution-applied' ), "Thanks for applying.\nWe will write soon.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program." );
+ck( 'to an applicant with no account: a blank line, the "-- " line, then the footer with the site\'s address and no dashboard line, and no contact sentence while Contact address in emails is empty', WPCPM_Mail_Templates::add_footer( "Thanks for applying.\nWe will write soon.", null, 'institution-applied' ), "Thanks for applying.\nWe will write soon.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program." );
 ck( 'and the footer reads nothing it does not print: the site\'s name is not asked for', $GLOBALS['site_name_read'], 0 );
-ck( 'to a student, her dashboard is on its line', WPCPM_Mail_Templates::add_footer( 'Booked.', $student_account, 'call-booked' ), "Booked.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/student-report-card/\nThis email comes from the WordPress Credits program." );
-ck( 'and to an account of two kinds, the email\'s audience decides which dashboard', WPCPM_Mail_Templates::add_footer( 'Ready.', $mentor_student, 'invite-mentor' ), "Ready.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/mentor-report-card/\nThis email comes from the WordPress Credits program." );
-ck( 'and a body that already names that dashboard gets no second copy of it in the footer, by the plugin\'s rule that no address appears twice', WPCPM_Mail_Templates::add_footer( "Booked.\nYour Student Report Card:\nhttps://example.test/student-report-card/", $student_account, 'call-booked' ), "Booked.\nYour Student Report Card:\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program." );
+ck( 'to a student, the site\'s address and then her dashboard, each on its line', WPCPM_Mail_Templates::add_footer( 'Booked.', $student_account, 'call-booked' ), "Booked.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/student-report-card/\nThis email comes from the WordPress Credits program." );
+ck( 'and to an account of two kinds, the email\'s audience decides which dashboard', WPCPM_Mail_Templates::add_footer( 'Ready.', $mentor_student, 'invite-mentor' ), "Ready.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/mentor-report-card/\nThis email comes from the WordPress Credits program." );
+ck( 'and a body that already names that dashboard gets no second copy of it in the footer, by the plugin\'s rule that no address appears twice, and keeps the site\'s address, which it does not name whole', WPCPM_Mail_Templates::add_footer( "Booked.\nYour Student Report Card:\nhttps://example.test/student-report-card/", $student_account, 'call-booked' ), "Booked.\nYour Student Report Card:\nhttps://example.test/student-report-card/\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program." );
+// The shipped footer's site line by the same rule (1.123.24): a body that names the home page whole
+// leaves the line out, with no empty line in its place; and a dashboard that is the home page itself,
+// a site that sets a dashboard as its front page, is printed once, on the site's line, whether its
+// address is written with its last slash or without it.
+ck( 'a body that names the home page whole gets no second copy of it, and no empty line where its line was', array( WPCPM_Mail_Templates::add_footer( 'Our site is https://example.test.', null, 'institution-applied' ), WPCPM_Mail_Templates::add_footer( "Our site:\r\nhttps://example.test/\r\n", $student_account, 'call-booked' ) ), array( "Our site is https://example.test.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.", "Our site:\r\nhttps://example.test/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/student-report-card/\r\nThis email comes from the WordPress Credits program.\r\n" ) );
+ck( 'a dashboard that is the home page itself is printed once, on the site\'s line', array( WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked', array( 'site_link' => 'https://example.test/', 'dashboard_link' => 'https://example.test/' ) ), WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked', array( 'site_link' => 'https://example.test/', 'dashboard_link' => 'https://example.test' ) ) ), array_fill( 0, 2, "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program." ) );
 
 WPCPM_Settings::$contact = 'programs@example.test';
-ck( 'with Contact address in emails set, its sentence says where to write', WPCPM_Mail_Templates::add_footer( 'Booked.', null, 'call-booked' ), "Booked.\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program. Questions? Write to programs@example.test." );
+ck( 'with Contact address in emails set, its sentence says where to write: the four lines, in full', WPCPM_Mail_Templates::add_footer( 'Booked.', $student_account, 'call-booked' ), "Booked.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/student-report-card/\nThis email comes from the WordPress Credits program. Questions? Write to programs@example.test." );
 WPCPM_Settings::$contact = 'not an address';
 ck( 'and a setting that holds no address leaves the sentence out', false !== strpos( WPCPM_Mail_Templates::add_footer( 'Booked.', null, 'call-booked' ), 'Questions?' ), false );
 WPCPM_Settings::$contact = '';
 
-ck( 'a body written with CR LF that ends with one gets the footer in CR LF, and ends with one', WPCPM_Mail_Templates::add_footer( "Hello.\r\n", null, 'call-booked' ), "Hello.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n" );
-ck( 'a test hands its own values over, in place of the recipient\'s', WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked', array( 'dashboard_link' => 'https://example.test/x/', 'program_contact' => 'help@example.test' ) ), "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/x/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
+ck( 'a body written with CR LF that ends with one gets the footer in CR LF, and ends with one', WPCPM_Mail_Templates::add_footer( "Hello.\r\n", null, 'call-booked' ), "Hello.\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n" );
+ck( 'a test hands its own values over, in place of the recipient\'s, and one it leaves out leaves its line out, with no empty line', WPCPM_Mail_Templates::add_footer( 'Hi.', null, 'call-booked', array( 'dashboard_link' => 'https://example.test/x/', 'program_contact' => 'help@example.test' ) ), "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/x/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
 ck( 'and an email\'s examples are its audience\'s dashboard and the contact as set', array( WPCPM_Mail_Templates::footer_examples( 'invite-sponsor' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'call-booked' )['dashboard_link'], WPCPM_Mail_Templates::footer_examples( 'call-booked' )['program_contact'] ), array( 'https://example.test/sponsor-dashboard/', 'https://example.test/student-report-card/', '' ) );
 // An email to several kinds of people is previewed with the dashboard of those it is written for
 // first: the codes running low, to a sponsor's accounts and an Administrator, with the Sponsor
@@ -1177,14 +1189,15 @@ echo "\n=== The site's public address, {site_link} (1.122.37) ===\n";
 
 // A program lead asked for the public site's address in the footer, since most people the program
 // writes to cannot open the Administrator Dashboard a footer test showed (WordPress/WPCredits#255).
-// `{site_link}` is the site's home page, the same for everybody; the shipped footer is unchanged.
+// `{site_link}` is the site's home page, the same for everybody; the shipped footer uses it since
+// 1.123.24. The checks below save a footer of their own, and Restore the original ends them.
 $site_link = WPCPM_Mail_Templates::footer_placeholders()['site_link'] ?? array();
 ck(
 	'the footer knows {site_link}, after {site_name}: the site\'s public address, the same for everyone, left out of an email that names it already, not required, its example the home page',
 	array( array_keys( WPCPM_Mail_Templates::footer_placeholders() ), $site_link['means'] ?? null, $site_link['required'] ?? null, WPCPM_Mail_Templates::examples_of( array( 'site_link' => $site_link ) ) ),
 	array( array( 'site_name', 'site_link', 'dashboard_link', 'program_contact' ), 'The site\'s public address, the same for everyone. Empty for an email that names it already, which leaves its line out.', false, array( 'site_link' => 'https://example.test/' ) )
 );
-ck( 'the shipped footer does not use it: the default text stays as the owner approved it', array( WPCPM_Mail_Templates::placeholders_in( WPCPM_Mail_Templates::footer_shipped() ), WPCPM_Mail_Templates::text_of( WPCPM_Mail_Templates::FOOTER )['body'] ), array( array( 'dashboard_link', 'program_contact' ), WPCPM_Mail_Templates::footer_shipped() ) );
+ck( 'the shipped footer uses it since 1.123.24, on the line before the dashboard, and it is the text sent while nobody has edited the footer', array( WPCPM_Mail_Templates::placeholders_in( WPCPM_Mail_Templates::footer_shipped() ), WPCPM_Mail_Templates::text_of( WPCPM_Mail_Templates::FOOTER )['body'] ), array( array( 'site_link', 'dashboard_link', 'program_contact' ), WPCPM_Mail_Templates::footer_shipped() ) );
 ck( 'it is filled with home_url( \'/\' ), read only while the footer\'s text uses it, and a test\'s examples carry it', array( WPCPM_Mail_Templates::footer_values( null, 'call-booked', array( 'site_link' ) ), WPCPM_Mail_Templates::footer_values( $student_account, 'call-booked', array( 'site_name' ) ), WPCPM_Mail_Templates::footer_examples( 'footer-test' )['site_link'] ?? null, WPCPM_Mail_Templates::footer_examples( 'invite-student' )['site_link'] ?? null ), array( array( 'site_link' => 'https://example.test/' ), array( 'site_name' => 'WordPress Credits' ), 'https://example.test/', 'https://example.test/' ) );
 ck(
 	'a footer that uses it is saved, and every email ends with the home page on its line: to a student, above her dashboard, and to an address with no account, alone',
@@ -1259,7 +1272,7 @@ $test            = isset( $GLOBALS['mail'][0] ) ? $GLOBALS['mail'][0] : array();
 
 ck( 'a test is one email, to the Administrator who asked, and to nobody else', array( $sent, count( $GLOBALS['mail'] ), $test['to'] ?? null, $test['headers'] ?? null ), array( true, 1, 'ida@example.test', array() ) );
 ck( 'with "[Test] " before its subject, under the template\'s own id, marked as a test', array( $test['subject'] ?? null, $test['context'] ?? null, $test['test'] ?? null ), array( '[Test] [WordPress Credits] Welcome to the WordPress Credits Program', 'invite-student', true ) );
-ck( 'filled with its examples: the marked example link, the example username, and the footer as a student\'s ends, the Student Report Card\'s address named once, in the body', array( false !== strpos( $test['body'] ?? '', 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $test['body'] ?? '', 'Your username is ada.example.' ), substr( $test['body'] ?? '', -strlen( "\r\nYour Student Report Card:\r\nhttps://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n" ) ), substr_count( $test['body'] ?? '', 'https://example.test/student-report-card/' ) ), array( true, true, "\r\nYour Student Report Card:\r\nhttps://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n", 1 ) );
+ck( 'filled with its examples: the marked example link, the example username, and the footer as a student\'s ends, the site\'s address on its line and the Student Report Card\'s address named once, in the body', array( false !== strpos( $test['body'] ?? '', 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $test['body'] ?? '', 'Your username is ada.example.' ), substr( $test['body'] ?? '', -strlen( "\r\nYour Student Report Card:\r\nhttps://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n" ) ), substr_count( $test['body'] ?? '', 'https://example.test/student-report-card/' ) ), array( true, true, "\r\nYour Student Report Card:\r\nhttps://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n", 1 ) );
 
 save_mentor( 'Hi <3, {site_name}', $good_body );
 $GLOBALS['mail'] = array();
@@ -1279,7 +1292,7 @@ $footer_test_body = "This is how every email the plugin sends ends. This test we
 	. "Institution members: Institution Dashboard, https://example.test/institution-dashboard/\n"
 	. "Sponsor members: Sponsor Dashboard, https://example.test/sponsor-dashboard/\n\n"
 	. "Somebody with no account, such as an applicant, gets no dashboard link, and its line is left out.\n\n"
-	. "-- \nWordPress Credits, WordPress Education\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.";
+	. "-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/administrator-dashboard/\nThis email comes from the WordPress Credits program.";
 ck( 'the footer\'s test is a short email that ends with it, under the catalog\'s footer-test, and says its link is the Administrator Dashboard because it went to an Administrator, what everybody else gets in its place, and that somebody with no account gets none', array( $GLOBALS['mail'][0]['subject'] ?? null, $GLOBALS['mail'][0]['body'] ?? null, $GLOBALS['mail'][0]['context'] ?? null, $GLOBALS['mail'][0]['test'] ?? null ), array( '[Test] [WordPress Credits] The signature and footer', $footer_test_body, 'footer-test', true ) );
 ck( 'its footer keeps the Administrator Dashboard\'s line: the address is named once, in the footer', substr_count( $GLOBALS['mail'][0]['body'] ?? '', 'https://example.test/administrator-dashboard/' ), 1 );
 

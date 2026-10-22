@@ -3493,10 +3493,11 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
 
 preg_match( '#<tr><th scope="row">Make mentors from applications</th>.*?</tr>#s', $states['people'], $activation_row );
 
-// The form writes nothing to Airtable; a mentor made from an application does, which its own switch says.
+// The form writes nothing to Airtable; a mentor made from an application does, which its own switch
+// says. The fold's second paragraph names the privacy policy the form links (1.123.24).
 ck( 'the fold of Applications from mentors says the form writes nothing to Airtable, which is true of the form alone',
-    help_of( $states['people'], 'Applications from mentors' )[1] ?? null,
-    array( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.' ) );
+    help_of( $states['people'], 'Applications from mentors' )[1][0] ?? null,
+    'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.' );
 
 ck( 'the Mentor applications section draws Make mentors from applications after the form\'s own switch: its box, off by default, one sentence saying it waits for the launch, and its fold what waits meanwhile',
     array(
@@ -3753,6 +3754,25 @@ ck( 'the Student landing page names the Student Report Card, as the Mentor landi
         'Students go there when they log in and in place of the wp-admin Dashboard, and get a "Student Report Card" link in the toolbar.',
         false,
     ) );
+
+// Since 1.123.24 the three application forms link the WordPress.org privacy policy (the site's
+// owner, 22 October 2026), so a missing privacy page keeps no form from the public, and no switch's
+// row warns of one; each says in its fold, last, which policy its form links, the row's help staying
+// its one sentence. This screen is drawn with no privacy page at all, since this file defines no
+// get_privacy_policy_url(), which is where the warning showed.
+$policy_note      = 'The form\'s consent box links to the WordPress.org privacy policy, not to this site\'s own privacy page.';
+$application_rows = array();
+
+foreach ( array( 'people' => 'Applications from mentors', 'institutions' => 'Applications from institutions', 'sponsors' => 'Applications from sponsors' ) as $tab => $label ) {
+	$drawn_tab = draw_settings( $tab );
+	$said      = help_of( $drawn_tab, $label );
+
+	$application_rows[ $label ] = array( null === $said ? null : $said[0], null === $said ? null : end( $said[1] ), strpos( $drawn_tab, 'No privacy policy page is set' ) );
+}
+
+ck( 'each application form\'s switch says, last in its fold, that its form links the WordPress.org privacy policy, its help the one line saying anybody can post to it, and none warns of a missing privacy page',
+    $application_rows,
+    array_fill_keys( array( 'Applications from mentors', 'Applications from institutions', 'Applications from sponsors' ), array( array( 'A public page anybody can post to.' ), $policy_note, false ) ) );
 
 /**
  * A leaving rule's answers as drawn, in their order: each one's value, its words, and whether it is

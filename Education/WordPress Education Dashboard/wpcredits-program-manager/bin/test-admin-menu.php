@@ -778,8 +778,11 @@ foreach ( $texts as $file => $text ) {
 ck( 'every menu path the plugin\'s strings, the guides and the readme write steps from WPCredits Program with ">"',
     array( $paths > 10, array_values( array_unique( $separators ) ) ), array( true, array( '>' ) ) );
 
-// And a path through WordPress's own Settings menu, which the privacy lines send a manager along, is
-// written the same way: "Settings > Privacy", not with a comma.
+// And a path through WordPress's own Settings menu is written the same way: "Settings > Privacy", not
+// with a comma. The privacy lines once sent a manager along it six times, while a form waited on the
+// site's own privacy page; since 1.123.24 the forms link the WordPress.org privacy policy and those
+// lines are gone, so the guide's one sentence saying the forms no longer link that page is the path
+// the check has to read, and at least that one must be there.
 $core_separators = array();
 $core_paths      = 0;
 
@@ -791,7 +794,7 @@ foreach ( array_merge( array_values( $texts ), $plugin_says ) as $text ) {
 }
 
 ck( 'and every path through WordPress\'s own Settings menu the plugin\'s strings, the guides and the readme write, Settings > Privacy among them, steps with ">" too',
-    array( $core_paths >= 5, array_values( array_unique( $core_separators ) ) ), array( true, array( '>' ) ) );
+    array( $core_paths >= 1, array_values( array_unique( $core_separators ) ) ), array( true, array( '>' ) ) );
 ck( 'no guide section holds the arrow, and the one string that does is the mentor page\'s source line, a table and its column rather than a menu path',
     array( $arrows, array_values( array_filter( $plugin_says, function ( $string ) { return false !== strpos( $string, '→' ); } ) ) ),
     array( array(), array( 'Airtable · %1$s → %2$s' ) ) );

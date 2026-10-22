@@ -48,8 +48,10 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  *
  * **Consent is a precondition, not an answer.** Anything but `"1"` or `"true"` refuses the
  * whole submission and stores nothing. What is stored instead is the evidence, through the
- * guard: the sentence as rendered, the policy's URL and ID and modified time, when, the
- * truncated address, the browser.
+ * guard: the sentence as rendered, the address of the policy agreed to, when, the truncated
+ * address, the browser. The policy is WordPress.org's since 1.123.24
+ * (`WPCPM_Form_Guard::POLICY_URL`); an application filed before names the site's own page, its
+ * ID and its modified time.
  *
  * The page is deliberately **not gated**: see `ensure_page()`.
  */
@@ -591,10 +593,15 @@ class WPCPM_Sponsor_Application {
 			),
 			self::COL_TIER     => array(
 				'group'    => 'support',
-				'label'    => __( 'Which tier are you considering?', 'wpcredits-program-manager' ),
+				// "Level", the Partners page's word, since 1.123.24 (the sponsor feedback of 22
+				// October 2026); the column, and wp-admin's and the Sponsor Dashboard's own words,
+				// keep "tier".
+				'label'    => __( 'Which level are you considering?', 'wpcredits-program-manager' ),
 				'type'     => 'tier',
 				'required' => false,
-				'help'     => __( 'The tiers and what each includes are on the partner page. Not sure yet is a fine answer.', 'wpcredits-program-manager' ),
+				// The sentence the question's hint ends with. The question draws its hint itself
+				// (`level_hint()`), naming the Partners page first while it has no levels to open.
+				'help'     => __( 'Not sure yet is a fine answer.', 'wpcredits-program-manager' ),
 				// Asked only once the program has announced the tiers: see is_asked() and clean().
 				'live'     => true,
 			),
@@ -613,7 +620,7 @@ class WPCPM_Sponsor_Application {
 			),
 			self::COL_CONSENT  => array(
 				'group'    => 'consent',
-				'label'    => __( 'I confirm I have read the privacy policy and that the company\'s details can be kept and shown under it.', 'wpcredits-program-manager' ),
+				'label'    => __( 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.', 'wpcredits-program-manager' ),
 				'type'     => 'consent',
 				'required' => true,
 			),
@@ -820,7 +827,9 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * The site's privacy policy, or an empty string when it has none.
+	 * The privacy policy the form links and asks the applicant to agree to: WordPress.org's since
+	 * 1.123.24 (`WPCPM_Form_Guard::POLICY_URL`), never empty. The site's own privacy notice covers
+	 * students, mentors and institutions, not sponsors.
 	 *
 	 * @return string
 	 */
@@ -831,9 +840,10 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Render the answer this request carries, the form, the confirmation, or nothing.
 	 *
-	 * Two things stop the form being drawn, and both answer a manager with one sentence and the
-	 * public with nothing: the form being switched off, and the site having no privacy policy.
-	 * Neither stops a sentence, so a `closed` outcome can be read on the page it applies to.
+	 * One thing stops the form being drawn, and it answers a manager with one sentence and the
+	 * public with nothing: the form being switched off. The site having no privacy page was a second
+	 * until 1.123.24, when the form began linking the WordPress.org privacy policy instead. It does
+	 * not stop a sentence, so a `closed` outcome can be read on the page it applies to.
 	 * Nothing to say and nothing to draw returns the empty string, not an empty wrapper.
 	 *
 	 * @param array $atts Shortcode or block attributes.
@@ -904,10 +914,6 @@ class WPCPM_Sponsor_Application {
 	private static function closed_reason() {
 		if ( ! self::is_open() ) {
 			return __( 'The sponsor application form is switched off. Turn on "Applications from sponsors" on the Sponsors tab of WPCredits Program > Settings when the program is ready to take them.', 'wpcredits-program-manager' );
-		}
-
-		if ( '' === self::policy_url() ) {
-			return __( 'This form is not shown yet: applicants are asked to agree to the privacy policy, and this site has no published privacy policy page. Set one under Settings > Privacy.', 'wpcredits-program-manager' );
 		}
 
 		return '';
@@ -1214,6 +1220,21 @@ class WPCPM_Sponsor_Application {
 					esc_html( $label )
 				);
 			}
+
+			// What each level includes, after the radios and before the hint (1.123.24), and the
+			// hint, which says less while the section says it.
+			$levels   = self::partner_levels();
+			$partners = self::partners_levels_url();
+
+			if ( array() !== $levels ) {
+				self::render_levels( $levels, $partners );
+			}
+
+			printf(
+				'<span class="wpcpm-field__hint" id="%1$s-help">%2$s</span>',
+				esc_attr( $id ),
+				self::level_hint( array() !== $levels, $partners, (string) $spec['help'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Passed through wp_kses() in level_hint().
+			);
 		} elseif ( 'logos' === $type ) {
 			printf( '<span class="wpcpm-field__label">%s</span>', esc_html( $spec['label'] ) );
 
@@ -1258,7 +1279,8 @@ class WPCPM_Sponsor_Application {
 			}
 		}
 
-		if ( ! empty( $spec['help'] ) ) {
+		// The level question prints its own hint, above, after what each level includes.
+		if ( ! empty( $spec['help'] ) && 'tier' !== $type ) {
 			printf(
 				'<span class="wpcpm-field__hint" id="%1$s-help">%2$s</span>',
 				esc_attr( $id ),
@@ -1309,22 +1331,259 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * The line under the consent box, linking the policy the applicant is agreeing to.
+	 * The partnership levels the level question opens, as the site hands them over: the well-formed
+	 * entries of `wpcpm_partner_levels`, in their order.
+	 *
+	 * The plugin writes no level's words. The Partners page's own list is the theme's (1.31.11 and
+	 * later hooks the filter with it), so the form and the page can never say a level differently,
+	 * and with nothing hooked, the theme not active or older, the list is empty and the question
+	 * names the Partners page instead (`level_hint()`). An entry that is not a level is left out
+	 * whole rather than drawn in part, since half a level would misstate what a company is offered.
+	 *
+	 * @return array<int, array{name:string,amount:string,lead:string,items:string[],tag:string}>
 	 */
-	private static function render_policy_line() {
-		$policy = self::policy_url();
+	public static function partner_levels() {
+		/**
+		 * Filters the partnership levels the sponsor application's level question opens, under
+		 * "What each level includes", lowest first.
+		 *
+		 * Empty unless something hooks it; the WPCredits theme hooks it with the Partners page's own
+		 * levels. Each level is an array with:
+		 *
+		 * - `name`   (string, required, not empty) the level's name, such as "Supporter";
+		 * - `amount` (string, required) its amount as the page words it, such as "$5,000 a year";
+		 * - `lead`   (string, required) the line under the amount, such as "Everything in Friend, plus:";
+		 * - `items`  (string[], required) what it includes, in order, as a list of strings;
+		 * - `tag`    (string, optional) a short note shown after the name, such as "Funds a named program".
+		 *
+		 * An entry that is not an array, whose name, amount or lead is missing or not a string, or
+		 * whose items are missing or not a list of strings, is skipped. A tag that is not a string
+		 * is not shown, and any other key is ignored. Every text is printed escaped, as text.
+		 *
+		 * @since 1.123.24
+		 *
+		 * @param array[] $levels The levels, lowest first. Default empty.
+		 */
+		$given = apply_filters( 'wpcpm_partner_levels', array() );
 
-		if ( '' === $policy ) {
-			return;
+		if ( ! is_array( $given ) ) {
+			return array();
 		}
 
+		$levels = array();
+
+		foreach ( $given as $level ) {
+			$well = self::well_formed_level( $level );
+
+			if ( null !== $well ) {
+				$levels[] = $well;
+			}
+		}
+
+		return $levels;
+	}
+
+	/**
+	 * One entry of `wpcpm_partner_levels` as the form draws it, or null when it is not a level.
+	 *
+	 * @param mixed $level One entry.
+	 * @return array{name:string,amount:string,lead:string,items:string[],tag:string}|null
+	 */
+	private static function well_formed_level( $level ) {
+		if ( ! is_array( $level ) ) {
+			return null;
+		}
+
+		foreach ( array( 'name', 'amount', 'lead' ) as $key ) {
+			if ( ! isset( $level[ $key ] ) || ! is_string( $level[ $key ] ) ) {
+				return null;
+			}
+		}
+
+		if ( '' === trim( $level['name'] ) || ! isset( $level['items'] ) || ! is_array( $level['items'] ) ) {
+			return null;
+		}
+
+		foreach ( $level['items'] as $item ) {
+			if ( ! is_string( $item ) ) {
+				return null;
+			}
+		}
+
+		return array(
+			'name'   => $level['name'],
+			'amount' => $level['amount'],
+			'lead'   => $level['lead'],
+			'items'  => array_values( $level['items'] ),
+			'tag'    => isset( $level['tag'] ) && is_string( $level['tag'] ) ? $level['tag'] : '',
+		);
+	}
+
+	/**
+	 * The Partners page's levels section, `#levels` on its address, or '' while the page has no
+	 * address, a draft or missing, when neither of the question's links is drawn.
+	 *
+	 * Behind class_exists(), as the listing and the tier card read the page.
+	 *
+	 * @return string
+	 */
+	private static function partners_levels_url() {
+		$page = class_exists( 'WPCPM_Sponsors_Page' ) ? (string) WPCPM_Sponsors_Page::page_url() : '';
+
+		return '' === $page ? '' : $page . '#levels';
+	}
+
+	/**
+	 * The opening tag of a link to the Partners page's levels that opens in a new tab, as the
+	 * plugin's links out of a page somebody is filling in do: the applicant's answers stay where
+	 * they are. Passed into its sentence as an argument, as the policy line passes its tags, so the
+	 * link's words stay in the sentence a translator reads.
+	 *
+	 * @param string $url The levels' address.
+	 * @return string
+	 */
+	private static function new_tab_open( $url ) {
+		return '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">';
+	}
+
+	/**
+	 * The closing of that link: the new tab said to a screen reader, inside the link, then `</a>`.
+	 *
+	 * @return string
+	 */
+	private static function new_tab_close() {
+		return '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'wpcredits-program-manager' ) . '</span></a>';
+	}
+
+	/**
+	 * What each level includes: a closed section after the level question's radios, opened by its
+	 * summary, holding each level's name in bold, its tag after the name, its amount, its lead line
+	 * and its items as a list, then, while the Partners page has an address, a line linking the page's
+	 * levels to compare them. The site's owner chose it over a tooltip or a link (22 October 2026).
+	 *
+	 * @param array  $levels   The levels, from `partner_levels()`.
+	 * @param string $partners The Partners page's levels address, or ''.
+	 */
+	private static function render_levels( array $levels, $partners ) {
+		// `role="list"`: the list is drawn with no bullets, and Safari with VoiceOver reads a list
+		// styled so as no list at all.
+		printf(
+			'<details class="wpcpm-field__levels"><summary>%s</summary><ul class="wpcpm-field__levels-list" role="list">',
+			esc_html__( 'What each level includes', 'wpcredits-program-manager' )
+		);
+
+		foreach ( $levels as $level ) {
+			printf(
+				'<li class="wpcpm-field__level"><p class="wpcpm-field__level-name"><strong>%1$s</strong>%2$s</p>',
+				esc_html( $level['name'] ),
+				'' !== trim( $level['tag'] ) ? ' <span class="wpcpm-field__level-tag">' . esc_html( $level['tag'] ) . '</span>' : ''
+			);
+
+			foreach ( array( 'amount', 'lead' ) as $line ) {
+				if ( '' !== trim( $level[ $line ] ) ) {
+					printf( '<p class="wpcpm-field__level-%1$s">%2$s</p>', esc_attr( $line ), esc_html( $level[ $line ] ) );
+				}
+			}
+
+			$items = array_filter(
+				$level['items'],
+				static function ( $item ) {
+					return '' !== trim( $item );
+				}
+			);
+
+			if ( array() !== $items ) {
+				echo '<ul class="wpcpm-field__level-items">';
+
+				foreach ( $items as $item ) {
+					printf( '<li>%s</li>', esc_html( $item ) );
+				}
+
+				echo '</ul>';
+			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+
+		if ( '' !== $partners ) {
+			printf(
+				'<p class="wpcpm-field__levels-compare">%s</p>',
+				wp_kses(
+					sprintf(
+						/* translators: %1$s: opening link tag to the Partners page's levels, which opens in a new tab, %2$s: closing link tag, after a note for screen readers that the link opens a new tab. */
+						__( 'Compare %1$sthe levels on the Partners page%2$s.', 'wpcredits-program-manager' ),
+						self::new_tab_open( $partners ),
+						self::new_tab_close()
+					),
+					self::link_tags()
+				)
+			);
+		}
+
+		echo '</details>';
+	}
+
+	/**
+	 * The level question's hint: its spec's help, "Not sure yet is a fine answer.", alone while the
+	 * section says what each level includes, or while the Partners page has no address to name; with
+	 * no level to open and the page published, the sentence naming the page's levels comes first, the
+	 * page linked. The help is the spec's, handed in, so the hint and the spec cannot drift apart.
+	 *
+	 * @param bool   $levels   Whether the section is drawn.
+	 * @param string $partners The Partners page's levels address, or ''.
+	 * @param string $fine     The question's help, from `fields()`.
+	 * @return string Markup, through wp_kses().
+	 */
+	private static function level_hint( $levels, $partners, $fine ) {
+		if ( $levels || '' === $partners ) {
+			return esc_html( $fine );
+		}
+
+		return wp_kses(
+			sprintf(
+				/* translators: %1$s: opening link tag to the Partners page's levels, which opens in a new tab, %2$s: closing link tag, after a note for screen readers that the link opens a new tab, %3$s: the sentence "Not sure yet is a fine answer." */
+				__( 'What each level includes is on %1$sthe Partners page%2$s. %3$s', 'wpcredits-program-manager' ),
+				self::new_tab_open( $partners ),
+				self::new_tab_close(),
+				esc_html( $fine )
+			),
+			self::link_tags()
+		);
+	}
+
+	/**
+	 * The markup a translated sentence holding the levels' link may carry: the link and its note
+	 * for a screen reader, and nothing else.
+	 *
+	 * @return array
+	 */
+	private static function link_tags() {
+		return array(
+			'a'    => array(
+				'href'   => array(),
+				'target' => array(),
+				'rel'    => array(),
+			),
+			'span' => array(
+				'class' => array(),
+			),
+		);
+	}
+
+	/**
+	 * The line under the consent box, linking the policy the applicant is agreeing to:
+	 * WordPress.org's since 1.123.24, opening where the form is, as it always has.
+	 */
+	private static function render_policy_line() {
 		printf(
 			'<span class="wpcpm-field__hint">%s</span>',
 			wp_kses(
 				sprintf(
-					/* translators: %1$s: opening link tag to the privacy policy, %2$s: closing link tag. */
-					__( 'You can read the privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
-					'<a href="' . esc_url( $policy ) . '" rel="noopener">',
+					/* translators: %1$s: opening link tag to the WordPress.org privacy policy, %2$s: closing link tag. */
+					__( 'You can read the WordPress.org privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
+					'<a href="' . esc_url( self::policy_url() ) . '" rel="noopener">',
 					'</a>'
 				),
 				array(
@@ -1454,8 +1713,9 @@ class WPCPM_Sponsor_Application {
 			self::bounce( 'expired', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		// 3. The switch and the policy, neither of which a form this site drew can post past.
-		if ( ! self::is_open() || '' === self::policy_url() ) {
+		// 3. The switch, which a form this site drew cannot post past. The site having no privacy
+		// page was checked here too until 1.123.24, when the form began linking WordPress.org's.
+		if ( ! self::is_open() ) {
 			self::bounce( 'closed' );
 		}
 
@@ -4227,11 +4487,15 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Every answer the applicant gave, in the order the form asked for them.
 	 *
-	 * The question is printed as the applicant read it, with the column name under it, so the
-	 * manager can match it against what is stored. Every value is printed escaped: this is a
-	 * stranger's prose on an admin screen. The tier question is printed whatever the switch
-	 * says, as its answer's label and never the key, and as no answer on an application filed
-	 * while the form did not ask it.
+	 * Each question is printed in the words the form asks it in today, with the column name under
+	 * it, so the manager can match it against what is stored: an application keeps its answers, not
+	 * the words it was asked in. So the tier question reads "Which level are you considering?" on
+	 * every application, those filed before 1.123.24, when it said "tier", among them. The consent
+	 * row alone is headed with the words its applicant read, the sentence its record holds
+	 * (`consent_heading()`), since that sentence is what was agreed to. Every value is printed
+	 * escaped: this is a stranger's prose on an admin screen. The tier question is printed whatever
+	 * the switch says, as its answer's label and never the key, and as no answer on an application
+	 * filed while the form did not ask it.
 	 *
 	 * A question the form no longer asks (`retired()`) is printed only for an application that
 	 * holds an answer to it, under its older-answer label, where the form asked it: the support
@@ -4252,6 +4516,10 @@ class WPCPM_Sponsor_Application {
 
 			if ( self::COL_TIER === $column ) {
 				self::render_older_answers( $fields );
+			}
+
+			if ( self::COL_CONSENT === $column ) {
+				$label = self::consent_heading( get_post_meta( (int) $post->ID, self::META_CONSENT, true ), $label );
 			}
 
 			if ( self::COL_LOGO === $column ) {
@@ -4320,7 +4588,29 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The consent row's heading: the sentence the applicant agreed to, as the record holds it, or the
+	 * form's own words when it holds none.
+	 *
+	 * The answers table prints each question as the applicant read it, and the consent sentence
+	 * changed in 1.123.24, when the form began linking the WordPress.org privacy policy: an
+	 * application filed before is headed with the words its applicant agreed to, which named the
+	 * site's own policy, and not with today's.
+	 *
+	 * @param mixed  $consent The stored evidence.
+	 * @param string $label   The form's words for the question today.
+	 * @return string
+	 */
+	private static function consent_heading( $consent, $label ) {
+		return is_array( $consent ) && isset( $consent['sentence'] ) && is_string( $consent['sentence'] ) && '' !== trim( $consent['sentence'] ) ? $consent['sentence'] : (string) $label;
+	}
+
+	/**
 	 * The consent record in one sentence.
+	 *
+	 * Two shapes, both read here: a record made before 1.123.24 names the site's own privacy page
+	 * and the time it was last changed, which the last sentence prints; one made since names the
+	 * WordPress.org privacy policy with no modified time, which a page on another site does not
+	 * give this one, so it ends with the address.
 	 *
 	 * @param mixed $consent The stored evidence.
 	 * @return string

@@ -248,6 +248,76 @@
 }
 
 /*
+ * What each level includes (1.123.24): the sponsor application's level question opens the Partners
+ * page's levels in a section of its own, after the radios and before the hint. A plain summary with
+ * the browser's own triangle, as the mentor's availability editor opens its form (calendar.css), and
+ * the ring the dashboards' summaries draw on a keyboard's focus (dashboard.css), weightless inside
+ * `:where()` so a theme's own ring for a summary wins: the WPCredits theme draws its brand ring on
+ * every summary at (0,1,0), and with no such theme this one still shows. Inside, each level in the
+ * form's own rhythm, its tag a pill as the Partners page draws one, and a long word wrapping so
+ * nothing passes the field's width on a phone.
+ */
+.wpcpm-field__levels {
+	margin: 0.4em 0 0;
+	max-width: 100%;
+	overflow-wrap: break-word;
+}
+
+.wpcpm-field__levels > summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+:where( .wpcpm-field__levels > summary:focus-visible ) {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.wpcpm-field__levels-list {
+	list-style: none;
+	margin: 0.6em 0 0;
+	padding: 0;
+}
+
+.wpcpm-field__level {
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-field__level p {
+	margin: 0 0 0.3em;
+}
+
+.wpcpm-field__level-items {
+	margin: 0 0 0.3em;
+	padding-inline-start: 1.2em;
+}
+
+.wpcpm-field__level-tag {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	display: inline-block;
+	font-size: 0.85em;
+	font-weight: 400;
+	padding: 0 0.6em;
+}
+
+.wpcpm-field__levels-compare {
+	margin: 0;
+}
+
+/* Words for a screen reader alone, such as that a link opens a new tab: this page loads none of the
+   dashboard stylesheets, which hold the plugin's own rule, so it is said again under the form's
+   class. A theme's own rule for the class reads the same. */
+.wpcpm-application .screen-reader-text {
+	clip-path: inset( 50% );
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+/*
  * The two logo files of the sponsor application (1.97.0): one control per version, its label
  * above it, both inside the question's own wrapper. The radios of the support question reuse
  * `.wpcpm-field__check` above, so they need nothing of their own.

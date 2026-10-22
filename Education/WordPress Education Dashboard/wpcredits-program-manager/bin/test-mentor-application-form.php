@@ -152,8 +152,8 @@ function ck( $label, $got, $want ) {
 }
 
 /**
- * A site where the form is drawn: applications on, a privacy policy, the page, the two lists, and
- * nobody's mail sent yet.
+ * A site where the form is drawn: applications on, the page, the two lists, a privacy page of the
+ * site's own, which the form no longer links (1.123.24), and nobody's mail sent yet.
  */
 function reset_world() {
 	$GLOBALS['opts']       = array();
@@ -602,7 +602,10 @@ ck(
 		'anything'  => "Line one.\r\nC:\\path & \"quotes\"",
 	)
 );
-ck( 'the consent evidence names the sentence beside the box and the policy', array( get_post_meta( $row->ID, WPCPM_Mentor_Application::META_CONSENT, true )['sentence'] ?? null, get_post_meta( $row->ID, WPCPM_Mentor_Application::META_CONSENT, true )['url'] ?? null ), array( 'I confirm I have read the privacy policy and that my answers can be kept under it while the program reviews my application.', 'https://example.test/privacy/' ) );
+// The address agreed to, WordPress.org's, with no post and no modified time: the site's own page is
+// not what the applicant read (1.123.24).
+$agreed = get_post_meta( $row->ID, WPCPM_Mentor_Application::META_CONSENT, true );
+ck( 'the consent evidence names the sentence beside the box and the policy agreed to, no page of this site', array( $agreed['sentence'] ?? null, $agreed['url'] ?? null, $agreed['policy'] ?? null, $agreed['modified'] ?? null ), array( 'I confirm I have read the WordPress.org privacy policy and that my answers can be kept under it while the program reviews my application.', 'https://wordpress.org/about/privacy/', 0, '' ) );
 
 $ack = $GLOBALS['mail'][0] ?? array();
 ck( 'the acknowledgement goes to the address, under its own id, with the program\'s Reply-To', array( $ack['to'] ?? null, $ack['context'] ?? null, $ack['headers'] ?? null ), array( 'ada@example.test', 'mentor-application-received', array( 'Reply-To: programs@example.test' ) ) );
@@ -708,9 +711,6 @@ $closed = array(
 	'the switch off'         => function () {
 		$GLOBALS['settings']['mentor_applications_enabled'] = false;
 	},
-	'no privacy policy'      => function () {
-		$GLOBALS['policy'] = '';
-	},
 	'no countries to offer'  => function () {
 		unset( $GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] );
 	},
@@ -727,6 +727,17 @@ foreach ( $closed as $case => $close ) {
 	$admin  = WPCPM_Mentor_Application_Form::render();
 	ck( sprintf( 'closed with %s: the public sees nothing, an Administrator one sentence and no form', $case ), array( $public, false !== strpos( $admin, 'wpcpm-application__notice' ), false !== strpos( $admin, '<form' ) ), array( '', true, false ) );
 }
+
+// Since 1.123.24 the form links the WordPress.org privacy policy (the site's owner, 22 October
+// 2026), so a site with no privacy page of its own draws it all the same, for the public and for an
+// Administrator, with no sentence about a missing page.
+reset_world();
+$GLOBALS['policy'] = '';
+$public            = WPCPM_Mentor_Application_Form::render();
+$GLOBALS['uid']    = 9;
+$GLOBALS['manage'] = array( 9 );
+$admin             = WPCPM_Mentor_Application_Form::render();
+ck( 'with no privacy page on the site the form is drawn all the same, for the public and an Administrator, linking WordPress.org\'s policy', array( false !== strpos( $public, '<form' ), false !== strpos( $public, 'href="https://wordpress.org/about/privacy/" rel="noopener">here</a>' ), false !== strpos( $admin, '<form' ), strpos( $admin, 'wpcpm-application__notice' ) ), array( true, true, true, false ) );
 
 reset_world();
 $page = WPCPM_Mentor_Application_Form::render();
@@ -759,8 +770,13 @@ ck(
 );
 ck(
 	'and the privacy policy is its heading and the consent sentence beside its box',
-	false !== strpos( $page, '<span class="wpcpm-field__label" id="wpcpm-mentor-application-consent-label">Privacy policy <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__consent"><input type="checkbox" id="wpcpm-mentor-application-consent" name="wpcpm_mentor_application[consent]" value="1" required="required" /><label for="wpcpm-mentor-application-consent">I confirm I have read the privacy policy and that my answers can be kept under it while the program reviews my application.</label></span>' ),
+	false !== strpos( $page, '<span class="wpcpm-field__label" id="wpcpm-mentor-application-consent-label">Privacy policy <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__consent"><input type="checkbox" id="wpcpm-mentor-application-consent" name="wpcpm_mentor_application[consent]" value="1" required="required" /><label for="wpcpm-mentor-application-consent">I confirm I have read the WordPress.org privacy policy and that my answers can be kept under it while the program reviews my application.</label></span>' ),
 	true
+);
+ck(
+	'and the line under it links WordPress.org\'s policy, not the page this site has set, opening where the form is',
+	array( false !== strpos( $page, '<span class="wpcpm-field__hint">You can read the WordPress.org privacy policy <a href="https://wordpress.org/about/privacy/" rel="noopener">here</a>.</span>' ), strpos( $page, 'href="https://example.test/privacy/"' ) ),
+	array( true, false )
 );
 
 reset_world();

@@ -4712,8 +4712,9 @@ ck( 'no Airtable in it, and no em or en dash', array( class_exists( 'WPCPM_Spons
 $GLOBALS['run_complete'] = true;
 
 // What every mail of the suite says, as the recording made before the event and term emails moved
-// into the template registry holds it (bin/stubs/mail-recording.php).
-foreach ( wpcpm_recording_checks( 'sponsor-event-mails-store.json', 'e1b0409229df02f89826f8cab29d6015350ca174dce8c64263def0e96aab7d2f', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), array(), "-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
+// into the template registry holds it (bin/stubs/mail-recording.php), each ending with the footer as
+// it reads since 1.123.24, the site's address under its first line.
+foreach ( wpcpm_recording_checks( 'sponsor-event-mails-store.json', 'e1b0409229df02f89826f8cab29d6015350ca174dce8c64263def0e96aab7d2f', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), array(), "-- \nWordPress Credits, WordPress Education\nhttps://site.example/\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
 	ck( $recorded_check[0], $recorded_check[1], $recorded_check[2] );
 }
 

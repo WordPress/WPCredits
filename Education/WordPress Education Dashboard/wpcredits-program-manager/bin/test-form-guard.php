@@ -21,6 +21,8 @@
  *   half the docblock promises it loses (FANON-2, FANON-5).
  * - **Consent is two values.** `"1"` and `"true"`, and an array is not a tick.
  * - **The evidence is seven keys**, the sentence first and the browser last.
+ * - **The policy is WordPress.org's** (1.123.24), one constant, whatever page the site sets, so
+ *   the evidence names that address with no post and no modified time.
  * - **The client address is read the way the institution form learned to.** The forwarded
  *   header is believed only from the configured edge, and from the right.
  *
@@ -288,16 +290,19 @@ ck( 'consent: "1" is a tick', WPCPM_Form_Guard::consented( '1' ), true );
 ck( 'consent: "true" is a tick, in any case', array( WPCPM_Form_Guard::consented( 'true' ), WPCPM_Form_Guard::consented( 'TRUE' ) ), array( true, true ) );
 ck( 'consent: "yes" is not', WPCPM_Form_Guard::consented( 'yes' ), false );
 ck( 'consent: "0", "", null and an array are not', array( WPCPM_Form_Guard::consented( '0' ), WPCPM_Form_Guard::consented( '' ), WPCPM_Form_Guard::consented( null ), WPCPM_Form_Guard::consented( array( '1' ) ) ), array( false, false, false, false ) );
+// Since 1.123.24 every form links the WordPress.org privacy policy, the site's owner's ruling of
+// 22 October 2026, whatever page the site sets under Settings > Privacy: this world sets one, page
+// 43 with a modified time, and the guard reads neither.
 reset_world();
-ck( 'the policy URL is the site\'s', WPCPM_Form_Guard::policy_url(), 'https://example.test/privacy/' );
+ck( 'the policy URL is WordPress.org\'s, one constant, and not the page this site sets', array( WPCPM_Form_Guard::policy_url(), WPCPM_Form_Guard::POLICY_URL ), array( 'https://wordpress.org/about/privacy/', 'https://wordpress.org/about/privacy/' ) );
 $evidence = WPCPM_Form_Guard::consent_evidence( 'I confirm the sentence.' );
 ck( 'the evidence is seven keys, in the order the queue prints them', array_keys( $evidence ), array( 'sentence', 'url', 'policy', 'modified', 'at', 'ip', 'agent' ) );
-ck( 'the sentence as rendered, the policy and its version', array( $evidence['sentence'], $evidence['url'], $evidence['policy'], $evidence['modified'] ), array( 'I confirm the sentence.', 'https://example.test/privacy/', 43, '2026-08-20 11:30:00' ) );
+ck( 'the sentence as rendered and the address agreed to, with no post and no modified time: an outside page has neither', array( $evidence['sentence'], $evidence['url'], $evidence['policy'], $evidence['modified'] ), array( 'I confirm the sentence.', 'https://wordpress.org/about/privacy/', 0, '' ) );
 ck( 'when, the truncated address and the browser', array( $evidence['at'] > 0, $evidence['ip'], $evidence['agent'] ), array( true, '203.0.113.0', 'Mozilla/5.0 (test)' ) );
 $GLOBALS['policy'] = '';
 unset( $GLOBALS['opts']['wp_page_for_privacy_policy'] );
 $none = WPCPM_Form_Guard::consent_evidence( 'x' );
-ck( 'a site with no policy records none, and the caller refuses to draw the form', array( WPCPM_Form_Guard::policy_url(), $none['url'], $none['policy'], $none['modified'] ), array( '', '', 0, '' ) );
+ck( 'a site with no privacy page of its own records the same address, so no form waits on one', array( WPCPM_Form_Guard::policy_url(), $none['url'], $none['policy'], $none['modified'] ), array( 'https://wordpress.org/about/privacy/', 'https://wordpress.org/about/privacy/', 0, '' ) );
 
 echo "\n=== 6. Links ===\n";
 ck( 'no prose, no links', WPCPM_Form_Guard::links_in( '' ), 0 );

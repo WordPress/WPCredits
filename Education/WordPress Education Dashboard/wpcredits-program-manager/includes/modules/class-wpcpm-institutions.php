@@ -3100,7 +3100,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			if ( isset( $columns['country'] ) && $columns['country'] === $column ) {
 				$value = self::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) );
 			} elseif ( isset( $columns['consent'] ) && $columns['consent'] === $column ) {
-				$value = self::consent_line( get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_CONSENT, true ) );
+				$consent = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_CONSENT, true );
+				$label   = self::consent_heading( $consent, $label );
+				$value   = self::consent_line( $consent );
 			} else {
 				$answer = isset( $fields[ $column ] ) ? $fields[ $column ] : '';
 				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
@@ -3120,11 +3122,30 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The consent row's heading: the sentence the applicant agreed to, as the record holds it, or the
+	 * form's own words when it holds none.
+	 *
+	 * The answers are printed as the applicant read them, and the consent sentence changed in
+	 * 1.123.24, when the form began linking the WordPress.org privacy policy: an application filed
+	 * before is headed with the words its applicant agreed to, which named the site's own policy, and
+	 * not with today's.
+	 *
+	 * @param mixed  $consent The stored consent record.
+	 * @param string $label   The form's words for the question today.
+	 * @return string
+	 */
+	private static function consent_heading( $consent, $label ) {
+		return is_array( $consent ) && isset( $consent['sentence'] ) && is_string( $consent['sentence'] ) && '' !== trim( $consent['sentence'] ) ? $consent['sentence'] : (string) $label;
+	}
+
+	/**
 	 * The consent record in one sentence.
 	 *
-	 * The sentence they were shown, when they agreed, and when the policy was last changed,
-	 * because "they agreed" is worthless if the policy moved afterwards and this is where a
-	 * manager can see that it did.
+	 * The sentence they were shown, when they agreed, the policy's address, and, for a record made
+	 * before 1.123.24, when the site's own policy page was last changed, because "they agreed" is
+	 * worthless if the policy moved afterwards and this is where a manager can see that it did. A
+	 * record made since names the WordPress.org privacy policy with no modified time, which a page on
+	 * another site does not give this one, so it ends with the address.
 	 *
 	 * @param mixed $consent The stored consent record.
 	 * @return string

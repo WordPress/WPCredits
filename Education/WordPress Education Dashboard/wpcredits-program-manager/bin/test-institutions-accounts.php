@@ -138,6 +138,10 @@ function wp_insert_user( $userdata ) {
 function wp_login_url() {
 	return 'https://example.test/wp-login.php';
 }
+// The site's home page, which every email's footer names since 1.123.24.
+function home_url( $path = '' ) {
+	return 'https://example.test' . $path;
+}
 function wp_specialchars_decode( $text, $quotes = ENT_NOQUOTES ) {
 	return htmlspecialchars_decode( (string) $text, $quotes );
 }

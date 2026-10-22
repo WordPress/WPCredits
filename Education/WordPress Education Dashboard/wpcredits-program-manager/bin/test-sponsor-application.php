@@ -23,6 +23,10 @@
  *   key the question offers or nothing. The manager's surfaces read it whatever the switch says:
  *   the answers table prints its label, never its key; the queue row says "Considering:" and the
  *   tier, or "Tier: not sure yet", branched on the key; and the queue's facts carry both.
+ * - **The question says "level", and opens what each level includes** (1.123.24). A closed section
+ *   after the radios holds the well-formed levels `wpcpm_partner_levels` hands over, in order and
+ *   escaped, and a line comparing them on the Partners page in a new tab; with none, the hint links
+ *   the page instead; while the page has no address, neither link is drawn.
  * - **The seven guards run in the institution form's order**, through `WPCPM_Form_Guard`, and
  *   each one is exercised at its boundary with real submissions rather than by calling the guard.
  * - **Consent is a precondition and nothing else will do.** Absent, `"0"`, `"yes"` and `""` each
@@ -106,7 +110,8 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function wp_kses( $html, $allowed = array() ) { return strip_tags( (string) $html, '<a>' ); }
+// The tags the call allows, and no others, with their attributes as written.
+function wp_kses( $html, $allowed = array() ) { return strip_tags( (string) $html, array() === $allowed ? '' : '<' . implode( '><', array_keys( $allowed ) ) . '>' ); }
 function esc_url( $u ) { return (string) $u; }
 function esc_url_raw( $u, $protocols = null ) { return preg_match( '#^https?://[^\s<>"]+$#i', (string) $u ) ? (string) $u : ''; }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
@@ -129,7 +134,9 @@ function add_action( $h, $c, $p = 10, $a = 1 ) { $GLOBALS['hooks'][] = $h; }
 function add_filter( $h, $c, $p = 10, $a = 1 ) {}
 function add_shortcode( $t, $c ) {}
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
-function apply_filters( $hook, $value ) { return $value; }
+// A filter a check hooks is called with the value (1.123.24, for `wpcpm_partner_levels`); any other
+// hands the value back.
+function apply_filters( $hook, $value, ...$args ) { return isset( $GLOBALS['filtered'][ $hook ] ) ? call_user_func( $GLOBALS['filtered'][ $hook ], $value, ...$args ) : $value; }
 function wp_check_comment_disallowed_list( $author, $email, $url, $comment, $ip, $agent ) { return (bool) $GLOBALS['disallowed']; }
 function wp_style_is( $h, $l = 'enqueued' ) { return false; }
 function wp_script_is( $h, $l = 'enqueued' ) { return false; }
@@ -236,7 +243,7 @@ function wp_insert_post( $a, $error = false ) {
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_status( $id ) { $p = get_post( $id ); return $p ? $p->post_status : false; }
 function get_post_time( $f = 'U', $gmt = false, $post = null, $translate = false ) { return $post instanceof WP_Post ? (int) strtotime( $post->post_date . ' UTC' ) : 0; }
-function get_permalink( $id ) { return 'https://example.test/sponsor-application/'; }
+function get_permalink( $id ) { return $GLOBALS['permalinks'][ (int) $id ] ?? 'https://example.test/sponsor-application/'; }
 function get_page_by_path( $slug ) { foreach ( $GLOBALS['posts'] as $p ) { if ( 'page' === $p->post_type && $slug === ( $GLOBALS['slugs'][ $p->ID ] ?? '' ) ) { return $p; } } return null; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 
@@ -376,6 +383,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
 // The tier ladder, for the tier question's six choices and the switch that gates it (1.113.0).
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers.php';
+// The Partners page, whose address the level question links to its levels by (1.123.24).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-page.php';
+require_once __DIR__ . '/stubs/scroll-regions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php';
 
 $fail = 0; $checks = 0;
@@ -393,7 +403,8 @@ function ck( $label, $actual, $expected ) {
 
 /**
  * Forget every option, post, transient, attachment and message, and put the site back in a
- * state where the form renders: applications on, a privacy policy, a published page, an index.
+ * state where the form renders: applications on, a published page, an index, and a privacy page of
+ * the site's own, which the form no longer links (1.123.24) and which the suite checks it ignores.
  */
 function reset_world() {
 	$GLOBALS['opts']        = array();
@@ -414,6 +425,8 @@ function reset_world() {
 	$GLOBALS['nocache']     = 0;
 	$GLOBALS['on_page']     = 0;
 	$GLOBALS['slugs']       = array();
+	$GLOBALS['filtered']    = array();
+	$GLOBALS['permalinks']  = array();
 	$GLOBALS['settings']    = array(
 		'sponsor_applications_enabled' => true,
 		'application_trusted_proxy'    => '',
@@ -681,11 +694,17 @@ ck( 'a column nobody asked about is refused rather than stored', WPCPM_Sponsor_A
 
 echo "\n-- what is drawn, and when nothing is ---------------------------------\n";
 
+// Since 1.123.24 the form links the WordPress.org privacy policy (the site's owner, 22 October
+// 2026), so a site with no privacy page of its own draws it all the same, for the public and for
+// an Administrator, with no sentence about a missing page.
 reset_world();
 $GLOBALS['policy'] = '';
-ck( 'with no privacy policy the public are shown nothing at all', WPCPM_Sponsor_Application::render(), '' );
+unset( $GLOBALS['opts']['wp_page_for_privacy_policy'] );
+$no_page = WPCPM_Sponsor_Application::render();
+ck( 'with no privacy page on the site the public are shown the form, linking WordPress.org\'s policy', array( false !== strpos( $no_page, '<form' ), false !== strpos( $no_page, 'href="https://wordpress.org/about/privacy/" rel="noopener">here</a>' ) ), array( true, true ) );
 $GLOBALS['caps'] = true;
-ck( 'and a manager is told why, naming the privacy policy', false !== strpos( WPCPM_Sponsor_Application::render(), 'privacy policy' ), true );
+$no_page = WPCPM_Sponsor_Application::render();
+ck( 'and so is a manager, with no sentence about a privacy page', array( false !== strpos( $no_page, '<form' ), strpos( $no_page, 'wpcpm-application__notice' ), strpos( $no_page, 'no published privacy policy page' ) ), array( true, false, false ) );
 
 reset_world();
 $GLOBALS['settings']['sponsor_applications_enabled'] = false;
@@ -730,7 +749,8 @@ $name_key = WPCPM_Sponsor_Application::form_key( 'Company Name' );
 ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $name_key . '">Company Name <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, 'under it. <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the logo question and the free text carry no mark', array( false !== strpos( $form, '<span class="wpcpm-field__label">Company logo</span>' ), false !== strpos( $form, "Anything else you&#039;d like to share.</label>" ) ), array( true, true ) );
-ck( 'the policy line links a word inside the sentence', array( false !== strpos( $form, '>here</a>' ), false !== strpos( $form, 'href="' . get_privacy_policy_url() . '" rel="noopener">here</a>' ) ), array( true, true ) );
+ck( 'the policy line links a word inside the sentence, WordPress.org\'s policy and not the page this site has set, opening where the form is', array( false !== strpos( $form, '<span class="wpcpm-field__hint">You can read the WordPress.org privacy policy <a href="https://wordpress.org/about/privacy/" rel="noopener">here</a>.</span>' ), strpos( $form, 'href="' . get_privacy_policy_url() . '"' ), substr_count( $form, 'target=' ) ), array( true, false, 0 ) );
+ck( 'the consent box says which policy, in the words of 1.123.24', WPCPM_Sponsor_Application::fields()['Privacy Policy Compliance']['label'], 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.' );
 ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'checked="checked"' ), false );
 ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-sponsor-application', 'wpcpm-forms' ) );
 
@@ -749,19 +769,22 @@ $tier_spec = isset( WPCPM_Sponsor_Application::fields()['Tier considered'] ) ? W
 ck( 'the column is one constant, spelled as the answer is stored', defined( 'WPCPM_Sponsor_Application::COL_TIER' ) ? constant( 'WPCPM_Sponsor_Application::COL_TIER' ) : null, 'Tier considered' );
 ck( 'the six choices: the ladder\'s five labels keyed by tier, lowest first, then not sure yet', method_exists( 'WPCPM_Sponsor_Application', 'tier_choices' ) ? WPCPM_Sponsor_Application::tier_choices() : null, array( 'mentor' => 'Friend', 'supporter' => 'Supporter', 'backer' => 'Backer', 'champion' => 'Champion', 'partner' => 'Partner', 'unsure' => 'Not sure yet' ) );
 ck( 'the question is asked in the support group, is optional, and is one the switch gates', array( isset( $tier_spec['group'] ) ? $tier_spec['group'] : null, isset( $tier_spec['type'] ) ? $tier_spec['type'] : null, isset( $tier_spec['required'] ) ? $tier_spec['required'] : null, isset( $tier_spec['live'] ) ? $tier_spec['live'] : null ), array( 'support', 'tier', false, true ) );
-ck( 'in the words the design gives it', array( isset( $tier_spec['label'] ) ? $tier_spec['label'] : null, isset( $tier_spec['help'] ) ? $tier_spec['help'] : null ), array( 'Which tier are you considering?', 'The tiers and what each includes are on the partner page. Not sure yet is a fine answer.' ) );
+// Since 1.123.24 the question says "level", the Partners page's word (the sponsor feedback of 22
+// October 2026), and its hint is drawn by the question itself, ending with the one sentence the spec
+// holds: see the checks on what each level includes, below.
+ck( 'in the words of 1.123.24: the level, and the sentence its hint ends with', array( isset( $tier_spec['label'] ) ? $tier_spec['label'] : null, isset( $tier_spec['help'] ) ? $tier_spec['help'] : null ), array( 'Which level are you considering?', 'Not sure yet is a fine answer.' ) );
 
 reset_world();
 $tier_off = WPCPM_Sponsor_Application::render();
 $GLOBALS['settings']['sponsor_tiers_live'] = true;
 $tier_on  = WPCPM_Sponsor_Application::render();
 ck( 'the question is drawn only once the switch is on: off, the form names no tier and draws nothing under its key', array(
-	strpos( $tier_off, 'Which tier are you considering?' ),
+	strpos( $tier_off, 'Which level are you considering?' ),
 	strpos( $tier_off, $tier_name ),
 	strpos( $tier_off, 'wpcpm-field--tier' ),
 	preg_match( '/Friend|Supporter|Backer|Champion|Partner|Not sure yet/', $tier_off ),
 	substr_count( $tier_off, 'type="radio"' ),
-	false !== strpos( $tier_on, 'Which tier are you considering?' ),
+	false !== strpos( $tier_on, 'Which level are you considering?' ),
 ), array( false, false, false, 0, 0, true ) );
 
 $support = substr( $tier_on, (int) strpos( $tier_on, '<legend>How you would like to support the program</legend>' ) );
@@ -781,11 +804,12 @@ ck( 'the first tier choice reads Friend and posts the key \'mentor\', and the fo
 ck( 'none of them ticked or required, the label without a mark, and the form\'s own required count unchanged', array(
 	count( $radios[2] ),
 	array_values( array_filter( array_map( 'trim', $radios[2] ) ) ),
-	false !== strpos( $support, '<span class="wpcpm-field__label">Which tier are you considering?</span>' ),
+	false !== strpos( $support, '<span class="wpcpm-field__label">Which level are you considering?</span>' ),
 	substr_count( $tier_on, ' required="required"' ),
 	substr_count( $tier_on, 'wpcpm-field__required' ),
 ), array( 6, array(), true, 5, 5 ) );
-ck( 'with the help under the radios, where every other question prints its own', false !== strpos( $support, '<span class="wpcpm-field__hint" id="wpcpm-sponsor-application-' . $tier_key . '-help">The tiers and what each includes are on the partner page. Not sure yet is a fine answer.</span>' ), true );
+// This world hooks no levels and has no Partners page, so the hint is its last sentence alone.
+ck( 'with the help under the radios, where every other question prints its own', false !== strpos( $support, '<span class="wpcpm-field__hint" id="wpcpm-sponsor-application-' . $tier_key . '-help">Not sure yet is a fine answer.</span>' ), true );
 
 $GLOBALS['settings']['sponsor_tiers_live'] = false;
 $dropped = WPCPM_Sponsor_Application::clean( 'Tier considered', 'backer' );
@@ -820,6 +844,200 @@ $GLOBALS['settings']['sponsor_tiers_live'] = true;
 $tier_back = submit( answers( array( 'Company Name' => '', 'Tier considered' => 'champion' ) ) );
 follow( $tier_back['url'] );
 ck( 'a form sent back for another answer comes back with the tier still chosen', array( $tier_back['outcome'], false !== strpos( WPCPM_Sponsor_Application::render(), 'name="' . $tier_name . '" value="champion" checked="checked"' ) ), array( 'again', true ) );
+
+echo "\n-- what each level includes, opened under the question (1.123.24) ------\n";
+
+// A program contributor asked for a tooltip or a link; the site's owner chose a section that opens
+// and closes. Its levels are the Partners page's own, which the theme (1.31.11) hands over through
+// `wpcpm_partner_levels`, so the form and the page can never say a level differently: the plugin
+// writes none of their words. Here they are the page's five, shortened where a lead runs long.
+
+/** The Partners page's five levels, lowest first, as the theme hands them over. */
+function partner_levels() {
+	return array(
+		array( 'name' => 'Friend', 'amount' => 'In-kind, through Five for the Future', 'lead' => 'For companies sponsoring mentors through Five for the Future.', 'items' => array( 'Company name on the partner page', 'Mention in the mentor feature', 'Acknowledgement in the annual partner thank you post' ) ),
+		array( 'name' => 'Supporter', 'amount' => '$5,000 a year', 'lead' => 'Everything in Friend, plus:', 'items' => array( 'Logo and description on the partner page', 'A badge for your own site', 'The annual program report' ) ),
+		array( 'name' => 'Backer', 'amount' => '$10,000 a year', 'lead' => 'Everything in Supporter, plus:', 'items' => array( 'Named for the part of the program you fund in program communications', 'A report covering that cost line' ) ),
+		array( 'name' => 'Champion', 'amount' => '$15,000 a year', 'lead' => 'Everything in Backer, plus:', 'items' => array( 'An invitation to the annual education partners session', 'A webinar or event co-hosted with the education program' ) ),
+		array( 'name' => 'Partner', 'amount' => 'From $30,000 a year', 'tag' => 'Funds a named program', 'lead' => 'Everything in Champion, plus a complete program funded end to end.', 'items' => array( 'Named as program partner on the program you fund', 'A report specific to that program' ) ),
+	);
+}
+
+/**
+ * The level question as the form draws it, the tiers announced: its wrapper and what it holds.
+ *
+ * @param mixed       $levels What `wpcpm_partner_levels` hands back, or null for nothing hooked.
+ * @param string|null $page   The Partners page's status, or null for no page at all.
+ * @return string
+ */
+function level_question( $levels, $page = 'publish' ) {
+	reset_world();
+	$GLOBALS['settings']['sponsor_tiers_live'] = true;
+
+	if ( null !== $page ) {
+		$partners              = new WP_Post();
+		$partners->ID          = 44;
+		$partners->post_type   = 'page';
+		$partners->post_status = $page;
+		$partners->post_title  = 'Partners';
+
+		$GLOBALS['posts'][44]      = $partners;
+		$GLOBALS['permalinks'][44] = 'https://example.test/partners/';
+		$GLOBALS['opts'][ WPCPM_Sponsors_Page::OPT_PAGE ] = 44;
+	}
+
+	if ( null !== $levels ) {
+		$GLOBALS['filtered']['wpcpm_partner_levels'] = static function ( $value ) use ( $levels ) {
+			return array() === $value ? $levels : 'the filter was handed something other than an empty list';
+		};
+	}
+
+	$form  = WPCPM_Sponsor_Application::render();
+	$start = strpos( $form, '<div class="wpcpm-field wpcpm-field--tier">' );
+
+	// The question holds no div of its own, so the first one closed after it opens is its wrapper.
+	return false === $start ? '' : substr( $form, $start, strpos( $form, '</div>', $start ) + 6 - $start );
+}
+
+$tier_hint = '<span class="wpcpm-field__hint" id="wpcpm-sponsor-application-' . $tier_key . '-help">';
+$new_tab   = ' target="_blank" rel="noopener noreferrer"';
+$opens     = '<span class="screen-reader-text"> (opens in a new tab)</span>';
+$levels_on = level_question( partner_levels() );
+preg_match( '#<details class="wpcpm-field__levels">.*?</details>#s', $levels_on, $fold );
+$fold = $fold[0] ?? '';
+preg_match_all( '#<li class="wpcpm-field__level"><p class="wpcpm-field__level-name"><strong>([^<]*)</strong>#', $fold, $named );
+
+ck( 'with the levels handed over, the question opens what each level includes: one section, closed, after the six radios and before the hint, its summary in the words of 1.123.24', array(
+	substr_count( $levels_on, '<details' ),
+	false !== strpos( $levels_on, '<details class="wpcpm-field__levels"><summary>What each level includes</summary>' ),
+	strpos( $fold, ' open' ),
+	strrpos( $levels_on, 'type="radio"' ) < strpos( $levels_on, '<details' ),
+	strpos( $levels_on, '</details>' ) < strpos( $levels_on, $tier_hint ),
+	substr_count( $levels_on, 'type="radio"' ),
+), array( 1, true, false, true, true, 6 ) );
+ck( 'each level in the order handed over, its name in bold', $named[1], array( 'Friend', 'Supporter', 'Backer', 'Champion', 'Partner' ) );
+// The levels' list takes no bullets, and Safari with VoiceOver reads a list styled so as no list at
+// all, so it says what it is (fix round 1 of 1.123.24).
+ck( 'the levels are a list a screen reader reads as one, under the summary', false !== strpos( $fold, '<summary>What each level includes</summary><ul class="wpcpm-field__levels-list" role="list"><li class="wpcpm-field__level">' ), true );
+ck( 'a level: its name, its amount, its lead line and its items as a list', false !== strpos( $fold, '<li class="wpcpm-field__level"><p class="wpcpm-field__level-name"><strong>Supporter</strong></p><p class="wpcpm-field__level-amount">$5,000 a year</p><p class="wpcpm-field__level-lead">Everything in Friend, plus:</p><ul class="wpcpm-field__level-items"><li>Logo and description on the partner page</li><li>A badge for your own site</li><li>The annual program report</li></ul></li>' ), true );
+ck( 'and a level with a tag shows it after the name, as the Partners page does, and no other level shows one', array( false !== strpos( $fold, '<strong>Partner</strong> <span class="wpcpm-field__level-tag">Funds a named program</span></p>' ), substr_count( $fold, 'wpcpm-field__level-tag' ) ), array( true, 1 ) );
+ck( 'its last line compares the levels on the Partners page, at its levels, in a new tab a screen reader is told of', array(
+	false !== strpos( $fold, '</ul><p class="wpcpm-field__levels-compare">Compare <a href="https://example.test/partners/#levels"' . $new_tab . '>the levels on the Partners page' . $opens . '</a>.</p></details>' ),
+	trim( preg_replace( '/\s+/', ' ', strip_tags( str_replace( $opens, '', substr( $fold, (int) strpos( $fold, '<p class="wpcpm-field__levels-compare">' ) ) ) ) ) ),
+), array( true, 'Compare the levels on the Partners page.' ) );
+ck( 'and the hint is its last sentence alone, with no link: the section holds the levels and the way to the page', array( false !== strpos( $levels_on, $tier_hint . 'Not sure yet is a fine answer.</span>' ), substr_count( $levels_on, '<a ' ) ), array( true, 1 ) );
+
+// Anything the filter hands back that is not a level is left out, never drawn half: a level needs
+// a name, an amount and a lead line that are text, and items that are a list of texts. A tag that is
+// not text is no tag, and the level is drawn without it. Keys the form does not read are ignored.
+$skipped = level_question( array(
+	'not a level',
+	array( 'name' => 'No amount', 'lead' => 'Lead.', 'items' => array( 'One' ) ),
+	array( 'name' => 7, 'amount' => '$1', 'lead' => 'Lead.', 'items' => array( 'One' ) ),
+	array( 'name' => '   ', 'amount' => '$1', 'lead' => 'Lead.', 'items' => array( 'One' ) ),
+	array( 'name' => 'Lead not text', 'amount' => '$1', 'lead' => array( 'Lead.' ), 'items' => array( 'One' ) ),
+	array( 'name' => 'Items not a list', 'amount' => '$1', 'lead' => 'Lead.', 'items' => 'One' ),
+	array( 'name' => 'An item not text', 'amount' => '$1', 'lead' => 'Lead.', 'items' => array( 'One', 2 ) ),
+	array( 'name' => 'No items', 'amount' => '$1', 'lead' => 'Lead.' ),
+	array( 'name' => 'Kept', 'amount' => '$2', 'lead' => 'Lead.', 'items' => array( 'One' ), 'short' => '$2', 'tag' => array( 'not text' ) ),
+	array( 'name' => 'Kept too', 'amount' => '$3', 'lead' => 'Lead.', 'items' => array() ),
+) );
+preg_match_all( '#<p class="wpcpm-field__level-name"><strong>([^<]*)</strong>#', $skipped, $kept );
+ck( 'an entry that is not a well-formed level is skipped, the well-formed ones drawn in their order; a tag that is not text, and a key the form does not read, are not drawn; a level with no items has no list', array(
+	$kept[1],
+	substr_count( $skipped, 'wpcpm-field__level-tag' ),
+	strpos( $skipped, '$2</p><p class="wpcpm-field__level-amount">' ),
+	false !== strpos( $skipped, '<strong>Kept too</strong></p><p class="wpcpm-field__level-amount">$3</p><p class="wpcpm-field__level-lead">Lead.</p></li>' ),
+), array( array( 'Kept', 'Kept too' ), 0, false, true ) );
+
+// Every word is the theme's, and still escaped: a level's text is never markup.
+$hostile = level_question( array( array( 'name' => '<b>Gold</b> & "Co"', 'amount' => '<i>$1</i>', 'tag' => '<script>alert(1)</script>', 'lead' => 'Lead <em>here</em>.', 'items' => array( '<a href="https://evil.example/">x</a>' ) ) ) );
+ck( 'HTML in a level\'s text is printed as text, in its name, its amount, its tag, its lead and its items', array(
+	false !== strpos( $hostile, '<strong>&lt;b&gt;Gold&lt;/b&gt; &amp; &quot;Co&quot;</strong> <span class="wpcpm-field__level-tag">&lt;script&gt;alert(1)&lt;/script&gt;</span>' ),
+	false !== strpos( $hostile, '<p class="wpcpm-field__level-amount">&lt;i&gt;$1&lt;/i&gt;</p><p class="wpcpm-field__level-lead">Lead &lt;em&gt;here&lt;/em&gt;.</p>' ),
+	false !== strpos( $hostile, '<li>&lt;a href=&quot;https://evil.example/&quot;&gt;x&lt;/a&gt;</li>' ),
+	preg_match( '#<b>|<i>|<em>|<script|evil\.example/">#', $hostile ),
+), array( true, true, true, 0 ) );
+
+// With no level to show, the theme not active or older than 1.31.11, there is nothing to open: the
+// hint names the Partners page instead, at its levels, in a new tab.
+$fallback = $tier_hint . 'What each level includes is on <a href="https://example.test/partners/#levels"' . $new_tab . '>the Partners page' . $opens . '</a>. Not sure yet is a fine answer.</span>';
+$no_level = array();
+foreach ( array( 'nothing hooked' => null, 'an empty list' => array(), 'something not a list' => 'levels', 'no well-formed level' => array( array( 'name' => 'Half' ) ) ) as $case => $given ) {
+	$drawn             = level_question( $given );
+	$no_level[ $case ] = array( strpos( $drawn, '<details' ), false !== strpos( $drawn, $fallback ) );
+}
+ck( 'with no well-formed level, there is no section, and the hint names the Partners page, at its levels, in a new tab a screen reader is told of', $no_level, array_fill_keys( array( 'nothing hooked', 'an empty list', 'something not a list', 'no well-formed level' ), array( false, true ) ) );
+ck( 'and read without its markup the hint is the sentence of 1.123.24', trim( strip_tags( str_replace( $opens, '', substr( $fallback, strlen( $tier_hint ) ) ) ) ), 'What each level includes is on the Partners page. Not sure yet is a fine answer.' );
+
+// Each link's words stay inside the sentence a translator reads, the tags passed in as arguments, as
+// the consent box's policy line passes them (fix round 1 of 1.123.24): a translator moves the words
+// with their sentence and never meets them alone. The hint's last sentence is the question's own
+// help, translated once, so the two cannot drift.
+$form_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php' );
+ck( 'the levels\' two link sentences are whole strings, each under a translators comment, the link words alone in none, and the hint\'s last sentence translated once', array(
+	1 === preg_match( '#/\* translators: [^*]+\*/\s*__\( \'What each level includes is on %1\$sthe Partners page%2\$s\. %3\$s\', \'wpcredits-program-manager\' \)#', $form_source ),
+	1 === preg_match( '#/\* translators: [^*]+\*/\s*__\( \'Compare %1\$sthe levels on the Partners page%2\$s\.\', \'wpcredits-program-manager\' \)#', $form_source ),
+	strpos( $form_source, "__( 'the Partners page', 'wpcredits-program-manager' )" ),
+	strpos( $form_source, "__( 'the levels on the Partners page', 'wpcredits-program-manager' )" ),
+	substr_count( $form_source, "'Not sure yet is a fine answer.'" ),
+), array( true, true, false, false, 1 ) );
+
+// While the Partners page has no address, a draft or no page at all, neither link is drawn: the
+// section keeps its levels without its last line, and the hint is its last sentence alone.
+$unpublished = array();
+foreach ( array( 'a draft' => 'draft', 'no page' => null ) as $case => $status ) {
+	$with    = level_question( partner_levels(), $status );
+	$without = level_question( null, $status );
+	$unpublished[ $case ] = array(
+		substr_count( $with . $without, '<a ' ),
+		substr_count( $with, '<li class="wpcpm-field__level">' ),
+		strpos( $with, 'wpcpm-field__levels-compare' ),
+		false !== strpos( $with, '</ul></li></ul></details>' . $tier_hint . 'Not sure yet is a fine answer.</span>' ),
+		strpos( $without, '<details' ),
+		false !== strpos( $without, $tier_hint . 'Not sure yet is a fine answer.</span>' ),
+	);
+}
+ck( 'with the Partners page unpublished or missing, no link at all: the section keeps its five levels without its last line, and either way the hint is its last sentence', $unpublished, array_fill_keys( array( 'a draft', 'no page' ), array( 0, 5, false, true, false, true ) ) );
+
+// The question, and so the section, is asked only while the tiers are announced, as before.
+reset_world();
+$GLOBALS['filtered']['wpcpm_partner_levels'] = static function () {
+	return partner_levels();
+};
+$levels_off = WPCPM_Sponsor_Application::render();
+ck( 'and with the tiers not announced the form draws neither the question nor its section, whatever the filter holds', array( strpos( $levels_off, 'Which level are you considering?' ), strpos( $levels_off, '<details' ), strpos( $levels_off, 'Supporter' ) ), array( false, false, false ) );
+
+// The section in the stylesheet the form already loads: a plain summary with the browser's own
+// triangle, as the mentor's availability editor opens its form, with the ring the dashboards'
+// summaries draw on a keyboard's focus; its levels in the form's own rhythm, a long word wrapping
+// inside the field at a phone's width. The ring is weightless inside `:where()` (fix round 1), so a
+// theme's own ring for a summary wins, the WPCredits theme's brand ring among them, at (0,1,0); with
+// no such theme the plugin's own still shows. No rule gives the summary a ring with weight.
+$application_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/application.css' );
+ck( 'the section is styled in application.css: the summary something to press, with a visible focus ring; the levels spaced as the form spaces its lines; nothing wider than the field', array(
+	scroll_css_decls( $application_css, '.wpcpm-field__levels' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__levels > summary' ),
+	scroll_css_decls( $application_css, ':where( .wpcpm-field__levels > summary:focus-visible )' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__levels > summary:focus-visible' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__levels-list' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__level' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__level p' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__level-items' ),
+	scroll_css_decls( $application_css, '.wpcpm-field__level-tag' ),
+	scroll_css_decls( $application_css, '.wpcpm-application .screen-reader-text' ),
+), array(
+	array( 'margin' => '0.4em 0 0', 'max-width' => '100%', 'overflow-wrap' => 'break-word' ),
+	array( 'cursor' => 'pointer', 'font-weight' => '600' ),
+	array( 'outline' => '2px solid currentColor', 'outline-offset' => '2px' ),
+	array(),
+	array( 'list-style' => 'none', 'margin' => '0.6em 0 0', 'padding' => '0' ),
+	array( 'margin' => '0 0 0.75em' ),
+	array( 'margin' => '0 0 0.3em' ),
+	array( 'margin' => '0 0 0.3em', 'padding-inline-start' => '1.2em' ),
+	array( 'border' => '1px solid var( --wpcpm-border )', 'border-radius' => '999px', 'display' => 'inline-block', 'font-size' => '0.85em', 'font-weight' => '400', 'padding' => '0 0.6em' ),
+	array( 'clip-path' => 'inset( 50% )', 'height' => '1px', 'overflow' => 'hidden', 'position' => 'absolute', 'white-space' => 'nowrap', 'width' => '1px' ),
+) );
 // One gate for every `live` question, whatever its type: clean() drops it before any type branch
 // and add_required() never requires it, both through is_asked(), the one reader of the switch. The
 // tier question is the only `live` one and it is optional, and fields() is a fixed list this suite
@@ -852,7 +1070,9 @@ ck( 'no logo was posted, so both halves are 0', WPCPM_Sponsor_Application::logos
 
 $consent = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_CONSENT, true );
 
-ck( 'the consent evidence names the policy, its version, the sentence, the truncated address and the browser', array( $consent['url'], $consent['policy'], $consent['modified'], false !== strpos( $consent['sentence'], 'privacy policy' ), $consent['ip'], $consent['agent'] ), array( 'https://example.test/privacy/', 43, '2026-08-20 11:30:00', true, '203.0.113.0', 'Mozilla/5.0 (test)' ) );
+// The address agreed to, WordPress.org's, with no post and no modified time: the site's own page,
+// set in this world as page 43, is not what the applicant read (1.123.24).
+ck( 'the consent evidence names the policy agreed to, no page of this site, the sentence, the truncated address and the browser', array( $consent['url'], $consent['policy'], $consent['modified'], $consent['sentence'], $consent['ip'], $consent['agent'] ), array( 'https://wordpress.org/about/privacy/', 0, '', 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.', '203.0.113.0', 'Mozilla/5.0 (test)' ) );
 ck( 'the address is stored only as a hash, for duplicate flagging', get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EMAIL, true ), wp_hash( 'maciej@a8c.com' ) );
 $events = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'one event row was written, saying what happened and by whom', array( count( $events ), $events[0]['event'], $events[0]['actor'] ), array( 1, 'submitted', 0 ) );
@@ -1820,7 +2040,10 @@ $GLOBALS['mail'] = array();
 $rejected = decide( 'handle_reject', $id, array( 'wpcpm_reason' => 'Their product is not GPL.' ) );
 ck( 'the applicant gets the neutral acknowledgement, through the single exit', array( flashed( $rejected ), count( $GLOBALS['mail'] ), mail_said( 0, 'context' ), mail_said( 0, 'subject' ) ), array( 'sapp-rejected', 1, 'sponsor-declined', '[WordPress Education] About your application to sponsor the WordPress Credits Program' ) );
 ck( 'with no reason in it, anywhere', array( strpos( mail_said( 0, 'body' ), 'GPL' ), false !== strpos( mail_said( 0, 'body' ), 'Their product' ) ), array( false, false ) );
-ck( 'and it says plainly that the application was read and not accepted, and that a new one later is welcome, as three paragraphs', 0 === strpos( mail_said( 0, 'body' ), implode( "\r\n\r\n", array( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us.', 'We have read your company\'s application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news.', 'You are welcome to apply again later, for example when your products or the program change. A new application is read on its own merits, and this decision does not count against it.' ) ) ), true );
+ck( 'and it says plainly that the application was read and not accepted, and that a new one later is welcome, as three paragraphs', 0 === strpos( mail_said( 0, 'body' ), implode( "\r\n\r\n", array( 'Thank you for your interest in sponsoring the WordPress Credits Program, and for the time you took to write to us.', 'We have read your company\'s application to sponsor the program, and we cannot accept it at this time. We are sorry not to have better news.', 'You are welcome to apply again later. A new application is read on its own merits, and this decision does not count against it.' ) ) ), true );
+// 1.123.24: the program does not guess why a company might apply again (the sponsor feedback of 22
+// October 2026).
+ck( 'and it guesses no reason a new one might be made', strpos( mail_said( 0, 'body' ), 'for example when' ), false );
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'the state is rejected and the reason stays on this site, for the next manager', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), end( $events )['event'], end( $events )['note'] ), array( 'rejected', 'rejected', 'Their product is not GPL.' ) );
 ck( 'a decided application cannot be rejected again', flashed( decide( 'handle_reject', $id ) ), 'sapp-state' );
@@ -2078,7 +2301,8 @@ $tier_cells = static function () use ( $tier_rows ) {
 	foreach ( $tier_rows as $company => $id ) {
 		ob_start();
 		WPCPM_Sponsor_Application::render_details( get_post( $id ) );
-		$out[ $company ] = preg_match( '#<th scope="row">Which tier are you considering\?<br /><code class="wpcpm-inst-record">Tier considered</code></th><td>(.*?)</td></tr>#', (string) ob_get_clean(), $found ) ? $found[1] : null;
+		// The question as the form asks it, "level" since 1.123.24, over the column, which keeps "tier".
+		$out[ $company ] = preg_match( '#<th scope="row">Which level are you considering\?<br /><code class="wpcpm-inst-record">Tier considered</code></th><td>(.*?)</td></tr>#', (string) ob_get_clean(), $found ) ? $found[1] : null;
 	}
 	return $out;
 };

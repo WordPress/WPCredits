@@ -81,7 +81,9 @@
  * codes counted past a thousand. Every email of both recordings is sent as recorded, byte for byte,
  * but those `changes()` lists, each change with the item of the 1.122.23 plan it comes from and the
  * exact text it changes (docs/plans/2026-10-11-mail-fixes-1-122-23.md): an email that changes
- * without a line there fails, and so does a line that changes nothing.
+ * without a line there fails, and so does a line that changes nothing. What 1.123.24 changes after
+ * them is bin/stubs/mail-since-1-123-24.php's, run over every recorded body where it is compared,
+ * and the suite says each change was made in the emails it belongs to and in no other.
  *
  * Run from the plugin root:  php bin/test-institutions-sponsors-text.php
  * Record (once, against 1.122.21, before the move):  php bin/test-institutions-sponsors-text.php --record
@@ -428,6 +430,7 @@ require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
@@ -2106,13 +2109,22 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
-			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], $mail['body'] );
+			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], wpcpm_mail_since_1_123_24( $mail['body'] ) );
 			ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached' . $as, array( $now['headers'], $now['files'] ), array( $mail['headers'], 0 ) );
 		}
 	}
 }
 
 ck( 'every change listed is made, to a case of one of the two recordings, and changes what its recording holds', array( $GLOBALS['stale'], array_values( array_diff( $listed, $changed ) ) ), array( array(), array() ) );
+
+// 1.123.24: the sponsor rejection's third paragraph, in the two cases that send one, and in no other
+// email of either recording.
+ck( 'the sponsor rejection asks again without guessing why, in the two emails that are one, as 1.123.24 sends it', $GLOBALS['wpcpm_since_1_123_24']['declined'], 2 );
+// And the site's address on the line under the signature's first, in every recorded email but those
+// whose body names the home page whole, which keep their footer as recorded.
+// 373: the two recordings' 372 emails and the one a change row brings in their place; none of their
+// bodies names the home page whole.
+ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.24 sends it, but one whose body names the home page whole', array( $GLOBALS['wpcpm_since_1_123_24']['site_line'], $GLOBALS['wpcpm_since_1_123_24']['site_kept'] ), array( 373, 0 ) );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.

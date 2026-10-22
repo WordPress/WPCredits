@@ -39,9 +39,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *    application, and this is the one layer that stores nothing at all.
  * 4. **The site-wide ceiling**, which degrades: past forty a day the caller keeps the row and
  *    holds it, so a flood cannot close the form to the one real applicant that afternoon.
- * 5. **Consent as a precondition**, with the evidence: the sentence as rendered, the policy's URL
- *    and ID, the policy's own modified time, when, the truncated address and the browser. "They
- *    agreed" is worthless if nobody can say what they agreed to, and the policy page is editable.
+ * 5. **Consent as a precondition**, with the evidence: the sentence as rendered, the address of the
+ *    policy agreed to, when, the truncated address and the browser. "They agreed" is worthless if
+ *    nobody can say what they agreed to. The policy is WordPress.org's since 1.123.24
+ *    (`POLICY_URL`); a record made before names the site's own page, its ID and its modified time.
  * 6. **Link scoring**, which holds and never refuses.
  * 7. **The mail ceiling**, which caps what an unauthenticated path can make the site send.
  *
@@ -83,6 +84,17 @@ final class WPCPM_Form_Guard {
 
 	/** How many links across the free text before the row is held for a human. */
 	const MAX_LINKS = 3;
+
+	/**
+	 * The privacy policy every public form links and asks its applicants to agree to.
+	 *
+	 * WordPress.org's, and not the site's own page, since 1.123.24, by the site's owner's ruling of
+	 * 22 October 2026: the site's privacy notice covers students, mentors and institutions, not
+	 * sponsors, and is with legal for review. The site's footer already links this policy, and
+	 * WordPress's own Privacy Policy setting and the site's page are left as they are. A release
+	 * changes this address once legal decides; it is one constant so that the change is one line.
+	 */
+	const POLICY_URL = 'https://wordpress.org/about/privacy/';
 
 	/**
 	 * The four answers `check_token()` gives.
@@ -440,35 +452,36 @@ final class WPCPM_Form_Guard {
 	}
 
 	/**
-	 * The site's privacy policy, or an empty string when it has none.
+	 * The privacy policy the forms link, `POLICY_URL`.
+	 *
+	 * Never empty, so no form waits on the site having a privacy page of its own, as each did
+	 * before 1.123.24.
 	 *
 	 * @return string
 	 */
 	public static function policy_url() {
-		return function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
+		return self::POLICY_URL;
 	}
 
 	/**
-	 * What was agreed to, and to which version of it.
+	 * What was agreed to.
 	 *
-	 * The sentence as it was rendered, the policy's address and post ID, and the policy's own
-	 * `post_modified_gmt`. The last one is the point: "they agreed" is worth nothing if nobody
-	 * can say what the document said that day, and a privacy policy is an ordinary page somebody
-	 * can edit. The address is truncated on the way in, so the record says two applications came
-	 * from the same building and never where somebody was.
+	 * The sentence as it was rendered and the address of the policy agreed to, `POLICY_URL`. The
+	 * two keys a record made before 1.123.24 filled from the site's own policy page stay, empty: its
+	 * post ID (`policy`, 0) and its `post_modified_gmt` (`modified`, ''), since a page on another
+	 * site has neither that this site can read, so every reader of a record takes both shapes. The
+	 * address is truncated on the way in, so the record says two applications came from the same
+	 * building and never where somebody was.
 	 *
 	 * @param string $sentence The consent sentence as the form printed it.
 	 * @return array{sentence: string, url: string, policy: int, modified: string, at: int, ip: string, agent: string}
 	 */
 	public static function consent_evidence( $sentence ) {
-		$policy_id = (int) get_option( 'wp_page_for_privacy_policy' );
-		$policy    = $policy_id ? get_post( $policy_id ) : null;
-
 		return array(
 			'sentence' => (string) $sentence,
 			'url'      => self::policy_url(),
-			'policy'   => $policy_id,
-			'modified' => $policy instanceof WP_Post ? (string) $policy->post_modified_gmt : '',
+			'policy'   => 0,
+			'modified' => '',
 			'at'       => time(),
 			'ip'       => self::truncate_ip( self::client_ip() ),
 			'agent'    => self::user_agent(),

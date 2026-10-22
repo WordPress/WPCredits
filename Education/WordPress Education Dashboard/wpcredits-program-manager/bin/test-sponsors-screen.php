@@ -2648,6 +2648,20 @@ ck( 'an older application\'s support answer is shown as an older answer, and one
 $back = preg_match( '#<a href="([^"]*)">Back to the queue</a>#', $opened, $found ) ? html_entity_decode( $found[1], ENT_QUOTES, 'UTF-8' ) : '';
 ck( 'its way back is the screen\'s own address at the queue card, which opens the queue tab', array( $back, cards_of( render_screen( link_of( $back )[1] ) ) ), array( $home . '#wpcpm-sponsor-applications', array( 'Sponsor applications', 'Sponsor posts to review', 'Signed agreements' ) ) );
 ck( 'the consent evidence is one sentence naming the policy and its version', array( false !== strpos( $opened, 'Agreed 2026-09-01' ), false !== strpos( $opened, 'https://example.test/privacy/' ), false !== strpos( $opened, '2026-08-20 11:30:00' ) ), array( true, true, true ) );
+// The record above is one filed before 1.123.24, which named the site's own privacy page: its row is
+// headed with the sentence that applicant agreed to, as before, and not with today's words. One filed
+// since names WordPress.org's policy with no page and no modified time, so its row says the address
+// and no "last changed" sentence, under the words its applicant read.
+$consent_row = static function ( $html ) {
+	return preg_match( '#<tr><th scope="row">([^<]*)<br /><code class="wpcpm-inst-record">Privacy Policy Compliance</code></th><td>([^<]*)</td></tr>#', $html, $found ) ? array( $found[1], $found[2] ) : null;
+};
+$older_consent = get_post_meta( $open_id, WPCPM_Sponsor_Application::META_CONSENT, true );
+$newer_sentence = 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.';
+update_post_meta( $open_id, WPCPM_Sponsor_Application::META_CONSENT, array( 'sentence' => $newer_sentence, 'url' => 'https://wordpress.org/about/privacy/', 'policy' => 0, 'modified' => '', 'at' => 1788264000, 'ip' => '203.0.113.0', 'agent' => 'Mozilla/5.0 (test)' ) );
+$opened_since = render_screen( array( 'wpcpm_sapp_id' => $open_id ) );
+update_post_meta( $open_id, WPCPM_Sponsor_Application::META_CONSENT, $older_consent );
+ck( 'an application filed before 1.123.24 reads as it did: headed with the sentence its applicant agreed to, the site\'s page and its version', $consent_row( $opened ), array( 'I confirm the privacy policy.', 'Agreed 2026-09-01 12:00. I confirm the privacy policy. Policy: https://example.test/privacy/ The policy was last changed 2026-08-20 11:30:00; anything later than the agreement above is not what they read.' ) );
+ck( 'one filed since names WordPress.org\'s policy and says nothing of a change it cannot know', $consent_row( $opened_since ), array( esc_html( $newer_sentence ), 'Agreed 2026-09-01 12:00. ' . esc_html( $newer_sentence ) . ' Policy: https://wordpress.org/about/privacy/' ) );
 ck( 'the two logos are shown from the Media Library', array( false !== strpos( $opened, 'data-id="640"' ), false !== strpos( $opened, 'data-id="641"' ), false !== strpos( $opened, 'In white' ) ), array( true, true, true ) );
 ck( 'what the site already has: the row that matches by website, with its record and its status', array( false !== strpos( $opened, 'What the site already has' ), false !== strpos( $opened, 'recSPONSORTEST002' ), false !== strpos( $opened, 'creates a second record' ) ), array( true, true, true ) );
 ck( 'and for the same company, the way to its account is Create account on this screen\'s Accounts tab', array( false !== strpos( $opened, 'use Create account on the Sponsors screen&#039;s Accounts tab instead.' ), strpos( $opened, 'Sponsors card' ) ), array( true, false ) );

@@ -528,8 +528,9 @@ echo "\n=== The signature and footer every email ends with ===\n";
 
 // Since 1.122.19 every email that leaves through the mail layer ends with the one footer, filled for
 // its recipient. Lu has an account, but no dashboard page is published here, so no dashboard line;
-// an applicant has no account at all; and Contact address in emails ships empty.
-$footer           = "\n\n-- \nWordPress Credits, WordPress Education\nThis email comes from the WordPress Credits program.";
+// an applicant has no account at all; and Contact address in emails ships empty. Both get the site's
+// address, the same for everybody, under the signature's first line since 1.123.24.
+$footer           = "\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program.";
 $GLOBALS['mail']  = array();
 $filter_saw       = array();
 $GLOBALS['filters']['wpcpm_mail'][] = function ( $mail ) use ( &$filter_saw ) {
@@ -544,7 +545,7 @@ WPCPM_Mail::send_to( 'applicant@example.test', 'institution-applied', function (
 	return array( 'subject' => 'Received', 'body' => 'We have your application.' );
 } );
 array_pop( $GLOBALS['filters']['wpcpm_mail'] );
-ck( 'an email to an account and one to an applicant both end with the footer, after a blank line and the "-- " line, the applicant\'s with no dashboard line',
+ck( 'an email to an account and one to an applicant both end with the footer, after a blank line and the "-- " line, the site\'s address on its line and no dashboard line',
     array_column( $GLOBALS['mail'], 'body' ),
     array( "Your call is booked.\nSee you then." . $footer, 'We have your application.' . $footer ) );
 ck( 'and the wpcpm_mail filter sees each email with its footer, as it goes out', $filter_saw, array_column( $GLOBALS['mail'], 'body' ) );
@@ -553,7 +554,7 @@ $GLOBALS['mail'] = array();
 WPCPM_Mail::send( 30, 'call-booked', function () {
 	return array( 'subject' => 'Booked', 'body' => 'Hi.', 'footer_values' => array( 'dashboard_link' => 'https://example.test/example/', 'program_contact' => 'help@example.test' ) );
 } );
-ck( 'a builder can hand the footer its values, as a test hands it examples', $GLOBALS['mail'][0]['body'], "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/example/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
+ck( 'a builder can hand the footer its values, as a test hands it examples, and one it leaves out leaves its line out', $GLOBALS['mail'][0]['body'], "Hi.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/example/\nThis email comes from the WordPress Credits program. Questions? Write to help@example.test." );
 
 // The one way out: no file under includes/ calls wp_mail() but the mail layer's hand-off, where the
 // footer is added, and the inventory mailed to the site's own address when the plugin is uninstalled,

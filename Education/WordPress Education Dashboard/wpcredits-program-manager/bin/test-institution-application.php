@@ -355,7 +355,8 @@ function ck( $label, $actual, $expected ) {
 
 /**
  * Forget every option, post, transient and message, and put the site back in a state where
- * the form renders: applications on, a privacy policy, a published page, a countries map.
+ * the form renders: applications on, a published page, a countries map, and a privacy page of the
+ * site's own, which the form no longer links (1.123.24) and which the suite checks it ignores.
  *
  * The capability goes back to nobody's, because most of this suite is a stranger posting a
  * form and a block that started with a reset would otherwise inherit whichever viewer the
@@ -400,7 +401,7 @@ function reset_world() {
 	$GLOBALS['posts'][42] = $page;
 	$GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] = 42;
 
-	// A privacy policy page, so the consent record has something to name.
+	// A privacy page of the site's own, which since 1.123.24 the consent record never names.
 	$policy                    = new WP_Post();
 	$policy->ID                = 43;
 	$policy->post_type         = 'page';
@@ -713,17 +714,21 @@ ck( 'a column nobody asked about is refused rather than stored', WPCPM_Instituti
 
 echo "\n-- what is drawn, and when nothing is ---------------------------------\n";
 
+// Since 1.123.24 the form links the WordPress.org privacy policy (the site's owner, 22 October
+// 2026), so a site with no privacy page of its own draws it all the same, for the public and for
+// an Administrator, with no sentence about a missing page.
 reset_world();
 $GLOBALS['policy'] = '';
+unset( $GLOBALS['opts']['wp_page_for_privacy_policy'] );
 
-ck( 'with no privacy policy the public are shown nothing at all', WPCPM_Institution_Application::render(), '' );
+$no_page = WPCPM_Institution_Application::render();
+
+ck( 'with no privacy page on the site the public are shown the form, linking WordPress.org\'s policy', array( false !== strpos( $no_page, '<form' ), false !== strpos( $no_page, 'href="https://wordpress.org/about/privacy/" rel="noopener">here</a>' ) ), array( true, true ) );
 
 $GLOBALS['caps'] = true;
 $managers        = WPCPM_Institution_Application::render();
 
-ck( 'and a manager is told why, in one sentence', substr_count( $managers, '<p' ), 1 );
-ck( 'which names the privacy policy', false !== strpos( $managers, 'privacy policy' ), true );
-ck( 'and no form is drawn for them either', strpos( $managers, '<form' ), false );
+ck( 'and so is a manager, with no sentence about a privacy page', array( false !== strpos( $managers, '<form' ), strpos( $managers, 'wpcpm-application__notice' ), strpos( $managers, 'no published privacy policy page' ) ), array( true, false, false ) );
 
 reset_world();
 $GLOBALS['settings']['applications_enabled'] = false;
@@ -798,9 +803,10 @@ ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'che
 // reads, and "here" is what they click.
 ck( 'the policy line links a word inside the sentence', array(
 	false !== strpos( $form, '>here</a>' ),
-	false !== strpos( $form, 'You can read the privacy policy' ),
+	false !== strpos( $form, '<span class="wpcpm-field__hint">You can read the WordPress.org privacy policy <a href="https://wordpress.org/about/privacy/" rel="noopener">here</a>.</span>' ),
 ), array( true, true ) );
-ck( 'and it points at the policy this site has set', false !== strpos( $form, 'href="' . get_privacy_policy_url() . '" rel="noopener">here</a>' ), true );
+ck( 'and it points at WordPress.org\'s policy, not the page this site has set, opening where the form is', array( strpos( $form, 'href="' . get_privacy_policy_url() . '"' ), substr_count( $form, 'target=' ) ), array( false, 0 ) );
+ck( 'the consent box says which policy, in the words of 1.123.24', isset( WPCPM_Institution_Application::fields()['Privacy Policy Compliance']['label'] ) ? WPCPM_Institution_Application::fields()['Privacy Policy Compliance']['label'] : null, 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' );
 ck( 'the old shape, with the link trailing a colon, is gone', false !== strpos( $form, 'The policy is here:' ), false );
 ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-institution-application', 'wpcpm-forms' ) );
 ck( 'the form is guarded against a second press', false !== strpos( $form, 'data-wpcpm-once' ), true );
@@ -839,9 +845,11 @@ ck( 'and a snapshot of who it routed to', get_post_meta( $row->ID, WPCPM_Institu
 
 $consent = get_post_meta( $row->ID, WPCPM_Institution_Application::META_CONSENT, true );
 
-ck( 'the consent record names the policy', array( $consent['url'], $consent['policy'] ), array( 'https://example.test/privacy/', 43 ) );
-ck( 'and the version of it that was agreed to', $consent['modified'], '2026-08-20 11:30:00' );
-ck( 'and the sentence as it was rendered', false !== strpos( $consent['sentence'], 'privacy policy' ), true );
+// The address agreed to, WordPress.org's, with no post and no modified time: the site's own page,
+// set in this world as page 43, is not what the applicant read (1.123.24).
+ck( 'the consent record names the policy agreed to', array( $consent['url'], $consent['policy'] ), array( 'https://wordpress.org/about/privacy/', 0 ) );
+ck( 'and no version of a page on this site', $consent['modified'], '' );
+ck( 'and the sentence as it was rendered', $consent['sentence'], 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' );
 ck( 'the address is truncated, not kept', $consent['ip'], '203.0.113.0' );
 ck( 'the browser is recorded', $consent['agent'], 'Mozilla/5.0 (test)' );
 

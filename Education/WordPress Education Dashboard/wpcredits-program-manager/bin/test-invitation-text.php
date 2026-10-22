@@ -43,6 +43,10 @@
  * puts that one sentence in its new words before comparing, and checks it fell on the sponsor's three
  * invitations and nowhere else.
  *
+ * And the footer has gained a line since, on purpose, in 1.123.24: the site's address, under the
+ * signature's first line, which the owner approved on 22 October 2026. No invitation names the home
+ * page whole, so every one ends with it (`footer_of()`).
+ *
  * Run from the plugin root:  php bin/test-invitation-text.php
  * Record (once, against 1.122.18, before the move):  php bin/test-invitation-text.php --record
  */
@@ -72,6 +76,8 @@ class WP_User {
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+// The site's home page, which every email's footer names since 1.123.24.
+function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_bloginfo( $k = 'name' ) { return 'WordPress Credits'; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function add_action() {}
@@ -288,14 +294,15 @@ function headers_of( array $case, $incoming = '' ) {
 
 /**
  * The signature and footer an invitation ends with since 1.122.19, after the body as it was: a blank
- * line, the "-- " line, then the footer as the owner approved it, with no dashboard line, since an
- * invitation names the person's dashboard in its last lines already while its page is published and
- * no address appears twice; and no contact sentence, since Contact address in emails ships empty.
+ * line, the "-- " line, then the footer as the owner approved it, with the site's address under its
+ * first line since 1.123.24 (no invitation names the home page whole), with no dashboard line, since
+ * an invitation names the person's dashboard in its last lines already while its page is published
+ * and no address appears twice; and no contact sentence, since Contact address in emails ships empty.
  *
  * @return string
  */
 function footer_of() {
-	return "\r\n-- \r\nWordPress Credits, WordPress Education\r\nThis email comes from the WordPress Credits program.\r\n";
+	return "\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n";
 }
 
 /**

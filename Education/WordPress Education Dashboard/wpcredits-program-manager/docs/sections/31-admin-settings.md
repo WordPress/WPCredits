@@ -164,8 +164,8 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
   application is stored for an Administrator to decide on the Mentors screen's **Waiting for
   review** tab, and the form writes nothing to Airtable; while this is off, the page shows the
   public nothing, and an Administrator who opens it one sentence saying why. As with the other two
-  forms, the form shows nothing to the public without a published privacy policy, and the row says
-  so.
+  forms, its consent box links to the WordPress.org privacy policy, not to this site's own privacy
+  page (since 1.123.24), and the row's fold says so.
 - **Make mentors from applications** (since 1.122.33) - **Make a mentor of each selected applicant
   whose course shows, or for whom The course is completed is pressed**. Off until the launch, since
   on means accounts made, invitations sent and rows written in the shared Airtable base, which
@@ -196,9 +196,10 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   default, since the form is a public page anybody can post to; its address is under the switch.
   Every submission is stored for an Administrator to read on the Institutions screen's Waiting for
   review tab and to decide on the Administrator Dashboard, and nothing is created until somebody
-  approves it; while this is off, the page shows one sentence saying applications are closed. The
-  form shows nothing to the public without a published privacy policy, however this is switched, and
-  the row says so until one is chosen under Settings > Privacy.
+  approves it; while this is off, the page shows one sentence saying applications are closed. Since
+  1.123.24 the form's consent box links to the WordPress.org privacy policy, not to the page chosen
+  under Settings > Privacy, so the form no longer waits on this site having a privacy page, and the
+  row's fold says which policy it links.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
   the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the
@@ -266,8 +267,8 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
   is under the switch. Every submission is stored for an Administrator to read on the Sponsors
   screen's Waiting for review tab and to decide on the Administrator Dashboard, and nothing becomes
   a sponsor until somebody approves it; while this is off, the page shows one sentence saying
-  applications are closed. As with institutions, the form shows nothing to the public without a
-  published privacy policy, and the row says so.
+  applications are closed. As with institutions, its consent box links to the WordPress.org privacy
+  policy, and the row's fold says so.
 
 #### Sponsor landing page
 
@@ -313,7 +314,7 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
   page to draft. Its fold lists everything else it turns on. While it is off, the switch gates the
   Partners page and the Sponsors block (the full list and the strip on the landing page alike), the
   badge a sponsor puts on its own site, the Handbook listing tab on the Sponsors screen, the
-  application form's *Which tier are you considering?* question, the partnership tiles a track's
+  application form's *Which level are you considering?* question, the partnership tiles a track's
   students see on their Student Report Card and the offers its partners keep for them, the At a
   glance tiles for the tier, the next event and the reports, the *Sponsorship*, *Badge*, *Reports*
   and *Events* cards, the badge in the Sponsor Dashboard's header, the reports a sponsor's members

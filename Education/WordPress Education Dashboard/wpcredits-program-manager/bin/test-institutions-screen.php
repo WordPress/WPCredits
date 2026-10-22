@@ -868,7 +868,9 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 				'Estimated number of students who may be interested'   => array( 'group' => 'program', 'label' => 'How many students might be interested?' ),
 				'Why are you interested in offering WordPress Credits to your students?' => array( 'group' => 'more', 'label' => 'Why are you interested in offering WordPress Credits to your students?' ),
 				'Anything else you’d like us to know?' => array( 'group' => 'more', 'label' => 'Anything else you’d like us to know?' ),
-				'Privacy Policy Compliance' => array( 'group' => 'consent', 'label' => 'I confirm this institution complies with its privacy policy.' ),
+				// The words the form asks since 1.123.24; the application seeded below was filed before,
+				// under the sentence its consent record holds.
+				'Privacy Policy Compliance' => array( 'group' => 'consent', 'label' => 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' ),
 			);
 		}
 
@@ -3251,10 +3253,13 @@ $open                     = render_screen( array( WPCPM_Institutions::ARG_APPLIC
 $asked = array();
 
 foreach ( WPCPM_Institution_Application::fields() as $column => $spec ) {
-	$asked[] = false !== strpos( $open, '<th scope="row">' . esc_html( $spec['label'] ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code></th>' );
+	// The consent under the sentence its applicant agreed to, which the record holds: this one was
+	// filed before 1.123.24, when the form asked other words.
+	$heading = 'Privacy Policy Compliance' === $column ? $consent['sentence'] : $spec['label'];
+	$asked[] = false !== strpos( $open, '<th scope="row">' . esc_html( $heading ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code></th>' );
 }
 
-ck( 'all thirteen questions are shown', $asked, array_fill( 0, 13, true ) );
+ck( 'all thirteen questions are shown, the consent under the sentence its applicant agreed to', $asked, array_fill( 0, 13, true ) );
 ck( 'the answers are escaped, prose from a stranger being what they are', array(
 	false !== strpos( $open, '&lt;script&gt;alert(1)&lt;/script&gt;' ),
 	false === strpos( $open, '<script>alert(1)</script>' ),
@@ -3268,6 +3273,17 @@ ck( 'the consent sentence prints with its timestamp and the policy it was given 
 	false !== strpos( $open, 'Policy: https://example.test/privacy/' ),
 	false !== strpos( $open, 'The policy was last changed 2026-08-01 09:00' ),
 ), array( true, true, true, true ) );
+// One filed since 1.123.24 names WordPress.org's policy with no page and no modified time: its row
+// says the address and no "last changed" sentence, under the words its applicant read.
+$consent_row = static function ( $html ) {
+	return preg_match( '#<tr><th scope="row">([^<]*)<br /><code class="wpcpm-inst-record">Privacy Policy Compliance</code></th><td>([^<]*)</td></tr>#', $html, $found ) ? array( $found[1], $found[2] ) : null;
+};
+$since_sentence = WPCPM_Institution_Application::fields()['Privacy Policy Compliance']['label'];
+update_post_meta( 501, WPCPM_Institution_Application::META_CONSENT, array_merge( $consent, array( 'sentence' => $since_sentence, 'url' => 'https://wordpress.org/about/privacy/', 'policy' => 0, 'modified' => '' ) ) );
+$open_since = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+update_post_meta( 501, WPCPM_Institution_Application::META_CONSENT, $consent );
+ck( 'an application filed before 1.123.24 reads as it did: the sentence agreed to, the site\'s page and its version', $consent_row( $open ), array( 'I confirm this institution complies with its privacy policy.', 'Agreed ' . gmdate( 'Y-m-d H:i', $now - ( 10 * $day ) ) . '. I confirm this institution complies with its privacy policy. Policy: https://example.test/privacy/ The policy was last changed 2026-08-01 09:00; anything later than the agreement above is not what they read.' ) );
+ck( 'one filed since names WordPress.org\'s policy and says nothing of a change it cannot know', $consent_row( $open_since ), array( esc_html( $since_sentence ), 'Agreed ' . gmdate( 'Y-m-d H:i', $now - ( 10 * $day ) ) . '. ' . esc_html( $since_sentence ) . ' Policy: https://wordpress.org/about/privacy/' ) );
 ck( 'the verification state is its own line', false !== strpos( $open, 'The applicant confirmed their address on ' . gmdate( 'Y-m-d H:i', $now - ( 9 * $day ) ) ), true );
 
 $formula = '';

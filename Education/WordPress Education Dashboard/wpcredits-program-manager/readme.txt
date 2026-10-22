@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.23
+Stable tag: 1.123.24
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,14 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.24 =
+
+* The institution, mentor and sponsor applications link their consent to the WordPress.org privacy policy, https://wordpress.org/about/privacy/, while legal reviews the site's own privacy notice, which does not cover sponsors yet (the site's owner, 22 October 2026). Each box now says "I confirm I have read the WordPress.org privacy policy and ...", and the line under it "You can read the WordPress.org privacy policy here." The forms no longer depend on the site having a privacy policy page, so the Settings warnings about one are gone. An application records the address it agreed to; one filed before 1.123.24 still shows the site's notice and the date of the version it read.
+* The email to a company whose sponsor application is not accepted says "You are welcome to apply again later.", without guessing a reason.
+* Every email's signature gains the site's address on its second line, under "WordPress Credits, WordPress Education". An email whose text already names the home page, or whose dashboard is the home page, prints it once.
+* The sponsor application asks "Which level are you considering?", in the Partners page's word, and under the choices a closed *What each level includes* section lists each level with its amount and what it includes, as the Partners page words them, and links to the Partners page's levels in a new tab. The levels come from the theme (1.31.11 and later); with an older theme the hint links to the Partners page instead.
+* For developers: `WPCPM_Form_Guard::POLICY_URL`; the filter `wpcpm_partner_levels` (a list of levels, lowest first, each `name`, `amount`, `lead`, `items` and an optional `tag`; malformed entries skipped, everything escaped); the shipped signature and footer uses `{site_link}`. The three application blocks' editor scripts are stamped 1.123.24.
 
 = 1.123.23 =
 

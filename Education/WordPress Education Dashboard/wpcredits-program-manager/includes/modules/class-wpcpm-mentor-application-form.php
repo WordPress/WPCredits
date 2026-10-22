@@ -359,7 +359,8 @@ final class WPCPM_Mentor_Application_Form {
 	 *
 	 * The two boxes to tick carry a heading (`label`) and the words beside the box (`box`): the
 	 * compliance declaration's are the form's statement word for word, with its two links, and the
-	 * privacy policy's are the sentence the consent evidence records.
+	 * privacy policy's are the sentence the consent evidence records, naming the WordPress.org
+	 * privacy policy the form links since 1.123.24.
 	 *
 	 * @return array<string, array> Key => spec: `group`, `label`, `type`, `required`, and per type
 	 *                              `maxlength`, `auto`, `help`, `min`, `max`, `box`.
@@ -450,7 +451,7 @@ final class WPCPM_Mentor_Application_Form {
 				'label'    => __( 'Privacy policy', 'wpcredits-program-manager' ),
 				'type'     => 'consent',
 				'required' => true,
-				'box'      => __( 'I confirm I have read the privacy policy and that my answers can be kept under it while the program reviews my application.', 'wpcredits-program-manager' ),
+				'box'      => __( 'I confirm I have read the WordPress.org privacy policy and that my answers can be kept under it while the program reviews my application.', 'wpcredits-program-manager' ),
 			),
 		);
 	}
@@ -804,15 +805,14 @@ final class WPCPM_Mentor_Application_Form {
 	/**
 	 * Why the form cannot be drawn, or '' when it can.
 	 *
+	 * The site having no privacy page was a reason until 1.123.24, when the form began linking the
+	 * WordPress.org privacy policy (`WPCPM_Form_Guard::POLICY_URL`) instead.
+	 *
 	 * @return string
 	 */
 	private static function closed_reason() {
 		if ( ! self::is_open() ) {
 			return __( 'The mentor application form is switched off. Turn on "Applications from mentors" on the Students and mentors tab of WPCredits Program > Settings when the program is ready to take them.', 'wpcredits-program-manager' );
-		}
-
-		if ( '' === WPCPM_Form_Guard::policy_url() ) {
-			return __( 'This form is not shown yet: applicants are asked to agree to the privacy policy, and this site has no published privacy policy page. Set one under Settings > Privacy.', 'wpcredits-program-manager' );
 		}
 
 		if ( empty( self::countries() ) ) {
@@ -1245,22 +1245,17 @@ final class WPCPM_Mentor_Application_Form {
 	}
 
 	/**
-	 * The line under the consent box, linking the policy the applicant agrees to.
+	 * The line under the consent box, linking the policy the applicant agrees to: WordPress.org's
+	 * since 1.123.24, opening where the form is, as it always has.
 	 */
 	private static function render_policy_line() {
-		$policy = WPCPM_Form_Guard::policy_url();
-
-		if ( '' === $policy ) {
-			return;
-		}
-
 		printf(
 			'<span class="wpcpm-field__hint">%s</span>',
 			wp_kses(
 				sprintf(
-					/* translators: %1$s: opening link tag to the privacy policy, %2$s: closing link tag. */
-					__( 'You can read the privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
-					'<a href="' . esc_url( $policy ) . '" rel="noopener">',
+					/* translators: %1$s: opening link tag to the WordPress.org privacy policy, %2$s: closing link tag. */
+					__( 'You can read the WordPress.org privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
+					'<a href="' . esc_url( WPCPM_Form_Guard::policy_url() ) . '" rel="noopener">',
 					'</a>'
 				),
 				array(
@@ -1334,7 +1329,7 @@ final class WPCPM_Mentor_Application_Form {
 			self::bounce( 'expired', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		// 3. The switch, the policy and the two lists, none of which a form this site drew can post past.
+		// 3. The switch and the two lists, none of which a form this site drew can post past.
 		if ( '' !== self::closed_reason() ) {
 			self::bounce( 'closed' );
 		}

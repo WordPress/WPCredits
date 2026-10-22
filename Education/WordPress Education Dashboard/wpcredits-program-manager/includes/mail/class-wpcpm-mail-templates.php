@@ -960,15 +960,17 @@ final class WPCPM_Mail_Templates {
 
 	/**
 	 * The signature and footer as the registry ships it, in the wording the owner approved on
-	 * 10 October 2026: the text every plugin email ends with, after a line holding "-- ". Its third
-	 * line holds for everybody the plugin writes to, an applicant turned down and an Administrator
-	 * among them.
+	 * 10 October 2026, with the site's address, `{site_link}`, on its second line, which the owner
+	 * approved on 22 October 2026: the text every plugin email ends with, after a line holding "-- ".
+	 * Its last line holds for everybody the plugin writes to, an applicant turned down and an
+	 * Administrator among them, and so does the site's address, which reaches the people who have no
+	 * dashboard to open as well as those who do. Each address is printed once (`add_footer()`).
 	 *
 	 * @return string
 	 */
 	public static function footer_shipped() {
-		/* translators: The signature and footer every email of the plugin ends with, three lines. Keep {dashboard_link} and {program_contact} as they are: the site puts the person's dashboard and the program's contact address in their place, and leaves out the line or the sentence that has nothing to say, reading a full stop followed by a space as the end of a sentence. */
-		return __( "WordPress Credits, WordPress Education\n{dashboard_link}\nThis email comes from the WordPress Credits program. Questions? Write to {program_contact}.", 'wpcredits-program-manager' );
+		/* translators: The signature and footer every email of the plugin ends with, four lines. Keep {site_link}, {dashboard_link} and {program_contact} as they are: the site puts its own public address, the person's dashboard and the program's contact address in their place, and leaves out the line or the sentence that has nothing to say, reading a full stop followed by a space as the end of a sentence. */
+		return __( "WordPress Credits, WordPress Education\n{site_link}\n{dashboard_link}\nThis email comes from the WordPress Credits program. Questions? Write to {program_contact}.", 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -995,7 +997,7 @@ final class WPCPM_Mail_Templates {
 	/**
 	 * The signature and footer's placeholders, none of them required. `{site_link}`, the site's public
 	 * home page, the same for everybody, joined in 1.122.37, for a footer written to people who cannot
-	 * open a dashboard; the shipped footer does not use it.
+	 * open a dashboard; the shipped footer uses it since 1.123.24.
 	 *
 	 * @return array Name to what `all()` holds for each.
 	 */
@@ -1174,8 +1176,10 @@ final class WPCPM_Mail_Templates {
 	 * site's home page, `{site_link}` (since 1.122.37), with one difference: every address of the
 	 * site starts with the home page's, so a body names the home page only where its address
 	 * stands whole (`names_address()`), and a body that names a dashboard or the sign-in page keeps
-	 * it. A footer that comes out empty, every line of it left out, adds nothing, the "-- " line
-	 * included; an empty footer is never saved (`refusal()`).
+	 * it. And a dashboard that is the home page itself, a site that makes one its front page, is
+	 * printed once, on the site's line, its own left out (1.123.24, when the shipped footer began
+	 * printing both). A footer that comes out empty, every line of it left out, adds nothing, the
+	 * "-- " line included; an empty footer is never saved (`refusal()`).
 	 *
 	 * @param string       $body      The email's body.
 	 * @param WP_User|null $recipient The account it goes to, or null for an address with none.
@@ -1196,6 +1200,12 @@ final class WPCPM_Mail_Templates {
 
 		if ( ! empty( $values['site_link'] ) && self::names_address( $body, (string) $values['site_link'] ) ) {
 			$values['site_link'] = '';
+		}
+
+		// One address on two lines of the footer: the dashboard's is the home page's, with its last
+		// slash or without it, so the site's line names it and the dashboard's is left out.
+		if ( ! empty( $values['site_link'] ) && ! empty( $values['dashboard_link'] ) && rtrim( (string) $values['site_link'], '/' ) === rtrim( (string) $values['dashboard_link'], '/' ) ) {
+			$values['dashboard_link'] = '';
 		}
 
 		$footer = rtrim( self::fill( $text['body'], $values, self::footer_placeholders(), $eol ), "\r\n\t " );

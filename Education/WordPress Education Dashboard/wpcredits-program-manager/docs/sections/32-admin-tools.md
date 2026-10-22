@@ -206,9 +206,12 @@ are `{site_name}`; `{site_link}`, the site's public address, its home page, the 
 the recipient's dashboard, which is empty for somebody with no account, such as an applicant, and
 for an email that names the dashboard already, as every invitation does, so its line is left out
 and no email names the address twice; and `{program_contact}`, the address in **Contact address in
-emails**, which is empty until it is set, so its sentence is left out. It ships as three lines:
+emails**, which is empty until it is set, so its sentence is left out. A line left with nothing is
+left out whole, so no email has an empty line in its footer. It ships as four lines (the site's
+address since 1.123.24):
 
 - `WordPress Credits, WordPress Education`
+- `{site_link}`
 - `{dashboard_link}`
 - `This email comes from the WordPress Credits program. Questions? Write to {program_contact}.`
 
@@ -217,8 +220,9 @@ Report Card, an institution member's Institution Dashboard, a sponsor member's S
 an Administrator's Administrator Dashboard. A page that is not published gives no link. The tab's
 preview and **Send me a test** show the footer as an Administrator gets it, since the test goes to
 you, so both show the Administrator Dashboard; a note under the preview, and the test itself, list
-what everybody else gets. To give every email a link to the public site as well, which everybody
-can open, add `{site_link}` to the footer.
+what everybody else gets. The site's address, on the line above, is the same in every email, and
+everybody can open it, an applicant with no account among them. A site whose front page is one of
+the dashboards prints that address once, on the site's line.
 
 The tab edits it with the editor every template has, without a subject, with **Save**, **Send me a
 test** (a short email that ends with the block) and **Restore the original**. An empty block is not
