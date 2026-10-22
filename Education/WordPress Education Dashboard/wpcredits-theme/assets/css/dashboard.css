@@ -2259,7 +2259,6 @@
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="number"],
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="date"],
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="time"],
-.wpc-sponsor-page .wpcpm-sponsor__form select,
 .wpc-sponsor-page .wpcpm-sponsor__form textarea,
 .wpc-administrator-page .wpcpm-sponsor__form input[type="text"],
 .wpc-administrator-page .wpcpm-sponsor__form input[type="url"],
@@ -2267,12 +2266,13 @@
 .wpc-administrator-page .wpcpm-sponsor__form input[type="number"],
 .wpc-administrator-page .wpcpm-sponsor__form input[type="date"],
 .wpc-administrator-page .wpcpm-sponsor__form input[type="time"],
-.wpc-administrator-page .wpcpm-sponsor__form select,
 .wpc-administrator-page .wpcpm-sponsor__form textarea {
 	/* The control border, not the card hairline: 3:1 against the page (WCAG 1.4.11; 1.19.3).
 	   The Institution Dashboard's forms take the same edge from the plugin's own token. Time
 	   joined the list in 1.28.0: the Events card's start time box was the browser's own border
-	   and font beside these, the one control type the plan and change forms add. */
+	   and font beside these, the one control type the plan and change forms add. No sponsor form
+   draws a select since plugin 1.123.22, which took Type of product off the profile, so the list
+   names none (theme 1.31.10). */
 	border: 1px solid var( --wpc-control-border );
 	border-radius: 8px;
 	box-sizing: border-box;
@@ -2467,7 +2467,7 @@
 
 /*
  * The Events card's planner and the sponsor's own event (plugin 1.117.0, theme 1.28.0). The
- * plan and change forms print the interests form's own classes (`wpcpm-sponsor__form`,
+ * plan and change forms print the sponsor forms' own classes (`wpcpm-sponsor__form`,
  * `wpcpm-sponsor__field`), so the rows and controls above already dress them - the one gap was
  * the time box, added to the control list above this comment. What follows is what only this
  * card prints: the event once planned, the returned note, and the past list.
@@ -3056,15 +3056,6 @@
    note, tiles, form, each with room. The shared note rule gives the note no bottom margin. */
 .wpc-sponsor-page .wpcpm-logo > .wpcpm-student__note {
 	margin-bottom: 16px;
-}
-
-/* A note that follows a field in a sponsor form introduces what comes next, it is not that
-   field's hint: 24px of air above it, so it lets go of the field, and 8px below, so it holds
-   the rows it introduces (the offer's three read-only rows under "Type of product"). A field's
-   own hint stays inside the field's paragraph and is not this. (owner, 1.23.18) */
-.wpc-sponsor-page .wpcpm-sponsor__form > .wpcpm-sponsor__field + .wpcpm-student__note {
-	margin-bottom: 8px;
-	margin-top: 24px;
 }
 
 @media ( max-width: 900px ) {
