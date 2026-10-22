@@ -28,9 +28,9 @@ $wpcredits_doors = array(
 		'eyebrow' => __( 'Institutions', 'wpcredits-theme' ),
 		'title'   => __( 'Bring a free, ready-to-run program to your students.', 'wpcredits-theme' ),
 		'text'    => __( 'Start with a one-day workshop or a WordPress Credits pilot. Each new group of students builds a stronger partnership.', 'wpcredits-theme' ),
-		// Not "Become a partner": the menu's "Become a partner" leads to the sponsorship application once the
-		// partnership levels are public, so the institutions' door says whose partnership it opens, as the
-		// closing band's button does (the owner, 21 October 2026).
+		// Not "Become a partner": the menu's "Become a partner" leads to the Partners page once the partnership
+		// levels are public (a program Administrator asked for it, 22 October 2026), so the institutions' door
+		// says whose partnership it opens, as the closing band's button does (the site's owner, 21 October 2026).
 		'link'    => __( 'Partner as an institution', 'wpcredits-theme' ),
 		'href'    => wpcredits_hub_url( 'institution_application' ),
 		'picture' => '<div class="wpc-hub-pic__piece wpc-hub-pic__list"><span class="wpc-hub-art__strong">' . esc_html__( 'Ready-to-run program', 'wpcredits-theme' ) . '</span><span class="wpc-hub-pic__row">' . esc_html__( 'One-day workshop', 'wpcredits-theme' ) . '</span><span class="wpc-hub-pic__row">' . esc_html__( 'WordPress Credits pilot', 'wpcredits-theme' ) . '</span></div>',

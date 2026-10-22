@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.31.10
+Stable tag: 1.31.11
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.31.11 =
+* The header menu's *Become a partner* leads to the Partners page, whose own *Become a partner* section leads to the application, where it led to the sponsorship application (a program Administrator's ask, the site's owner's yes, 22 October 2026). While the Partners page is not published it leads to the application, and with neither to the WordPress Credits handbook. On the Partners page the item is marked as the page being viewed: the signed-in phone menu shows it in the brand blue, at its own weight.
+* In the signed-in phone menu, *Become a partner* is a row like the others, with the rows' hairline under it, where it kept the wide row's outline on three sides with its words against the left line (since 1.31.9). On a wide screen it stays an outline button.
+* The Partners page's five levels, each with its amount, its lead line and what it includes, are written once, in `wpcredits_partner_levels()`, and the theme hands them to the plugin's sponsor application through its `wpcpm_partner_levels` filter (plugin 1.123.24), which shows them in a closed *What each level includes* section under the level question. The page itself draws exactly as before. With a plugin older than 1.123.24 the filter is never asked and nothing changes.
 
 = 1.31.10 =
 * Sponsor forms: three rules that dressed nothing since plugin 1.123.22 are gone. The sponsor forms' control rule, on the Sponsor Dashboard and the Administrator Dashboard, no longer names a select, since the profile's Type of product was the only select a sponsor form drew; and the rule that put 24px above and 8px below a note following a field goes, since the profile's note on where offers are edited is now part of its first note and no sponsor form has a note after a field. Nothing on either page looks different. With a plugin older than 1.123.22, the profile's Type of product box would lose the theme's border and padding.

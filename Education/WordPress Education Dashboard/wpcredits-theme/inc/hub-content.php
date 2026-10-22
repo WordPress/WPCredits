@@ -18,7 +18,7 @@
  * `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`, brings the whole future version back.
  *
  * A link's target is an outside address, an in-page anchor, or one of the site's own pages, named by
- * `institution_application` or `sponsor_application` and read when the block renders
+ * `institution_application`, `sponsor_application` or `partners` and read when the block renders
  * (`wpcredits_hub_url()`).
  *
  * @package WPCredits_Theme
@@ -129,7 +129,7 @@ function wpcredits_hub_course( $name, $eyebrow, $line, $url ) {
  * One link: its label and its target.
  *
  * @param string $label  The label, translated.
- * @param string $target An address, an anchor, `institution_application` or `sponsor_application`.
+ * @param string $target An address, an anchor, `institution_application`, `sponsor_application` or `partners`.
  * @return array{label: string, target: string}
  */
 function wpcredits_hub_link( $label, $target ) {
@@ -140,9 +140,9 @@ function wpcredits_hub_link( $label, $target ) {
 }
 
 /**
- * Where a link's target goes: the site's institution or sponsorship application while its page is
- * published and the plugin can say where it is, the WordPress Credits handbook otherwise; any other
- * target as it is.
+ * Where a link's target goes: the site's institution or sponsorship application, or its Partners
+ * page, while that page is published and the plugin can say where it is, the WordPress Credits
+ * handbook otherwise; any other target as it is.
  *
  * @param string $target A link's target.
  * @return string An address, not escaped.
@@ -151,6 +151,7 @@ function wpcredits_hub_url( $target ) {
 	$pages = array(
 		'institution_application' => 'WPCPM_Institution_Application',
 		'sponsor_application'     => 'WPCPM_Sponsor_Application',
+		'partners'                => 'WPCPM_Sponsors_Page',
 	);
 
 	if ( ! isset( $pages[ $target ] ) ) {

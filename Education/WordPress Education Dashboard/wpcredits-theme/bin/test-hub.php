@@ -1026,7 +1026,7 @@ ck( 'the four levels\' next links, the institution application going to the Word
 		'Talk to the program team > https://make.wordpress.org/community/handbook/education/credits/',
 	) );
 
-// The plugin's two application pages, stood in from here on: published, or not.
+// The plugin's two application pages and its Partners page, stood in from here on: published, or not.
 if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 	/** The institution application's page, as the plugin reports it: '' while it is not published. */
 	class WPCPM_Institution_Application {
@@ -1039,20 +1039,28 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		public static $url = 'https://wordpresseducation.org/sponsor-application/';
 		public static function page_url() { return self::$url; }
 	}
+
+	/** The Partners page, the same way (plugin 1.123.18). */
+	class WPCPM_Sponsors_Page {
+		public static $url = 'https://wordpresseducation.org/partners/';
+		public static function page_url() { return self::$url; }
+	}
 }
 
-$published_links = array( wpcredits_hub_url( 'institution_application' ), wpcredits_hub_url( 'sponsor_application' ) );
+$published_links = array( wpcredits_hub_url( 'institution_application' ), wpcredits_hub_url( 'sponsor_application' ), wpcredits_hub_url( 'partners' ) );
 WPCPM_Institution_Application::$url = '';
 WPCPM_Sponsor_Application::$url     = '';
-$unpublished_links = array( wpcredits_hub_url( 'institution_application' ), wpcredits_hub_url( 'sponsor_application' ) );
+WPCPM_Sponsors_Page::$url           = '';
+$unpublished_links = array( wpcredits_hub_url( 'institution_application' ), wpcredits_hub_url( 'sponsor_application' ), wpcredits_hub_url( 'partners' ) );
 WPCPM_Institution_Application::$url = 'https://wordpresseducation.org/apply/';
 WPCPM_Sponsor_Application::$url     = 'https://wordpresseducation.org/sponsor-application/';
+WPCPM_Sponsors_Page::$url           = 'https://wordpresseducation.org/partners/';
 
-ck( 'with the plugin, the site\'s own pages are read when a block renders: the published applications, or the handbook for one that is not published',
+ck( 'with the plugin, the site\'s own pages are read when a block renders: the published applications and the Partners page, or the handbook for one that is not published',
 	array( $published_links, $unpublished_links ),
 	array(
-		array( 'https://wordpresseducation.org/apply/', 'https://wordpresseducation.org/sponsor-application/' ),
-		array( 'https://make.wordpress.org/community/handbook/education/credits/', 'https://make.wordpress.org/community/handbook/education/credits/' ),
+		array( 'https://wordpresseducation.org/apply/', 'https://wordpresseducation.org/sponsor-application/', 'https://wordpresseducation.org/partners/' ),
+		array( 'https://make.wordpress.org/community/handbook/education/credits/', 'https://make.wordpress.org/community/handbook/education/credits/', 'https://make.wordpress.org/community/handbook/education/credits/' ),
 	) );
 
 echo "\n=== The benefit lists ===\n";

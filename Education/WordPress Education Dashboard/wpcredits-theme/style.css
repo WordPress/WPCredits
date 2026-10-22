@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.31.10
+Version: 1.31.11
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -2079,6 +2079,14 @@ p.is-style-pill {
 		color: var( --wpc-brand );
 	}
 
+	/* "Become a partner" is a row like the others here: the rule above replaces only the bottom border,
+	   so the wide row's outline button would keep its other three, with the text against the left one. */
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
+		border-left: 0;
+		border-right: 0;
+		border-top: 0;
+	}
+
 	/* Log out is the last row, so it has no hairline, and it stays muted. */
 	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__logout {
 		border-bottom: 0;
@@ -2090,6 +2098,12 @@ p.is-style-pill {
 	.wpc-js .wpc-header--menu .wpc-viewer .wpc-viewer__link.is-current {
 		color: var( --wpc-brand );
 		font-weight: 500;
+	}
+
+	/* "Become a partner" on the Partners page (inc/partners.php marks it current there): the blue is the
+	   cue, and it keeps the weight 600 its own rule gives it, which the rule above would take down to 500. */
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > [aria-current="page"] {
+		font-weight: 600;
 	}
 }
 

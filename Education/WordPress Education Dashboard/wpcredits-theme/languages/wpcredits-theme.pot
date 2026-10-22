@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.31.10\n"
+"Project-Id-Version: WPCredits 1.31.11\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-22T01:06:01+00:00\n"
+"POT-Creation-Date: 2026-10-22T10:59:39+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -414,584 +414,584 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
-#: inc/hub-content.php:179
+#: inc/hub-content.php:180
 msgid "Campus Connect"
 msgstr ""
 
-#: inc/hub-content.php:182
+#: inc/hub-content.php:183
 msgid "A half or full-day hands-on WordPress workshop on campus. No experience needed, and anyone connected to the institution can organize one."
 msgstr ""
 
-#: inc/hub-content.php:183
+#: inc/hub-content.php:184
 msgid "Half or full day"
 msgstr ""
 
-#: inc/hub-content.php:185
-#: inc/hub-content.php:341
+#: inc/hub-content.php:186
+#: inc/hub-content.php:342
 msgid "Certificate of participation"
 msgstr ""
 
-#: inc/hub-content.php:188
+#: inc/hub-content.php:189
 msgid "Find or host an event"
 msgstr ""
 
-#: inc/hub-content.php:193
+#: inc/hub-content.php:194
 msgid "WordPress Credits"
 msgstr ""
 
-#: inc/hub-content.php:196
+#: inc/hub-content.php:197
 msgid "Mentored work on the WordPress open source project, matched to your field of study. Ends with a presentation and a Foundation certificate."
 msgstr ""
 
-#: inc/hub-content.php:197
+#: inc/hub-content.php:198
 msgid "50h or 150h+, about a semester"
 msgstr ""
 
-#: inc/hub-content.php:199
+#: inc/hub-content.php:200
 msgid "Certificate"
 msgstr ""
 
 #. translators: A benefit a program gives, a noun: a digital badge.
-#: inc/hub-content.php:201
+#: inc/hub-content.php:202
 msgid "Badge"
 msgstr ""
 
-#: inc/hub-content.php:202
+#: inc/hub-content.php:203
 msgid "Hours transcript"
 msgstr ""
 
-#: inc/hub-content.php:203
+#: inc/hub-content.php:204
 msgctxt "academic credit a program gives, a noun, as in credit toward a degree"
 msgid "Credit"
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:215
+#: inc/hub-content.php:216
 msgid "Intro to Contribution"
 msgstr ""
 
 #. translators: The line above a course's name: how long it takes.
-#: inc/hub-content.php:217
+#: inc/hub-content.php:218
 msgid "50 hours"
 msgstr ""
 
-#: inc/hub-content.php:218
+#: inc/hub-content.php:219
 msgid "One guided contribution project: a first look at open source, for a shorter course or an elective."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress, its base course; not foundations as organizations.
-#: inc/hub-content.php:223
+#: inc/hub-content.php:224
 msgid "Foundations"
 msgstr ""
 
 #. translators: The line above a course's name: how long it takes.
-#: inc/hub-content.php:225
+#: inc/hub-content.php:226
 msgid "150 hours or more"
 msgstr ""
 
-#: inc/hub-content.php:226
+#: inc/hub-content.php:227
 msgid "Your own site and a contribution that ships, for an internship, a capstone, or a full semester."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:231
+#: inc/hub-content.php:232
 msgid "Developer track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:233
+#: inc/hub-content.php:234
 msgid "For developers"
 msgstr ""
 
-#: inc/hub-content.php:234
+#: inc/hub-content.php:235
 msgid "WordPress developer training and patch testing practice, toward a contribution that ships."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:239
+#: inc/hub-content.php:240
 msgid "Designer track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:241
+#: inc/hub-content.php:242
 msgid "For designers"
 msgstr ""
 
-#: inc/hub-content.php:242
+#: inc/hub-content.php:243
 msgid "A portfolio, Figma and the Site Editor's design tools, and a block pattern of your own."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:247
+#: inc/hub-content.php:248
 msgid "Translation track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:249
+#: inc/hub-content.php:250
 msgid "For translators"
 msgstr ""
 
-#: inc/hub-content.php:250
+#: inc/hub-content.php:251
 msgid "Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons."
 msgstr ""
 
-#: inc/hub-content.php:255
+#: inc/hub-content.php:256
 msgid "Compare the five courses"
 msgstr ""
 
-#: inc/hub-content.php:256
+#: inc/hub-content.php:257
 msgid "About the program"
 msgstr ""
 
-#: inc/hub-content.php:257
+#: inc/hub-content.php:258
 msgid "Impact dashboard"
 msgstr ""
 
-#: inc/hub-content.php:262
+#: inc/hub-content.php:263
 msgid "Facilitator Training"
 msgstr ""
 
-#: inc/hub-content.php:265
+#: inc/hub-content.php:266
 msgid "Free, self-guided courses plus step-by-step facilitation guides with timed agendas and activity sheets, so faculty can teach WordPress themselves."
 msgstr ""
 
-#: inc/hub-content.php:266
-#: inc/hub-content.php:282
+#: inc/hub-content.php:267
+#: inc/hub-content.php:283
 msgid "Self-paced"
 msgstr ""
 
-#: inc/hub-content.php:268
+#: inc/hub-content.php:269
 msgid "Ready-to-run sessions"
 msgstr ""
 
-#: inc/hub-content.php:269
+#: inc/hub-content.php:270
 msgid "Facilitator listing"
 msgstr ""
 
-#: inc/hub-content.php:272
+#: inc/hub-content.php:273
 msgid "Facilitation guides"
 msgstr ""
 
-#: inc/hub-content.php:273
+#: inc/hub-content.php:274
 msgid "Courses"
 msgstr ""
 
-#: inc/hub-content.php:278
+#: inc/hub-content.php:279
 msgid "Learn WordPress"
 msgstr ""
 
-#: inc/hub-content.php:281
+#: inc/hub-content.php:282
 msgid "Free courses, lessons, and online workshops for every skill level, from building a first site to developing blocks."
 msgstr ""
 
-#: inc/hub-content.php:284
+#: inc/hub-content.php:285
 msgid "Course completions on your profile"
 msgstr ""
 
-#: inc/hub-content.php:287
+#: inc/hub-content.php:288
 msgid "Browse courses"
 msgstr ""
 
-#: inc/hub-content.php:292
+#: inc/hub-content.php:293
 msgid "AI Leaders"
 msgstr ""
 
-#: inc/hub-content.php:295
+#: inc/hub-content.php:296
 msgid "The first Foundation-backed micro-credential. Piloted in 2026 with students from Illinois and Louisiana."
 msgstr ""
 
-#: inc/hub-content.php:296
+#: inc/hub-content.php:297
 msgid "Cohort-based"
 msgstr ""
 
-#: inc/hub-content.php:298
+#: inc/hub-content.php:299
 msgid "Micro-credential"
 msgstr ""
 
 #. translators: The amount is in US dollars.
-#: inc/hub-content.php:300
+#: inc/hub-content.php:301
 msgid "$1,000 for completers"
 msgstr ""
 
-#: inc/hub-content.php:303
-#: inc/hub-content.php:319
+#: inc/hub-content.php:304
+#: inc/hub-content.php:320
 msgid "Learn more"
 msgstr ""
 
-#: inc/hub-content.php:308
+#: inc/hub-content.php:309
 msgid "WordPress Builder Certification"
 msgstr ""
 
-#: inc/hub-content.php:311
+#: inc/hub-content.php:312
 msgid "A certification exam validating the skills to build and run a personal or company website on WordPress."
 msgstr ""
 
 #. translators: A program's time on its card, a noun: an exam to sit, not a course to attend.
-#: inc/hub-content.php:313
+#: inc/hub-content.php:314
 msgid "Exam"
 msgstr ""
 
-#: inc/hub-content.php:316
+#: inc/hub-content.php:317
 msgid "Industry certification"
 msgstr ""
 
-#: inc/hub-content.php:336
+#: inc/hub-content.php:337
 msgid "Attendee"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:338
+#: inc/hub-content.php:339
 msgid "Attend a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:339
+#: inc/hub-content.php:340
 msgid "Attend a Campus Connect event."
 msgstr ""
 
-#: inc/hub-content.php:342
+#: inc/hub-content.php:343
 msgid "A seeded WordPress.org profile"
 msgstr ""
 
-#: inc/hub-content.php:343
-#: inc/hub-content.php:355
-#: inc/hub-content.php:413
+#: inc/hub-content.php:344
+#: inc/hub-content.php:356
+#: inc/hub-content.php:414
 msgid "A profile badge"
 msgstr ""
 
-#: inc/hub-content.php:345
+#: inc/hub-content.php:346
 msgid "Recognized co-curricular activity or event credit, where the school offers it."
 msgstr ""
 
-#: inc/hub-content.php:346
+#: inc/hub-content.php:347
 msgid "Find a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:349
+#: inc/hub-content.php:350
 msgid "Builder"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:351
+#: inc/hub-content.php:352
 msgid "Launch a live site with real content"
 msgstr ""
 
-#: inc/hub-content.php:352
+#: inc/hub-content.php:353
 msgid "Launch a live site with real content."
 msgstr ""
 
-#: inc/hub-content.php:354
-#: inc/hub-content.php:426
+#: inc/hub-content.php:355
+#: inc/hub-content.php:427
 msgid "Showcase eligibility"
 msgstr ""
 
-#: inc/hub-content.php:357
+#: inc/hub-content.php:358
 msgid "A portfolio piece that can be assessed within an existing course."
 msgstr ""
 
-#: inc/hub-content.php:358
+#: inc/hub-content.php:359
 msgid "Learn to build a site"
 msgstr ""
 
-#: inc/hub-content.php:361
+#: inc/hub-content.php:362
 msgid "Contributor"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:363
+#: inc/hub-content.php:364
 msgid "Get your first contribution accepted"
 msgstr ""
 
-#: inc/hub-content.php:364
+#: inc/hub-content.php:365
 msgid "Get your first contribution accepted."
 msgstr ""
 
-#: inc/hub-content.php:366
+#: inc/hub-content.php:367
 msgid "Contribution badge"
 msgstr ""
 
-#: inc/hub-content.php:367
+#: inc/hub-content.php:368
 msgid "Make team channels"
 msgstr ""
 
-#: inc/hub-content.php:368
+#: inc/hub-content.php:369
 msgid "Mentor matching"
 msgstr ""
 
-#: inc/hub-content.php:369
+#: inc/hub-content.php:370
 msgid "Retention support starts here"
 msgstr ""
 
-#: inc/hub-content.php:371
+#: inc/hub-content.php:372
 msgid "Open source work logged toward course or program requirements."
 msgstr ""
 
-#: inc/hub-content.php:372
+#: inc/hub-content.php:373
 msgid "Start WordPress Credits"
 msgstr ""
 
-#: inc/hub-content.php:375
+#: inc/hub-content.php:376
 msgctxt "a step on the student pathway, a noun: someone who has completed a track"
 msgid "Graduate"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:377
+#: inc/hub-content.php:378
 msgid "Complete a WordPress Credits track"
 msgstr ""
 
-#: inc/hub-content.php:378
+#: inc/hub-content.php:379
 msgid "Complete a WordPress Credits track."
 msgstr ""
 
-#: inc/hub-content.php:380
+#: inc/hub-content.php:381
 msgid "Foundation certificate"
 msgstr ""
 
-#: inc/hub-content.php:381
+#: inc/hub-content.php:382
 msgid "Digital badge"
 msgstr ""
 
-#: inc/hub-content.php:382
+#: inc/hub-content.php:383
 msgid "Verified hours transcript"
 msgstr ""
 
-#: inc/hub-content.php:383
+#: inc/hub-content.php:384
 msgid "Alumni directory listing"
 msgstr ""
 
-#: inc/hub-content.php:384
+#: inc/hub-content.php:385
 msgid "WordCamp ticket support"
 msgstr ""
 
-#: inc/hub-content.php:386
+#: inc/hub-content.php:387
 msgid "Credit-bearing."
 msgstr ""
 
-#: inc/hub-content.php:387
+#: inc/hub-content.php:388
 msgid "See the courses"
 msgstr ""
 
-#: inc/hub-content.php:390
+#: inc/hub-content.php:391
 msgid "Specialist"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:392
+#: inc/hub-content.php:393
 msgid "Complete a second or third program"
 msgstr ""
 
-#: inc/hub-content.php:393
+#: inc/hub-content.php:394
 msgid "Complete a second or third program."
 msgstr ""
 
-#: inc/hub-content.php:395
+#: inc/hub-content.php:396
 msgid "Deeper specialization"
 msgstr ""
 
-#: inc/hub-content.php:396
+#: inc/hub-content.php:397
 msgid "Scoped project work"
 msgstr ""
 
-#: inc/hub-content.php:397
+#: inc/hub-content.php:398
 msgid "Priority mentor matching"
 msgstr ""
 
-#: inc/hub-content.php:398
+#: inc/hub-content.php:399
 msgid "A specialist badge"
 msgstr ""
 
-#: inc/hub-content.php:400
+#: inc/hub-content.php:401
 msgid "Credit-bearing as an advanced elective, independent study, practicum, or capstone."
 msgstr ""
 
-#: inc/hub-content.php:401
+#: inc/hub-content.php:402
 msgid "Explore programs"
 msgstr ""
 
-#: inc/hub-content.php:404
+#: inc/hub-content.php:405
 msgid "Community Leader"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:406
+#: inc/hub-content.php:407
 msgid "Facilitate, mentor, organize, or speak"
 msgstr ""
 
-#: inc/hub-content.php:407
+#: inc/hub-content.php:408
 msgid "Facilitate, mentor, organize, or speak."
 msgstr ""
 
-#: inc/hub-content.php:409
+#: inc/hub-content.php:410
 msgid "Listing in the facilitator and speaker directory"
 msgstr ""
 
-#: inc/hub-content.php:410
+#: inc/hub-content.php:411
 msgid "Discounted or free WordCamp access"
 msgstr ""
 
-#: inc/hub-content.php:411
+#: inc/hub-content.php:412
 msgid "Priority on paid teaching leads"
 msgstr ""
 
-#: inc/hub-content.php:412
+#: inc/hub-content.php:413
 msgid "Organizing support"
 msgstr ""
 
-#: inc/hub-content.php:415
+#: inc/hub-content.php:416
 msgid "A role the school already records: teaching assistant, peer mentor, or student organization leader."
 msgstr ""
 
-#: inc/hub-content.php:416
-#: inc/hub-content.php:475
+#: inc/hub-content.php:417
+#: inc/hub-content.php:476
 msgid "Try Facilitator Training"
 msgstr ""
 
-#: inc/hub-content.php:419
+#: inc/hub-content.php:420
 msgid "Credentialed"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:421
+#: inc/hub-content.php:422
 msgid "Earn a micro-credential"
 msgstr ""
 
-#: inc/hub-content.php:422
+#: inc/hub-content.php:423
 msgid "Earn a micro-credential."
 msgstr ""
 
-#: inc/hub-content.php:424
+#: inc/hub-content.php:425
 msgid "An Open to Work listing on jobs.wordpress.net"
 msgstr ""
 
-#: inc/hub-content.php:425
+#: inc/hub-content.php:426
 msgid "Credentials shown on your profile"
 msgstr ""
 
-#: inc/hub-content.php:428
+#: inc/hub-content.php:429
 msgid "A stackable credential accepted toward a degree, certificate, or transcript notation."
 msgstr ""
 
-#: inc/hub-content.php:429
+#: inc/hub-content.php:430
 msgid "Where this leads: WordPress Jobs"
 msgstr ""
 
-#: inc/hub-content.php:443
+#: inc/hub-content.php:444
 msgid "Participating"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:445
+#: inc/hub-content.php:446
 msgid "Host one Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:446
+#: inc/hub-content.php:447
 msgid "Host one Campus Connect event."
 msgstr ""
 
-#: inc/hub-content.php:448
+#: inc/hub-content.php:449
 msgid "A listing on the WordPress education page"
 msgstr ""
 
-#: inc/hub-content.php:449
+#: inc/hub-content.php:450
 msgid "A logo kit"
 msgstr ""
 
-#: inc/hub-content.php:451
+#: inc/hub-content.php:452
 msgid "Request a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:454
+#: inc/hub-content.php:455
 msgctxt "a level on the institution pathway, a noun: an institution that has signed a partnership agreement"
 msgid "Partner"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:456
+#: inc/hub-content.php:457
 msgid "Sign a partnership agreement and complete one WordPress Credits group"
 msgstr ""
 
-#: inc/hub-content.php:457
+#: inc/hub-content.php:458
 msgid "Sign a partnership agreement and complete one WordPress Credits group."
 msgstr ""
 
-#: inc/hub-content.php:459
+#: inc/hub-content.php:460
 msgid "A partner badge for your site"
 msgstr ""
 
-#: inc/hub-content.php:460
+#: inc/hub-content.php:461
 msgid "An Institution Dashboard"
 msgstr ""
 
-#: inc/hub-content.php:461
+#: inc/hub-content.php:462
 msgid "An auto-generated impact report each semester"
 msgstr ""
 
-#: inc/hub-content.php:463
+#: inc/hub-content.php:464
 #: patterns/hub-cta.php:62
 #: patterns/hub-doors.php:34
 msgid "Partner as an institution"
 msgstr ""
 
-#: inc/hub-content.php:466
+#: inc/hub-content.php:467
 msgid "Established"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:468
+#: inc/hub-content.php:469
 msgid "Run recurring groups with growing student numbers, at least one trained faculty facilitator, and students sitting certification exams"
 msgstr ""
 
-#: inc/hub-content.php:469
+#: inc/hub-content.php:470
 msgid "Run recurring groups with growing student numbers, at least one trained faculty facilitator, and students sitting certification exams."
 msgstr ""
 
-#: inc/hub-content.php:471
+#: inc/hub-content.php:472
 msgid "Named regional support"
 msgstr ""
 
-#: inc/hub-content.php:472
+#: inc/hub-content.php:473
 msgid "A WordCamp speaking slot"
 msgstr ""
 
-#: inc/hub-content.php:473
+#: inc/hub-content.php:474
 msgid "Co-marketing"
 msgstr ""
 
-#: inc/hub-content.php:478
+#: inc/hub-content.php:479
 msgid "Flagship"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:480
+#: inc/hub-content.php:481
 msgid "Integrate WordPress into the curriculum, with faculty mentoring across institutions and sustained numbers of certified students"
 msgstr ""
 
-#: inc/hub-content.php:481
+#: inc/hub-content.php:482
 msgid "Integrate WordPress into the curriculum, with faculty mentoring across institutions and sustained numbers of certified students."
 msgstr ""
 
-#: inc/hub-content.php:483
+#: inc/hub-content.php:484
 msgid "A case study"
 msgstr ""
 
-#: inc/hub-content.php:484
+#: inc/hub-content.php:485
 msgid "A Foundation announcement"
 msgstr ""
 
-#: inc/hub-content.php:485
+#: inc/hub-content.php:486
 msgid "Input on the program's direction"
 msgstr ""
 
-#: inc/hub-content.php:486
+#: inc/hub-content.php:487
 msgid "Event hosting"
 msgstr ""
 
-#: inc/hub-content.php:488
+#: inc/hub-content.php:489
 msgid "Talk to the program team"
 msgstr ""
 
-#: inc/hub-content.php:514
-#: inc/hub-content.php:538
+#: inc/hub-content.php:515
+#: inc/hub-content.php:539
 msgctxt "a benefit not offered yet"
 msgid "(planned)"
 msgstr ""
@@ -1014,9 +1014,166 @@ msgstr ""
 msgid "Code is poetry."
 msgstr ""
 
-#: inc/partners.php:108
+#: inc/partners.php:137
 #: patterns/partners-apply.php:19
 msgid "Become a partner"
+msgstr ""
+
+#: inc/partners.php:175
+msgid "Friend"
+msgstr ""
+
+#: inc/partners.php:176
+msgid "In-kind, through Five for the Future"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid.
+#: inc/partners.php:178
+msgid "In-kind"
+msgstr ""
+
+#: inc/partners.php:179
+msgid "For companies sponsoring mentors through Five for the Future."
+msgstr ""
+
+#: inc/partners.php:181
+msgid "Company name on the partner page"
+msgstr ""
+
+#: inc/partners.php:182
+#: patterns/partners-levels.php:24
+msgid "Mention in the mentor feature"
+msgstr ""
+
+#: inc/partners.php:183
+msgid "Acknowledgement in the annual partner thank you post"
+msgstr ""
+
+#: inc/partners.php:187
+msgid "Supporter"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: inc/partners.php:189
+msgid "$5,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: inc/partners.php:191
+msgid "$5,000"
+msgstr ""
+
+#: inc/partners.php:192
+msgid "Everything in Friend, plus:"
+msgstr ""
+
+#: inc/partners.php:194
+#: patterns/partners-levels.php:26
+msgid "Logo and description on the partner page"
+msgstr ""
+
+#: inc/partners.php:195
+msgid "A badge for your own site"
+msgstr ""
+
+#: inc/partners.php:196
+msgid "The annual program report"
+msgstr ""
+
+#: inc/partners.php:200
+msgid "Backer"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: inc/partners.php:202
+msgid "$10,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: inc/partners.php:204
+msgid "$10,000"
+msgstr ""
+
+#: inc/partners.php:205
+msgid "Everything in Supporter, plus:"
+msgstr ""
+
+#: inc/partners.php:207
+msgid "Named for the part of the program you fund in program communications"
+msgstr ""
+
+#: inc/partners.php:208
+msgid "A report covering that cost line"
+msgstr ""
+
+#: inc/partners.php:209
+msgid "One self-written educational post about the sponsored product"
+msgstr ""
+
+#: inc/partners.php:213
+msgid "Champion"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year.
+#: inc/partners.php:215
+msgid "$15,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars.
+#: inc/partners.php:217
+msgid "$15,000"
+msgstr ""
+
+#: inc/partners.php:218
+msgid "Everything in Backer, plus:"
+msgstr ""
+
+#: inc/partners.php:220
+msgid "A second self-written post with factual, value-neutral information about additional products"
+msgstr ""
+
+#: inc/partners.php:221
+msgid "An invitation to the annual education partners session"
+msgstr ""
+
+#: inc/partners.php:222
+msgid "A webinar or event co-hosted with the education program"
+msgstr ""
+
+#: inc/partners.php:226
+msgctxt "the highest partnership level, a noun: a company that funds a named program"
+msgid "Partner"
+msgstr ""
+
+#. translators: A partnership level's amount, in US dollars a year, the least it starts from.
+#: inc/partners.php:228
+msgid "From $30,000 a year"
+msgstr ""
+
+#. translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from.
+#: inc/partners.php:230
+msgid "From $30,000"
+msgstr ""
+
+#: inc/partners.php:231
+msgid "Funds a named program"
+msgstr ""
+
+#: inc/partners.php:232
+msgid "Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them."
+msgstr ""
+
+#: inc/partners.php:234
+msgid "Named as program partner on the program you fund, with the exclusive role in that program"
+msgstr ""
+
+#: inc/partners.php:235
+#: patterns/partners-levels.php:36
+msgid "Named in launch communications"
+msgstr ""
+
+#: inc/partners.php:236
+msgid "A report specific to that program"
 msgstr ""
 
 #: inc/template-tags.php:290
@@ -1700,246 +1857,89 @@ msgctxt "Pattern description"
 msgid "The pilot year, the five partnership levels with what each gives, and a table comparing them."
 msgstr ""
 
-#: patterns/partners-levels.php:20
-msgid "Friend"
-msgstr ""
-
-#: patterns/partners-levels.php:21
-msgid "In-kind, through Five for the Future"
-msgstr ""
-
-#. translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid.
 #: patterns/partners-levels.php:23
-msgid "In-kind"
-msgstr ""
-
-#: patterns/partners-levels.php:24
-msgid "For companies sponsoring mentors through Five for the Future."
-msgstr ""
-
-#: patterns/partners-levels.php:26
-msgid "Company name on the partner page"
-msgstr ""
-
-#: patterns/partners-levels.php:27
-#: patterns/partners-levels.php:89
-msgid "Mention in the mentor feature"
-msgstr ""
-
-#: patterns/partners-levels.php:28
-msgid "Acknowledgement in the annual partner thank you post"
-msgstr ""
-
-#: patterns/partners-levels.php:32
-msgid "Supporter"
-msgstr ""
-
-#. translators: A partnership level's amount, in US dollars a year.
-#: patterns/partners-levels.php:34
-msgid "$5,000 a year"
-msgstr ""
-
-#. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: patterns/partners-levels.php:36
-msgid "$5,000"
-msgstr ""
-
-#: patterns/partners-levels.php:37
-msgid "Everything in Friend, plus:"
-msgstr ""
-
-#: patterns/partners-levels.php:39
-#: patterns/partners-levels.php:91
-msgid "Logo and description on the partner page"
-msgstr ""
-
-#: patterns/partners-levels.php:40
-msgid "A badge for your own site"
-msgstr ""
-
-#: patterns/partners-levels.php:41
-msgid "The annual program report"
-msgstr ""
-
-#: patterns/partners-levels.php:45
-msgid "Backer"
-msgstr ""
-
-#. translators: A partnership level's amount, in US dollars a year.
-#: patterns/partners-levels.php:47
-msgid "$10,000 a year"
-msgstr ""
-
-#. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: patterns/partners-levels.php:49
-msgid "$10,000"
-msgstr ""
-
-#: patterns/partners-levels.php:50
-msgid "Everything in Supporter, plus:"
-msgstr ""
-
-#: patterns/partners-levels.php:52
-msgid "Named for the part of the program you fund in program communications"
-msgstr ""
-
-#: patterns/partners-levels.php:53
-msgid "A report covering that cost line"
-msgstr ""
-
-#: patterns/partners-levels.php:54
-msgid "One self-written educational post about the sponsored product"
-msgstr ""
-
-#: patterns/partners-levels.php:58
-msgid "Champion"
-msgstr ""
-
-#. translators: A partnership level's amount, in US dollars a year.
-#: patterns/partners-levels.php:60
-msgid "$15,000 a year"
-msgstr ""
-
-#. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: patterns/partners-levels.php:62
-msgid "$15,000"
-msgstr ""
-
-#: patterns/partners-levels.php:63
-msgid "Everything in Backer, plus:"
-msgstr ""
-
-#: patterns/partners-levels.php:65
-msgid "A second self-written post with factual, value-neutral information about additional products"
-msgstr ""
-
-#: patterns/partners-levels.php:66
-msgid "An invitation to the annual education partners session"
-msgstr ""
-
-#: patterns/partners-levels.php:67
-msgid "A webinar or event co-hosted with the education program"
-msgstr ""
-
-#: patterns/partners-levels.php:71
-msgctxt "the highest partnership level, a noun: a company that funds a named program"
-msgid "Partner"
-msgstr ""
-
-#. translators: A partnership level's amount, in US dollars a year, the least it starts from.
-#: patterns/partners-levels.php:73
-msgid "From $30,000 a year"
-msgstr ""
-
-#. translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from.
-#: patterns/partners-levels.php:75
-msgid "From $30,000"
-msgstr ""
-
-#: patterns/partners-levels.php:76
-msgid "Funds a named program"
-msgstr ""
-
-#: patterns/partners-levels.php:77
-msgid "Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them."
-msgstr ""
-
-#: patterns/partners-levels.php:79
-msgid "Named as program partner on the program you fund, with the exclusive role in that program"
-msgstr ""
-
-#: patterns/partners-levels.php:80
-#: patterns/partners-levels.php:101
-msgid "Named in launch communications"
-msgstr ""
-
-#: patterns/partners-levels.php:81
-msgid "A report specific to that program"
-msgstr ""
-
-#: patterns/partners-levels.php:88
 msgid "Name on the partner page"
 msgstr ""
 
-#: patterns/partners-levels.php:90
+#: patterns/partners-levels.php:25
 msgid "Acknowledged in the partner thank you post"
 msgstr ""
 
-#: patterns/partners-levels.php:92
+#: patterns/partners-levels.php:27
 msgid "Badge for your own site"
 msgstr ""
 
-#: patterns/partners-levels.php:93
+#: patterns/partners-levels.php:28
 msgid "Annual program report"
 msgstr ""
 
-#: patterns/partners-levels.php:94
+#: patterns/partners-levels.php:29
 msgid "Named for what you fund in program communications"
 msgstr ""
 
-#: patterns/partners-levels.php:95
+#: patterns/partners-levels.php:30
 msgid "Report covering that cost line"
 msgstr ""
 
-#: patterns/partners-levels.php:96
+#: patterns/partners-levels.php:31
 msgid "A self-written educational post about the sponsored product"
 msgstr ""
 
-#: patterns/partners-levels.php:97
+#: patterns/partners-levels.php:32
 msgid "A second self-written post about additional products"
 msgstr ""
 
-#: patterns/partners-levels.php:98
+#: patterns/partners-levels.php:33
 msgid "Invitation to the annual education partners session"
 msgstr ""
 
-#: patterns/partners-levels.php:99
+#: patterns/partners-levels.php:34
 msgid "Co-hosted webinar or event"
 msgstr ""
 
-#: patterns/partners-levels.php:100
+#: patterns/partners-levels.php:35
 msgid "Named as program partner on the program you fund"
 msgstr ""
 
-#: patterns/partners-levels.php:102
+#: patterns/partners-levels.php:37
 msgid "Program-specific report"
 msgstr ""
 
-#: patterns/partners-levels.php:105
+#: patterns/partners-levels.php:40
 msgctxt "a partnership level has this recognition"
 msgid "Yes"
 msgstr ""
 
-#: patterns/partners-levels.php:106
+#: patterns/partners-levels.php:41
 msgctxt "a partnership level does not have this recognition"
 msgid "No"
 msgstr ""
 
-#: patterns/partners-levels.php:112
+#: patterns/partners-levels.php:47
 msgid "2027 is a pilot year"
 msgstr ""
 
-#: patterns/partners-levels.php:116
+#: patterns/partners-levels.php:51
 msgid "This is the first time we have offered partnership levels, and we are treating it as a test. We will run it through 2027, publish what we learn, and adjust or retire whatever does not work. If none of the levels below fits what your company wants to do, write to us and we will shape something that does."
 msgstr ""
 
-#: patterns/partners-levels.php:124
+#: patterns/partners-levels.php:59
 msgid "Partnership levels"
 msgstr ""
 
-#: patterns/partners-levels.php:128
+#: patterns/partners-levels.php:63
 msgid "Five levels, from contributing mentor time through to funding a complete program. Recognition is consistent across all of them: partners are listed in the same format, with descriptions of the same length, in alphabetical order rather than by level."
 msgstr ""
 
-#: patterns/partners-levels.php:132
+#: patterns/partners-levels.php:67
 msgid "Compare all levels"
 msgstr ""
 
-#: patterns/partners-levels.php:157
+#: patterns/partners-levels.php:92
 msgid "Levels at a glance"
 msgstr ""
 
-#: patterns/partners-levels.php:166
+#: patterns/partners-levels.php:101
 msgid "Recognition"
 msgstr ""
 

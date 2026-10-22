@@ -911,6 +911,14 @@ ck( 'every entry is a 44px row (15px type on a 20px line with 12px above and bel
 	),
 	array() );
 
+ck( 'on the Partners page the menu\'s "Become a partner" row is marked current (inc/partners.php), and in the panel it keeps the weight 600 its own rule gives it, which the rule for the page being viewed would take down to 500: one rule in the screen query, deeper than that rule',
+	array( rules_of( $m . ' .wpc-nav .wpc-nav__partner > [aria-current="page"]', $menu_at ), rules_of( '.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content', '' ) ),
+	array( array( array( 'font-weight: 600;' ) ), array( array( 'border: 1px solid var( --wpc-brand );', 'color: var( --wpc-brand );', 'font-weight: 600;', 'padding: 7px 12px;' ) ) ) );
+
+ck( 'in the panel "Become a partner" is a row like the others: the wide row\'s outline button would keep its top, left and right borders, with the text against the left one, since the row rule replaces only the bottom border; one rule in the screen query takes the three off and leaves the row\'s hairline under it',
+	array( rules_of( $m . ' .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content', $menu_at ) ),
+	array( array( array( 'border-left: 0;', 'border-right: 0;', 'border-top: 0;' ) ) ) );
+
 ck( 'in forced colors, where the page being viewed loses its color, the menu underlines it: one rule in the forced-colors twin of the screen query',
 	$unpinned( array( $m . ' .wpc-nav__center [aria-current="page"]' => array( 'text-decoration: underline;' ) ), $forced_at ),
 	array() );

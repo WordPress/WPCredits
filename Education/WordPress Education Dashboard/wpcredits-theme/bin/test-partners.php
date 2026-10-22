@@ -17,6 +17,10 @@ if ( ! function_exists( 'get_post_field' ) ) {
 	function get_post_field( $field, $post = 0 ) { return isset( $GLOBALS['slugs'][ (int) $post ] ) ? $GLOBALS['slugs'][ (int) $post ] : ''; }
 }
 
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( $post = 0 ) { return isset( $GLOBALS['permalinks'][ (int) $post ] ) ? $GLOBALS['permalinks'][ (int) $post ] : false; }
+}
+
 require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 
 $fail  = 0;
@@ -61,9 +65,15 @@ function found( DOMXPath $xpath, $query, $attribute = '' ) {
 	return $said;
 }
 
-/** The plugin's sponsorship application and launch switch, as the plugin answers them. */
+/** The plugin's sponsorship application, Partners page and launch switch, as the plugin answers them: an address, or '' while a page is not published. */
 class WPCPM_Sponsor_Application {
-	public static function page_url() { return 'https://site.example/sponsor-application/'; }
+	public static $url = 'https://site.example/sponsor-application/';
+	public static function page_url() { return self::$url; }
+}
+
+class WPCPM_Sponsors_Page {
+	public static $url = 'https://site.example/partners/';
+	public static function page_url() { return self::$url; }
 }
 
 class WPCPM_Sponsor_Tiers {
@@ -251,25 +261,198 @@ echo "\n=== The menu's item ===\n";
 
 $anchor = array( 'blockName' => 'core/navigation', 'attrs' => array() );
 
+/**
+ * The hooked item for a request, as the navigation block asks for it.
+ *
+ * @return array The item's attributes.
+ */
+function menu_item_attrs() {
+	global $anchor;
+
+	$item = wpcredits_partners_menu_item_block( array( 'blockName' => 'core/navigation-link', 'attrs' => array() ), 'core/navigation-link', 'last_child', $anchor );
+
+	return $item['attrs'];
+}
+
+/**
+ * Whether core's Navigation Link block marks an item current, the test of
+ * `render_block_core_navigation_link()` in WordPress 7.1 (wp-includes/blocks/navigation-link.php): the
+ * item has a page's ID, the page being viewed is that page, and the item's kind (a custom link's is
+ * `custom`, a page's `post-type`) is a property the viewed object has. It matches no address: only a
+ * post type archive's link is matched by its URL.
+ *
+ * @param array $attrs  The item's attributes.
+ * @param int   $viewed The viewed object's ID.
+ * @param array $object The viewed object's properties.
+ * @return bool
+ */
+function core_marks_current( array $attrs, $viewed, array $object ) {
+	$kind = empty( $attrs['kind'] ) ? 'post_type' : str_replace( '-', '_', $attrs['kind'] );
+
+	return ! empty( $attrs['id'] ) && $viewed === (int) $attrs['id'] && ! empty( $object[ $kind ] );
+}
+
 WPCPM_Sponsor_Tiers::$live = false;
 $off = wpcredits_partners_menu_item( array(), 'last_child', 'core/navigation' );
 
 WPCPM_Sponsor_Tiers::$live = true;
-$on       = wpcredits_partners_menu_item( array(), 'last_child', 'core/navigation' );
+$on        = wpcredits_partners_menu_item( array(), 'last_child', 'core/navigation' );
 $elsewhere = array( wpcredits_partners_menu_item( array(), 'after', 'core/navigation' ), wpcredits_partners_menu_item( array(), 'last_child', 'core/group' ) );
-$item     = wpcredits_partners_menu_item_block( array( 'blockName' => 'core/navigation-link', 'attrs' => array() ), 'core/navigation-link', 'last_child', $anchor );
-$left     = wpcredits_partners_menu_item_block( null, 'core/navigation-link', 'last_child', $anchor );
-WPCPM_Sponsor_Tiers::$live = false;
+$item      = menu_item_attrs();
+$left      = wpcredits_partners_menu_item_block( null, 'core/navigation-link', 'last_child', $anchor );
+$other     = wpcredits_partners_menu_item_block( array( 'blockName' => 'core/navigation-link', 'attrs' => array( 'label' => 'Kept' ) ), 'core/navigation-link', 'first_child', $anchor );
 
-ck( 'while the levels are not public the menu gains nothing; once they are, its last item is a link, "Become a partner", to the sponsorship application, and nowhere else is anything hooked',
-	array( $off, $on, $elsewhere, $item['attrs'], $left ),
+ck( 'while the levels are not public the menu gains nothing; once they are, its last item is a link, "Become a partner", to the Partners page, and nowhere else is anything hooked',
+	array( $off, $on, $elsewhere, $item, $left, $other['attrs'] ),
 	array(
 		array(),
 		array( 'core/navigation-link' ),
 		array( array(), array() ),
-		array( 'label' => 'Become a partner', 'url' => 'https://site.example/sponsor-application/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' ),
+		array( 'label' => 'Become a partner', 'url' => 'https://site.example/partners/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' ),
 		null,
+		array( 'label' => 'Kept' ),
 	) );
+
+// The Partners page, then the application, then the handbook: each falls back to the next.
+WPCPM_Sponsors_Page::$url = '';
+$without_page = menu_item_attrs()['url'];
+
+WPCPM_Sponsor_Application::$url = '';
+$without_either = menu_item_attrs()['url'];
+
+WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
+$without_application = menu_item_attrs()['url'];
+
+WPCPM_Sponsor_Application::$url = 'https://site.example/sponsor-application/';
+
+ck( 'the item leads to the Partners page; while the plugin has no published Partners page, to the sponsorship application; with neither, to the WordPress Credits handbook',
+	array( $item['url'], $without_page, $without_either, $without_application ),
+	array(
+		'https://site.example/partners/',
+		'https://site.example/sponsor-application/',
+		WPCREDITS_HUB_HANDBOOK,
+		'https://site.example/partners/',
+	) );
+
+// The navigation block marks a link current by a page's ID, not by an address, so the item says which page it is
+// on the page it leads to, and nowhere else.
+$GLOBALS['permalinks'] = array( 41 => 'https://site.example/partners/', 42 => 'https://site.example/about/' );
+
+$GLOBALS['request'] = array( 'singular' => 'page', 'id' => 41, 'templates' => array() );
+$on_partners        = menu_item_attrs();
+
+$GLOBALS['request']['id'] = 42;
+$on_other_page            = menu_item_attrs();
+
+$GLOBALS['request'] = array( 'singular' => 'post', 'id' => 41, 'templates' => array() );
+$on_a_post          = menu_item_attrs();
+
+$GLOBALS['request'] = array( 'singular' => '', 'id' => 0, 'templates' => array() );
+$on_archive         = menu_item_attrs();
+
+$GLOBALS['request'] = array( 'singular' => 'page', 'id' => 41, 'templates' => array() );
+WPCPM_Sponsors_Page::$url = '';
+$partners_unpublished     = menu_item_attrs();
+WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
+
+ck( 'on the Partners page the item carries the page\'s ID, as a link to a page does, so the navigation block marks it current; on another page, a post or an archive, it is the custom link it was',
+	array(
+		array( $on_partners['kind'], $on_partners['type'] ?? null, $on_partners['id'] ?? null, $on_partners['url'], $on_partners['label'], $on_partners['className'] ),
+		array_map( 'array_keys', array( $on_other_page, $on_a_post, $on_archive, $partners_unpublished ) ),
+	),
+	array(
+		array( 'post-type', 'page', 41, 'https://site.example/partners/', 'Become a partner', 'wpc-nav__partner' ),
+		array_fill( 0, 4, array( 'label', 'url', 'kind', 'className' ) ),
+	) );
+
+ck( 'core marks the item current on the Partners page and on no other page, as it does a link to that page; the custom link it was before is never marked',
+	array(
+		core_marks_current( $on_partners, 41, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_other_page, 42, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_partners, 42, array( 'post_type' => 'page' ) ),
+		core_marks_current( $item, 41, array( 'post_type' => 'page' ) ),
+	),
+	array( true, false, false, false ) );
+
+$GLOBALS['request'] = array( 'singular' => '', 'id' => 0, 'templates' => array() );
+WPCPM_Sponsor_Tiers::$live = false;
+
+echo "\n=== The levels ===\n";
+
+$levels = function_exists( 'wpcredits_partner_levels' ) ? wpcredits_partner_levels() : array();
+
+ck( 'the five levels are one list in a function, in the program lead\'s order: each its name, amount, short amount, lead and three items, and the Partner level also its tag',
+	array(
+		array_column( $levels, 'name' ),
+		array_map( 'array_keys', $levels ),
+		array_map( static function ( $level ) { return count( $level['items'] ); }, $levels ),
+		array_column( $levels, 'tag' ),
+	),
+	array(
+		array( 'Friend', 'Supporter', 'Backer', 'Champion', 'Partner' ),
+		array_merge( array_fill( 0, 4, array( 'name', 'amount', 'short', 'lead', 'items' ) ), array( array( 'name', 'amount', 'short', 'tag', 'lead', 'items' ) ) ),
+		array( 3, 3, 3, 3, 3 ),
+		array( 'Funds a named program' ),
+	) );
+
+ck( 'the page draws from that list: in the cards each level\'s name (and the tag beside the Partner\'s), amount, lead and items, and in the table\'s head its name and short amount',
+	array(
+		found( $px, '//li[contains(@class,"wpc-partners-level")]/h3' ),
+		found( $px, '//li[contains(@class,"wpc-partners-level")]/p[@class="wpc-partners-level__amount"]' ),
+		found( $px, '//li[contains(@class,"wpc-partners-level")]/p[@class="wpc-partners-level__lead"]' ),
+		found( $px, '//ul[@class="wpc-partners-level__items"]/li' ),
+		found( $px, '//table/thead/tr/th' ),
+	),
+	array(
+		array_map( static function ( $level ) { return $level['name'] . ( isset( $level['tag'] ) ? ' ' . $level['tag'] : '' ); }, $levels ),
+		array_column( $levels, 'amount' ),
+		array_column( $levels, 'lead' ),
+		array_merge( ...array_column( $levels, 'items' ) ),
+		array_merge( array( 'Recognition' ), array_map( static function ( $level ) { return $level['name'] . ' ' . $level['short']; }, $levels ) ),
+	) );
+
+// The plugin asks while the levels are public; the answer does not depend on it.
+WPCPM_Sponsor_Tiers::$live = false;
+$closed = apply_filters( 'wpcpm_partner_levels', array( 'a left-over level' ) );
+
+WPCPM_Sponsor_Tiers::$live = true;
+$open = apply_filters( 'wpcpm_partner_levels', array() );
+
+WPCPM_Sponsor_Tiers::$live = false;
+
+ck( 'the plugin\'s form is given the levels through its filter: five, in order, each its name, amount, lead and items, and the Partner\'s also its tag, never the table\'s short amount; they replace what the filter received',
+	array(
+		array_column( $closed, 'name' ),
+		array_map( 'array_keys', array_filter( $closed, 'is_array' ) ),
+		array_column( $closed, 'tag' ),
+		in_array( 'a left-over level', $closed, true ),
+	),
+	array(
+		array( 'Friend', 'Supporter', 'Backer', 'Champion', 'Partner' ),
+		array_merge( array_fill( 0, 4, array( 'name', 'amount', 'lead', 'items' ) ), array( array( 'name', 'amount', 'lead', 'items', 'tag' ) ) ),
+		array( 'Funds a named program' ),
+		false,
+	) );
+
+ck( 'the filter\'s words are the page\'s: the same names, amounts, leads, items and tag, each item a string in a list; and the answer is the same while the levels are public or not',
+	array(
+		array_column( $open, 'name' ) === array_column( $levels, 'name' ),
+		array_column( $open, 'amount' ) === array_column( $levels, 'amount' ),
+		array_column( $open, 'lead' ) === array_column( $levels, 'lead' ),
+		array_column( $open, 'items' ) === array_column( $levels, 'items' ),
+		array_column( $open, 'tag' ) === array_column( $levels, 'tag' ),
+		array_unique( array_map( static function ( $level ) { return array_keys( $level['items'] ) === array( 0, 1, 2 ) && array() === array_filter( $level['items'], static function ( $item ) { return ! is_string( $item ); } ); }, $open ) ),
+		$open === $closed,
+		5 === count( $open ),
+	),
+	array( true, true, true, true, true, array( true ), true, true ) );
+
+ck( 'the theme hooks the filter once, at the default priority, with the one argument the plugin passes',
+	array_map(
+		static function ( $hook ) { return array( $hook[0], $hook[1], $hook[2] ); },
+		isset( $GLOBALS['hooks']['wpcpm_partner_levels'] ) ? $GLOBALS['hooks']['wpcpm_partner_levels'] : array()
+	),
+	array( array( 'wpcredits_partners_levels_for_form', 10, 1 ) ) );
 
 ck( 'the theme loads the Partners page\'s code',
 	substr_count( (string) file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "require_once get_theme_file_path( 'inc/partners.php' );" ), 1 );

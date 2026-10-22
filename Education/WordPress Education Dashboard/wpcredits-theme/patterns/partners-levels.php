@@ -7,81 +7,16 @@
  * Keywords: partners, sponsors, levels, tiers
  * Viewport Width: 1400
  *
- * The cards and the table are drawn from the two lists below, in a program lead's words (21 October
- * 2026): the levels, each with its amount and what it adds, and the table's rows, each with the
- * first level that has it, so the table says Yes from that level up and the two can never disagree.
- * The amounts are the program's own, text on the page; the site handles no payment.
+ * The cards and the table are drawn from two lists, in a program lead's words (21 October 2026): the
+ * levels, each with its amount and what it adds, which `wpcredits_partner_levels()` (inc/partners.php)
+ * holds because the plugin's sponsor application shows the same words, and the table's rows below,
+ * each with the first level that has it, so the table says Yes from that level up and the two can
+ * never disagree. The amounts are the program's own, text on the page; the site handles no payment.
  *
  * @package WPCredits_Theme
  */
 
-$wpcredits_levels = array(
-	array(
-		'name'   => __( 'Friend', 'wpcredits-theme' ),
-		'amount' => __( 'In-kind, through Five for the Future', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid. */
-		'short'  => __( 'In-kind', 'wpcredits-theme' ),
-		'lead'   => __( 'For companies sponsoring mentors through Five for the Future.', 'wpcredits-theme' ),
-		'items'  => array(
-			__( 'Company name on the partner page', 'wpcredits-theme' ),
-			__( 'Mention in the mentor feature', 'wpcredits-theme' ),
-			__( 'Acknowledgement in the annual partner thank you post', 'wpcredits-theme' ),
-		),
-	),
-	array(
-		'name'   => __( 'Supporter', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount, in US dollars a year. */
-		'amount' => __( '$5,000 a year', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount in the comparison table's head, in US dollars. */
-		'short'  => __( '$5,000', 'wpcredits-theme' ),
-		'lead'   => __( 'Everything in Friend, plus:', 'wpcredits-theme' ),
-		'items'  => array(
-			__( 'Logo and description on the partner page', 'wpcredits-theme' ),
-			__( 'A badge for your own site', 'wpcredits-theme' ),
-			__( 'The annual program report', 'wpcredits-theme' ),
-		),
-	),
-	array(
-		'name'   => __( 'Backer', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount, in US dollars a year. */
-		'amount' => __( '$10,000 a year', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount in the comparison table's head, in US dollars. */
-		'short'  => __( '$10,000', 'wpcredits-theme' ),
-		'lead'   => __( 'Everything in Supporter, plus:', 'wpcredits-theme' ),
-		'items'  => array(
-			__( 'Named for the part of the program you fund in program communications', 'wpcredits-theme' ),
-			__( 'A report covering that cost line', 'wpcredits-theme' ),
-			__( 'One self-written educational post about the sponsored product', 'wpcredits-theme' ),
-		),
-	),
-	array(
-		'name'   => __( 'Champion', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount, in US dollars a year. */
-		'amount' => __( '$15,000 a year', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount in the comparison table's head, in US dollars. */
-		'short'  => __( '$15,000', 'wpcredits-theme' ),
-		'lead'   => __( 'Everything in Backer, plus:', 'wpcredits-theme' ),
-		'items'  => array(
-			__( 'A second self-written post with factual, value-neutral information about additional products', 'wpcredits-theme' ),
-			__( 'An invitation to the annual education partners session', 'wpcredits-theme' ),
-			__( 'A webinar or event co-hosted with the education program', 'wpcredits-theme' ),
-		),
-	),
-	array(
-		'name'   => _x( 'Partner', 'the highest partnership level, a noun: a company that funds a named program', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount, in US dollars a year, the least it starts from. */
-		'amount' => __( 'From $30,000 a year', 'wpcredits-theme' ),
-		/* translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from. */
-		'short'  => __( 'From $30,000', 'wpcredits-theme' ),
-		'tag'    => __( 'Funds a named program', 'wpcredits-theme' ),
-		'lead'   => __( 'Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them.', 'wpcredits-theme' ),
-		'items'  => array(
-			__( 'Named as program partner on the program you fund, with the exclusive role in that program', 'wpcredits-theme' ),
-			__( 'Named in launch communications', 'wpcredits-theme' ),
-			__( 'A report specific to that program', 'wpcredits-theme' ),
-		),
-	),
-);
+$wpcredits_levels = wpcredits_partner_levels();
 
 // Each row of the table: what it recognizes, and the first level, from 0 (Friend), that has it.
 $wpcredits_rows = array(
