@@ -1508,8 +1508,9 @@
    so it lands below the sticky header. Its head is the programs section's own. Its cards are the
    program cards' white boxes: one column, two from 640px and six from 900px, laid out so that no card
    sits alone on a row (below). Two classes deep, over core's layout styles and the theme's list and
-   paragraph rules. */
-.wpc-hub-index .wpc-hub-courses {
+   paragraph rules: since 1.32.0 the band is a block of its own after the index, in the programs
+   section's flow layout, so its 56px is set over that layout's block gap wherever it sits in the hub. */
+.wpc-hub .wpc-hub-courses {
 	margin-top: 56px;
 	scroll-margin-top: var( --wpc-landing-offset );
 }

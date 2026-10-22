@@ -46,6 +46,7 @@ require_once get_theme_file_path( 'inc/hub.php' );
 require_once get_theme_file_path( 'inc/hub-content.php' );
 require_once get_theme_file_path( 'inc/header.php' );
 require_once get_theme_file_path( 'inc/partners.php' );
+require_once get_theme_file_path( 'inc/migrate-1-32-0.php' );
 
 /**
  * Theme supports.
@@ -99,15 +100,24 @@ add_action( 'wp_enqueue_scripts', 'wpcredits_assets' );
 
 /**
  * Register the theme's own blocks.
+ *
+ * The Program index, the Courses band and the Field of study rows draw their inner blocks themselves
+ * (theme 1.32.0), so core is told not to render them first: `skip_inner_blocks`, which block.json has
+ * no key for, is passed here, as core passes it for its own blocks that do the same.
  */
 function wpcredits_register_blocks() {
 	register_block_type( get_theme_file_path( 'blocks/viewer-chip' ) );
 	register_block_type( get_theme_file_path( 'blocks/handbook-launcher' ) );
 	register_block_type( get_theme_file_path( 'blocks/guide-toc' ) );
 	register_block_type( get_theme_file_path( 'blocks/program-stat' ) );
-	register_block_type( get_theme_file_path( 'blocks/program-index' ) );
+	register_block_type( get_theme_file_path( 'blocks/program-index' ), array( 'skip_inner_blocks' => true ) );
 	register_block_type( get_theme_file_path( 'blocks/pathway' ) );
 	register_block_type( get_theme_file_path( 'blocks/sign-in' ) );
+	register_block_type( get_theme_file_path( 'blocks/program-card' ) );
+	register_block_type( get_theme_file_path( 'blocks/course-band' ), array( 'skip_inner_blocks' => true ) );
+	register_block_type( get_theme_file_path( 'blocks/course-card' ) );
+	register_block_type( get_theme_file_path( 'blocks/fit-list' ), array( 'skip_inner_blocks' => true ) );
+	register_block_type( get_theme_file_path( 'blocks/fit-row' ) );
 }
 add_action( 'init', 'wpcredits_register_blocks' );
 

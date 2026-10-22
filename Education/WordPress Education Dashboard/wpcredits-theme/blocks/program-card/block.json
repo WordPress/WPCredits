@@ -1,0 +1,63 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/program-card",
+	"title": "Program card",
+	"category": "theme",
+	"icon": "id",
+	"description": "One program of the Program index: its name, what it is, its time, what a student gets and its links. Its audiences decide which filter chips show it; a program in development is shown only when the hub shows its planned content.",
+	"keywords": [ "program", "card", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"parent": [ "wpcredits/program-index" ],
+	"attributes": {
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"name": {
+			"type": "string",
+			"default": ""
+		},
+		"status": {
+			"type": "string",
+			"enum": [ "live", "development" ],
+			"default": "live"
+		},
+		"audiences": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"default": []
+		},
+		"what": {
+			"type": "string",
+			"default": ""
+		},
+		"time": {
+			"type": "string",
+			"default": ""
+		},
+		"gets": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"default": []
+		},
+		"links": {
+			"type": "array",
+			"items": {
+				"type": "object"
+			},
+			"default": []
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

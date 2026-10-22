@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.31.11
+Stable tag: 1.32.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,14 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.0 =
+* The Education Hub template is edited in the Site Editor, every word of it. The Program index holds a Program card for each program: its name, what it is and its time are edited on the card, and its status, audiences, address on the page, benefits and links in the card's settings; cards can be added, removed and reordered, and the filter chips count the cards there are. Under it, the Courses band holds a Course card for each WordPress Credits course, with its name, link, hours and line. "Find where you fit" is a list of Field of study rows, each with its field, the teams it joins and what the student will have to show, where it was a block of code. The page looks as it did.
+* A template already saved in the Site Editor is updated once, in place: the Program index and "Find where you fit" become the new blocks, filled with what the page showed, and every other edit stays. The template as it was is kept in its revisions, and the Site Editor shows Administrators a notice saying what changed until they dismiss it. A save from an editor opened before the update that brings the old blocks back is updated again at once.
+* On a phone, the rows of an institution's students on the Institution Dashboard, the student card and the Mentor Report Card show each label above its value, without the "Value:" that stood before every value (1.31.12).
+
+= 1.31.12 =
+* On a phone, the rows of an institution's students on the Institution Dashboard, the student card and the Mentor Report Card show each label above its value, without the "Value:" that stood before every value.
 
 = 1.31.11 =
 * The header menu's *Become a partner* leads to the Partners page, whose own *Become a partner* section leads to the application, where it led to the sponsorship application (a program Administrator's ask, the site's owner's yes, 22 October 2026). While the Partners page is not published it leads to the application, and with neither to the WordPress Credits handbook. On the Partners page the item is marked as the page being viewed: the signed-in phone menu shows it in the brand blue, at its own weight.

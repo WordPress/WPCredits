@@ -1,0 +1,39 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/course-band",
+	"title": "Courses band",
+	"category": "theme",
+	"icon": "welcome-learn-more",
+	"description": "A program's courses under the Program index: an eyebrow, a heading and a lede, and a Course card for each course, its name linked to its page. The band's anchor is its address on the page, which a program card links to.",
+	"keywords": [ "courses", "WordPress Credits", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"allowedBlocks": [ "wpcredits/course-card" ],
+	"attributes": {
+		"anchor": {
+			"type": "string",
+			"default": ""
+		},
+		"eyebrow": {
+			"type": "string",
+			"default": ""
+		},
+		"heading": {
+			"type": "string",
+			"default": ""
+		},
+		"lede": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"align": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"style": "wpcredits-hub",
+	"render": "file:./render.php"
+}

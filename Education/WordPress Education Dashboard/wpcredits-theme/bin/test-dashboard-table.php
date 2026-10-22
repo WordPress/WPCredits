@@ -346,6 +346,18 @@ ck( 'the boxes are `[tabindex]`s (the Administrator Dashboard\'s and the Usage c
 	$ring,
 	array( array( 'outline: 2px solid var( --wpc-brand );', 'outline-offset: 2px;' ) ) );
 
+// The label-and-value tables (an institution's student rows, the student card, the Mentor Report
+// Card) print each row's label in its own first cell, so on a phone nothing is drawn before a value:
+// a rule that printed the cell's data-label there showed "Value: " before every value (a review of
+// 22 October 2026). No rule of the sheet, in any query, draws before a value cell of these tables.
+$before = array();
+foreach ( sheet_rules( 'assets/css/dashboard.css' ) as $rule ) {
+	if ( false !== strpos( $rule['selector'], 'wpcpm-mentee__table' ) && false !== strpos( $rule['selector'], 'td::before' ) ) {
+		$before[] = $rule['selector'];
+	}
+}
+ck( 'no rule draws a label before a value of the label-and-value tables', $before, array() );
+
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 
 exit( $fail ? 1 : 0 );

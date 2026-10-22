@@ -5,9 +5,10 @@
 	"title": "Program index",
 	"category": "theme",
 	"icon": "index-card",
-	"description": "Every education program as a card, with chips that filter them by audience. Without JavaScript every card is shown and no chip is.",
+	"description": "Every education program as a Program card, with chips that filter them by audience, counted from the cards. Without JavaScript every card is shown and no chip is.",
 	"keywords": [ "programs", "education", "filter", "hub" ],
 	"textdomain": "wpcredits-theme",
+	"allowedBlocks": [ "wpcredits/program-card" ],
 	"supports": {
 		"html": false,
 		"reusable": false,

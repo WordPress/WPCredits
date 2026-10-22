@@ -51,9 +51,10 @@ function wpcredits_test_hub_page( $planned ) {
 }
 
 // The pages the scenarios open: each block on its own, with links of the kind the rest of the page
-// holds pointing at it, and the whole hub page, as the template draws it.
+// holds pointing at it, and the whole hub page, as the template draws it. The index is the one the
+// hub pattern holds, its Program cards inside it, and the band of courses after it (theme 1.32.0).
 $pages = array(
-	'index'   => '<main>' . wpcredits_test_block( 'wpcredits/program-index' ) . '<nav><a href="#program-wordpress-credits">Start WordPress Credits</a> <a href="#program-nothing">Nowhere</a> <a href="#program-wordpress-credits">WordPress Credits<span aria-hidden="true"> →</span></a></nav></main>',
+	'index'   => '<main>' . render_block( wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/program-index' ) ) . do_blocks( (string) wpcredits_hub_course_bands_markup( wpcredits_hub_programs() ) ) . '<nav><a href="#program-wordpress-credits">Start WordPress Credits</a> <a href="#program-nothing">Nowhere</a> <a href="#program-wordpress-credits">WordPress Credits<span aria-hidden="true"> →</span></a></nav></main>',
 	'pathway' => '<main>' . wpcredits_test_block( 'wpcredits/pathway' ) . '<nav><a href="#wpc-hub-step-students-6">Community Leader<span aria-hidden="true"> →</span></a></nav></main>',
 	'page'    => wpcredits_test_hub_page( true ),
 	'today'   => wpcredits_test_hub_page( false ),

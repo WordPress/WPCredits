@@ -1,0 +1,37 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/course-card",
+	"title": "Course card",
+	"category": "theme",
+	"icon": "book",
+	"description": "One course of a Courses band: its name, linked to its page, the line above the name (its hours, or who it is for) and one line on what it asks.",
+	"keywords": [ "course", "card", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"parent": [ "wpcredits/course-band" ],
+	"attributes": {
+		"name": {
+			"type": "string",
+			"default": ""
+		},
+		"url": {
+			"type": "string",
+			"default": ""
+		},
+		"eyebrow": {
+			"type": "string",
+			"default": ""
+		},
+		"line": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

@@ -3,10 +3,14 @@
  * The Education Hub's content: the six programs of the program index, and the seven student steps
  * and four institution levels of the pathway, every text translated and every link a target.
  *
- * In code rather than in the editor, as the design note's 7.4 decides: the two blocks print the same
- * texts with and without JavaScript, and a translator sees each one whole. The texts the patterns'
- * core blocks hold (the section heads, the doors, the field-of-study flow, the closing band) are the
- * patterns' own and editable in the Site Editor.
+ * The pathway's steps and levels are in code, as the design note's 7.4 decided: the block prints the
+ * same texts with and without JavaScript, and a translator sees each one whole. **The programs are
+ * edited in the Site Editor since theme 1.32.0** (the design of 22 October 2026): the program index is
+ * a container of Program cards, each card's words its block's own attributes, and the list below is
+ * what the hub pattern, and the migration of a template saved before 1.32.0, write into those cards,
+ * translated as they are written (`wpcredits_hub_program_cards_markup()`). The texts the patterns'
+ * core blocks hold (the section heads, the doors, the closing band) are the patterns' own and
+ * editable in the Site Editor too.
  *
  * **A benefit no public page confirms is marked planned** (the design note's 6.11): its `planned` is
  * true. The flag comes off here, in a theme release, the day a public page confirms the item.
@@ -15,7 +19,10 @@
  * what is fully available now, and keep the rest for when it is): a planned benefit, a planned line
  * of academic recognition and a program in development are kept here and not printed. They come back,
  * each planned one marked "(planned)", when `wpcredits_hub_shows_planned()` answers true: one filter,
- * `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`, brings the whole future version back.
+ * `add_filter( 'wpcredits_hub_show_planned', '__return_true' )`, brings the future version back. A
+ * card's benefits are its block's own since 1.32.0, written with what each program gives today, so
+ * the filter brings back the cards in development and the pathway's planned items, and no planned
+ * benefit on a card: those stay in the list below, for the day they are offered.
  *
  * A link's target is an outside address, an in-page anchor, or one of the site's own pages, named by
  * `institution_application`, `sponsor_application` or `partners` and read when the block renders
@@ -78,28 +85,6 @@ function wpcredits_hub_shown( array $items ) {
 			$items,
 			static function ( $item ) {
 				return empty( $item['planned'] );
-			}
-		)
-	);
-}
-
-/**
- * The programs the index prints: every one when the hub shows what is planned, else those running now.
- *
- * @return array[] As `wpcredits_hub_programs()` gives them, in its order.
- */
-function wpcredits_hub_programs_shown() {
-	$programs = wpcredits_hub_programs();
-
-	if ( wpcredits_hub_shows_planned() ) {
-		return $programs;
-	}
-
-	return array_values(
-		array_filter(
-			$programs,
-			static function ( $program ) {
-				return 'live' === $program['status'];
 			}
 		)
 	);
@@ -540,4 +525,569 @@ function wpcredits_hub_line_html( array $item ) {
 	}
 
 	return $html;
+}
+
+/*
+ * The blocks Administrators edit in the Site Editor (theme 1.32.0): what their attributes hold, how
+ * the hub reads them, and the block markup the hub pattern and the migration write.
+ */
+
+/**
+ * The tags a text edited in the Site Editor keeps where the hub prints it: the editor's bold and
+ * italic, and a line break. Any other tag is taken out and its words kept.
+ *
+ * @return array<string, array> For wp_kses().
+ */
+function wpcredits_hub_text_tags() {
+	return array(
+		'strong' => array(),
+		'em'     => array(),
+		'br'     => array(),
+	);
+}
+
+/**
+ * Whether a text from the Site Editor says nothing: no character but white space once its tags are
+ * taken out and its entities read.
+ *
+ * @param string $text A text, as rich text keeps it.
+ * @return bool
+ */
+function wpcredits_hub_blank( $text ) {
+	$words = html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES, 'UTF-8' );
+
+	return '' === (string) preg_replace( '/[\s\x{00A0}]+/u', '', $words );
+}
+
+/**
+ * A plain text as a block's rich-text attribute keeps it: escaped, as the editor escapes what is
+ * typed, so an ampersand or an angle bracket in a translation stays a character.
+ *
+ * @param string $text The text, translated.
+ * @return string
+ */
+function wpcredits_hub_rich( $text ) {
+	return esc_html( (string) $text );
+}
+
+/**
+ * A slug or an anchor as an id carries it: lower case, letters, digits, hyphens and underscores, any
+ * other run of characters one hyphen, none at either end.
+ *
+ * @param string $value What was typed.
+ * @return string
+ */
+function wpcredits_hub_anchor( $value ) {
+	return trim( (string) preg_replace( '/[^a-z0-9_-]+/', '-', strtolower( trim( (string) $value ) ) ), '-' );
+}
+
+/**
+ * One attribute of a block as a string: '' for one that is missing or not a string.
+ *
+ * @param array  $attributes The block's attributes.
+ * @param string $key        The attribute.
+ * @return string
+ */
+function wpcredits_hub_attribute( array $attributes, $key ) {
+	return isset( $attributes[ $key ] ) && is_scalar( $attributes[ $key ] ) ? (string) $attributes[ $key ] : '';
+}
+
+/**
+ * One attribute of a block as a list of strings, each trimmed, an empty one left out.
+ *
+ * @param array  $attributes The block's attributes.
+ * @param string $key        The attribute.
+ * @return string[]
+ */
+function wpcredits_hub_strings( array $attributes, $key ) {
+	$list = array();
+
+	foreach ( isset( $attributes[ $key ] ) && is_array( $attributes[ $key ] ) ? $attributes[ $key ] : array() as $item ) {
+		$item = is_scalar( $item ) ? trim( (string) $item ) : '';
+
+		if ( '' !== $item ) {
+			$list[] = $item;
+		}
+	}
+
+	return $list;
+}
+
+/**
+ * A block as parse_blocks() gives it, for a block with no inner blocks: what render_block() takes.
+ *
+ * @param string $name       The block's name.
+ * @param array  $attributes Its attributes.
+ * @return array
+ */
+function wpcredits_hub_parsed_block( $name, array $attributes ) {
+	return array(
+		'blockName'    => $name,
+		'attrs'        => $attributes,
+		'innerBlocks'  => array(),
+		'innerHTML'    => '',
+		'innerContent' => array(),
+	);
+}
+
+/**
+ * A block as the Site Editor saves it: a void block when it holds nothing, else its inner blocks one
+ * to a paragraph between its comments, as the editor writes a block whose save is its inner blocks.
+ *
+ * @param string   $name       The block's name.
+ * @param array    $attributes Its attributes.
+ * @param string[] $inner      Its inner blocks' markup.
+ * @return string
+ */
+function wpcredits_hub_block_markup( $name, array $attributes = array(), array $inner = array() ) {
+	return get_comment_delimited_block_content( $name, $attributes, $inner ? "\n" . implode( "\n\n", $inner ) . "\n" : '' );
+}
+
+/**
+ * A program card as the hub draws it, from a Program card block's attributes: the slug as an id
+ * carries it, the status `live` unless it is `development`, the audiences the chips know in the
+ * chips' order, the benefits trimmed, and each link with both its label and its address.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{slug: string, name: string, status: string, audiences: string[], what: string, time: string, gets: string[], links: array[]}
+ */
+function wpcredits_hub_card( array $attributes ) {
+	$links = array();
+
+	foreach ( isset( $attributes['links'] ) && is_array( $attributes['links'] ) ? $attributes['links'] : array() as $link ) {
+		$label = is_array( $link ) ? trim( wpcredits_hub_attribute( $link, 'label' ) ) : '';
+		$url   = is_array( $link ) ? trim( wpcredits_hub_attribute( $link, 'url' ) ) : '';
+
+		if ( '' !== $label && '' !== $url ) {
+			$links[] = array(
+				'label' => $label,
+				'url'   => $url,
+			);
+		}
+	}
+
+	return array(
+		'slug'      => wpcredits_hub_anchor( wpcredits_hub_attribute( $attributes, 'slug' ) ),
+		'name'      => wpcredits_hub_attribute( $attributes, 'name' ),
+		'status'    => 'development' === wpcredits_hub_attribute( $attributes, 'status' ) ? 'development' : 'live',
+		'audiences' => array_values( array_intersect( array( 'student', 'faculty', 'career' ), wpcredits_hub_strings( $attributes, 'audiences' ) ) ),
+		'what'      => wpcredits_hub_attribute( $attributes, 'what' ),
+		'time'      => wpcredits_hub_attribute( $attributes, 'time' ),
+		'gets'      => wpcredits_hub_strings( $attributes, 'gets' ),
+		'links'     => $links,
+	);
+}
+
+/**
+ * Whether the hub draws a card: one with a name, live, or in development while the hub shows what is
+ * planned. A card with no name is a draft, drawn in the editor only.
+ *
+ * @param array $card A card, as `wpcredits_hub_card()` gives it.
+ * @return bool
+ */
+function wpcredits_hub_card_shown( array $card ) {
+	return ! wpcredits_hub_blank( $card['name'] ) && ( 'live' === $card['status'] || wpcredits_hub_shows_planned() );
+}
+
+/**
+ * A Program card block's attributes for one program of `wpcredits_hub_programs()`: its texts as rich
+ * text keeps them, the benefits it gives today (a planned one is not written into the card), and its
+ * links with their targets as the addresses. Its courses are the band's (`wpcredits_hub_course_band_markup()`).
+ *
+ * @param array $program A program.
+ * @return array
+ */
+function wpcredits_hub_program_card_attributes( array $program ) {
+	$gets  = array();
+	$links = array();
+
+	foreach ( $program['gets'] as $item ) {
+		if ( empty( $item['planned'] ) ) {
+			$gets[] = $item['text'];
+		}
+	}
+
+	foreach ( $program['links'] as $link ) {
+		$links[] = array(
+			'label' => $link['label'],
+			'url'   => $link['target'],
+		);
+	}
+
+	return array(
+		'slug'      => $program['slug'],
+		'name'      => wpcredits_hub_rich( $program['name'] ),
+		'status'    => $program['status'],
+		'audiences' => $program['audiences'],
+		'what'      => wpcredits_hub_rich( $program['what'] ),
+		'time'      => wpcredits_hub_rich( $program['time'] ),
+		'gets'      => $gets,
+		'links'     => $links,
+	);
+}
+
+/**
+ * The Program card blocks for some programs, one to a paragraph, as the Site Editor saves them.
+ *
+ * @param array[] $programs Programs, as `wpcredits_hub_programs()` gives them.
+ * @return string Block markup.
+ */
+function wpcredits_hub_program_cards_markup( array $programs ) {
+	$cards = array();
+
+	foreach ( $programs as $program ) {
+		$cards[] = wpcredits_hub_block_markup( 'wpcredits/program-card', wpcredits_hub_program_card_attributes( $program ) );
+	}
+
+	return implode( "\n\n", $cards );
+}
+
+/**
+ * The Program index holding a card for each of some programs.
+ *
+ * @param array[] $programs   Programs, as `wpcredits_hub_programs()` gives them.
+ * @param array   $attributes The index's own attributes, such as a lock an Administrator set.
+ * @return string Block markup.
+ */
+function wpcredits_hub_program_index_markup( array $programs, array $attributes = array() ) {
+	return wpcredits_hub_block_markup( 'wpcredits/program-index', $attributes, $programs ? array( wpcredits_hub_program_cards_markup( $programs ) ) : array() );
+}
+
+/**
+ * Whether a Program index is as theme 1.31 and earlier saved it: a block that holds no Program card.
+ * Such an index draws the theme's own programs, and the band of courses under them, inside the index,
+ * where 1.31.12 drew it (`wpcredits_hub_index_cards()`, blocks/program-index/render.php): an editor tab
+ * opened before the update and saved after it, or a migration write that failed, leaves the page as it
+ * was.
+ *
+ * @param WP_Block|null $block The index.
+ * @return bool
+ */
+function wpcredits_hub_index_is_legacy( $block ) {
+	if ( $block instanceof WP_Block ) {
+		foreach ( $block->inner_blocks as $inner ) {
+			if ( 'wpcredits/program-card' === $inner->name ) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+/**
+ * The cards a Program index draws, in its order, each with its own render: the Program card blocks it
+ * holds, or, for an index that holds no card block at all (as 1.31 and earlier saved it), a card for
+ * each of the theme's programs. A card the hub does not draw (`wpcredits_hub_card_shown()`) is left out.
+ *
+ * @param WP_Block|null $block The index.
+ * @return array[] Each `card`, as `wpcredits_hub_card()` gives it, and `html`, its render.
+ */
+function wpcredits_hub_index_cards( $block ) {
+	$parsed = array();
+
+	if ( $block instanceof WP_Block ) {
+		foreach ( $block->inner_blocks as $inner ) {
+			if ( 'wpcredits/program-card' === $inner->name ) {
+				$parsed[] = $inner->parsed_block;
+			}
+		}
+	}
+
+	if ( ! $parsed ) {
+		foreach ( wpcredits_hub_programs() as $program ) {
+			$parsed[] = wpcredits_hub_parsed_block( 'wpcredits/program-card', wpcredits_hub_program_card_attributes( $program ) );
+		}
+	}
+
+	$cards = array();
+
+	foreach ( $parsed as $one ) {
+		$card = wpcredits_hub_card( isset( $one['attrs'] ) && is_array( $one['attrs'] ) ? $one['attrs'] : array() );
+		$html = wpcredits_hub_card_shown( $card ) ? trim( render_block( $one ) ) : '';
+
+		if ( '' !== $html ) {
+			$cards[] = array(
+				'card' => $card,
+				'html' => $html,
+			);
+		}
+	}
+
+	return $cards;
+}
+
+/**
+ * A course card as the band draws it, from a Course card block's attributes: its name, its address
+ * trimmed, the line above its name and what it asks.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{name: string, url: string, eyebrow: string, line: string}
+ */
+function wpcredits_hub_course_card( array $attributes ) {
+	return array(
+		'name'    => wpcredits_hub_attribute( $attributes, 'name' ),
+		'url'     => trim( wpcredits_hub_attribute( $attributes, 'url' ) ),
+		'eyebrow' => wpcredits_hub_attribute( $attributes, 'eyebrow' ),
+		'line'    => wpcredits_hub_attribute( $attributes, 'line' ),
+	);
+}
+
+/**
+ * A band of courses as it is drawn, from the Courses band block's attributes: its anchor as an id
+ * carries it, its eyebrow, heading and lede.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{anchor: string, eyebrow: string, heading: string, lede: string}
+ */
+function wpcredits_hub_band( array $attributes ) {
+	return array(
+		'anchor'  => wpcredits_hub_anchor( wpcredits_hub_attribute( $attributes, 'anchor' ) ),
+		'eyebrow' => wpcredits_hub_attribute( $attributes, 'eyebrow' ),
+		'heading' => wpcredits_hub_attribute( $attributes, 'heading' ),
+		'lede'    => wpcredits_hub_attribute( $attributes, 'lede' ),
+	);
+}
+
+/**
+ * The renders of the course cards a band of courses holds, in its order, a course with no name left
+ * out.
+ *
+ * @param WP_Block|null $block The band.
+ * @return string[] Each card's render, trimmed.
+ */
+function wpcredits_hub_band_courses( $block ) {
+	$courses = array();
+
+	if ( ! $block instanceof WP_Block ) {
+		return $courses;
+	}
+
+	foreach ( $block->inner_blocks as $inner ) {
+		if ( 'wpcredits/course-card' !== $inner->name ) {
+			continue;
+		}
+
+		$html = trim( render_block( $inner->parsed_block ) );
+
+		if ( '' !== $html ) {
+			$courses[] = $html;
+		}
+	}
+
+	return $courses;
+}
+
+/**
+ * The band of a program's courses, as the Site Editor saves it: anchored at the program's slug and
+ * `-courses`, the address its card links to, with the programs section's head (an eyebrow, a heading,
+ * a lede that says access to a course comes through the institution) and a void Course card for each
+ * course, its texts as rich text keeps them.
+ *
+ * @param array $program A program, as `wpcredits_hub_programs()` gives it.
+ * @return string Block markup, or '' for a program without courses.
+ */
+function wpcredits_hub_course_band_markup( array $program ) {
+	if ( empty( $program['courses'] ) ) {
+		return '';
+	}
+
+	$courses = array();
+
+	foreach ( $program['courses'] as $course ) {
+		$courses[] = wpcredits_hub_block_markup(
+			'wpcredits/course-card',
+			array(
+				'name'    => wpcredits_hub_rich( $course['name'] ),
+				'url'     => $course['url'],
+				'eyebrow' => wpcredits_hub_rich( $course['eyebrow'] ),
+				'line'    => wpcredits_hub_rich( $course['line'] ),
+			)
+		);
+	}
+
+	return wpcredits_hub_block_markup(
+		'wpcredits/course-band',
+		array(
+			'anchor'  => $program['slug'] . '-courses',
+			'eyebrow' => wpcredits_hub_rich( __( 'Choosing a course', 'wpcredits-theme' ) ),
+			'heading' => wpcredits_hub_rich( __( 'Which WordPress Credits course?', 'wpcredits-theme' ) ),
+			'lede'    => wpcredits_hub_rich( __( 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student\'s institution.', 'wpcredits-theme' ) ),
+		),
+		$courses
+	);
+}
+
+/**
+ * The bands of courses of some programs, one for each program that has courses, in their order.
+ *
+ * @param array[] $programs Programs, as `wpcredits_hub_programs()` gives them.
+ * @return string Block markup, '' when none has courses.
+ */
+function wpcredits_hub_course_bands_markup( array $programs ) {
+	return implode( "\n\n", array_filter( array_map( 'wpcredits_hub_course_band_markup', $programs ) ) );
+}
+
+/**
+ * The fields of study of "Find where you fit", in the order the flow lists them: each the field, the
+ * WordPress teams it joins and what the student will have to show. Moved here from the hub pattern in
+ * theme 1.32.0, as what the pattern and the migration write into the Field of study rows block.
+ *
+ * @return array[] Each `field`, `teams` (names) and `proof`, translated.
+ */
+function wpcredits_hub_fit_rows() {
+	return array(
+		array(
+			'field' => __( 'Computer science, engineering', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Core', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Plugins', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Testing', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Accessibility', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Merged code and reviewed patches', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => __( 'Design, arts, UX', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Design', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Block patterns', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Themes', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Visual work in use on real sites', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => __( 'Communications, journalism, marketing', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Documentation', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Learn WordPress', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Marketing', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Published work with a byline', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => __( 'Translation, languages', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Polyglots', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Published translations', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => __( 'Business, events, tourism', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Community', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'WordCamps', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'An event you ran, with attendance numbers', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => _x( 'Education', 'a field of study', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Learn WordPress lesson plans', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Training', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Course material in public use', 'wpcredits-theme' ),
+		),
+		array(
+			'field' => __( 'Accessibility, social work', 'wpcredits-theme' ),
+			'teams' => array(
+				_x( 'Accessibility', 'a WordPress team a student joins', 'wpcredits-theme' ),
+				_x( 'Testing', 'a WordPress team a student joins', 'wpcredits-theme' ),
+			),
+			'proof' => __( 'Audit work on a global platform', 'wpcredits-theme' ),
+		),
+	);
+}
+
+/**
+ * The words of the flow's frame: the header line's three names, which the eye reads above the rows,
+ * and the two labels a screen reader hears in each row before the teams and before the proof.
+ *
+ * @return array{fieldHeading: string, teamsHeading: string, proofHeading: string, teamsLabel: string, proofLabel: string} Translated.
+ */
+function wpcredits_hub_fit_labels() {
+	return array(
+		'fieldHeading' => __( 'Your field of study', 'wpcredits-theme' ),
+		'teamsHeading' => __( 'The team you join', 'wpcredits-theme' ),
+		'proofHeading' => __( 'What you\'ll have to show', 'wpcredits-theme' ),
+		/* translators: Read by screen readers before the teams a field of study joins; the header line above the rows shows "The team you join" to the eye. */
+		'teamsLabel'   => __( 'The team you join:', 'wpcredits-theme' ),
+		/* translators: Read by screen readers before what a student will have to show for a field of study; the header line above the rows shows "What you'll have to show" to the eye. */
+		'proofLabel'   => __( 'What you\'ll have to show:', 'wpcredits-theme' ),
+	);
+}
+
+/**
+ * A row of the flow as it is drawn, from a Field of study row block's attributes: its field, its
+ * teams trimmed, and its proof.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{field: string, teams: string[], proof: string}
+ */
+function wpcredits_hub_fit_row( array $attributes ) {
+	return array(
+		'field' => wpcredits_hub_attribute( $attributes, 'field' ),
+		'teams' => wpcredits_hub_strings( $attributes, 'teams' ),
+		'proof' => wpcredits_hub_attribute( $attributes, 'proof' ),
+	);
+}
+
+/**
+ * The renders of the rows a Field of study rows block holds, in its order, a row with no field left
+ * out. Each is rendered as the block it is, so it reads the labels its list hands it as block context.
+ *
+ * @param WP_Block|null $block The list.
+ * @return string[] Each row's render, trimmed.
+ */
+function wpcredits_hub_fit_list_rows( $block ) {
+	$rows = array();
+
+	if ( ! $block instanceof WP_Block ) {
+		return $rows;
+	}
+
+	foreach ( $block->inner_blocks as $inner ) {
+		if ( 'wpcredits/fit-row' !== $inner->name ) {
+			continue;
+		}
+
+		$html = trim( $inner->render() );
+
+		if ( '' !== $html ) {
+			$rows[] = $html;
+		}
+	}
+
+	return $rows;
+}
+
+/**
+ * The Field of study rows block holding a row for each of some rows, as the Site Editor saves it: its
+ * five labels written out (the header line's three as rich text keeps them), and a void row for each
+ * row, its field and proof as rich text keeps them and its teams as they are.
+ *
+ * @param array[] $rows   Rows, as `wpcredits_hub_fit_rows()` gives them.
+ * @param array   $labels Labels to write in place of today's, as `wpcredits_hub_fit_labels()` names them.
+ * @return string Block markup.
+ */
+function wpcredits_hub_fit_list_markup( array $rows, array $labels = array() ) {
+	$labels = array_merge( wpcredits_hub_fit_labels(), array_intersect_key( $labels, wpcredits_hub_fit_labels() ) );
+	$inner  = array();
+
+	foreach ( array( 'fieldHeading', 'teamsHeading', 'proofHeading' ) as $heading ) {
+		$labels[ $heading ] = wpcredits_hub_rich( $labels[ $heading ] );
+	}
+
+	foreach ( $rows as $row ) {
+		$inner[] = wpcredits_hub_block_markup(
+			'wpcredits/fit-row',
+			array(
+				'field' => wpcredits_hub_rich( $row['field'] ),
+				'teams' => array_values( array_map( 'strval', $row['teams'] ) ),
+				'proof' => wpcredits_hub_rich( $row['proof'] ),
+			)
+		);
+	}
+
+	return wpcredits_hub_block_markup( 'wpcredits/fit-list', $labels, $inner );
 }

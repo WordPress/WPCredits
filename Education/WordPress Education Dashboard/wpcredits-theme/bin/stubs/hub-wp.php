@@ -34,6 +34,14 @@
  *   `hooks` is hook => a list of `array( callback, priority, accepted arguments )`, one per
  *   `add_action()` or `add_filter()` call, and `scripts` is handle => `array( src, deps, ver, args )`.
  *
+ *
+ * Blocks (theme 1.32.0, whose hub blocks hold inner blocks): parse_blocks() is core's parser ported,
+ * serialize_block() and get_comment_delimited_block_content() core's serializer as written, and
+ * render_block() and do_blocks() render through a WP_Block that holds its inner blocks, fills in the
+ * defaults of the theme's block.json files and runs a theme block's render.php after its inner blocks,
+ * as core does. Core's blocks are not registered here, so they render as their saved markup; block
+ * supports' filters and attribute validation are not modeled. Each is described where it is defined.
+ *
  * Loaded with `require_once __DIR__ . '/stubs/hub-wp.php';` from a suite's header, before the theme's
  * files.
  *
@@ -372,40 +380,454 @@ class WP_HTML_Tag_Processor {
 	}
 }
 
-/* ---- rendering ------------------------------------------------------------------- */
+/* ---- blocks: parsing, serializing and rendering ---------------------------------- */
 
 /**
- * A block's server render, as WordPress runs its render.php: the attributes, the content and the
- * block in scope, its output captured.
+ * Core's block parser, WP_Block_Parser, ported line for line as far as its output goes: the same
+ * token regex, the same stack of open blocks, freeform HTML between top-level blocks as a block with
+ * no name, `innerHTML` the block's own markup with its inner blocks taken out and `innerContent` that
+ * markup in pieces with a null where each inner block sits. A closer with no opener, or an opener
+ * never closed, is handled as core handles it. Not modeled: the `block_parser_class` filter.
+ */
+class WP_Block_Parser {
+	private $document = '';
+	private $offset   = 0;
+	private $output   = array();
+	private $stack    = array();
+
+	public function parse( $document ) {
+		$this->document = (string) $document;
+		$this->offset   = 0;
+		$this->output   = array();
+		$this->stack    = array();
+
+		while ( $this->proceed() ) {
+			continue;
+		}
+
+		return $this->output;
+	}
+
+	private function proceed() {
+		list( $type, $name, $attrs, $start, $length ) = $this->next_token();
+
+		$depth   = count( $this->stack );
+		$leading = $start > $this->offset ? $this->offset : null;
+
+		switch ( $type ) {
+			case 'no-more-tokens':
+				if ( 0 === $depth ) {
+					$this->add_freeform();
+					return false;
+				}
+
+				while ( 0 < count( $this->stack ) ) {
+					$this->add_block_from_stack();
+				}
+
+				return false;
+
+			case 'void-block':
+				if ( 0 === $depth ) {
+					if ( null !== $leading ) {
+						$this->output[] = self::freeform( substr( $this->document, $leading, $start - $leading ) );
+					}
+
+					$this->output[] = self::block( $name, $attrs );
+					$this->offset   = $start + $length;
+
+					return true;
+				}
+
+				$this->add_inner_block( self::block( $name, $attrs ), $start, $length );
+				$this->offset = $start + $length;
+
+				return true;
+
+			case 'block-opener':
+				$this->stack[] = array(
+					'block'        => self::block( $name, $attrs ),
+					'token_start'  => $start,
+					'token_length' => $length,
+					'prev_offset'  => $start + $length,
+					'leading'      => $leading,
+				);
+				$this->offset  = $start + $length;
+
+				return true;
+
+			case 'block-closer':
+				if ( 0 === $depth ) {
+					$this->add_freeform();
+					return false;
+				}
+
+				if ( 1 === $depth ) {
+					$this->add_block_from_stack( $start );
+					$this->offset = $start + $length;
+
+					return true;
+				}
+
+				$top                            = array_pop( $this->stack );
+				$html                           = substr( $this->document, $top['prev_offset'], $start - $top['prev_offset'] );
+				$top['block']['innerHTML']     .= $html;
+				$top['block']['innerContent'][] = $html;
+
+				$this->add_inner_block( $top['block'], $top['token_start'], $top['token_length'], $start + $length );
+				$this->offset = $start + $length;
+
+				return true;
+		}
+
+		$this->add_freeform();
+
+		return false;
+	}
+
+	private function next_token() {
+		if ( ! preg_match( '/<!--\s+(?P<closer>\/)?wp:(?P<namespace>[a-z][a-z0-9_-]*\/)?(?P<name>[a-z][a-z0-9_-]*)\s+(?P<attrs>{(?:(?:[^}]+|}+(?=})|(?!}\s+\/?-->).)*+)?}\s+)?(?P<void>\/)?-->/s', $this->document, $matches, PREG_OFFSET_CAPTURE, $this->offset ) ) {
+			return array( 'no-more-tokens', null, null, null, null );
+		}
+
+		$closer    = isset( $matches['closer'] ) && -1 !== $matches['closer'][1];
+		$void      = isset( $matches['void'] ) && -1 !== $matches['void'][1];
+		$namespace = isset( $matches['namespace'] ) && -1 !== $matches['namespace'][1] ? $matches['namespace'][0] : 'core/';
+		$name      = $namespace . $matches['name'][0];
+		$attrs     = isset( $matches['attrs'] ) && -1 !== $matches['attrs'][1] ? json_decode( $matches['attrs'][0], true ) : array();
+
+		if ( $void ) {
+			return array( 'void-block', $name, $attrs, $matches[0][1], strlen( $matches[0][0] ) );
+		}
+
+		return array( $closer ? 'block-closer' : 'block-opener', $name, $closer ? null : $attrs, $matches[0][1], strlen( $matches[0][0] ) );
+	}
+
+	private static function block( $name, $attrs ) {
+		return array(
+			'blockName'    => $name,
+			'attrs'        => $attrs,
+			'innerBlocks'  => array(),
+			'innerHTML'    => '',
+			'innerContent' => array(),
+		);
+	}
+
+	private static function freeform( $html ) {
+		return array(
+			'blockName'    => null,
+			'attrs'        => array(),
+			'innerBlocks'  => array(),
+			'innerHTML'    => $html,
+			'innerContent' => array( $html ),
+		);
+	}
+
+	private function add_freeform() {
+		$length = strlen( $this->document ) - $this->offset;
+
+		if ( 0 !== $length ) {
+			$this->output[] = self::freeform( substr( $this->document, $this->offset, $length ) );
+		}
+	}
+
+	private function add_inner_block( array $block, $token_start, $token_length, $last_offset = null ) {
+		$parent = count( $this->stack ) - 1;
+		$html   = substr( $this->document, $this->stack[ $parent ]['prev_offset'], $token_start - $this->stack[ $parent ]['prev_offset'] );
+
+		$this->stack[ $parent ]['block']['innerBlocks'][] = $block;
+
+		if ( ! empty( $html ) ) {
+			$this->stack[ $parent ]['block']['innerHTML']     .= $html;
+			$this->stack[ $parent ]['block']['innerContent'][] = $html;
+		}
+
+		$this->stack[ $parent ]['block']['innerContent'][] = null;
+		$this->stack[ $parent ]['prev_offset']             = $last_offset ? $last_offset : $token_start + $token_length;
+	}
+
+	private function add_block_from_stack( $end_offset = null ) {
+		$top  = array_pop( $this->stack );
+		$html = null === $end_offset ? substr( $this->document, $top['prev_offset'] ) : substr( $this->document, $top['prev_offset'], $end_offset - $top['prev_offset'] );
+
+		if ( ! empty( $html ) ) {
+			$top['block']['innerHTML']     .= $html;
+			$top['block']['innerContent'][] = $html;
+		}
+
+		if ( null !== $top['leading'] ) {
+			$this->output[] = self::freeform( substr( $this->document, $top['leading'], $top['token_start'] - $top['leading'] ) );
+		}
+
+		$this->output[] = $top['block'];
+	}
+}
+
+/**
+ * Core's parse_blocks(): the parsed blocks of some content.
  *
- * @param string $name       The block's name, such as `wpcredits/program-index`.
+ * @param string $content The content.
+ * @return array[]
+ */
+function parse_blocks( $content ) {
+	return ( new WP_Block_Parser() )->parse( $content );
+}
+
+/**
+ * Core's serialize_block_attributes(), as written: JSON with slashes and Unicode left as they are,
+ * then `--`, `<`, `>`, `&` and an escaped quotation mark written as Unicode escapes, so the JSON can
+ * sit in an HTML comment.
+ *
+ * @param array $attributes The attributes.
+ * @return string
+ */
+function serialize_block_attributes( $attributes ) {
+	$encoded = json_encode( $attributes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+	$encoded = preg_replace( '/--/', '\\u002d\\u002d', $encoded );
+	$encoded = preg_replace( '/</', '\\u003c', $encoded );
+	$encoded = preg_replace( '/>/', '\\u003e', $encoded );
+	$encoded = preg_replace( '/&/', '\\u0026', $encoded );
+
+	return preg_replace( '/\\\\"/', '\\u0022', $encoded );
+}
+
+/**
+ * Core's strip_core_block_namespace(): a core block's name without `core/`.
+ *
+ * @param string|null $block_name The name.
+ * @return string|null
+ */
+function strip_core_block_namespace( $block_name = null ) {
+	return is_string( $block_name ) && 0 === strpos( $block_name, 'core/' ) ? substr( $block_name, 5 ) : $block_name;
+}
+
+/**
+ * Core's get_comment_delimited_block_content(), as written: a void block for empty content.
+ *
+ * @param string|null $block_name    The name, or null for freeform HTML.
+ * @param array       $block_attributes Its attributes.
+ * @param string      $block_content Its content.
+ * @return string
+ */
+function get_comment_delimited_block_content( $block_name, $block_attributes, $block_content ) {
+	if ( is_null( $block_name ) ) {
+		return $block_content;
+	}
+
+	$name       = strip_core_block_namespace( $block_name );
+	$attributes = empty( $block_attributes ) ? '' : serialize_block_attributes( $block_attributes ) . ' ';
+
+	if ( empty( $block_content ) ) {
+		return sprintf( '<!-- wp:%s %s/-->', $name, $attributes );
+	}
+
+	return sprintf( '<!-- wp:%s %s-->%s<!-- /wp:%s -->', $name, $attributes, $block_content, $name );
+}
+
+/**
+ * Core's serialize_block() and serialize_blocks(): parsed blocks back to markup.
+ *
+ * @param array $block A parsed block.
+ * @return string
+ */
+function serialize_block( $block ) {
+	$content = '';
+	$index   = 0;
+
+	foreach ( $block['innerContent'] as $chunk ) {
+		$content .= is_string( $chunk ) ? $chunk : serialize_block( $block['innerBlocks'][ $index++ ] );
+	}
+
+	return get_comment_delimited_block_content( $block['blockName'], is_array( $block['attrs'] ) ? $block['attrs'] : array(), $content );
+}
+function serialize_blocks( $blocks ) { return implode( '', array_map( 'serialize_block', $blocks ) ); }
+
+/**
+ * What the theme's own blocks are, read from each block.json, as register_block_type() would make
+ * them: the attributes' schema, and the render file when the block names one. A block of another
+ * namespace, core's among them, is not registered here, so it renders as its saved markup, as a
+ * static block does.
+ *
+ * @param string|null $name A block's name.
+ * @return array{attributes: array, render: string, uses_context: string[], provides_context: array, skip_inner_blocks: bool}|null
+ */
+function wpcredits_test_block_type( $name ) {
+	static $types = array();
+
+	if ( ! is_string( $name ) || 0 !== strpos( $name, 'wpcredits/' ) ) {
+		return null;
+	}
+
+	if ( ! array_key_exists( $name, $types ) ) {
+		$folder = WPCREDITS_THEME_DIR . 'blocks/' . substr( $name, strlen( 'wpcredits/' ) ) . '/';
+		$json   = is_file( $folder . 'block.json' ) ? json_decode( (string) file_get_contents( $folder . 'block.json' ), true ) : null;
+
+		// What block.json has no key for, the theme passes where it registers the block in functions.php.
+		$registered = 'register_block_type( get_theme_file_path( \'blocks/' . substr( $name, strlen( 'wpcredits/' ) ) . '\' ), array( \'skip_inner_blocks\' => true ) );';
+
+		$types[ $name ] = is_array( $json ) ? array(
+			'attributes'        => isset( $json['attributes'] ) ? $json['attributes'] : array(),
+			'render'            => isset( $json['render'] ) ? $folder . substr( $json['render'], strlen( 'file:./' ) ) : '',
+			'uses_context'      => isset( $json['usesContext'] ) ? $json['usesContext'] : array(),
+			'provides_context'  => isset( $json['providesContext'] ) ? $json['providesContext'] : array(),
+			'skip_inner_blocks' => false !== strpos( (string) file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), $registered ),
+		) : null;
+	}
+
+	return $types[ $name ];
+}
+
+/**
+ * Core's WP_Block, as far as the theme's render files reach: the parsed block, its name, its inner
+ * blocks (core's WP_Block_List, here a plain array: the theme only walks it with foreach and counts
+ * it), its attributes with the defaults of its block.json filled in, as
+ * WP_Block_Type::prepare_attributes_for_render() fills them (the schema's validation is not modeled),
+ * and its context, as core works it out: each name its block.json `usesContext` lists, from the
+ * context its parent handed down, a parent handing its children the context it had and, for each
+ * name of its `providesContext`, the value of the attribute that names (defaults filled in).
+ * render() renders the inner blocks first, as core does, unless the block is registered with
+ * `skip_inner_blocks` (read from the theme's functions.php, where it is passed), then hands the result
+ * to the block's render file as `$content`, with `$attributes` and `$block`, and runs the `render_block`
+ * filters; each render of a theme block's file is counted in `$GLOBALS['renders']`, by name, as it
+ * ends. The block supports' filters (layout classes and the like) are not modeled.
+ */
+class WP_Block {
+	public $parsed_block;
+	public $name;
+	public $block_type;
+	public $context       = array();
+	public $inner_blocks  = array();
+	public $inner_html    = '';
+	public $inner_content = array();
+
+	public function __construct( $block, $available_context = array() ) {
+		$this->parsed_block  = $block;
+		$this->name          = $block['blockName'];
+		$this->block_type    = wpcredits_test_block_type( $this->name );
+		$this->inner_html    = isset( $block['innerHTML'] ) ? $block['innerHTML'] : '';
+		$this->inner_content = isset( $block['innerContent'] ) ? $block['innerContent'] : array();
+
+		foreach ( $this->block_type ? $this->block_type['uses_context'] : array() as $context_name ) {
+			if ( array_key_exists( $context_name, $available_context ) ) {
+				$this->context[ $context_name ] = $available_context[ $context_name ];
+			}
+		}
+
+		$child_context = $available_context;
+		$attributes    = $this->attributes;
+
+		foreach ( $this->block_type ? $this->block_type['provides_context'] : array() as $context_name => $attribute_name ) {
+			if ( array_key_exists( $attribute_name, $attributes ) ) {
+				$child_context[ $context_name ] = $attributes[ $attribute_name ];
+			}
+		}
+
+		foreach ( isset( $block['innerBlocks'] ) ? $block['innerBlocks'] : array() as $inner ) {
+			$this->inner_blocks[] = new WP_Block( $inner, $child_context );
+		}
+	}
+
+	public function __get( $name ) {
+		if ( 'attributes' !== $name ) {
+			return null;
+		}
+
+		$attributes = isset( $this->parsed_block['attrs'] ) && is_array( $this->parsed_block['attrs'] ) ? $this->parsed_block['attrs'] : array();
+
+		foreach ( $this->block_type ? $this->block_type['attributes'] : array() as $key => $schema ) {
+			if ( ! array_key_exists( $key, $attributes ) && is_array( $schema ) && array_key_exists( 'default', $schema ) ) {
+				$attributes[ $key ] = $schema['default'];
+			}
+		}
+
+		return $attributes;
+	}
+
+	public function render() {
+		$content = '';
+		$index   = 0;
+		$dynamic = $this->block_type && '' !== $this->block_type['render'];
+
+		if ( ! $dynamic || ! $this->block_type['skip_inner_blocks'] ) {
+			foreach ( $this->inner_content as $chunk ) {
+				$content .= is_string( $chunk ) ? $chunk : $this->inner_blocks[ $index++ ]->render();
+			}
+		}
+
+		if ( $dynamic ) {
+			$previous             = $GLOBALS['rendering'];
+			$GLOBALS['rendering'] = $this->name;
+			$content              = wpcredits_test_render_file( $this->block_type['render'], $this->attributes, $content, $this );
+			$GLOBALS['rendering'] = $previous;
+
+			$GLOBALS['renders'][ $this->name ] = ( isset( $GLOBALS['renders'][ $this->name ] ) ? $GLOBALS['renders'][ $this->name ] : 0 ) + 1;
+		}
+
+		if ( null === $this->name ) {
+			return $content;
+		}
+
+		$content = apply_filters( 'render_block', $content, $this->parsed_block, $this );
+
+		return apply_filters( 'render_block_' . $this->name, $content, $this->parsed_block, $this );
+	}
+}
+
+/**
+ * A block's render file, run as core runs it: the attributes, the content and the block in scope,
+ * its output captured.
+ *
+ * @param string   $file       The render file.
+ * @param array    $attributes The block's attributes.
+ * @param string   $content    Its inner blocks, rendered.
+ * @param WP_Block $block      The block.
+ * @return string
+ */
+function wpcredits_test_render_file( $file, $attributes, $content, $block ) {
+	ob_start();
+	include $file;
+
+	return (string) ob_get_clean();
+}
+
+/**
+ * Core's render_block() and do_blocks(): a parsed block rendered, and every block of some content.
+ * The `pre_render_block` and `render_block_data` filters, and do_blocks()'s wpautop bookkeeping, are
+ * not modeled.
+ *
+ * @param array $parsed_block A parsed block.
+ * @return string
+ */
+function render_block( $parsed_block ) {
+	return ( new WP_Block( $parsed_block ) )->render();
+}
+function do_blocks( $content ) { return implode( '', array_map( 'render_block', parse_blocks( $content ) ) ); }
+
+/**
+ * A block's server render, as WordPress runs its render.php, for a block with no inner blocks: the
+ * attributes (block.json's defaults filled in), an empty content and the block in scope.
+ *
+ * @param string $name       The block's name, such as `wpcredits/program-stat`.
  * @param array  $attributes Its attributes.
  * @return string
  */
 function wpcredits_test_block( $name, array $attributes = array() ) {
-	$GLOBALS['rendering'] = $name;
-
-	$render = static function ( $file, $attributes ) {
-		$content = '';
-		$block   = null;
-
-		ob_start();
-		include $file;
-
-		return (string) ob_get_clean();
-	};
-
-	$html = $render( WPCREDITS_THEME_DIR . 'blocks/' . substr( $name, strpos( $name, '/' ) + 1 ) . '/render.php', $attributes );
-
-	$GLOBALS['rendering'] = '';
-
-	return $html;
+	return render_block(
+		array(
+			'blockName'    => $name,
+			'attrs'        => $attributes,
+			'innerBlocks'  => array(),
+			'innerHTML'    => '',
+			'innerContent' => array(),
+		)
+	);
 }
 
 /**
  * The hub page, as WordPress draws it from the template: each pattern's content and each block the
- * template places on its own, in the template's order, each dynamic block in them rendered by its
- * render.php. The template parts of the chrome are left out.
+ * template places on its own, in the template's order, then every block in them rendered, the theme's
+ * own by their render.php and core's as their saved markup. The template parts of the chrome, and the
+ * plugin's sponsor strip, are left out.
  *
  * @return string
  */
@@ -421,17 +843,11 @@ function wpcredits_test_page() {
 		$page .= '' !== $part[1] ? wpcredits_test_pattern( $part[1] . '.php' ) : $part[0];
 	}
 
-	return preg_replace_callback(
-		'#<!-- wp:(wpcredits/[a-z-]+)( (\{[^}]*\}))? /-->#',
-		static function ( $block ) {
-			return wpcredits_test_block( $block[1], isset( $block[3] ) ? (array) json_decode( $block[3], true ) : array() );
-		},
-		$page
-	);
+	return do_blocks( $page );
 }
 
 /**
- * A pattern file's output, as WordPress reads a theme pattern's content.
+ * A pattern file's output, as WordPress reads a theme pattern's content: block markup.
  *
  * @param string $file The file's name in patterns/, such as `hub-hero.php`.
  * @return string
@@ -441,6 +857,44 @@ function wpcredits_test_pattern( $file ) {
 	include WPCREDITS_THEME_DIR . 'patterns/' . $file;
 
 	return (string) ob_get_clean();
+}
+
+/**
+ * The first block of a name in some block markup, looked for at every depth, as parse_blocks()
+ * reads it.
+ *
+ * @param string $markup Block markup.
+ * @param string $name   A block's name.
+ * @return array|null The parsed block, or null when there is none.
+ */
+function wpcredits_test_block_in( $markup, $name ) {
+	$walk = static function ( array $blocks ) use ( &$walk, $name ) {
+		foreach ( $blocks as $parsed ) {
+			if ( $name === $parsed['blockName'] ) {
+				return $parsed;
+			}
+
+			$found = $walk( $parsed['innerBlocks'] );
+
+			if ( null !== $found ) {
+				return $found;
+			}
+		}
+
+		return null;
+	};
+
+	return $walk( parse_blocks( $markup ) );
+}
+
+/**
+ * A pattern as a page draws it: its block markup, every block rendered.
+ *
+ * @param string $file The file's name in patterns/.
+ * @return string
+ */
+function wpcredits_test_drawn_pattern( $file ) {
+	return do_blocks( wpcredits_test_pattern( $file ) );
 }
 
 /**

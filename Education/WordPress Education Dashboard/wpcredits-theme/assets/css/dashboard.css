@@ -4697,11 +4697,6 @@
 		border: 0;
 		padding: 3px 12px;
 	}
-
-	.wpc-dashboard-page .wpcpm-mentee__table td::before {
-		color: var( --wpc-ink-60 );
-		content: attr( data-label ) ": ";
-	}
 }
 
 @media ( max-width: 600px ) {

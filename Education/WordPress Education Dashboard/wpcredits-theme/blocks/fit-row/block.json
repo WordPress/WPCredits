@@ -1,0 +1,37 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/fit-row",
+	"title": "Field of study row",
+	"category": "theme",
+	"icon": "arrow-right-alt",
+	"description": "One field of study: the field, the teams a student joins and what the student will have to show.",
+	"keywords": [ "field of study", "teams", "hub" ],
+	"textdomain": "wpcredits-theme",
+	"parent": [ "wpcredits/fit-list" ],
+	"attributes": {
+		"field": {
+			"type": "string",
+			"default": ""
+		},
+		"teams": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"default": []
+		},
+		"proof": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"usesContext": [ "wpcredits/fitTeamsLabel", "wpcredits/fitProofLabel" ],
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

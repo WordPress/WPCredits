@@ -1149,23 +1149,43 @@ echo "\n=== The program index, without JavaScript ===\n";
 
 $index_json = json_decode( theme_file( 'blocks/program-index/block.json' ), true );
 
-ck( 'block.json: wpcredits/program-index, once a page, server-rendered, with its view script, its editor preview and the hub\'s stylesheet as its style',
-	array( $index_json['name'], $index_json['supports']['multiple'], $index_json['render'], $index_json['viewScript'], $index_json['editorScript'], $index_json['style'], $index_json['textdomain'] ),
-	array( 'wpcredits/program-index', false, 'file:./render.php', 'file:./view.js', 'file:./index.js', 'wpcredits-hub', 'wpcredits-theme' ) );
+ck( 'block.json: wpcredits/program-index, once a page, server-rendered, with its view script, its editor script and the hub\'s stylesheet as its style, holding Program cards and nothing else',
+	array( $index_json['name'], $index_json['supports']['multiple'], $index_json['render'], $index_json['viewScript'], $index_json['editorScript'], $index_json['style'], $index_json['textdomain'], $index_json['allowedBlocks'] ?? null ),
+	array( 'wpcredits/program-index', false, 'file:./render.php', 'file:./view.js', 'file:./index.js', 'wpcredits-hub', 'wpcredits-theme', array( 'wpcredits/program-card' ) ) );
 
-ck( 'its view script needs nothing and carries the theme\'s version; its editor preview needs the editor\'s packages and the server render',
+ck( 'its view script needs nothing and carries the theme\'s version; its editor script needs the editor\'s packages, its components and its translations, and no server render any more',
 	array( include WPCREDITS_THEME_DIR . 'blocks/program-index/view.asset.php', ( include WPCREDITS_THEME_DIR . 'blocks/program-index/index.asset.php' )['dependencies'] ),
-	array( array( 'dependencies' => array(), 'version' => '9.9.9' ), array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-server-side-render' ) ) );
+	array( array( 'dependencies' => array(), 'version' => '9.9.9' ), array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ) ) );
 
 ck( 'the theme registers the block with its others',
-	false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/program-index' ) );" ), true );
+	false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/program-index' ), array( 'skip_inner_blocks' => true ) );" ), true );
+
+/**
+ * The program index as the hub pattern holds it, rendered as a page draws it.
+ *
+ * @return string
+ */
+function pattern_index() {
+	return render_block( wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/program-index' ) );
+}
+
+/**
+ * The band of courses as the hub pattern holds it, rendered as a page draws it; '' while it has none.
+ *
+ * @return string
+ */
+function pattern_band() {
+	$band = wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/course-band' );
+
+	return $band ? render_block( $band ) : '';
+}
 
 // From here on the blocks and the page are checked whole, the planned content and the program in
 // development among it, as the hub prints them with the filter on; what the page prints today, with
 // the filter off, is checked in "The page as offered today" at the end.
 add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
 
-$index = wpcredits_test_block( 'wpcredits/program-index' );
+$index = pattern_index();
 $xp    = dom_of( $index );
 
 ck( 'the wrapper is the block\'s, marked as the index',
@@ -1223,20 +1243,30 @@ ck( 'each card: its status tag, its name, what it is, its time and what you get,
 		array_merge( ...array_fill( 0, 6, array( 'Time', 'You get' ) ) ),
 	) );
 
-ck( 'under the cards, the band of the five courses: a section named by its heading, the programs section\'s head (eyebrow, heading, lede), and a card each, its name a link to its Learn page with a decorative arrow, then its line (drawn above the name), and what it asks',
+// Theme 1.32.0: the band is a block of its own, right after the index in the hub pattern (the design's
+// D3), so its words are edited in the Site Editor; the index draws its cards alone.
+$programs_section = wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'core/group' );
+$band             = pattern_band();
+$bx               = dom_of( $index . $band );
+
+ck( 'under the cards, the band of the five courses, a block of its own right after the index: a section named by its heading, the programs section\'s head (eyebrow, heading, lede), and a card each, its name a link to its Learn page with a decorative arrow, then its line (drawn above the name), and what it asks',
 	array(
-		found( $xp, '//div[contains(@class,"wpc-hub-programs")]/following-sibling::section', 'id' ),
-		found( $xp, '//section[@id="wordpress-credits-courses"]', 'aria-labelledby' ),
-		found( $xp, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/*' ),
-		found( $xp, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/h3', 'id' ),
-		found( $xp, '//section[@id="wordpress-credits-courses"]/ul[@class="wpc-hub-courses__grid"]/li[@class="wpc-hub-course"]/h4/following-sibling::*[1][self::p][@class="wpc-hub-course__meta"]' ),
-		found( $xp, '//li[@class="wpc-hub-course"]/h4[@class="wpc-hub-course__name"]/a' ),
-		found( $xp, '//li[@class="wpc-hub-course"]/h4/a', 'href' ),
-		found( $xp, '//li[@class="wpc-hub-course"]/p[@class="wpc-hub-course__line"]' ),
-		count( $xp->query( '//li[@class="wpc-hub-course"]/h4/a/span[@aria-hidden="true"]' ) ),
-		count( $xp->query( '//article[@class="wpc-hub-program"]//*[contains(@class,"wpc-hub-course")]' ) ),
+		array_values( array_filter( array_map( static function ( $parsed ) { return $parsed['blockName']; }, $programs_section['innerBlocks'] ) ) ),
+		count( $xp->query( '//section' ) ),
+		found( $bx, '//div[contains(@class,"wpc-hub-index")]/following-sibling::section', 'id' ),
+		found( $bx, '//section[@id="wordpress-credits-courses"]', 'aria-labelledby' ),
+		found( $bx, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/*' ),
+		found( $bx, '//section[@id="wordpress-credits-courses"]/div[@class="wp-block-group wpc-hub-head"]/h3', 'id' ),
+		found( $bx, '//section[@id="wordpress-credits-courses"]/ul[@class="wpc-hub-courses__grid"]/li[@class="wpc-hub-course"]/h4/following-sibling::*[1][self::p][@class="wpc-hub-course__meta"]' ),
+		found( $bx, '//li[@class="wpc-hub-course"]/h4[@class="wpc-hub-course__name"]/a' ),
+		found( $bx, '//li[@class="wpc-hub-course"]/h4/a', 'href' ),
+		found( $bx, '//li[@class="wpc-hub-course"]/p[@class="wpc-hub-course__line"]' ),
+		count( $bx->query( '//li[@class="wpc-hub-course"]/h4/a/span[@aria-hidden="true"]' ) ),
+		count( $bx->query( '//article[@class="wpc-hub-program"]//*[contains(@class,"wpc-hub-course")]' ) ),
 	),
 	array(
+		array( 'core/group', 'wpcredits/program-index', 'wpcredits/course-band', 'core/group' ),
+		0,
 		array( 'wordpress-credits-courses' ),
 		array( 'wordpress-credits-courses-title' ),
 		array( 'Choosing a course', 'Which WordPress Credits course?', 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student\'s institution.' ),
@@ -1249,16 +1279,18 @@ ck( 'under the cards, the band of the five courses: a section named by its headi
 		0,
 	) );
 
-ck( 'what you get is a list, one item to a line, the three planned ones marked on their own line',
+// Theme 1.32.0: a card's benefits are its block's list of strings, edited in the Site Editor, and the
+// pattern fills each with what the program gives today. The three planned benefits of the theme's list
+// (an hours transcript, a facilitator listing, the $1,000 award) stay in inc/hub-content.php and are not
+// written into the cards, so the filter that brings the planned content back brings back the program in
+// development, and the pathway's planned items, but no planned benefit on a card.
+ck( 'what you get is a list, one item to a line: the benefits the card\'s block holds, which the pattern fills with what each program gives today, so even with the filter on no card carries a planned mark',
 	array( found( $xp, '//article[@id="program-wordpress-credits"]//ul[@class="wpc-hub-items"]/li' ), found( $xp, '//article//span[@class="wpc-hub-planned"]/..' ) ),
-	array( array( 'Certificate', 'Badge', 'Hours transcript (planned)', 'Credit' ), array( 'Hours transcript (planned)', 'Facilitator listing (planned)', '$1,000 for completers (planned)' ) ) );
+	array( array( 'Certificate', 'Badge', 'Credit' ), array() ) );
 
-ck( 'the mark is kept on its item\'s line by a no-break space',
-	false !== strpos( $index, '<li>Hours transcript&nbsp;<span class="wpc-hub-planned">(planned)</span></li>' ), true );
-
-ck( 'the band sits 56px under the cards, as the field-of-study flow sits under it, and lands below the sticky header; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and six from 900px, the five cards\' layout; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
+ck( 'the band sits 56px under the cards, as the field-of-study flow sits under it, and lands below the sticky header, two classes deep wherever it sits in the hub (a block of its own since 1.32.0, no longer inside the index), over core\'s flow layout gap; its cards the program cards\' white boxes on the card hairline with 2px corners, one column, two from 640px and six from 900px, the five cards\' layout; its line an eyebrow drawn above the name it follows, the name in the serif at 26px, regular weight, in the brand, what it asks ink-70 at 14px; two classes deep',
 	array(
-		rules_for( '.wpc-hub-index .wpc-hub-courses' ),
+		array( rules_for( '.wpc-hub .wpc-hub-courses' ), rules_for( '.wpc-hub-index .wpc-hub-courses' ) ),
 		rules_placed( '.wpc-hub-courses .wpc-hub-courses__grid' ),
 		rules_for( '.wpc-hub-courses .wpc-hub-course' ),
 		rules_for( '.wpc-hub-course .wpc-hub-course__meta' ),
@@ -1267,7 +1299,7 @@ ck( 'the band sits 56px under the cards, as the field-of-study flow sits under i
 		rules_for( '.wpc-hub-course .wpc-hub-course__line' ),
 	),
 	array(
-		array( 'margin-top: 56px; scroll-margin-top: var( --wpc-landing-offset );' ),
+		array( array( 'margin-top: 56px; scroll-margin-top: var( --wpc-landing-offset );' ), array() ),
 		array(
 			array( '', 'display: grid; gap: 16px; grid-template-columns: minmax( 0, 1fr ); list-style: none; margin: 0; padding: 0;' ),
 			array( '@media ( min-width: 640px )', 'grid-template-columns: repeat( 2, minmax( 0, 1fr ) );' ),
@@ -1493,11 +1525,440 @@ ck( 'a card, a chip, a ladder or a detail the script hides stays out of the layo
 	rules_for( '.wpc-hub-index [hidden], .wpc-hub-pathway [hidden]' ), array( 'display: none !important;' ) );
 
 $GLOBALS['marked'] = true;
-$marked_index      = wpcredits_test_block( 'wpcredits/program-index' );
+$marked_index      = pattern_index();
 $GLOBALS['marked'] = false;
 
 ck( 'every word the index prints, and every label and announcement, is a translated string',
 	unmarked( $marked_index ), array() );
+
+echo "\n=== The program cards: the index drawn from its blocks (theme 1.32.0) ===\n";
+
+// Administrators edit the Education Hub in the Site Editor (the design of 22 October 2026, D1 and D2):
+// the program index is a container of Program cards, each card's words its block's own attributes.
+$card_json = json_decode( theme_file( 'blocks/program-card/block.json' ), true );
+
+ck( 'block.json: wpcredits/program-card, inside the Program index only, server-rendered, with its editor script; its attributes the design\'s, each a string or a list of them with an empty default, the status live or in development',
+	array(
+		$card_json['name'],
+		$card_json['parent'] ?? null,
+		$card_json['render'] ?? null,
+		$card_json['editorScript'] ?? null,
+		$card_json['textdomain'] ?? null,
+		array_map( static function ( $attribute ) { return $attribute['type'] . ' ' . json_encode( $attribute['default'] ); }, $card_json['attributes'] ?? array() ),
+		$card_json['attributes']['status']['enum'] ?? null,
+		$card_json['supports']['html'] ?? null,
+	),
+	array(
+		'wpcredits/program-card',
+		array( 'wpcredits/program-index' ),
+		'file:./render.php',
+		'file:./index.js',
+		'wpcredits-theme',
+		array( 'slug' => 'string ""', 'name' => 'string ""', 'status' => 'string "live"', 'audiences' => 'array []', 'what' => 'string ""', 'time' => 'string ""', 'gets' => 'array []', 'links' => 'array []' ),
+		array( 'live', 'development' ),
+		false,
+	) );
+
+ck( 'its editor script needs the editor\'s packages, its components and its translations, at the theme\'s version; the theme registers the card after its other blocks',
+	array(
+		is_file( WPCREDITS_THEME_DIR . 'blocks/program-card/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/program-card/index.asset.php' : null,
+		false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/sign-in' ) );\n\tregister_block_type( get_theme_file_path( 'blocks/program-card' ) );" ),
+	),
+	array( array( 'dependencies' => array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ), 'version' => '9.9.9' ), true ) );
+
+$index_js = theme_file( 'blocks/program-index/index.js' );
+$card_js  = is_file( WPCREDITS_THEME_DIR . 'blocks/program-card/index.js' ) ? theme_file( 'blocks/program-card/index.js' ) : '';
+
+// A dynamic block saves nothing the editor checks against what a later release would save: the index
+// saves its cards alone and the card nothing, so no theme update leaves "This block contains unexpected
+// or invalid content".
+// An index with no inner blocks, a 1.31 one among them, stays empty in the editor, its appender adding
+// cards: a template would put an empty card in it, which a save would store, leaving an index with a
+// nameless card and nothing for the migration to repair.
+ck( 'in the editor the index holds Program cards only and is given none: an index with no card stays empty until a card is added; the index saves its cards alone and the card saves nothing, so a later markup change never invalidates them',
+	array(
+		(bool) preg_match( "/allowedBlocks: \[ 'wpcredits\/program-card' \]/", $index_js ),
+		false === strpos( $index_js, 'template:' ),
+		(bool) preg_match( '/save: function \(\) \{\s*return el\( blockEditor\.InnerBlocks\.Content \);\s*\}/', $index_js ),
+		(bool) preg_match( '/save: function \(\) \{\s*return null;\s*\}/', $card_js ),
+		substr_count( $index_js . $card_js, 'ServerSideRender' ),
+	),
+	array( true, true, true, true, 0 ) );
+
+// The card's words are edited inline, as the page shows them; its lists, audiences, status, slug and
+// addresses in the block's settings. The editor's note says which texts take bold and italic: what it is
+// alone, its name and time taking no format.
+ck( 'the card edits its name, what it is and its time inline as rich text; its status, audiences, slug, benefits and links in the block\'s settings',
+	array(
+		preg_match_all( '/el\( RichText, \{\s*tagName: \'(h3|p|dd)\',\s*(?:className: \'[a-z_-]+\',\s*)?value: attributes\.(name|what|time),/', $card_js, $rich, PREG_SET_ORDER ) ? array_map( static function ( $one ) { return $one[2] . ' ' . $one[1]; }, $rich ) : array(),
+		(bool) preg_match( '/el\(\s*blockEditor\.InspectorControls,/', $card_js ),
+		array_map( static function ( $control ) use ( $card_js ) { return (bool) preg_match( '/el\(\s*components\.' . $control . ',/', $card_js ); }, array( 'SelectControl', 'CheckboxControl', 'TextControl', 'TextareaControl', 'Button' ) ),
+		preg_match_all( '/value: attributes\.(name|what|time),\s*onChange: [^\n]+\n\s*placeholder: [^\n]+\n\s*allowedFormats: (\[\]|FORMATS),/', $card_js, $formats, PREG_SET_ORDER ) ? array_map( static function ( $one ) { return $one[1] . ' ' . $one[2]; }, $formats ) : array(),
+		(bool) preg_match( '/what it is inline, as rich text with bold and italic, and its name and its time as plain text/', preg_replace( '/\s*\n\s*\*\s*/', ' ', $card_js ) ),
+	),
+	array( array( 'name h3', 'what p', 'time dd' ), true, array( true, true, true, true, true ), array( 'name []', 'what FORMATS', 'time []' ), true ) );
+
+/**
+ * A Program index holding some cards, as block markup: each card a void block of its attributes.
+ *
+ * @param array[] $cards Each card's attributes.
+ * @return string
+ */
+function index_holding( array $cards ) {
+	$inner = array_map( static function ( $card ) { return get_comment_delimited_block_content( 'wpcredits/program-card', $card, '' ); }, $cards );
+
+	return get_comment_delimited_block_content( 'wpcredits/program-index', array(), $inner ? "\n" . implode( "\n\n", $inner ) . "\n" : '' );
+}
+
+$three_cards = array(
+	array(
+		'slug'      => ' Alpha ',
+		'name'      => 'Alpha &amp; <strong>Co</strong> <span class="big">Ltd</span>',
+		'status'    => 'live',
+		'audiences' => array( 'faculty', 'student', 'nobody' ),
+		'what'      => 'What <em>Alpha</em> is, <a href="https://example.org/">linked</a>.',
+		'time'      => 'Two days',
+		'gets'      => array( 'One', '', ' Two ' ),
+		'links'     => array(
+			array( 'label' => 'Apply', 'url' => 'institution_application' ),
+			array( 'label' => 'Nowhere', 'url' => '' ),
+			array( 'label' => '', 'url' => 'https://example.org/unlabeled/' ),
+			array( 'label' => 'Read <more>', 'url' => 'https://example.org/?a=1&b=2' ),
+		),
+	),
+	array(
+		'slug'      => 'beta',
+		'name'      => 'Beta',
+		'status'    => 'development',
+		'audiences' => array( 'career' ),
+	),
+	array(
+		'name'  => 'Gamma',
+		'what'  => '   ',
+		'time'  => 'Self-paced',
+		'gets'  => array( '  ' ),
+		'links' => array( array( 'label' => 'Learn', 'url' => '#program-alpha' ) ),
+	),
+	array(
+		'slug' => 'unnamed',
+		'name' => ' <strong> </strong> ',
+		'what' => 'A card with no name is a draft: nothing of it is drawn.',
+	),
+);
+
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+$cards_today = dom_of( do_blocks( index_holding( $three_cards ) ) );
+
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+
+$cards_planned = dom_of( do_blocks( index_holding( $three_cards ) ) );
+
+ck( 'the index draws a card for each Program card it holds, in their order, by the card\'s attributes: its id from its slug (none without one), its audiences of the three the chips know, in their order; a card in development only while the hub shows planned content, a card with no name never',
+	array(
+		found( $cards_today, '//article[@class="wpc-hub-program"]/h3' ),
+		found( $cards_today, '//article', 'id' ),
+		found( $cards_today, '//article', 'data-audiences' ),
+		found( $cards_planned, '//article/h3' ),
+		found( $cards_planned, '//article//span[contains(@class,"wpc-hub-tag")]' ),
+	),
+	array(
+		array( 'Alpha & Co Ltd', 'Gamma' ),
+		array( 'program-alpha', '' ),
+		array( 'student faculty', '' ),
+		array( 'Alpha & Co Ltd', 'Beta', 'Gamma' ),
+		array( 'Live', 'In development', 'Live' ),
+	) );
+
+$alpha = $cards_today->query( '//article[@id="program-alpha"]' )->item( 0 );
+
+ck( 'a card\'s texts keep the editor\'s bold and italic and no other tag, their words kept, the ampersand a character',
+	array(
+		$alpha ? $alpha->ownerDocument->saveHTML( $cards_today->query( 'h3', $alpha )->item( 0 ) ) : '',
+		$alpha ? $alpha->ownerDocument->saveHTML( $cards_today->query( 'p[@class="wpc-hub-program__what"]', $alpha )->item( 0 ) ) : '',
+		count( $cards_today->query( '//article//span[@class="big"] | //article//a[not(parent::p[@class="wpc-hub-program__links"])]' ) ),
+	),
+	array( '<h3 class="wpc-hub-program__name">Alpha &amp; <strong>Co</strong> Ltd</h3>', '<p class="wpc-hub-program__what">What <em>Alpha</em> is, linked.</p>', 0 ) );
+
+ck( 'its time and what it gives, each benefit trimmed and an empty one left out; a card with nothing to give has no "You get", one with nothing to say no sentence of what it is, and one with neither no list of facts',
+	array(
+		$alpha ? found_in( $alpha, 'dl/div/dt' ) : array(),
+		$alpha ? array( found_in( $alpha, 'dl/div[dt="Time"]/dd' ), found_in( $alpha, 'dl/div/dd/ul/li' ) ) : array(),
+		found( $cards_today, '//article[h3="Gamma"]/dl/div/dt' ),
+		count( $cards_today->query( '//article[h3="Gamma"]/p[@class="wpc-hub-program__what"]' ) ),
+		count( $cards_planned->query( '//article[h3="Beta"]/dl' ) ),
+		count( $cards_today->query( '//ul[@class="wpc-hub-items"]/li[not(normalize-space())]' ) ),
+	),
+	array( array( 'Time', 'You get' ), array( array( 'Two days' ), array( 'One', 'Two' ) ), array( 'Time' ), 0, 0, 0 ) );
+
+ck( 'its links: each a label and an address, the site\'s own pages named by key and read when the block renders, an address escaped; a link without its label or its address is not drawn, and a card with no link draws no row of links',
+	array(
+		$alpha ? found_in( $alpha, 'p[@class="wpc-hub-program__links"]/a' ) : array(),
+		$alpha ? found_in( $alpha, 'p[@class="wpc-hub-program__links"]/a', 'href' ) : array(),
+		found( $cards_today, '//article[h3="Gamma"]/p[@class="wpc-hub-program__links"]/a', 'href' ),
+		count( $cards_planned->query( '//article[h3="Beta"]/p[@class="wpc-hub-program__links"]' ) ),
+		count( $cards_today->query( '//a[not(@href) or @href=""]' ) ),
+	),
+	array( array( 'Apply →', 'Read <more> →' ), array( 'https://wordpresseducation.org/apply/', 'https://example.org/?a=1&b=2' ), array( '#program-alpha' ), 0, 0 ) );
+
+ck( 'the chips count the cards it draws: today two, one for students, one for faculty and none in Career and credentials; with the planned content shown, the card in development counts too',
+	array( found( $cards_today, '//button', 'data-announce' ), found( $cards_planned, '//button', 'data-announce' ) ),
+	array(
+		array( 'Showing all 2 programs', 'Showing 1 of 2 programs for students', 'Showing 1 of 2 programs for faculty', 'Showing 0 of 2 programs in Career and credentials' ),
+		array( 'Showing all 3 programs', 'Showing 1 of 3 programs for students', 'Showing 1 of 3 programs for faculty', 'Showing 1 of 3 programs in Career and credentials' ),
+	) );
+
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+$legacy_index = do_blocks( '<!-- wp:wpcredits/program-index /-->' );
+
+ck( 'an index with no card to draw prints nothing, no chips that filter nothing; an index holding no card block at all, as 1.31 saved it, still draws the theme\'s programs, so a template the migration could not reach keeps its index',
+	array(
+		do_blocks( index_holding( array( $three_cards[3] ) ) ),
+		do_blocks( index_holding( array( array( 'name' => 'Beta', 'status' => 'development' ) ) ) ),
+		found( dom_of( $legacy_index ), '//article', 'id' ),
+	),
+	array( '', '', array( 'program-campus-connect', 'program-wordpress-credits', 'program-facilitator-training', 'program-learn-wordpress', 'program-ai-leaders' ) ) );
+
+// A 1.31 index can still reach the page after the update (an editor tab opened before it that saves after
+// it, or a migration write that failed): it draws the courses band too, where 1.31.12 drew it, inside the
+// index under the cards, so the page is what it was, the card's "Compare the five courses" landing on it.
+ck( 'the 1.31 index draws the band of courses as well, inside the index under the cards: the whole index byte for byte what 1.31.12 drew, the band anchored wordpress-credits-courses; an index holding cards draws none',
+	array(
+		$legacy_index === theme_file( 'bin/fixtures/hub-1-31-12-index.html' ),
+		found( dom_of( $legacy_index ), '/html/body/div[contains(@class,"wpc-hub-index")]/section', 'id' ),
+		count( dom_of( pattern_index() )->query( '//section' ) ),
+	),
+	array( true, array( 'wordpress-credits-courses' ), 0 ) );
+
+// What the pattern writes, as the Site Editor would: one void card block per program, every text escaped
+// as the editor keeps rich text, the benefits each program gives today, the links' addresses as written.
+$cards_markup = wpcredits_hub_program_cards_markup( wpcredits_hub_programs() );
+$cards_parsed = array_values( array_filter( parse_blocks( $cards_markup ), static function ( $parsed ) { return null !== $parsed['blockName']; } ) );
+
+ck( 'wpcredits_hub_program_cards_markup(): a void Program card block for each of the six programs, in order, live and in development, whitespace alone between them',
+	array(
+		array_map( static function ( $parsed ) { return $parsed['blockName'] . ' ' . $parsed['attrs']['slug'] . ' ' . $parsed['attrs']['status']; }, $cards_parsed ),
+		array_unique( array_map( static function ( $parsed ) { return $parsed['innerHTML'] . count( $parsed['innerBlocks'] ); }, $cards_parsed ) ),
+		trim( preg_replace( '#<!-- wp:wpcredits/program-card \{.*?\} /-->#', '', $cards_markup ) ),
+	),
+	array(
+		array(
+			'wpcredits/program-card campus-connect live',
+			'wpcredits/program-card wordpress-credits live',
+			'wpcredits/program-card facilitator-training live',
+			'wpcredits/program-card learn-wordpress live',
+			'wpcredits/program-card ai-leaders live',
+			'wpcredits/program-card wordpress-builder-certification development',
+		),
+		array( '0' ),
+		'',
+	) );
+
+ck( 'each card holds its program\'s words: WordPress Credits\' whole, the benefits it gives today and its three links',
+	$cards_parsed[1]['attrs'] ?? null,
+	array(
+		'slug'      => 'wordpress-credits',
+		'name'      => 'WordPress Credits',
+		'status'    => 'live',
+		'audiences' => array( 'student', 'career' ),
+		'what'      => 'Mentored work on the WordPress open source project, matched to your field of study. Ends with a presentation and a Foundation certificate.',
+		'time'      => '50h or 150h+, about a semester',
+		'gets'      => array( 'Certificate', 'Badge', 'Credit' ),
+		'links'     => array(
+			array( 'label' => 'Compare the five courses', 'url' => '#wordpress-credits-courses' ),
+			array( 'label' => 'About the program', 'url' => 'https://wordpress.org/education/credits/' ),
+			array( 'label' => 'Impact dashboard', 'url' => 'https://wordpress.github.io/WPCredits/' ),
+		),
+	) );
+
+$GLOBALS['translated'] = array( 'Campus Connect' => 'R&D <i>Connect' );
+$escaped_card          = wpcredits_test_block_in( wpcredits_hub_program_cards_markup( wpcredits_hub_programs() ), 'wpcredits/program-card' );
+$GLOBALS['translated'] = array();
+
+ck( 'a translated name holding an ampersand and a tag is kept escaped, as the editor keeps rich text, and the card reads it as those characters, with no <i> element',
+	array( $escaped_card['attrs']['name'] ?? null, found( dom_of( render_block( $escaped_card ) ), '//h3' ), count( dom_of( render_block( $escaped_card ) )->query( '//h3/i' ) ) ),
+	array( 'R&amp;D &lt;i&gt;Connect', array( 'R&D <i>Connect' ), 0 ) );
+
+$pattern_index_block = wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/program-index' );
+
+ck( 'the hub pattern holds the index with the six cards and nothing between them but whitespace, as the Site Editor saves it',
+	array(
+		$pattern_index_block ? array_map( static function ( $parsed ) { return $parsed['attrs']['slug']; }, $pattern_index_block['innerBlocks'] ) : null,
+		$pattern_index_block ? trim( implode( '', array_filter( $pattern_index_block['innerContent'], 'is_string' ) ) ) : null,
+	),
+	array( array( 'campus-connect', 'wordpress-credits', 'facilitator-training', 'learn-wordpress', 'ai-leaders', 'wordpress-builder-certification' ), '' ) );
+
+// The proof the page looks as it did: today's index, drawn from the pattern's cards, draws its chips and
+// cards byte for byte as theme 1.31.12 drew them from its PHP list (bin/fixtures/hub-1-31-12-index.html,
+// rendered from a9a829e), and the band block its section byte for byte as 1.31.12's index drew it under
+// the cards. What is left of each is the index's closing tag and, in 1.31.12, the whitespace around the
+// band it held.
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+
+$fixture_index = theme_file( 'bin/fixtures/hub-1-31-12-index.html' );
+$grid_part     = static function ( $html ) {
+	$at = strrpos( $html, "</article>\n\t\t\t</div>" );
+
+	return false === $at ? '' : substr( $html, 0, $at + strlen( "</article>\n\t\t\t</div>" ) );
+};
+$band_part     = static function ( $html ) {
+	return preg_match( '#<section class="wpc-hub-courses".*</section>#s', $html, $section ) ? $section[0] : '';
+};
+
+ck( 'today the index the pattern holds draws its chips and cards byte for byte as 1.31.12 drew them, and the band block its section byte for byte as 1.31.12\'s index drew it; the index ends with its own closing tag',
+	array(
+		'' !== $grid_part( $fixture_index ) && $grid_part( pattern_index() ) === $grid_part( $fixture_index ),
+		'' !== $band_part( $fixture_index ) && $band_part( pattern_band() ) === $band_part( $fixture_index ),
+		substr( pattern_index(), strlen( $grid_part( pattern_index() ) ) ),
+		trim( substr( $fixture_index, strlen( $grid_part( $fixture_index ) ) ) ) === trim( $band_part( $fixture_index ) . "\n\t</div>" ),
+	),
+	array( true, true, "\n</div>\n", true ) );
+
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+
+echo "\n=== The courses band: course cards in a band of their own (theme 1.32.0) ===\n";
+
+// The design's D3: the band's eyebrow, heading and lede, and per course its name, address, eyebrow and
+// line, edited in the Site Editor; the band keeps its anchor, an attribute, and sits after the index.
+$band_json   = json_decode( theme_file( 'blocks/course-band/block.json' ), true );
+$course_json = json_decode( theme_file( 'blocks/course-card/block.json' ), true );
+$band_js     = is_file( WPCREDITS_THEME_DIR . 'blocks/course-band/index.js' ) ? theme_file( 'blocks/course-band/index.js' ) : '';
+$course_js   = is_file( WPCREDITS_THEME_DIR . 'blocks/course-card/index.js' ) ? theme_file( 'blocks/course-card/index.js' ) : '';
+$attributes_of = static function ( $json ) {
+	return array_map( static function ( $attribute ) { return $attribute['type'] . ' ' . json_encode( $attribute['default'] ); }, $json['attributes'] ?? array() );
+};
+
+ck( 'block.json: wpcredits/course-band holds Course cards and nothing else, with its anchor and its three texts; wpcredits/course-card sits in a band only, with its name, address, eyebrow and line; both server-rendered, each with its editor script, the band with the hub\'s stylesheet',
+	array(
+		array( $band_json['name'] ?? null, $band_json['allowedBlocks'] ?? null, $attributes_of( $band_json ), $band_json['render'] ?? null, $band_json['editorScript'] ?? null, $band_json['style'] ?? null, $band_json['textdomain'] ?? null ),
+		array( $course_json['name'] ?? null, $course_json['parent'] ?? null, $attributes_of( $course_json ), $course_json['render'] ?? null, $course_json['editorScript'] ?? null, $course_json['textdomain'] ?? null ),
+	),
+	array(
+		array( 'wpcredits/course-band', array( 'wpcredits/course-card' ), array( 'anchor' => 'string ""', 'eyebrow' => 'string ""', 'heading' => 'string ""', 'lede' => 'string ""' ), 'file:./render.php', 'file:./index.js', 'wpcredits-hub', 'wpcredits-theme' ),
+		array( 'wpcredits/course-card', array( 'wpcredits/course-band' ), array( 'name' => 'string ""', 'url' => 'string ""', 'eyebrow' => 'string ""', 'line' => 'string ""' ), 'file:./render.php', 'file:./index.js', 'wpcredits-theme' ),
+	) );
+
+ck( 'their editor scripts need the editor\'s packages, its components and its translations, at the theme\'s version; the theme registers them after the Program card',
+	array(
+		is_file( WPCREDITS_THEME_DIR . 'blocks/course-band/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/course-band/index.asset.php' : null,
+		is_file( WPCREDITS_THEME_DIR . 'blocks/course-card/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/course-card/index.asset.php' : null,
+		false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/program-card' ) );\n\tregister_block_type( get_theme_file_path( 'blocks/course-band' ), array( 'skip_inner_blocks' => true ) );\n\tregister_block_type( get_theme_file_path( 'blocks/course-card' ) );" ),
+	),
+	array(
+		array( 'dependencies' => array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ), 'version' => '9.9.9' ),
+		array( 'dependencies' => array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ), 'version' => '9.9.9' ),
+		true,
+	) );
+
+ck( 'in the editor the band holds Course cards only and starts with one empty card, its eyebrow, heading and lede inline, its anchor in the block\'s settings; a course its name, eyebrow and line inline, its address in the settings; the band saves its courses alone and a course nothing',
+	array(
+		(bool) preg_match( "/allowedBlocks: \[ 'wpcredits\/course-card' \]/", $band_js ),
+		(bool) preg_match( "/template: \[ \[ 'wpcredits\/course-card' \] \]/", $band_js ),
+		preg_match_all( '/el\( RichText, \{\s*tagName: \'[a-z0-9]+\',\s*(?:className: \'[a-z_ -]+\',\s*)?value: attributes\.(eyebrow|heading|lede),/', $band_js, $band_rich ) ? $band_rich[1] : array(),
+		preg_match_all( '/el\( RichText, \{\s*tagName: \'[a-z0-9]+\',\s*(?:className: \'[a-z_ -]+\',\s*)?value: attributes\.(name|eyebrow|line),/', $course_js, $course_rich ) ? $course_rich[1] : array(),
+		(bool) preg_match( '/el\( components\.TextControl, \{\s*label: __\( \'[^\']+\', \'wpcredits-theme\' \),\s*value: attributes\.anchor/', $band_js ),
+		(bool) preg_match( '/el\( components\.TextControl, \{\s*label: __\( \'[^\']+\', \'wpcredits-theme\' \),\s*value: attributes\.url/', $course_js ),
+		(bool) preg_match( '/save: function \(\) \{\s*return el\( blockEditor\.InnerBlocks\.Content \);\s*\}/', $band_js ),
+		(bool) preg_match( '/save: function \(\) \{\s*return null;\s*\}/', $course_js ),
+	),
+	array( true, true, array( 'eyebrow', 'heading', 'lede' ), array( 'name', 'eyebrow', 'line' ), true, true, true, true ) );
+
+/**
+ * A band of courses holding some course cards, as block markup.
+ *
+ * @param array   $band    The band's attributes.
+ * @param array[] $courses Each course card's attributes.
+ * @return string
+ */
+function band_holding( array $band, array $courses ) {
+	$inner = array_map( static function ( $course ) { return get_comment_delimited_block_content( 'wpcredits/course-card', $course, '' ); }, $courses );
+
+	return get_comment_delimited_block_content( 'wpcredits/course-band', $band, $inner ? "\n" . implode( "\n\n", $inner ) . "\n" : '' );
+}
+
+$four_courses = array(
+	array( 'name' => 'One &amp; <em>only</em>', 'url' => 'https://example.org/one/?a=1&b=2', 'eyebrow' => '10 hours', 'line' => 'The first.' ),
+	array( 'name' => 'Two', 'url' => '', 'eyebrow' => 'For everyone', 'line' => 'No page yet.' ),
+	array( 'name' => 'Three', 'url' => 'https://example.org/three/', 'eyebrow' => ' ', 'line' => '' ),
+	array( 'name' => '', 'url' => 'https://example.org/draft/', 'eyebrow' => 'Draft', 'line' => 'A course with no name is not drawn.' ),
+);
+$band_drawn   = dom_of( do_blocks( band_holding( array( 'anchor' => 'Some Courses', 'eyebrow' => 'Pick one', 'heading' => 'Which course?', 'lede' => 'Each in a <strong>line</strong>.' ), $four_courses ) ) );
+
+ck( 'the band draws its section, anchored and named by its heading, the head\'s eyebrow, heading and lede, and the list of the courses it holds: each its name linked to its address with the decorative arrow, its eyebrow and its line; a course with no address names it unlinked and with no arrow, an empty eyebrow or line is left out, and a course with no name is not drawn',
+	array(
+		found( $band_drawn, '/html/body/section', 'class' ),
+		found( $band_drawn, '/html/body/section', 'id' ),
+		found( $band_drawn, '/html/body/section', 'aria-labelledby' ),
+		found( $band_drawn, '//section/div[@class="wp-block-group wpc-hub-head"]/*' ),
+		found( $band_drawn, '//section/div/h3', 'id' ),
+		found( $band_drawn, '//section/ul[@class="wpc-hub-courses__grid"]/li[@class="wpc-hub-course"]/h4[@class="wpc-hub-course__name"]' ),
+		found( $band_drawn, '//li/h4/a', 'href' ),
+		count( $band_drawn->query( '//li[h4="Two"]/h4/*' ) ),
+		found( $band_drawn, '//li[@class="wpc-hub-course"]/p', 'class' ),
+		count( $band_drawn->query( '//li/h4//em' ) ),
+	),
+	array(
+		array( 'wpc-hub-courses' ),
+		array( 'some-courses' ),
+		array( 'some-courses-title' ),
+		array( 'Pick one', 'Which course?', 'Each in a line.' ),
+		array( 'some-courses-title' ),
+		array( 'One & only →', 'Two', 'Three →' ),
+		array( 'https://example.org/one/?a=1&b=2', 'https://example.org/three/' ),
+		0,
+		array( 'wpc-hub-course__meta', 'wpc-hub-course__line', 'wpc-hub-course__meta', 'wpc-hub-course__line' ),
+		1,
+	) );
+
+ck( 'a band with no anchor carries no id and no name to point at, one with no heading is named by none, one with no head text draws no head, and a band with no course to draw prints nothing',
+	array(
+		found( dom_of( do_blocks( band_holding( array( 'heading' => 'Courses' ), $four_courses ) ) ), '/html/body/section', 'id' ),
+		found( dom_of( do_blocks( band_holding( array( 'heading' => 'Courses' ), $four_courses ) ) ), '//h3', 'id' ),
+		count( dom_of( do_blocks( band_holding( array( 'heading' => 'Courses' ), $four_courses ) ) )->query( '//section[@aria-labelledby]' ) ),
+		count( dom_of( do_blocks( band_holding( array( 'anchor' => 'courses', 'eyebrow' => 'Pick one' ), $four_courses ) ) )->query( '//section[@aria-labelledby] | //h3' ) ),
+		count( dom_of( do_blocks( band_holding( array( 'anchor' => 'courses' ), $four_courses ) ) )->query( '//div[contains(@class,"wpc-hub-head")]' ) ),
+		do_blocks( band_holding( array( 'anchor' => 'courses', 'heading' => 'Courses' ), array( $four_courses[3] ) ) ),
+	),
+	array( array( '' ), array( '' ), 0, 0, 0, '' ) );
+
+$band_markup = wpcredits_hub_course_band_markup( wpcredits_hub_programs()[1] );
+$band_parsed = wpcredits_test_block_in( $band_markup, 'wpcredits/course-band' );
+
+ck( 'wpcredits_hub_course_band_markup(): nothing for a program without courses; for WordPress Credits, a band anchored at its slug and -courses, with the programs section\'s head, holding a void Course card for each of its five courses, as the Site Editor saves them',
+	array(
+		wpcredits_hub_course_band_markup( wpcredits_hub_programs()[0] ),
+		$band_parsed['attrs'] ?? null,
+		array_map( static function ( $course ) { return $course['attrs']; }, $band_parsed['innerBlocks'] ?? array() )[0] ?? null,
+		count( $band_parsed['innerBlocks'] ?? array() ),
+		$band_parsed ? trim( implode( '', array_filter( $band_parsed['innerContent'], 'is_string' ) ) ) : null,
+		wpcredits_hub_course_bands_markup( wpcredits_hub_programs() ) === $band_markup,
+	),
+	array(
+		'',
+		array(
+			'anchor'  => 'wordpress-credits-courses',
+			'eyebrow' => 'Choosing a course',
+			'heading' => 'Which WordPress Credits course?',
+			'lede'    => 'What each asks of a student, so a school and its students can choose. Access to each course comes through the student&#039;s institution.',
+		),
+		array(
+			'name'    => 'Intro to Contribution',
+			'url'     => 'https://learn.wordpress.org/course/wordpress-credits-intro-to-contribution/',
+			'eyebrow' => '50 hours',
+			'line'    => 'One guided contribution project: a first look at open source, for a shorter course or an elective.',
+		),
+		5,
+		'',
+		true,
+	) );
+
+$GLOBALS['marked'] = true;
+$marked_band       = pattern_band();
+$GLOBALS['marked'] = false;
+
+ck( 'every word the band prints is a translated string',
+	unmarked( $marked_band ), array() );
 
 echo "\n=== The pathway, without JavaScript ===\n";
 
@@ -2505,7 +2966,7 @@ ck( 'five patterns, each in the theme\'s own category, with the slug the templat
  * @return string[]
  */
 function grammar_of( $html ) {
-	$known = array( 'group', 'columns', 'column', 'paragraph', 'heading', 'buttons', 'button', 'table', 'html', 'wpcredits/program-stat', 'wpcredits/program-index', 'wpcredits/pathway' );
+	$known = array( 'group', 'columns', 'column', 'paragraph', 'heading', 'buttons', 'button', 'table', 'html', 'wpcredits/program-stat', 'wpcredits/program-index', 'wpcredits/program-card', 'wpcredits/course-band', 'wpcredits/course-card', 'wpcredits/fit-list', 'wpcredits/fit-row', 'wpcredits/pathway' );
 	$open  = array();
 	$wrong = array();
 
@@ -3040,6 +3501,7 @@ $flow_rows    = $flow . '/ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flo
 $flow_row_els = $page->query( $flow_rows );
 $flow_pattern = theme_file( 'patterns/hub-programs.php' );
 $flow_drawn   = wpcredits_test_pattern( 'hub-programs.php' );
+$flow_source  = theme_file( 'inc/hub-content.php' ) . theme_file( 'blocks/fit-list/render.php' ) . theme_file( 'blocks/fit-row/render.php' );
 $look_flow    = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) );
 
 ck( 'the section keeps its head as it was: the eyebrow, the heading "Find where you fit in WordPress Credits" anchored at #wpc-hub-fit, so a link to it lands under the sticky header, and the lede',
@@ -3050,12 +3512,12 @@ ck( 'the section keeps its head as it was: the eyebrow, the heading "Find where 
 		array( 'wp-block-heading wpc-hub-anchored' ),
 	) );
 
-ck( 'the table is gone, and the flow follows the head in its place, in a Custom HTML block: the section holds the head and the flow and nothing else, no table and no element of the old table\'s class',
+ck( 'the table is gone, and the flow follows the head in its place, the Field of study rows block since 1.32.0 (a Custom HTML block before): the section holds the head and the flow and nothing else, no table and no element of the old table\'s class, and the pattern no Custom HTML',
 	array(
 		array_map( static function ( $node ) { return $node->getAttribute( 'class' ); }, iterator_to_array( $page->query( $flow_section . '/*' ) ) ),
 		count( $page->query( $flow_section . '//table | //*[' . flow_class( 'wpc-hub-fields' ) . ']' ) ),
-		(bool) preg_match( '#<!-- /wp:group -->\s*<!-- wp:html -->\s*<div class="wpc-hub-flow">.*</div>\s*<!-- /wp:html --></div>\s*<!-- /wp:group --></div>\s*<!-- /wp:group -->\s*$#s', $flow_drawn ),
-		substr_count( $flow_pattern, 'wp:table' ),
+		(bool) preg_match( '#<!-- /wp:group -->\s*<!-- wp:wpcredits/fit-list \{[^\n]*\} -->\n.*\n<!-- /wp:wpcredits/fit-list --></div>\s*<!-- /wp:group --></div>\s*<!-- /wp:group -->\s*$#s', $flow_drawn ),
+		substr_count( $flow_pattern, 'wp:table' ) + substr_count( $flow_drawn, 'wp:html' ),
 	),
 	array( array( 'wp-block-group wpc-hub-head', 'wpc-hub-flow' ), 0, true, 0 ) );
 
@@ -3143,7 +3605,7 @@ $GLOBALS['translated'] = array(
 	'Education'                       => 'Edukacja',
 	"a field of study\4Education"      => 'Pedagogika',
 );
-$fields_translated = found( dom_of( wpcredits_test_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__row"]/p[@class="wpc-hub-flow__field"]' );
+$fields_translated = found( dom_of( wpcredits_test_drawn_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__row"]/p[@class="wpc-hub-flow__field"]' );
 $accent_translated = wpcredits_accent_word( 'WordPress Edukacja Initiatives' );
 $GLOBALS['translated'] = array();
 
@@ -3158,13 +3620,13 @@ $GLOBALS['translated'] = array(
 	"a WordPress team a student joins\4Design" => 'Projektowanie',
 	"a WordPress team a student joins\4Core"   => 'Rdzeń',
 );
-$teams_translated      = found( dom_of( wpcredits_test_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__tag"]' );
+$teams_translated      = found( dom_of( wpcredits_test_drawn_pattern( 'hub-programs.php' ) ), '//li[@class="wpc-hub-flow__tag"]' );
 $GLOBALS['translated'] = array();
 
-preg_match_all( "/_x\( '([^']+)', 'a WordPress team a student joins', 'wpcredits-theme' \)/", $flow_pattern, $team_strings );
+preg_match_all( "/_x\( '([^']+)', 'a WordPress team a student joins', 'wpcredits-theme' \)/", $flow_source, $team_strings );
 
 ck( 'each team is a string of its own, said with the context "a WordPress team a student joins": seventeen tags from fifteen names, a team translated in that context reads its translation, and the same word elsewhere does not',
-	array( count( $team_strings[1] ), count( array_unique( $team_strings[1] ) ), array_slice( $teams_translated, 0, 5 ), substr_count( $flow_pattern, "'Core, plugins, testing, accessibility'" ) ),
+	array( count( $team_strings[1] ), count( array_unique( $team_strings[1] ) ), array_slice( $teams_translated, 0, 5 ), substr_count( $flow_source . $flow_pattern, "'Core, plugins, testing, accessibility'" ) ),
 	array( 17, 15, array( 'Rdzeń', 'Plugins', 'Testing', 'Accessibility', 'Projektowanie' ), 0 ) );
 
 // Each of a row's three values is escaped where the row prints it: a translation holding an ampersand
@@ -3174,7 +3636,7 @@ $GLOBALS['translated'] = array(
 	"a WordPress team a student joins\4Core"               => 'R&D <i>team',
 	'Merged code and reviewed patches'                    => 'R&D <i>proof',
 );
-$escaped_row           = dom_of( wpcredits_test_pattern( 'hub-programs.php' ) )->query( '//li[@class="wpc-hub-flow__row"]' )->item( 0 );
+$escaped_row           = dom_of( wpcredits_test_drawn_pattern( 'hub-programs.php' ) )->query( '//li[@class="wpc-hub-flow__row"]' )->item( 0 );
 $GLOBALS['translated'] = array();
 
 ck( 'a row\'s field, team and proof are escaped: translated to "R&D <i>" and a word, each reads exactly that, and the row holds no <i> element',
@@ -3186,13 +3648,214 @@ ck( 'a row\'s field, team and proof are escaped: translated to "R&D <i>" and a w
 	),
 	array( array( 'R&D <i>field' ), array( 'R&D <i>team' ), array( 'R&D <i>proof' ), 0 ) );
 
-ck( 'the two step labels a screen reader hears are strings of their own, each with a note for translators that says where it is read; the header line\'s three are the steps\' names, "What you\'ll have to show" as the table said it',
+ck( 'the two step labels a screen reader hears are strings of their own, each with a note for translators that says where it is read; the header line\'s three are the steps\' names, "What you\'ll have to show" as the table said it: the five the pattern writes into the Field of study rows block, from inc/hub-content.php',
 	array(
-		preg_match_all( "#/\* translators: [^*]+\*/\s*esc_html_e\( '(The team you join:|What you\\\\'ll have to show:)', 'wpcredits-theme' \)#", $flow_pattern ),
-		preg_match_all( "#esc_html_e\( '(Your field of study|The team you join|What you\\\\'ll have to show)', 'wpcredits-theme' \)#", $flow_pattern ),
-		substr_count( $flow_pattern, "'Field of study'" ) + substr_count( $flow_pattern, "'Where you\\'ll work'" ),
+		preg_match_all( "#/\* translators: [^*]+\*/\s*'(?:teamsLabel|proofLabel)'\s*=> __\( '(The team you join:|What you\\\\'ll have to show:)', 'wpcredits-theme' \)#", $flow_source ),
+		preg_match_all( "#'(?:fieldHeading|teamsHeading|proofHeading)'\s*=> __\( '(Your field of study|The team you join|What you\\\\'ll have to show)', 'wpcredits-theme' \)#", $flow_source ),
+		substr_count( $flow_source . $flow_pattern, "'Field of study'" ) + substr_count( $flow_source . $flow_pattern, "'Where you\\'ll work'" ),
 	),
 	array( 2, 3, 0 ) );
+
+echo "\n=== Find where you fit: the Field of study rows block (theme 1.32.0) ===\n";
+
+// The design's D4: the rows are blocks edited in the Site Editor, each its field, its teams and what the
+// student has to show; the list keeps its semantics, its header line, its arrows and its check marks.
+$fit_json     = json_decode( theme_file( 'blocks/fit-list/block.json' ), true );
+$fit_row_json = json_decode( theme_file( 'blocks/fit-row/block.json' ), true );
+$fit_js       = is_file( WPCREDITS_THEME_DIR . 'blocks/fit-list/index.js' ) ? theme_file( 'blocks/fit-list/index.js' ) : '';
+$fit_row_js   = is_file( WPCREDITS_THEME_DIR . 'blocks/fit-row/index.js' ) ? theme_file( 'blocks/fit-row/index.js' ) : '';
+
+ck( 'block.json: wpcredits/fit-list holds Field of study rows and nothing else, its header line\'s three names and the two labels a screen reader hears, each with today\'s words as its default, the two labels handed to its rows; wpcredits/fit-row sits in a list only, with its field, teams and proof, and reads the two labels; both server-rendered, each with its editor script, the list with the hub\'s stylesheet',
+	array(
+		array( $fit_json['name'] ?? null, $fit_json['allowedBlocks'] ?? null, $attributes_of( $fit_json ), $fit_json['providesContext'] ?? null, $fit_json['render'] ?? null, $fit_json['editorScript'] ?? null, $fit_json['style'] ?? null, $fit_json['textdomain'] ?? null ),
+		array( $fit_row_json['name'] ?? null, $fit_row_json['parent'] ?? null, $attributes_of( $fit_row_json ), $fit_row_json['usesContext'] ?? null, $fit_row_json['render'] ?? null, $fit_row_json['editorScript'] ?? null, $fit_row_json['textdomain'] ?? null ),
+	),
+	array(
+		array(
+			'wpcredits/fit-list',
+			array( 'wpcredits/fit-row' ),
+			array(
+				'fieldHeading' => 'string "Your field of study"',
+				'teamsHeading' => 'string "The team you join"',
+				'proofHeading' => 'string "What you\'ll have to show"',
+				'teamsLabel'   => 'string "The team you join:"',
+				'proofLabel'   => 'string "What you\'ll have to show:"',
+			),
+			array( 'wpcredits/fitTeamsLabel' => 'teamsLabel', 'wpcredits/fitProofLabel' => 'proofLabel' ),
+			'file:./render.php',
+			'file:./index.js',
+			'wpcredits-hub',
+			'wpcredits-theme',
+		),
+		array( 'wpcredits/fit-row', array( 'wpcredits/fit-list' ), array( 'field' => 'string ""', 'teams' => 'array []', 'proof' => 'string ""' ), array( 'wpcredits/fitTeamsLabel', 'wpcredits/fitProofLabel' ), 'file:./render.php', 'file:./index.js', 'wpcredits-theme' ),
+	) );
+
+ck( 'their editor scripts need the editor\'s packages, its components and its translations, at the theme\'s version; the theme registers them after the Course card',
+	array(
+		is_file( WPCREDITS_THEME_DIR . 'blocks/fit-list/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/fit-list/index.asset.php' : null,
+		is_file( WPCREDITS_THEME_DIR . 'blocks/fit-row/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/fit-row/index.asset.php' : null,
+		false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/course-card' ) );\n\tregister_block_type( get_theme_file_path( 'blocks/fit-list' ), array( 'skip_inner_blocks' => true ) );\n\tregister_block_type( get_theme_file_path( 'blocks/fit-row' ) );" ),
+	),
+	array(
+		array( 'dependencies' => array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ), 'version' => '9.9.9' ),
+		array( 'dependencies' => array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-components', 'wp-i18n' ), 'version' => '9.9.9' ),
+		true,
+	) );
+
+ck( 'in the editor the list holds rows only and starts with one empty row, its header line\'s three names inline and the two labels a screen reader hears in the block\'s settings; a row its field and proof inline, its teams in the settings one to a line; the list saves its rows alone and a row nothing',
+	array(
+		(bool) preg_match( "/allowedBlocks: \[ 'wpcredits\/fit-row' \]/", $fit_js ),
+		(bool) preg_match( "/template: \[ \[ 'wpcredits\/fit-row' \] \]/", $fit_js ),
+		preg_match_all( '/el\( RichText, \{\s*tagName: \'[a-z0-9]+\',\s*(?:className: \'[a-z_ -]+\',\s*)?value: attributes\.(fieldHeading|teamsHeading|proofHeading),/', $fit_js, $fit_rich ) ? $fit_rich[1] : array(),
+		preg_match_all( '/el\( components\.TextControl, \{\s*label: __\( \'[^\']+\', \'wpcredits-theme\' \),\s*value: attributes\.(teamsLabel|proofLabel)/', $fit_js, $fit_labels ) ? $fit_labels[1] : array(),
+		preg_match_all( '/el\( RichText, \{\s*tagName: \'[a-z0-9]+\',\s*(?:className: \'[a-z_ -]+\',\s*)?value: attributes\.(field|proof),/', $fit_row_js, $row_rich ) ? $row_rich[1] : array(),
+		(bool) preg_match( '/el\( components\.TextareaControl, \{\s*label: __\( \'[^\']+\', \'wpcredits-theme\' \),\s*value: lines\( attributes\.teams \)/', $fit_row_js ),
+		(bool) preg_match( '/save: function \(\) \{\s*return el\( blockEditor\.InnerBlocks\.Content \);\s*\}/', $fit_js ),
+		(bool) preg_match( '/save: function \(\) \{\s*return null;\s*\}/', $fit_row_js ),
+	),
+	array( true, true, array( 'fieldHeading', 'teamsHeading', 'proofHeading' ), array( 'teamsLabel', 'proofLabel' ), array( 'field', 'proof' ), true, true, true ) );
+
+/**
+ * A Field of study rows block holding some rows, as block markup.
+ *
+ * @param array   $list The list's attributes.
+ * @param array[] $rows Each row's attributes.
+ * @return string
+ */
+function fit_holding( array $list, array $rows ) {
+	$inner = array_map( static function ( $row ) { return get_comment_delimited_block_content( 'wpcredits/fit-row', $row, '' ); }, $rows );
+
+	return get_comment_delimited_block_content( 'wpcredits/fit-list', $list, $inner ? "\n" . implode( "\n\n", $inner ) . "\n" : '' );
+}
+
+$fit_rows_given = array(
+	array( 'field' => 'Physics &amp; <strong>maths</strong>', 'teams' => array( 'Core', ' ', 'R&D <i>' ), 'proof' => 'Merged <em>code</em>' ),
+	array( 'field' => 'Music', 'teams' => array(), 'proof' => 'A recital' ),
+	array( 'field' => 'History', 'teams' => array( 'Docs' ), 'proof' => '' ),
+	array( 'field' => ' ', 'teams' => array( 'Nobody' ), 'proof' => 'A row with no field is not drawn.' ),
+);
+$fit_drawn      = dom_of( do_blocks( fit_holding( array( 'fieldHeading' => 'Field', 'teamsHeading' => 'Team', 'proofHeading' => 'Proof', 'teamsLabel' => 'Teams:', 'proofLabel' => 'Proof:' ), $fit_rows_given ) ) );
+$fit_row_nodes  = iterator_to_array( $fit_drawn->query( '//ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]' ) );
+
+ck( 'the list draws the flow from its rows: the header line\'s names from its attributes, hidden from screen readers; both lists say they are lists, the rows\' named by the section\'s heading; each row the field, an arrow, its teams behind the label a screen reader hears, an arrow, and its proof behind its own label and the check; a row with no field is not drawn',
+	array(
+		found( $fit_drawn, '/html/body/div', 'class' ),
+		found( $fit_drawn, '//div[@class="wpc-hub-flow__head"]', 'aria-hidden' ),
+		found( $fit_drawn, '//div[@class="wpc-hub-flow__head"]/span' ),
+		found( $fit_drawn, '//ul', 'role' ),
+		found( $fit_drawn, '//ul[@class="wpc-hub-flow__rows"]', 'aria-labelledby' ),
+		array_map( 'heard', $fit_row_nodes ),
+		array_map( static function ( $row ) { return implode( ' ', found_in( $row, '*', 'class' ) ); }, $fit_row_nodes ),
+	),
+	array(
+		array( 'wpc-hub-flow' ),
+		array( 'true' ),
+		array( 'Field', 'Team', 'Proof' ),
+		array( 'list', 'list', 'list' ),
+		array( 'wpc-hub-fit' ),
+		array( 'Physics & maths Teams: Core R&D <i> Proof: Merged code', 'Music Proof: A recital', 'History Teams: Docs' ),
+		array(
+			'wpc-hub-flow__field wpc-hub-flow__arrow wpc-hub-flow__teams wpc-hub-flow__arrow wpc-hub-flow__proof',
+			'wpc-hub-flow__field wpc-hub-flow__arrow wpc-hub-flow__teams wpc-hub-flow__arrow wpc-hub-flow__proof',
+			'wpc-hub-flow__field wpc-hub-flow__arrow wpc-hub-flow__teams',
+		),
+	) );
+
+ck( 'a row with no teams keeps its column, empty, with no label and no empty list; a row with no proof draws no arrow pointing at nothing; a field and a proof keep the editor\'s bold and italic, a team is plain text',
+	array(
+		found( $fit_drawn, '//li[p="Music"]/div[@class="wpc-hub-flow__teams"]' ),
+		count( $fit_drawn->query( '//li[p="Music"]//ul | //li[p="Music"]/div//span' ) ),
+		count( $fit_drawn->query( '//ul[@class="wpc-hub-flow__tags"]/li[not(normalize-space())]' ) ),
+		$fit_row_nodes ? $fit_row_nodes[0]->ownerDocument->saveHTML( $fit_drawn->query( 'p[@class="wpc-hub-flow__field"]', $fit_row_nodes[0] )->item( 0 ) ) : '',
+		count( $fit_drawn->query( '//li[@class="wpc-hub-flow__tag"]/i' ) ),
+		count( $fit_drawn->query( '//span[@class="wpc-hub-flow__shown"]/em' ) ),
+	),
+	array( array( '' ), 0, 0, '<p class="wpc-hub-flow__field">Physics &amp; <strong>maths</strong></p>', 0, 1 ) );
+
+ck( 'a label a screen reader hears that is left empty is not printed, the header line with no name is left out, and a list with no row to draw prints nothing',
+	array(
+		count( dom_of( do_blocks( fit_holding( array( 'teamsLabel' => '', 'proofLabel' => ' ' ), $fit_rows_given ) ) )->query( '//li//span[@class="screen-reader-text"]' ) ),
+		count( dom_of( do_blocks( fit_holding( array( 'fieldHeading' => '', 'teamsHeading' => '', 'proofHeading' => '' ), $fit_rows_given ) ) )->query( '//div[@class="wpc-hub-flow__head"]' ) ),
+		found( dom_of( do_blocks( fit_holding( array(), $fit_rows_given ) ) ), '//div[@class="wpc-hub-flow__head"]/span' ),
+		do_blocks( fit_holding( array(), array( $fit_rows_given[3] ) ) ),
+	),
+	array( 0, 0, array( 'Your field of study', 'The team you join', 'What you\'ll have to show' ), '' ) );
+
+ck( 'wpcredits_hub_fit_rows(): the seven rows, each its field, its teams and its proof, as the flow showed them',
+	array_map( static function ( $row ) { return $row['field'] . ' > ' . implode( ', ', $row['teams'] ) . ' > ' . $row['proof']; }, wpcredits_hub_fit_rows() ),
+	array(
+		'Computer science, engineering > Core, Plugins, Testing, Accessibility > Merged code and reviewed patches',
+		'Design, arts, UX > Design, Block patterns, Themes > Visual work in use on real sites',
+		'Communications, journalism, marketing > Documentation, Learn WordPress, Marketing > Published work with a byline',
+		'Translation, languages > Polyglots > Published translations',
+		'Business, events, tourism > Community, WordCamps > An event you ran, with attendance numbers',
+		'Education > Learn WordPress lesson plans, Training > Course material in public use',
+		'Accessibility, social work > Accessibility, Testing > Audit work on a global platform',
+	) );
+
+$fit_markup = wpcredits_hub_fit_list_markup( wpcredits_hub_fit_rows() );
+$fit_parsed = wpcredits_test_block_in( $fit_markup, 'wpcredits/fit-list' );
+
+ck( 'wpcredits_hub_fit_list_markup(): the list with its five labels written out, the header line\'s as rich text keeps them, holding a void row for each row, its field and proof as rich text keeps them and its teams as they are, as the Site Editor saves them; labels read from elsewhere take the place of today\'s',
+	array(
+		$fit_parsed['attrs'] ?? null,
+		$fit_parsed ? array_map( static function ( $row ) { return $row['attrs']; }, $fit_parsed['innerBlocks'] )[0] : null,
+		count( $fit_parsed['innerBlocks'] ?? array() ),
+		$fit_parsed ? trim( implode( '', array_filter( $fit_parsed['innerContent'], 'is_string' ) ) ) : null,
+		( wpcredits_test_block_in( wpcredits_hub_fit_list_markup( array(), array( 'teamsHeading' => 'Teams & <b>', 'proofLabel' => 'Shown:' ) ), 'wpcredits/fit-list' )['attrs'] ?? array() ),
+	),
+	array(
+		array(
+			'fieldHeading' => 'Your field of study',
+			'teamsHeading' => 'The team you join',
+			'proofHeading' => 'What you&#039;ll have to show',
+			'teamsLabel'   => 'The team you join:',
+			'proofLabel'   => 'What you\'ll have to show:',
+		),
+		array( 'field' => 'Computer science, engineering', 'teams' => array( 'Core', 'Plugins', 'Testing', 'Accessibility' ), 'proof' => 'Merged code and reviewed patches' ),
+		7,
+		'',
+		array(
+			'fieldHeading' => 'Your field of study',
+			'teamsHeading' => 'Teams &amp; &lt;b&gt;',
+			'proofHeading' => 'What you&#039;ll have to show',
+			'teamsLabel'   => 'The team you join:',
+			'proofLabel'   => 'Shown:',
+		),
+	) );
+
+// The three containers draw their inner blocks themselves, so core is told not to render them first
+// (skip_inner_blocks, passed where the theme registers them): each card, course and row is drawn once.
+$GLOBALS['renders'] = array();
+unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
+wpcredits_test_drawn_pattern( 'hub-programs.php' );
+$once_today = $GLOBALS['renders'];
+add_filter( 'wpcredits_hub_show_planned', 'wpcredits_test_true' );
+$GLOBALS['renders'] = array();
+wpcredits_test_drawn_pattern( 'hub-programs.php' );
+$once_planned = $GLOBALS['renders'];
+
+ck( 'each card, course and row is rendered once as the programs section is drawn: core leaves the three containers\' inner blocks to them; today five cards (the one in development is not drawn), six with the planned content shown',
+	array( $once_today, $once_planned ),
+	array(
+		array( 'wpcredits/program-card' => 5, 'wpcredits/program-index' => 1, 'wpcredits/course-card' => 5, 'wpcredits/course-band' => 1, 'wpcredits/fit-row' => 7, 'wpcredits/fit-list' => 1 ),
+		array( 'wpcredits/program-card' => 6, 'wpcredits/program-index' => 1, 'wpcredits/course-card' => 5, 'wpcredits/course-band' => 1, 'wpcredits/fit-row' => 7, 'wpcredits/fit-list' => 1 ),
+	) );
+
+// The proof the page looks as it did: today's flow, drawn from the pattern's rows, is byte for byte what
+// the Custom HTML block of 1.31.12 held (bin/fixtures/hub-1-31-12-fit.html, rendered from a9a829e).
+$fit_from_pattern = wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/fit-list' );
+
+ck( 'today the flow the pattern holds draws byte for byte what 1.31.12\'s Custom HTML block held',
+	$fit_from_pattern ? trim( render_block( $fit_from_pattern ) ) === theme_file( 'bin/fixtures/hub-1-31-12-fit.html' ) : false, true );
+
+$GLOBALS['marked'] = true;
+$marked_fit        = $fit_from_pattern ? render_block( wpcredits_test_block_in( wpcredits_test_pattern( 'hub-programs.php' ), 'wpcredits/fit-list' ) ) : '';
+$GLOBALS['marked'] = false;
+
+ck( 'every word the flow prints, the labels a screen reader hears among them, is a translated string',
+	array( '' !== $marked_fit, unmarked( $marked_fit ), substr_count( $marked_fit, '<span class="screen-reader-text">[The team you join:]</span>' ) ),
+	array( true, array(), 7 ) );
 
 echo "\n=== Find where you fit: the flow's look ===\n";
 
@@ -3293,13 +3956,13 @@ ck( 'every word on the page, and every label and announcement, is a translated s
 
 // The owner (17 October 2026): "Items marked planned are not offered yet." goes; the mark beside each
 // item stays and says it itself.
-ck( 'the pathway\'s footnote is gone: "Items marked planned are not offered yet." is not on the page nor in the pathway\'s render, no element carries its line\'s class, and the sheet has no rule for it; with the filter on, the 28 planned items and the three planned lines of academic recognition on the page still say "(planned)" each',
+ck( 'the pathway\'s footnote is gone: "Items marked planned are not offered yet." is not on the page nor in the pathway\'s render, no element carries its line\'s class, and the sheet has no rule for it; with the filter on, the 25 planned items of the steps and levels and the three planned lines of academic recognition on the page still say "(planned)" each (the cards\' benefits, since 1.32.0 their blocks\' own, hold no planned one)',
 	array(
 		substr_count( $page_html, 'Items marked planned' ),
 		count( $page->query( '//*[contains(@class,"wpc-hub-ladder__key")]' ) ),
 		substr_count( theme_file( 'blocks/pathway/render.php' ), 'Items marked planned' ),
 		substr_count( preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/hub.css' ) ), 'wpc-hub-ladder__key' ),
-		found( $page, '//span[@class="wpc-hub-planned"]' ) === array_fill( 0, 31, '(planned)' ),
+		found( $page, '//span[@class="wpc-hub-planned"]' ) === array_fill( 0, 28, '(planned)' ),
 	),
 	array( 0, 0, 0, 0, true ) );
 
@@ -3309,9 +3972,9 @@ ck( 'full product names: no "WP Credits", and the Institution Dashboard by its n
 	array( substr_count( $words, 'WP Credits' ), substr_count( strtolower( $words ), 'institution dashboard' ), substr_count( $words, 'Institution Dashboard' ), substr_count( $words, 'Student Report Card' ), substr_count( $words, 'Mentor Report Card' ), substr_count( $words, 'Sponsor Dashboard' ) ),
 	array( 0, 2, 2, 1, 1, 1 ) );
 
-ck( 'nothing says what sponsorship costs or what a sponsor receives: the sign-in card\'s eyebrow and the name of its page, the band\'s eyebrow and its button are the only words of sponsors, and the one sum on the page is a program\'s award',
+ck( 'nothing says what sponsorship costs or what a sponsor receives: the sign-in card\'s eyebrow and the name of its page, the band\'s eyebrow and its button are the only words of sponsors, and no sum is on the page (the one there was, a program\'s planned award, is not written into its card)',
 	array( found( $page, '//body//*[not(*)][contains(translate(., "S", "s"), "sponsor")]' ), preg_match_all( '/\$\s?\d[\d,]*/', $words, $sums ), $sums[0] ),
-	array( array( 'Sponsors', 'Sponsor Dashboard', 'Sponsors and schools', 'Sponsor' ), 1, array( '$1,000' ) ) );
+	array( array( 'Sponsors', 'Sponsor Dashboard', 'Sponsors and schools', 'Sponsor' ), 0, array() ) );
 
 echo "\n=== The page's look ===\n";
 
@@ -4036,7 +4699,7 @@ echo "\n=== The page as offered today ===\n";
 // print goes, its heading with it.
 unset( $GLOBALS['hooks']['wpcredits_hub_show_planned'] );
 
-$today_index   = wpcredits_test_block( 'wpcredits/program-index' );
+$today_index   = pattern_index();
 $today_pathway = wpcredits_test_block( 'wpcredits/pathway' );
 $today_page    = wpcredits_test_page();
 $tx            = dom_of( $today_index );
