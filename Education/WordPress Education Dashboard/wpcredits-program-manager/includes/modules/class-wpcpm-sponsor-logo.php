@@ -355,7 +355,7 @@ final class WPCPM_Sponsor_Logo {
 		echo '<p class="wpcpm-student__note">' . esc_html(
 			sprintf(
 				/* translators: %d: the least width in pixels. */
-				__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least %d pixels wide. SVG is not accepted, so export it as a PNG.', 'wpcredits-program-manager' ),
+				__( 'The picture students and mentors see beside your offer. A horizontal PNG, JPEG or WebP image, about twice as wide as it is tall, at least %d pixels wide (600 or more looks sharper). SVG is not accepted, so export it as a PNG.', 'wpcredits-program-manager' ),
 				WPCPM_Image_Upload::LOGO_MIN_WIDTH
 			)
 		) . '</p>';

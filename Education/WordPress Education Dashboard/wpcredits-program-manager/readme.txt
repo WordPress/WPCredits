@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.24
+Stable tag: 1.123.25
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,10 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.25 =
+
+* The sponsor application's logo field and the Sponsor Dashboard's logo card ask for a horizontal logo about twice as wide as it is tall, at least 300 pixels wide, 600 or more looking sharper, so the partners' logos look alike side by side (a program Administrator's ask). The upload still refuses only a logo under 300 pixels wide; the shape is advice. The Sponsor guide says the same.
 
 = 1.123.24 =
 

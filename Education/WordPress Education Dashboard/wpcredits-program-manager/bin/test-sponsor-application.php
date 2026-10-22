@@ -774,6 +774,11 @@ ck( 'the question is asked in the support group, is optional, and is one the swi
 // holds: see the checks on what each level includes, below.
 ck( 'in the words of 1.123.24: the level, and the sentence its hint ends with', array( isset( $tier_spec['label'] ) ? $tier_spec['label'] : null, isset( $tier_spec['help'] ) ? $tier_spec['help'] : null ), array( 'Which level are you considering?', 'Not sure yet is a fine answer.' ) );
 
+// Since 1.123.25 the logo's hint asks for its shape too, keeping the 300 pixel floor the upload
+// enforces (an Administrator's feedback of 22 October 2026).
+$logo_spec = WPCPM_Sponsor_Application::fields()[ WPCPM_Sponsor_Application::COL_LOGO ];
+ck( 'the logo hint asks for a horizontal logo about twice as wide as it is tall, at least 300 pixels wide, 600 or more looking sharper', isset( $logo_spec['help'] ) ? $logo_spec['help'] : null, 'Two versions if you have them, in color and in white for a dark background: a horizontal logo about twice as wide as it is tall, PNG, JPEG or WebP, transparent where possible, at least 300 pixels wide (600 or more looks sharper).' );
+
 reset_world();
 $tier_off = WPCPM_Sponsor_Application::render();
 $GLOBALS['settings']['sponsor_tiers_live'] = true;

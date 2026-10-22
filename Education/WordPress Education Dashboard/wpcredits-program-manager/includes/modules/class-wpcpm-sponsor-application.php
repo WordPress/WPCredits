@@ -610,7 +610,7 @@ class WPCPM_Sponsor_Application {
 				'label'    => __( 'Company logo', 'wpcredits-program-manager' ),
 				'type'     => 'logos',
 				'required' => false,
-				'help'     => __( 'Two versions if you have them, in color and in white for a dark background: PNG, JPEG or WebP, transparent where possible, at least 300 pixels wide.', 'wpcredits-program-manager' ),
+				'help'     => __( 'Two versions if you have them, in color and in white for a dark background: a horizontal logo about twice as wide as it is tall, PNG, JPEG or WebP, transparent where possible, at least 300 pixels wide (600 or more looks sharper).', 'wpcredits-program-manager' ),
 			),
 			self::COL_ANYTHING => array(
 				'group'    => 'more',

@@ -424,6 +424,9 @@ ob_start();
 WPCPM_Sponsor_Logo::render( $S, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) );
 $manager_html = (string) ob_get_clean();
 ck( 'a manager sees the same card for any sponsor', false !== strpos( $manager_html, 'name="wpcpm_logo_color"' ), true );
+// Since 1.123.25 the card asks for the logo's shape as the application form does (an Administrator's
+// feedback of 22 October 2026: logos look alike side by side only when they share a shape).
+ck( 'the card asks for a horizontal logo about twice as wide as it is tall, at least the floor wide, 600 or more looking sharper', false !== strpos( $manager_html, 'A horizontal PNG, JPEG or WebP image, about twice as wide as it is tall, at least 300 pixels wide (600 or more looks sharper). SVG is not accepted, so export it as a PNG.' ), true );
 
 echo "\n=== House rules ===\n";
 $src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php' );
