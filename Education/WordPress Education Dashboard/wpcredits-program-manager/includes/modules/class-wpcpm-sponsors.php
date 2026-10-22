@@ -503,7 +503,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		add_action( 'init', array( 'WPCPM_Sponsors_Migration', 'maybe_run' ), 6 );
 
 		// A test sponsor is never listed publicly (1.123.18): the sponsors the store held before
-		// the flag whose names start with "TEST" are marked once, before anything public is drawn.
+		// the flag whose names start with the word "TEST" are marked once, before anything public
+		// is drawn.
 		add_action( 'init', array( 'WPCPM_Sponsors_Index', 'maybe_mark_tests' ), 7 );
 
 		// A program manager's booking link, a field on their own profile (design decision 5).

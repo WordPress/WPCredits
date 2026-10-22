@@ -610,7 +610,11 @@ class WPCPM_Sponsors {
 	}
 }
 
-/** The offers, oldest first as the real query reads them, the real is_live() rule and the two program moves. */
+/**
+ * The offers, oldest first as the real query reads them, the real is_live() rule and the program's
+ * one move left on them, wake(): nothing puts an offer to dormant since no tier caps live offers,
+ * and the real class has no such move since 1.123.23, so a run that called one would stop here.
+ */
 class WPCPM_Sponsor_Offers {
 	const STATE_LIVE    = 'live';
 	const STATE_DORMANT = 'dormant';
@@ -639,17 +643,6 @@ class WPCPM_Sponsor_Offers {
 		}
 
 		return strcmp( (string) $offer['expires'], '' !== (string) $today ? (string) $today : wp_date( 'Y-m-d' ) ) >= 0;
-	}
-
-	public static function set_dormant( $offer_id ) {
-		if ( ! isset( $GLOBALS['offers'][ $offer_id ] ) || self::STATE_LIVE !== $GLOBALS['offers'][ $offer_id ]['state'] ) {
-			return false;
-		}
-
-		$GLOBALS['offers'][ $offer_id ]['state'] = self::STATE_DORMANT;
-		$GLOBALS['moves'][]                      = 'offer ' . $offer_id . ' dormant';
-
-		return true;
 	}
 
 	public static function wake( $offer_id ) {

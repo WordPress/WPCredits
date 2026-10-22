@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.22\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.23\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-22T00:41:49+00:00\n"
+"POT-Creation-Date: 2026-10-22T07:06:37+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -168,7 +168,7 @@ msgstr ""
 #: includes/class-wpcpm-accounts-table.php:1213
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:267
 #: includes/modules/class-wpcpm-sponsor-profile.php:674
-#: includes/modules/class-wpcpm-sponsors.php:4490
+#: includes/modules/class-wpcpm-sponsors.php:4491
 #: includes/tools/class-wpcpm-emails.php:368
 #: includes/tools/class-wpcpm-emails.php:381
 #: includes/tools/class-wpcpm-track-builder-screen.php:117
@@ -232,10 +232,10 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1251
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1344
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1439
-#: includes/modules/class-wpcpm-sponsor-application.php:2957
+#: includes/modules/class-wpcpm-sponsor-application.php:2968
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:1023
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:1123
-#: includes/modules/class-wpcpm-sponsor-posts.php:2183
+#: includes/modules/class-wpcpm-sponsor-posts.php:2189
 #: includes/modules/class-wpcpm-sponsor-report-files.php:149
 #: includes/modules/class-wpcpm-sponsor-report-files.php:243
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1090
@@ -244,7 +244,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1243
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1267
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1304
-#: includes/modules/class-wpcpm-sponsors.php:961
+#: includes/modules/class-wpcpm-sponsors.php:962
 #: includes/modules/class-wpcpm-sync-module.php:77
 #: includes/tools/class-wpcpm-duplicate-finder.php:227
 #: includes/tools/class-wpcpm-duplicate-finder.php:264
@@ -919,7 +919,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:1993
 #: includes/modules/class-wpcpm-administrators-cards.php:2666
 #: includes/modules/class-wpcpm-mentors.php:98
-#: includes/modules/class-wpcpm-sponsor-offers.php:2632
+#: includes/modules/class-wpcpm-sponsor-offers.php:2647
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:533
 msgid "Mentors"
 msgstr ""
@@ -937,10 +937,10 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-catalog.php:65
 #: includes/modules/class-wpcpm-administrators-cards.php:1122
 #: includes/modules/class-wpcpm-administrators-cards.php:1128
-#: includes/modules/class-wpcpm-sponsor-posts.php:842
+#: includes/modules/class-wpcpm-sponsor-posts.php:848
 #: includes/modules/class-wpcpm-sponsors.php:213
-#: includes/modules/class-wpcpm-sponsors.php:2654
-#: includes/modules/class-wpcpm-sponsors.php:4334
+#: includes/modules/class-wpcpm-sponsors.php:2655
+#: includes/modules/class-wpcpm-sponsors.php:4335
 #: blocks/sponsors/editor.js:80
 msgid "Sponsors"
 msgstr ""
@@ -1092,8 +1092,8 @@ msgstr[1] ""
 #: includes/modules/class-wpcpm-institutions.php:4496
 #: includes/modules/class-wpcpm-institutions.php:5454
 #: includes/modules/class-wpcpm-sponsors-table.php:426
-#: includes/modules/class-wpcpm-sponsors.php:4277
-#: includes/modules/class-wpcpm-sponsors.php:4424
+#: includes/modules/class-wpcpm-sponsors.php:4278
+#: includes/modules/class-wpcpm-sponsors.php:4425
 #: includes/tools/class-wpcpm-track-builder-screen.php:1153
 #, php-format
 msgid "%1$s (%2$s)"
@@ -1173,9 +1173,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-people.php:711
 #: includes/modules/class-wpcpm-institutions-table.php:150
 #: includes/modules/class-wpcpm-sponsors-table.php:155
-#: includes/modules/class-wpcpm-sponsors.php:817
-#: includes/modules/class-wpcpm-sponsors.php:823
-#: includes/modules/class-wpcpm-sponsors.php:3864
+#: includes/modules/class-wpcpm-sponsors.php:818
+#: includes/modules/class-wpcpm-sponsors.php:824
+#: includes/modules/class-wpcpm-sponsors.php:3865
 #: includes/tools/class-wpcpm-track-builder-screen.php:960
 #: includes/tools/class-wpcpm-track-builder-screen.php:1057
 msgid "Name"
@@ -1188,8 +1188,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:93
 #: includes/modules/class-wpcpm-mentors-table.php:98
 #: includes/modules/class-wpcpm-sponsors-table.php:159
-#: includes/modules/class-wpcpm-sponsors.php:3879
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsors.php:3880
+#: includes/modules/class-wpcpm-sponsors.php:4457
 #: includes/tools/class-wpcpm-emails.php:1038
 #: includes/tools/class-wpcpm-mentor-checker.php:953
 #: includes/tools/class-wpcpm-track-builder-screen.php:55
@@ -1359,9 +1359,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:1344
 #: includes/modules/class-wpcpm-sponsors-table.php:157
 #: includes/modules/class-wpcpm-sponsors-table.php:876
-#: includes/modules/class-wpcpm-sponsors.php:2456
-#: includes/modules/class-wpcpm-sponsors.php:4456
-#: includes/modules/class-wpcpm-sponsors.php:4574
+#: includes/modules/class-wpcpm-sponsors.php:2457
+#: includes/modules/class-wpcpm-sponsors.php:4457
+#: includes/modules/class-wpcpm-sponsors.php:4575
 msgid "Sponsor"
 msgstr ""
 
@@ -1803,8 +1803,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators.php:241
 #: includes/modules/class-wpcpm-institutions.php:2297
 #: includes/modules/class-wpcpm-mentors.php:381
-#: includes/modules/class-wpcpm-sponsors.php:2655
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsors.php:2656
+#: includes/modules/class-wpcpm-sponsors.php:4457
 #: includes/modules/trait-wpcpm-accounts-screen.php:551
 msgid "Accounts"
 msgstr ""
@@ -2453,10 +2453,10 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:264
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:276
 #: includes/modules/class-wpcpm-sponsor-application.php:1159
-#: includes/modules/class-wpcpm-sponsor-application.php:3689
-#: includes/modules/class-wpcpm-sponsor-offers.php:2576
-#: includes/modules/class-wpcpm-sponsors.php:3865
-#: includes/modules/class-wpcpm-sponsors.php:4847
+#: includes/modules/class-wpcpm-sponsor-application.php:3700
+#: includes/modules/class-wpcpm-sponsor-offers.php:2591
+#: includes/modules/class-wpcpm-sponsors.php:3866
+#: includes/modules/class-wpcpm-sponsors.php:4848
 #: includes/modules/class-wpcpm-student-report-form.php:1049
 #: includes/tools/class-wpcpm-emails.php:655
 msgid "Required"
@@ -2564,8 +2564,8 @@ msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1877
 #: includes/modules/class-wpcpm-institutions.php:2299
-#: includes/modules/class-wpcpm-sponsors.php:2659
-#: includes/modules/class-wpcpm-sponsors.php:4618
+#: includes/modules/class-wpcpm-sponsors.php:2660
+#: includes/modules/class-wpcpm-sponsors.php:4619
 msgid "Agreements"
 msgstr ""
 
@@ -3289,7 +3289,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:54
 #: includes/mail/class-wpcpm-mail-log.php:508
-#: includes/modules/class-wpcpm-sponsors.php:4574
+#: includes/modules/class-wpcpm-sponsors.php:4575
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 #: includes/tools/class-wpcpm-emails.php:1069
 msgid "When"
@@ -6149,14 +6149,14 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:370
 #: includes/modules/class-wpcpm-administrators-cards.php:660
 #: includes/modules/class-wpcpm-administrators-cards.php:666
-#: includes/modules/class-wpcpm-sponsors.php:3185
+#: includes/modules/class-wpcpm-sponsors.php:3186
 msgid "Sponsor posts to review"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:378
 #: includes/modules/class-wpcpm-administrators-cards.php:724
 #: includes/modules/class-wpcpm-administrators-cards.php:730
-#: includes/modules/class-wpcpm-sponsors.php:3254
+#: includes/modules/class-wpcpm-sponsors.php:3255
 msgid "Sponsor offers to review"
 msgstr ""
 
@@ -6208,9 +6208,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:2295
 #: includes/modules/class-wpcpm-institutions.php:2790
 #: includes/modules/class-wpcpm-mentors.php:380
-#: includes/modules/class-wpcpm-sponsor-offers.php:1744
-#: includes/modules/class-wpcpm-sponsor-posts.php:1183
-#: includes/modules/class-wpcpm-sponsors.php:2653
+#: includes/modules/class-wpcpm-sponsor-offers.php:1750
+#: includes/modules/class-wpcpm-sponsor-posts.php:1189
+#: includes/modules/class-wpcpm-sponsors.php:2654
 msgid "Waiting for review"
 msgstr ""
 
@@ -6266,7 +6266,7 @@ msgstr ""
 
 #. translators: %s: the account's name.
 #: includes/modules/class-wpcpm-administrators-cards.php:694
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:254
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:303
 #, php-format
 msgid "By %s"
 msgstr ""
@@ -6278,14 +6278,14 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:772
 #: includes/modules/class-wpcpm-administrators-cards.php:778
 #: includes/modules/class-wpcpm-sponsor-tier-card.php:573
-#: includes/modules/class-wpcpm-sponsors.php:3323
+#: includes/modules/class-wpcpm-sponsors.php:3324
 msgid "Events"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:813
 #: includes/modules/class-wpcpm-administrators-cards.php:819
 #: includes/modules/class-wpcpm-sponsor-application.php:392
-#: includes/modules/class-wpcpm-sponsor-application.php:3894
+#: includes/modules/class-wpcpm-sponsor-application.php:3905
 msgid "Sponsor applications"
 msgstr ""
 
@@ -6300,13 +6300,13 @@ msgid "Applied %s ago"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:861
-#: includes/modules/class-wpcpm-sponsor-application.php:4060
+#: includes/modules/class-wpcpm-sponsor-application.php:4071
 msgid "Tier: not sure yet"
 msgstr ""
 
 #. translators: %s: the tier the applicant is considering.
 #: includes/modules/class-wpcpm-administrators-cards.php:864
-#: includes/modules/class-wpcpm-sponsor-application.php:4067
+#: includes/modules/class-wpcpm-sponsor-application.php:4078
 #, php-format
 msgid "Considering: %s"
 msgstr ""
@@ -6320,7 +6320,7 @@ msgid "Another open application names this company or this address. Nothing is e
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:879
-#: includes/modules/class-wpcpm-sponsor-application.php:4522
+#: includes/modules/class-wpcpm-sponsor-application.php:4533
 msgid "The site already holds a sponsor with this name or website. Approving creates a second record."
 msgstr ""
 
@@ -6339,9 +6339,9 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:947
 #: includes/modules/class-wpcpm-sponsor-claims.php:535
-#: includes/modules/class-wpcpm-sponsor-offers.php:1187
+#: includes/modules/class-wpcpm-sponsor-offers.php:1206
 #: includes/modules/class-wpcpm-sponsor-usage.php:81
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Offer"
 msgstr ""
 
@@ -6350,7 +6350,7 @@ msgid "Codes left"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:947
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Warns at"
 msgstr ""
 
@@ -6447,8 +6447,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1218
 #: includes/modules/class-wpcpm-sponsor-report-files.php:643
-#: includes/modules/class-wpcpm-sponsors.php:3938
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsors.php:3939
+#: includes/modules/class-wpcpm-sponsors.php:4457
 msgid "Tier"
 msgstr ""
 
@@ -6457,8 +6457,8 @@ msgid "Ends on"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1232
-#: includes/modules/class-wpcpm-sponsors.php:2481
-#: includes/modules/class-wpcpm-sponsors.php:3919
+#: includes/modules/class-wpcpm-sponsors.php:2482
+#: includes/modules/class-wpcpm-sponsors.php:3920
 msgid "Nobody yet"
 msgstr ""
 
@@ -6571,10 +6571,10 @@ msgstr[1] ""
 #: includes/modules/class-wpcpm-institutions.php:4794
 #: includes/modules/class-wpcpm-institutions.php:4858
 #: includes/modules/class-wpcpm-mentor-application-queue.php:982
-#: includes/modules/class-wpcpm-sponsor-application.php:3846
-#: includes/modules/class-wpcpm-sponsor-application.php:4013
-#: includes/modules/class-wpcpm-sponsor-application.php:4165
-#: includes/modules/class-wpcpm-sponsor-application.php:4423
+#: includes/modules/class-wpcpm-sponsor-application.php:3857
+#: includes/modules/class-wpcpm-sponsor-application.php:4024
+#: includes/modules/class-wpcpm-sponsor-application.php:4176
+#: includes/modules/class-wpcpm-sponsor-application.php:4434
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:255
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:679
 msgid "(no name)"
@@ -6625,13 +6625,13 @@ msgid "%s revoked agreements"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2383
-#: includes/modules/class-wpcpm-sponsors.php:3558
+#: includes/modules/class-wpcpm-sponsors.php:3559
 msgid "Reinstating"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2389
 #: includes/modules/class-wpcpm-sponsor-agreement.php:563
-#: includes/modules/class-wpcpm-sponsors.php:3560
+#: includes/modules/class-wpcpm-sponsors.php:3561
 msgid "Reinstate"
 msgstr ""
 
@@ -6849,9 +6849,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:2811
 #: includes/modules/class-wpcpm-institutions.php:5273
 #: includes/modules/class-wpcpm-sponsor-claims.php:536
-#: includes/modules/class-wpcpm-sponsor-offers.php:2810
+#: includes/modules/class-wpcpm-sponsor-offers.php:2825
 #: includes/modules/class-wpcpm-sponsor-usage.php:81
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 #: includes/tools/class-wpcpm-emails.php:364
 #: includes/tools/class-wpcpm-track-builder-screen.php:56
 msgid "State"
@@ -7445,7 +7445,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:921
 #: includes/modules/class-wpcpm-institution-invite.php:425
-#: includes/modules/class-wpcpm-sponsors.php:3744
+#: includes/modules/class-wpcpm-sponsors.php:3745
 msgid "Cancel"
 msgstr ""
 
@@ -7874,7 +7874,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-semester-report-screen.php:1601
 #: includes/modules/class-wpcpm-sponsor-application.php:569
 #: includes/modules/class-wpcpm-sponsor-profile.php:102
-#: includes/modules/class-wpcpm-sponsors.php:3875
+#: includes/modules/class-wpcpm-sponsors.php:3876
 #: includes/modules/class-wpcpm-students-dashboard.php:1043
 msgid "Website"
 msgstr ""
@@ -8375,7 +8375,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-import-form.php:349
 #: includes/modules/class-wpcpm-institution-people.php:717
 #: includes/modules/class-wpcpm-institution-people.php:722
-#: includes/modules/class-wpcpm-sponsors.php:2976
+#: includes/modules/class-wpcpm-sponsors.php:2977
 #: includes/tools/class-wpcpm-track-editor-screen.php:109
 msgid "Email address"
 msgstr ""
@@ -9201,19 +9201,19 @@ msgstr ""
 #. translators: %s: institution name.
 #. translators: %s: company name.
 #: includes/modules/class-wpcpm-institution-panel.php:533
-#: includes/modules/class-wpcpm-sponsors.php:4666
+#: includes/modules/class-wpcpm-sponsors.php:4667
 #, php-format
 msgid "Review the signed agreement from %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-panel.php:542
-#: includes/modules/class-wpcpm-sponsors.php:4724
+#: includes/modules/class-wpcpm-sponsors.php:4725
 msgid "Download the signed agreement"
 msgstr ""
 
 #. translators: 1: the uploader's name, 2: date, 3: file size.
 #: includes/modules/class-wpcpm-institution-panel.php:585
-#: includes/modules/class-wpcpm-sponsors.php:4677
+#: includes/modules/class-wpcpm-sponsors.php:4678
 #, php-format
 msgid "Uploaded by %1$s on %2$s, %3$s."
 msgstr ""
@@ -9264,18 +9264,18 @@ msgstr ""
 
 #. translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets.
 #: includes/modules/class-wpcpm-institution-panel.php:670
-#: includes/modules/class-wpcpm-sponsors.php:4699
+#: includes/modules/class-wpcpm-sponsors.php:4700
 #, php-format
 msgid "The scan noticed these in the file: %s."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-panel.php:673
-#: includes/modules/class-wpcpm-sponsors.php:4702
+#: includes/modules/class-wpcpm-sponsors.php:4703
 msgid "The scan noticed none of the features it looks for in the file."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-panel.php:679
-#: includes/modules/class-wpcpm-sponsors.php:4707
+#: includes/modules/class-wpcpm-sponsors.php:4708
 msgid "The scan is a courtesy and not evidence: a PDF can carry things a bounded scan will not find. What protects you is that this site never opens the file in your browser, and that the download is handed to a viewer of your own choosing."
 msgstr ""
 
@@ -9307,8 +9307,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-panel.php:775
 #: includes/modules/class-wpcpm-sponsor-agreement.php:599
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:649
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:383
-#: includes/modules/class-wpcpm-sponsor-posts.php:1851
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:438
+#: includes/modules/class-wpcpm-sponsor-posts.php:1857
 msgid "Return it with this note"
 msgstr ""
 
@@ -9613,7 +9613,7 @@ msgid "Leave"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-people.php:341
-#: includes/modules/class-wpcpm-sponsors.php:2953
+#: includes/modules/class-wpcpm-sponsors.php:2954
 #: includes/modules/class-wpcpm-student-report-form.php:1312
 #: includes/tools/class-wpcpm-track-editor-screen.php:769
 msgid "Remove"
@@ -9884,9 +9884,9 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-request.php:1087
 #: includes/modules/class-wpcpm-institutions.php:2996
-#: includes/modules/class-wpcpm-sponsors.php:3213
-#: includes/modules/class-wpcpm-sponsors.php:3273
-#: includes/modules/class-wpcpm-sponsors.php:3357
+#: includes/modules/class-wpcpm-sponsors.php:3214
+#: includes/modules/class-wpcpm-sponsors.php:3274
+#: includes/modules/class-wpcpm-sponsors.php:3358
 msgid "somebody whose account is gone"
 msgstr ""
 
@@ -9898,11 +9898,11 @@ msgstr ""
 #: includes/modules/class-wpcpm-semester-report-screen.php:893
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:445
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:750
-#: includes/modules/class-wpcpm-sponsor-offers.php:2833
+#: includes/modules/class-wpcpm-sponsor-offers.php:2848
 #: includes/modules/class-wpcpm-sponsor-profile.php:697
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:623
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1062
-#: includes/modules/class-wpcpm-sponsors.php:3732
+#: includes/modules/class-wpcpm-sponsors.php:3733
 msgid "Saving"
 msgstr ""
 
@@ -10257,7 +10257,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-form.php:490
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:142
-#: includes/modules/class-wpcpm-sponsors.php:807
+#: includes/modules/class-wpcpm-sponsors.php:808
 msgid "Nothing changed, so nothing was saved."
 msgstr ""
 
@@ -10939,7 +10939,7 @@ msgstr[1] ""
 #. translators: %s: the largest number the menu bubble counts to, or that number less the rows a list draws.
 #: includes/modules/class-wpcpm-institutions.php:368
 #: includes/modules/class-wpcpm-sponsors.php:250
-#: includes/modules/class-wpcpm-sponsors.php:3473
+#: includes/modules/class-wpcpm-sponsors.php:3474
 #, php-format
 msgid "%s+"
 msgstr ""
@@ -11018,13 +11018,13 @@ msgstr ""
 
 #. translators: The name of the box an Administrator types a question to an applicant in, the first words of its label.
 #: includes/modules/class-wpcpm-institutions.php:1744
-#: includes/modules/class-wpcpm-sponsor-application.php:3336
+#: includes/modules/class-wpcpm-sponsor-application.php:3347
 msgid "Ask the applicant something"
 msgstr ""
 
 #. translators: The name of the box an Administrator types why an application is rejected in, the first words of its label.
 #: includes/modules/class-wpcpm-institutions.php:1756
-#: includes/modules/class-wpcpm-sponsor-application.php:3348
+#: includes/modules/class-wpcpm-sponsor-application.php:3359
 msgid "Why, for the next Administrator who reads this"
 msgstr ""
 
@@ -11176,7 +11176,7 @@ msgid "Not every account could be created. The No account view names what is lef
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2389
-#: includes/modules/class-wpcpm-sponsors.php:2772
+#: includes/modules/class-wpcpm-sponsors.php:2773
 msgid "There was nothing to create."
 msgstr ""
 
@@ -11199,7 +11199,7 @@ msgid "If it should be here, run the institutions sync on the %1$sSync and stora
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2554
-#: includes/modules/class-wpcpm-sponsors.php:3076
+#: includes/modules/class-wpcpm-sponsors.php:3077
 msgid "Back to the accounts"
 msgstr ""
 
@@ -11313,7 +11313,7 @@ msgstr ""
 
 #. translators: 1: how many rows are drawn, 2: how many are waiting in total.
 #: includes/modules/class-wpcpm-institutions.php:2830
-#: includes/modules/class-wpcpm-sponsor-application.php:3908
+#: includes/modules/class-wpcpm-sponsor-application.php:3919
 #, php-format
 msgid "Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place."
 msgstr ""
@@ -11322,7 +11322,7 @@ msgstr ""
 #. translators: 1: how long the application has waited, 2: the day it arrived.
 #: includes/modules/class-wpcpm-institutions.php:2893
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1073
-#: includes/modules/class-wpcpm-sponsor-application.php:4034
+#: includes/modules/class-wpcpm-sponsor-application.php:4045
 #, php-format
 msgid "Waiting %1$s, since %2$s."
 msgstr ""
@@ -11344,13 +11344,13 @@ msgid "%s. The Countries table names nobody for it, for information."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2928
-#: includes/modules/class-wpcpm-sponsor-application.php:4077
+#: includes/modules/class-wpcpm-sponsor-application.php:4088
 msgid "The anti-spam checks held this submission. Nothing was announced about it, and none of the checks refused it."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2929
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1097
-#: includes/modules/class-wpcpm-sponsor-application.php:4078
+#: includes/modules/class-wpcpm-sponsor-application.php:4089
 msgid "held"
 msgstr ""
 
@@ -11360,7 +11360,7 @@ msgstr ""
 
 #. translators: %s: how many checks held the submission.
 #: includes/modules/class-wpcpm-institutions.php:2935
-#: includes/modules/class-wpcpm-sponsor-application.php:4084
+#: includes/modules/class-wpcpm-sponsor-application.php:4095
 #, php-format
 msgid "%s check held it; open the application to read it."
 msgid_plural "%s checks held it; open the application to read them."
@@ -11373,17 +11373,17 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2946
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1105
-#: includes/modules/class-wpcpm-sponsor-application.php:4095
+#: includes/modules/class-wpcpm-sponsor-application.php:4106
 msgid "possible duplicate"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2947
-#: includes/modules/class-wpcpm-sponsor-application.php:4096
+#: includes/modules/class-wpcpm-sponsor-application.php:4107
 msgid "Open both and decide; nothing is ever merged."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2955
-#: includes/modules/class-wpcpm-sponsor-application.php:4125
+#: includes/modules/class-wpcpm-sponsor-application.php:4136
 msgid "Open this application"
 msgstr ""
 
@@ -11401,60 +11401,60 @@ msgstr ""
 
 #. translators: 1: application state, 2: date and time it arrived.
 #: includes/modules/class-wpcpm-institutions.php:3052
-#: includes/modules/class-wpcpm-sponsor-application.php:4174
+#: includes/modules/class-wpcpm-sponsor-application.php:4185
 #, php-format
 msgid "State: %1$s. Arrived %2$s."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3058
-#: includes/modules/class-wpcpm-sponsor-application.php:4180
+#: includes/modules/class-wpcpm-sponsor-application.php:4191
 msgid "Back to the queue"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3115
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1473
-#: includes/modules/class-wpcpm-sponsor-application.php:4307
+#: includes/modules/class-wpcpm-sponsor-application.php:4318
 msgid "no answer"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3134
-#: includes/modules/class-wpcpm-sponsor-application.php:4319
+#: includes/modules/class-wpcpm-sponsor-application.php:4330
 msgid "No consent record was stored with this application."
 msgstr ""
 
 #. translators: %s: date and time.
 #: includes/modules/class-wpcpm-institutions.php:3142
-#: includes/modules/class-wpcpm-sponsor-application.php:4327
+#: includes/modules/class-wpcpm-sponsor-application.php:4338
 #, php-format
 msgid "Agreed %s."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3145
-#: includes/modules/class-wpcpm-sponsor-application.php:4330
+#: includes/modules/class-wpcpm-sponsor-application.php:4341
 msgid "Agreed; no time was recorded."
 msgstr ""
 
 #. translators: %s: privacy policy address.
 #: includes/modules/class-wpcpm-institutions.php:3155
-#: includes/modules/class-wpcpm-sponsor-application.php:4340
+#: includes/modules/class-wpcpm-sponsor-application.php:4351
 #, php-format
 msgid "Policy: %s"
 msgstr ""
 
 #. translators: %s: date the privacy policy was last changed.
 #: includes/modules/class-wpcpm-institutions.php:3163
-#: includes/modules/class-wpcpm-sponsor-application.php:4348
+#: includes/modules/class-wpcpm-sponsor-application.php:4359
 #, php-format
 msgid "The policy was last changed %s; anything later than the agreement above is not what they read."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3197
-#: includes/modules/class-wpcpm-sponsor-application.php:4450
+#: includes/modules/class-wpcpm-sponsor-application.php:4461
 msgid "Why this application is held"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3198
-#: includes/modules/class-wpcpm-sponsor-application.php:4451
+#: includes/modules/class-wpcpm-sponsor-application.php:4462
 msgid "What the checks made of it"
 msgstr ""
 
@@ -11467,42 +11467,42 @@ msgid "Except this one: the day's limit on acknowledgements had been reached whe
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3219
-#: includes/modules/class-wpcpm-sponsor-application.php:4462
+#: includes/modules/class-wpcpm-sponsor-application.php:4473
 msgid "No check recorded anything against it. The state says held and nothing says why, so decide it on what is on it."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3220
-#: includes/modules/class-wpcpm-sponsor-application.php:4463
+#: includes/modules/class-wpcpm-sponsor-application.php:4474
 msgid "Nothing. Every check the form makes passed."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3251
-#: includes/modules/class-wpcpm-sponsor-application.php:4496
+#: includes/modules/class-wpcpm-sponsor-application.php:4507
 msgid "A field no visitor can see was filled in, which is what an automated submission does and a person cannot."
 msgstr ""
 
 #. translators: %s: a number of seconds.
 #: includes/modules/class-wpcpm-institutions.php:3254
-#: includes/modules/class-wpcpm-sponsor-application.php:4499
+#: includes/modules/class-wpcpm-sponsor-application.php:4510
 #, php-format
 msgid "It arrived without the token the form hands a browser, or less than %s seconds after the page was drawn."
 msgstr ""
 
 #. translators: %s: a number of seconds.
 #: includes/modules/class-wpcpm-institutions.php:3259
-#: includes/modules/class-wpcpm-sponsor-application.php:4504
+#: includes/modules/class-wpcpm-sponsor-application.php:4515
 #, php-format
 msgid "It was sent again less than %s seconds after the form was redrawn, which is what somebody correcting one answer does rather than what a script does. Nothing about the application was refused."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3262
-#: includes/modules/class-wpcpm-sponsor-application.php:4507
+#: includes/modules/class-wpcpm-sponsor-application.php:4518
 msgid "Something written on it matches this site's comment disallowed list."
 msgstr ""
 
 #. translators: %s: a number of links.
 #: includes/modules/class-wpcpm-institutions.php:3265
-#: includes/modules/class-wpcpm-sponsor-application.php:4510
+#: includes/modules/class-wpcpm-sponsor-application.php:4521
 #, php-format
 msgid "The written answers carry %s links or more."
 msgstr ""
@@ -11584,17 +11584,17 @@ msgid "no stage"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3515
-#: includes/modules/class-wpcpm-sponsor-application.php:3429
+#: includes/modules/class-wpcpm-sponsor-application.php:3440
 msgid "What happens next"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3561
-#: includes/modules/class-wpcpm-sponsor-application.php:3587
+#: includes/modules/class-wpcpm-sponsor-application.php:3598
 msgid "Where it is decided"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3564
-#: includes/modules/class-wpcpm-sponsor-application.php:3590
+#: includes/modules/class-wpcpm-sponsor-application.php:3601
 msgid "It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here."
 msgstr ""
 
@@ -11608,13 +11608,13 @@ msgstr[1] ""
 
 #. translators: %s: how many open applications the Administrator Dashboard's card lists.
 #: includes/modules/class-wpcpm-institutions.php:3603
-#: includes/modules/class-wpcpm-sponsor-application.php:3614
+#: includes/modules/class-wpcpm-sponsor-application.php:3625
 #, php-format
 msgid "The Administrator Dashboard's card lists the %s oldest open applications, and this one is past them, so it is decided here."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3614
-#: includes/modules/class-wpcpm-sponsor-application.php:3625
+#: includes/modules/class-wpcpm-sponsor-application.php:3636
 msgid "Applications are decided on the Administrator Dashboard."
 msgstr ""
 
@@ -11623,9 +11623,9 @@ msgid "This one is listed in its Institution applications card, with every decis
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3654
-#: includes/modules/class-wpcpm-sponsor-application.php:3466
+#: includes/modules/class-wpcpm-sponsor-application.php:3477
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:602
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:346
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:400
 msgid "Approve"
 msgstr ""
 
@@ -11636,40 +11636,40 @@ msgid "Create an Airtable record and a site account for %1$s, and email a passwo
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3660
-#: includes/modules/class-wpcpm-sponsor-application.php:3441
+#: includes/modules/class-wpcpm-sponsor-application.php:3452
 msgid "the address on the application"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3671
-#: includes/modules/class-wpcpm-sponsor-application.php:3481
+#: includes/modules/class-wpcpm-sponsor-application.php:3492
 msgid "Send this question"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3673
-#: includes/modules/class-wpcpm-sponsor-application.php:3483
+#: includes/modules/class-wpcpm-sponsor-application.php:3494
 msgid "Ask the applicant something. It is sent as it is written, with your address to reply to."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3684
-#: includes/modules/class-wpcpm-sponsor-application.php:3497
+#: includes/modules/class-wpcpm-sponsor-application.php:3508
 msgid "Reject"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3686
-#: includes/modules/class-wpcpm-sponsor-application.php:3499
+#: includes/modules/class-wpcpm-sponsor-application.php:3510
 msgid "Why, for the next Administrator who reads this. It is never sent to the applicant."
 msgstr ""
 
 #. translators: %s: institution name.
 #. translators: %s: company name.
 #: includes/modules/class-wpcpm-institutions.php:3690
-#: includes/modules/class-wpcpm-sponsor-application.php:3503
+#: includes/modules/class-wpcpm-sponsor-application.php:3514
 #, php-format
 msgid "Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3701
-#: includes/modules/class-wpcpm-sponsor-application.php:3514
+#: includes/modules/class-wpcpm-sponsor-application.php:3525
 msgid "Reject as spam"
 msgstr ""
 
@@ -11681,12 +11681,12 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3724
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1658
-#: includes/modules/class-wpcpm-sponsor-application.php:3530
+#: includes/modules/class-wpcpm-sponsor-application.php:3541
 msgid "Put back in the queue"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3743
-#: includes/modules/class-wpcpm-sponsor-application.php:3541
+#: includes/modules/class-wpcpm-sponsor-application.php:3552
 msgid "Delete for good"
 msgstr ""
 
@@ -11698,7 +11698,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3789
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1742
-#: includes/modules/class-wpcpm-sponsor-application.php:3678
+#: includes/modules/class-wpcpm-sponsor-application.php:3689
 #: includes/tools/class-wpcpm-emails.php:579
 msgid "Working"
 msgstr ""
@@ -12020,9 +12020,9 @@ msgid "Choose an institution"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:4942
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:117
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:153
-#: includes/modules/class-wpcpm-sponsor-offers.php:2657
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:126
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:162
+#: includes/modules/class-wpcpm-sponsor-offers.php:2672
 msgid "Link"
 msgstr ""
 
@@ -12103,7 +12103,7 @@ msgid "The site and Airtable agree on every agreement."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5148
-#: includes/modules/class-wpcpm-sponsors.php:4485
+#: includes/modules/class-wpcpm-sponsors.php:4486
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "On the site"
 msgstr ""
@@ -12164,7 +12164,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5325
 #: includes/modules/class-wpcpm-semester-report-screen.php:3440
-#: includes/modules/class-wpcpm-sponsor-posts.php:1181
+#: includes/modules/class-wpcpm-sponsor-posts.php:1187
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:451
 #: includes/tools/class-wpcpm-track-builder-screen.php:1252
 msgid "Draft"
@@ -12183,8 +12183,8 @@ msgid "Report log"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:5393
-#: includes/modules/class-wpcpm-sponsors.php:2450
-#: includes/modules/class-wpcpm-sponsors.php:4568
+#: includes/modules/class-wpcpm-sponsors.php:2451
+#: includes/modules/class-wpcpm-sponsors.php:4569
 msgid "Nothing yet."
 msgstr ""
 
@@ -12694,7 +12694,7 @@ msgid "The search after it found nothing, so nothing was stored and nothing was 
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-feed.php:93
-#: includes/modules/class-wpcpm-sponsors-feed.php:85
+#: includes/modules/class-wpcpm-sponsors-feed.php:86
 msgid "Too many requests. Try again in an hour."
 msgstr ""
 
@@ -13088,7 +13088,7 @@ msgid "Showing the oldest %1$s of %2$s. As these are decided, the next take thei
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-queue.php:938
-#: includes/modules/class-wpcpm-sponsor-application.php:3956
+#: includes/modules/class-wpcpm-sponsor-application.php:3967
 msgid "Recently decided"
 msgstr ""
 
@@ -13600,7 +13600,7 @@ msgid "to"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-availability.php:974
-#: includes/modules/class-wpcpm-sponsors.php:4394
+#: includes/modules/class-wpcpm-sponsors.php:4395
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Copy"
 msgstr ""
@@ -13949,9 +13949,9 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:98
 #: includes/modules/class-wpcpm-mentor-notes.php:651
-#: includes/modules/class-wpcpm-sponsors.php:820
-#: includes/modules/class-wpcpm-sponsors.php:826
-#: includes/modules/class-wpcpm-sponsors.php:4014
+#: includes/modules/class-wpcpm-sponsors.php:821
+#: includes/modules/class-wpcpm-sponsors.php:827
+#: includes/modules/class-wpcpm-sponsors.php:4015
 msgid "Notes"
 msgstr ""
 
@@ -14260,7 +14260,7 @@ msgid "%s days"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:442
-#: includes/modules/class-wpcpm-sponsor-offers.php:1747
+#: includes/modules/class-wpcpm-sponsor-offers.php:1753
 msgid "Ended"
 msgstr ""
 
@@ -14374,9 +14374,9 @@ msgid "Accessibility needs"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1223
-#: includes/modules/class-wpcpm-sponsor-offers.php:2684
+#: includes/modules/class-wpcpm-sponsor-offers.php:2699
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:1134
-#: includes/modules/class-wpcpm-sponsors.php:4485
+#: includes/modules/class-wpcpm-sponsors.php:4486
 #: includes/tools/class-wpcpm-track-editor-screen.php:402
 #: includes/tools/class-wpcpm-track-editor-screen.php:825
 msgid "None"
@@ -14682,8 +14682,8 @@ msgid "Write the Airtable row again is on each, under Activated on the Waiting f
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors.php:623
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:130
-#: includes/modules/class-wpcpm-sponsor-offers.php:2670
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:139
+#: includes/modules/class-wpcpm-sponsor-offers.php:2685
 #: includes/modules/class-wpcpm-sponsor-tools.php:580
 msgid "mentors"
 msgstr ""
@@ -15474,7 +15474,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-profile.php:142
 #: includes/modules/class-wpcpm-sponsor-tier-card.php:86
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:424
-#: includes/modules/class-wpcpm-sponsors.php:796
+#: includes/modules/class-wpcpm-sponsors.php:797
 msgid "That is not something your account can do here."
 msgstr ""
 
@@ -15536,8 +15536,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-agreement.php:575
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:640
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:352
-#: includes/modules/class-wpcpm-sponsor-posts.php:1829
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:406
+#: includes/modules/class-wpcpm-sponsor-posts.php:1835
 msgid "Return with a note"
 msgstr ""
 
@@ -15611,7 +15611,7 @@ msgid "Why it is out of force, in your own words"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-agreement.php:2374
-#: includes/modules/class-wpcpm-sponsors.php:4678
+#: includes/modules/class-wpcpm-sponsors.php:4679
 msgid "somebody at the company"
 msgstr ""
 
@@ -15716,12 +15716,12 @@ msgid "The program is not taking sponsor applications through this form at the m
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-application.php:1291
-#: includes/modules/class-wpcpm-sponsor-application.php:4364
+#: includes/modules/class-wpcpm-sponsor-application.php:4375
 msgid "In color"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-application.php:1292
-#: includes/modules/class-wpcpm-sponsor-application.php:4365
+#: includes/modules/class-wpcpm-sponsor-application.php:4376
 msgid "In white, for a dark background"
 msgstr ""
 
@@ -15849,196 +15849,196 @@ msgid "The sponsor record was created, but the account could not be made. The si
 msgstr ""
 
 #. translators: 1: company name, 2: contact email address.
-#: includes/modules/class-wpcpm-sponsor-application.php:3439
+#: includes/modules/class-wpcpm-sponsor-application.php:3450
 #, php-format
 msgid "Create a sponsor record with Status Approved and a site account for %1$s, and email a password-set link to %2$s? The record can be edited on the Sponsors screen afterward."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3447
+#: includes/modules/class-wpcpm-sponsor-application.php:3458
 msgid "If Test sponsor is ticked, the sponsor is approved as a test sponsor: it is left out of the Partners page, the logo strip, the handbook listing and the public feed, its offers, posts and events are shown to no student or mentor, and its own accounts still see its Sponsor Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3452
+#: includes/modules/class-wpcpm-sponsor-application.php:3463
 msgid "The site already holds a sponsor with this name or website, and approving creates a second one. If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead."
 msgstr ""
 
 #. translators: %s: company name.
-#: includes/modules/class-wpcpm-sponsor-application.php:3517
+#: includes/modules/class-wpcpm-sponsor-application.php:3528
 #, php-format
 msgid "Mark the application from %s as spam? Nothing at all is sent to the address on it, and its logo files go with it when it is deleted."
 msgstr ""
 
 #. translators: %s: company name.
-#: includes/modules/class-wpcpm-sponsor-application.php:3548
+#: includes/modules/class-wpcpm-sponsor-application.php:3559
 #, php-format
 msgid "Delete the application from %s for good? Every answer on it goes and only its reference and the date are kept; its logo files stay in the Media Library as the sponsor's logo. This cannot be undone."
 msgstr ""
 
 #. translators: %s: company name.
-#: includes/modules/class-wpcpm-sponsor-application.php:3553
+#: includes/modules/class-wpcpm-sponsor-application.php:3564
 #, php-format
 msgid "Delete the application from %s for good? Every answer on it goes and its logo files go with it; only its reference and the date are kept. This cannot be undone."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3598
+#: includes/modules/class-wpcpm-sponsor-application.php:3609
 msgid "Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard lists open applications only."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3635
+#: includes/modules/class-wpcpm-sponsor-application.php:3646
 msgid "This one is listed in its Sponsor applications card, with every decision its state allows."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3711
-#: includes/modules/class-wpcpm-sponsors.php:3890
+#: includes/modules/class-wpcpm-sponsor-application.php:3722
+#: includes/modules/class-wpcpm-sponsors.php:3891
 msgid "Test sponsor: not listed publicly"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3780
+#: includes/modules/class-wpcpm-sponsor-application.php:3791
 msgid "An earlier press of Approve created the sponsor record for this application and then stopped, so a record with Status Approved already stands for the company."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3781
+#: includes/modules/class-wpcpm-sponsor-application.php:3792
 msgid "approval half done"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3782
+#: includes/modules/class-wpcpm-sponsor-application.php:3793
 msgid "Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3897
+#: includes/modules/class-wpcpm-sponsor-application.php:3908
 msgid "Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, where approving creates the sponsor record, the account, the category, the logo record and the first offer in one press."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3900
+#: includes/modules/class-wpcpm-sponsor-application.php:3911
 msgid "Nothing is waiting. New applications appear here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3959
+#: includes/modules/class-wpcpm-sponsor-application.php:3970
 msgid "No application has been decided yet."
 msgstr ""
 
 #. translators: 1: how many rows are drawn.
-#: includes/modules/class-wpcpm-sponsor-application.php:3971
+#: includes/modules/class-wpcpm-sponsor-application.php:3982
 #, php-format
 msgid "The %1$s most recent decided applications. Open one to put it back in the queue or to delete it for good."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:3974
+#: includes/modules/class-wpcpm-sponsor-application.php:3985
 msgid "Every application somebody has decided, newest first. Open one to put it back in the queue or to delete it for good."
 msgstr ""
 
 #. translators: 1: human-readable time difference, 2: date and time.
-#: includes/modules/class-wpcpm-sponsor-application.php:4028
+#: includes/modules/class-wpcpm-sponsor-application.php:4039
 #, php-format
 msgid "Decided %1$s ago, on %2$s."
 msgstr ""
 
 #. translators: 1: website, 2: contact person, 3: contact email address.
-#: includes/modules/class-wpcpm-sponsor-application.php:4046
+#: includes/modules/class-wpcpm-sponsor-application.php:4057
 #, php-format
 msgid "%1$s. Contact: %2$s, %3$s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4081
+#: includes/modules/class-wpcpm-sponsor-application.php:4092
 msgid "Held with no check recorded against it. Open it and decide it on what is on it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4094
+#: includes/modules/class-wpcpm-sponsor-application.php:4105
 msgid "Another application in the queue names the same company or the same address."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4103
+#: includes/modules/class-wpcpm-sponsor-application.php:4114
 msgid "The site already holds a company with this name or this website."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4104
+#: includes/modules/class-wpcpm-sponsor-application.php:4115
 msgid "already on the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4105
+#: includes/modules/class-wpcpm-sponsor-application.php:4116
 msgid "Approving would create a second record; open it and read what the site has."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4112
+#: includes/modules/class-wpcpm-sponsor-application.php:4123
 msgid "The contact address on this application already belongs to an account on this site."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4113
+#: includes/modules/class-wpcpm-sponsor-application.php:4124
 msgid "already an account"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4114
+#: includes/modules/class-wpcpm-sponsor-application.php:4125
 msgid "Approving would open the Sponsor Dashboard to that account; look at it before deciding."
 msgstr ""
 
 #. translators: %s: how many logo files.
-#: includes/modules/class-wpcpm-sponsor-application.php:4251
+#: includes/modules/class-wpcpm-sponsor-application.php:4262
 #, php-format
 msgid "%s file, shown below."
 msgid_plural "%s files, shown below."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4368
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsor-application.php:4379
+#: includes/modules/class-wpcpm-sponsors.php:4457
 msgid "Logo"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4371
+#: includes/modules/class-wpcpm-sponsor-application.php:4382
 msgid "No logo file was sent. The company can upload one on the Sponsor Dashboard after approval."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4409
+#: includes/modules/class-wpcpm-sponsor-application.php:4420
 msgid "What the site already has"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4412
+#: includes/modules/class-wpcpm-sponsor-application.php:4423
 msgid "No sponsor on the site carries this name or this website. Approving creates one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4417
+#: includes/modules/class-wpcpm-sponsor-application.php:4428
 msgid "These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen's Accounts tab instead."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4425
+#: includes/modules/class-wpcpm-sponsor-application.php:4436
 #: includes/modules/class-wpcpm-sponsors-table.php:428
-#: includes/modules/class-wpcpm-sponsors.php:4279
+#: includes/modules/class-wpcpm-sponsors.php:4280
 msgid "no status"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4456
+#: includes/modules/class-wpcpm-sponsor-application.php:4467
 msgid "Holding spares the Administrators a message and nothing more. The applicant was acknowledged exactly as any other was, and none of these checks refused anything: each one holds a row for a person to look at, which is what this is."
 msgstr ""
 
 #. translators: %s: the signal's slug.
-#: includes/modules/class-wpcpm-sponsor-application.php:4479
+#: includes/modules/class-wpcpm-sponsor-application.php:4490
 #, php-format
 msgid "A check this screen has no words for yet recorded \"%s\"."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4513
+#: includes/modules/class-wpcpm-sponsor-application.php:4524
 msgid "The company and the person to contact were given the same name, which is what a script with one string to offer does."
 msgstr ""
 
 #. translators: %s: how many applications a day the site accepts before it starts holding them.
-#: includes/modules/class-wpcpm-sponsor-application.php:4516
+#: includes/modules/class-wpcpm-sponsor-application.php:4527
 #, php-format
 msgid "The site had already taken %s sponsor applications that day, so this one was kept and held instead of being refused. It says nothing about the application itself."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4519
+#: includes/modules/class-wpcpm-sponsor-application.php:4530
 msgid "The site had already taken the day's applications when this one arrived, so the logo files it came with were not read or kept. The company can send the logo after approval; nothing else about the application was affected."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4520
+#: includes/modules/class-wpcpm-sponsor-application.php:4531
 msgid "The day's limit on acknowledgements had been reached when it arrived, so no message was sent to the applicant."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4521
+#: includes/modules/class-wpcpm-sponsor-application.php:4532
 msgid "Another open application already named this company or this address. Nothing is ever merged: open both and decide."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-application.php:4523
+#: includes/modules/class-wpcpm-sponsor-application.php:4534
 msgid "A logo file was accepted but the Media Library refused to store it. The company can upload it again after approval."
 msgstr ""
 
@@ -16099,12 +16099,12 @@ msgid "Embed code"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-badge.php:643
-#: includes/modules/class-wpcpm-sponsors.php:4392
+#: includes/modules/class-wpcpm-sponsors.php:4393
 msgid "Copied."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-badge.php:644
-#: includes/modules/class-wpcpm-sponsors.php:4393
+#: includes/modules/class-wpcpm-sponsors.php:4394
 msgid "Selected. Copy it with your keyboard."
 msgstr ""
 
@@ -16174,7 +16174,7 @@ msgid "All offers"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-codes.php:249
-#: includes/modules/class-wpcpm-sponsor-offers.php:1636
+#: includes/modules/class-wpcpm-sponsor-offers.php:1642
 msgid "Another change to this offer was going through. Try again in a moment."
 msgstr ""
 
@@ -16226,7 +16226,12 @@ msgstr ""
 msgid "An offer holds at most %d codes. Talk to the program about a larger pool."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-codes.php:689
+#: includes/modules/class-wpcpm-sponsor-codes.php:614
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:460
+msgid "This offer changed after you opened it, so nothing was decided. Read it again, then decide."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-codes.php:783
 msgid "This offer has no codes left."
 msgstr ""
 
@@ -16471,7 +16476,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:665
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:203
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:205
-#: includes/modules/class-wpcpm-sponsor-offers.php:1654
+#: includes/modules/class-wpcpm-sponsor-offers.php:1660
 msgid "Title"
 msgstr ""
 
@@ -16791,7 +16796,7 @@ msgid "The event is canceled for everyone, and everyone who joined is told, with
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:871
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:415
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:471
 msgid "A note for the sponsor"
 msgstr ""
 
@@ -17094,7 +17099,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-logo.php:415
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:956
-#: includes/modules/class-wpcpm-sponsors.php:2944
+#: includes/modules/class-wpcpm-sponsors.php:2945
 #: includes/modules/class-wpcpm-student-report-form.php:528
 msgid "Removing"
 msgstr ""
@@ -17258,106 +17263,106 @@ msgstr ""
 msgid "I would like to sponsor this mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:93
-#: includes/modules/class-wpcpm-sponsor-posts.php:1616
-#: includes/modules/class-wpcpm-sponsor-posts.php:1781
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:102
+#: includes/modules/class-wpcpm-sponsor-posts.php:1622
+#: includes/modules/class-wpcpm-sponsor-posts.php:1787
 msgid "(no title)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:112
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:151
-#: includes/modules/class-wpcpm-sponsor-offers.php:2653
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:121
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:160
+#: includes/modules/class-wpcpm-sponsor-offers.php:2668
 msgid "What you get"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:113
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:152
-#: includes/modules/class-wpcpm-sponsor-offers.php:1656
-#: includes/modules/class-wpcpm-sponsor-offers.php:2654
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:122
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:161
+#: includes/modules/class-wpcpm-sponsor-offers.php:1662
+#: includes/modules/class-wpcpm-sponsor-offers.php:2669
 msgid "How to redeem it"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:121
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:124
-#: includes/modules/class-wpcpm-sponsor-offers.php:2599
-#: includes/modules/class-wpcpm-sponsor-offers.php:2608
-#: includes/modules/class-wpcpm-sponsor-offers.php:2660
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:130
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:133
+#: includes/modules/class-wpcpm-sponsor-offers.php:2614
+#: includes/modules/class-wpcpm-sponsor-offers.php:2623
+#: includes/modules/class-wpcpm-sponsor-offers.php:2675
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Kind"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:121
-#: includes/modules/class-wpcpm-sponsor-offers.php:2612
-#: includes/modules/class-wpcpm-sponsor-offers.php:2660
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:130
+#: includes/modules/class-wpcpm-sponsor-offers.php:2627
+#: includes/modules/class-wpcpm-sponsor-offers.php:2675
 msgid "One code or link everyone uses"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:122
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:167
-#: includes/modules/class-wpcpm-sponsor-offers.php:2627
-#: includes/modules/class-wpcpm-sponsor-offers.php:2664
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:131
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:176
+#: includes/modules/class-wpcpm-sponsor-offers.php:2642
+#: includes/modules/class-wpcpm-sponsor-offers.php:2679
 msgid "The shared code or link"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:124
-#: includes/modules/class-wpcpm-sponsor-offers.php:2610
-#: includes/modules/class-wpcpm-sponsor-offers.php:2660
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:133
+#: includes/modules/class-wpcpm-sponsor-offers.php:2625
+#: includes/modules/class-wpcpm-sponsor-offers.php:2675
 msgid "A pool of one-time codes, one per person"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:127
-#: includes/modules/class-wpcpm-sponsor-offers.php:2667
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:136
+#: includes/modules/class-wpcpm-sponsor-offers.php:2682
 msgid "Current students"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:134
-#: includes/modules/class-wpcpm-sponsor-offers.php:2674
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:143
+#: includes/modules/class-wpcpm-sponsor-offers.php:2689
 #: includes/modules/class-wpcpm-sponsor-tools.php:581
 msgid "the program team"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:137
-#: includes/modules/class-wpcpm-sponsor-offers.php:2677
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:146
+#: includes/modules/class-wpcpm-sponsor-offers.php:2692
 msgid "Open to"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:245
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:294
 msgid "A new offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:245
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:294
 msgid "Changes to a live offer"
 msgstr ""
 
 #. translators: %s: how long ago.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:249
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:298
 #, php-format
 msgid "Sent %s ago"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:261
-#: includes/modules/class-wpcpm-sponsor-offers.php:2647
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:310
+#: includes/modules/class-wpcpm-sponsor-offers.php:2662
 msgid "Not written yet."
 msgstr ""
 
 #. translators: %s: what students see of the offer now.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:269
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:318
 #, php-format
 msgid "Now: %s"
 msgstr ""
 
 #. translators: %s: what the sponsor asks students to see instead.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:271
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:320
 #, php-format
 msgid "Asked for: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:292
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:341
 msgid "Codes added"
 msgstr ""
 
 #. translators: %s: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:296
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:345
 #, php-format
 msgid "%s code in all."
 msgid_plural "%s codes in all."
@@ -17365,76 +17370,76 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many of the codes are web addresses.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:299
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:348
 #, php-format
 msgid "Of these, %s is a web address, listed first."
 msgid_plural "Of these, %s are web addresses, listed first."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:300
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:349
 msgid "None of these is a web address."
 msgstr ""
 
 #. translators: %s: how many codes the list leaves out.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:313
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:362
 #, php-format
 msgid "%s more code is not shown."
 msgid_plural "%s more codes are not shown."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:354
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:408
 msgid "The offer goes back to the sponsor's account as a draft, and your note is sent by email to the person who sent it for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:355
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:409
 msgid "The changes go back to the sponsor's account, students still seeing the offer as it reads, and your note is sent by email to the person who sent them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:359
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:413
 msgid "The codes added are taken out of the offer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:378
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:433
 msgid "What should change before students see it"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:396
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:451
 msgid "Approved. Students and mentors the offer is open to see it as it now reads."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:397
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:452
 msgid "The offer went back to the sponsor with your note."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:398
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:453
 msgid "Write a note for the sponsor before returning the offer."
 msgstr ""
 
 #. translators: %s: the longest note allowed, in characters.
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:400
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:455
 #, php-format
 msgid "The note is longer than %s characters. Shorten it and return the offer again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:402
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:457
 msgid "Only an offer or a change waiting for review can be approved or returned here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:403
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:458
 msgid "Not approved: the offer has no code or link left to give. Return it with a note, so the sponsor adds one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:404
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:459
 msgid "The offer could not be changed right now. Try again later."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:525
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:625
 msgid "An offer was approved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offer-review.php:623
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:730
 msgid "An offer was returned to its sponsor with a note."
 msgstr ""
 
@@ -17446,163 +17451,163 @@ msgstr ""
 msgid "Sponsor offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:453
-#: includes/modules/class-wpcpm-sponsor-offers.php:606
-#: includes/modules/class-wpcpm-sponsor-offers.php:677
-#: includes/modules/class-wpcpm-sponsor-offers.php:936
-#: includes/modules/class-wpcpm-sponsor-offers.php:1331
+#: includes/modules/class-wpcpm-sponsor-offers.php:459
+#: includes/modules/class-wpcpm-sponsor-offers.php:620
+#: includes/modules/class-wpcpm-sponsor-offers.php:696
+#: includes/modules/class-wpcpm-sponsor-offers.php:955
+#: includes/modules/class-wpcpm-sponsor-offers.php:1354
 msgid "That offer does not exist."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:457
-#: includes/modules/class-wpcpm-sponsor-offers.php:1341
-#: includes/modules/class-wpcpm-sponsor-offers.php:1631
+#: includes/modules/class-wpcpm-sponsor-offers.php:463
+#: includes/modules/class-wpcpm-sponsor-offers.php:1364
+#: includes/modules/class-wpcpm-sponsor-offers.php:1637
 msgid "The offer cannot move to that state from where it is."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:728
+#: includes/modules/class-wpcpm-sponsor-offers.php:747
 msgid "Nothing of this offer waits for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:894
+#: includes/modules/class-wpcpm-sponsor-offers.php:913
 msgid "An offer needs the sponsor it belongs to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1169
+#: includes/modules/class-wpcpm-sponsor-offers.php:1188
 msgid "The index does not hold that sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1286
+#: includes/modules/class-wpcpm-sponsor-offers.php:1305
 msgid "The codes you added wait for an Administrator's review: switch the offer on once they are approved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1287
+#: includes/modules/class-wpcpm-sponsor-offers.php:1306
 msgid "Add at least one code before switching this offer on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1291
+#: includes/modules/class-wpcpm-sponsor-offers.php:1310
 msgid "Enter the code or link everyone will use before switching this offer on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1337
+#: includes/modules/class-wpcpm-sponsor-offers.php:1360
 msgid "That is not a state an offer can be in."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1431
+#: includes/modules/class-wpcpm-sponsor-offers.php:1437
 msgid "Dormant: offers are separate from the tiers now, so it resumes by itself on the next daily run. You can end it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1522
+#: includes/modules/class-wpcpm-sponsor-offers.php:1528
 msgid "The file did not arrive whole. Try the upload again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1528
+#: includes/modules/class-wpcpm-sponsor-offers.php:1534
 msgid "Upload a .txt or .csv file with one code per line."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1535
+#: includes/modules/class-wpcpm-sponsor-offers.php:1541
 msgid "The file is larger than a megabyte. A list of codes is far smaller than that."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1539
+#: includes/modules/class-wpcpm-sponsor-offers.php:1545
 msgid "The file could not be read. Try the upload again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1617
+#: includes/modules/class-wpcpm-sponsor-offers.php:1623
 msgid "Your offer was created. Switch it on when it is ready."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1618
+#: includes/modules/class-wpcpm-sponsor-offers.php:1624
 msgid "Your offer was created as a draft. Send it for review when it is ready: students and mentors see it once an Administrator approves it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1619
+#: includes/modules/class-wpcpm-sponsor-offers.php:1625
 msgid "Sent for review. Students and mentors see the offer once an Administrator approves it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1620
+#: includes/modules/class-wpcpm-sponsor-offers.php:1626
 msgid "Your changes were saved and wait for an Administrator's review. Until they are approved, students and mentors see the offer as it was."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1621
+#: includes/modules/class-wpcpm-sponsor-offers.php:1627
 msgid "Your changes were discarded. The offer stays as the program approved it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1622
+#: includes/modules/class-wpcpm-sponsor-offers.php:1628
 msgid "No change of this offer is waiting, so there is nothing to discard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1625
+#: includes/modules/class-wpcpm-sponsor-offers.php:1631
 msgid "Your offer was created, but the codes were not added. Add them to the offer below."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1626
+#: includes/modules/class-wpcpm-sponsor-offers.php:1632
 msgid "Your offer was saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1627
+#: includes/modules/class-wpcpm-sponsor-offers.php:1633
 msgid "The offer could not be saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1628
+#: includes/modules/class-wpcpm-sponsor-offers.php:1634
 msgid "The offer could not be saved right now. Try again later."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1629
+#: includes/modules/class-wpcpm-sponsor-offers.php:1635
 msgid "The offer was switched."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1630
+#: includes/modules/class-wpcpm-sponsor-offers.php:1636
 msgid "The offer cannot be switched on yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1637
+#: includes/modules/class-wpcpm-sponsor-offers.php:1643
 msgid "Codes added."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1639
+#: includes/modules/class-wpcpm-sponsor-offers.php:1645
 msgid "Your codes were saved and wait for an Administrator's review. Until they are approved, nobody can claim them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1640
+#: includes/modules/class-wpcpm-sponsor-offers.php:1646
 msgid "Nothing was added."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1641
+#: includes/modules/class-wpcpm-sponsor-offers.php:1647
 msgid "No codes were found in what you pasted or uploaded."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1642
+#: includes/modules/class-wpcpm-sponsor-offers.php:1648
 msgid "An offer holds at most 5000 codes. Talk to the program about a larger pool."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1643
+#: includes/modules/class-wpcpm-sponsor-offers.php:1649
 msgid "Unclaimed codes were voided."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1655
+#: includes/modules/class-wpcpm-sponsor-offers.php:1661
 msgid "What you get, in a sentence or two"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1743
+#: includes/modules/class-wpcpm-sponsor-offers.php:1749
 msgid "Not switched on yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1745
+#: includes/modules/class-wpcpm-sponsor-offers.php:1751
 msgid "Live"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1746
+#: includes/modules/class-wpcpm-sponsor-offers.php:1752
 msgid "Paused"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1748
-#: includes/modules/class-wpcpm-sponsor-posts.php:1184
+#: includes/modules/class-wpcpm-sponsor-offers.php:1754
+#: includes/modules/class-wpcpm-sponsor-posts.php:1190
 msgid "Dormant"
 msgstr ""
 
 #. translators: 1: how many characters over, 2: the longest title allowed.
-#: includes/modules/class-wpcpm-sponsor-offers.php:1767
+#: includes/modules/class-wpcpm-sponsor-offers.php:1773
 #, php-format
 msgid "The title is %1$s character over the limit of %2$s. Shorten it and save again."
 msgid_plural "The title is %1$s characters over the limit of %2$s. Shorten it and save again."
@@ -17610,7 +17615,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many characters over, 2: the longest text allowed.
-#: includes/modules/class-wpcpm-sponsor-offers.php:1772
+#: includes/modules/class-wpcpm-sponsor-offers.php:1778
 #, php-format
 msgid "What you get is %1$s character over the limit of %2$s. Shorten it and save again."
 msgid_plural "What you get is %1$s characters over the limit of %2$s. Shorten it and save again."
@@ -17618,85 +17623,85 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many characters over, 2: the longest instructions allowed.
-#: includes/modules/class-wpcpm-sponsor-offers.php:1777
+#: includes/modules/class-wpcpm-sponsor-offers.php:1783
 #, php-format
 msgid "How to redeem it is %1$s character over the limit of %2$s. Shorten it and save again."
 msgid_plural "How to redeem it is %1$s characters over the limit of %2$s. Shorten it and save again."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1781
+#: includes/modules/class-wpcpm-sponsor-offers.php:1787
 msgid "Give the offer a title."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1782
+#: includes/modules/class-wpcpm-sponsor-offers.php:1788
 msgid "The link could not be accepted: check it has no name or password in it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1783
+#: includes/modules/class-wpcpm-sponsor-offers.php:1789
 msgid "The kind cannot change once the offer holds codes or claims."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1784
+#: includes/modules/class-wpcpm-sponsor-offers.php:1790
 msgid "The last day must be a real date, written year-month-day."
 msgstr ""
 
 #. translators: %d: the longest code or link allowed.
-#: includes/modules/class-wpcpm-sponsor-offers.php:1931
+#: includes/modules/class-wpcpm-sponsor-offers.php:1937
 #, php-format
 msgid "The shared code or link is longer than %d characters."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:1937
+#: includes/modules/class-wpcpm-sponsor-offers.php:1943
 msgid "Pause the offer before removing its code: students see it right now."
 msgstr ""
 
 #. translators: %s: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:1998
+#: includes/modules/class-wpcpm-sponsor-offers.php:2004
 #, php-format
 msgid "%s code added."
 msgid_plural "%s codes added."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2053
+#: includes/modules/class-wpcpm-sponsor-offers.php:2059
 msgid "An offer was created."
 msgstr ""
 
 #. translators: %s: the fields changed, comma-separated.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2055
+#: includes/modules/class-wpcpm-sponsor-offers.php:2061
 #, php-format
 msgid "Offer fields changed: %s."
 msgstr ""
 
 #. translators: 1: the state before, 2: the state after.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2146
+#: includes/modules/class-wpcpm-sponsor-offers.php:2165
 #, php-format
 msgid "An offer moved from %1$s to %2$s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2205
+#: includes/modules/class-wpcpm-sponsor-offers.php:2220
 msgid "The changes waiting on an offer were discarded."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2229
+#: includes/modules/class-wpcpm-sponsor-offers.php:2244
 msgid "This offer has one shared code; there is no pool to add to."
 msgstr ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2266
+#: includes/modules/class-wpcpm-sponsor-offers.php:2281
 #, php-format
 msgid "%d codes were added to an offer and wait for review."
 msgstr ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2268
+#: includes/modules/class-wpcpm-sponsor-offers.php:2283
 #, php-format
 msgid "%d codes were added to an offer."
 msgstr ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2279
+#: includes/modules/class-wpcpm-sponsor-offers.php:2294
 #, php-format
 msgid "%d code waits for review."
 msgid_plural "%d codes wait for review."
@@ -17704,7 +17709,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2283
+#: includes/modules/class-wpcpm-sponsor-offers.php:2298
 #, php-format
 msgid "%d code added."
 msgid_plural "%d codes added."
@@ -17712,27 +17717,27 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2316
+#: includes/modules/class-wpcpm-sponsor-offers.php:2331
 #, php-format
 msgid "%d unclaimed codes were voided."
 msgstr ""
 
 #. translators: %d: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2325
+#: includes/modules/class-wpcpm-sponsor-offers.php:2340
 #, php-format
 msgid "%d code voided."
 msgid_plural "%d codes voided."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2356
-#: includes/modules/class-wpcpm-sponsors.php:2431
-#: includes/modules/class-wpcpm-sponsors.php:2656
+#: includes/modules/class-wpcpm-sponsor-offers.php:2371
+#: includes/modules/class-wpcpm-sponsors.php:2432
+#: includes/modules/class-wpcpm-sponsors.php:2657
 msgid "Offers and codes"
 msgstr ""
 
 #. translators: 1: how many of the sponsor's offers are live today, 2: how many of its offers, or changes to them, wait for an Administrator's review, 3: how many times they were claimed this month.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2362
+#: includes/modules/class-wpcpm-sponsor-offers.php:2377
 #, php-format
 msgid "%1$s live, %2$s waiting for review, %3$s claim this month"
 msgid_plural "%1$s live, %2$s waiting for review, %3$s claims this month"
@@ -17740,306 +17745,306 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many of the sponsor's offers are live today, 2: how many times they were claimed this month.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2369
+#: includes/modules/class-wpcpm-sponsor-offers.php:2384
 #, php-format
 msgid "%1$s live, %2$s claim this month"
 msgid_plural "%1$s live, %2$s claims this month"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2374
-#: includes/modules/class-wpcpm-sponsor-offers.php:3002
+#: includes/modules/class-wpcpm-sponsor-offers.php:2389
+#: includes/modules/class-wpcpm-sponsor-offers.php:3017
 msgid "New offer"
 msgstr ""
 
 #. translators: read after "New offer" by a screen reader alone.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2376
+#: includes/modules/class-wpcpm-sponsor-offers.php:2391
 msgid "for the program's students and mentors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2399
+#: includes/modules/class-wpcpm-sponsor-offers.php:2414
 msgid "Active offers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2399
+#: includes/modules/class-wpcpm-sponsor-offers.php:2414
 msgid "No offer yet. Create one on the left, and it appears here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2402
+#: includes/modules/class-wpcpm-sponsor-offers.php:2417
 msgid "Ended and expired offers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2473
+#: includes/modules/class-wpcpm-sponsor-offers.php:2488
 msgid "Expired"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2483
-#: includes/modules/class-wpcpm-sponsors.php:2468
+#: includes/modules/class-wpcpm-sponsor-offers.php:2498
+#: includes/modules/class-wpcpm-sponsors.php:2469
 msgid "(primary)"
 msgstr ""
 
 #. translators: 1: available, 2: claimed, 3: void.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2492
+#: includes/modules/class-wpcpm-sponsor-offers.php:2507
 #, php-format
 msgid "%1$d available, %2$d claimed, %3$d void"
 msgstr ""
 
 #. translators: %d: the threshold.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2502
+#: includes/modules/class-wpcpm-sponsor-offers.php:2517
 #, php-format
 msgid "Running low: fewer than %d codes left. Add more, or pause the offer."
 msgstr ""
 
 #. translators: %d: how many people.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2514
+#: includes/modules/class-wpcpm-sponsor-offers.php:2529
 #, php-format
 msgid "%d person has taken it"
 msgid_plural "%d people have taken it"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2522
+#: includes/modules/class-wpcpm-sponsor-offers.php:2537
 msgid "Edit this offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2590
+#: includes/modules/class-wpcpm-sponsor-offers.php:2605
 msgid "Link with more information, or where to redeem"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2600
+#: includes/modules/class-wpcpm-sponsor-offers.php:2615
 msgid "A pool of one-time codes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2600
+#: includes/modules/class-wpcpm-sponsor-offers.php:2615
 msgid "One code or link for everyone"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2601
+#: includes/modules/class-wpcpm-sponsor-offers.php:2616
 msgid "Fixed once the offer holds codes or claims."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2621
+#: includes/modules/class-wpcpm-sponsor-offers.php:2636
 msgid "The codes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2631
+#: includes/modules/class-wpcpm-sponsor-offers.php:2646
 msgid "Also open to"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2633
+#: includes/modules/class-wpcpm-sponsor-offers.php:2648
 msgid "The program team"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2634
+#: includes/modules/class-wpcpm-sponsor-offers.php:2649
 msgid "Current students are always in."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2636
+#: includes/modules/class-wpcpm-sponsor-offers.php:2651
 msgid "Warn me when fewer than this many codes are left"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2637
+#: includes/modules/class-wpcpm-sponsor-offers.php:2652
 msgid "Last day (optional)"
 msgstr ""
 
 #. translators: %d: the number of codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2681
+#: includes/modules/class-wpcpm-sponsor-offers.php:2696
 msgid "Warns you at"
 msgstr ""
 
 #. translators: %d: the number of codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2681
+#: includes/modules/class-wpcpm-sponsor-offers.php:2696
 #, php-format
 msgid "%d code left"
 msgid_plural "%d codes left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2684
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsor-offers.php:2699
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Last day"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2722
+#: includes/modules/class-wpcpm-sponsor-offers.php:2737
 msgid "An Administrator returned the codes you added with a note. Students and mentors still see the offer as it reads above."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2723
+#: includes/modules/class-wpcpm-sponsor-offers.php:2738
 msgid "An Administrator returned your changes with a note. Students and mentors still see the offer as it reads above."
 msgstr ""
 
 #. translators: %s: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2728
+#: includes/modules/class-wpcpm-sponsor-offers.php:2743
 #, php-format
 msgid "%s code you added was taken out of the offer."
 msgid_plural "%s codes you added were taken out of the offer."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2733
+#: includes/modules/class-wpcpm-sponsor-offers.php:2748
 msgid "Your changes wait for an Administrator's review. Until they are approved, students and mentors see the offer as it reads above."
 msgstr ""
 
 #. translators: %s: how many codes.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2738
+#: includes/modules/class-wpcpm-sponsor-offers.php:2753
 #, php-format
 msgid "%s code you added waits for an Administrator's review. Until it is approved, nobody can claim it."
 msgid_plural "%s codes you added wait for an Administrator's review. Until they are approved, nobody can claim them."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2751
+#: includes/modules/class-wpcpm-sponsor-offers.php:2766
 msgid "Discarding"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2753
+#: includes/modules/class-wpcpm-sponsor-offers.php:2768
 msgid "Discard your changes and the codes that wait for review? The offer stays as it reads above."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2754
+#: includes/modules/class-wpcpm-sponsor-offers.php:2769
 msgid "Discard your changes? The offer stays as it reads above."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2760
+#: includes/modules/class-wpcpm-sponsor-offers.php:2775
 msgid "Discard the changes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2777
+#: includes/modules/class-wpcpm-sponsor-offers.php:2792
 msgid "Waiting for review: nobody but you sees it until an Administrator approves it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2781
+#: includes/modules/class-wpcpm-sponsor-offers.php:2796
 msgid "Live: shown on the site."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2782
+#: includes/modules/class-wpcpm-sponsor-offers.php:2797
 msgid "Past its last day: shown to nobody. Change the last day to bring it back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2785
+#: includes/modules/class-wpcpm-sponsor-offers.php:2800
 msgid "Paused: hidden until you resume it. Its codes stay."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2788
+#: includes/modules/class-wpcpm-sponsor-offers.php:2803
 msgid "Ended: nothing more can be claimed, and it cannot be resumed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2796
+#: includes/modules/class-wpcpm-sponsor-offers.php:2811
 msgid "Dormant: held back by the program. You can end it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2800
+#: includes/modules/class-wpcpm-sponsor-offers.php:2815
 msgid "Returned by the program with a note: change the offer, then send it for review again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2803
+#: includes/modules/class-wpcpm-sponsor-offers.php:2818
 msgid "A draft: nobody but you sees it. Switch it on when it is ready."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2805
+#: includes/modules/class-wpcpm-sponsor-offers.php:2820
 msgid "A draft: nobody but you sees it. Send it for review when it is ready: students and mentors see it once an Administrator approves it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2841
+#: includes/modules/class-wpcpm-sponsor-offers.php:2856
 msgid "Save offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2861
+#: includes/modules/class-wpcpm-sponsor-offers.php:2876
 msgid "Resume"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2863
+#: includes/modules/class-wpcpm-sponsor-offers.php:2878
 msgid "Switch on"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2865
+#: includes/modules/class-wpcpm-sponsor-offers.php:2880
 msgid "Send for review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2870
+#: includes/modules/class-wpcpm-sponsor-offers.php:2885
 msgid "Take it back"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2871
+#: includes/modules/class-wpcpm-sponsor-offers.php:2886
 msgid "Pause"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2872
+#: includes/modules/class-wpcpm-sponsor-offers.php:2887
 msgid "End this offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2881
+#: includes/modules/class-wpcpm-sponsor-offers.php:2896
 msgid "End this offer for good? Codes already claimed stay with the people who hold them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2904
-#: includes/modules/class-wpcpm-sponsors.php:3002
+#: includes/modules/class-wpcpm-sponsor-offers.php:2919
+#: includes/modules/class-wpcpm-sponsors.php:3003
 msgid "Switching"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2928
+#: includes/modules/class-wpcpm-sponsor-offers.php:2943
 msgid "Paste codes here, one per line"
 msgstr ""
 
 #. translators: 1: the longest line allowed, 2: the most codes an offer holds.
-#: includes/modules/class-wpcpm-sponsor-offers.php:2932
+#: includes/modules/class-wpcpm-sponsor-offers.php:2947
 #, php-format
 msgid "One code per line, or a CSV with the code in the first column and no header row. A code can be a whole checkout link. Up to %1$d characters a line and %2$d codes an offer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2938
+#: includes/modules/class-wpcpm-sponsor-offers.php:2953
 msgid "A voided code cannot be added to the same offer again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2944
+#: includes/modules/class-wpcpm-sponsor-offers.php:2959
 msgid "Or upload a .txt or .csv file"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2945
+#: includes/modules/class-wpcpm-sponsor-offers.php:2960
 msgid "A .txt or .csv file, up to a megabyte. Codes are stored encrypted and shown only to the person who claims one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2960
-#: includes/modules/class-wpcpm-sponsors.php:3784
+#: includes/modules/class-wpcpm-sponsor-offers.php:2975
+#: includes/modules/class-wpcpm-sponsors.php:3785
 msgid "Adding"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2966
-#: includes/modules/class-wpcpm-sponsor-offers.php:2969
+#: includes/modules/class-wpcpm-sponsor-offers.php:2981
+#: includes/modules/class-wpcpm-sponsor-offers.php:2984
 msgid "Add codes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2972
+#: includes/modules/class-wpcpm-sponsor-offers.php:2987
 msgid "Void unclaimed codes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2981
-#: includes/modules/class-wpcpm-sponsors.php:2495
+#: includes/modules/class-wpcpm-sponsor-offers.php:2996
+#: includes/modules/class-wpcpm-sponsors.php:2496
 msgid "Voiding"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:2982
+#: includes/modules/class-wpcpm-sponsor-offers.php:2997
 msgid "Void every code nobody has claimed yet? They cannot be brought back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:3007
+#: includes/modules/class-wpcpm-sponsor-offers.php:3022
 msgid "As an Administrator, what you create or change here needs no review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:3008
+#: includes/modules/class-wpcpm-sponsor-offers.php:3023
 msgid "A new offer, and every change to what students see of a live one, waits for an Administrator's review before students and mentors see it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:3015
+#: includes/modules/class-wpcpm-sponsor-offers.php:3030
 msgid "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:3021
+#: includes/modules/class-wpcpm-sponsor-offers.php:3036
 #: includes/tools/class-wpcpm-track-builder-screen.php:994
 msgid "Creating"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-offers.php:3028
+#: includes/modules/class-wpcpm-sponsor-offers.php:3043
 msgid "Create offer"
 msgstr ""
 
@@ -18047,38 +18052,38 @@ msgstr ""
 msgid "Invalid post ID."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:745
+#: includes/modules/class-wpcpm-sponsor-posts.php:751
 msgid "Posting was switched on for this sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:746
+#: includes/modules/class-wpcpm-sponsor-posts.php:752
 msgid "Posting was switched off for this sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1182
+#: includes/modules/class-wpcpm-sponsor-posts.php:1188
 msgid "Returned with a note"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1185
+#: includes/modules/class-wpcpm-sponsor-posts.php:1191
 #: includes/tools/class-wpcpm-track-builder-screen.php:1253
 #: includes/tools/class-wpcpm-track-history-screen.php:298
 msgid "Published"
 msgstr ""
 
 #. translators: 1: the sponsor's tier's name, 2: the name of the lowest tier that includes posts.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1252
+#: includes/modules/class-wpcpm-sponsor-posts.php:1258
 #, php-format
 msgid "Your tier, %1$s, includes no posts. Posts start at %2$s: talk to your program contact."
 msgstr ""
 
 #. translators: %s: the tier's name.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1264
+#: includes/modules/class-wpcpm-sponsor-posts.php:1270
 #, php-format
 msgid "Your tier, %s, includes one post at a time, in review or published. The next can follow once the program returns this one or takes it down."
 msgstr ""
 
 #. translators: 1: the tier's name, 2: how many posts it includes at a time.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1269
+#: includes/modules/class-wpcpm-sponsor-posts.php:1275
 #, php-format
 msgid "Your tier, %1$s, includes %2$d post at a time, in review or published."
 msgid_plural "Your tier, %1$s, includes %2$d posts at a time, in review or published."
@@ -18086,175 +18091,175 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the tier's name.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1302
+#: includes/modules/class-wpcpm-sponsor-posts.php:1308
 #, php-format
 msgid "Not published: the sponsor's tier, %s, includes no more published posts. The tier is on the Sponsors screen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1390
+#: includes/modules/class-wpcpm-sponsor-posts.php:1396
 msgid "Held back by the program: not shown right now. It returns by itself when the program sets it live again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1403
+#: includes/modules/class-wpcpm-sponsor-posts.php:1409
 msgid "Held back until the next daily run, which brings back what your tier has room for."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1407
+#: includes/modules/class-wpcpm-sponsor-posts.php:1413
 msgid "Dormant: your tier includes no posts, so a published post is held back. It returns by itself when an Administrator sets a tier that includes it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1411
+#: includes/modules/class-wpcpm-sponsor-posts.php:1417
 msgid "Dormant: your tier includes one published post at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them."
 msgstr ""
 
 #. translators: %d: how many published posts the tier includes at a time.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1416
+#: includes/modules/class-wpcpm-sponsor-posts.php:1422
 #, php-format
 msgid "Dormant: your tier includes %d published post at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them."
 msgid_plural "Dormant: your tier includes %d published posts at a time, so the others are held back. They return by themselves when an Administrator sets a tier that includes them."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1477
+#: includes/modules/class-wpcpm-sponsor-posts.php:1483
 msgid "Posts"
 msgstr ""
 
 #. translators: 1: how many of the sponsor's posts are published, 2: how many are waiting for review.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1482
+#: includes/modules/class-wpcpm-sponsor-posts.php:1488
 #, php-format
 msgid "%1$s published, %2$s waiting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1487
-#: includes/modules/class-wpcpm-sponsor-posts.php:1509
+#: includes/modules/class-wpcpm-sponsor-posts.php:1493
+#: includes/modules/class-wpcpm-sponsor-posts.php:1515
 msgid "Write a post"
 msgstr ""
 
 #. translators: read after "Write a post" by a screen reader alone.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1490
+#: includes/modules/class-wpcpm-sponsor-posts.php:1496
 msgid "in the WordPress editor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1497
+#: includes/modules/class-wpcpm-sponsor-posts.php:1503
 msgid "A post appears under your offer in Tools from our sponsors, on the Student Report Card and the Mentor Report Card, once an Administrator publishes it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1511
-#: includes/modules/class-wpcpm-sponsor-posts.php:1520
+#: includes/modules/class-wpcpm-sponsor-posts.php:1517
+#: includes/modules/class-wpcpm-sponsor-posts.php:1526
 msgid "Your posts in wp-admin"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1524
+#: includes/modules/class-wpcpm-sponsor-posts.php:1530
 msgid "The program has not enabled posting for this sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1529
+#: includes/modules/class-wpcpm-sponsor-posts.php:1535
 msgid "Posting is off for this sponsor. Switch it on from Manage accounts on the Sponsors screen's Accounts tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1539
+#: includes/modules/class-wpcpm-sponsor-posts.php:1545
 msgid "This sponsor's posts in wp-admin"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1545
+#: includes/modules/class-wpcpm-sponsor-posts.php:1551
 msgid "No posts yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1810
+#: includes/modules/class-wpcpm-sponsor-posts.php:1816
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:913
-#: includes/modules/class-wpcpm-sponsors.php:3223
+#: includes/modules/class-wpcpm-sponsors.php:3224
 #: includes/tools/class-wpcpm-emails.php:685
 #: includes/tools/class-wpcpm-track-builder-screen.php:119
 #: includes/tools/class-wpcpm-track-builder-screen.php:741
 msgid "Preview"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1821
+#: includes/modules/class-wpcpm-sponsor-posts.php:1827
 #: includes/tools/class-wpcpm-track-builder-screen.php:165
 msgid "Publish"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1830
+#: includes/modules/class-wpcpm-sponsor-posts.php:1836
 msgid "The post goes back to the sponsor's account as a draft, and your note is sent to its author by email."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1846
+#: includes/modules/class-wpcpm-sponsor-posts.php:1852
 msgid "What should change before it is published"
 msgstr ""
 
 #. translators: %s: the company name.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1885
+#: includes/modules/class-wpcpm-sponsor-posts.php:1891
 #, php-format
 msgid "Guides from %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1907
+#: includes/modules/class-wpcpm-sponsor-posts.php:1913
 msgid "The post is published. It appears under the sponsor's offer on the Student Report Card and the Mentor Report Card."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1908
+#: includes/modules/class-wpcpm-sponsor-posts.php:1914
 msgid "The post went back to its author as a draft, with your note."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1909
+#: includes/modules/class-wpcpm-sponsor-posts.php:1915
 msgid "Write a note for the author before returning the post."
 msgstr ""
 
 #. translators: %s: the longest note allowed, in characters.
-#: includes/modules/class-wpcpm-sponsor-posts.php:1911
+#: includes/modules/class-wpcpm-sponsor-posts.php:1917
 #, php-format
 msgid "The note is longer than %s characters. Shorten it and return the post again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1913
+#: includes/modules/class-wpcpm-sponsor-posts.php:1919
 msgid "Only a post waiting for review can be published or returned here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1917
+#: includes/modules/class-wpcpm-sponsor-posts.php:1923
 msgid "Not published: the sponsor's tier includes no more published posts. The tier is on the Sponsors screen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1918
+#: includes/modules/class-wpcpm-sponsor-posts.php:1924
 msgid "The post could not be changed right now. Try again later."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:1929
+#: includes/modules/class-wpcpm-sponsor-posts.php:1935
 msgid "A note for the author"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:2056
+#: includes/modules/class-wpcpm-sponsor-posts.php:2062
 msgid "A sponsor post was published."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:2163
+#: includes/modules/class-wpcpm-sponsor-posts.php:2169
 msgid "A sponsor post was returned to its author with a note."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:2265
-#: includes/modules/class-wpcpm-sponsor-posts.php:2294
+#: includes/modules/class-wpcpm-sponsor-posts.php:2271
+#: includes/modules/class-wpcpm-sponsor-posts.php:2300
 msgid "A sponsor of the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-posts.php:2322
+#: includes/modules/class-wpcpm-sponsor-posts.php:2328
 #: includes/modules/class-wpcpm-sponsor-tools.php:525
 msgid "A sponsor"
 msgstr ""
 
 #. translators: %s: the company name, possibly linked.
-#: includes/modules/class-wpcpm-sponsor-posts.php:2341
+#: includes/modules/class-wpcpm-sponsor-posts.php:2347
 #, php-format
 msgid "A guide from %s, a sponsor of the WordPress Credits program."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-profile.php:103
-#: includes/modules/class-wpcpm-sponsors.php:818
-#: includes/modules/class-wpcpm-sponsors.php:824
-#: includes/modules/class-wpcpm-sponsors.php:3897
+#: includes/modules/class-wpcpm-sponsors.php:819
+#: includes/modules/class-wpcpm-sponsors.php:825
+#: includes/modules/class-wpcpm-sponsors.php:3898
 msgid "Contact person"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-profile.php:104
-#: includes/modules/class-wpcpm-sponsors.php:3904
+#: includes/modules/class-wpcpm-sponsors.php:3905
 msgid "Contact email"
 msgstr ""
 
@@ -18351,7 +18356,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-report-card.php:78
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:189
-#: includes/modules/class-wpcpm-sponsors.php:2658
+#: includes/modules/class-wpcpm-sponsors.php:2659
 msgid "Reports"
 msgstr ""
 
@@ -18689,7 +18694,7 @@ msgid "The yearly report a sponsor's tier includes, one for each term: the twelv
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:204
-#: includes/modules/class-wpcpm-sponsors.php:4386
+#: includes/modules/class-wpcpm-sponsors.php:4387
 msgid "No Approved sponsor yet."
 msgstr ""
 
@@ -18799,7 +18804,7 @@ msgstr ""
 #. translators: 1: the sponsor's name, 2: why it was not given an account.
 #. translators: 1: a column name, 2: why the definition was refused.
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:705
-#: includes/modules/class-wpcpm-sponsors.php:1429
+#: includes/modules/class-wpcpm-sponsors.php:1430
 #: includes/tools/class-wpcpm-track-editor.php:576
 #, php-format
 msgid "%1$s: %2$s"
@@ -18858,7 +18863,7 @@ msgid "Download it"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:939
-#: includes/modules/class-wpcpm-sponsors.php:2969
+#: includes/modules/class-wpcpm-sponsors.php:2970
 msgid "Attaching"
 msgstr ""
 
@@ -19169,7 +19174,7 @@ msgstr[1] ""
 #. translators: %d: how many of the sponsor's published posts go dormant.
 #: includes/modules/class-wpcpm-sponsor-tiers-run.php:257
 #: includes/modules/class-wpcpm-sponsor-tiers-run.php:261
-#: includes/modules/class-wpcpm-sponsors.php:4427
+#: includes/modules/class-wpcpm-sponsors.php:4428
 #, php-format
 msgid "%d post"
 msgid_plural "%d posts"
@@ -19402,18 +19407,18 @@ msgid "This month"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-usage.php:81
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Available"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-usage.php:81
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Claimed"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-usage.php:81
-#: includes/modules/class-wpcpm-sponsors.php:2456
-#: includes/modules/class-wpcpm-sponsors.php:2501
+#: includes/modules/class-wpcpm-sponsors.php:2457
+#: includes/modules/class-wpcpm-sponsors.php:2502
 msgid "Void"
 msgstr ""
 
@@ -19631,7 +19636,7 @@ msgid "Sponsor company"
 msgstr ""
 
 #. translators: %s: a person's name.
-#: includes/modules/class-wpcpm-sponsors-index.php:737
+#: includes/modules/class-wpcpm-sponsors-index.php:744
 #, php-format
 msgid "%s (not an Administrator now)"
 msgstr ""
@@ -19735,7 +19740,7 @@ msgid "Ready: the account that already uses this address will be attached"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsors-table.php:672
-#: includes/modules/class-wpcpm-sponsors.php:785
+#: includes/modules/class-wpcpm-sponsors.php:786
 msgid "That address belongs to an administrator, who already reaches every sponsor."
 msgstr ""
 
@@ -19744,7 +19749,7 @@ msgid "No contact address on the sponsor's record. Add one on its Edit form."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsors-table.php:789
-#: includes/modules/class-wpcpm-sponsors.php:4496
+#: includes/modules/class-wpcpm-sponsors.php:4497
 msgid "Manage accounts"
 msgstr ""
 
@@ -19849,122 +19854,122 @@ msgstr ""
 msgid "Search sponsor accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:783
+#: includes/modules/class-wpcpm-sponsors.php:784
 msgid "The account was created and its invitation queued."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:784
+#: includes/modules/class-wpcpm-sponsors.php:785
 msgid "An account with that address already existed and now acts for the sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:786
+#: includes/modules/class-wpcpm-sponsors.php:787
 msgid "Only an Approved sponsor can be given an account."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:787
+#: includes/modules/class-wpcpm-sponsors.php:788
 msgid "That sponsor has no contact address. Add one on its Edit form, then try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:788
-#: includes/modules/class-wpcpm-sponsors.php:793
+#: includes/modules/class-wpcpm-sponsors.php:789
+#: includes/modules/class-wpcpm-sponsors.php:794
 msgid "That account cannot act for this sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:789
+#: includes/modules/class-wpcpm-sponsors.php:790
 msgid "The account could not be created."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:790
+#: includes/modules/class-wpcpm-sponsors.php:791
 msgid "The account acts for the sponsor, and its invitation is queued unless it already had one. The sponsor's record could not be found, so it is not marked as having an account. If the Sponsors tab lists the sponsor, saving it on its Edit form marks it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:791
+#: includes/modules/class-wpcpm-sponsors.php:792
 msgid "The account now acts for the sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:792
+#: includes/modules/class-wpcpm-sponsors.php:793
 msgid "No account has that address. Attach account attaches an account that exists; a sponsor's first account is made with Create account on the No account view."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:794
+#: includes/modules/class-wpcpm-sponsors.php:795
 msgid "The account no longer acts for the sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:795
+#: includes/modules/class-wpcpm-sponsors.php:796
 msgid "That account could not be detached."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:797
+#: includes/modules/class-wpcpm-sponsors.php:798
 msgid "Posting is on for this sponsor: its accounts can write posts and submit them for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:798
+#: includes/modules/class-wpcpm-sponsors.php:799
 msgid "Posting is off for this sponsor: its accounts can no longer write posts."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:799
-#: includes/modules/class-wpcpm-sponsors.php:2377
+#: includes/modules/class-wpcpm-sponsors.php:800
+#: includes/modules/class-wpcpm-sponsors.php:2378
 msgid "The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:800
+#: includes/modules/class-wpcpm-sponsors.php:801
 msgid "That sponsor already has an offer; nothing was seeded."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:801
+#: includes/modules/class-wpcpm-sponsors.php:802
 msgid "The offer could not be seeded: the index does not hold that sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:802
+#: includes/modules/class-wpcpm-sponsors.php:803
 msgid "The claim was voided. The person may claim again; the code stays void for the count."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:803
+#: includes/modules/class-wpcpm-sponsors.php:804
 msgid "That person holds no claim on that offer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:804
+#: includes/modules/class-wpcpm-sponsors.php:805
 msgid "Another change to that offer was going through. Try again in a moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:805
+#: includes/modules/class-wpcpm-sponsors.php:806
 msgid "The sponsor was added. Nothing else happens until its status is Approved and its account is created."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:806
+#: includes/modules/class-wpcpm-sponsors.php:807
 msgid "The sponsor was saved."
 msgstr ""
 
 #. translators: %d: the most extra events the Tier box grants one term.
-#: includes/modules/class-wpcpm-sponsors.php:812
+#: includes/modules/class-wpcpm-sponsors.php:813
 #, php-format
 msgid "Nothing was saved: one of the values could not be accepted. A sponsor needs a name; the website has to be a web address, the contact email an email address, Extra events this term a whole number from 0 to %d, and every choice one this form offers."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:819
-#: includes/modules/class-wpcpm-sponsors.php:825
-#: includes/modules/class-wpcpm-sponsors.php:3987
+#: includes/modules/class-wpcpm-sponsors.php:820
+#: includes/modules/class-wpcpm-sponsors.php:826
+#: includes/modules/class-wpcpm-sponsors.php:3988
 msgid "What the sponsorship funds"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:827
+#: includes/modules/class-wpcpm-sponsors.php:828
 msgid "Saved. The sponsor is no longer Approved, so its accounts were detached, as the setting says."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:828
+#: includes/modules/class-wpcpm-sponsors.php:829
 msgid "Nothing was saved. The site could not save the sponsor just now. Try again in a moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:830
+#: includes/modules/class-wpcpm-sponsors.php:831
 msgid "The move onto the site ran again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:831
+#: includes/modules/class-wpcpm-sponsors.php:832
 msgid "The move onto the site is already running. Give it a minute, then look at this box again."
 msgstr ""
 
 #. translators: 1: a box's label on the form it was typed in, 2: the most characters it holds.
-#: includes/modules/class-wpcpm-sponsors.php:872
+#: includes/modules/class-wpcpm-sponsors.php:873
 #, php-format
 msgid "Nothing was saved: \"%1$s\" is longer than %2$s character. Shorten it and save again."
 msgid_plural "Nothing was saved: \"%1$s\" is longer than %2$s characters. Shorten it and save again."
@@ -19972,232 +19977,232 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many sponsors are posts on the site, 2: how many rows the old index held.
-#: includes/modules/class-wpcpm-sponsors.php:912
+#: includes/modules/class-wpcpm-sponsors.php:913
 #, php-format
 msgid "The move onto the site ran again: %1$s of %2$s row is a post."
 msgid_plural "The move onto the site ran again: %1$s of %2$s rows are posts."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:922
+#: includes/modules/class-wpcpm-sponsors.php:923
 msgid "Every sponsor is on the site now."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:1173
+#: includes/modules/class-wpcpm-sponsors.php:1174
 msgid "A sponsor account was created from the contact address and its invitation queued."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:1174
+#: includes/modules/class-wpcpm-sponsors.php:1175
 msgid "The existing account at the contact address was attached to the sponsor."
 msgstr ""
 
 #. translators: %s: the fields set, comma-separated.
-#: includes/modules/class-wpcpm-sponsors.php:1564
+#: includes/modules/class-wpcpm-sponsors.php:1565
 #, php-format
 msgid "A sponsor was added on the Sponsors screen, with: %s."
 msgstr ""
 
 #. translators: %s: the fields changed, comma-separated.
-#: includes/modules/class-wpcpm-sponsors.php:1695
+#: includes/modules/class-wpcpm-sponsors.php:1696
 #, php-format
 msgid "Sponsor fields changed on the Sponsors screen: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2432
+#: includes/modules/class-wpcpm-sponsors.php:2433
 msgid "Every sponsor offer, its state and its codes, and who claimed one, for support. Sponsors see counts only. Voiding a claim lets the person claim again; the code stays void for the count."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2439
+#: includes/modules/class-wpcpm-sponsors.php:2440
 msgid "Seeding"
 msgstr ""
 
 #. translators: %s: sponsor name.
-#: includes/modules/class-wpcpm-sponsors.php:2445
+#: includes/modules/class-wpcpm-sponsors.php:2446
 #, php-format
 msgid "Create the first offer for %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2456
+#: includes/modules/class-wpcpm-sponsors.php:2457
 msgid "Claimed by"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2469
+#: includes/modules/class-wpcpm-sponsors.php:2470
 msgid "Codes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2469
+#: includes/modules/class-wpcpm-sponsors.php:2470
 msgid "Shared"
 msgstr ""
 
 #. translators: %s: the code's last four characters.
-#: includes/modules/class-wpcpm-sponsors.php:2493
+#: includes/modules/class-wpcpm-sponsors.php:2494
 #, php-format
 msgid "ending %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2495
+#: includes/modules/class-wpcpm-sponsors.php:2496
 msgid "Void this claim? The person may then claim again."
 msgstr ""
 
 #. translators: %d: how many offers are listed.
-#: includes/modules/class-wpcpm-sponsors.php:2516
+#: includes/modules/class-wpcpm-sponsors.php:2517
 #, php-format
 msgid "The oldest %d are listed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2657
-#: includes/modules/class-wpcpm-sponsors.php:4228
-#: includes/modules/class-wpcpm-sponsors.php:4564
+#: includes/modules/class-wpcpm-sponsors.php:2658
+#: includes/modules/class-wpcpm-sponsors.php:4229
+#: includes/modules/class-wpcpm-sponsors.php:4565
 msgid "Interests"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2660
+#: includes/modules/class-wpcpm-sponsors.php:2661
 msgid "Handbook listing"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2773
+#: includes/modules/class-wpcpm-sponsors.php:2774
 msgid "That sponsor already has an account."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2914
-#: includes/modules/class-wpcpm-sponsors.php:3707
+#: includes/modules/class-wpcpm-sponsors.php:2915
+#: includes/modules/class-wpcpm-sponsors.php:3708
 msgid "That link names no sponsor on this site."
 msgstr ""
 
 #. translators: %s: the name of the Sponsors tab, as a link to it.
-#: includes/modules/class-wpcpm-sponsors.php:2917
+#: includes/modules/class-wpcpm-sponsors.php:2918
 #, php-format
 msgid "A sponsor is added on the %s tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2934
+#: includes/modules/class-wpcpm-sponsors.php:2935
 msgid "No account yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2945
+#: includes/modules/class-wpcpm-sponsors.php:2946
 msgid "Remove this account from the sponsor?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2961
+#: includes/modules/class-wpcpm-sponsors.php:2962
 msgid "This sponsor is not Approved, so no account can be attached to it and its posting cannot be switched."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2977
+#: includes/modules/class-wpcpm-sponsors.php:2978
 msgid "name@company.example"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2978
+#: includes/modules/class-wpcpm-sponsors.php:2979
 msgid "Attach account"
 msgstr ""
 
 #. translators: %s: how many accounts.
-#: includes/modules/class-wpcpm-sponsors.php:2993
+#: includes/modules/class-wpcpm-sponsors.php:2994
 #, php-format
 msgid "Posting is on: %s account can write posts in wp-admin; an Administrator publishes them."
 msgid_plural "Posting is on: %s accounts can write posts in wp-admin; an Administrator publishes them."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:2996
+#: includes/modules/class-wpcpm-sponsors.php:2997
 msgid "Posting is off for this sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3009
+#: includes/modules/class-wpcpm-sponsors.php:3010
 msgid "Turn posting off"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3009
+#: includes/modules/class-wpcpm-sponsors.php:3010
 msgid "Turn posting on"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3043
+#: includes/modules/class-wpcpm-sponsors.php:3044
 msgid "That report is not on this site anymore. Every Approved sponsor's reports are listed on the Reports card below."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3088
+#: includes/modules/class-wpcpm-sponsors.php:3089
 msgid "Back to the sponsors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3108
+#: includes/modules/class-wpcpm-sponsors.php:3109
 msgid "sponsor accounts"
 msgstr ""
 
 #. translators: %s: how many accounts.
-#: includes/modules/class-wpcpm-sponsors.php:3110
+#: includes/modules/class-wpcpm-sponsors.php:3111
 #, php-format
 msgid "Invite %s sponsor account that has never been invited"
 msgid_plural "Invite %s sponsor accounts that have never been invited"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3188
+#: includes/modules/class-wpcpm-sponsors.php:3189
 msgid "Posts that sponsors wrote and submitted for review, oldest first. A post is published or returned on the Administrator Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3191
-#: includes/modules/class-wpcpm-sponsors.php:3260
-#: includes/modules/class-wpcpm-sponsors.php:3329
+#: includes/modules/class-wpcpm-sponsors.php:3192
+#: includes/modules/class-wpcpm-sponsors.php:3261
+#: includes/modules/class-wpcpm-sponsors.php:3330
 msgid "Nothing is waiting."
 msgstr ""
 
 #. translators: 1: the sponsor's name, 2: the name of the account that wrote the post, 3: how long ago, as a human-readable time difference.
-#: includes/modules/class-wpcpm-sponsors.php:3211
+#: includes/modules/class-wpcpm-sponsors.php:3212
 #, php-format
 msgid "From %1$s, by %2$s. Submitted %3$s ago."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3257
+#: includes/modules/class-wpcpm-sponsors.php:3258
 msgid "Offers that sponsors sent for review, and changes they made to what students see of live ones, oldest first. Each is approved or returned on the Administrator Dashboard."
 msgstr ""
 
 #. translators: 1: the sponsor's name, 2: the name of the account that sent it, 3: how long ago, as a human-readable time difference.
-#: includes/modules/class-wpcpm-sponsors.php:3283
+#: includes/modules/class-wpcpm-sponsors.php:3284
 #, php-format
 msgid "A new offer from %1$s, sent by %2$s %3$s ago."
 msgstr ""
 
 #. translators: 1: the sponsor's name, 2: the name of the account that sent them, 3: how long ago, as a human-readable time difference.
-#: includes/modules/class-wpcpm-sponsors.php:3285
+#: includes/modules/class-wpcpm-sponsors.php:3286
 #, php-format
 msgid "Changes to a live offer of %1$s, sent by %2$s %3$s ago."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3326
+#: includes/modules/class-wpcpm-sponsors.php:3327
 msgid "Events that sponsors planned and that wait for the program's OK, oldest first. An event is approved or returned on the Administrator Dashboard."
 msgstr ""
 
 #. translators: 1: the sponsor's name, 2: the name of the account that planned the event, 3: how long ago, as a human-readable time difference, 4: when the event takes place, its length and the time zone, as "December 1, 2026 10:00 am to 11:30 am, 90 minutes, in your time zone (Europe / Warsaw)".
-#: includes/modules/class-wpcpm-sponsors.php:3355
+#: includes/modules/class-wpcpm-sponsors.php:3356
 #, php-format
 msgid "From %1$s, by %2$s. Planned %3$s ago, for %4$s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3393
+#: includes/modules/class-wpcpm-sponsors.php:3394
 msgid "Signed agreements"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3396
+#: includes/modules/class-wpcpm-sponsors.php:3397
 msgid "Signed agreements that companies uploaded and that wait to be read, oldest first. Each is accepted or returned on the Administrator Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3399
+#: includes/modules/class-wpcpm-sponsors.php:3400
 msgid "Nothing is waiting to be read."
 msgstr ""
 
 #. translators: 1: how many are drawn, 2: how many are waiting in total, or the most the count reaches with a plus sign.
-#: includes/modules/class-wpcpm-sponsors.php:3433
+#: includes/modules/class-wpcpm-sponsors.php:3434
 #, php-format
 msgid "Showing the oldest %1$s of %2$s. As this one is decided on the Administrator Dashboard, the next takes its place."
 msgid_plural "Showing the oldest %1$s of %2$s. As these are decided on the Administrator Dashboard, the next of them take their place."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3527
+#: includes/modules/class-wpcpm-sponsors.php:3528
 msgid "It is reinstated on the Administrator Dashboard, under Out of force in its Sponsor Collaboration Agreements card."
 msgstr ""
 
 #. translators: %s: how many agreements out of force the Administrator Dashboard lists.
-#: includes/modules/class-wpcpm-sponsors.php:3543
+#: includes/modules/class-wpcpm-sponsors.php:3544
 #, php-format
 msgid "The Administrator Dashboard lists the %s oldest agreement out of force, and this one is past it, so it is reinstated here."
 msgid_plural "The Administrator Dashboard lists the %s oldest agreements out of force, and this one is past them, so it is reinstated here."
@@ -20205,7 +20210,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: how many accounts.
-#: includes/modules/class-wpcpm-sponsors.php:3588
+#: includes/modules/class-wpcpm-sponsors.php:3589
 #, php-format
 msgid "%d sponsor account is locked out of changes for the rest of today."
 msgid_plural "%d sponsor accounts are locked out of changes for the rest of today."
@@ -20213,25 +20218,25 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the accounts, as display name (username), comma-separated.
-#: includes/modules/class-wpcpm-sponsors.php:3595
+#: includes/modules/class-wpcpm-sponsors.php:3596
 #, php-format
 msgid "Each was refused more requests than the daily ceiling allows: %s. The sponsor's log has the row, and the lock lifts by itself tomorrow."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3618
+#: includes/modules/class-wpcpm-sponsors.php:3619
 msgid "Moving sponsors onto the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3619
+#: includes/modules/class-wpcpm-sponsors.php:3620
 msgid "Since 1.111.0 every sponsor is a record of its own on this site. The move runs by itself and tries again at most once a minute until every sponsor has moved; this box goes away when it has."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3622
+#: includes/modules/class-wpcpm-sponsors.php:3623
 msgid "The move has not run yet."
 msgstr ""
 
 #. translators: 1: how many sponsors are posts on the site, 2: how many rows the old index held.
-#: includes/modules/class-wpcpm-sponsors.php:3629
+#: includes/modules/class-wpcpm-sponsors.php:3630
 #, php-format
 msgid "%1$s of %2$s row is a post."
 msgid_plural "%1$s of %2$s rows are posts."
@@ -20239,139 +20244,139 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: sponsor names, comma-separated.
-#: includes/modules/class-wpcpm-sponsors.php:3648
+#: includes/modules/class-wpcpm-sponsors.php:3649
 #, php-format
 msgid "No Administrator on this site matched the sponsors' Administrator, so none is assigned: %s. Choose one on each sponsor's Edit form."
 msgstr ""
 
 #. translators: %s: sponsor names, comma-separated.
-#: includes/modules/class-wpcpm-sponsors.php:3663
+#: includes/modules/class-wpcpm-sponsors.php:3664
 #, php-format
 msgid "Still waiting for their first offer, in draft, which keeps the move open until each has one: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3673
+#: includes/modules/class-wpcpm-sponsors.php:3674
 msgid "Running"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3678
+#: includes/modules/class-wpcpm-sponsors.php:3679
 msgid "Run again"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3708
+#: includes/modules/class-wpcpm-sponsors.php:3709
 msgid "Every sponsor on this site is listed on the Sponsors card below."
 msgstr ""
 
 #. translators: %s: sponsor name.
-#: includes/modules/class-wpcpm-sponsors.php:3723
+#: includes/modules/class-wpcpm-sponsors.php:3724
 #, php-format
 msgid "Edit %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3742
+#: includes/modules/class-wpcpm-sponsors.php:3743
 #: includes/tools/class-wpcpm-emails.php:605
 msgid "Save"
 msgstr ""
 
 #. translators: 1: the sponsor's key, 2: its listing handle.
-#: includes/modules/class-wpcpm-sponsors.php:3759
+#: includes/modules/class-wpcpm-sponsors.php:3760
 #, php-format
 msgid "Key: %1$s; listing handle: %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3779
+#: includes/modules/class-wpcpm-sponsors.php:3780
 msgid "Add a sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3780
+#: includes/modules/class-wpcpm-sponsors.php:3781
 msgid "For a company that never applied on the site. Nothing else happens when it is added: once its status is Approved, its account is made with Create account on the Accounts tab's No account view."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3791
+#: includes/modules/class-wpcpm-sponsors.php:3792
 msgid "Add the sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3887
+#: includes/modules/class-wpcpm-sponsors.php:3888
 msgid "Test sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3891
+#: includes/modules/class-wpcpm-sponsors.php:3892
 msgid "A test sponsor is left out of the Partners page, the logo strip, the handbook listing and the public feed, and its offers, posts and events are shown to no student or mentor. Its own accounts still see its Sponsor Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3906
+#: includes/modules/class-wpcpm-sponsors.php:3907
 msgid "Create account makes the account at this address and sends its invitation here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3909
+#: includes/modules/class-wpcpm-sponsors.php:3910
 msgid "Not chosen"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3911
+#: includes/modules/class-wpcpm-sponsors.php:3912
 msgid "Sponsorship option"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3912
+#: includes/modules/class-wpcpm-sponsors.php:3913
 msgid "Would like to support"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3917
+#: includes/modules/class-wpcpm-sponsors.php:3918
 msgid "Type of product"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3933
+#: includes/modules/class-wpcpm-sponsors.php:3934
 msgid "Assigned Administrator"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3940
+#: includes/modules/class-wpcpm-sponsors.php:3941
 msgid "The sponsor sees its tier and what the tier includes only while Sponsor tiers is switched on in Settings."
 msgstr ""
 
 #. translators: %s: the tier requested on the sponsor's application, or its "Not sure yet".
-#: includes/modules/class-wpcpm-sponsors.php:3955
+#: includes/modules/class-wpcpm-sponsors.php:3956
 #, php-format
 msgid "Requested on the application: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3970
+#: includes/modules/class-wpcpm-sponsors.php:3971
 msgid "Term ends"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3972
+#: includes/modules/class-wpcpm-sponsors.php:3973
 msgid "The last day of the term. Empty means no term. A Friend has no term, so the day is cleared for one. From the day after the term ends the sponsor reads as a Friend, and the daily run applies that from the day after the grace date in Settings."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3990
+#: includes/modules/class-wpcpm-sponsors.php:3991
 msgid "Shown from Backer up on the sponsor's dashboard and in its report, never on the Partners page: one line, for example the mentor stipends of the Developer Track."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:3999
-#: includes/modules/class-wpcpm-sponsors.php:4003
+#: includes/modules/class-wpcpm-sponsors.php:4000
+#: includes/modules/class-wpcpm-sponsors.php:4004
 msgid "Sponsored mentors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4000
+#: includes/modules/class-wpcpm-sponsors.php:4001
 msgid "No mentor can be chosen until the mentors index holds one. It is filled on the Mentors screen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4019
+#: includes/modules/class-wpcpm-sponsors.php:4020
 msgid "Private: shown on this screen only."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4050
+#: includes/modules/class-wpcpm-sponsors.php:4051
 msgid "Report due"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4053
+#: includes/modules/class-wpcpm-sponsors.php:4054
 msgid "Not a renewal"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4054
+#: includes/modules/class-wpcpm-sponsors.php:4055
 msgid "The term's last day was moved before its report existed, so that term keeps its report: the daily run drafts it the day after the term ends. When the day was moved to correct it rather than to renew, Not a renewal says no report is owed."
 msgstr ""
 
 #. translators: 1: how many more co-hosted events were granted, 2: the last day of the term they were granted for.
-#: includes/modules/class-wpcpm-sponsors.php:4083
+#: includes/modules/class-wpcpm-sponsors.php:4084
 #, php-format
 msgid "%1$s more event was granted for the term that ended on %2$s."
 msgid_plural "%1$s more events were granted for the term that ended on %2$s."
@@ -20379,214 +20384,214 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many more co-hosted events were granted, 2: the last day of the term they were granted for.
-#: includes/modules/class-wpcpm-sponsors.php:4085
+#: includes/modules/class-wpcpm-sponsors.php:4086
 #, php-format
 msgid "%1$s more event was granted for the term to %2$s."
 msgid_plural "%1$s more events were granted for the term to %2$s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4091
+#: includes/modules/class-wpcpm-sponsors.php:4092
 msgid "Extra events this term"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4102
+#: includes/modules/class-wpcpm-sponsors.php:4103
 msgid "Co-hosted events this sponsor may hold in the term that ends on the Term ends day, beyond the one its tier includes. A renewal that moves that day and leaves this box as it is starts the new term with none. Without a term nothing is saved here: a sponsor with no term waits only for its last event to take place."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4129
+#: includes/modules/class-wpcpm-sponsors.php:4130
 #: includes/tracks/class-wpcpm-track-store.php:144
 msgid "Tracks"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4131
+#: includes/modules/class-wpcpm-sponsors.php:4132
 msgid "None yet. A track names its partners on the Track Builder; they show here once the track is published."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4133
+#: includes/modules/class-wpcpm-sponsors.php:4134
 msgid "Set on each track's page on the Track Builder; a partner whose term ends stays named there and stops showing on the site."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4153
+#: includes/modules/class-wpcpm-sponsors.php:4154
 msgid "Not set yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4236
+#: includes/modules/class-wpcpm-sponsors.php:4237
 msgid "What the company told the program from its Sponsor Dashboard, newest first: on the Offer more card while the dashboard had one, and through Talk to your program contact. Read only: it is kept on the company's record as it was sent."
 msgstr ""
 
 #. translators: %s: a mentor's record ID.
-#: includes/modules/class-wpcpm-sponsors.php:4287
+#: includes/modules/class-wpcpm-sponsors.php:4288
 #, php-format
 msgid "%s (not in the mentors index)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4337
+#: includes/modules/class-wpcpm-sponsors.php:4338
 msgid "No sponsors yet. Add one below or approve an application."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4382
+#: includes/modules/class-wpcpm-sponsors.php:4383
 msgid "Listing for the handbook"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4383
+#: includes/modules/class-wpcpm-sponsors.php:4384
 msgid "The partners as the Partners page lists them, in alphabetical order, as plain HTML with the logos' public addresses: paste it into the handbook or the WordPress Foundation's page."
 msgstr ""
 
 #. translators: %s: the day after the grace date.
-#: includes/modules/class-wpcpm-sponsors.php:4417
+#: includes/modules/class-wpcpm-sponsors.php:4418
 #, php-format
 msgid "Under the tiers as set, nothing goes dormant on %s."
 msgstr ""
 
 #. translators: 1: the day after the grace date, 2: how many published posts go dormant, a phrase like 2 published posts, 3: each sponsor with how many of its posts go dormant.
-#: includes/modules/class-wpcpm-sponsors.php:4433
+#: includes/modules/class-wpcpm-sponsors.php:4434
 #, php-format
 msgid "Under the tiers as set, on %1$s, the daily run puts %2$s to dormant: %3$s."
 msgstr ""
 
 #. translators: %d: how many published posts go dormant, across the sponsors.
-#: includes/modules/class-wpcpm-sponsors.php:4436
+#: includes/modules/class-wpcpm-sponsors.php:4437
 #, php-format
 msgid "%d published post"
 msgid_plural "%d published posts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4442
+#: includes/modules/class-wpcpm-sponsors.php:4443
 msgid "Sponsor tiers is off in Settings: nothing goes dormant until it is on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsors.php:4457
 msgid "Product"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4456
+#: includes/modules/class-wpcpm-sponsors.php:4457
 msgid "Program contact"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4460
+#: includes/modules/class-wpcpm-sponsors.php:4461
 msgid "Edit and Manage accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4474
+#: includes/modules/class-wpcpm-sponsors.php:4475
 msgid "(test sponsor, not listed publicly)"
 msgstr ""
 
 #. translators: %s: the sponsor's name, read out after "Manage accounts" so each row's link says whose accounts it opens.
-#: includes/modules/class-wpcpm-sponsors.php:4498
+#: includes/modules/class-wpcpm-sponsors.php:4499
 #, php-format
 msgid "of %s"
 msgstr ""
 
 #. translators: 1: a sponsor tier's name, 2: the last day of its term.
-#: includes/modules/class-wpcpm-sponsors.php:4529
+#: includes/modules/class-wpcpm-sponsors.php:4530
 #, php-format
 msgid "%1$s until %2$s"
 msgstr ""
 
 #. translators: 1: the tier a sponsor's term used to be, 2: the day the term ended.
-#: includes/modules/class-wpcpm-sponsors.php:4537
+#: includes/modules/class-wpcpm-sponsors.php:4538
 #, php-format
 msgid "Friend (%1$s ended %2$s)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4565
+#: includes/modules/class-wpcpm-sponsors.php:4566
 msgid "What sponsors said they would like to support, from the Sponsor Dashboard. Each was mailed to the assigned Administrator when it was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4574
+#: includes/modules/class-wpcpm-sponsors.php:4575
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:820
 msgid "Who"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4574
+#: includes/modules/class-wpcpm-sponsors.php:4575
 msgid "What"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4621
+#: includes/modules/class-wpcpm-sponsors.php:4622
 msgid "A sponsor agreement is optional: a company's Sponsor Dashboard, offers and codes work without one. This is the state of every Approved sponsor's agreement."
 msgstr ""
 
 #. translators: %s: the name of the Waiting for review tab, as a link to it.
-#: includes/modules/class-wpcpm-sponsors.php:4624
+#: includes/modules/class-wpcpm-sponsors.php:4625
 #, php-format
 msgid "A document a company uploaded waits on the %s tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4686
+#: includes/modules/class-wpcpm-sponsors.php:4687
 msgid "Read the whole document. There is no program template to compare it against."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4687
+#: includes/modules/class-wpcpm-sponsors.php:4688
 msgid "It names the WordPress Foundation and the company."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4688
+#: includes/modules/class-wpcpm-sponsors.php:4689
 msgid "It commits the program to nothing an Administrator has not agreed to."
 msgstr ""
 
 #. translators: %s: what this site holds.
-#: includes/modules/class-wpcpm-sponsors.php:4753
+#: includes/modules/class-wpcpm-sponsors.php:4754
 #, php-format
 msgid "This site: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4764
+#: includes/modules/class-wpcpm-sponsors.php:4765
 msgid "Revoking"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4766
+#: includes/modules/class-wpcpm-sponsors.php:4767
 msgid "Take it out of force"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4768
+#: includes/modules/class-wpcpm-sponsors.php:4769
 msgid "Why it is out of force, in your own words. This is emailed to everybody at the company exactly as you write it. Nothing about their dashboard changes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4802
+#: includes/modules/class-wpcpm-sponsors.php:4803
 msgid "Recording"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4804
+#: includes/modules/class-wpcpm-sponsors.php:4805
 msgid "Record it as on file"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4853
+#: includes/modules/class-wpcpm-sponsors.php:4854
 msgid "The link to the signed copy in the program's Drive folder."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4863
+#: includes/modules/class-wpcpm-sponsors.php:4864
 msgid "The day it was signed, if the copy says so."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4905
+#: includes/modules/class-wpcpm-sponsors.php:4906
 msgid "a document is waiting to be read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4907
+#: includes/modules/class-wpcpm-sponsors.php:4908
 msgid "the last document was returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4909
+#: includes/modules/class-wpcpm-sponsors.php:4910
 msgid "the accepted agreement was taken out of force"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4912
+#: includes/modules/class-wpcpm-sponsors.php:4913
 msgid "an agreement is accepted"
 msgstr ""
 
 #. translators: %s: the date it was accepted.
-#: includes/modules/class-wpcpm-sponsors.php:4915
+#: includes/modules/class-wpcpm-sponsors.php:4916
 #, php-format
 msgid "an agreement is accepted, since %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4919
+#: includes/modules/class-wpcpm-sponsors.php:4920
 msgid "the program holds a signed copy, recorded by hand"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors.php:4922
+#: includes/modules/class-wpcpm-sponsors.php:4923
 msgid "nothing on file"
 msgstr ""
 

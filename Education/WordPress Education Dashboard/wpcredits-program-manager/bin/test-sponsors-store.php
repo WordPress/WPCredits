@@ -1951,14 +1951,23 @@ echo "\n=== Test sponsors (1.123.18) ===\n";
 // A test sponsor is never listed publicly. A sponsor whose name, trimmed, starts with "TEST" in
 // capitals is one from the move onto the site and from the upgrade on: the live site holds
 // "TEST - WordPress Education Dashboard (do not use)". The rule is the capitals: "Testing Co" and
-// "Contest Labs" are real names.
-ck( 'is_test_name(): a trimmed name starting with TEST in capitals, and nothing else', array_map( array( 'WPCPM_Sponsors_Index', 'is_test_name' ), array( 'TEST - WordPress Education Dashboard (do not use)', '  TEST Minted Sponsor', 'TESTING', 'Test Co', 'Contest Labs', 'test', '' ) ), array( true, true, true, false, false, false, false ) );
+// "Contest Labs" are real names. And since 1.123.23 the word: "TEST" alone, or followed by something
+// that is neither a letter nor a digit in any script, so a real company named "TESTAMENT", "TESTIFY"
+// or "TEST2 Labs" is not marked a test sponsor, nor pre-ticked as one at approval.
+ck( 'is_test_name(): a trimmed name starting with the word TEST in capitals, and nothing else', array_map( array( 'WPCPM_Sponsors_Index', 'is_test_name' ), array( 'TEST - WordPress Education Dashboard (do not use)', '  TEST Minted Sponsor', 'TEST', ' TEST ', 'TEST - Acme', 'TEST: Acme', 'TEST Acme', 'TEST(1)', "TEST\tAcme", 'TEST_Acme', 'TESTING', 'TESTAMENT', 'TESTIFY', 'TEST2 Labs', "TEST\u{00C9}cole", "TEST\u{0661}", "TEST\u{4E2D}", 'Test Acme', 'test acme', 'Test Co', 'Contest Labs', 'test', '' ) ), array( true, true, true, true, true, true, true, true, true, true, false, false, false, false, false, false, false, false, false, false, false, false, false ) );
+
+// A name that is not valid UTF-8 cannot be read by the Unicode-aware rule, which then answers
+// nothing at all: it is read byte by byte instead, "TEST" first and then no ASCII letter or digit, as
+// the first four letters alone once read it, so such a name is no less a test than it was.
+ck( 'is_test_name(): a name that is not valid UTF-8 is read byte by byte, the word TEST first', array_map( array( 'WPCPM_Sponsors_Index', 'is_test_name' ), array( "TEST\xFF Acme", "TEST - \xC3", "TEST\xC3", "TESTA\xFF", "TEST2\xFF", "Test\xFF", "\xFFTEST", " TEST \xFF " ) ), array( true, true, true, false, false, false, false, true ) );
 
 seed_old_site();
 $old_test_key = 'recSEED0000000077';
 $GLOBALS['opts']['wpcpm_sponsors_index']['rows'][ $old_test_key ] = array( 'record_id' => $old_test_key, 'name' => ' TEST - WordPress Education Dashboard (do not use)', 'status' => 'Approved' );
+$old_word_key = 'recSEED0000000078';
+$GLOBALS['opts']['wpcpm_sponsors_index']['rows'][ $old_word_key ] = array( 'record_id' => $old_word_key, 'name' => 'TESTAMENT Publishing', 'status' => 'Approved' );
 WPCPM_Sponsors_Migration::run();
-ck( 'the move onto the site marks a held sponsor named TEST as a test sponsor, and no other', array( WPCPM_Sponsors_Index::row( $old_test_key )['test'], WPCPM_Sponsors_Index::row( $KEY_MANGO )['test'], WPCPM_Sponsors_Index::row( $KEY_DREAM )['test'] ), array( true, false, false ) );
+ck( 'the move onto the site marks a held sponsor named TEST as a test sponsor, and no other, TESTAMENT included', array( WPCPM_Sponsors_Index::row( $old_test_key )['test'], WPCPM_Sponsors_Index::row( $KEY_MANGO )['test'], WPCPM_Sponsors_Index::row( $KEY_DREAM )['test'], WPCPM_Sponsors_Index::row( $old_word_key )['test'] ), array( true, false, false, false ) );
 
 reset_site();
 $t_live  = 'recTESTLIVE000001';
@@ -1967,9 +1976,11 @@ $t_plain = 'recTESTLIVE000003';
 WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $t_live, 'name' => 'TEST - WordPress Education Dashboard (do not use)', 'status' => 'Approved' ) ) );
 WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $t_named, 'name' => 'Test Co', 'status' => 'Approved' ) ) );
 WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $t_plain, 'name' => 'Plain Sponsor', 'status' => 'Approved' ) ) );
+$t_word = 'recTESTLIVE000004';
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $t_word, 'name' => 'TESTIFY Labs', 'status' => 'Approved' ) ) );
 ck( 'before the upgrade a sponsor the store already holds is no test sponsor, whatever its name', array( WPCPM_Sponsors_Index::row( $t_live )['test'], WPCPM_Sponsors_Index::test_keys() ), array( false, array() ) );
 WPCPM_Sponsors_Index::maybe_mark_tests();
-ck( 'the upgrade marks every sponsor the store holds whose name starts with TEST, once, and records that it ran', array( WPCPM_Sponsors_Index::row( $t_live )['test'], WPCPM_Sponsors_Index::row( $t_named )['test'], WPCPM_Sponsors_Index::row( $t_plain )['test'], WPCPM_Sponsors_Index::test_keys(), get_option( WPCPM_Sponsors_Index::OPT_TESTS_MARKED ) ), array( true, false, false, array( $t_live ), 1 ) );
+ck( 'the upgrade marks every sponsor the store holds whose name starts with the word TEST, once, and records that it ran', array( WPCPM_Sponsors_Index::row( $t_live )['test'], WPCPM_Sponsors_Index::row( $t_named )['test'], WPCPM_Sponsors_Index::row( $t_plain )['test'], WPCPM_Sponsors_Index::row( $t_word )['test'], WPCPM_Sponsors_Index::test_keys(), get_option( WPCPM_Sponsors_Index::OPT_TESTS_MARKED ) ), array( true, false, false, false, array( $t_live ), 1 ) );
 WPCPM_Sponsors_Index::patch( $t_live, array( 'test' => false ) );
 WPCPM_Sponsors_Index::maybe_mark_tests();
 ck( 'and only once: a flag an Administrator cleared since stays cleared', WPCPM_Sponsors_Index::row( $t_live )['test'], false );

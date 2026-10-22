@@ -203,6 +203,21 @@ if ( ! function_exists( 'wp_cache_delete' ) ) {
 	}
 }
 
+// The pool's lock forgets what the request cached of an option, its value and core's mark that it is
+// missing (1.123.23). This file keeps no cache, so it holds nothing and keeps nothing: a suite that
+// tests what a request remembers, bin/test-sponsor-offers.php, keeps a cache of its own.
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	function wp_cache_get( $key, $group = '' ) {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_set' ) ) {
+	function wp_cache_set( $key, $value, $group = '' ) {
+		return true;
+	}
+}
+
 if ( ! function_exists( 'delete_post_meta' ) ) {
 	function delete_post_meta( $id, $key ) {
 		unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] );

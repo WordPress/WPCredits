@@ -20,7 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * website and that it is a sponsor - plus counts. It never carries a contact person, an address,
  * a note a manager wrote, a status other than Approved, or a sponsor below Approved: a Paused or
  * an In review company is a fact for this site's managers, not for a public script. Nor does it
- * list or count a test sponsor (1.123.18), which is never listed publicly.
+ * list or count a test sponsor (1.123.18), which is never listed publicly, nor count an application
+ * or a sponsor with a test name (1.123.23, `WPCPM_Sponsors_Index::is_test_name()`).
  *
  * The route is public (`permission_callback` is `__return_true`) because both readers are
  * anonymous scripts with no account here, the same reason the route is cached for fifteen
@@ -159,6 +160,13 @@ final class WPCPM_Sponsors_Feed {
 	 * application posts not in the spam state by the month of `post_date`; `approved` counts the
 	 * store's Approved rows by the month of `created`.
 	 *
+	 * Neither counts a test (1.123.23). The Credits Monthly Report reads `received` as the month's
+	 * enquiries and `approved` as its new sponsors, and a company named by the program's convention
+	 * for a test, the word "TEST" first, is neither, in any state: an open or rejected application
+	 * as much as an approved one, and a sponsor whose flag an Administrator cleared for a trial as
+	 * much as one still flagged. `approved` counts the store's rows, not the applications, so it
+	 * reads the row's own name. The list is the flag's alone, as every public surface's is.
+	 *
 	 * @return array<string, array{received: int, approved: int}>
 	 */
 	private static function applications() {
@@ -172,7 +180,8 @@ final class WPCPM_Sponsors_Feed {
 		);
 
 		// A test sponsor is counted nowhere public (1.123.18): neither among the approvals nor, by
-		// the record an approval stamps on its application, among the enquiries.
+		// the record an approval stamps on its application, among the enquiries; and nor is an
+		// application or a sponsor with a test name (1.123.23).
 		$tests = array_flip( WPCPM_Sponsors_Index::test_keys() );
 
 		foreach ( self::application_posts( $months[0] ) as $post ) {
@@ -186,6 +195,10 @@ final class WPCPM_Sponsors_Feed {
 				continue;
 			}
 
+			if ( WPCPM_Sponsors_Index::is_test_name( WPCPM_Sponsor_Application::name_of_post( $post ) ) ) {
+				continue;
+			}
+
 			$month = substr( (string) $post->post_date, 0, 7 );
 
 			if ( isset( $out[ $month ] ) ) {
@@ -194,7 +207,7 @@ final class WPCPM_Sponsors_Feed {
 		}
 
 		foreach ( WPCPM_Sponsors_Index::approved() as $row ) {
-			if ( WPCPM_Sponsors_Index::is_test( $row ) ) {
+			if ( WPCPM_Sponsors_Index::is_test( $row ) || WPCPM_Sponsors_Index::is_test_name( (string) $row['name'] ) ) {
 				continue;
 			}
 

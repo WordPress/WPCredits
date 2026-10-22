@@ -1332,7 +1332,7 @@ if ( ! class_exists( 'WPCPM_Sponsor_Offers' ) ) {
 	/** The Offers card, drawn in the shell, and the live offers it counts. */
 	class WPCPM_Sponsor_Offers {
 		const CARD = 'offers';
-		public static function live_count( $record, $except_id = 0, $today = '' ) { return isset( $GLOBALS['offers_live'][ $record ] ) ? (int) $GLOBALS['offers_live'][ $record ] : 0; }
+		public static function live_count( $record ) { return isset( $GLOBALS['offers_live'][ $record ] ) ? (int) $GLOBALS['offers_live'][ $record ] : 0; }
 		public static function render( $record, array $context ) { WPCPM_Dashboard_Card::open( array( 'key' => self::CARD, 'title' => 'Offers and codes' ) ); echo '<p>The offers.</p>'; WPCPM_Dashboard_Card::close(); }
 	}
 }

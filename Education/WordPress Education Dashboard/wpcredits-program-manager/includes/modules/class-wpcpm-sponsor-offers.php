@@ -180,9 +180,9 @@ final class WPCPM_Sponsor_Offers {
 	 * The moves a sponsor may make. Ended is final: a pool that was handed out is a record,
 	 * and reviving it would put codes people already hold back on offer.
 	 *
-	 * Dormant is the program's state, written by set_dormant() when a tier stops covering the
-	 * offer and lifted by wake(); it is never a target here, so no sponsor can post it, and a
-	 * sponsor may only end a dormant offer.
+	 * Dormant is the program's state: the daily run put a live offer there while a tier capped live
+	 * offers, before 1.123.18, nothing puts one there now, and wake() lifts it on the next run. It
+	 * is never a target here, so no sponsor can post it, and a sponsor may only end a dormant offer.
 	 *
 	 * Waiting for review is a member's draft sent to the program (`submit()`): the member may take it
 	 * back to a draft or end it, and only an Administrator's approval puts it live
@@ -342,8 +342,14 @@ final class WPCPM_Sponsor_Offers {
 	/**
 	 * Whether an offer, or a change to one, waits for an Administrator: an offer sent for review, or a
 	 * change held beside a visible offer that has not been returned, or codes a member added to a
-	 * visible offer (1.123.20). Codes held are never returned ones: holding codes stamps the offer as
-	 * sent again (`stamp_submitted()`), which clears a return, and a return drops the codes.
+	 * visible offer (1.123.20). Codes held are asked for whatever the return stamp says, since a code
+	 * still held is never one a return covered: a return drops every code its item showed, and since
+	 * 1.123.23 refuses rather than drop one held after the item was drawn
+	 * (`WPCPM_Sponsor_Offer_Review::fingerprint()`). Holding codes stamps the offer as sent again
+	 * (`stamp_submitted()`), which clears a return, unless the code is held while a return is going
+	 * through, after its drop and before it writes its note: the codes then wait beside that note
+	 * until the next decision, listed for review, and their item shows the change the note returned
+	 * with them, as codes added after a return send that change again.
 	 *
 	 * @param array $offer An offer.
 	 * @return bool
@@ -529,11 +535,13 @@ final class WPCPM_Sponsor_Offers {
 	 * claimed. The mark goes whatever the pool held, so one left by a request that died between its
 	 * two writes cannot keep the offer in the queue.
 	 *
-	 * @param int $offer_id Offer post ID.
-	 * @return int|WP_Error How many joined the pool, or `wpcpm_codes_busy` with nothing moved.
+	 * @param int           $offer_id Offer post ID.
+	 * @param string[]|null $held     The held codes the approval covers (`WPCPM_Sponsor_Codes::release_held()`).
+	 * @return int|WP_Error How many joined the pool, or `wpcpm_codes_busy` or `wpcpm_codes_changed`
+	 *                      with nothing moved.
 	 */
-	private static function release_codes( $offer_id ) {
-		$released = WPCPM_Sponsor_Codes::release_held( (int) $offer_id );
+	private static function release_codes( $offer_id, $held = null ) {
+		$released = WPCPM_Sponsor_Codes::release_held( (int) $offer_id, $held );
 
 		if ( is_wp_error( $released ) ) {
 			return $released;
@@ -552,11 +560,13 @@ final class WPCPM_Sponsor_Offers {
 	 * A return or the member's discard of the codes a member added: they leave the pool entirely,
 	 * and the mark goes with them.
 	 *
-	 * @param int $offer_id Offer post ID.
-	 * @return int|WP_Error How many left, or `wpcpm_codes_busy` with nothing moved.
+	 * @param int           $offer_id Offer post ID.
+	 * @param string[]|null $held     The held codes the return covers (`WPCPM_Sponsor_Codes::drop_held()`).
+	 * @return int|WP_Error How many left, or `wpcpm_codes_busy` or `wpcpm_codes_changed` with
+	 *                      nothing moved.
 	 */
-	private static function drop_codes( $offer_id ) {
-		$dropped = WPCPM_Sponsor_Codes::drop_held( (int) $offer_id );
+	private static function drop_codes( $offer_id, $held = null ) {
+		$dropped = WPCPM_Sponsor_Codes::drop_held( (int) $offer_id, $held );
 
 		if ( is_wp_error( $dropped ) ) {
 			return $dropped;
@@ -595,11 +605,15 @@ final class WPCPM_Sponsor_Offers {
 	 * that finds no code held and no change, because another Administrator's press decided them a
 	 * moment before, approves nothing and says so.
 	 *
-	 * @param int $offer_id Offer post ID.
+	 * @param int           $offer_id Offer post ID.
+	 * @param string[]|null $held     The fingerprints of the held codes the Administrator's item
+	 *                                showed, in order (1.123.23): the pool releases them only while
+	 *                                they are what it holds, read under its lock. Null releases
+	 *                                whatever is held.
 	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_not_waiting`, `wpcpm_offer_empty`,
-	 *                       `wpcpm_codes_busy`.
+	 *                       `wpcpm_codes_busy`, `wpcpm_codes_changed`.
 	 */
-	public static function approve( $offer_id ) {
+	public static function approve( $offer_id, $held = null ) {
 		$offer = self::read( (int) $offer_id );
 
 		if ( null === $offer ) {
@@ -623,7 +637,7 @@ final class WPCPM_Sponsor_Offers {
 			$released = 0;
 
 			if ( self::KIND_CODES === $offer['kind'] ) {
-				$released = self::release_codes( $offer['id'] );
+				$released = self::release_codes( $offer['id'], $held );
 
 				if ( is_wp_error( $released ) ) {
 					return $released;
@@ -661,16 +675,21 @@ final class WPCPM_Sponsor_Offers {
 	 * the member's draft again, and a held change stays held, out of the queue, for the member to mend
 	 * and send again or to discard, while students keep seeing the offer as it was approved.
 	 *
-	 * Codes a member added to a visible offer (1.123.20) are not kept with the change: they leave the
-	 * offer, and how many did is kept beside the note for the card to say so.
+	 * Codes a member added to a visible offer (1.123.20) are not kept with the change: the codes the
+	 * Administrator's item showed leave the offer, and how many did is kept beside the note for the
+	 * card to say so. A code held after the item was drawn is not one of them: the pool refuses the
+	 * drop under its lock (1.123.23), and nothing is returned.
 	 *
-	 * @param int    $offer_id Offer post ID.
-	 * @param string $note     The note, as the cleaner left it.
+	 * @param int           $offer_id Offer post ID.
+	 * @param string        $note     The note, as the cleaner left it.
+	 * @param string[]|null $held     The fingerprints of the held codes the item showed, in order
+	 *                                (1.123.23), or null to drop whatever is held.
 	 * @return array|WP_Error `change` (`new` or `changes`), `by`, the member who sent it (0 when
 	 *                        unknown), and `codes`, how many held codes it took out;
-	 *                        `wpcpm_offer_missing`, `wpcpm_offer_not_waiting` or `wpcpm_codes_busy`.
+	 *                        `wpcpm_offer_missing`, `wpcpm_offer_not_waiting`, `wpcpm_codes_busy` or
+	 *                        `wpcpm_codes_changed`.
 	 */
-	public static function return_with_note( $offer_id, $note ) {
+	public static function return_with_note( $offer_id, $note, $held = null ) {
 		$offer = self::read( (int) $offer_id );
 
 		if ( null === $offer ) {
@@ -691,7 +710,7 @@ final class WPCPM_Sponsor_Offers {
 			// The codes a member added leave the offer (1.123.20), before anything is written, so a
 			// pool another request holds leaves the return undone rather than half done; and a press
 			// that finds neither codes nor a change, decided a moment before, returns nothing.
-			$dropped = self::drop_codes( $offer['id'] );
+			$dropped = self::drop_codes( $offer['id'], $held );
 
 			if ( is_wp_error( $dropped ) ) {
 				return $dropped;
@@ -1295,19 +1314,17 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * How many of a sponsor's offers is_live() says are live today, one left out. An offer past
-	 * its last day holds no slot: it is shown to nobody, so it does not count against the cap.
+	 * How many of a sponsor's offers is_live() says are live today, for the Offers card's line and
+	 * the Sponsor Dashboard. An offer past its last day is shown to nobody, so it is not counted.
 	 *
-	 * @param string $record    Sponsor key.
-	 * @param int    $except_id An offer to leave out of the count, or 0 to leave none out.
-	 * @param string $today     `Y-m-d`; '' for the site's today.
+	 * @param string $record Sponsor key.
 	 * @return int
 	 */
-	public static function live_count( $record, $except_id = 0, $today = '' ) {
+	public static function live_count( $record ) {
 		$count = 0;
 
 		foreach ( self::offers_of( $record ) as $offer ) {
-			if ( (int) $offer['id'] !== (int) $except_id && self::is_live( $offer, $today ) ) {
+			if ( self::is_live( $offer ) ) {
 				++$count;
 			}
 		}
@@ -1319,13 +1336,19 @@ final class WPCPM_Sponsor_Offers {
 	 * Move an offer to a state. No tier caps live offers since 1.123.18, so nothing counts how many
 	 * of a sponsor's offers are live before or after a switch.
 	 *
+	 * How many held codes an End dropped is handed back through `$dropped` (1.123.23), for the
+	 * trail's row of the move, as a Discard and a Return count theirs; the answer stays `true` or the
+	 * refusal, which every caller reads.
+	 *
 	 * @param int    $offer_id Offer post ID.
 	 * @param string $state    A state.
+	 * @param int    $dropped  Set to how many held codes the move dropped: those of an End, else 0.
 	 * @return true|WP_Error `wpcpm_offer_missing`, `wpcpm_offer_state`, `wpcpm_offer_transition`, `wpcpm_offer_empty`,
 	 *                       `wpcpm_codes_busy` (an end that would drop held codes, refused by the pool's lock).
 	 */
-	public static function set_state( $offer_id, $state ) {
-		$offer = self::read( (int) $offer_id );
+	public static function set_state( $offer_id, $state, &$dropped = 0 ) {
+		$dropped = 0;
+		$offer   = self::read( (int) $offer_id );
 
 		if ( null === $offer ) {
 			return new WP_Error( 'wpcpm_offer_missing', __( 'That offer does not exist.', 'wpcredits-program-manager' ) );
@@ -1354,11 +1377,13 @@ final class WPCPM_Sponsor_Offers {
 		// in what the queue reads for good. First, so a pool another request holds leaves the offer
 		// as it was.
 		if ( self::STATE_ENDED === $state && self::KIND_CODES === $offer['kind'] && ( $offer['codes_held'] > 0 || WPCPM_Sponsor_Codes::held_count( $offer['id'] ) > 0 ) ) {
-			$dropped = self::drop_codes( $offer['id'] );
+			$gone = self::drop_codes( $offer['id'] );
 
-			if ( is_wp_error( $dropped ) ) {
-				return $dropped;
+			if ( is_wp_error( $gone ) ) {
+				return $gone;
 			}
+
+			$dropped = (int) $gone;
 		}
 
 		update_post_meta( $offer['id'], self::META_STATE, $state );
@@ -1380,27 +1405,8 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Move a live offer to dormant: the program's own move, never a sponsor's, made when a
-	 * tier's cap no longer covers it.
-	 *
-	 * @param int $offer_id Offer post ID.
-	 * @return bool Whether the offer was live and is now dormant.
-	 */
-	public static function set_dormant( $offer_id ) {
-		$offer = self::read( (int) $offer_id );
-
-		if ( null === $offer || self::STATE_LIVE !== $offer['state'] ) {
-			return false;
-		}
-
-		update_post_meta( $offer['id'], self::META_STATE, self::STATE_DORMANT );
-		self::touch( $offer['id'], 'dormant' );
-
-		return true;
-	}
-
-	/**
-	 * Move a dormant offer back to live: the program's own move, once a tier covers it again.
+	 * Move a dormant offer back to live: the program's own move, which the daily run makes for every
+	 * offer it parked while a tier capped live offers (`WPCPM_Sponsor_Tiers_Run`).
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return bool Whether the offer was dormant and is now live.
@@ -1422,7 +1428,7 @@ final class WPCPM_Sponsor_Offers {
 	 * The dormant sentence the card prints while the tiers are announced;
 	 * `WPCPM_Sponsor_Posts::dormant_note()` is the posts' own. No tier caps live offers since
 	 * 1.123.18, when the partner page offered products at any level, separately from the levels, so
-	 * an offer the daily run parked under an earlier cap is only waiting on the next run,
+	 * an offer the daily run parked under the caps before then is only waiting on the next run,
 	 * `WPCPM_Sponsor_Tiers_Run`, to wake it, and the sentence says so and names no tier.
 	 *
 	 * @return string
@@ -2115,8 +2121,9 @@ final class WPCPM_Sponsor_Offers {
 		$offer  = $claim['offer'];
 		$state  = WPCPM_Request::posted_key( 'wpcpm_state' );
 		// A member's draft without the program's OK is sent for review rather than switched on.
-		$send  = self::STATE_LIVE === $state && self::STATE_DRAFT === $offer['state'] && ! $offer['approved'] && ! self::by_staff( $claim );
-		$moved = $send ? self::submit( $offer['id'], get_current_user_id() ) : self::set_state( $offer['id'], $state );
+		$send    = self::STATE_LIVE === $state && self::STATE_DRAFT === $offer['state'] && ! $offer['approved'] && ! self::by_staff( $claim );
+		$dropped = 0;
+		$moved   = $send ? self::submit( $offer['id'], get_current_user_id() ) : self::set_state( $offer['id'], $state, $dropped );
 
 		if ( $send && ! is_wp_error( $moved ) ) {
 			$state = self::STATE_REVIEW;
@@ -2134,6 +2141,18 @@ final class WPCPM_Sponsor_Offers {
 			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, $detail );
 		}
 
+		$data = array(
+			'offer' => $offer['id'],
+			'from'  => $offer['state'],
+			'to'    => $state,
+		);
+
+		// An End that dropped held codes says how many (1.123.23), as a Discard and a Return do,
+		// never which.
+		if ( $dropped > 0 ) {
+			$data['codes'] = (int) $dropped;
+		}
+
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
 				'kind'     => self::LOG_STATE,
@@ -2144,11 +2163,7 @@ final class WPCPM_Sponsor_Offers {
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
 				/* translators: 1: the state before, 2: the state after. */
 				'message'  => sprintf( __( 'An offer moved from %1$s to %2$s.', 'wpcredits-program-manager' ), $offer['state'], $state ),
-				'data'     => array(
-					'offer' => $offer['id'],
-					'from'  => $offer['state'],
-					'to'    => $state,
-				),
+				'data'     => $data,
 			)
 		);
 

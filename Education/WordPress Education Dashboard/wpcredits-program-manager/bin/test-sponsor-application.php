@@ -2603,6 +2603,14 @@ ob_start();
 WPCPM_Sponsor_Application::render_actions( $t_test, 'new' );
 $t_test_html = (string) ob_get_clean();
 ck( 'the Approve form carries the test box before its button, clear for a real company and ticked for one named TEST, and no other form carries it', array( false !== strpos( $t_real_html, $t_box( false ) ), false !== strpos( $t_test_html, $t_box( true ) ), substr_count( $t_real_html, 'name="wpcpm_test"' ) ), array( true, true, 1 ) );
+// A real company whose name only begins with the letters, as "TESTAMENT" does, is no test (1.123.23).
+$t_word = get_post( seed_application( array( 'Company Name' => 'TESTAMENT Publishing' ) ) );
+ob_start();
+WPCPM_Sponsor_Application::render_actions( $t_word, 'new' );
+$t_word_html = (string) ob_get_clean();
+ck( 'and clear for a real company whose name only begins with the letters TEST', false !== strpos( $t_word_html, $t_box( false ) ), true );
+// The public feed reads the same name to leave a test application out of its counts (1.123.23).
+ck( 'name_of_post() is the company\'s name as the applicant wrote it, the name the box and the public feed read', method_exists( 'WPCPM_Sponsor_Application', 'name_of_post' ) ? array( WPCPM_Sponsor_Application::name_of_post( $t_test ), WPCPM_Sponsor_Application::name_of_post( $t_word ) ) : null, array( 'TEST - Dashboard trial', 'TESTAMENT Publishing' ) );
 // The question Approve asks (1.123.20) is a fixed sentence forms.js reads off the form, so it says
 // what a ticked box does whichever way the box is drawn, in the words of the box's own description
 // on the Sponsors screen.

@@ -326,8 +326,9 @@ final class WPCPM_Sponsors_Migration {
 			}
 		}
 
-		// A held sponsor named "TEST" comes onto the site as a test sponsor, never listed publicly
-		// (1.123.18).
+		// A held sponsor named by the program's convention for a test, the word "TEST" first
+		// (`WPCPM_Sponsors_Index::is_test_name()`), comes onto the site as a test sponsor, never
+		// listed publicly (1.123.18).
 		$row['test'] = isset( $old_row['name'] ) && WPCPM_Sponsors_Index::is_test_name( (string) $old_row['name'] );
 
 		return $row;

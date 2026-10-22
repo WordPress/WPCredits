@@ -341,6 +341,12 @@ class WPCPM_Sponsor_Posts {
 	 * while core makes it, and handed back as core's own answer, or no guess at all for such a post.
 	 * A guess another filter already made goes through.
 	 *
+	 * Core's own guess on a 404 comes from `redirect_canonical()`, which hands it to the
+	 * `redirect_canonical` filter as the address to go to, where `hide_test_post_redirect()` already
+	 * stops it; so for core's own guess this filter is a second guard. It stays for any other caller
+	 * of `redirect_guess_404_permalink()`, a theme's or a plugin's own 404 handling, which does not go
+	 * through `redirect_canonical` and would otherwise hand out the post's address.
+	 *
 	 * @param mixed $pre Null, or the guess already made.
 	 * @return mixed
 	 */

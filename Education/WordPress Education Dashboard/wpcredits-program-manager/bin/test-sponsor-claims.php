@@ -8,8 +8,10 @@
  *   once under it. The second lookup is the only thing between a double-clicked "Get my code"
  *   and one person holding two codes from one offer, and every other suite reaches the first
  *   lookup alone: the guard could be deleted and all eighty-one suites stayed green (deep check
- *   FOFFR-6). The stub below serves a counted number of stale reads, which is what a second
- *   request that read before the first one wrote actually sees.
+ *   FOFFR-6). The user meta below is cached per request as core's is, loaded once and answered
+ *   from the request's copy, which is what a second request that read before the first one wrote
+ *   actually sees: every lookup of it, the one under the lock too unless the claim drops that copy
+ *   first (1.123.23).
  * - The guard refuses only the second press of the same person: somebody else still gets the
  *   next code.
  * - A claim problem names the student and carries their address to reply to, so it goes to the
@@ -103,17 +105,29 @@ function add_option( $k, $v, $deprecated = '', $autoload = 'yes' ) {
 	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; }
 	$GLOBALS['opts'][ $k ] = $v; $GLOBALS['autoload'][ $k ] = ( 'yes' === $autoload || true === $autoload ); return true;
 }
-// The ordinary double submit, which no stub could reach before: request B read the person's
-// claims before request A wrote one, so B's lookup at the top of claim() and may_claim_reason()'s
-// has_claimed() both see nothing, and only the lookup under the lock stops it. $GLOBALS['stale']
-// is how many of the next reads of that meta key are served the value the request started with.
+// User meta as core reads it (1.123.23): $GLOBALS['umeta'] is the table, and a request loads a
+// person's meta once, at its first read, into $GLOBALS['umeta_cache'], and answers from that copy
+// until a write of its own or wp_cache_delete( $id, 'user_meta' ) drops it, as core's meta cache
+// does. Another request's write reaches the table alone (`in_another_request()`). So request B,
+// which read the person's claims before request A wrote one, sees nothing at the top of claim() and
+// in may_claim_reason()'s has_claimed(), and only a lookup under the lock that reads the table
+// stops it.
+$GLOBALS['umeta_cache'] = array();
 function get_user_meta( $id, $k, $single = false ) {
-	if ( 'wpcpm_claims' === $k && $GLOBALS['stale'] > 0 ) { --$GLOBALS['stale']; return $GLOBALS['stale_value']; }
-	return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? '';
+	if ( ! array_key_exists( (int) $id, $GLOBALS['umeta_cache'] ) ) { $GLOBALS['umeta_cache'][ (int) $id ] = $GLOBALS['umeta'][ (int) $id ] ?? array(); }
+	return $GLOBALS['umeta_cache'][ (int) $id ][ $k ] ?? '';
 }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
-function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
-function delete_metadata( $type, $id, $k, $v = '', $all = false ) { foreach ( $GLOBALS['umeta'] as $uid => $m ) { unset( $GLOBALS['umeta'][ $uid ][ $k ] ); } return true; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; unset( $GLOBALS['umeta_cache'][ (int) $id ] ); return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ], $GLOBALS['umeta_cache'][ (int) $id ] ); return true; }
+function delete_metadata( $type, $id, $k, $v = '', $all = false ) { foreach ( $GLOBALS['umeta'] as $uid => $m ) { unset( $GLOBALS['umeta'][ $uid ][ $k ] ); } $GLOBALS['umeta_cache'] = array(); return true; }
+/** Run a step as another request: with a user meta cache of its own, so its writes reach the table and this request's copies stay as they were. */
+function in_another_request( callable $step ) {
+	$mine                    = $GLOBALS['umeta_cache'];
+	$GLOBALS['umeta_cache']  = array();
+	$out                     = $step();
+	$GLOBALS['umeta_cache']  = $mine;
+	return $out;
+}
 function get_user_by( $field, $value ) {
 	foreach ( $GLOBALS['users'] as $user ) {
 		if ( 'email' === $field && strtolower( $user->user_email ) === strtolower( (string) $value ) ) { return $user; }
@@ -204,7 +218,7 @@ class WPCPM_Test_DB {
 	}
 }
 $wpdb = new WPCPM_Test_DB();
-function wp_cache_delete( $key, $group = '' ) { return true; }
+function wp_cache_delete( $key, $group = '' ) { if ( 'user_meta' === $group ) { unset( $GLOBALS['umeta_cache'][ (int) $key ] ); } return true; }
 
 class WPCPM_Airtable {
 	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
@@ -304,7 +318,6 @@ $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $G, WPCPM
 // The shape the students sync writes: the status under `program`, with `is_past` beside it.
 $GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' => false ), 23 => array( 'program' => 'In Sensei', 'is_past' => false ) );
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
-$GLOBALS['stale'] = 0; $GLOBALS['stale_value'] = array();
 
 $fail = 0; $checks = 0;
 function ck( $label, $actual, $expected ) {
@@ -330,15 +343,37 @@ ck( 'the first press takes the first code and records it on the person', array( 
 echo "\n=== The ordinary double submit (FOFFR-6) ===\n";
 // Request B is already in flight: it read the person's claims before request A wrote one, so
 // both its lookup at the top of claim() and may_claim_reason()'s has_claimed() see nothing and
-// it reaches the lock. Only the lookup taken under the lock stands between it and a second code.
-$GLOBALS['stale']       = 2;
-$GLOBALS['stale_value'] = array();
+// it reaches the lock. Only the lookup taken under the lock, read from the table, stands between
+// it and a second code.
+$GLOBALS['umeta_cache'][20] = array();
 $second = WPCPM_Sponsor_Claims::claim( $g1, $GLOBALS['users'][20] );
 ck( 'the second press takes nothing and hands back the code the first one took', array( $second['new'], $second['code'], $second['index'] ), array( false, 'G-1', 0 ) );
 ck( 'the pool and its ledger are where the first press left them', array( WPCPM_Sponsor_Codes::counts( $g1 ), count( WPCPM_Sponsor_Codes::claims( $g1 ) ) ), array( array( 'available' => 1, 'claimed' => 1, 'void' => 0, 'total' => 2 ), 1 ) );
 ck( 'the person still holds exactly the one claim, at the index the first press wrote', array( array_keys( WPCPM_Sponsor_Claims::claims_of( 20 ) ), WPCPM_Sponsor_Claims::claims_of( 20 )[ $g1 ]['i'] ), array( array( $g1 ), 0 ) );
 ck( 'and the lock the second press took is released', isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $g1 ] ), false );
 ck( 'the guard refuses that person and nobody else: the next claimant gets the next code', array_map( static function ( $v ) { return is_array( $v ) ? array( $v['new'], $v['code'] ) : $v; }, array( WPCPM_Sponsor_Claims::claim( $g1, $GLOBALS['users'][23] ) ) ), array( array( true, 'G-2' ) ) );
+
+echo "\n=== Two presses of one person in overlapping requests (1.123.23) ===\n";
+// The second press's request loads the person's meta, finding no claim, and the first press's
+// request then claims and writes it: the second, reaching the lock after the first let go, must
+// read the person's claims from the table there, not its own copy, or it takes a second code and
+// writes the person's record over with it, the first code lost to them and still claimed.
+$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Three', 'maciej@a8c.com' );
+$GLOBALS['program'][24] = array( 'program' => 'In Sensei', 'is_past' => false );
+$pp = WPCPM_Sponsor_Offers::create( $G, array( 'title' => 'Two presses', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 0, 'expires' => '' ) );
+WPCPM_Sponsor_Offers::add_codes( $pp, "PP-1\nPP-2" );
+WPCPM_Sponsor_Offers::set_state( $pp, 'live' );
+$pp_before = WPCPM_Sponsor_Claims::claims_of( 24 );
+$pp_first  = in_another_request( static function () use ( $pp ) { return WPCPM_Sponsor_Claims::claim( $pp, $GLOBALS['users'][24] ); } );
+$pp_second = WPCPM_Sponsor_Claims::claim( $pp, $GLOBALS['users'][24] );
+ck( 'one person pressing twice in overlapping requests gets one code: the second press takes nothing and hands back the first one\'s, one ledger row, and the person\'s record names that code', array(
+	$pp_before,
+	array( $pp_first['new'], $pp_first['code'] ),
+	is_array( $pp_second ) ? array( $pp_second['new'], $pp_second['code'] ) : $pp_second,
+	count( WPCPM_Sponsor_Codes::claims( $pp ) ),
+	WPCPM_Sponsor_Codes::counts( $pp ),
+	$GLOBALS['umeta'][24][ WPCPM_Sponsor_Claims::META_CLAIMS ][ $pp ]['i'],
+), array( array(), array( true, 'PP-1' ), array( false, 'PP-1' ), 1, array( 'available' => 1, 'claimed' => 1, 'void' => 0, 'total' => 2 ), 0 ) );
 
 echo "\n=== A program contact who is no longer a program manager ===\n";
 // The sponsor's contact is the program manager assigned on the Sponsors screen, a site account. A

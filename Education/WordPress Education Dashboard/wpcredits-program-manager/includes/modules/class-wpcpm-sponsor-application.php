@@ -2900,6 +2900,17 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The company's name as the applicant wrote it (`stored_name()`): what the test box beside
+	 * Approve and the public feed's counts read it by (1.123.23).
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string
+	 */
+	public static function name_of_post( WP_Post $post ) {
+		return self::stored_name( $post );
+	}
+
+	/**
 	 * The address the applicant gave, or '' when there is not a usable one.
 	 *
 	 * @param WP_Post $post The application.
@@ -3453,8 +3464,8 @@ class WPCPM_Sponsor_Application {
 			}
 
 			// The test box beside Approve (1.123.18): ticked already for a company named by the
-			// program's convention for a test, "TEST" first, and for one whose half-done approval
-			// left a test sponsor's record, so a press that finishes it keeps the flag.
+			// program's convention for a test, the word "TEST" first, and for one whose half-done
+			// approval left a test sponsor's record, so a press that finishes it keeps the flag.
 			$stamped = trim( (string) get_post_meta( $post->ID, self::META_RECORD, true ) );
 			$test    = WPCPM_Sponsors_Index::is_test_name( self::stored_name( $post ) ) || ( WPCPM_Sponsors_Index::is_key( $stamped ) && WPCPM_Sponsors_Index::is_test( $stamped ) );
 

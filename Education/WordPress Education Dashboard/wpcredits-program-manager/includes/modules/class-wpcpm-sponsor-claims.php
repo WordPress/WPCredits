@@ -85,6 +85,15 @@ final class WPCPM_Sponsor_Claims {
 	 * person because a record with no code behind it would need undoing; the
 	 * lookup before the lock because a second press must return the same code, not queue.
 	 *
+	 * **The lookup under the lock reads the table (1.123.23).** Core loads a person's meta once per
+	 * request and answers every later read from that copy, so a second press whose request read the
+	 * person's claims before the first press wrote its own, at the lookup above or in
+	 * `may_claim_reason()`, would read the same copy under the lock, find nothing, take a second
+	 * code and write the person's record over with it: two ledger rows, and the first code lost to
+	 * the person while it stays claimed. The person's cached meta is dropped once the lock is held,
+	 * as the pool's own lock drops the pool's (`WPCPM_Sponsor_Codes::lock()`), so the lookup and
+	 * the record written after it start from what the table holds.
+	 *
 	 * @param int              $offer_id Offer post ID.
 	 * @param int|WP_User|null $user     The claimant.
 	 * @return array|WP_Error `code`, `index`, `new`.
@@ -124,7 +133,11 @@ final class WPCPM_Sponsor_Claims {
 			return new WP_Error( 'wpcpm_claim_busy', __( 'Another claim was going through. Reload the page to see your code.', 'wpcredits-program-manager' ) );
 		}
 
-		// Under the lock, once more: two presses inside a second both passed the lookup above.
+		// Under the lock, once more: two presses inside a second both passed the lookup above. Read
+		// from the table, not this request's copy of the person's meta, which may predate the other
+		// press's write.
+		wp_cache_delete( $user->ID, 'user_meta' );
+
 		$claims = self::claims_of( $user->ID );
 
 		if ( isset( $claims[ $offer['id'] ] ) ) {

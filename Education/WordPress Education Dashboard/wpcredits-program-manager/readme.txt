@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.22
+Stable tag: 1.123.23
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,15 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.23 =
+
+* An offer's review decides what the Administrator saw. *Approve* and *Return it with this note* carry a fingerprint of everything the review item showed: the offer's words and code, a change waiting for review, the codes waiting, and for a new offer its codes and audience. When any of it changed after the page was drawn, a code added, the words changed, the offer paused or resumed, nothing is decided and the item says "This offer changed after you opened it, so nothing was decided. Read it again, then decide.", showing what waits now and keeping a typed note. The codes are checked again at the moment they move. A page drawn before 1.123.23 is refused the same way once. What a student claims meanwhile changes nothing.
+* A test sponsor is a company named "TEST" alone, or "TEST" followed by a space, a hyphen, a colon, a bracket or another character that is neither a letter nor a digit: "TEST - Acme" is a test name, "TESTAMENT Publishing" is not. Flags already set or cleared stay as they are.
+* The sponsors feed the Credits Monthly Report reads leaves out every application from a company with a test name, open, rejected or approved, and every sponsor with one, where it left out only an application approved into a test sponsor.
+* Ending an offer with codes waiting records on its trail how many waiting codes the End took out, as a discard and a return do.
+* One code, one student. Two students pressing *Get my code* on the same offer at the same moment could be handed the same code, and an approval, a return or a code added just as a student claimed could undo the claim: every change to an offer's codes now reads them afresh once it holds the offer's lock. One student pressing *Get my code* twice at once, in two tabs, gets one code, where they could get two and lose the first.
+* For developers: `WPCPM_Sponsor_Offer_Review::fingerprint()` and the hidden `wpcpm_seen` field, the status `offer-changed` and the codes error `wpcpm_codes_changed`; `release_held()` and `drop_held()` take the prints they expect. `WPCPM_Sponsors_Index::is_test_name()` reads `/^TEST(?![\p{L}\p{N}])/u`. `WPCPM_Sponsor_Application::name_of_post()`. `WPCPM_Sponsor_Offers::set_state()` passes back the codes an End dropped by reference. `WPCPM_Sponsor_Codes::lock()` drops the request's cached copy of the pool and of its own row, and `WPCPM_Sponsor_Claims::claim()` the person's cached user meta, before reading them under the lock. What was left of the offer cap of the pilot's first design goes: `set_dormant()`, which nothing called since 1.123.18, and `live_count()`'s second and third arguments; a dormant offer from before 1.123.18 still wakes on the daily run.
 
 = 1.123.22 =
 

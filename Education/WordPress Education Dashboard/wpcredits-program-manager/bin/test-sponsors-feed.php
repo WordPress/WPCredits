@@ -22,7 +22,8 @@
  *   holds them: the feed is data, which its two readers escape for their own pages.
  * - `applications` holds the last twenty-four months, the current one last, every month
  *   zero-filled, `received` from the application posts' `post_date`, leaving out an application
- *   in the spam state, and `approved` from the store's Approved rows' `created`.
+ *   in the spam state, and `approved` from the store's Approved rows' `created`; neither counts a
+ *   test sponsor, nor, since 1.123.23, an application or a sponsor with a test name, in any state.
  * - The built answer is cached for fifteen minutes and the cache is dropped the moment a store
  *   write calls `WPCPM_Sponsors_Index::forget()`, a logo upload or removal included, proven here
  *   without a rebuild by pre-loading a sentinel transient and reading it back.
@@ -36,8 +37,10 @@
  * fixed string built from `$GLOBALS['ip_hash']` rather than hashing a real address - the feed
  * only ever passes the key straight to `WPCPM_Ceiling::claim()`, so nothing here needs the real
  * hashing or the real per-window bucket math, both already pinned by their own suites.
- * `WPCPM_Sponsor_Application` is a four-constant stand-in: the feed reads only its `POST_TYPE`,
- * `META_STATE`, `STATE_SPAM` and, since 1.123.18, `META_RECORD`.
+ * `WPCPM_Sponsor_Application` is a small stand-in: the feed reads only its `POST_TYPE`,
+ * `META_STATE`, `STATE_SPAM`, since 1.123.18 `META_RECORD`, and since 1.123.23 the company's name
+ * through `name_of_post()`, which the stand-in reads as the real class does, the stored answer first
+ * and the title after it; the application suite pins the real one.
  *
  * The twenty-four-month window is read off the site's clock, as `WPCPM_Sponsors_Feed` reads it
  * through `wp_date()`: `post_date` and `created` are site-local,
@@ -225,12 +228,22 @@ class WPCPM_Form_Guard {
 	}
 }
 
-/** Only the constants the feed reads; the real class is thousands of lines of form handling this suite does not touch. */
+/** Only what the feed reads; the real class is thousands of lines of form handling this suite does not touch. */
 class WPCPM_Sponsor_Application {
-	const POST_TYPE  = 'wpcpm_sponsor_app';
+	const POST_TYPE   = 'wpcpm_sponsor_app';
 	const META_STATE  = '_wpcpm_sapp_state';
 	const STATE_SPAM  = 'spam';
 	const META_RECORD = '_wpcpm_sapp_record';
+	const META_FIELDS = '_wpcpm_sapp_fields';
+	const COL_NAME    = 'Company Name';
+
+	/** The company's name as the real class reads it: the stored answer, else the title. */
+	public static function name_of_post( WP_Post $post ) {
+		$fields = get_post_meta( $post->ID, self::META_FIELDS, true );
+		$name   = is_array( $fields ) && isset( $fields[ self::COL_NAME ] ) ? trim( (string) $fields[ self::COL_NAME ] ) : '';
+
+		return '' !== $name ? $name : trim( (string) $post->post_title );
+	}
 }
 
 require_once __DIR__ . '/stubs/posts.php';
@@ -301,8 +314,10 @@ function expected_month_keys() {
  *
  * @param int    $offset Months back.
  * @param string $state  The application's state meta, or '' to write none.
+ * @param string $name   The company's name as the form stored it, or '' to store no answers.
+ * @param string $title  The post's title, the name's fallback.
  */
-function add_application( $offset, $state = '' ) {
+function add_application( $offset, $state = '', $name = '', $title = '' ) {
 	$id = $GLOBALS['app_next_id']++;
 
 	$post              = new WP_Post();
@@ -310,8 +325,13 @@ function add_application( $offset, $state = '' ) {
 	$post->post_type   = WPCPM_Sponsor_Application::POST_TYPE;
 	$post->post_status = 'private';
 	$post->post_date   = date_ago( $offset );
+	$post->post_title  = $title;
 
 	$GLOBALS['posts'][ $id ] = $post;
+
+	if ( '' !== $name ) {
+		$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Application::META_FIELDS ] = array( WPCPM_Sponsor_Application::COL_NAME => $name );
+	}
 
 	if ( '' !== $state ) {
 		$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Application::META_STATE ] = $state;
@@ -675,6 +695,28 @@ add_application( 2, 'approved' );
 $GLOBALS['pmeta'][ $GLOBALS['app_next_id'] - 1 ][ WPCPM_Sponsor_Application::META_RECORD ] = $KEY_TEST;
 $t_built = WPCPM_Sponsors_Feed::build();
 ck( 'a test sponsor is not listed, not counted as approved, and the application it was approved from is not counted as received', array( array_column( $t_built['sponsors'], 'name' ), $t_built['applications'][ ym_ago( 2 ) ] ), array( array( 'Real Sponsor' ), array( 'received' => 1, 'approved' => 1 ) ) );
+
+echo "\n=== build(): no TEST application is counted (1.123.23) ===\n";
+reset_store();
+
+// To the Credits Monthly Report `received` is the month's enquiries and `approved` its new
+// sponsors: an application from a company with a test name (`WPCPM_Sponsors_Index::is_test_name()`)
+// is neither, whatever its state, and nor is a sponsor with one, even with its flag cleared for a
+// trial. A real company whose name only begins with the letters counts.
+add_application( 4, '', 'TEST - Acme' );
+add_application( 4, 'held', '  TEST Acme ' );
+add_application( 4, 'rejected', 'TEST: Acme' );
+add_application( 4, 'approved', 'TEST' );
+add_application( 4, '', '', 'TEST(1)' );
+add_application( 4, '', 'TESTAMENT Publishing' );
+add_application( 4, 'rejected', 'Test Acme' );
+add_application( 4, '', '', 'Plain Title Co' );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => 'recSEED0000000211', 'name' => 'TEST - Acme', 'status' => 'Approved', 'created' => created_ago( 4 ) ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => 'recSEED0000000212', 'name' => 'TESTAMENT Publishing', 'status' => 'Approved', 'created' => created_ago( 4 ) ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => 'recSEED0000000213', 'name' => 'Real Co', 'status' => 'Approved', 'created' => created_ago( 4 ) ) ) );
+$n_built = WPCPM_Sponsors_Feed::build();
+ck( 'an application with a test name is counted nowhere, new, held, rejected or approved, its title read when it holds no answers; nor is a sponsor with one, flag or none', $n_built['applications'][ ym_ago( 4 ) ], array( 'received' => 3, 'approved' => 2 ) );
+ck( 'the list is still the flag\'s to decide: a sponsor with a test name and its flag cleared is listed for its trial', array_column( $n_built['sponsors'], 'name' ), array( 'Real Co', 'TEST - Acme', 'TESTAMENT Publishing' ) );
 
 echo "\n=== caching ===\n";
 reset_store();

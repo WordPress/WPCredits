@@ -202,7 +202,7 @@ final class WPCPM_Sponsors_Index {
 			// mentors are shown, its offers, posts, events and track partnerships; its own accounts
 			// see their Sponsor Dashboard as any sponsor's do. Set on the Sponsors screen's Edit
 			// form and beside Approve on an application, and by the move onto the site and the
-			// upgrade for a name that starts with "TEST" (`is_test_name()`).
+			// upgrade for a name that starts with the word "TEST" (`is_test_name()`).
 			'test'               => false,
 		);
 	}
@@ -238,21 +238,40 @@ final class WPCPM_Sponsors_Index {
 
 	/**
 	 * Whether a name marks a test sponsor by the program's own convention: trimmed, it starts with
-	 * "TEST" in capitals, as the live site's "TEST - WordPress Education Dashboard (do not use)"
-	 * does. Case counts, so "Test Co" and "Contest Labs" are real companies.
+	 * the word "TEST" in capitals, as the live site's "TEST - WordPress Education Dashboard (do not
+	 * use)" does. Case counts, so "Test Co" and "Contest Labs" are real companies, and so does the
+	 * word (1.123.23): "TEST" alone, or followed by a character that is neither a letter nor a digit
+	 * in any script, such as a space, a hyphen, a colon or a bracket. "TESTAMENT", "TESTIFY" and
+	 * "TEST2 Labs" are real companies too, which the first four letters alone marked as tests. A
+	 * sponsor marked or cleared under that earlier rule keeps its flag: the rule decides a name when
+	 * it is read, at the move onto the site, the upgrade and the box beside Approve, and nothing
+	 * reads a flag again.
+	 *
+	 * A name that is not valid UTF-8 the Unicode-aware match cannot read at all, and it answers
+	 * false for an error rather than for a name; such a name is read byte by byte instead, "TEST"
+	 * first and then nothing or a byte that is no ASCII letter or digit, so it is no less a test
+	 * than the four letters alone once made it.
 	 *
 	 * @param string $name A sponsor's or an applicant's name.
 	 * @return bool
 	 */
 	public static function is_test_name( $name ) {
-		return 0 === strpos( trim( (string) $name ), 'TEST' );
+		$name    = trim( (string) $name );
+		$matched = preg_match( '/^TEST(?![\p{L}\p{N}])/u', $name );
+
+		if ( false !== $matched ) {
+			return 1 === $matched;
+		}
+
+		return 0 === strncmp( $name, 'TEST', 4 ) && ( 4 === strlen( $name ) || 1 !== preg_match( '/^[A-Za-z0-9]$/', $name[4] ) );
 	}
 
 	/**
 	 * The upgrade of 1.123.18, once per site, on `init` right after the move onto the site: every
-	 * sponsor the store holds whose name starts with "TEST" becomes a test sponsor before anything
-	 * public is drawn on the same request. Once it has run, a flag an Administrator clears stays
-	 * cleared.
+	 * sponsor the store holds whose name starts with the word "TEST" (`is_test_name()`) becomes a
+	 * test sponsor before anything public is drawn on the same request. Once it has run, a flag an
+	 * Administrator clears stays cleared, and a site where it ran under the earlier rule is not
+	 * marked again under this one.
 	 */
 	public static function maybe_mark_tests() {
 		if ( get_option( self::OPT_TESTS_MARKED ) ) {

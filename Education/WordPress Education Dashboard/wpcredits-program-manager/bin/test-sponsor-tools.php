@@ -465,10 +465,12 @@ ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $
 // The offer's fifth state, dormant, the program's (1.112.0): a program-made move, not a
 // sponsor's, but Tools must still treat it the way it treats ended or expired - offered to
 // nobody - while a claim already standing on it is untouched. User 23 claims it: 20 is the
-// count checks' own fixture further down, and this must not move what they count.
+// count checks' own fixture further down, and this must not move what they count. Nothing puts an
+// offer to dormant since no tier caps live offers (1.123.23 took the move out), so it is parked
+// here as the daily run parked one before 1.123.18.
 $dorm_t = $mk( $A, 'Dormant test offer', array(), 'DORM-1', 'live' );
 WPCPM_Sponsor_Claims::claim( $dorm_t, $GLOBALS['users'][23] );
-WPCPM_Sponsor_Offers::set_dormant( $dorm_t );
+update_post_meta( $dorm_t, WPCPM_Sponsor_Offers::META_STATE, WPCPM_Sponsor_Offers::STATE_DORMANT );
 $dorm_html = section( 'students', 23 );
 // Looked for as a card and a claim form, as the ended offer above is: the one form that names it is
 // the problem form in its code's row under Your codes, since 1.116.4.

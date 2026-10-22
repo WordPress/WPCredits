@@ -191,6 +191,18 @@ final class WPCPM_Sponsor_Codes {
 	 * gone-and-contested one, so declining and sending the claimant back to reload costs a click,
 	 * not a pool two claimants both believe they hold.
 	 *
+	 * **What this request remembers (1.123.23).** Core keeps every option a request reads in the
+	 * request's object cache, a missing one as missing, so a read under the lock would answer with
+	 * what this request read before it, not with the table. Two things are forgotten here, for that.
+	 * The lock's own row, before `add_option()`: core's `delete_option()` marks the row as missing,
+	 * and `add_option()` trusts that mark and skips its check, so a second lock in a request that
+	 * let go of the first would upsert over another request's lock and answer true. And the pool,
+	 * once the lock is held: every writer reads it after the lock (`read()`), and each had read it
+	 * before too, the press for its check (`held_prints()`) and a claim for whether any code is left
+	 * (`counts()`), so without this a release or a drop compared its codes with that same copy and
+	 * wrote it back over another request's claim or codes, and a claim handed out a code another had
+	 * taken a moment before.
+	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return bool
 	 */
@@ -199,7 +211,11 @@ final class WPCPM_Sponsor_Codes {
 
 		$name = self::LOCK_PREFIX . (int) $offer_id;
 
+		self::forget_cached( $name );
+
 		if ( add_option( $name, time(), '', false ) ) {
+			self::forget_cached( self::option_name( $offer_id ) );
+
 			return true;
 		}
 
@@ -227,8 +243,26 @@ final class WPCPM_Sponsor_Codes {
 		}
 
 		wp_cache_delete( $name, 'options' );
+		self::forget_cached( self::option_name( $offer_id ) );
 
 		return true;
+	}
+
+	/**
+	 * Drop what this request's object cache holds of one option, its value and the mark that it is
+	 * missing, so the next read of it is the table's.
+	 *
+	 * @param string $name The option's name.
+	 */
+	private static function forget_cached( $name ) {
+		wp_cache_delete( $name, 'options' );
+
+		$notoptions = wp_cache_get( 'notoptions', 'options' );
+
+		if ( is_array( $notoptions ) && isset( $notoptions[ $name ] ) ) {
+			unset( $notoptions[ $name ] );
+			wp_cache_set( 'notoptions', $notoptions, 'options' );
+		}
 	}
 
 	/**
@@ -532,6 +566,16 @@ final class WPCPM_Sponsor_Codes {
 	 * @return string[]
 	 */
 	public static function available_codes( $offer_id ) {
+		return self::unsealed( self::available_rows( $offer_id ) );
+	}
+
+	/**
+	 * The rows of the pool nobody holds yet, in pool order.
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return array[]
+	 */
+	private static function available_rows( $offer_id ) {
 		$rows = array();
 
 		foreach ( self::read( $offer_id )['codes'] as $entry ) {
@@ -541,7 +585,67 @@ final class WPCPM_Sponsor_Codes {
 			}
 		}
 
-		return self::unsealed( $rows );
+		return $rows;
+	}
+
+	/**
+	 * The fingerprints of the codes that wait for review, in the order they were added: what an
+	 * Administrator's review item shows of them, read without unsealing one (1.123.23,
+	 * `WPCPM_Sponsor_Offer_Review::fingerprint()`).
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return string[]
+	 */
+	public static function held_prints( $offer_id ) {
+		return self::prints( self::read( $offer_id )['held'] );
+	}
+
+	/**
+	 * The fingerprints of the codes of the pool nobody holds yet, in pool order: the codes a new
+	 * offer's review lists, read without unsealing one (1.123.23).
+	 *
+	 * @param int $offer_id Offer post ID.
+	 * @return string[]
+	 */
+	public static function available_prints( $offer_id ) {
+		return self::prints( self::available_rows( $offer_id ) );
+	}
+
+	/**
+	 * Rows to their fingerprints, in their order.
+	 *
+	 * @param array $rows Rows with an `h`.
+	 * @return string[]
+	 */
+	private static function prints( array $rows ) {
+		$prints = array();
+
+		foreach ( $rows as $entry ) {
+			$prints[] = isset( $entry['h'] ) ? (string) $entry['h'] : '';
+		}
+
+		return $prints;
+	}
+
+	/**
+	 * Whether the codes a decision expects to move are the ones the pool holds for review, read
+	 * under the lock: null expects nothing in particular.
+	 *
+	 * @param array         $pool   The pool, read under the lock.
+	 * @param string[]|null $expect The fingerprints the decision's item showed, in order, or null.
+	 * @return bool
+	 */
+	private static function held_as_expected( array $pool, $expect ) {
+		return null === $expect || self::prints( $pool['held'] ) === array_values( array_map( 'strval', (array) $expect ) );
+	}
+
+	/**
+	 * The one answer for codes held for review that are not the ones a decision read (1.123.23).
+	 *
+	 * @return WP_Error
+	 */
+	private static function changed() {
+		return new WP_Error( 'wpcpm_codes_changed', __( 'This offer changed after you opened it, so nothing was decided. Read it again, then decide.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -574,16 +678,29 @@ final class WPCPM_Sponsor_Codes {
 	 * already approved or returned by another Administrator's press finds nothing, writes nothing
 	 * and answers 0.
 	 *
-	 * @param int $offer_id Offer post ID.
-	 * @return int|WP_Error How many joined the pool.
+	 * An approval names the codes its item showed (1.123.23): read again under the lock, a code held
+	 * since, after the press checked what it showed, makes them not the same, and nothing moves.
+	 *
+	 * @param int           $offer_id Offer post ID.
+	 * @param string[]|null $expect   The fingerprints of the held codes the approval covers, in
+	 *                                order (`held_prints()`), or null for whatever is held.
+	 * @return int|WP_Error How many joined the pool; `wpcpm_codes_busy` or `wpcpm_codes_changed`
+	 *                      with nothing moved.
 	 */
-	public static function release_held( $offer_id ) {
+	public static function release_held( $offer_id, $expect = null ) {
 		if ( ! self::lock( $offer_id ) ) {
 			return self::busy();
 		}
 
 		$pool = self::read( $offer_id );
-		$n    = count( $pool['held'] );
+
+		if ( ! self::held_as_expected( $pool, $expect ) ) {
+			self::unlock( $offer_id );
+
+			return self::changed();
+		}
+
+		$n = count( $pool['held'] );
 
 		foreach ( $pool['held'] as $entry ) {
 			$pool['codes'][] = self::available_row( isset( $entry['s'] ) ? $entry['s'] : '', isset( $entry['h'] ) ? $entry['h'] : '' );
@@ -602,17 +719,28 @@ final class WPCPM_Sponsor_Codes {
 	/**
 	 * A return, or the member's discard: every held code leaves the offer entirely, not as void, so
 	 * the same code can be added again and wait once more. Nothing held is nothing written, and 0.
+	 * A return names the codes its item showed, as an approval does (`release_held()`).
 	 *
-	 * @param int $offer_id Offer post ID.
-	 * @return int|WP_Error How many left.
+	 * @param int           $offer_id Offer post ID.
+	 * @param string[]|null $expect   The fingerprints of the held codes the return covers, in order,
+	 *                                or null for whatever is held.
+	 * @return int|WP_Error How many left; `wpcpm_codes_busy` or `wpcpm_codes_changed` with nothing
+	 *                      moved.
 	 */
-	public static function drop_held( $offer_id ) {
+	public static function drop_held( $offer_id, $expect = null ) {
 		if ( ! self::lock( $offer_id ) ) {
 			return self::busy();
 		}
 
 		$pool = self::read( $offer_id );
-		$n    = count( $pool['held'] );
+
+		if ( ! self::held_as_expected( $pool, $expect ) ) {
+			self::unlock( $offer_id );
+
+			return self::changed();
+		}
+
+		$n = count( $pool['held'] );
 
 		if ( $n > 0 ) {
 			$pool['held'] = array();

@@ -30,6 +30,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the codes themselves, web addresses first, at most `CODES_SHOWN`, each printed as text and never
  * as a link. They are unsealed when the item is drawn, not in `waiting_all()`, which the menu
  * bubble and the counts read too and which must not open five thousand codes to count one item.
+ *
+ * **What the Administrator saw (1.123.23).** An item is drawn first and pressed later, and a
+ * sponsor's member may add codes or change the held words in between. So the decision forms carry
+ * a fingerprint of what waits and is shown (`fingerprint()`), and Approve and Return compute it
+ * again before they change anything: when it differs, or a form carries none, nothing is decided,
+ * a typed note is kept, and the item is drawn again with what waits now.
  */
 final class WPCPM_Sponsor_Offer_Review {
 
@@ -53,6 +59,9 @@ final class WPCPM_Sponsor_Offer_Review {
 
 	/** The most codes an item prints under Codes added; a line counts the rest. */
 	const CODES_SHOWN = 20;
+
+	/** The decision forms' field for what the item showed (`fingerprint()`). */
+	const FIELD_SEEN = 'wpcpm_seen';
 
 	/**
 	 * The two handlers.
@@ -215,6 +224,46 @@ final class WPCPM_Sponsor_Offer_Review {
 	}
 
 	/**
+	 * A fingerprint of everything that waits on an offer and is shown for review (1.123.23), which
+	 * the decision forms carry and both presses compute again before they change anything: the
+	 * offer's state and kind, the words students see now and, for a shared offer, its code, the
+	 * held change (`proposed`), the held codes' fingerprints in the order they were added and, for
+	 * a new offer, who it is open to and the fingerprints of the codes its pool holds. Values, never
+	 * the labels an item prints them under, so a press in another language than the page reads the
+	 * same. Not who sent it or when, nor what students claimed: a claim changes nothing the item
+	 * shows, and refusing on one would refuse every decision on a busy live offer. Keyed
+	 * (`wp_hash()`), since it is printed in a form and a short shared code under a plain hash would
+	 * be a guess away. One method, for the form and the presses alike.
+	 *
+	 * @param array         $offer An offer, as read.
+	 * @param string[]|null $held  The held codes' fingerprints as `WPCPM_Sponsor_Codes::held_prints()`
+	 *                             read them, or null to read them here.
+	 * @return string
+	 */
+	public static function fingerprint( array $offer, $held = null ) {
+		$id       = (int) $offer['id'];
+		$proposed = array_map( 'strval', (array) $offer['proposed'] );
+
+		ksort( $proposed );
+
+		$seen = array(
+			'state'    => (string) $offer['state'],
+			'kind'     => (string) $offer['kind'],
+			'words'    => array( (string) $offer['title'], (string) $offer['text'], (string) $offer['instructions'], (string) $offer['url'] ),
+			'shared'   => WPCPM_Sponsor_Offers::KIND_SHARED === $offer['kind'] ? (string) WPCPM_Sponsor_Codes::shared( $id ) : '',
+			'proposed' => $proposed,
+			'held'     => array_values( array_map( 'strval', null === $held ? WPCPM_Sponsor_Codes::held_prints( $id ) : (array) $held ) ),
+		);
+
+		if ( WPCPM_Sponsor_Offers::STATE_REVIEW === $offer['state'] ) {
+			$seen['audience'] = array_values( array_map( 'strval', (array) $offer['audience'] ) );
+			$seen['codes']    = WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::available_prints( $id ) : array();
+		}
+
+		return wp_hash( (string) wp_json_encode( $seen ) );
+	}
+
+	/**
 	 * Whether a code is a web address: a line that starts with `http://`, `https://` or `www.`,
 	 * whatever its case.
 	 *
@@ -319,7 +368,8 @@ final class WPCPM_Sponsor_Offer_Review {
 	/**
 	 * An Administrator's decision on what waits, in the posts' own shape: Approve, and a folded
 	 * "Return with a note" whose form opens only when chosen. A refused return comes back with the
-	 * note as it was typed, its fold open.
+	 * note as it was typed, its fold open. Both forms carry the fingerprint of what waits as it is
+	 * drawn (1.123.23).
 	 *
 	 * @param int    $offer_id The offer.
 	 * @param string $back     `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -333,11 +383,15 @@ final class WPCPM_Sponsor_Offer_Review {
 
 		$new = WPCPM_Sponsor_Offers::STATE_REVIEW === $offer['state'];
 
+		// One reading for both forms: what the item shows as it is drawn.
+		$seen = self::fingerprint( $offer );
+
 		echo '<div class="wpcpm-request__decide wpcpm-sponsor-offer__decide">';
 		printf( '<form class="wpcpm-sponsor-offer__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( self::ACTION_APPROVE . '_' . (int) $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_APPROVE ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_SEEN ), esc_attr( $seen ) );
 
 		if ( class_exists( 'WPCPM_Return' ) ) {
 			WPCPM_Return::field( (string) $back, self::CARD );
@@ -364,6 +418,7 @@ final class WPCPM_Sponsor_Offer_Review {
 		wp_nonce_field( self::ACTION_RETURN . '_' . (int) $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RETURN ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_SEEN ), esc_attr( $seen ) );
 
 		if ( class_exists( 'WPCPM_Return' ) ) {
 			WPCPM_Return::field( (string) $back, self::CARD );
@@ -402,6 +457,7 @@ final class WPCPM_Sponsor_Offer_Review {
 			'offer-not-waiting'   => array( 'error', __( 'Only an offer or a change waiting for review can be approved or returned here.', 'wpcredits-program-manager' ) ),
 			'offer-approve-empty' => array( 'error', __( 'Not approved: the offer has no code or link left to give. Return it with a note, so the sponsor adds one.', 'wpcredits-program-manager' ) ),
 			'offer-review-failed' => array( 'error', __( 'The offer could not be changed right now. Try again later.', 'wpcredits-program-manager' ) ),
+			'offer-changed'       => array( 'error', __( 'This offer changed after you opened it, so nothing was decided. Read it again, then decide.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -477,6 +533,46 @@ final class WPCPM_Sponsor_Offer_Review {
 	}
 
 	/**
+	 * The presses' own check, after the nonce and the policy and before anything changes (1.123.23):
+	 * the fingerprint the item's form posted, against what waits now. A form drawn before a member
+	 * added a code, changed the held words or moved the offer, and a form a release before 1.123.23
+	 * drew, which posts none, decide nothing. The pool reads the held codes again under its lock when
+	 * the decision moves them, so a code held after this check is not decided either.
+	 *
+	 * @param array  $opened What `begin()` answered.
+	 * @param string $form   The return note's typed box (`WPCPM_Typed_Text::box_form()`), or '' for
+	 *                       Approve, which has none.
+	 * @param string $typed  The note as it was typed, kept for the item drawn again.
+	 * @return string[] The fingerprints of the held codes the decision covers, in order.
+	 */
+	private static function as_shown( array $opened, $form = '', $typed = '' ) {
+		$held = WPCPM_Sponsor_Codes::held_prints( $opened['offer']['id'] );
+		$seen = WPCPM_Request::posted_key( self::FIELD_SEEN );
+
+		if ( '' === $seen || ! hash_equals( self::fingerprint( $opened['offer'], $held ), $seen ) ) {
+			self::changed( $opened['record'], $form, $typed );
+		}
+
+		return $held;
+	}
+
+	/**
+	 * Leave without a decision on an offer that changed since its item was drawn (1.123.23): a typed
+	 * note is kept as the busy refusal keeps it, and the item is drawn again with what waits now.
+	 *
+	 * @param string $record The sponsor.
+	 * @param string $form   The return note's typed box, or '' when there is none.
+	 * @param string $typed  The note as it was typed.
+	 */
+	private static function changed( $record, $form = '', $typed = '' ) {
+		if ( '' !== $form ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+		}
+
+		self::leave( 'offer-changed', $record );
+	}
+
+	/**
 	 * A decision's audit data, with how many held codes it released or took out when it moved any
 	 * (1.123.20): the count, never a code.
 	 *
@@ -494,20 +590,24 @@ final class WPCPM_Sponsor_Offer_Review {
 
 	/**
 	 * An Administrator approves: an offer sent for review goes live, a change becomes what students
-	 * see, and codes a member added join the pool (1.123.20).
+	 * see, and codes a member added join the pool (1.123.20). What the item showed, and nothing a
+	 * member added or changed since (1.123.23, `as_shown()`).
 	 */
 	public static function handle_approve() {
 		$opened = self::begin( self::ACTION_APPROVE );
 		$offer  = $opened['offer'];
+		$held   = self::as_shown( $opened );
 		$change = WPCPM_Sponsor_Offers::STATE_REVIEW === $offer['state'] ? 'new' : 'changes';
-		// Read before the approval moves them, for the trail: how many held codes it releases.
-		$codes = 'changes' === $change && WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::held_count( $offer['id'] ) : 0;
-		$done  = WPCPM_Sponsor_Offers::approve( $offer['id'] );
+		// For the trail: the held codes the approval releases, which the pool releases only while they
+		// are the ones the item showed.
+		$codes = 'changes' === $change && WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? count( $held ) : 0;
+		$done  = WPCPM_Sponsor_Offers::approve( $offer['id'], $held );
 
 		if ( is_wp_error( $done ) ) {
 			$statuses = array(
 				'wpcpm_offer_empty'       => 'offer-approve-empty',
 				'wpcpm_offer_not_waiting' => 'offer-not-waiting',
+				'wpcpm_codes_changed'     => 'offer-changed',
 			);
 			$code     = $done->get_error_code();
 
@@ -541,7 +641,8 @@ final class WPCPM_Sponsor_Offer_Review {
 	 * sent it. The note is counted as typed (`WPCPM_Typed_Text::box_length()`) and refused over
 	 * `MAX_NOTE` rather than cut, and refused before anything is written or mailed when the cleaner
 	 * would take words from it; both refusals give the form back the note as it was typed, as the
-	 * posts' own return does.
+	 * posts' own return does. A return covers what the item showed and nothing a member added or
+	 * changed since (1.123.23, `as_shown()`): it is asked first, and keeps the note too.
 	 */
 	public static function handle_return() {
 		$opened = self::begin( self::ACTION_RETURN );
@@ -553,6 +654,7 @@ final class WPCPM_Sponsor_Offer_Review {
 
 		$typed = WPCPM_Request::posted_raw( 'wpcpm_note' );
 		$note  = isset( $_POST['wpcpm_note'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_note'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- begin() verified the nonce.
+		$held  = self::as_shown( $opened, $form, $typed );
 
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
 			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
@@ -570,11 +672,16 @@ final class WPCPM_Sponsor_Offer_Review {
 			self::leave( 'offer-note-long', $opened['record'] );
 		}
 
-		$returned = WPCPM_Sponsor_Offers::return_with_note( $offer['id'], $note );
+		$returned = WPCPM_Sponsor_Offers::return_with_note( $offer['id'], $note, $held );
 
 		if ( is_wp_error( $returned ) ) {
 			if ( 'wpcpm_offer_not_waiting' === $returned->get_error_code() ) {
 				self::leave( 'offer-not-waiting', $opened['record'] );
+			}
+
+			// A code held after the check above, seen by the pool under its lock.
+			if ( 'wpcpm_codes_changed' === $returned->get_error_code() ) {
+				self::changed( $opened['record'], $form, $typed );
 			}
 
 			// The pool another request holds (1.123.20) refuses the return for a moment, not the note:
