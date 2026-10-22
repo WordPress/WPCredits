@@ -14,15 +14,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Design spec of 4 September 2026, section 5.5. Single selects are validated byte for byte
  * against `CHOICES`, which bin/test-sponsor-cards.php pins word for word, so a stray value here
- * never diverges from what the form itself offers. One rejected field rejects the whole save,
+ * never diverges from what a form offers. `FIELDS` is the record's profile, whose rules the
+ * Sponsors screen's Edit form cleans its own boxes by (`clean()`); `FORM` is what this card draws
+ * and saves. The type of product left `FORM` in 1.123.22: the application form no longer asks it
+ * and nothing public shows it, so a member is neither shown it nor asked it, and a save never reads
+ * it, so it never clears it. It stays on the record, on the Sponsors screen and in what
+ * Administrators read. One rejected field rejects the whole save,
  * for the same reason a form with one broken control is not half-submitted: what is refused is
  * refused as a whole. Changing `Contact Email` changes the address the program holds and
  * nothing about accounts, and the form says so.
  *
  * The offer's text, instructions and link are the primary offer's now (WPCPM_Sponsor_Offers),
- * not this card's: once a sponsor has any offer, this card prints one note pointing to the
- * Offers card in their place, rather than a third place to edit the same words (final review of
- * Phase S2, finding 2).
+ * not this card's: once a sponsor has any offer, this card says where they are edited, rather than
+ * being a third place to edit the same words (final review of Phase S2, finding 2). Since 1.123.22
+ * it says so in its first note, not between two fields, where a note read as the next field's.
  *
  * The description for the partner page (1.112.0) is a tier benefit rather than one of FIELDS:
  * drawn and read for every tier from Supporter up, the tiers the Partners page prints it for in
@@ -68,10 +73,16 @@ final class WPCPM_Sponsor_Profile {
 		),
 	);
 
-	/** The single selects' choices, spelled exactly as the form offers them. */
+	/** The single selects' choices, spelled exactly as the Sponsors screen's Edit form offers them. */
 	const CHOICES = array(
 		'Type of product' => array( 'Hosting', 'Plugin', 'Service' ),
 	);
+
+	/**
+	 * The keys of FIELDS this card draws and saves, in the form's order: every one but the type of
+	 * product (1.123.22), which the Sponsors screen's Edit form keeps.
+	 */
+	const FORM = array( 'website', 'contact_person', 'contact_email', 'anything' );
 
 	/**
 	 * The handler.
@@ -81,7 +92,7 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
-	 * The labels, translated at call time: each of FIELDS', and the description for the sponsor
+	 * The labels, translated at call time: each of FORM's, and the description for the sponsor
 	 * listing's, which a refusal names.
 	 *
 	 * @return array<string, string>
@@ -91,7 +102,6 @@ final class WPCPM_Sponsor_Profile {
 			'website'        => __( 'Website', 'wpcredits-program-manager' ),
 			'contact_person' => __( 'Contact person', 'wpcredits-program-manager' ),
 			'contact_email'  => __( 'Contact email', 'wpcredits-program-manager' ),
-			'product_type'   => __( 'Type of product', 'wpcredits-program-manager' ),
 			'anything'       => __( 'Anything else you would like to share', 'wpcredits-program-manager' ),
 			'description'    => __( 'Description for the partner page', 'wpcredits-program-manager' ),
 		);
@@ -109,7 +119,7 @@ final class WPCPM_Sponsor_Profile {
 			'profile-loss'      => array( 'error', '' ),
 			'profile-saved'     => array( 'success', __( 'Your profile was saved.', 'wpcredits-program-manager' ) ),
 			'profile-unchanged' => array( 'info', __( 'Nothing changed.', 'wpcredits-program-manager' ) ),
-			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the links and the product type.', 'wpcredits-program-manager' ) ),
+			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the website and the contact email.', 'wpcredits-program-manager' ) ),
 			'profile-text-long' => array(
 				'error',
 				sprintf(
@@ -134,21 +144,22 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
-	 * The four details the card's row counts: every one of FIELDS but "Anything else you'd like to
+	 * The three details the card's row counts: every one of FORM but "Anything else you'd like to
 	 * share.", which is there for a sponsor with something more to say, so a sponsor with nothing
-	 * else to share still has a complete profile. The form requires none of the five.
+	 * else to share still has a complete profile. The type of product, which the card no longer asks
+	 * (1.123.22), is not one of them, so a profile without one is complete. The form requires none.
 	 *
 	 * @return string[] Keys of FIELDS, in the form's order.
 	 */
 	public static function details() {
-		return array_values( array_diff( array_keys( self::FIELDS ), array( 'anything' ) ) );
+		return array_values( array_diff( self::FORM, array( 'anything' ) ) );
 	}
 
 	/**
-	 * How many of the four details (`details()`) a row holds something in: a value of spaces holds
+	 * How many of the three details (`details()`) a row holds something in: a value of spaces holds
 	 * nothing. The card's row says it, "Profile complete" once every one is filled. Neither the
 	 * optional "Anything else you'd like to share." nor the description for the partner page, a
-	 * tier's benefit and none of the five FIELDS, is counted.
+	 * tier's benefit and none of the five FIELDS, is counted, and nor is the type of product.
 	 *
 	 * @param array $row A sponsor's row.
 	 * @return int
@@ -424,9 +435,11 @@ final class WPCPM_Sponsor_Profile {
 	 * every posted typed text a person changed asked whether the cleaner would take words from it,
 	 * in the form's order, the description for the partner page last, then every other posted
 	 * field cleaned, then one patch of the sponsor's row with the fields that changed, then the log.
-	 * Only fields that were posted are read, so a form missing one leaves it alone, and a typed text
-	 * or a link posted back as it was drawn is left as the row holds it. A save refused for a loss or
-	 * a length keeps what was typed for the form's redraw, the description's among it.
+	 * Only the fields of FORM that were posted are read, so a form missing one leaves it alone, a
+	 * type of product posted by hand or from a page drawn before 1.123.22 is never read and the
+	 * stored one stays, and a typed text or a link posted back as it was drawn is left as the row
+	 * holds it. A save refused for a loss or a length keeps what was typed for the form's redraw, the
+	 * description's among it.
 	 */
 	public static function handle_save() {
 		check_admin_referer( self::ACTION_SAVE );
@@ -457,8 +470,8 @@ final class WPCPM_Sponsor_Profile {
 		// What an earlier refusal of this form kept is stale once the form is posted again.
 		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
 
-		// What was typed into each field that was posted, before the cleaner has read it.
-		foreach ( self::FIELDS as $key => $spec ) {
+		// What was typed into each field of the form that was posted, before the cleaner has read it.
+		foreach ( self::FORM as $key ) {
 			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
 				continue;
 			}
@@ -496,10 +509,12 @@ final class WPCPM_Sponsor_Profile {
 			}
 		}
 
-		foreach ( self::FIELDS as $key => $spec ) {
+		foreach ( self::FORM as $key ) {
 			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) || isset( $drawn[ $key ] ) ) {
 				continue;
 			}
+
+			$spec = self::FIELDS[ $key ];
 
 			// A text box keeps its line breaks, and a link is read as typed: the one-line cleaner
 			// removes every `%XX`, which would rewrite an address in another alphabet or a query
@@ -650,7 +665,7 @@ final class WPCPM_Sponsor_Profile {
 				'state'  => $filled >= $fields
 					? __( 'Profile complete', 'wpcredits-program-manager' )
 					: sprintf(
-						/* translators: 1: how many of the profile's details hold a value, 2: how many details the row counts, four. */
+						/* translators: 1: how many of the profile's details hold a value, 2: how many details the row counts, three. */
 						_n( '%1$s of %2$s field filled', '%1$s of %2$s fields filled', $fields, 'wpcredits-program-manager' ),
 						number_format_i18n( $filled ),
 						number_format_i18n( $fields )
@@ -663,7 +678,14 @@ final class WPCPM_Sponsor_Profile {
 			)
 		);
 
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'Keep the profile current: what you save here is kept by the program.', 'wpcredits-program-manager' ) . '</p>';
+		// One paragraph: what the program keeps, and, once the sponsor has an offer, where the offer's
+		// words are edited, which stood between two fields, where it read as the next field's, until
+		// 1.123.22.
+		printf(
+			'<p class="wpcpm-student__note">%1$s%2$s</p>',
+			esc_html__( 'Keep the profile current: what you save here is kept by the program.', 'wpcredits-program-manager' ),
+			self::has_offer( $record ) ? ' ' . esc_html__( "Your offer's text, instructions and link are edited on the Offers card.", 'wpcredits-program-manager' ) : ''
+		);
 
 		// Two columns (owner, 1.96.7): the company's details on the left, its logo on the right,
 		// the way the Student Report Card's course section keeps its two errands side by side.
@@ -678,7 +700,8 @@ final class WPCPM_Sponsor_Profile {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 
-		foreach ( self::FIELDS as $key => $spec ) {
+		foreach ( self::FORM as $key ) {
+			$spec  = self::FIELDS[ $key ];
 			$id    = 'wpcpm-profile-' . $key;
 			$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
 			$typed = isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : null;
@@ -686,15 +709,7 @@ final class WPCPM_Sponsor_Profile {
 			echo '<p class="wpcpm-sponsor__field">';
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $labels[ $key ] ) );
 
-			if ( 'select' === $spec['kind'] ) {
-				printf( '<select id="%1$s" name="wpcpm_%2$s">', esc_attr( $id ), esc_attr( $key ) );
-				$chosen = null !== $typed ? $typed : $value;
-				printf( '<option value=""%s>%s</option>', selected( '', $chosen, false ), esc_html__( 'Not set', 'wpcredits-program-manager' ) );
-				foreach ( self::CHOICES[ $spec['name'] ] as $choice ) {
-					printf( '<option value="%1$s"%2$s>%1$s</option>', esc_attr( $choice ), selected( $choice, $chosen, false ) );
-				}
-				echo '</select>';
-			} elseif ( 'text' === $spec['kind'] ) {
+			if ( 'text' === $spec['kind'] ) {
 				// Drawn as the person typed it, with room for each ">" held as `&gt;`
 				// (`WPCPM_Typed_Text`): drawn as stored, the box would show the cleaner's entities. After a
 				// refused save, drawn with what was typed, exactly, in the same room.
@@ -748,13 +763,6 @@ final class WPCPM_Sponsor_Profile {
 			}
 
 			echo '</p>';
-
-			// In place of the three fields the primary offer now owns (offer, instructions,
-			// more_info left FIELDS above): one note, right where they used to sit in the form,
-			// rather than a third place to edit the same words.
-			if ( 'product_type' === $key && self::has_offer( $record ) ) {
-				echo '<p class="wpcpm-student__note">' . esc_html__( "Your offer's text, instructions and link are edited on the Offers card.", 'wpcredits-program-manager' ) . '</p>';
-			}
 		}
 
 		// A Supporter's alone, while the launch switch is on: see shows_description(). The note

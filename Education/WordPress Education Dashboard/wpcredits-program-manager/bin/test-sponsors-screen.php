@@ -3379,6 +3379,34 @@ ck( 'Edit changes the fields it is given and audits their names', array(
 	true,
 ) );
 
+echo "\n=== What the company told the program, on the Edit form (1.123.22) ===\n";
+// The history a sponsor's record keeps in `interests`, one dated line per message, read nowhere since
+// the Offer more card left the Sponsor Dashboard: on the Edit form, read only, beside the ticks of
+// Would like to support, newest first, each line escaped, with the sentence that says what it is. A
+// record with none draws no row, and the Add form, which has no record yet, never does.
+WPCPM_Sponsors_Index::patch( $Q, array( 'interests' => "2026-09-01 by Rep Quill: Sponsor tools or services; note: Mentors <b>first</b>\n\n2026-10-22 by Rep Quill: note: wants to move to Backer\r\n" ) );
+$told      = edit_form_of( $Q );
+$told_row  = substr( $told, (int) strpos( $told, '<tr><th scope="row">Interests</th>' ) );
+$told_row  = substr( $told_row, 0, (int) strpos( $told_row, '</tr>' ) + 5 );
+$told_add  = render_tab( 'sponsors' );
+$told_add  = substr( $told_add, (int) strpos( $told_add, 'id="wpcpm-sponsor-add"' ) );
+WPCPM_Sponsors_Index::patch( $Q, array( 'interests' => " \n " ) );
+$told_none = edit_form_of( $Q );
+WPCPM_Sponsors_Index::patch( $Q, array( 'interests' => '' ) );
+ck( 'the Edit form lists what the company told the program, newest first, escaped, read only, after Would like to support, and says what it is; nothing when there is none, and never on the Add form', array(
+	$told_row,
+	before( $told, 'name="wpcpm_support[]"', '<tr><th scope="row">Interests</th>' ),
+	before( $told, '<tr><th scope="row">Interests</th>', 'name="wpcpm_product_type"' ),
+	strpos( $told_none, '<tr><th scope="row">Interests</th>' ),
+	strpos( $told_add, '<tr><th scope="row">Interests</th>' ),
+), array(
+	'<tr><th scope="row">Interests</th><td><ul><li>2026-10-22 by Rep Quill: note: wants to move to Backer</li><li>2026-09-01 by Rep Quill: Sponsor tools or services; note: Mentors &lt;b&gt;first&lt;/b&gt;</li></ul><p class="description">What the company told the program from its Sponsor Dashboard, newest first: on the Offer more card while the dashboard had one, and through Talk to your program contact. Read only: it is kept on the company&#039;s record as it was sent.</p></td></tr>',
+	true,
+	true,
+	false,
+	false,
+) );
+
 echo "\n=== The Tier box (1.112.0) ===\n";
 // A manager surface: it draws and saves whether or not Sponsor tiers is switched on in Settings
 // (the sponsor_tiers_live setting), so this suite never sets that option.

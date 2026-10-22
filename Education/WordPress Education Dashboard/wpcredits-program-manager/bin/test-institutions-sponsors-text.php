@@ -19,13 +19,17 @@
  *   in `wp_die()`), a membership ending (`WPCPM_Institution_Members::detach()`, which writes to the
  *   Administrators when the last member goes), the sponsor application's two, the sponsor
  *   agreement's five, and the codes' two (`maybe_low_stock()`, `report_problem()`);
- * - seven are built inside a request handler and can be reached no other way, so the suite makes the
+ * - six are built inside a request handler and can be reached no other way, so the suite makes the
  *   request: the institution and sponsor queues' question and rejection (`handle_info()`,
- *   `handle_reject()`), the Sponsor Dashboard's interests card (`handle_save()`) and its form for
- *   sponsoring a mentor (`WPCPM_Sponsor_Mentors::handle_interest()`), and a sponsor post's return
- *   (`handle_return()`). Each is posted what its form posts, its capability and nonce are answered
- *   yes, and the redirect it ends with stops it; who it writes to, and under which id, is recorded as
- *   for every other email.
+ *   `handle_reject()`), the Sponsor Dashboard's form for sponsoring a mentor
+ *   (`WPCPM_Sponsor_Mentors::handle_interest()`), and a sponsor post's return (`handle_return()`).
+ *   Each is posted what its form posts, its capability and nonce are answered yes, and the redirect
+ *   it ends with stops it; who it writes to, and under which id, is recorded as for every other
+ *   email;
+ * - the interest, which the Sponsor Dashboard's Offer more card sent through its handler until that
+ *   card left the page in 1.123.22, is filed through `WPCPM_Sponsor_Interests::file()`, the road the
+ *   Sponsorship card's Talk to your program contact takes, from each case's inputs read as that
+ *   form read them (`file_interest()`), so its email is still built by the code that sends it.
  *
  * The recipients are the real ones: `WPCPM_Institutions::notify_managers()` (every Administrator, or
  * the accounts and bare addresses a setting names), `WPCPM_Sponsor_Interests::mail_manager()` (the
@@ -919,7 +923,7 @@ function cases() {
 		'sponsor-agreement-reinstated'                   => array( 'send' => 'sagr-reinstated' ),
 		'sponsor-agreement-reinstated-no-page'           => array( 'send' => 'sagr-reinstated', 'site' => SITE_NAMED, 'pages' => array() ),
 		'sponsor-agreement-reinstated-institution-page-only'=> array( 'send' => 'sagr-reinstated', 'pages' => array( 'institution' ) ),
-		// The Sponsor Dashboard's interests card, through its handler.
+		// An interest, filed as the Sponsor Dashboard's Offer more form filed one until 1.123.22.
 		'interest-everything'                            => array( 'send' => 'interest', 'actor' => 60, 'args' => array( 'manager' => 'ida@example.test', 'choices' => array( 'Sponsor a mentor or multiple mentors', 'Sponsor tools or services' ), 'events' => "WordCamp Example 2037\nExample Summit & \"More\"", 'note' => TYPED ) ),
 		'interest-note-only-unassigned'                  => array( 'send' => 'interest', 'actor' => 61, 'pages' => array(), 'args' => array( 'manager' => null, 'choices' => array(), 'events' => '', 'note' => TYPED ) ),
 		'interest-choices-only-unnamed'                  => array( 'send' => 'interest', 'actor' => 60, 'args' => array( 'manager' => 'pat@example.test', 'record' => 'recSEED0000000102', 'choices' => array( 'Other (please specify)' ), 'events' => '', 'note' => '' ) ),
@@ -1081,6 +1085,51 @@ function post( $id, $type, array $props, array $meta ) {
 	foreach ( $meta as $k => $v ) {
 		$GLOBALS['pmeta'][ $id ][ $k ] = array( $v );
 	}
+}
+
+/**
+ * An interest filed as the Sponsor Dashboard's Offer more form filed one until 1.123.22, when the card
+ * left the page: the ways ticked that are among the choices, each line of the events through the
+ * one-line cleaner with a blank one naming none, and the note through the text area reader, handed to
+ * `WPCPM_Sponsor_Interests::file()`, the road the Sponsorship card's Talk to your program contact
+ * takes. Nothing is filed for a typing the cleaner would take words from, or with nothing to say, as
+ * the form refused both, so every case's inputs reach the email as they reached it when it was
+ * recorded.
+ *
+ * @param array $args The case's `record`, `choices`, `events` and `note`.
+ */
+function file_interest( array $args ) {
+	$record  = $args['record'] ?? 'recSEED0000000101';
+	$_POST   = array(
+		'wpcpm_events' => $args['events'],
+		'wpcpm_note'   => $args['note'],
+	);
+	$choices = array_values( array_intersect( WPCPM_Sponsor_Interests::CHOICES, array_map( 'sanitize_text_field', (array) $args['choices'] ) ) );
+	$events  = array();
+
+	foreach ( array( $args['events'], $args['note'] ) as $typed ) {
+		if ( WPCPM_Typed_Text::cleaner_loses( (string) $typed, 'lines' ) ) {
+			$_POST = array();
+			return;
+		}
+	}
+
+	foreach ( preg_split( '/\r\n|\r|\n/', WPCPM_Request::posted_lines( 'wpcpm_events' ) ) as $event ) {
+		$event = sanitize_text_field( $event );
+
+		if ( '' !== $event ) {
+			$events[] = $event;
+		}
+	}
+
+	$note  = WPCPM_Request::posted_lines( 'wpcpm_note' );
+	$_POST = array();
+
+	if ( empty( $choices ) && empty( $events ) && '' === $note ) {
+		return;
+	}
+
+	WPCPM_Sponsor_Interests::file( $record, WPCPM_Sponsors_Index::row( $record ), $choices, $events, $note, wp_get_current_user()->display_name, 'member' );
 }
 
 /**
@@ -1357,13 +1406,7 @@ function emails_of( array $case ) {
 			break;
 
 		case 'interest':
-			$_POST = array(
-				'wpcpm_sponsor' => $args['record'] ?? 'recSEED0000000101',
-				'wpcpm_support' => $args['choices'],
-				'wpcpm_events'  => $args['events'],
-				'wpcpm_note'    => $args['note'],
-			);
-			press( array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
+			file_interest( $args );
 			break;
 
 		case 'mentor-interest':

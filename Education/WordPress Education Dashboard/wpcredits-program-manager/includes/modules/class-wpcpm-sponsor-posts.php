@@ -1438,15 +1438,23 @@ class WPCPM_Sponsor_Posts {
 	 * drawn: for a member, with posting on and room in the tier. The card's first line says where a
 	 * published post appears.
 	 *
+	 * Below Backer, a level that includes no post, the card is drawn only while the sponsor has a post
+	 * of its own the card lists (`drawn()`, 1.123.22).
+	 *
 	 * @param string $record  Sponsor key.
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
-		$record     = trim( (string) $record );
+		$record = trim( (string) $record );
+		$posts  = self::posts_of( $record );
+
+		if ( ! self::drawn( $record, $posts ) ) {
+			return;
+		}
+
 		$can_manage = ! empty( $context['can_manage'] );
 		$viewer     = isset( $context['viewer'] ) && $context['viewer'] instanceof WP_User ? $context['viewer'] : wp_get_current_user();
 		$is_member  = WPCPM_Sponsor_Members::is_member( $viewer, $record );
-		$posts      = self::posts_of( $record );
 		$open       = isset( $context['open'] ) && self::CARD === $context['open'];
 		$posting    = $is_member && ! $can_manage && self::posting_enabled( $record );
 		$why        = $posting ? self::write_reason( $record ) : '';
@@ -1553,6 +1561,45 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * Whether the Posts card is drawn for a sponsor: the card's own test (`drawn()`), asked of the
+	 * sponsor's posts as the card lists them. The Sponsor Dashboard's What you offer line asks it too,
+	 * and says what the company wrote for students and mentors only while the card is drawn
+	 * (1.123.22).
+	 *
+	 * @param string $record Sponsor key.
+	 * @return bool
+	 */
+	public static function draws( $record ) {
+		$record = trim( (string) $record );
+
+		return self::drawn( $record, self::posts_of( $record ) );
+	}
+
+	/**
+	 * Whether the Posts card is drawn for a sponsor (1.123.22): from Backer up, the levels that
+	 * include posts, always; below Backer only while the sponsor has a post of its own the card lists:
+	 * a draft, a returned one, one waiting for review or held back by the daily run, or a published
+	 * one, from before the levels or not, every state a sponsor's post reaches here; a post in the
+	 * trash is none, and nor is one an Administrator made private or scheduled in wp-admin, which the
+	 * card would not list. A Friend or a Supporter cannot write one, so with none its card would say
+	 * so over an empty list, beside a link to a screen with nothing on it; with one it says the level
+	 * includes no posts where Write a post would be, and keeps the way into wp-admin, where a member
+	 * reads its posts, edits a draft or a returned one and saves it as a draft, and deletes one.
+	 * Whoever views the page, an Administrator through the switcher too, sees the card the sponsor
+	 * sees. While the launch switch is off no level applies (`cap_of()` reads no cap), and the card is
+	 * drawn as it always was.
+	 *
+	 * @param string    $record Sponsor key.
+	 * @param WP_Post[] $posts  The sponsor's posts as the card lists them (`posts_of()`).
+	 * @return bool
+	 */
+	private static function drawn( $record, array $posts ) {
+		$cap = self::cap_of( $record );
+
+		return null === $cap || $cap > 0 || array() !== $posts;
 	}
 
 	/**

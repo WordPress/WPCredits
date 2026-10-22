@@ -148,9 +148,12 @@ $wpcpm_placeholders = static function () use ( $wpcpm_day ) {
 			},
 		),
 		'interest'           => array(
-			'means'     => __( 'What the sponsor said, as the dated line its history on the Sponsors screen keeps: the day, who, the ways ticked, the events and the note as typed. The email needs it, in its body.', 'wpcredits-program-manager' ),
+			'means'     => __( 'What the sponsor asked, as the dated line its history on the Sponsors screen keeps: the day, who pressed, and the request, for example "wants to move to Backer" or "wants to renew as Champion". The email needs it, in its body.', 'wpcredits-program-manager' ),
+			// A line Talk to your program contact files, the one press that files one since the Offer
+			// more card, whose lines also named the ways ticked and the events, left the Sponsor
+			// Dashboard in 1.123.22.
 			'example'   => static function () {
-				return WPCPM_Sponsor_Interests::line( array( 'Sponsor a mentor or multiple mentors' ), array(), 'We could host a study day in the spring.', 'Ada Okonjo', wp_date( 'Y-m-d' ) );
+				return WPCPM_Sponsor_Interests::line( array(), array(), 'wants to move to Backer', 'Ada Okonjo', wp_date( 'Y-m-d' ) );
 			},
 			'body_only' => true,
 		),
@@ -523,7 +526,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'reinstated_on' ), array() ),
 	),
 	'sponsor-interest'             => array(
-		'trigger'      => __( 'When a sponsor says on the Sponsor Dashboard what else it would like to support: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When a sponsor presses Talk to your program contact on the Sponsor Dashboard, to talk about the next tier or to renew its term: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: company name. */
 			__( '[%1$s] %2$s would like to support the program', 'wpcredits-program-manager' ),

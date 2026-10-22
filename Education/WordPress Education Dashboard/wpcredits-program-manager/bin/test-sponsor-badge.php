@@ -19,9 +19,17 @@
  * - The SVG is the draft the owner was shown, attribute for attribute, in both versions: no
  *   script, no external reference, no external font, the site's own font stack, and well-formed
  *   XML.
- * - `serve()` answers the image with exactly six headers, in order: the type, the `.svg` file name
- *   a save gets, a day of public cache, nosniff, a `default-src 'none'` policy and the length, the
- *   file name cleaned of what a header cannot carry. Every refusal is the same 404
+ * - `serve()` answers the image with exactly seven headers, in order: the type, the `.svg` file
+ *   name a save gets, an hour of public cache (a day until 1.123.22, which left a sponsor's old
+ *   level on its own site for up to a day), an ETag that is a quoted hash of the image, nosniff, a
+ *   `default-src 'none'` policy and the length, the file name cleaned of what a header cannot carry.
+ *   A request whose If-None-Match names the ETag, plain, weak or in a list, gets a 304 with the
+ *   ETag, the cache line and no body, once the ceiling is claimed and the badge is found to be
+ *   served at all; one that names another gets the image. `handle()` hands `serve()` the request's
+ *   If-None-Match, as WordPress slashes it, unslashed and cleaned. The dashboard draws a badge at a
+ *   versioned address, `versioned_url()`, the tier the badge names and its year in a `v`
+ *   argument the rule does not read, so a change of level shows there at once; the embed code a
+ *   sponsor copies keeps the plain address, so a pasted embed keeps working. Every refusal is the same 404
  *   with an empty body, the switch off included, for a program manager too: the badge has no
  *   preview. The ceiling is claimed first, one key per address, 120 an hour: a caller over it is
  *   refused with 429 whatever the switch says, and the store is not queried for it.
@@ -350,6 +358,12 @@ function ck( $label, $got, $want ) {
 	printf( "FAIL %s\n     got:  %s\n     want: %s\n", $label, var_export( $got, true ), var_export( $want, true ) );
 }
 
+// The request's headers, as WordPress hands $_SERVER over: slashed (wp_magic_quotes()).
+function wp_unslash( $value ) {
+	return is_string( $value ) ? stripslashes( $value ) : $value;
+}
+require_once __DIR__ . '/stubs/cleaners.php';
+
 // handle() exits once it has answered. A check that expects it to return sets this first, so a
 // handle() that answers a request it should have left alone fails the suite, rather than ending
 // it early with the status of a pass.
@@ -413,6 +427,12 @@ if ( in_array( '--handle-child', (array) ( $argv ?? array() ), true ) ) {
 	$GLOBALS['wp']               = new WP();
 	$GLOBALS['wp']->matched_rule = WPCPM_Sponsor_Badge::RULE;
 	$GLOBALS['wp']->query_vars   = array( 'wpcpm_badge' => in_array( '--refused', (array) $argv, true ) ? 'nobody' : 'acme-tools' );
+
+	// With `--if-none-match`, the request names the badge's own ETag, as a browser that has it does,
+	// in a list after another tag and slashed, as WordPress hands $_SERVER over.
+	if ( in_array( '--if-none-match', (array) $argv, true ) ) {
+		$_SERVER['HTTP_IF_NONE_MATCH'] = addslashes( 'W/"stale", "' . md5( WPCPM_Sponsor_Badge::svg( 'supporter', WPCPM_Sponsor_Badge::year( WPCPM_Sponsors_Index::row( 'spoBBBB0000000001' ) ), false ) ) . '"' );
+	}
 
 	ob_start();
 	ob_start();
@@ -500,7 +520,33 @@ ck( 'the SVG is well-formed XML', false !== simplexml_load_string( $svg ), true 
 echo "\n=== Serving ===\n";
 $GLOBALS['buckets'] = array();
 $served = $B::serve( 'acme-tools', '2026-10-06' );
-ck( 'a light badge is served as SVG, named as a .svg file for whoever saves it, cached a day, nosniff, no script allowed, no body but the image', array( $served['status'], $served['headers'], 0 === strpos( $served['body'], '<svg ' ) ), array( 200, array( 'Content-Type: image/svg+xml; charset=utf-8', 'Content-Disposition: inline; filename="wordpress-credits-acme-tools.svg"', 'Cache-Control: public, max-age=86400', 'X-Content-Type-Options: nosniff', 'Content-Security-Policy: default-src \'none\'', 'Content-Length: ' . strlen( $served['body'] ) ), true ) );
+ck( 'a light badge is served as SVG, named as a .svg file for whoever saves it, cached an hour with an ETag of its own, nosniff, no script allowed, no body but the image', array( $served['status'], $served['headers'], 0 === strpos( $served['body'], '<svg ' ) ), array( 200, array( 'Content-Type: image/svg+xml; charset=utf-8', 'Content-Disposition: inline; filename="wordpress-credits-acme-tools.svg"', 'Cache-Control: public, max-age=3600', 'ETag: "' . md5( $served['body'] ) . '"', 'X-Content-Type-Options: nosniff', 'Content-Security-Policy: default-src \'none\'', 'Content-Length: ' . strlen( $served['body'] ) ), true ) );
+// The ETag is the image's: the same badge answers the same tag, another tier another (1.123.22).
+$etag      = 'ETag: "' . md5( $served['body'] ) . '"';
+$etag_tag  = '"' . md5( $served['body'] ) . '"';
+$again     = $B::serve( 'acme-tools', '2026-10-06' );
+WPCPM_Sponsors_Index::patch( 'spoBBBB0000000001', array( 'tier' => 'backer' ) );
+$as_backer = $B::serve( 'acme-tools', '2026-10-06' );
+WPCPM_Sponsors_Index::patch( 'spoBBBB0000000001', array( 'tier' => 'supporter' ) );
+ck( 'the ETag holds for the same image and changes with the tier it names', array( $again['headers'][3], $as_backer['headers'][3] === $etag, $as_backer['headers'][3] === 'ETag: "' . md5( $as_backer['body'] ) . '"' ), array( $etag, false, true ) );
+// A browser or a cache that holds the image asks again with its tag: the same tag, plain, weak or one
+// of a list, is answered 304 with the tag and the cache line and no body; another tag gets the image.
+$not_modified = array();
+foreach ( array( 'plain' => $etag_tag, 'weak' => 'W/' . $etag_tag, 'listed' => '"other", ' . $etag_tag, 'weak in a list' => 'W/"other",W/' . $etag_tag, 'spaced' => '  ' . $etag_tag . '  ' ) as $how => $asked ) {
+	$not_modified[ $how ] = $B::serve( 'acme-tools', '2026-10-06', $asked );
+}
+ck( 'If-None-Match naming the image\'s tag, plain, weak, in a list or with spaces round it, is answered 304 with the tag, the hour\'s cache and no body', $not_modified, array_fill_keys( array( 'plain', 'weak', 'listed', 'weak in a list', 'spaced' ), array( 'status' => 304, 'headers' => array( $etag, 'Cache-Control: public, max-age=3600' ), 'body' => '' ) ) );
+$other_tag = $B::serve( 'acme-tools', '2026-10-06', '"' . md5( 'another image' ) . '"' );
+$as_backer_asked = array();
+WPCPM_Sponsors_Index::patch( 'spoBBBB0000000001', array( 'tier' => 'backer' ) );
+$as_backer_asked = $B::serve( 'acme-tools', '2026-10-06', $etag_tag );
+WPCPM_Sponsors_Index::patch( 'spoBBBB0000000001', array( 'tier' => 'supporter' ) );
+ck( 'and a tag that names another image, the old level\'s among them, gets the image whole', array( $other_tag['status'], $other_tag['body'] === $served['body'], $as_backer_asked['status'], $as_backer_asked['body'] === $as_backer['body'] ), array( 200, true, 200, true ) );
+$GLOBALS['buckets'] = array( 'sponsor-badge:hash' => 120 );
+$over_with_tag      = $B::serve( 'acme-tools', '2026-10-06', $etag_tag );
+$GLOBALS['buckets'] = array();
+ck( 'the tag is asked only once the ceiling is claimed and the badge is served at all: over the ceiling a 429, for a name with no badge the 404', array( $over_with_tag['status'], $B::serve( 'echo-inc', '2026-10-06', $etag_tag )['status'] ), array( 429, 404 ) );
+$GLOBALS['buckets'] = array();
 $served_dark = $B::serve( 'acme-tools-dark', '2026-10-06' );
 ck( 'the dark badge is served the same way, its file named for the dark version', array( $served_dark['status'], false !== strpos( $served_dark['body'], 'fill="#1e1e1e" stroke="#40464d"' ), $served_dark['headers'][1] ), array( 200, true, 'Content-Disposition: inline; filename="wordpress-credits-acme-tools-dark.svg"' ) );
 ck( 'a Friend, a paused sponsor, an unknown name: the same 404 with the same empty body', array( $B::serve( 'echo-inc' )['status'], $B::serve( 'paused-co' )['status'], $B::serve( 'nobody' )['status'], $B::serve( 'echo-inc' )['body'], $B::serve( 'nobody' )['headers'] ), array( 404, 404, 404, '', array( 'Cache-Control: no-cache, must-revalidate, max-age=0' ) ) );
@@ -556,6 +602,22 @@ ck( 'a name core\'s query folds into a stored one finds that post, as on a site,
 	$B::resolve( 'acme.tools' ),
 	$B::resolve( 'Acme-Tools!' ),
 ), array( 1, null, null ) );
+$GLOBALS['buckets'] = array();
+
+echo "\n=== The versioned address (1.123.22) ===\n";
+// The dashboard draws a badge at the address with a `v` argument naming the tier the badge draws and
+// the year it names, so the image a browser holds is asked for again once either changes. The rule
+// reads the path alone, so the argument changes nothing in routing: the path still matches the
+// badge's rule, the name it fills is the slug, and `v` is no query var of the badge's.
+$versioned      = $B::versioned_url( $acme, false, '2026-10-06' );
+$versioned_dark = $B::versioned_url( $acme, true, '2026-10-06' );
+$next_year      = $B::versioned_url( $acme, false, '2027-02-01' );
+$as_champion    = $B::versioned_url( array_merge( $acme, array( 'tier' => 'champion' ) ), false, '2026-10-06' );
+$lapsed_url     = $B::versioned_url( $lapsed, false, '2026-10-06' );
+$path           = ltrim( (string) parse_url( $versioned, PHP_URL_PATH ), '/' );
+ck( 'versioned_url() is the badge\'s address with the tier and the year it names, and changes with either; a lapsed term\'s names the year it ended', array( $versioned, $versioned_dark, $next_year, $as_champion, $lapsed_url ), array( 'https://site.example/sponsor-badge/acme-tools?v=supporter-2026', 'https://site.example/sponsor-badge/acme-tools-dark?v=supporter-2026', 'https://site.example/sponsor-badge/acme-tools?v=supporter-2027', 'https://site.example/sponsor-badge/acme-tools?v=champion-2026', 'https://site.example/sponsor-badge/lapsed-co?v=backer-2026' ) );
+$GLOBALS['hooks'] = array();
+ck( 'and the argument changes nothing in routing: the path matches the badge\'s rule and names the slug, v is no query var of the badge\'s, and the name is served', array( preg_match( '#' . $B::RULE . '#', $path, $matched ), $matched[1] ?? null, $B::query_vars( array() ), $B::serve( $matched[1] ?? '', '2026-10-06' )['status'] ), array( 1, 'acme-tools', array( 'wpcpm_badge' ), 200 ) );
 $GLOBALS['buckets'] = array();
 
 echo "\n=== The rewrite ===\n";
@@ -674,6 +736,12 @@ $refused        = array();
 $refused_status = null;
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' --handle-child --refused 2>&1', $refused, $refused_status );
 ck( 'and a name with no badge is answered with the 404 and nothing at all, the stray bytes included, the page cache\'s buffer still open and empty', array( $refused_status, $refused ), array( 0, array( '', 'status 404', 'buffered 1 0' ) ) );
+// A request whose If-None-Match names the image's tag, slashed as WordPress hands it over, is answered
+// 304 and nothing else: handle() reads the header, unslashed and cleaned, and serve() decides.
+$tagged        = array();
+$tagged_status = null;
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' --handle-child --if-none-match 2>&1', $tagged, $tagged_status );
+ck( 'and a request that names the image\'s tag in its If-None-Match is answered 304 and nothing at all', array( $tagged_status, $tagged ), array( 0, array( '', 'status 304', 'buffered 1 0' ) ) );
 // The rule's one query var is none the main query reads, so a request that reached the main query
 // would run the home page's: its posts, their count, their meta and their terms, all thrown away.
 $main        = array();
@@ -686,11 +754,14 @@ $GLOBALS['page_url'] = 'https://site.example/partners/';
 ob_start(); $B::render( 'spoBBBB0000000001', array() ); $card = ob_get_clean();
 ck( 'the card: the two badges on their grounds, the embed code, the Copy button and its status', array(
 	0 === strpos( $card, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-badge" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Badge</h3><span class="wpcpm-sponsor__state">Supporter badge for 2026</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ),
-	false !== strpos( $card, '<figure class="wpcpm-sponsor-badge__figure wpcpm-sponsor-badge__figure--light"><img src="https://site.example/sponsor-badge/acme-tools" alt="WordPress Credits Supporter 2026 badge, for a light background" width="300" height="80" /><figcaption>On a light background</figcaption></figure>' ),
-	false !== strpos( $card, '<figure class="wpcpm-sponsor-badge__figure wpcpm-sponsor-badge__figure--dark"><img src="https://site.example/sponsor-badge/acme-tools-dark" alt="WordPress Credits Supporter 2026 badge, for a dark background" width="300" height="80" /><figcaption>On a dark background</figcaption></figure>' ),
+	false !== strpos( $card, '<figure class="wpcpm-sponsor-badge__figure wpcpm-sponsor-badge__figure--light"><img src="https://site.example/sponsor-badge/acme-tools?v=supporter-2026" alt="WordPress Credits Supporter 2026 badge, for a light background" width="300" height="80" /><figcaption>On a light background</figcaption></figure>' ),
+	false !== strpos( $card, '<figure class="wpcpm-sponsor-badge__figure wpcpm-sponsor-badge__figure--dark"><img src="https://site.example/sponsor-badge/acme-tools-dark?v=supporter-2026" alt="WordPress Credits Supporter 2026 badge, for a dark background" width="300" height="80" /><figcaption>On a dark background</figcaption></figure>' ),
 	false !== strpos( $card, '<textarea id="wpcpm-sponsor-badge-embed" class="wpcpm-sponsor-badge__embed" rows="3" readonly="readonly">&lt;a href=&quot;https://site.example/partners/&quot;&gt;&lt;img src=&quot;https://site.example/sponsor-badge/acme-tools&quot; alt=&quot;WordPress Credits Supporter 2026&quot; width=&quot;300&quot; height=&quot;80&quot;&gt;&lt;/a&gt;</textarea>' ),
 	false !== strpos( $card, '<button type="button" class="wpcpm-button wpcpm-button--secondary" data-wpcpm-copy="#wpcpm-sponsor-badge-embed" data-wpcpm-copied="Copied." data-wpcpm-select-hint="Selected. Copy it with your keyboard.">Copy the embed code</button> <span class="wpcpm-copy__status" role="status" aria-live="polite"></span>' ),
 ), array( true, true, true, true, true ) );
+// The previews are drawn at the versioned address, so the card shows a new level at once; the embed
+// code a sponsor copies keeps the plain one, so an embed pasted before keeps working (1.123.22).
+ck( 'the previews are drawn at the versioned address, and the embed code keeps the plain one', array( substr_count( $card, '?v=supporter-2026' ), false !== strpos( $card, '&lt;img src=&quot;https://site.example/sponsor-badge/acme-tools&quot; ' ), strpos( $card, '?v=supporter-2026&quot;' ) ), array( 2, true, false ) );
 ob_start(); $B::render( 'spoBBBB0000000003', array() ); $none = ob_get_clean();
 ck( 'a Friend gets no card', $none, '' );
 $GLOBALS['settings'] = array();

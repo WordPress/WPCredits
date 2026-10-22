@@ -72,7 +72,7 @@
 .wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 1em; }
 /* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
 .wpcpm-sponsor__field .wpcpm-field__required { font-weight: 400; opacity: 0.72; }
-.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form input[type="time"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
+.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form input[type="time"], .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
 /* A hint wraps at its control's own width, not the full card - the codes box and the file field
    sit side by side (.wpcpm-offer__file), each now with its own note under it (1.94.6). */
 .wpcpm-sponsor__field .wpcpm-student__note { max-width: 32em; margin-top: 0.25em; }
@@ -143,9 +143,8 @@
    student page's "My mentor" card is `wpcpm-mentor-card`, and 1.94.1 to 1.94.4 styled both with
    one name, so the student's card took the sponsor tile's look (1.94.5). A mentor, a mentor looking for a sponsor and a member are each a row drawn like
    .wpcpm-people__member: bordered, rounded, the facts on their own line under the name, the
-   row's form at the far end. The interests history is a log, and takes the agreement panel's
-   steps list: a rule between lines and none above the first. */
-.wpcpm-sponsor__people, .wpcpm-sponsor__history { list-style: none; margin: 0; padding: 0; }
+   row's form at the far end. */
+.wpcpm-sponsor__people { list-style: none; margin: 0; padding: 0; }
 .wpcpm-sponsor__people li { align-items: baseline; border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-wrap: wrap; gap: 0.3em 0.75em; margin: 0 0 0.75em; padding: 1em 1.25em; }
 .wpcpm-sponsor__people li:last-child { margin-bottom: 0; }
 
@@ -165,8 +164,6 @@
 .wpcpm-mentor-tile .wpcpm-inline-form { margin-top: 0.5em; }
 @media ( max-width: 1024px ) { .wpcpm-mentor-tiles { grid-template-columns: repeat( 2, minmax( 0, 1fr ) ); } }
 @media ( max-width: 600px ) { .wpcpm-mentor-tiles { grid-template-columns: minmax( 0, 1fr ); } }
-.wpcpm-sponsor__history li { border-top: 1px solid var( --wpcpm-border ); padding: 0.75em 0; }
-.wpcpm-sponsor__history li:first-child { border-top: 0; padding-top: 0; }
 .wpcpm-sponsor__muted { opacity: 0.75; overflow-wrap: anywhere; }
 
 /* The message under the switcher: the institution's one way of saying something out of band

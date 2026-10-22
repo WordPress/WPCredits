@@ -185,8 +185,8 @@ final class WPCPM_Sponsor_Mentors {
 		$mailed = WPCPM_Sponsor_Interests::mail_manager( $record, $build, self::MAIL_CONTEXT );
 
 		// Logged whether or not anybody could be told: the audit row is the record that the
-		// interest was ever raised, the same bargain the sponsor's own interests card
-		// strikes when nobody is reachable (its `interest-unsent` flash beside this one).
+		// interest was ever raised, the same bargain the Sponsorship card's Talk to your program
+		// contact strikes when nobody is reachable (its `tier-unsent` flash beside this one).
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
 				'kind'     => self::LOG_KIND,

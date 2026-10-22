@@ -27,8 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The places that use these rules are the sponsor screens' typed texts: the Offers card's title,
  * text and instructions, with the offer's mails and the usage CSV (`WPCPM_Sponsor_Offers`,
- * `WPCPM_Sponsor_Claims`); the interests card's Anything else and events
- * (`WPCPM_Sponsor_Interests`); the profile's typed texts, the description for the partner page
+ * `WPCPM_Sponsor_Claims`); the profile's typed texts, the description for the partner page
  * among them (`WPCPM_Sponsor_Profile`); the title and the description of a sponsor's co-hosted
  * event, in the Events card's Plan and Change forms, with their mails
  * (`WPCPM_Sponsor_Event_Planner`, `WPCPM_Sponsor_Event`); on the Administrator Dashboard's Events
@@ -441,10 +440,9 @@ final class WPCPM_Typed_Text {
 	 * The sentence is plain text. The label goes in as given, and escaping the sentence for the page
 	 * it is shown on is the caller's.
 	 *
-	 * A form says what its own button does: a save, a send ("Tell the program", "Send this
-	 * question"), Plan the event, a return with a note, Take it out of force, Reject, a cancel with a
-	 * note ("Cancel with this note"), or the two that close a request from an institution, Mark as
-	 * handled and Decline. Each action has a whole sentence of its own, saying what did not happen
+	 * A form says what its own button does: a save, a send ("Send this question"), Plan the event, a
+	 * return with a note, Take it out of force, Reject, a cancel with a note ("Cancel with this
+	 * note"), or the two that close a request from an institution, Mark as handled and Decline. Each action has a whole sentence of its own, saying what did not happen
 	 * and what to press again, so that none is built from pieces a translator meets apart. An action
 	 * this method does not know reads as a save.
 	 *

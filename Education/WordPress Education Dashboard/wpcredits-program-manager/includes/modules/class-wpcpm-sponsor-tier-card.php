@@ -45,9 +45,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Nothing is drawn and the button does not act while the launch switch is off: until the program
  * announces the tiers, nothing a sponsor sees names one. The button files an expression of
- * interest through `WPCPM_Sponsor_Interests::file()`, so it claims `ACT_EXPRESS_INTEREST`, shares
- * the interests card's ceiling of five a day per account, and writes, mails and logs exactly as
- * that card's form does. The card links nowhere for the program contact: the page's Resources
+ * interest through `WPCPM_Sponsor_Interests::file()`, so it claims `ACT_EXPRESS_INTEREST`, is held
+ * to the interests' ceiling of five a day per account, and writes, mails and logs as every interest
+ * is written, mailed and logged; since Offer more left the page (1.123.22) it is the one press on
+ * the page that files one. The card links nowhere for the program contact: the page's Resources
  * section already names them, with the booking link.
  */
 final class WPCPM_Sponsor_Tier_Card {
@@ -292,8 +293,8 @@ final class WPCPM_Sponsor_Tier_Card {
 			self::leave( 'tier-off', $claim['record'] );
 		}
 
-		// An index the site has not read cannot be written back to, as on the interests card: a
-		// member whose sponsor left the index still claims.
+		// An index the site has not read cannot be written back to, as on the profile card: a member
+		// whose sponsor left the index still claims.
 		if ( ! is_array( $claim['row'] ) ) {
 			self::leave( 'tier-failed', $claim['record'] );
 		}
@@ -302,9 +303,9 @@ final class WPCPM_Sponsor_Tier_Card {
 	}
 
 	/**
-	 * The end of the press: the interests card's ceiling (five a day per account, across its form
-	 * and this button, since both file the same kind of line), then the one road an interest
-	 * takes, then the flash.
+	 * The end of the press: the interests' ceiling (five a day per account, the one Offer more's form
+	 * shared until it left the page in 1.123.22, since both filed the same kind of line), then the one
+	 * road an interest takes, then the flash.
 	 *
 	 * @param array  $claim The claim `claim_press()` answered.
 	 * @param string $note  What the sponsor would like, as the line's note: a request, not an event.
@@ -459,6 +460,14 @@ final class WPCPM_Sponsor_Tier_Card {
 	 * through its last day (the recorded tier is then the effective one) and over from the day
 	 * after, when the sponsor reads as a Friend.
 	 *
+	 * The line links to the Partners page once the launch switch has published it, at every level
+	 * (1.123.22): the page lists every level in one alphabetical list since 1.123.18, where the link
+	 * was a Friend's alone, left from the listing by level. It follows the level's name, or the term's
+	 * last day while a term runs, its last thirty days among them. A term that has ended reads its
+	 * renewal sentence alone: the sentence is about the term and who renews it, and a link after it
+	 * would read as the way to renew. Behind class_exists() so the card still draws on a checkout
+	 * without the page class.
+	 *
 	 * @param array  $row   The sponsor's row.
 	 * @param string $tier  The effective tier.
 	 * @param string $today `Y-m-d`.
@@ -467,11 +476,13 @@ final class WPCPM_Sponsor_Tier_Card {
 		$recorded = (string) $row['tier'];
 		$left     = self::term_days_left( $row, $today );
 		$day      = null === $left ? '' : WPCPM_Sponsor_Tiers::format_day( (string) $row['tier_until'] );
+		$partners = class_exists( 'WPCPM_Sponsors_Page' ) ? WPCPM_Sponsors_Page::page_url() : '';
+		$link     = '' === $partners ? '' : sprintf( ' <a href="%1$s">%2$s</a>', esc_url( $partners ), esc_html__( 'See the program\'s partners.', 'wpcredits-program-manager' ) );
 
 		if ( null !== $left && $left >= 0 ) {
 			// The tier's name is set in bold, so it is printed outside the translated words.
 			printf(
-				'<p class="wpcpm-sponsorship__tier"><strong>%1$s</strong> %2$s</p>',
+				'<p class="wpcpm-sponsorship__tier"><strong>%1$s</strong> %2$s%3$s</p>',
 				esc_html( WPCPM_Sponsor_Tiers::label( $tier ) ),
 				esc_html(
 					sprintf(
@@ -479,7 +490,8 @@ final class WPCPM_Sponsor_Tier_Card {
 						__( 'until %s.', 'wpcredits-program-manager' ),
 						$day
 					)
-				)
+				),
+				$link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above with esc_url() and esc_html__().
 			);
 		} elseif ( null !== $left ) {
 			printf(
@@ -493,21 +505,15 @@ final class WPCPM_Sponsor_Tier_Card {
 					)
 				)
 			);
-		} elseif ( WPCPM_Sponsor_Tiers::MENTOR === $tier ) {
-			// The Partners page lists a Friend by name, so the line points there once the switch
-			// has published it. The line names the tier and no more: the checklist below says what
-			// the tier includes, the company's name on the partner page among it, and saying it here
-			// too put the same sentence on the card twice. Behind class_exists() so the card still
-			// draws on a checkout without the page class.
-			$partners = class_exists( 'WPCPM_Sponsors_Page' ) ? WPCPM_Sponsors_Page::page_url() : '';
-
+		} else {
+			// The line names the tier and the link, no more: the checklist below says what the tier
+			// includes, the company on the partner page among it, and saying it here too put the same
+			// sentence on the card twice.
 			printf(
 				'<p class="wpcpm-sponsorship__tier"><strong>%1$s</strong>%2$s</p>',
 				esc_html( WPCPM_Sponsor_Tiers::label( $tier ) ),
-				'' === $partners ? '' : sprintf( ' <a href="%1$s">%2$s</a>', esc_url( $partners ), esc_html__( 'See the program\'s partners.', 'wpcredits-program-manager' ) )
+				$link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above with esc_url() and esc_html__().
 			);
-		} else {
-			printf( '<p class="wpcpm-sponsorship__tier"><strong>%s</strong></p>', esc_html( WPCPM_Sponsor_Tiers::label( $tier ) ) );
 		}
 
 		if ( null === $left || $left < 0 || $left > WPCPM_Sponsor_Tiers::NOTICE_DAYS ) {

@@ -1458,7 +1458,9 @@ final class WPCPM_Administrators_Cards {
 				'sponsor_name' => self::sponsor_name( (string) $entry['sponsor'] ),
 				'message'      => (string) $entry['message'],
 				'time'         => (int) $entry['time'],
-				'url'          => self::sponsor_url( (string) $entry['sponsor'], 'interests' ),
+				// The sponsor's page at its Sponsorship card, whose Talk to your program contact files every
+				// new line of this kind since Offer more left the Sponsor Dashboard (1.123.22).
+				'url'          => self::sponsor_url( (string) $entry['sponsor'], 'sponsorship' ),
 			);
 		}
 

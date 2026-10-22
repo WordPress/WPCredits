@@ -256,7 +256,7 @@ return array(
 		),
 		'body'         => $wpcpm_body(
 			__( 'Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there.', 'wpcredits-program-manager' ),
-			__( 'Set your password using the link below, then check your company profile and tell us how you would like to support the program.', 'wpcredits-program-manager' ),
+			__( 'Set your password using the link below, then check your company profile.', 'wpcredits-program-manager' ),
 			/* translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it. */
 			__( 'Your Sponsor Dashboard:', 'wpcredits-program-manager' )
 		),

@@ -404,7 +404,7 @@ ck( 'a close() with nothing open still ends the markup, with no action',
 );
 
 echo "\n=== Every card is drawn in the shell ===\n";
-// The Sponsor Dashboard's thirteen cards and the Administrator Dashboard's eighteen, by the file that
+// The Sponsor Dashboard's twelve cards and the Administrator Dashboard's eighteen, by the file that
 // draws them and how many it draws: the tier card draws Sponsorship and Events, the mentors class its
 // two cards, the Sponsor Dashboard its People card, and the Administrator Dashboard's cards class all
 // eighteen of that page, Sponsor offers to review among them since 1.123.18. Each opens the shell once per card, closes it wherever a card ends, and
@@ -422,7 +422,6 @@ $drawers  = array(
 	'class-wpcpm-sponsor-offers.php'         => 1,
 	'class-wpcpm-sponsor-usage.php'          => 1,
 	'class-wpcpm-sponsor-posts.php'          => 1,
-	'class-wpcpm-sponsor-interests.php'      => 1,
 	'class-wpcpm-sponsor-mentors.php'        => 2,
 	'class-wpcpm-sponsor-profile.php'        => 1,
 	'class-wpcpm-sponsors-dashboard.php'     => 1,
@@ -444,7 +443,9 @@ foreach ( $drawers as $file => $cards ) {
 		'by hand' => 0,
 	);
 }
-ck( 'the thirty-one cards of both pages open and close the shell, and none prints a piece of it by hand', $drawn, $expected );
+ck( 'the thirty cards of both pages open and close the shell, and none prints a piece of it by hand', $drawn, $expected );
+// Offer more, the interests card, left the Sponsor Dashboard in 1.123.22: its class draws no card.
+ck( 'the interests class draws no card any more', substr_count( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php' ), 'WPCPM_Dashboard_Card::' ), 0 );
 $administrator_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-cards.php' );
 ck( 'the Administrator Dashboard\'s own card_open() and card_close() are gone, so its cards have one way to be drawn', array( strpos( $administrator_src, 'card_open' ), strpos( $administrator_src, 'card_close' ) ), array( false, false ) );
 /**

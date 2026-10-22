@@ -143,6 +143,52 @@
 	text-transform: uppercase;
 }
 
+/* A phone's strip (1.123.22, owner): one tile a row with the number beside its words, where the
+   tiles stood one a row anyway and each took a tile's full height. At 375px the strip is 253px
+   wide, so two tiles a row would leave a tile 88px for its words, too narrow for a level's name at
+   28px and a four-line label; side by side, the Sponsor Dashboard's four tiles take 272px where
+   they took 374px and the Administrator Dashboard's six 454px where they took 576px. The number
+   keeps its size; its figures are of one width and it keeps at least 1.25em, so the words start in
+   one column for any count under a hundred, the first line of the words on the number's baseline.
+   The theme sets the number's font with a shorthand at two classes, which resets its figures, so
+   the one-width figures are asked at three. A level's name at 28px, "Supporter" or "Champion", is
+   130 to 140px wide and on a narrow phone would leave the words about 20px: the words take at least
+   7em beside the number, or drop under it, 4px below, when the two do not fit side by side, and a
+   word too long for the tile breaks rather than runs out of it. Both strips wear this, as they wear
+   every tile rule here. */
+@media ( max-width: 480px ) {
+
+	.wpcpm-attention__tiles,
+	.wpcpm-attention__tiles:has( > :nth-child( 3 ) ) {
+		gap: 8px;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-attention__link {
+		align-items: baseline;
+		column-gap: 12px;
+		display: flex;
+		flex-wrap: wrap;
+		padding: 12px 16px;
+		row-gap: 4px;
+	}
+
+	.wpcpm-attention__n {
+		flex: none;
+		min-width: 1.25em;
+	}
+
+	.wpcpm-attention__tiles .wpcpm-attention__link .wpcpm-attention__n {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.wpcpm-attention__l {
+		flex: 1 1 7em;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+}
+
 /* The strip's one sentence when nothing needs a manager, in place of its tiles: a note, in the
    values student.css gives .wpcpm-student__note, since this page loads none of that sheet. */
 .wpcpm-attention__none {

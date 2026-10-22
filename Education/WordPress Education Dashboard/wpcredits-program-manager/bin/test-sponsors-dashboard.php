@@ -19,12 +19,16 @@
  * - **The render order:** the two-factor prompt, the identity, the At a glance strip when it has
  *   tiles to show, then the four groups in the order the owner approved on 27 September 2026:
  *   Your sponsorship (the tier card's two cards, Reports, the badge), What you offer (offers,
- *   usage, posts, interests), Mentors, and Your company (the profile, People, the agreement), and
- *   last, below the cards, the resources, asked for in three columns with the program contact in
- *   the third. The offers, usage, posts and agreement cards are not loaded here and are left as
- *   silent gaps, until the At a glance section draws the Offers card through a stand-in. Each
- *   group says under its heading, in one sentence, what its cards hold. The People card, this
- *   page's own, folds, and its row says how many accounts act for the sponsor.
+ *   usage, posts), Mentors, and Your company (the profile, People, the agreement), and last, below
+ *   the cards, the resources, asked for in three columns with the program contact in the third.
+ *   The offers, usage, posts and agreement cards are not loaded here and are left as silent gaps,
+ *   so What you offer is not printed until the At a glance section draws the Offers card through
+ *   a stand-in. Each group says under its heading, in one sentence, what its cards hold. The
+ *   People card, this page's own, folds, and its row says how many accounts act for the sponsor.
+ * - **Offer more is off the page (1.123.22).** Its six support choices were the sponsor
+ *   application's before the levels, and its Tell us said what the Sponsorship card's Talk to your
+ *   program contact says: no group draws it, no row action or tile names it, and messages() merges
+ *   none of its statuses. WPCPM_Sponsor_Interests stays, the one road an interest takes.
  * - **The At a glance strip sits right under the identity**, the Administrator Dashboard's
  *   attention tiles markup for markup and dressed by its sheet, which the page's own depends on:
  *   the tier, the next event, the offers, the mentors and the yearly reports, in that order, each
@@ -40,7 +44,9 @@
  * - **A group is printed only when one of its cards drew.** The first group's cards are drawn only
  *   while the launch switch is on (the tier card from 1.112.0, the badge from 1.113.0, Reports from
  *   1.115.0), so with the switch off the group is not printed at all: no wrapper, no heading, no
- *   lead. With it on, a Champion's group reads the tier card's sponsorship card and Events, then
+ *   lead. With it on, the group's line names exactly the cards it draws, in their order (1.123.22):
+ *   the tier, then the events, the reports and the badge where each is drawn, each of the eight
+ *   lines one whole sentence in the source, asked of the same tests the cards ask. With it on, a Champion's group reads the tier card's sponsorship card and Events, then
  *   Reports once a final report exists, drawn by the real card class from a report the real
  *   store reads, then the badge. A group whose cards print nothing but white space is not printed
  *   either: this suite runs itself as a child (`--blank-group-child`) whose first group's cards are
@@ -59,8 +65,8 @@
  *   no form of its own among them, so the two lists move together; so is the Events card's
  *   planner (1.117.0), whose presses leave through the same door from inside the tier card.
  * - **A refusal whose sentence is its detail shows a notice.** A refusal for words the cleaner
- *   would take (the profile's, the Offers card's and the interests card's) has no sentence of its
- *   own: the card's sentence, which names the box, is the detail, and the page prints it alone.
+ *   would take (the profile's and the Offers card's) has no sentence of its own: the card's
+ *   sentence, which names the box, is the detail, and the page prints it alone.
  *   With neither a sentence nor a detail, or with a sentence whose values the flash does not carry,
  *   nothing is printed, as before. A detail is printed escaped, after a sentence and alone alike.
  *   A child run (`--loss-child`) loads the real Offers card, presses
@@ -411,8 +417,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-mentors.php';
 $blank_group_child = in_array( '--blank-group-child', (array) ( $argv ?? array() ), true );
 // Run as a child (`--loss-child`) by the check that a refused save shows its sentence: there the
 // real Offers card is loaded, which the page here otherwise leaves as a gap, and the member presses
-// the profile's, the Offers card's and the interests card's own Save, each with a box the cleaner
-// would take words from, and loads the page after each.
+// the profile's and the Offers card's own Save, each with a box the cleaner would take words from,
+// and loads the page after each.
 $loss_child = in_array( '--loss-child', (array) ( $argv ?? array() ), true );
 if ( $blank_group_child ) {
 	/** White space alone, where the sponsorship card and Events would be. */
@@ -499,7 +505,6 @@ if ( $loss_child ) {
 	$presses        = array(
 		'profile'   => array( array( 'WPCPM_Sponsor_Profile', 'handle_save' ), array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => 'Ana <ana@example.test>' ), '#name="wpcpm_contact_person" value="([^"]*)"#' ),
 		'offers'    => array( array( 'WPCPM_Sponsor_Offers', 'handle_save' ), array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => '0', 'wpcpm_title' => 'Kids <12 free, adults >18 pay', 'wpcpm_kind' => 'none' ), '#id="wpcpm-offer-new-title" name="wpcpm_title" value="([^"]*)"#' ),
-		'interests' => array( array( 'WPCPM_Sponsor_Interests', 'handle_save' ), array( 'wpcpm_sponsor' => $A, 'wpcpm_note' => "Kids <12 free,\r\nadults >18 pay" ), '#name="wpcpm_note"[^>]*>(.*?)</textarea>#s' ),
 	);
 	$seen = array();
 	foreach ( $presses as $card => $press ) {
@@ -559,14 +564,15 @@ ck( 'a stranger: the sponsors refusal, no form, no identity', false !== strpos( 
 $GLOBALS['uid'] = 5; $GLOBALS['resources'] = array(); $GLOBALS['styles'] = array(); $GLOBALS['scripts'] = array();
 $D::register();
 $out = $D::render();
-// The launch switch is off and A has no tier: no card of the first group draws, so the page goes
-// from the header straight to What you offer, then Mentors, then Your company, and the resources
-// come last, below the cards, where the design the owner approved on 27 September 2026 puts them.
-$needles = array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">What you offer</h2>', 'id="wpcpm-sponsor-interests"', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Mentors</h2>', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-looking"', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Your company</h2>', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-people"', 'wpcpm-handbook__resources' );
+// The launch switch is off and A has no tier: no card of the first group draws, and What you offer
+// holds no card this suite loads here (Offer more left it in 1.123.22), so the page goes from the
+// header straight to Mentors, then Your company, and the resources come last, below the cards, where
+// the design the owner approved on 27 September 2026 puts them.
+$needles = array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Mentors</h2>', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-looking"', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Your company</h2>', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-people"', 'wpcpm-handbook__resources' );
 $order   = array();
 foreach ( $needles as $needle ) { $order[] = strpos( $out, $needle ); }
 $sorted = $order; sort( $sorted );
-ck( 'a member sees the prompt, the identity, then the groups under their headings: What you offer (interests), Mentors, Your company (profile, people), and the resources last', ! in_array( false, $order, true ) && $order === $sorted, true );
+ck( 'a member sees the prompt, the identity, then the groups under their headings: Mentors, Your company (profile, people), and the resources last', ! in_array( false, $order, true ) && $order === $sorted, true );
 // Below the cards means after the last group closes and before the page does: the section is the
 // page's last child, and the only one of its kind.
 ck( 'the resources come right after the last group closes, as the page\'s last section, and once', array(
@@ -581,7 +587,7 @@ $group_opening = static function ( $id, $title, $lead ) {
 	return '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--' . $id . '"><h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">' . $title . '</h2><p class="wpcpm-student__note wpcpm-sponsor__group-lead">' . $lead . '</p>';
 };
 $openings      = array(
-	'sponsorship' => $group_opening( 'sponsorship', 'Your sponsorship', 'Your tier, your events, your reports and your badge.' ),
+	'sponsorship' => $group_opening( 'sponsorship', 'Your sponsorship', 'Your tier, your events and your badge.' ),
 	'offer'       => $group_opening( 'offer', 'What you offer', 'What your company gives the program&#039;s students and mentors, and what it wrote for them.' ),
 	'mentors'     => $group_opening( 'mentors', 'Mentors', 'The mentors your company sponsors, and the ones looking for a sponsor.' ),
 	'company'     => $group_opening( 'company', 'Your company', 'Your company&#039;s details and logo, the people who can sign in for it, and the Collaboration Agreement.' ),
@@ -596,7 +602,12 @@ function groups_printed( $html ) {
 	preg_match_all( '/<div class="wpcpm-sponsor__group wpcpm-sponsor__group--([a-z]+)">/', $html, $m );
 	return $m[1];
 }
-ck( 'with the switch off, the three groups that hold a card, each a wrapper of its own, in the approved order', groups_printed( $out ), array( 'offer', 'mentors', 'company' ) );
+ck( 'with the switch off, the two groups that hold a card here, each a wrapper of its own, in the approved order', groups_printed( $out ), array( 'mentors', 'company' ) );
+// Offer more (1.123.22): its support choices were the sponsor application's before the levels, and its
+// Tell us said what the Sponsorship card's Talk to your program contact says. No group draws it, no
+// action after a fold names it, and What you offer, whose other cards this suite leaves out, is not
+// printed over nothing.
+ck( 'Offer more is not on the page: no card, no Tell us, no title, and no What you offer group over nothing', array( strpos( $out, 'wpcpm-sponsor-interests' ), strpos( $out, 'Tell us' ), strpos( $out, 'Offer more' ), strpos( $out, 'name="wpcpm_support[]"' ), strpos( $out, 'wpcpm-sponsor__group--offer' ) ), array( false, false, false, false, false ) );
 // A card is the section the shell draws, so a group's first card follows its sentence directly and
 // its last card closes right before the group does.
 $first_card = static function ( $key ) {
@@ -611,20 +622,26 @@ $first_card = static function ( $key ) {
 function groups_closed_after_a_card( $html ) {
 	return substr_count( $html, '</section></div><div class="wpcpm-sponsor__group wpcpm-sponsor__group--' ) + substr_count( $html, '</section></div><section class="wpcpm-student__section wpcpm-handbook__resources"' );
 }
-ck( 'each opens with its heading and its one sentence, its cards inside it from the next tag on, and no other lead is printed', array( false !== strpos( $out, $openings['offer'] . $first_card( 'interests' ) ), false !== strpos( $out, $openings['mentors'] . $first_card( 'mentors' ) ), false !== strpos( $out, $openings['company'] . $first_card( 'profile' ) ), groups_closed_after_a_card( $out ), substr_count( $out, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ) ), array( true, true, true, 3, 3 ) );
+ck( 'each opens with its heading and its one sentence, its cards inside it from the next tag on, and no other lead is printed', array( false !== strpos( $out, $openings['mentors'] . $first_card( 'mentors' ) ), false !== strpos( $out, $openings['company'] . $first_card( 'profile' ) ), groups_closed_after_a_card( $out ), substr_count( $out, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ) ), array( true, true, 2, 2 ) );
 // A card that prints nothing but white space prints no card, and a group whose cards all do so is not
 // printed, rather than a heading and a sentence over an empty line: shown by a child of this suite,
 // whose first group's cards are stand-ins that print only white space.
 $blank_child  = array();
 $blank_status = null;
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' --blank-group-child 2>&1', $blank_child, $blank_status );
-ck( 'a group whose cards print nothing but white space is not printed at all, and neither is their white space', array( $blank_status, $blank_child ), array( 0, array( 'groups offer,mentors,company', 'white space not printed', 'heading not printed' ) ) );
+ck( 'a group whose cards print nothing but white space is not printed at all, and neither is their white space', array( $blank_status, $blank_child ), array( 0, array( 'groups mentors,company', 'white space not printed', 'heading not printed' ) ) );
 ck( 'and no card of the first group is drawn, so the group is not printed at all: no wrapper, no heading, no lead', array( strpos( $out, 'id="wpcpm-sponsor-sponsorship"' ), strpos( $out, 'id="wpcpm-sponsor-events"' ), strpos( $out, 'id="wpcpm-sponsor-reports"' ), strpos( $out, 'id="wpcpm-sponsor-badge"' ), strpos( $out, 'wpcpm-sponsor__group--sponsorship' ), strpos( $out, '>Your sponsorship</h2>' ), strpos( $out, 'Your tier, your events, your reports and your badge.' ) ), array( false, false, false, false, false, false, false ) );
 // 1.111.0: the site is the record, so no lead names program records a sponsor's words are written to.
 ck( 'no lead names program records', strpos( $out, 'program records' ), false );
 ck( 'the resources are the sponsor audience, asked for in three columns, the program contact the third', $GLOBALS['resources'], array( 'sponsor:3' ) );
 ck( 'the identity shows the site\'s logo, never Airtable\'s URL', false !== strpos( $out, 'https://example.test/uploads/501.png' ) && false === strpos( $out, 'airtableusercontent' ), true );
-ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>Mango Example<' ) && false !== strpos( $out, 'href="https://plugins.mango-example.test"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
+ck( 'the name trimmed, the website completed, and the contact', false !== strpos( $out, '>Mango Example<' ) && false !== strpos( $out, 'href="https://plugins.mango-example.test"' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
+// The type of product (1.123.22): the application no longer asks it and nothing public shows it, so the
+// header no longer prints it as a fact about the company, nor the profile card a box for it; A's row
+// holds Hosting all the same.
+$identity = substr( $out, (int) strpos( $out, '<header class="wpcpm-sponsor__identity">' ) );
+$identity = substr( $identity, 0, (int) strpos( $identity, '</header>' ) );
+ck( 'the type of product the row holds is printed nowhere: not under the name, not on the profile card', array( WPCPM_Sponsors_Index::row( $A )['product_type'], strpos( $identity, 'Hosting' ), substr_count( $identity, 'wpcpm-sponsor__fact' ), strpos( $out, 'Hosting' ), strpos( $out, 'Type of product' ) ), array( 'Hosting', false, 1, false, false ) );
 ck( 'the program contact block names the manager, the address and the booking link', false !== strpos( $out, 'Maciej (Matt) Pilarski' ) && false !== strpos( $out, 'mailto:maciej@a8c.com' ) && false !== strpos( $out, 'href="https://calendly.example/matt"' ), true );
 // The same manager once the account is no program manager: still on A's row, and nobody's contact.
 $GLOBALS['manage'] = array();
@@ -641,12 +658,12 @@ ck( 'the people card lists the accounts and offers no form to a member', false !
 // accounts act for the sponsor, and no action, since accounts are attached by the program.
 ck( 'the People row: folded, how many accounts act for the sponsor, and no action', array( false !== strpos( $out, '<details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">People <span class="wpcpm-group__count">1</span></h3><span class="wpcpm-sponsor__state">1 account</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ), strpos( $people_card, 'wpcpm-sponsor__row-action' ) ), array( true, false ) );
 // A folded card's action follows its fold, and names for a screen reader what it does, so a link
-// read out of its row says more than "Edit": on this member's page, Offer more's and the profile's.
-ck( 'the member\'s page offers Offer more\'s and the profile\'s actions, each after its own fold and each naming what it does for a screen reader', array(
+// read out of its row says more than "Edit": on this member's page, the profile's alone, Offer more's
+// Tell us having gone with its card (1.123.22).
+ck( 'the member\'s page offers the profile\'s action alone, after its fold and naming what it does for a screen reader', array(
 	substr_count( $out, 'wpcpm-sponsor__row-action' ),
-	false !== strpos( $out, '<p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="#wpcpm-sponsor-interests">Tell us<span class="screen-reader-text"> what more your company would offer</span></a></p></section>' ),
 	false !== strpos( $out, '<p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="#wpcpm-sponsor-profile">Edit<span class="screen-reader-text"> the company profile and logo</span></a></p></section>' ),
-), array( 2, true, true ) );
+), array( 1, true ) );
 ck( 'the stylesheet is registered from assets/css/sponsor.css and switched on', isset( $GLOBALS['styles'][ $D::STYLE ] ) && false !== strpos( $GLOBALS['styles'][ $D::STYLE ]['src'], 'assets/css/sponsor.css' ) && ! empty( $GLOBALS['styles'][ $D::STYLE ]['on'] ), true );
 // The At a glance tiles are the Administrator Dashboard's attention tiles, so the sheet depends on the
 // one that dresses them there, and registers it first itself, as it does the mentor sheet: one set of
@@ -677,7 +694,7 @@ $live_order = array();
 foreach ( $live_needles as $needle ) { $live_order[] = strpos( $out_live, $needle ); }
 $live_sorted = $live_order; sort( $live_sorted );
 ck( 'with the switch on, Your sponsorship comes first, right after the header: the sponsorship card, Events, the badge, then What you offer, Mentors and Your company, and the resources last', ! in_array( false, $live_order, true ) && $live_order === $live_sorted, true );
-ck( 'the four groups, in the approved order, each opening with its heading and its one sentence, its cards inside it', array( groups_printed( $out_live ), false !== strpos( $out_live, $openings['sponsorship'] . $first_card( 'sponsorship' ) ), false !== strpos( $out_live, $openings['offer'] . $first_card( 'interests' ) ), false !== strpos( $out_live, $openings['mentors'] . $first_card( 'mentors' ) ), false !== strpos( $out_live, $openings['company'] . $first_card( 'profile' ) ), groups_closed_after_a_card( $out_live ), substr_count( $out_live, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ) ), array( array( 'sponsorship', 'offer', 'mentors', 'company' ), true, true, true, true, 4, 4 ) );
+ck( 'the three groups that hold a card here, in the approved order, each opening with its heading and its one sentence, its cards inside it, and Offer more on none of them', array( groups_printed( $out_live ), false !== strpos( $out_live, $openings['sponsorship'] . $first_card( 'sponsorship' ) ), false !== strpos( $out_live, $openings['mentors'] . $first_card( 'mentors' ) ), false !== strpos( $out_live, $openings['company'] . $first_card( 'profile' ) ), groups_closed_after_a_card( $out_live ), substr_count( $out_live, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ), strpos( $out_live, 'wpcpm-sponsor-interests' ) ), array( array( 'sponsorship', 'mentors', 'company' ), true, true, true, 3, 3, false ) );
 // The Reports card (1.115.0): one final report of A's, stored as the store stores one, and the card
 // takes its place after Events and before the badge while the switch is on. The same report with
 // the switch off draws nothing, and the page reads as it did before the report existed.
@@ -686,7 +703,7 @@ update_post_meta( $final_report, WPCPM_Sponsor_Report::META_SPONSOR, $A );
 update_post_meta( $final_report, WPCPM_Sponsor_Report::META_UNTIL, '2026-09-30' );
 update_post_meta( $final_report, WPCPM_Sponsor_Report::META_STATE, WPCPM_Sponsor_Report::STATE_FINAL );
 $out_reports     = $D::render();
-$reports_needles = array( '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Your sponsorship</h2>', 'id="wpcpm-sponsor-sponsorship"', 'id="wpcpm-sponsor-events"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-sponsor-badge"', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">What you offer</h2>' );
+$reports_needles = array( '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Your sponsorship</h2>', 'id="wpcpm-sponsor-sponsorship"', 'id="wpcpm-sponsor-events"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-sponsor-badge"', '<h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">Mentors</h2>' );
 $reports_order   = array();
 foreach ( $reports_needles as $needle ) { $reports_order[] = strpos( $out_reports, $needle ); }
 $reports_sorted = $reports_order; sort( $reports_sorted );
@@ -698,7 +715,64 @@ ck( 'the Reports card follows Events and comes before the badge in the first gro
 	strpos( $out_reports_off, 'id="wpcpm-sponsor-reports"' ),
 	strpos( $out_reports_off, 'October 2025 to September 2026' ),
 	groups_printed( $out_reports_off ),
-), array( true, true, false, false, array( 'offer', 'mentors', 'company' ) ) );
+), array( true, true, false, false, array( 'mentors', 'company' ) ) );
+// The group's line names exactly the cards the group draws for this sponsor, in the group's order
+// (1.123.22): every line said "Your tier, your events, your reports and your badge." though a Friend
+// has none of the three and a Supporter or a Backer no events. Each card here is drawn by its own
+// class, so the line and the cards are read off the same page: the Events card while the tier card's
+// own test draws it (here, with no event store, while the tier includes events), the Reports card
+// while a final report exists, and the badge while the sponsor is Approved at a tier that includes
+// one. The report is A's, written above, final where a case has one and a draft, the program's to
+// finish, where it has none: this suite's get_posts() does not read a query's sponsor clause.
+/**
+ * The Your sponsorship group's line and the cards it drew, by key, in order; null when the group is
+ * not printed.
+ *
+ * @param string $html The page.
+ * @return array|null `lead` and `cards`.
+ */
+function sponsorship_group( $html ) {
+	$at = strpos( $html, '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--sponsorship">' );
+	if ( false === $at ) { return null; }
+	$group = substr( $html, $at, (int) strpos( $html, '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--', $at + 1 ) - $at );
+	preg_match( '#<p class="wpcpm-student__note wpcpm-sponsor__group-lead">(.*?)</p>#', $group, $lead );
+	preg_match_all( '#<details id="wpcpm-sponsor-([a-z]+)"#', $group, $cards );
+	return array( 'lead' => $lead[1] ?? '', 'cards' => $cards[1] );
+}
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$leads_seen = array();
+foreach ( array(
+	'a Friend, no report'                    => array( 'mentor', 'Approved', false ),
+	'a Supporter, no report'                 => array( 'supporter', 'Approved', false ),
+	'a Friend with a report'                 => array( 'mentor', 'Approved', true ),
+	'a Supporter with a report'              => array( 'supporter', 'Approved', true ),
+	'a paused Champion, no report'           => array( 'champion', 'Paused', false ),
+	'a Champion, no report'                  => array( 'champion', 'Approved', false ),
+	'a paused Champion with a report'        => array( 'champion', 'Paused', true ),
+	'a Champion with a report'               => array( 'champion', 'Approved', true ),
+) as $who => $setup ) {
+	WPCPM_Sponsors_Index::patch( $A, array( 'tier' => $setup[0], 'status' => $setup[1] ) );
+	update_post_meta( $final_report, WPCPM_Sponsor_Report::META_STATE, $setup[2] ? WPCPM_Sponsor_Report::STATE_FINAL : WPCPM_Sponsor_Report::STATE_DRAFT );
+	$leads_seen[ $who ] = sponsorship_group( $D::render() );
+}
+WPCPM_Sponsors_Index::patch( $A, array( 'status' => 'Approved' ) );
+ck( 'the group\'s line names exactly the cards the group draws, in the group\'s order, for each of the eight ways the tier\'s events, the reports and the badge can fall', $leads_seen, array(
+	'a Friend, no report'             => array( 'lead' => 'Your tier and what it includes.', 'cards' => array( 'sponsorship' ) ),
+	'a Supporter, no report'          => array( 'lead' => 'Your tier and your badge.', 'cards' => array( 'sponsorship', 'badge' ) ),
+	'a Friend with a report'          => array( 'lead' => 'Your tier and your reports.', 'cards' => array( 'sponsorship', 'reports' ) ),
+	'a Supporter with a report'       => array( 'lead' => 'Your tier, your reports and your badge.', 'cards' => array( 'sponsorship', 'reports', 'badge' ) ),
+	'a paused Champion, no report'    => array( 'lead' => 'Your tier and your events.', 'cards' => array( 'sponsorship', 'events' ) ),
+	'a Champion, no report'           => array( 'lead' => 'Your tier, your events and your badge.', 'cards' => array( 'sponsorship', 'events', 'badge' ) ),
+	'a paused Champion with a report' => array( 'lead' => 'Your tier, your events and your reports.', 'cards' => array( 'sponsorship', 'events', 'reports' ) ),
+	'a Champion with a report'        => array( 'lead' => 'Your tier, your events, your reports and your badge.', 'cards' => array( 'sponsorship', 'events', 'reports', 'badge' ) ),
+) );
+// Each line is one whole sentence for the translator, never put together from pieces.
+$lead_strings = array();
+foreach ( array( 'Your tier and what it includes.', 'Your tier and your badge.', 'Your tier and your reports.', 'Your tier, your reports and your badge.', 'Your tier and your events.', 'Your tier, your events and your badge.', 'Your tier, your events and your reports.', 'Your tier, your events, your reports and your badge.' ) as $lead_sentence ) {
+	$lead_strings[] = substr_count( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-dashboard.php' ), "__( '" . $lead_sentence . "', 'wpcredits-program-manager' )" );
+}
+ck( 'and each of the eight lines is one whole translatable sentence in the source', $lead_strings, array( 1, 1, 1, 1, 1, 1, 1, 1 ) );
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
 unset( $GLOBALS['posts'][ $final_report ], $GLOBALS['pmeta'][ $final_report ] );
 WPCPM_Sponsors_Index::patch( $A, array( 'tier' => '' ) );
 // Something else may register the Copy script first, as the Sponsors screen's handbook box can on a
@@ -782,21 +856,20 @@ foreach ( $loss_silent as $loss_kind => $loss_statuses ) {
 		$loss_printed[ $loss_status ] = 1 === substr_count( $D::render(), '<p class="wpcpm-dashboard__message ' );
 	}
 }
-ck( 'the page\'s cards hold two statuses whose sentence is their detail, the profile\'s and the interests card\'s refusals for lost words, and two whose sentence names values, a start outside the term; each prints a notice', array( $loss_silent, $loss_printed ), array( array( 'empty' => array( 'interest-loss', 'profile-loss' ), 'named' => array( 'sevent-past-term', 'sevent-before-term' ) ), array( 'interest-loss' => true, 'profile-loss' => true, 'sevent-past-term' => true, 'sevent-before-term' => true ) ) );
+ck( 'the page\'s cards hold one status whose sentence is its detail, the profile\'s refusal for lost words, and two whose sentence names values, a start outside the term; each prints a notice', array( $loss_silent, $loss_printed ), array( array( 'empty' => array( 'profile-loss' ), 'named' => array( 'sevent-past-term', 'sevent-before-term' ) ), array( 'profile-loss' => true, 'sevent-past-term' => true, 'sevent-before-term' => true ) ) );
 $loss_child_out    = array();
 $loss_child_status = null;
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' --loss-child 2>&1', $loss_child_out, $loss_child_status );
 $loss_seen = json_decode( (string) end( $loss_child_out ), true );
 ck(
-	'as the member, a refused save of the profile, the Offers card and the interests card each lands on a page that shows the card\'s sentence naming the box, in the error tone, and the box holding what was typed; with the Offers card loaded, its refusal is the third whose sentence is its detail',
+	'as the member, a refused save of the profile and of the Offers card each lands on a page that shows the card\'s sentence naming the box, in the error tone, and the box holding what was typed; with the Offers card loaded, its refusal is the second whose sentence is its detail',
 	array( $loss_child_status, $loss_seen ),
 	array(
 		0,
 		array(
 			'profile'   => array( 'left' => 'profile-loss', 'notice' => array( 'error', WPCPM_Typed_Text::loss_message( 'Contact person' ) ), 'box' => 'Ana <ana@example.test>' ),
 			'offers'    => array( 'left' => 'offer-loss', 'notice' => array( 'error', WPCPM_Typed_Text::loss_message( 'Title' ) ), 'box' => 'Kids <12 free, adults >18 pay' ),
-			'interests' => array( 'left' => 'interest-loss', 'notice' => array( 'error', WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ) ), 'box' => "Kids <12 free,\nadults >18 pay" ),
-			'empty'     => array( 'interest-loss', 'offer-loss', 'profile-loss' ),
+			'empty'     => array( 'offer-loss', 'profile-loss' ),
 		),
 	)
 );
@@ -830,44 +903,47 @@ ck( 'the disclosure itself no longer carries the card class', strpos( $out, 'wpc
 ck( 'each section closes right after its disclosure, or after the one action that follows its fold', preg_match_all( '#</details>(?:<p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="[^"]*">[^<]*(?:<span class="screen-reader-text">[^<]*</span>)?</a></p>)?</section>#', $out ), substr_count( $out, '<section class="wpcpm-sponsor__card">' ) );
 // The action is printed whatever opened its card, and the stylesheets hide it while the card is open:
 // the profile the flash opened still carries its Edit, which shows once the sponsor folds the card.
-ck( 'and on this page, whose profile a flash opened, the actions are still Offer more\'s and the profile\'s, each after its own fold: the stylesheets hide the open profile\'s while it is open', array( substr_count( $out, 'wpcpm-sponsor__row-action' ), false !== strpos( $out, 'href="#wpcpm-sponsor-interests">Tell us<span class="screen-reader-text"> what more your company would offer</span></a></p></section>' ), false !== strpos( $out, '<details id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure" open>' ), false !== strpos( $out, 'href="#wpcpm-sponsor-profile">Edit<span class="screen-reader-text"> the company profile and logo</span></a></p></section>' ) ), array( 2, true, true, true ) );
+ck( 'and on this page, whose profile a flash opened, the action is still the profile\'s, after its fold: the stylesheets hide it while the card is open', array( substr_count( $out, 'wpcpm-sponsor__row-action' ), false !== strpos( $out, '<details id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure" open>' ), false !== strpos( $out, 'href="#wpcpm-sponsor-profile">Edit<span class="screen-reader-text"> the company profile and logo</span></a></p></section>' ) ), array( 1, true, true ) );
 ck( 'taken, so it shows once', isset( $GLOBALS['flash'][ $D::FLASH ] ), false );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'refused', 'card' => '' );
 ck( 'a refusal prints with the error tone', false !== strpos( $D::render(), 'wpcpm-dashboard__message--error' ), true );
-try { $D::leave( 'interest-sent', 'interests', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
+try { $D::leave( 'profile-saved', 'profile', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
 // leave() always writes a 'detail' key too, empty or not: this call passes none, so it is ''.
-ck( 'leave() flashes the status and the card', $GLOBALS['flash'][ $D::FLASH ], array( 'status' => 'interest-sent', 'card' => 'interests', 'detail' => '' ) );
-ck( 'and sends a member to the page and the card, without the switcher argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+ck( 'leave() flashes the status and the card', $GLOBALS['flash'][ $D::FLASH ], array( 'status' => 'profile-saved', 'card' => 'profile', 'detail' => '' ) );
+ck( 'and sends a member to the page and the card, without the switcher argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-profile' );
 $GLOBALS['uid'] = 1;
-try { $D::leave( 'interest-sent', 'interests', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'a manager is sent back through the switcher', false !== strpos( $GLOBALS['redirected'], WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A ) && false !== strpos( $GLOBALS['redirected'], '#wpcpm-sponsor-interests' ), true );
-ck( 'and the whole address is the page, the sponsor and the card', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-interests' );
+try { $D::leave( 'profile-saved', 'profile', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'a manager is sent back through the switcher', false !== strpos( $GLOBALS['redirected'], WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A ) && false !== strpos( $GLOBALS['redirected'], '#wpcpm-sponsor-profile' ), true );
+ck( 'and the whole address is the page, the sponsor and the card', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-profile' );
 // What the argument may be is the shape of a sponsor key, as the institution side's guard asks for a
 // record ID, and not merely "not empty": a value that is no key adds nothing to the address.
 foreach ( array( 'nothing at all' => '', 'only spaces' => '   ', 'a word' => 'x', 'a short ID' => 'recSPONSOR', 'markup' => '<b>recSPONSOR0000001</b>' ) as $what => $record ) {
-	try { $D::leave( 'interest-sent', 'interests', $record ); } catch ( WPCPM_Test_Redirect $e ) {}
-	ck( 'a manager sent back with ' . $what . ' is sent to the page and the card, with no argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+	try { $D::leave( 'profile-saved', 'profile', $record ); } catch ( WPCPM_Test_Redirect $e ) {}
+	ck( 'a manager sent back with ' . $what . ' is sent to the page and the card, with no argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-profile' );
 }
-try { $D::leave( 'interest-sent', 'interests', ' ' . $A . ' ' ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'and a record ID with spaces round it is sent trimmed', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-interests' );
+try { $D::leave( 'profile-saved', 'profile', ' ' . $A . ' ' ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'and a record ID with spaces round it is sent trimmed', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A . '#wpcpm-sponsor-profile' );
 // A sponsor the site made itself is keyed by mint_key(), `spo` and fourteen characters, which is no
 // record ID. It goes back through the switcher as a migrated sponsor does, or a manager's press for
 // it would come back on another sponsor: their own, or the first with a member.
 $minted = 'spoSITEMADE000001';
 ck( 'a minted site key is a key the store could hold, and no record ID', array( WPCPM_Sponsors_Index::is_key( $minted ), WPCPM_Mentors_Sync::is_record_id( $minted ) ), array( true, false ) );
-try { $D::leave( 'interest-sent', 'interests', $minted ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'a manager pressing for a sponsor the site made is sent back through the switcher to that sponsor', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $minted . '#wpcpm-sponsor-interests' );
-try { $D::leave( 'interest-sent', 'interests', ' ' . $minted . "\n" ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'and a site key with white space round it is sent trimmed', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $minted . '#wpcpm-sponsor-interests' );
+try { $D::leave( 'profile-saved', 'profile', $minted ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'a manager pressing for a sponsor the site made is sent back through the switcher to that sponsor', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $minted . '#wpcpm-sponsor-profile' );
+try { $D::leave( 'profile-saved', 'profile', ' ' . $minted . "\n" ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'and a site key with white space round it is sent trimmed', $GLOBALS['redirected'], get_permalink( $page_id ) . '?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $minted . '#wpcpm-sponsor-profile' );
 foreach ( array( 'a short site key' => 'spoSITEMADE', 'a site key one too long' => 'spoSITEMADE0000001', 'another prefix' => 'sopSITEMADE000001', 'a capital prefix' => 'SPOSITEMADE000001', 'no scalar' => array( $minted ) ) as $what => $record ) {
-	try { $D::leave( 'interest-sent', 'interests', $record ); } catch ( WPCPM_Test_Redirect $e ) {}
-	ck( 'a manager sent back with ' . $what . ' is sent to the page and the card, with no argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+	try { $D::leave( 'profile-saved', 'profile', $record ); } catch ( WPCPM_Test_Redirect $e ) {}
+	ck( 'a manager sent back with ' . $what . ' is sent to the page and the card, with no argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-profile' );
 }
 $GLOBALS['uid'] = 5;
-try { $D::leave( 'interest-sent', 'interests', $B ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'a member is sent to the page and the card whatever record they pass', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
+try { $D::leave( 'profile-saved', 'profile', $B ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'a member is sent to the page and the card whatever record they pass', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-profile' );
 $GLOBALS['uid'] = 1;
-ck( 'messages() knows every card\'s statuses, the Events card\'s planner among them', array_values( array_diff( array( 'profile-saved', 'interest-sent', 'mentor-interest-sent', 'tier-sent', 'sevent-sent', 'sevent-fields', 'refused' ), array_keys( $D::messages() ) ) ), array() );
+ck( 'messages() knows every card\'s statuses, the Events card\'s planner among them', array_values( array_diff( array( 'profile-saved', 'mentor-interest-sent', 'tier-sent', 'sevent-sent', 'sevent-fields', 'refused' ), array_keys( $D::messages() ) ) ), array() );
+// Offer more's statuses went with its card (1.123.22): a flash one left before the release names a
+// status the page no longer knows, and prints nothing, as any unknown status prints nothing.
+ck( 'and none of Offer more\'s, which went with its card', array_values( array_filter( array_keys( $D::messages() ), static function ( $status ) { return 0 === strpos( (string) $status, 'interest-' ); } ) ), array() );
 
 echo "\n=== The toolbar and login routing ===\n";
 $GLOBALS['uid'] = 5;
@@ -1019,6 +1095,23 @@ ck( 'and the box\'s focus ring is that page\'s for its boxes, weightless inside 
 	true,
 	array(),
 ) );
+// A phone's strip (1.123.22), in the Administrator Dashboard's sheet both strips wear: one tile a row,
+// the number beside its words. The theme sets the number's font with a shorthand at two classes, which
+// resets its figures, so the one-width figures are asked at three classes to hold. A level's name at
+// 28px, "Supporter" or "Champion", can leave the words too little room on a narrow phone, so the words
+// take at least 7em beside the number or drop under it, 4px below, and break a long word anywhere
+// rather than run out of the tile.
+ck( 'on a phone the tile sets its number beside its words, the words dropping under it when they do not fit, and the number\'s one-width figures are asked at three classes, past the theme\'s font shorthand', array(
+	$admin_sheet['( max-width: 480px )|.wpcpm-attention__link'] ?? null,
+	$admin_sheet['( max-width: 480px )|.wpcpm-attention__n'] ?? null,
+	$admin_sheet['( max-width: 480px )|.wpcpm-attention__tiles .wpcpm-attention__link .wpcpm-attention__n'] ?? null,
+	$admin_sheet['( max-width: 480px )|.wpcpm-attention__l'] ?? null,
+), array(
+	'align-items: baseline; column-gap: 12px; display: flex; flex-wrap: wrap; padding: 12px 16px; row-gap: 4px;',
+	'flex: none; min-width: 1.25em;',
+	'font-variant-numeric: tabular-nums;',
+	'flex: 1 1 7em; min-width: 0; overflow-wrap: anywhere;',
+) );
 // Read off the source as the Administrator Dashboard's suite reads its cards: the Usage card prints
 // the box right before its one table and closes it right after, and it is the card's one box.
 $usage_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php' );
@@ -1049,7 +1142,7 @@ foreach ( $card_lists[1] as $card_list ) {
 }
 ck( 'four groups of cards, in the approved order: the sponsorship, what the company offers, the mentors, the company', $group_cards, array(
 	array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge' ),
-	array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests' ),
+	array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts' ),
 	array( 'WPCPM_Sponsor_Mentors' ),
 	array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Agreement_Card' ),
 ) );
@@ -1076,19 +1169,20 @@ ck( 'the block carries the version', json_decode( file_get_contents( __DIR__ . '
 
 echo "\n=== The badge beside the details (1.115.1) ===\n";
 // A Champion, switch on: the header carries the light badge, built from the same helpers the
-// Badge card itself uses, so the two never describe the badge differently.
+// Badge card itself uses, so the two never describe the badge differently, at the versioned address
+// (1.123.22), so a change of level shows at once rather than once a browser's copy has expired.
 $GLOBALS['uid'] = 1; $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $A );
 $GLOBALS['settings']['sponsor_tiers_live'] = true;
 WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'champion' ) );
 $mango        = WPCPM_Sponsors_Index::row( $A );
 $header_badge = sprintf(
 	'<div class="wpcpm-sponsor__badge"><img class="wpcpm-sponsor__badge-image" src="%1$s" alt="%2$s" width="%3$d" height="%4$d" loading="lazy" decoding="async" /></div>',
-	esc_url( WPCPM_Sponsor_Badge::url( $mango['slug'] ) ),
+	esc_url( WPCPM_Sponsor_Badge::versioned_url( $mango ) ),
 	esc_attr( WPCPM_Sponsor_Badge::light_alt( $mango ) ),
 	WPCPM_Sponsor_Badge::WIDTH,
 	WPCPM_Sponsor_Badge::HEIGHT
 );
-ck( 'a Champion, switch on: the header carries the light badge with the Badge card\'s own alt', false !== strpos( $D::render(), $header_badge ), true );
+ck( 'a Champion, switch on: the header carries the light badge with the Badge card\'s own alt, at the address that names its tier and year', array( false !== strpos( $D::render(), $header_badge ), false !== strpos( $header_badge, '?v=champion-' ) ), array( true, true ) );
 
 $GLOBALS['settings']['sponsor_tiers_live'] = false;
 ck( 'the same Champion, switch off: nothing in the header', strpos( $D::render(), 'wpcpm-sponsor__badge' ), false );
@@ -1242,6 +1336,18 @@ if ( ! class_exists( 'WPCPM_Sponsor_Offers' ) ) {
 		public static function render( $record, array $context ) { WPCPM_Dashboard_Card::open( array( 'key' => self::CARD, 'title' => 'Offers and codes' ) ); echo '<p>The offers.</p>'; WPCPM_Dashboard_Card::close(); }
 	}
 }
+if ( ! class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+	/**
+	 * The Posts card, drawn in the shell for a sponsor `$GLOBALS['posts_drawn']` names, and its own test
+	 * for whether it draws, which What you offer's line asks (1.123.22). The real test is pinned in
+	 * bin/test-sponsor-posts.php.
+	 */
+	class WPCPM_Sponsor_Posts {
+		const CARD = 'posts';
+		public static function draws( $record ) { return ! empty( $GLOBALS['posts_drawn'][ $record ] ); }
+		public static function render( $record, array $context ) { if ( self::draws( $record ) ) { WPCPM_Dashboard_Card::open( array( 'key' => self::CARD, 'title' => 'Posts' ) ); echo '<p>The posts.</p>'; WPCPM_Dashboard_Card::close(); } }
+	}
+}
 if ( ! class_exists( 'WPCPM_Sponsor_Claims' ) ) {
 	/** The claims this month, the one figure of stats() the tile reads. */
 	class WPCPM_Sponsor_Claims {
@@ -1297,6 +1403,26 @@ ck( 'the mentors tile counts a mentor the index holds and the ones it does not, 
 // The cards follow the strip directly: the resources, which stood between them, are below the
 // cards.
 ck( 'the first group follows the strip directly, and the resources close the page', array( false !== strpos( $mentor_off, $two_tiles . '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--offer">' ), strpos( $mentor_off, 'wpcpm-handbook__resources' ) > strrpos( $mentor_off, '<div class="wpcpm-sponsor__group' ) ), array( true, true ) );
+// What you offer, once a card of it is drawn: its line as before, the Offers card first, and no Offer
+// more after the cards this suite draws (1.123.22).
+$offer_group = substr( $mentor_off, (int) strpos( $mentor_off, '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--offer">' ) );
+$offer_group = substr( $offer_group, 0, (int) strpos( $offer_group, '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--mentors">' ) );
+// Its line says what the company wrote for them only while the group draws the Posts card, asked of the
+// card's own test (1.123.22): a Friend or a Supporter with no post of its own has no Posts card, and
+// the line then says what the company gives alone. Each line is one whole sentence in the source.
+$short_offer = $group_opening( 'offer', 'What you offer', 'What your company gives the program&#039;s students and mentors.' );
+$GLOBALS['posts_drawn'] = array( $A => true );
+$with_posts             = $D::render();
+$GLOBALS['posts_drawn'] = array();
+$offer_src              = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-dashboard.php' );
+ck( 'What you offer opens on its line and the Offers card, and holds no Offer more; with no Posts card its line says what the company gives alone, and with one what it wrote for them too', array(
+	0 === strpos( $offer_group, $short_offer . $first_card( 'offers' ) ),
+	substr_count( $offer_group, '<section class="wpcpm-sponsor__card">' ),
+	strpos( $offer_group, 'wpcpm-sponsor-interests' ),
+	false !== strpos( $with_posts, $openings['offer'] . $first_card( 'offers' ) ),
+	false !== strpos( $with_posts, '<details id="wpcpm-sponsor-posts"' ),
+	array( substr_count( $offer_src, "__( 'What your company gives the program\\'s students and mentors.', 'wpcredits-program-manager' )" ), substr_count( $offer_src, "__( 'What your company gives the program\\'s students and mentors, and what it wrote for them.', 'wpcredits-program-manager' )" ) ),
+), array( true, 1, false, true, true, array( 1, 1 ) ) );
 
 // A Champion with a term of a hundred days left, an approved event coming up with two people on it, a
 // final report and a draft, which is the program's to finish, two live offers with five claims this

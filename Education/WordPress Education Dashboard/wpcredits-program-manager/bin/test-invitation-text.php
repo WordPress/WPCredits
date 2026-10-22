@@ -37,6 +37,12 @@
  * Track, among the student courses, after the Design Track. `welcome_lines()` is the suite's copy of
  * the welcome as the template ships it now.
  *
+ * A third change has been made since, on purpose, in 1.123.22: the sponsor's invitation no longer asks
+ * the company to "tell us how you would like to support the program", since the Sponsor Dashboard's
+ * Offer more card, where it did, left the page. The recording stays as 1.122.18 wrote it; the suite
+ * puts that one sentence in its new words before comparing, and checks it fell on the sponsor's three
+ * invitations and nowhere else.
+ *
  * Run from the plugin root:  php bin/test-invitation-text.php
  * Record (once, against 1.122.18, before the move):  php bin/test-invitation-text.php --record
  */
@@ -304,6 +310,17 @@ function reworded( $message, &$count = 0 ) {
 }
 
 /**
+ * The 1.122.18 recording with the sponsor's sentence 1.123.22 words differently put in its new words.
+ *
+ * @param string $message The recorded body.
+ * @param int    $count   How many times the sentence was there.
+ * @return string
+ */
+function sponsor_reworded( $message, &$count = 0 ) {
+	return str_replace( 'Set your password using the link below, then check your company profile and tell us how you would like to support the program.', 'Set your password using the link below, then check your company profile.', (string) $message, $count );
+}
+
+/**
  * The welcome a new mentor is sent after the mentor's invitation, line by line, as the template
  * ships it in 1.122.38: the suite's own copy, so a change to the template that was not meant is
  * caught. It holds the seven public links a mentor needs and the one bracketed line where the mentor
@@ -397,13 +414,19 @@ ck( 'the recording is the one made from 1.122.18', is_file( $fixture ) ? hash_fi
 
 $reworded_in = array();
 $welcomed_in = array();
+$sponsor_in  = array();
 
 foreach ( $cases as $name => $case ) {
 	$want    = isset( $recorded['cases'][ $name ] ) ? $recorded['cases'][ $name ] : array( 'subject' => null, 'message' => null );
 	$got     = invitation( $case );
 	$hits    = 0;
 	$welcome = 0;
-	$body    = null === $want['message'] ? null : welcomed( reworded( $want['message'], $hits ), $case, $welcome );
+	$s_hits  = 0;
+	$body    = null === $want['message'] ? null : welcomed( sponsor_reworded( reworded( $want['message'], $hits ), $s_hits ), $case, $welcome );
+
+	if ( $s_hits > 0 ) {
+		$sponsor_in[] = $name . ' x' . $s_hits;
+	}
 
 	if ( $hits > 0 ) {
 		$reworded_in[] = $name . ' x' . $hits;
@@ -419,6 +442,9 @@ foreach ( $cases as $name => $case ) {
 
 ck( 'and the one sentence worded differently since 1.122.18 is in the institution\'s three invitations that ask for the Collaboration Agreement, once each, and in no other',
     $reworded_in, array( 'institution-7-1 x1', 'institution-7-1-no-page x1', 'institution-6-5 x1' ) );
+
+ck( 'and the sponsor\'s sentence worded differently since 1.123.22, which no longer asks how the company would like to support the program, is in the sponsor\'s three invitations, once each, and in no other',
+    $sponsor_in, array( 'sponsor-7-1 x1', 'sponsor-7-1-no-page x1', 'sponsor-6-5 x1' ) );
 
 ck( 'and the welcome follows the mentor\'s invitations, once each, and no other invitation',
     $welcomed_in, array( 'mentor-7-1', 'mentor-7-1-no-page', 'mentor-6-5', 'mentor-and-institution-7-1' ) );

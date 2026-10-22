@@ -40,8 +40,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * refusal), then the switch and the sponsor's row. A cancel then counts itself against the
  * account's `PER_HOUR` presses (`spend_press()`). A plan and a change ask whether the sponsor holds
  * the planner, then whether the text cleaner would take words from the title or the description,
- * and only then count themselves, so a press refused for either costs the account nothing, as the
- * interests card's refusal of lost words spends none of its own count; then they hand the store
+ * and only then count themselves, so a press refused for either costs the account nothing, as a
+ * refusal of lost words wrote nothing on the cards before them; then they hand the store
  * what was posted, whose call link the store looks up once a press; the store asks the allowance
  * again under the sponsor's lock. A change and a cancel act on an event only when the
  * sponsor policy lets the person plan for the event's own sponsor, so a member never reaches
@@ -1041,8 +1041,8 @@ final class WPCPM_Sponsor_Event_Planner {
 	}
 
 	/**
-	 * Count the press against the account's ceiling of `PER_HOUR` presses, as the interests card
-	 * counts its own, and refuse it past the ceiling (`sevent-ceiling`).
+	 * Count the press against the account's ceiling of `PER_HOUR` presses, as the interests count
+	 * their own five a day, and refuse it past the ceiling (`sevent-ceiling`).
 	 *
 	 * Counted once the press is the account's to make, so a stranger's or a stale page's press costs
 	 * the account nothing. A plan or a change is counted once the sponsor is found to hold the planner

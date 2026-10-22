@@ -1470,6 +1470,26 @@ ck(
 	)
 );
 
+echo "\n=== The sponsor emails after Offer more (1.123.22) ===\n";
+// The Sponsor Dashboard's Offer more card left the page in 1.123.22, so an interest's line comes from
+// Talk to your program contact alone, the one press that files one through WPCPM_Sponsor_Interests::
+// file(); the Mentors card's request and the event planner's mails are emails of their own. The
+// interest email's trigger and its line's description say so, and its example is such a line. And the
+// sponsor's invitation no longer asks the company to tell the program how it would like to support it.
+$interest_mail = WPCPM_Mail_Templates::get( 'sponsor-interest' );
+$interest_line = $interest_mail['placeholders']['interest'] ?? array();
+$invite_body   = (string) WPCPM_Mail_Templates::get( 'invite-sponsor' )['body'];
+ck( 'the interest email\'s trigger and its line\'s description name Talk to your program contact, and its example is such a line', array(
+	$interest_mail['trigger'],
+	$interest_line['means'] ?? null,
+	WPCPM_Mail_Templates::examples_of( array( 'interest' => $interest_line ) )['interest'] ?? null,
+), array(
+	'When a sponsor presses Talk to your program contact on the Sponsor Dashboard, to talk about the next tier or to renew its term: to its assigned Administrator, or, with none, to the addresses in Who is mailed, or, with none set, to every Administrator.',
+	'What the sponsor asked, as the dated line its history on the Sponsors screen keeps: the day, who pressed, and the request, for example "wants to move to Backer" or "wants to renew as Champion". The email needs it, in its body.',
+	wp_date( 'Y-m-d' ) . ' by Ada Okonjo: note: wants to move to Backer',
+) );
+ck( 'the sponsor\'s invitation asks the company to set its password and check its profile, and no more', array( substr_count( $invite_body, 'Set your password using the link below, then check your company profile.' ), strpos( $invite_body, 'how you would like to support' ) ), array( 1, false ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

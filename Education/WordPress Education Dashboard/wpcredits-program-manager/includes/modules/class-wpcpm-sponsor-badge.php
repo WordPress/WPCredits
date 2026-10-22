@@ -38,9 +38,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * system font stack the site itself uses, so it draws in whatever the viewer has, and the layout
  * leaves room for the difference. It is served on the badge's own route alone, as
  * `image/svg+xml` named as a `.svg` file for whoever saves it, with `nosniff`, a
- * `default-src 'none'` policy and a day of public cache, and the route is metered per address like
- * the public feed: a visitor's browser asks for the image once a day, so 120 an hour is a
- * crawler's number, not a reader's.
+ * `default-src 'none'` policy, an hour of public cache and an ETag, and the route is metered per
+ * address like the public feed: a visitor's browser asks for the image once an hour at most, and
+ * gets a 304 with no body while the image is the one it holds, so 120 an hour is a crawler's
+ * number, not a reader's. The cache was a day until 1.123.22, which left a sponsor's old level on
+ * its own site for up to a day after an Administrator changed it; an hour is how long it can show
+ * there now. The Sponsor Dashboard draws the badge at a versioned address (`versioned_url()`),
+ * whose `v` argument names the tier and the year the badge draws, so there a change shows at once;
+ * the embed code a sponsor copies keeps the plain address, so an embed pasted before keeps working.
  *
  * A badge is fetched by the visitors of other sites, so what one costs is kept small: it is
  * answered as soon as core has parsed the request, before core runs the main query, which the
@@ -211,7 +216,11 @@ final class WPCPM_Sponsor_Badge {
 			return;
 		}
 
-		$answer = self::serve( $name );
+		// What the visitor's browser or a cache holds of the image already, as WordPress hands the
+		// request's headers over, slashed: answered 304 with no body when it is still the image.
+		$held = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) && is_string( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
+
+		$answer = self::serve( $name, '', $held );
 
 		// Bytes a theme or a plugin left in an open buffer are not the badge's: sent along, they
 		// would go out ahead of the SVG, the length would no longer be the image's own and the
@@ -261,11 +270,18 @@ final class WPCPM_Sponsor_Badge {
 	 * had a badge, is not served once either has changed. The image names its own file: the address
 	 * has no extension, and a save should still get a `.svg` file.
 	 *
-	 * @param string $name  The requested name: a slug, or a slug and `-dark`.
-	 * @param string $today A `Y-m-d` date, or '' for today.
+	 * The image is cached an hour, public, under an ETag that is a quoted hash of the image itself, so
+	 * a new level or a new year is a new tag (1.123.22). A request whose If-None-Match names that tag,
+	 * plain, weak or in a list, is answered 304 with the tag and the cache line and no body: asked
+	 * only once the ceiling is claimed and the badge is found to be served at all, so a tag never
+	 * answers for a badge that is gone.
+	 *
+	 * @param string $name          The requested name: a slug, or a slug and `-dark`.
+	 * @param string $today         A `Y-m-d` date, or '' for today.
+	 * @param string $if_none_match The request's If-None-Match, as cleaned, or ''.
 	 * @return array `status` (int), `headers` (each a whole header line), `body` (the SVG, or '').
 	 */
-	public static function serve( $name, $today = '' ) {
+	public static function serve( $name, $today = '', $if_none_match = '' ) {
 		if ( ! WPCPM_Ceiling::claim( WPCPM_Form_Guard::actor_key( self::CEILING ), 120, HOUR_IN_SECONDS ) ) {
 			return array(
 				'status'  => 429,
@@ -284,7 +300,17 @@ final class WPCPM_Sponsor_Badge {
 			return self::not_found();
 		}
 
-		$body = self::svg( (string) $found['row']['tier'], self::year( $found['row'], $today ), $found['dark'] );
+		$body  = self::svg( (string) $found['row']['tier'], self::year( $found['row'], $today ), $found['dark'] );
+		$etag  = '"' . md5( $body ) . '"';
+		$cache = 'Cache-Control: public, max-age=' . HOUR_IN_SECONDS;
+
+		if ( self::holds( $if_none_match, $etag ) ) {
+			return array(
+				'status'  => 304,
+				'headers' => array( 'ETag: ' . $etag, $cache ),
+				'body'    => '',
+			);
+		}
 
 		// The whole name goes through core's cleaner, not the slug alone: no quote or percent sign
 		// reaches the header, and a slug that reads as an extension on its own ("zip") stays a name
@@ -296,13 +322,39 @@ final class WPCPM_Sponsor_Badge {
 			'headers' => array(
 				'Content-Type: image/svg+xml; charset=utf-8',
 				'Content-Disposition: inline; filename="' . $file . '"',
-				'Cache-Control: public, max-age=' . DAY_IN_SECONDS,
+				$cache,
+				'ETag: ' . $etag,
 				'X-Content-Type-Options: nosniff',
 				"Content-Security-Policy: default-src 'none'",
 				'Content-Length: ' . strlen( $body ),
 			),
 			'body'    => $body,
 		);
+	}
+
+	/**
+	 * Whether a request's If-None-Match names an image's ETag: any of the tags it lists, each read
+	 * trimmed and with a weak `W/` taken off, since the tag stands for the image's bytes and a weak
+	 * match of those is a match.
+	 *
+	 * @param string $if_none_match The header, as cleaned, or ''.
+	 * @param string $etag          The image's tag, quoted.
+	 * @return bool
+	 */
+	private static function holds( $if_none_match, $etag ) {
+		foreach ( explode( ',', (string) $if_none_match ) as $tag ) {
+			$tag = trim( $tag );
+
+			if ( 0 === strpos( $tag, 'W/' ) ) {
+				$tag = substr( $tag, 2 );
+			}
+
+			if ( '' !== $tag && $tag === $etag ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -429,6 +481,26 @@ final class WPCPM_Sponsor_Badge {
 	}
 
 	/**
+	 * A sponsor's badge address as the Sponsor Dashboard draws it (1.123.22): `url()` with a `v`
+	 * argument naming the tier the badge draws and the year it names, `backer-2026` say, so a browser
+	 * holding the image under the address asks for the new one as soon as either changes, rather than
+	 * once its hour is up. The recorded tier, as `serve()` draws it: a term that has ended keeps its
+	 * badge, so the effective tier, Friend, is not what the image says. The rule reads the path
+	 * alone, and `v` is no query var of the badge's, so the argument changes nothing in routing. The
+	 * embed code keeps the plain address: an embed pasted on a sponsor's site must keep working.
+	 *
+	 * @param array  $row   The sponsor's row, read for `slug`, `tier` and `tier_until`.
+	 * @param bool   $dark  Whether it is the version for a dark background.
+	 * @param string $today A `Y-m-d` date, or '' for today.
+	 * @return string
+	 */
+	public static function versioned_url( array $row, $dark = false, $today = '' ) {
+		$url = self::url( (string) $row['slug'], $dark );
+
+		return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . 'v=' . rawurlencode( (string) $row['tier'] . '-' . self::year( $row, $today ) );
+	}
+
+	/**
 	 * The light badge's alternative text: the same words the Badge card gives its light
 	 * image, made reachable so wherever else the badge appears - the Sponsor Dashboard's
 	 * header (1.115.1) among them - it is described the same way as the card's own copy.
@@ -499,14 +571,16 @@ final class WPCPM_Sponsor_Badge {
 			self::HEIGHT
 		);
 
+		// The previews at the versioned address, so a new level shows on the card at once; the embed
+		// above keeps the plain one (1.123.22).
 		$versions = array(
 			'light' => array(
-				'src'     => self::url( $slug ),
+				'src'     => self::versioned_url( $row, false, $today ),
 				'alt'     => self::light_alt( $row, $today ),
 				'caption' => __( 'On a light background', 'wpcredits-program-manager' ),
 			),
 			'dark'  => array(
-				'src'     => self::url( $slug, true ),
+				'src'     => self::versioned_url( $row, true, $today ),
 				/* translators: %s: the badge's name: the program, the tier and the year. */
 				'alt'     => sprintf( __( '%s badge, for a dark background', 'wpcredits-program-manager' ), $name ),
 				'caption' => __( 'On a dark background', 'wpcredits-program-manager' ),
@@ -526,7 +600,7 @@ final class WPCPM_Sponsor_Badge {
 				),
 			)
 		);
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'A badge for your own site, naming your tier and the current year. Both versions are served by the program\'s site, so they stay up to date.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="wpcpm-student__note">' . esc_html__( 'A badge for your own site, naming your tier and the current year. Both versions are served by the program\'s site, so they stay up to date: a change of tier shows here at once and on your own site within an hour.', 'wpcredits-program-manager' ) . '</p>';
 
 		// A term that has ended keeps its badge, and the card says which year the badge names, so
 		// the sponsor does not read the old year as a mistake.

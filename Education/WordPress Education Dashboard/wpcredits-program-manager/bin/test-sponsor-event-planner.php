@@ -177,7 +177,7 @@
  * posted slashed, as WordPress hands `$_POST` to a handler. The classes the planner asks are the
  * plugin's own: the store, the roster, the policy, the sponsor memberships, the request reader, the
  * tier ladder, the report's period, the zone readers, the sessions' date reader, the calls' range
- * formatter, the calendar builder, the interests card's road to the program contact, and the tier
+ * formatter, the calendar builder, the interests' road to the program contact, and the tier
  * card. The sponsors store, the audit trail, the settings, the ceiling, the mail layer, the flash
  * and the dashboard's `leave()` are stood in for the calls made; the flash's stand-in keeps each
  * person's channels apart and remembers what a request took, as the real one does, each press and
@@ -3641,7 +3641,7 @@ ck(
 	array( 'sevent-change-title-loss', true, 'Asked of the store', 0 )
 );
 // A press refused for lost words wrote, mailed and scheduled nothing, so it spends none of the
-// account's ten presses an hour, as the interests card's refusal spends none of its five a day. A
+// account's ten presses an hour, as the profile's refusal for lost words writes nothing either. A
 // press past the loss check spends one, refused by the form's own check or not, before its call
 // link is looked up; and a cancel spends one before the event it names is asked for.
 ck(
@@ -3859,9 +3859,9 @@ ck(
 	)
 );
 ck(
-	'the ceiling is said as the interests card says its own, per hour where the card counts per day',
-	static function () { return array( WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling'], WPCPM_Sponsor_Interests::messages()['interest-ceiling'] ); },
-	array( array( 'error', 'Ten an hour is the limit. Try again in an hour.' ), array( 'error', 'Five a day is the limit. Try again tomorrow.' ) )
+	'the ceiling is said as the Mentors card says its own, "Five a day is the limit. Try again tomorrow.", per hour where that card counts per day',
+	static function () { return WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling']; },
+	array( 'error', 'Ten an hour is the limit. Try again in an hour.' )
 );
 ck(
 	'a change that changes nothing says so, in the words and the notice class the profile card says it in on the same page',

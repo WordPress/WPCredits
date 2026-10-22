@@ -513,7 +513,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		// releases (design decision 8).
 		WPCPM_Sponsors_Feed::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Event_Queue', 'WPCPM_Sponsor_Event_List', 'WPCPM_Sponsors_Listing', 'WPCPM_Sponsors_Page', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement', 'WPCPM_Sponsor_Application', 'WPCPM_Sponsor_Tiers_Run', 'WPCPM_Sponsor_Report', 'WPCPM_Sponsor_Report_Files', 'WPCPM_Sponsor_Report_Screen' ) as $front ) {
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Event_Queue', 'WPCPM_Sponsor_Event_List', 'WPCPM_Sponsors_Listing', 'WPCPM_Sponsors_Page', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement', 'WPCPM_Sponsor_Application', 'WPCPM_Sponsor_Tiers_Run', 'WPCPM_Sponsor_Report', 'WPCPM_Sponsor_Report_Files', 'WPCPM_Sponsor_Report_Screen' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
@@ -3910,6 +3910,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		self::select_row( $id . 'option', 'option', __( 'Sponsorship option', 'wpcredits-program-manager' ), $none + array_combine( WPCPM_Sponsor_Application::OPTION_CHOICES, WPCPM_Sponsor_Application::OPTION_CHOICES ), $row['option'], $typed( 'option' ) );
 		self::checkboxes_row( 'support', __( 'Would like to support', 'wpcredits-program-manager' ), array_combine( WPCPM_Sponsor_Interests::CHOICES, WPCPM_Sponsor_Interests::CHOICES ), $ticked( 'support', (array) $row['support'] ) );
+
+		if ( 'edit' === $form ) {
+			self::render_interests_row( $row );
+		}
 		self::select_row( $id . 'product-type', 'product_type', __( 'Type of product', 'wpcredits-program-manager' ), $none + array_combine( WPCPM_Sponsor_Profile::CHOICES['Type of product'], WPCPM_Sponsor_Profile::CHOICES['Type of product'] ), $row['product_type'], $typed( 'product_type' ) );
 
 		$managers = array( '' => __( 'Nobody yet', 'wpcredits-program-manager' ) );
@@ -4194,6 +4198,43 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		echo '</fieldset></td></tr>';
+	}
+
+	/**
+	 * The Edit form's read-only row of what the company told the program (1.123.22): the history its
+	 * record keeps in `interests`, one dated line per message, as `WPCPM_Sponsor_Interests::file()`
+	 * appended it, newest first, each line escaped. Until 1.123.22 the Sponsor Dashboard's Offer more
+	 * card listed it, to the company and to an Administrator through the switcher; with that card gone
+	 * this is where it is read, beside the ticks of Would like to support, which that card wrote. The
+	 * lines come from the Offer more card while the dashboard had one and from Talk to your program
+	 * contact. Nothing is drawn for a record that holds none, and nothing here is posted: the history
+	 * is the company's words, never edited on this form.
+	 *
+	 * @param array $row The record.
+	 */
+	private static function render_interests_row( array $row ) {
+		$lines = array();
+
+		foreach ( preg_split( '/\r\n|\r|\n/', isset( $row['interests'] ) ? (string) $row['interests'] : '' ) as $line ) {
+			if ( '' !== trim( $line ) ) {
+				$lines[] = trim( $line );
+			}
+		}
+
+		if ( array() === $lines ) {
+			return;
+		}
+
+		printf( '<tr><th scope="row">%s</th><td><ul>', esc_html__( 'Interests', 'wpcredits-program-manager' ) );
+
+		foreach ( array_reverse( $lines ) as $line ) {
+			printf( '<li>%s</li>', esc_html( $line ) );
+		}
+
+		printf(
+			'</ul><p class="description">%s</p></td></tr>',
+			esc_html__( 'What the company told the program from its Sponsor Dashboard, newest first: on the Offer more card while the dashboard had one, and through Talk to your program contact. Read only: it is kept on the company\'s record as it was sent.', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**

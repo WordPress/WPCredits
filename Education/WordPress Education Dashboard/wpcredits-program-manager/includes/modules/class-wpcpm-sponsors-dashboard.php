@@ -1,6 +1,6 @@
 <?php
 /**
- * The Sponsor Dashboard: a sponsor's profile, its mentors, its interests and its people.
+ * The Sponsor Dashboard: a sponsor's sponsorship, its offers, its mentors and its company.
  *
  * @package WPCreditsProgramManager
  */
@@ -413,7 +413,9 @@ final class WPCPM_Sponsors_Dashboard {
 	 * (1.117.0) follows the tier card that draws it, and the logo the profile card that holds it:
 	 * their presses leave through this page's `leave()` like every card's. So does a decision of the
 	 * offers' review (1.123.18) posted without the Administrator Dashboard's way back, which follows
-	 * the Offers card it decides for.
+	 * the Offers card it decides for. Offer more, the interests card, left the page in 1.123.22, and its
+	 * statuses with it: a flash one left before then names a status the page no longer knows, and
+	 * prints nothing, as every unknown status prints nothing.
 	 *
 	 * @return array<string, array{0: string, 1: string}> Status to notice class and sentence.
 	 */
@@ -422,7 +424,7 @@ final class WPCPM_Sponsors_Dashboard {
 			'refused' => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 
-		foreach ( array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
+		foreach ( array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Event_Planner', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Offer_Review', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
 			if ( class_exists( $card ) && method_exists( $card, 'messages' ) ) {
 				$messages = array_merge( $messages, (array) call_user_func( array( $card, 'messages' ) ) );
 			}
@@ -500,24 +502,31 @@ final class WPCPM_Sponsors_Dashboard {
 		// Four groups, in the order the owner approved on 27 September 2026, which is the order a
 		// sponsor works through the page: the sponsorship itself (the tier card's two cards, the tier
 		// with its term and the events, then the reports and the badge, all four drawn only while the
-		// tier ladder's launch switch is on), what the company offers (offers and codes, usage, its
-		// posts, what else it would support), the mentors (its own and the ones looking for a
-		// sponsor, both drawn by one class), and the company last (the profile and logo, the people
-		// who act for it, which is this class's own card, and the Collaboration Agreement). Each
-		// group is a heading over its cards, so the four read as groups and not as one long list with
-		// the same hairline between every card (the owner, 6 September 2026).
+		// tier ladder's launch switch is on), what the company offers (offers and codes, usage and its
+		// posts), the mentors (its own and the ones looking for a sponsor, both drawn by one class),
+		// and the company last (the profile and logo, the people who act for it, which is this class's
+		// own card, and the Collaboration Agreement). Each group is a heading over its cards, so the
+		// four read as groups and not as one long list with the same hairline between every card (the
+		// owner, 6 September 2026). Offer more, what else the company would support, left the second
+		// group in 1.123.22: its six choices were the sponsor application's before the levels, and its
+		// Tell us said what the Sponsorship card's Talk to your program contact says.
 		$groups = array(
 			array(
 				'id'    => 'sponsorship',
 				'title' => __( 'Your sponsorship', 'wpcredits-program-manager' ),
-				'lead'  => __( 'Your tier, your events, your reports and your badge.', 'wpcredits-program-manager' ),
+				'lead'  => self::sponsorship_lead( $record, $row, is_array( $stored ) ? $stored : null ),
 				'cards' => array( 'WPCPM_Sponsor_Tier_Card', 'WPCPM_Sponsor_Report_Card', 'WPCPM_Sponsor_Badge' ),
 			),
 			array(
 				'id'    => 'offer',
 				'title' => __( 'What you offer', 'wpcredits-program-manager' ),
-				'lead'  => __( 'What your company gives the program\'s students and mentors, and what it wrote for them.', 'wpcredits-program-manager' ),
-				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests' ),
+				// What the company wrote for them is its posts: named only while the group draws the
+				// Posts card, asked of the card's own test, which below Backer draws it only while the
+				// sponsor has a post of its own (1.123.22). Two whole sentences, one for each.
+				'lead'  => self::installed( 'WPCPM_Sponsor_Posts' ) && method_exists( 'WPCPM_Sponsor_Posts', 'draws' ) && WPCPM_Sponsor_Posts::draws( $record )
+					? __( 'What your company gives the program\'s students and mentors, and what it wrote for them.', 'wpcredits-program-manager' )
+					: __( 'What your company gives the program\'s students and mentors.', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts' ),
 			),
 			array(
 				'id'    => 'mentors',
@@ -568,6 +577,57 @@ final class WPCPM_Sponsors_Dashboard {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The Your sponsorship group's line: the cards the group draws for this sponsor, named in the
+	 * group's order (1.123.22), where every sponsor read "Your tier, your events, your reports and
+	 * your badge." though a Friend has none of the three and a Supporter or a Backer no events.
+	 *
+	 * Each card is asked the test that decides whether it draws, as the At a glance strip asks it: the
+	 * Events card, the tier card's second, the tier card's own `draws_events()`; the Reports card
+	 * whether the sponsor has a final report (`WPCPM_Sponsor_Report_Card::finals()`); the badge
+	 * whether the store holds the sponsor's row and the row is eligible for one
+	 * (`WPCPM_Sponsor_Badge::eligible()`). The tier card always draws while the launch switch is on,
+	 * so every line names the tier first. Each of the eight lines is one whole sentence, so a
+	 * translator meets each as it reads. While the switch is off the group draws nothing and is not
+	 * printed, so nothing is asked and the line is empty.
+	 *
+	 * @param string     $record Sponsor key.
+	 * @param array      $row    The sponsor's row, or the empty row, as the tier card reads it.
+	 * @param array|null $stored The row the store holds, as the badge card reads it, or null.
+	 * @return string
+	 */
+	private static function sponsorship_lead( $record, array $row, $stored ) {
+		if ( ! WPCPM_Sponsor_Tiers::live() ) {
+			return '';
+		}
+
+		$events  = self::installed( 'WPCPM_Sponsor_Tier_Card' ) && WPCPM_Sponsor_Tier_Card::draws_events( $record, $row, WPCPM_Sponsor_Tiers::effective( $row, WPCPM_Sponsor_Tiers::today() ) );
+		$reports = self::installed( 'WPCPM_Sponsor_Report_Card' ) && class_exists( 'WPCPM_Sponsor_Report' ) && array() !== WPCPM_Sponsor_Report_Card::finals( $record );
+		$badge   = self::installed( 'WPCPM_Sponsor_Badge' ) && is_array( $stored ) && WPCPM_Sponsor_Badge::eligible( $stored );
+
+		if ( $events ) {
+			if ( $reports ) {
+				return $badge
+					? __( 'Your tier, your events, your reports and your badge.', 'wpcredits-program-manager' )
+					: __( 'Your tier, your events and your reports.', 'wpcredits-program-manager' );
+			}
+
+			return $badge
+				? __( 'Your tier, your events and your badge.', 'wpcredits-program-manager' )
+				: __( 'Your tier and your events.', 'wpcredits-program-manager' );
+		}
+
+		if ( $reports ) {
+			return $badge
+				? __( 'Your tier, your reports and your badge.', 'wpcredits-program-manager' )
+				: __( 'Your tier and your reports.', 'wpcredits-program-manager' );
+		}
+
+		return $badge
+			? __( 'Your tier and your badge.', 'wpcredits-program-manager' )
+			: __( 'Your tier and what it includes.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -657,8 +717,8 @@ final class WPCPM_Sponsors_Dashboard {
 	 * its sentence names them (`filled()`), and the detail after it.
 	 *
 	 * A status whose sentence is empty carries its whole message as the detail: a refusal for words
-	 * the cleaner would take (the profile's, the Offers card's and the interests card's), whose
-	 * sentence names the box and how to keep every word. It prints the detail alone.
+	 * the cleaner would take (the profile's and the Offers card's), whose sentence names the box and
+	 * how to keep every word. It prints the detail alone.
 	 *
 	 * Nothing when the status is empty or unknown to `messages()`, when its sentence names more
 	 * values than the flash carries, or when it has neither a sentence nor a detail: a stale or
@@ -720,10 +780,12 @@ final class WPCPM_Sponsors_Dashboard {
 	}
 
 	/**
-	 * The identity header: the sponsor's logo or initials, its name, website, product and the
+	 * The identity header: the sponsor's logo or initials, its name, website, contact and the
 	 * facts a manager alone is shown, and, once the tier ladder is announced, its badge at the
 	 * header's right - the owner asked (26 September 2026, with a screenshot) for the tier to
-	 * read at a glance in the same place the company itself is named.
+	 * read at a glance in the same place the company itself is named. The type of product left it
+	 * in 1.123.22: the application no longer asks it and nothing public shows it, so it is no fact
+	 * to print under the company's name; the record keeps it for the Sponsors screen.
 	 *
 	 * @param string $record     Sponsor key.
 	 * @param array  $row        From `WPCPM_Sponsors_Index::row()`, or `empty_row()`.
@@ -756,10 +818,6 @@ final class WPCPM_Sponsors_Dashboard {
 				esc_url( $website ),
 				esc_html( preg_replace( '#^https?://#', '', untrailingslashit( $website ) ) )
 			);
-		}
-
-		if ( '' !== trim( (string) $row['product_type'] ) ) {
-			printf( '<p class="wpcpm-sponsor__fact">%s</p>', esc_html( trim( (string) $row['product_type'] ) ) );
 		}
 
 		// The contact is the sponsor's own data, shown to its members and to managers.
@@ -795,14 +853,16 @@ final class WPCPM_Sponsors_Dashboard {
 
 		// The badge, right of the details, in the space the header otherwise leaves empty:
 		// nothing while the launch switch is off, for a sponsor whose tier carries no badge, or
-		// for a row with no slug to build its address from.
+		// for a row with no slug to build its address from. At the versioned address, which names
+		// the tier and the year the badge draws, so a change of level shows here at once rather
+		// than once a browser's copy of the image has expired (1.123.22).
 		if ( WPCPM_Sponsor_Tiers::live() && WPCPM_Sponsor_Badge::eligible( $row ) ) {
 			$slug = (string) $row['slug'];
 
 			if ( '' !== $slug ) {
 				printf(
 					'<div class="wpcpm-sponsor__badge"><img class="wpcpm-sponsor__badge-image" src="%1$s" alt="%2$s" width="%3$d" height="%4$d" loading="lazy" decoding="async" /></div>',
-					esc_url( WPCPM_Sponsor_Badge::url( $slug ) ),
+					esc_url( WPCPM_Sponsor_Badge::versioned_url( $row ) ),
 					esc_attr( WPCPM_Sponsor_Badge::light_alt( $row ) ),
 					(int) WPCPM_Sponsor_Badge::WIDTH,
 					(int) WPCPM_Sponsor_Badge::HEIGHT

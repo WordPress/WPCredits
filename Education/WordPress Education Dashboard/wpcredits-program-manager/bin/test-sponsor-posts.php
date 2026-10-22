@@ -7,7 +7,11 @@
  * could be made a no-op with the whole battery green. Publish, Return and the posting switch each
  * check the nonce keyed to what they act on, asserted by name, and a stale switch dies before the
  * flag moves: they read their form through `WPCPM_Request`, where the standard's nonce sniff
- * cannot see a nonce gone.
+ * cannot see a nonce gone. With the tiers live, a Friend or a Supporter, whose level includes no
+ * post, has the Posts card only while it has a post of its own the card lists (1.123.22), the
+ * level's sentence and the way into wp-admin with it; with none, or one in the trash alone, the card
+ * is not drawn, for its members and for an Administrator alike, and from Backer up and while the
+ * switch is off the card is drawn as before.
  *
  * Run from the plugin root:  php bin/test-sponsor-posts.php
  *
@@ -563,24 +567,60 @@ $html = card( $T1, 60 );
 ck( 'with the switch off Write a post is drawn as before, whatever the tier', false !== strpos( $html, 'href="https://example.test/wp-admin/post-new.php"' ), true );
 
 $GLOBALS['settings']['sponsor_tiers_live'] = true;
-$html = card( $T1, 60 );
-// The next tier up from a Friend, Supporter, includes no posts either, so the sentence
-// names the tier posts start at rather than sending the sponsor to "the next tier".
-ck(
-	'with the switch on a Friend reads that its tier includes no posts and that posts start at Backer, and keeps the way into wp-admin',
-	array(
-		false !== strpos( $html, 'Your tier, Friend, includes no posts. Posts start at Backer: talk to your program contact.' ),
-		strpos( $html, 'the next tier' ),
-		false !== strpos( $html, 'href="https://example.test/wp-admin/edit.php"' ),
-		strpos( $html, 'post-new.php' ),
-	),
-	array( true, false, true, false )
-);
 $T0 = 'recTIER0000000010';
 $GLOBALS['index'][ $T0 ] = array( 'record_id' => $T0, 'name' => 'TEST Supporter Tier Sponsor', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::SUPPORTER );
 $GLOBALS['users'][59] = new WP_User( 59, array( 'wpcpm_sponsor' ), 'Supporter Tier Member' );
 WPCPM_Sponsor_Members::attach( 59, $T0, 'manager', 1 );
-ck( 'and a Supporter reads the same sentence, true for it too', false !== strpos( card( $T0, 59 ), 'Your tier, Supporter, includes no posts. Posts start at Backer: talk to your program contact.' ), true );
+// Below Backer a level includes no post (1.123.22): with none of its own, a Friend's or a Supporter's
+// card would only say so over an empty list and a link to a screen with nothing on it, so there is
+// no card, for its member and for an Administrator through the switcher alike; and a post in the
+// trash is none of its own.
+$t1_trash = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'trash', 'post_author' => 60, 'post_title' => 'Thrown away' ) );
+$GLOBALS['pmeta'][ $t1_trash ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T1;
+ck( 'with the switch on, a Friend or a Supporter with no post of its own has no Posts card: nothing for its member or an Administrator, a post in the trash counting for none', array( card( $T1, 60 ), card( $T1, 1 ), card( $T0, 59 ), card( $T0, 1 ) ), array( '', '', '', '' ) );
+// The card's own test, which the Sponsor Dashboard's What you offer line asks too (1.123.22).
+$draws_seen = array( WPCPM_Sponsor_Posts::draws( $T1 ), WPCPM_Sponsor_Posts::draws( $T0 ) );
+// One of its own, from before the levels or returned or held back since, and the card is there: the
+// level's sentence where Write a post would be, naming the level posts start at rather than "the next
+// tier", since a Friend's next, Supporter, includes no posts either; and the way into wp-admin, where
+// a member reads its posts, edits a draft or a returned one and saves it as a draft, and deletes one.
+$t1_returned = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'draft', 'post_author' => 60, 'post_title' => 'Returned before the levels' ) );
+$GLOBALS['pmeta'][ $t1_returned ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T1;
+$GLOBALS['pmeta'][ $t1_returned ][ WPCPM_Sponsor_Posts::META_RETURN_NOTE ]   = 'Please shorten the title.';
+$html = card( $T1, 60 );
+$draws_seen[] = WPCPM_Sponsor_Posts::draws( $T1 );
+ck(
+	'a Friend with a post of its own, a returned one, has the card: the level\'s sentence that posts start at Backer, the way into wp-admin, its post, and no Write a post',
+	array(
+		false !== strpos( $html, 'Your tier, Friend, includes no posts. Posts start at Backer: talk to your program contact.' ),
+		strpos( $html, 'the next tier' ),
+		false !== strpos( $html, '<a class="wpcpm-posts__admin" href="https://example.test/wp-admin/edit.php">Your posts in wp-admin</a>' ),
+		strpos( $html, 'post-new.php' ),
+		false !== strpos( $html, '<li class="wpcpm-updates__item wpcpm-posts__item--returned" id="wpcpm-post-' . $t1_returned . '">' ),
+		false !== strpos( card( $T1, 1 ), 'This sponsor&#039;s posts in wp-admin' ),
+	),
+	array( true, false, true, false, true, true )
+);
+$t0_dormant = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 59, 'post_title' => 'Held back' ) );
+$GLOBALS['pmeta'][ $t0_dormant ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $T0;
+$GLOBALS['pmeta'][ $t0_dormant ][ WPCPM_Sponsor_Posts::META_DORMANT ]       = '2027-01-01';
+$t0_dormant_card = card( $T0, 59 );
+$GLOBALS['posts'][ $t0_dormant ]->post_status = 'publish';
+unset( $GLOBALS['pmeta'][ $t0_dormant ][ WPCPM_Sponsor_Posts::META_DORMANT ] );
+$t0_published_card = card( $T0, 59 );
+ck( 'and so does a Supporter, with a post the daily run held back or one still published from before the levels, the same sentence true for it too', array( false !== strpos( $t0_dormant_card, 'Your tier, Supporter, includes no posts. Posts start at Backer: talk to your program contact.' ), false !== strpos( $t0_dormant_card, 'wpcpm-posts__item--dormant' ), false !== strpos( $t0_published_card, 'Your tier, Supporter, includes no posts. Posts start at Backer: talk to your program contact.' ), false !== strpos( $t0_published_card, '<span class="wpcpm-sponsor__state">1 published, 0 waiting</span>' ) ), array( true, true, true, true ) );
+// The same Friend with the switch off is drawn as before, its post or none: no level applies then.
+unset( $GLOBALS['posts'][ $t1_returned ], $GLOBALS['pmeta'][ $t1_returned ], $GLOBALS['posts'][ $t0_dormant ], $GLOBALS['pmeta'][ $t0_dormant ] );
+$GLOBALS['settings']['sponsor_tiers_live'] = false;
+$off_empty = card( $T1, 60 );
+$draws_seen[] = WPCPM_Sponsor_Posts::draws( $T1 );
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+$GLOBALS['index']['recTIER0000000011'] = array( 'record_id' => 'recTIER0000000011', 'name' => 'TEST Backer With None', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
+$draws_seen[] = WPCPM_Sponsor_Posts::draws( 'recTIER0000000011' );
+unset( $GLOBALS['index']['recTIER0000000011'] );
+ck( 'and draws() answers what render() does: no for a Friend or a Supporter with none, yes once one has a post, while the switch is off, and from Backer up with none', $draws_seen, array( false, false, true, true, true ) );
+ck( 'while the switch is off, a Friend with no post of its own has the card as before, Write a post and all', array( false !== strpos( $off_empty, '<details id="wpcpm-sponsor-posts"' ), false !== strpos( $off_empty, 'href="https://example.test/wp-admin/post-new.php"' ), strpos( $off_empty, 'includes no posts' ) ), array( true, true, false ) );
+unset( $GLOBALS['posts'][ $t1_trash ], $GLOBALS['pmeta'][ $t1_trash ] );
 
 $T2 = 'recTIER0000000002';
 $GLOBALS['index'][ $T2 ] = array( 'record_id' => $T2, 'name' => 'TEST Backer One', 'website' => '', 'status' => 'Approved', 'tier' => WPCPM_Sponsor_Tiers::BACKER );
