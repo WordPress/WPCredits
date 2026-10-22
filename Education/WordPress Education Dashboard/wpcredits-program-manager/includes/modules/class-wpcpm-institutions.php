@@ -206,18 +206,20 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	const REPORTS_SHOWN = 60;
 
 	/**
-	 * The five decisions a manager takes on an application, and the deletion behind them.
+	 * The five decisions a manager takes on an application, the confirmation link sent again
+	 * (1.123.26), and the deletion behind them.
 	 *
 	 * One action apiece rather than one handler reading a posted verb: the nonce is keyed to
 	 * the action and the application together, so a nonce harvested from the Reject form of
 	 * one application cannot approve another.
 	 */
-	const ACTION_APPROVE = 'wpcpm_app_approve';
-	const ACTION_INFO    = 'wpcpm_app_info';
-	const ACTION_REJECT  = 'wpcpm_app_reject';
-	const ACTION_SPAM    = 'wpcpm_app_spam';
-	const ACTION_REOPEN  = 'wpcpm_app_reopen';
-	const ACTION_PURGE   = 'wpcpm_app_purge';
+	const ACTION_APPROVE     = 'wpcpm_app_approve';
+	const ACTION_INFO        = 'wpcpm_app_info';
+	const ACTION_REJECT      = 'wpcpm_app_reject';
+	const ACTION_SPAM        = 'wpcpm_app_spam';
+	const ACTION_REOPEN      = 'wpcpm_app_reopen';
+	const ACTION_RESEND_LINK = 'wpcpm_app_resend_link';
+	const ACTION_PURGE       = 'wpcpm_app_purge';
 
 	/** The daily retention run, which deletes what the three retention settings say to. */
 	const CRON_PURGE = 'wpcpm_purge_applications';
@@ -292,6 +294,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	const EVENT_REJECTED = 'rejected';
 	const EVENT_SPAM     = 'marked as spam';
 	const EVENT_REOPENED = 'reopened';
+
+	/** The two that send the acknowledgement after the form did, or in its place (1.123.26). */
+	const EVENT_LINK_SENT             = 'confirmation link sent again';
+	const EVENT_REOPENED_ACKNOWLEDGED = 'reopened, acknowledgement sent';
+
+	/**
+	 * The form's signals that mean the acknowledgement never went: the two that file a submission
+	 * as spam, which is told nothing, and the day's limit on acknowledgements.
+	 */
+	const SIGNALS_UNACKNOWLEDGED = array( 'honeypot', 'dwell', 'mail-ceiling' );
 
 	/** The form's own word for "this one looks like another one", on `META_SIGNALS`. */
 	const SIGNAL_DUPLICATE = 'duplicate';
@@ -452,6 +464,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_REJECT, array( $this, 'handle_reject' ) );
 		add_action( 'admin_post_' . self::ACTION_SPAM, array( $this, 'handle_spam' ) );
 		add_action( 'admin_post_' . self::ACTION_REOPEN, array( $this, 'handle_reopen' ) );
+		add_action( 'admin_post_' . self::ACTION_RESEND_LINK, array( $this, 'handle_resend_link' ) );
 		add_action( 'admin_post_' . self::ACTION_PURGE, array( $this, 'handle_purge' ) );
 
 		add_action( self::CRON_PURGE, array( __CLASS__, 'purge_applications' ) );
@@ -1268,6 +1281,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The reason is optional and never sent anywhere, and it is measured as the question is: a
 	 * reason the cleaner would take words from, or one over `MAX_NOTE` as typed, is refused before
 	 * anything is sent or written, rather than kept short, and the form gets back what was typed.
+	 *
+	 * A half-done approval is refused (`half_done()`), as the sponsor applications' Reject refuses
+	 * one: rejecting it would send the applicant the decline while an Airtable record, and maybe an
+	 * account, already stood for the institution. Until 1.123.26 nothing asked, and it went.
 	 */
 	public function handle_reject() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1287,6 +1304,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
 			$this->redirect_back( 'app-state' );
+		}
+
+		if ( self::half_done( (int) $post->ID ) ) {
+			$this->redirect_back( 'app-half-done' );
 		}
 
 		$typed  = WPCPM_Request::posted_raw( 'wpcpm_reason' );
@@ -1332,6 +1353,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * else's, so an acknowledgement is either wasted or is mail this site sent to a stranger
 	 * on a spammer's instruction. The row stays until the retention cron removes it, so the
 	 * decision can be undone by a manager who disagrees.
+	 *
+	 * A half-done approval is refused, as it is in `handle_reject()`: the record that already
+	 * stands for the institution is not something a spam mark takes back.
 	 */
 	public function handle_spam() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1348,6 +1372,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->redirect_back( 'app-state' );
 		}
 
+		if ( self::half_done( (int) $post->ID ) ) {
+			$this->redirect_back( 'app-half-done' );
+		}
+
 		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_SPAM );
 		self::record_event( (int) $post->ID, self::EVENT_SPAM, '' );
 
@@ -1361,6 +1389,22 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * haste, or a question that turned out to be unnecessary, goes back to `new`. An approved
 	 * application is not on this list, because approval created a record and an account and
 	 * reopening it would offer Approve on a row that has already had it.
+	 *
+	 * A spam-filed application that never had the acknowledgement, one the form's checks filed
+	 * as spam or one that came past the day's limit on acknowledgements, is sent it now
+	 * (`WPCPM_Institution_Application::acknowledge_again()`), as the mentor applications' Put
+	 * back in the queue sends theirs: without its link the address can never be confirmed, and
+	 * Approve refuses an unconfirmed one. It goes once, since the history then says it went. One
+	 * acknowledged before, marked as spam by an Administrator, is sent nothing, and so is one with
+	 * no address; a rejected one too, whose applicant has already been told the decision: once it
+	 * is open, Send the confirmation link again sends the link. The send counts against the day's
+	 * limit as the form's does, and a send the limit or the mail server refuses leaves the row as
+	 * it was, with the notice saying which.
+	 *
+	 * A half-done approval is refused, as the sponsor applications' Put back in the queue refuses
+	 * one. It can only be one that was held or waiting on the applicant when Approve was pressed,
+	 * since `is_half_done()` answers for an undecided row alone; putting it "back" would say the
+	 * row is untouched when the Airtable record already stands.
 	 */
 	public function handle_reopen() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1373,14 +1417,83 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->redirect_back( 'app-unknown' );
 		}
 
-		if ( ! in_array( self::application_state( $post ), self::reopen_states(), true ) ) {
+		$state = self::application_state( $post );
+
+		if ( ! in_array( $state, self::reopen_states(), true ) ) {
 			$this->redirect_back( 'app-state' );
 		}
 
-		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_NEW );
-		self::record_event( (int) $post->ID, self::EVENT_REOPENED, '' );
+		if ( self::half_done( (int) $post->ID ) ) {
+			$this->redirect_back( 'app-half-done' );
+		}
 
-		$this->redirect_back( 'app-reopened' );
+		$send = WPCPM_Institution_Application::STATE_SPAM === $state
+			&& ! self::acknowledged( $post )
+			&& is_email( self::application_email( $post ) );
+
+		if ( $send ) {
+			$sent = WPCPM_Institution_Application::acknowledge_again( (int) $post->ID );
+
+			if ( 'sent' !== $sent ) {
+				$this->redirect_back( 'ceiling' === $sent ? 'app-mail-ceiling' : 'app-ack-not-sent' );
+			}
+		}
+
+		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_NEW );
+		self::record_event( (int) $post->ID, $send ? self::EVENT_REOPENED_ACKNOWLEDGED : self::EVENT_REOPENED, '' );
+
+		$this->redirect_back( $send ? 'app-reopened-sent' : 'app-reopened' );
+	}
+
+	/**
+	 * Send the confirmation link again: the acknowledgement, with the link that confirms the
+	 * address, to an open application whose address is not confirmed yet.
+	 *
+	 * Approve refuses until the address is confirmed, and only that link confirms it. Until
+	 * 1.123.26 nothing sent it a second time, so a row past the day's limit on acknowledgements,
+	 * a spam-filed row put back and an applicant who could not find the email were stuck for good. The
+	 * email is the form's own, through its own sender, and carries the same link as the first:
+	 * see `WPCPM_Institution_Application::acknowledge_again()` for why the first keeps working.
+	 *
+	 * Capability and the nonce keyed to the application first, then the state: an open
+	 * application only, since a decided one is not waiting on its applicant, and an unconfirmed
+	 * address only, since a confirmed one has nothing left to follow. The send counts against
+	 * the day's limit on acknowledgements as the form's does, and is refused past it with the
+	 * notice saying so. The application stays where it is; its history records the send and who
+	 * pressed.
+	 */
+	public function handle_resend_link() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_RESEND_LINK . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		if ( self::address_confirmed( $post ) ) {
+			$this->redirect_back( 'app-link-confirmed' );
+		}
+
+		if ( ! is_email( self::application_email( $post ) ) ) {
+			$this->redirect_back( 'app-link-no-email' );
+		}
+
+		$sent = WPCPM_Institution_Application::acknowledge_again( (int) $post->ID );
+
+		if ( 'sent' !== $sent ) {
+			$this->redirect_back( 'ceiling' === $sent ? 'app-mail-ceiling' : 'app-ack-not-sent' );
+		}
+
+		self::record_event( (int) $post->ID, self::EVENT_LINK_SENT, '' );
+
+		$this->redirect_back( 'app-link-sent' );
 	}
 
 	/**
@@ -1430,7 +1543,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Tell the program managers something.
 	 *
 	 * The one mechanism for every queue event: recipients are the setting named by
-	 * `$setting_key` (`agreement_notify` for the agreement queue, `report_notify` for the
+	 * `$setting_key` (`agreement_notify`, labelled Who is emailed about institutions since
+	 * 1.123.26, for every institution email that names no other: a new application, an upload,
+	 * the reminder, the template notice and a last member leaving; `report_notify` for the
 	 * semester report job) when it names anybody, otherwise every account holding the
 	 * management capability that has an address. Program managers here are WordPress
 	 * administrators, so the default reaches the technical ones too; the setting narrows it
@@ -1789,6 +1904,93 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private static function record_event( $post_id, $event, $note ) {
 		WPCPM_Institution_Application::add_event( (int) $post_id, $event, get_current_user_id(), $note );
+	}
+
+	/**
+	 * Whether an approval was begun on this application and left unfinished.
+	 *
+	 * One guarded call to `WPCPM_Institution_Approval::is_half_done()`, which owns the stamp and
+	 * the test, so the three handlers that refuse and the two places that mark it read the one
+	 * answer, as the sponsor applications' `half_done()` reads theirs. Guarded because the queue
+	 * is drawn on the Administrator Dashboard as well, and a card must not fatal because a class
+	 * it only reports on is not loaded.
+	 *
+	 * @param int $application_id The application.
+	 * @return bool
+	 */
+	private static function half_done( $application_id ) {
+		return class_exists( 'WPCPM_Institution_Approval' ) && method_exists( 'WPCPM_Institution_Approval', 'is_half_done' ) && WPCPM_Institution_Approval::is_half_done( (int) $application_id );
+	}
+
+	/**
+	 * The mark a half-done approval carries, wherever the application's decisions are drawn: on the
+	 * Administrator Dashboard's card and on this screen's opened application, and on its row in this
+	 * screen's queue, as the sponsor applications' rows carry theirs. Nothing for one whose approval
+	 * was not begun.
+	 *
+	 * In each page's own form, as the sponsor applications draw theirs: on the card, the note the
+	 * Sponsor applications card prints (`WPCPM_Administrators_Cards`), the one note that says a
+	 * decision below it will be refused; here, the queue's amber mark with its sentence
+	 * (`WPCPM_Sponsor_Application::render_half_done_mark()`). Both in the institution's words: what
+	 * the first press left standing is the Airtable record, and maybe the account.
+	 *
+	 * @param int    $application_id The application.
+	 * @param string $where          WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard,
+	 *                               else ''.
+	 */
+	private static function render_half_done_mark( $application_id, $where ) {
+		if ( ! self::half_done( (int) $application_id ) ) {
+			return;
+		}
+
+		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === (string) $where ) {
+			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) );
+
+			return;
+		}
+
+		printf(
+			'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--half-done" title="%1$s">%2$s</span> %3$s</p>',
+			esc_attr__( 'An earlier press of Approve created the institution\'s Airtable record and then stopped, so the record, and maybe the account, already exist.', 'wpcredits-program-manager' ),
+			esc_html__( 'approval stopped partway', 'wpcredits-program-manager' ),
+			esc_html__( 'Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * Whether the applicant has confirmed the address, which Approve asks before anything else.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return bool
+	 */
+	private static function address_confirmed( WP_Post $post ) {
+		return '' !== trim( (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_VERIFIED, true ) );
+	}
+
+	/**
+	 * Whether the applicant was sent the acknowledgement, with the link that confirms the address.
+	 *
+	 * Every application but one the form's checks filed as spam or one that came past the day's
+	 * limit on acknowledgements (`SIGNALS_UNACKNOWLEDGED`), until one of the queue's two sends
+	 * made up for it, which its history records. The form does not record a hand-off its mail
+	 * server refused, so such an application reads as acknowledged here; its applicant is the
+	 * one Send the confirmation link again is for.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return bool
+	 */
+	private static function acknowledged( WP_Post $post ) {
+		if ( array() === array_intersect( self::SIGNALS_UNACKNOWLEDGED, self::signals( $post ) ) ) {
+			return true;
+		}
+
+		foreach ( (array) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_EVENT, false ) as $row ) {
+			if ( is_array( $row ) && isset( $row['event'] ) && in_array( (string) $row['event'], array( self::EVENT_LINK_SENT, self::EVENT_REOPENED_ACKNOWLEDGED ), true ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -2266,7 +2468,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-info'             => array( 'success', __( 'The question is on its way, with your address to reply to. The application waits in the queue for their answer.', 'wpcredits-program-manager' ) ),
 			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next Administrator can read it.', 'wpcredits-program-manager' ) ),
 			'app-spam'             => array( 'info', __( 'The application is marked as spam. Nothing was sent: the address is forged or is somebody else\'s, and either way a reply is wrong.', 'wpcredits-program-manager' ) ),
+			'app-half-done'        => array( 'error', __( 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.', 'wpcredits-program-manager' ) ),
 			'app-reopened'         => array( 'info', __( 'The application is open again and back in the queue.', 'wpcredits-program-manager' ) ),
+			'app-reopened-sent'    => array( 'info', __( 'The application is open again and back in the queue. It was never acknowledged, so the applicant was sent the acknowledgement now, with the link that confirms the address.', 'wpcredits-program-manager' ) ),
+			'app-link-sent'        => array( 'success', __( 'The confirmation link was sent again.', 'wpcredits-program-manager' ) ),
+			'app-link-confirmed'   => array( 'info', __( 'Nothing was sent. The applicant has already confirmed the address, so the application can be approved.', 'wpcredits-program-manager' ) ),
+			'app-link-no-email'    => array( 'error', __( 'Nothing was sent. This application carries no usable address, so there is nowhere to send the link.', 'wpcredits-program-manager' ) ),
+			'app-mail-ceiling'     => array(
+				'error',
+				sprintf(
+					/* translators: %s: how many acknowledgements the application form sends in a day. */
+					__( 'Nothing was sent and nothing moved. This site has already sent the %s acknowledgements it sends in a day, the limit that keeps the application form from being used to send mail to strangers. Try again tomorrow.', 'wpcredits-program-manager' ),
+					number_format_i18n( WPCPM_Institution_Application::MAIL_PER_DAY )
+				),
+			),
+			'app-ack-not-sent'     => array( 'error', __( 'Nothing was sent and nothing moved. This site could not hand the acknowledgement to its mail server, so the application is exactly where it was. Try again, and look at the recent mail on the settings screen if it keeps failing.', 'wpcredits-program-manager' ) ),
 			'app-purged'           => array( 'success', __( 'The application is deleted. The log keeps its reference and the date, and nothing else.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -2389,9 +2605,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'provision-none'    => array( 'info', __( 'There was nothing to create.', 'wpcredits-program-manager' ) ),
 		);
 
-		// The on-file route's outcomes, named once in the class that draws its form: the same form
-		// appears on this screen and on the institution's own agreement panel, and it lands
-		// wherever it was pressed. Without this the outcome is taken from the channel and dropped.
+		// The agreement routes' outcomes, named once in the class that draws their forms: the upload
+		// and the withdrawal made from an institution's Manage members view land on this screen, and
+		// an on-file press with no referer lands on its own address. Without this the outcome is
+		// taken from the channel and dropped.
 		if ( class_exists( 'WPCPM_Institution_Panel' ) && method_exists( 'WPCPM_Institution_Panel', 'messages' ) ) {
 			$messages = array_merge( $messages, (array) WPCPM_Institution_Panel::messages() );
 		}
@@ -2588,9 +2805,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The Agreements tab: the Confirmed institutions with no agreement recorded and the form that
-	 * records them on file, then the agreements the site and Airtable disagree about, then the
-	 * template and the versions signed against it.
+	 * The Agreements tab: the Confirmed institutions with no agreement recorded, each linked to where
+	 * its one agreement is recorded, then the agreements the site and Airtable disagree about, then
+	 * the template and the versions signed against it. The tab offers no press of its own since
+	 * 1.123.26, when the form that recorded every Confirmed institution at once was retired.
 	 */
 	private function render_tab_agreements() {
 		$index = WPCPM_Institutions_Index::read();
@@ -2949,6 +3167,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		if ( 'application' === $row['kind'] ) {
+			// Before the way to open it: the list is where an Administrator meets it first.
+			self::render_half_done_mark( (int) $row['id'], '' );
+
 			printf(
 				'<p><a class="button" href="%1$s">%2$s</a> <span class="wpcpm-inst-muted">%3$s</span></p>',
 				esc_url( add_query_arg( self::ARG_APPLICATION, (int) $row['id'], $this->admin_url() ) ),
@@ -3230,7 +3451,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 			if ( in_array( 'mail-ceiling', $signals, true ) ) {
 				// The one exception, and the only case where nobody wrote to them.
-				echo '<p>' . esc_html__( 'Except this one: the day\'s limit on acknowledgements had been reached when it arrived, so no message was sent and the address is unconfirmed. Ask them for it by hand before approving.', 'wpcredits-program-manager' ) . '</p>';
+				echo '<p>' . esc_html__( 'Except this one: the day\'s limit on acknowledgements had been reached when it arrived, so no message was sent and the address is unconfirmed. Send the confirmation link again before approving.', 'wpcredits-program-manager' ) . '</p>';
 			}
 		}
 
@@ -3535,6 +3756,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
 
+		self::render_half_done_mark( (int) $post->ID, (string) $return );
+
 		if ( in_array( $state, self::open_states(), true ) ) {
 			$this->render_open_decisions( $post, $name, (string) $return );
 		}
@@ -3580,6 +3803,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private function render_application_here( WP_Post $post, $state, $name ) {
 		echo '<h3>' . esc_html__( 'Where it is decided', 'wpcredits-program-manager' ) . '</h3>';
+
+		self::render_half_done_mark( (int) $post->ID, '' );
 
 		if ( WPCPM_Institution_Application::STATE_APPROVED === $state ) {
 			echo '<p>' . esc_html__( 'It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here.', 'wpcredits-program-manager' ) . '</p>';
@@ -3654,7 +3879,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * The four decisions on an open application, Approve, Send this question, Reject and Reject as
-	 * spam, drawn alike on both pages: on the Administrator Dashboard for every open application its
+	 * spam, with Send the confirmation link again before them while the address is unconfirmed,
+	 * drawn alike on both pages: on the Administrator Dashboard for every open application its
 	 * applications card lists, and here for one past that card's window (`render_application_here()`).
 	 *
 	 * @param WP_Post $post  The application.
@@ -3663,6 +3889,24 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private function render_open_decisions( WP_Post $post, $name, $where ) {
 		$email = self::application_email( $post );
+
+		// First, since Approve waits on the link it carries: offered while the address is
+		// unconfirmed and there is an address to send it to (1.123.26).
+		if ( ! self::address_confirmed( $post ) && is_email( $email ) ) {
+			$this->render_decision_form(
+				$post,
+				array(
+					'return'  => (string) $where,
+					'action'  => self::ACTION_RESEND_LINK,
+					'label'   => __( 'Send the confirmation link again', 'wpcredits-program-manager' ),
+					'confirm' => sprintf(
+						/* translators: %s: the contact email address on the application. */
+						__( 'Email the acknowledgement to %s again, with the link that confirms the address?', 'wpcredits-program-manager' ),
+						$email
+					),
+				)
+			);
+		}
 
 		// The one address the decisions print, and design spec 7.3 asks for it by name:
 		// the next thing that happens is a password-set link being mailed, and "to the
@@ -4152,16 +4396,24 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Agreements on file: the Confirmed institutions with no agreement recorded, and the form that
-	 * records them all as signed.
+	 * Agreements on file: the Confirmed institutions with no agreement recorded, each linked to the
+	 * place its one agreement is recorded.
 	 *
-	 * Listed by the rule the form's handler records by (`handle_on_file_all()`): every Confirmed
-	 * record whose agreement is not settled (`is_settled()`, the option the policy's gate reads), so
-	 * the list above the button is what pressing it records, and the count in the button is the
-	 * list's. One option read per Confirmed record and no membership query: the No account view's
-	 * reasons answer a narrower question, whether an account may be made, at up to two queries a
-	 * record, and are asked on the Accounts tab alone. The stages are the index's, so the card says
+	 * Every Confirmed record whose agreement is not settled (`is_settled()`, the option the policy's
+	 * gate reads). One option read per Confirmed record and no membership query: the No account
+	 * view's reasons answer a narrower question, whether an account may be made, at up to two queries
+	 * a record, and are asked on the Accounts tab alone. The stages are the index's, so the card says
 	 * when the index was read, as every card that reads it does.
+	 *
+	 * **It records nothing itself.** Until 1.123.26 a form under the list marked every one of them
+	 * signed in one press, with one Drive link and no date guard: the day-one migration's tool, from
+	 * when every Confirmed institution had signed on paper before this site existed. That stopped
+	 * being true the day the first application was approved here, and a press would have recorded as
+	 * signed an institution that has signed nothing. Each name now opens that institution's
+	 * Institution Dashboard at its Collaboration Agreement panel, where an Administrator records one
+	 * agreement with the copy the program holds for it ("Record an agreement the program already
+	 * holds", `WPCPM_Institution_Panel::render_on_file_form()`). With the page missing there is
+	 * nowhere to send the reader, and the names are printed plain.
 	 *
 	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
 	 */
@@ -4181,18 +4433,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Agreements on file', 'wpcredits-program-manager' ) . '</h2>';
 
-		if ( empty( $missing ) ) {
-			$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
+		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
+		if ( empty( $missing ) ) {
 			echo '<p>' . esc_html__( 'No Confirmed institution is waiting for its agreement to be recorded.', 'wpcredits-program-manager' ) . '</p>';
 			echo '</div>';
 
 			return;
 		}
-
-		echo '<p class="description">' . esc_html__( 'Every Confirmed institution signed a Collaboration Agreement before this site could record one. Record them all as signed with the one link they share, the folder where the signed copies are kept. Each institution gets its own recorded agreement, its own line in the audit log and its own Airtable cells, and its account can then be created.', 'wpcredits-program-manager' ) . '</p>';
-
-		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
 		printf(
 			'<p>%s</p>',
@@ -4205,73 +4453,33 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			)
 		);
 
+		$page = (string) $this->dashboard_url();
+
 		echo '<ul class="wpcpm-notices wpcpm-inst-unrecorded">';
 
 		foreach ( $missing as $record_id ) {
+			$name = esc_html( self::institution_name( $record_id ) );
+
+			if ( '' !== $page ) {
+				$name = sprintf(
+					'<a href="%1$s">%2$s</a>',
+					esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record_id, $page ) . '#' . WPCPM_Institution_Panel::ANCHOR ),
+					$name
+				);
+			}
+
 			printf(
 				'<li>%1$s <code class="wpcpm-inst-record">%2$s</code></li>',
-				esc_html( self::institution_name( $record_id ) ),
+				$name, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above: the name, and the link around it.
 				esc_html( $record_id )
 			);
 		}
 
 		echo '</ul>';
 
-		$this->render_on_file_all_form( count( $missing ) );
+		echo '<p class="description">' . esc_html__( 'Record each one from its own page, with the signed copy the program holds.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '</div>';
-	}
-
-	/**
-	 * The bulk on-file form: every Confirmed institution with nothing recorded, one link.
-	 *
-	 * Every institution at Confirmed signed an agreement before this site could generate or
-	 * upload one, so recording them one at a time is a chore that holds a Create account on the
-	 * ticked institutions shut for everybody until the last is done. This is the on-file route
-	 * applied to all of them at once, with the one link they share: the program's folder of
-	 * signed agreements. Each still gets its own recorded agreement, its own audit row and its own
-	 * Airtable cells, which is what makes it a recording and not a fiat.
-	 *
-	 * Drawn by the Agreements on file card, under the list of what it records, and the card says
-	 * what the form does above that list. The handler goes back to the page the press was made on,
-	 * whose address names the Agreements tab; the form names its tab as well (`tab_field()`), as the
-	 * Sync and storage tab's forms (the sync, its cancel and the probe) and the invitations card's
-	 * button do. Link, the forms on the members view, and the invitations card's Stop and Dismiss,
-	 * the mail layer's own, name no tab and come back by their handlers' own landings or by the
-	 * referer. Put back in the queue and Delete for good, and the four decisions on an open
-	 * application past the Administrator Dashboard card's window, name none and come back to the
-	 * queue, the screen's own address.
-	 *
-	 * @param int $count How many institutions it would record.
-	 */
-	private function render_on_file_all_form( $count ) {
-		echo '<form class="wpcpm-on-file-all" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL ) );
-		$this->tab_field( 'agreements' );
-
-		printf(
-			'<p><label for="wpcpm-on-file-all-drive">%1$s</label> <input type="url" class="regular-text" id="wpcpm-on-file-all-drive" name="wpcpm_agreement_drive" required placeholder="%2$s" /></p>',
-			esc_html__( 'Drive link to the signed agreements', 'wpcredits-program-manager' ),
-			esc_attr__( 'https://drive.google.com/...', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<p><label for="wpcpm-on-file-all-where">%1$s</label> <input type="text" class="regular-text" id="wpcpm-on-file-all-where" name="wpcpm_agreement_where" maxlength="%2$d" placeholder="%3$s" /></p>',
-			esc_html__( 'Where the paper is, in a few words (optional)', 'wpcredits-program-manager' ),
-			(int) WPCPM_Institution_Agreement::MAX_LOCATION,
-			esc_attr__( 'Signed PDFs in the program Drive, one per institution', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<p><button type="submit" class="button button-secondary">%s</button></p>',
-			esc_html(
-				sprintf(
-					/* translators: %s: number of institutions. */
-					_n( 'Record %s institution as signed', 'Record all %s institutions as signed', (int) $count, 'wpcredits-program-manager' ),
-					number_format_i18n( (int) $count )
-				)
-			)
-		);
-		echo '</form>';
 	}
 
 	/**

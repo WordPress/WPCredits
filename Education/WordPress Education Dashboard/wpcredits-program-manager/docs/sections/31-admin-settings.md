@@ -162,8 +162,10 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
 - **Applications from mentors** - **Take mentor applications through the form on this site**. Off
   by default, since it is a public page anybody can post to; its address is under the switch. Every
   application is stored for an Administrator to decide on the Mentors screen's **Waiting for
-  review** tab, and the form writes nothing to Airtable; while this is off, the page shows the
-  public nothing, and an Administrator who opens it one sentence saying why. As with the other two
+  review** tab, and the form writes nothing to Airtable; while this is off, the page shows one
+  sentence saying applications are closed, and an Administrator who opens it a second saying why
+  (until 1.123.26 the public were shown nothing here, and on the institution and sponsor forms
+  too, whatever their rows said). As with the other two
   forms, its consent box links to the WordPress.org privacy policy, not to this site's own privacy
   page (since 1.123.24), and the row's fold says so.
 - **Make mentors from applications** (since 1.122.33) - **Make a mentor of each selected applicant
@@ -231,14 +233,20 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 #### Collaboration Agreements
 
-- **Agreement review** - how many days, from 1 to 60 and 3 by default, a signed agreement may wait
-  before the queue marks it overdue and the nightly digest names it.
-- **Who reviews agreements** - who is told when an agreement arrives and sent the overdue digest: a
-  box for each Administrator, under **Administrators**, and an **Other addresses** line for
-  anybody else, separated by commas. With none, every Administrator is written to. That includes
-  every account with the WordPress Administrator role, technical ones too, so set it before the
-  first real upload. Where no Administrator account with an email address can be listed, the
-  addresses are typed, separated by commas.
+- **Agreement review** - how many days, from 1 to 60 and 3 by default, a signed agreement or an
+  institution's application may wait before the queue marks it overdue, and an agreement before
+  the nightly reminder names it.
+- **Who is emailed about institutions** (called **Who reviews agreements** until 1.123.26, the
+  same setting) - who gets every email about institutions an Administrator is sent: a new
+  application from an institution, a signed agreement uploaded for review, the nightly reminder of
+  agreements waiting past the review days, the notice that the agreement template cannot be used,
+  and an institution's last member leaving. A box for each Administrator, under
+  **Administrators**, and an **Other addresses** line for anybody else, separated by commas. With
+  nobody named, every Administrator account gets them, and a notice under the field says so:
+  "Nobody is named, so every Administrator account gets these emails." That means every account
+  with the WordPress Administrator role, technical ones too, so name somebody. Where no
+  Administrator account with an email address can be listed, the addresses are typed, separated by
+  commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept
   on this site rather than in the code, because the document is editable by anyone holding its link

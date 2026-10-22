@@ -178,7 +178,7 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) {
 	// The journal records only the agreement option, which is the third of the three writes
 	// the on-file route makes; the lock is an add_option() and is not one of them.
-	if ( 0 === strpos( (string) $k, 'wpcpm_agreement_' ) && 0 !== strpos( (string) $k, 'wpcpm_agreement_lock_' ) && 'wpcpm_agreement_on_file_all' !== (string) $k ) {
+	if ( 0 === strpos( (string) $k, 'wpcpm_agreement_' ) && 0 !== strpos( (string) $k, 'wpcpm_agreement_lock_' ) ) {
 		$GLOBALS['journal'][] = 'option';
 	}
 	$GLOBALS['opts'][ $k ]          = $v;
@@ -720,32 +720,6 @@ function on_file( $record, $drive, $signed = '', $where = '' ) {
 }
 
 /**
- * Post the bulk on-file form and report how it ended, the way `on_file()` does.
- *
- * @param string $drive What was typed as the link.
- * @param string $where The optional location note.
- * @return string
- */
-function on_file_all( $drive, $where = '' ) {
-	$_POST = array(
-		'wpcpm_agreement_drive' => $drive,
-		'wpcpm_agreement_where' => $where,
-	);
-
-	$GLOBALS['journal'] = array();
-	$GLOBALS['audit']   = array();
-	$GLOBALS['patched'] = array();
-	$GLOBALS['nonces']  = array();
-
-	try {
-		WPCPM_Institution_Agreement::handle_on_file_all();
-		return 'returned';
-	} catch ( Exception $e ) {
-		return $e->getMessage();
-	}
-}
-
-/**
  * The outcome slug waiting for the acting user, read from the meta the flash writes.
  *
  * Read rather than taken: `WPCPM_Flash::take()` memoizes per request, which is right for a
@@ -1203,87 +1177,40 @@ $GLOBALS['post_fails'] = false;
 
 echo "\n=== The source itself ===\n";
 
-/* ---- the bulk form of the same route ------------------------------------- */
+/* ---- the bulk form, retired ---------------------------------------------- */
 
-echo "\n=== Recording every Confirmed institution as signed, with one link ===\n";
+echo "\n=== Every Confirmed institution recorded as signed in one press: retired in 1.123.26 ===\n";
 
-// Three Confirmed institutions in the index: two with nothing recorded, one already settled
-// through the single route. The bulk form must record the two, leave the one, and write for
-// each of the two exactly what the single route writes.
-$bulk_a = 'recBULK0000000001';
-$bulk_b = 'recBULK0000000002';
-$bulk_c = 'recBULK0000000003';
+// Until 1.123.26 the Institutions screen's Agreements tab carried a form that recorded every
+// Confirmed institution with nothing recorded as signed, with one Drive link and no date guard. It
+// was the day-one migration's tool; left live, it would record as signed an institution confirmed
+// last week that has signed nothing. Each agreement is now recorded on its own institution's page,
+// through the single route above, and nothing of the bulk route is left to reach.
+$agr_src_now   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
+$panel_src_now = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' );
 
-reset_world();
-$rows = array();
-foreach ( array( $bulk_a => 'Universidad Alpha', $bulk_b => 'Universidad Beta', $bulk_c => 'Universidad Gamma' ) as $id => $name ) {
-	$row                  = WPCPM_Institutions_Index::empty_row();
-	$row['record_id']     = $id;
-	$row['name']          = $name;
-	$row['stage']         = 'Confirmed';
-	$row['contact_email'] = 'contact@example.edu';
-	$rows[ $id ]          = $row;
-}
-WPCPM_Institutions_Index::write( $rows, 1756600000 );
-$GLOBALS['uid'] = 9;
-
-ck( 'the third is settled first, through the single route', array( on_file( $bulk_c, $drive ), flashed() ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-on-file' ) );
-ck( 'so two of the three have nothing recorded', array( WPCPM_Institution_Agreement::is_settled( $bulk_a ), WPCPM_Institution_Agreement::is_settled( $bulk_b ), WPCPM_Institution_Agreement::is_settled( $bulk_c ) ), array( false, false, true ) );
-
-$GLOBALS['caps'] = false;
-ck( 'without the capability the bulk form is refused before anything is read', substr( on_file_all( $drive ), 0, 7 ), 'wp_die:' );
-$GLOBALS['caps'] = true;
-
-ck( 'a link that is not a Drive link is refused by name, and nothing is patched', array( on_file_all( 'https://example.com/agreements' ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-link', 0 ) );
-
-$ended = on_file_all( $drive, 'Signed PDFs in the program Drive' );
-ck( 'with a Drive link the run completes and says so', array( $ended, flashed() ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-on-file-all' ) );
-ck( 'it patched the base once per institution with nothing recorded, and not for the settled one',
-	array_map( function ( $call ) { return $call[1][0]['id']; }, $GLOBALS['patched'] ),
-	array( $bulk_a, $bulk_b ) );
-ck( 'each patch carries the on-file status, the legacy kind and the link',
-	array_unique( array_map( function ( $call ) use ( $drive ) {
-		$cells = $call[1][0]['fields'];
-		return in_array( WPCPM_Institution_Agreement::AIRTABLE_ON_FILE, $cells, true ) && in_array( WPCPM_Institution_Agreement::AIRTABLE_KIND_LEGACY, $cells, true ) && in_array( $drive, $cells, true );
-	}, $GLOBALS['patched'] ) ),
-	array( true ) );
-ck( 'and wrote one audit row per institution, on the manager ground, of the on-file kind',
-	array_map( function ( $row ) { return array( $row['kind'], $row['institution'], $row['ground'] ); }, $GLOBALS['audit'] ),
-	array( array( 'agreement_on_file', $bulk_a, 'manager' ), array( 'agreement_on_file', $bulk_b, 'manager' ) ) );
-ck( 'both are settled afterwards, and the third is as it was', array( WPCPM_Institution_Agreement::is_settled( $bulk_a ), WPCPM_Institution_Agreement::is_settled( $bulk_b ), WPCPM_Institution_Agreement::is_settled( $bulk_c ) ), array( true, true, true ) );
-$tally = WPCPM_Institution_Agreement::last_on_file_all();
-ck( 'the tally says two recorded, none skipped, none failed, none left', array( $tally['recorded'], $tally['skipped'], $tally['failed'], $tally['left'], $tally['actor'] ), array( 2, 0, array(), 0, 9 ) );
-ck( 'and the tally is stored without autoload', $GLOBALS['opts_autoload'][ WPCPM_Institution_Agreement::OPT_ON_FILE_ALL ] ?? 'unset', false );
-ck( 'the outcome message reads the tally back', false !== strpos( WPCPM_Institution_Panel::on_file_all_summary(), '2 institutions recorded as signed' ), true );
-
-ck( 'pressed again with nothing left to record, it says so and patches nothing', array( on_file_all( $drive ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-all-none', 0 ) );
-
-// Where a press of the bulk form lands, as the Institutions screen's Agreements tab posts it, its tab
-// field among its fields: by the referer, which names the tab; and with no referer, on the screen's
-// own address, which opens the queue, since the handler lands by the referer alone and does not read
-// the tab field.
-$landings = array();
-foreach ( array( 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=agreements', '' ) as $came_from ) {
-	$GLOBALS['referer'] = $came_from;
-	$_POST              = array(
-		'wpcpm_agreement_drive' => $drive,
-		'wpcpm_agreement_where' => '',
-		'wpcpm_tab'             => 'agreements',
-	);
-
-	try {
-		WPCPM_Institution_Agreement::handle_on_file_all();
-		$landings[] = 'returned';
-	} catch ( Exception $e ) {
-		$landings[] = $e->getMessage();
-	}
-}
-$_POST              = array();
-$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
-
-ck( 'pressed from the Agreements tab it comes back there, by the referer; with no referer it comes back to the screen\'s own address, the queue, the form\'s tab field unread',
-	$landings,
-	array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=agreements', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions' ) );
+ck( 'the handler, its action, its option and its time budget are gone', array(
+	method_exists( 'WPCPM_Institution_Agreement', 'handle_on_file_all' ),
+	method_exists( 'WPCPM_Institution_Agreement', 'last_on_file_all' ),
+	defined( 'WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL' ),
+	defined( 'WPCPM_Institution_Agreement::OPT_ON_FILE_ALL' ),
+	defined( 'WPCPM_Institution_Agreement::ON_FILE_ALL_BUDGET' ),
+), array( false, false, false, false, false ) );
+ck( 'no hook names the bulk action, and nothing posts to it', array(
+	substr_count( $agr_src_now, 'on_file_all' ),
+	substr_count( $agr_src_now, 'ON_FILE_ALL' ),
+), array( 0, 0 ) );
+ck( 'the outcomes only the bulk route left are gone from the panel\'s words, and its summary with them', array(
+	array_key_exists( 'agreement-on-file-all', WPCPM_Institution_Panel::messages() ),
+	array_key_exists( 'agreement-all-none', WPCPM_Institution_Panel::messages() ),
+	method_exists( 'WPCPM_Institution_Panel', 'on_file_all_summary' ),
+	substr_count( $panel_src_now, 'on_file_all' ),
+), array( false, false, false, 0 ) );
+ck( 'and the single route stays, with its words', array(
+	method_exists( 'WPCPM_Institution_Agreement', 'handle_on_file' ),
+	array_key_exists( 'agreement-on-file', WPCPM_Institution_Panel::messages() ),
+	false !== strpos( $panel_src_now, "'Record an agreement the program already holds'" ),
+), array( true, true, true ) );
 
 $panel_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' );
 $agr_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
@@ -1331,16 +1258,15 @@ function method_body( $src, $name ) {
 	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
 }
 
-// The single route reads its form in one method and writes in another, and the bulk route
-// reads two fields of its own: the counts are per method, so a reader added to the wrong one
-// is a failing assertion rather than a total that still happens to add up.
+// The route reads its form in one method and writes in another: the counts are per method, so a
+// reader added to the wrong one is a failing assertion rather than a total that still happens to
+// add up.
 $single = method_body( $agr_src, 'handle_on_file' );
-$bulk   = method_body( $agr_src, 'handle_on_file_all' );
 $write  = method_body( $agr_src, 'record_on_file' );
 
-ck( 'the handlers read the form with the posted_* readers, never the query string, and the Drive link as typed',
-    array( substr_count( $single, 'WPCPM_Request::posted_text(' ), substr_count( $bulk, 'WPCPM_Request::posted_text(' ), substr_count( $single, 'WPCPM_Request::posted_verbatim( \'wpcpm_agreement_drive\' )' ), substr_count( $bulk, 'WPCPM_Request::posted_verbatim( \'wpcpm_agreement_drive\' )' ), substr_count( $agr_src, 'WPCPM_Request::text(' ) ),
-    array( 3, 1, 1, 1, 0 ) );
+ck( 'the handler reads the form with the posted_* readers, never the query string, and the Drive link as typed',
+    array( substr_count( $single, 'WPCPM_Request::posted_text(' ), substr_count( $single, 'WPCPM_Request::posted_verbatim( \'wpcpm_agreement_drive\' )' ), substr_count( $agr_src, 'WPCPM_Request::text(' ) ),
+    array( 3, 1, 0 ) );
 ck( 'the write itself reads no form at all', substr_count( $write, 'WPCPM_Request::' ), 0 );
 
 // The order the design spec fixes, read off the source as well as run above: a reader
@@ -1361,14 +1287,13 @@ $sorted = $offsets;
 asort( $sorted );
 
 ck( 'the route reads in the order the design fixes', array_keys( $sorted ), array_keys( $offsets ) );
-ck( 'and the bulk route checks the link before it loops', strpos( $bulk, 'self::is_drive_link(' ) < strpos( $bulk, 'foreach' ), true );
 
 // Three refusals after the lock, plus the release before the rebuild. Counted rather than
 // read, because the one that goes missing is the one nobody notices until an institution
 // cannot be recorded for five minutes.
 ck( 'every exit after the lock gives it back', substr_count( $write, 'self::unlock(' ), 4 );
 ck( 'and the log row is written while the lock is still held', strpos( $write, 'WPCPM_Institution_Audit::record(' ) < strrpos( $write, 'self::unlock(' ), true );
-ck( 'the write never redirects, which is what lets the bulk route loop it', strpos( $write, 'bounce_on_file(' ), false );
+ck( 'the write never redirects: the handler that called it decides where the reader lands', strpos( $write, 'bounce_on_file(' ), false );
 
 
 /* ---- Phase 3: the forms each locked state offers -------------------------- */
@@ -2672,8 +2597,8 @@ ck( 'and the note is kept exactly as typed', get_post_meta( array_key_first( $GL
 echo "\n=== A Drive link keeps every percent octet ===\n";
 
 // A link is a code, not prose: the one-line cleaner removes every "%" followed by two hexadecimal
-// digits, which takes "%20" out of a query and "%C3%B3" out of a name in another alphabet. Both
-// routes read the link as typed, so the base, the post and the log hold the link as it was given.
+// digits, which takes "%20" out of a query and "%C3%B3" out of a name in another alphabet. The
+// route reads the link as typed, so the base, the post and the log hold the link as it was given.
 $octet_links = array(
 	'%20'    => 'https://drive.google.com/drive/folders/1AbC?usp=sharing&q=Collaboration%20Agreement%202026',
 	'%C3%B3' => 'https://drive.google.com/drive/folders/1AbC?q=Colaboraci%C3%B3n',
@@ -2696,28 +2621,6 @@ foreach ( $octet_links as $octet => $link ) {
 			$GLOBALS['audit'][0]['data']['drive'] ?? null,
 		),
 		array( 'redirect: https://example.test/institution-dashboard/', 'agreement-on-file', $link, $link, $link ) );
-
-	reset_world();
-	$rows = array();
-	foreach ( array( $bulk_a => 'Universidad Alpha', $bulk_b => 'Universidad Beta' ) as $id => $name ) {
-		$row                  = WPCPM_Institutions_Index::empty_row();
-		$row['record_id']     = $id;
-		$row['name']          = $name;
-		$row['stage']         = 'Confirmed';
-		$row['contact_email'] = 'contact@example.edu';
-		$rows[ $id ]          = $row;
-	}
-	WPCPM_Institutions_Index::write( $rows, 1756600000 );
-	$GLOBALS['uid'] = 9;
-
-	$ended = on_file_all( $link );
-	ck( 'and the bulk form with ' . $octet . ' writes it to every institution it records, in the base and on each post',
-		array(
-			$ended,
-			array_map( function ( $call ) { return $call[1][0]['fields']['Agreement Document'] ?? null; }, $GLOBALS['patched'] ),
-			array_values( array_map( function ( $post_id ) { return get_post_meta( $post_id, WPCPM_Institution_Agreement::META_DRIVE_URL, true ); }, array_keys( $GLOBALS['posts'] ) ) ),
-		),
-		array( 'redirect: https://example.test/institution-dashboard/', array( $link, $link ), array( $link, $link ) ) );
 }
 
 // The link is stored through core's esc_url_raw(), stood in for here as 7.1.2 writes it

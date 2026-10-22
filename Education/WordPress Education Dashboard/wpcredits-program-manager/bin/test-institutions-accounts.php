@@ -293,25 +293,21 @@ class WPCPM_Institution_Members {
  * Manage members view's upload block asks them: the upload's action, its two kinds, and the summary
  * that says whether a signed copy is already waiting, which one is for an institution a check gives
  * one, with the post type, the institution's key and the two actions the copy's download link and
- * Withdraw form are drawn with. The words for a bulk record on file ask for the last one, of which
- * there is none; the Agreements tab's card draws the bulk form with its action and the longest
- * location note it takes.
+ * Withdraw form are drawn with.
  */
 class WPCPM_Institution_Agreement {
-	const ACTION_UPLOAD      = 'wpcpm_agreement_upload';
-	const ACTION_DOWNLOAD    = 'wpcpm_agreement_download';
-	const ACTION_WITHDRAW    = 'wpcpm_agreement_withdraw';
-	const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
-	const MAX_LOCATION       = 200;
-	const POST_TYPE          = 'wpcpm_agreement';
-	const META_INSTITUTION   = '_wpcpm_agr_institution';
-	const KIND_TEMPLATE      = 'template';
-	const KIND_OWN           = 'own';
+	const ACTION_UPLOAD    = 'wpcpm_agreement_upload';
+	const ACTION_DOWNLOAD  = 'wpcpm_agreement_download';
+	const ACTION_WITHDRAW  = 'wpcpm_agreement_withdraw';
+	const MAX_LOCATION     = 200;
+	const POST_TYPE        = 'wpcpm_agreement';
+	const META_INSTITUTION = '_wpcpm_agr_institution';
+	const KIND_TEMPLATE    = 'template';
+	const KIND_OWN         = 'own';
 	public static function is_settled( $record_id ) { return ! empty( $GLOBALS['settled'][ (string) $record_id ] ); }
 	public static function summary( $record_id ) {
 		return isset( $GLOBALS['pending'][ (string) $record_id ] ) ? array( 'pending_id' => (int) $GLOBALS['pending'][ (string) $record_id ] ) : array();
 	}
-	public static function last_on_file_all() { return null; }
 	public static function init() {}
 }
 
@@ -346,7 +342,9 @@ class WPCPM_Institution_Audit {
 class WPCPM_Ceiling {
 	public static function init() {}
 }
+/** The application form, as far as the queue's words quote it: the day's limit on acknowledgements. */
 class WPCPM_Institution_Application {
+	const MAIL_PER_DAY = 200;
 	public static function init() {}
 }
 class WPCPM_Agreement_Generate {
@@ -1682,23 +1680,24 @@ ck( 'while a Confirmed institution with no member has no agreement recorded, the
 
 // The gate and the Agreements tab's card count two sets of the same site: the gate the Confirmed
 // institutions on the No account view, which have no member, whose agreement is not recorded; the
-// card every Confirmed institution whose agreement is not recorded, members or none, which is what
-// its form records. Alpha, Confirmed with two members and nothing recorded, is in the card's set
-// and not the gate's, so each sentence says which set it counts.
+// card every Confirmed institution whose agreement is not recorded, members or none, each linked to
+// its own page, where its one agreement is recorded. Alpha, Confirmed with two members and nothing
+// recorded, is in the card's set and not the gate's, so each sentence says which set it counts.
 ob_start();
 reach( 'render_agreements_on_file' )->invoke( new WPCPM_Institutions(), WPCPM_Institutions_Index::read() );
 $on_file_card = (string) ob_get_clean();
 
-ck( 'on the same site the gate counts 1, École, on the No account view, and the Agreements on file card counts 2, Alpha with its members beside École, its form recording both',
+ck( 'on the same site the gate counts 1, École, on the No account view, and the Agreements on file card counts 2, Alpha with its members beside École, each opening its own page',
 	array(
 		has( $gated, 'while 1 Confirmed institution on this view has no agreement recorded: École Example Charlie. <a' ),
 		has( $on_file_card, '<p>2 Confirmed institutions have no agreement recorded:</p>' ),
-		has( $on_file_card, '<li>Alpha Example College <code class="wpcpm-inst-record">' . ALPHA . '</code></li>' ),
-		has( $on_file_card, '<li>École Example Charlie <code class="wpcpm-inst-record">' . ECOLE . '</code></li>' ),
+		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . ALPHA . '#wpcpm-agreement">Alpha Example College</a> <code class="wpcpm-inst-record">' . ALPHA . '</code></li>' ),
+		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . ECOLE . '#wpcpm-agreement">École Example Charlie</a> <code class="wpcpm-inst-record">' . ECOLE . '</code></li>' ),
 		substr_count( $on_file_card, '<li>' ),
-		has( $on_file_card, '>Record all 2 institutions as signed</button>' ),
+		has( $on_file_card, '</ul><p class="description">Record each one from its own page, with the signed copy the program holds.</p>' ),
+		has( $on_file_card, '<button' ),
 	),
-	array( true, true, true, true, 2, true ) );
+	array( true, true, true, true, 2, true, false ) );
 ck( 'and lists the two by name, none of them ready, École saying why in the sync\'s words, with no Create account on either and no checkbox to tick',
 	array( record_ids( $gated ), cell( record_row( $gated, ECOLE ), 'account' ), has( $gated, '>Create account</a>' ), substr_count( $gated, 'name="records[]"' ) ),
 	array( array( DELTA, ECOLE ), 'No agreement is recorded for it. Record the one on file with its Drive link, or accept a signed one, before the account is created.', false, 0 ) );

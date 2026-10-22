@@ -42,7 +42,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * agreements that were never uploaded here.
  *
  * Phase 1 shipped the predicate, the summary and the reconcile path; Phase 2 added the on-file
- * route. Phase 3 added the transitions an institution and a reviewer make between them: upload
+ * route, one institution at a time (its bulk form, the day-one migration's, was retired in
+ * 1.123.26). Phase 3 added the transitions an institution and a reviewer make between them: upload
  * (T3, T10), download, withdraw (T4), accept (T5) and return (T6), with the daily discard
  * (T11) and the reminder digest. Phase 4 adds the two that take the account away and give it
  * back: revoke (T8), the one action on this page that removes access, and reinstate (T9),
@@ -189,15 +190,6 @@ class WPCPM_Institution_Agreement {
 
 	/** The audit kind a recording on file writes, in the shape `WPCPM_Institution_Roster::LOG_REFUSED` uses. */
 	const LOG_ON_FILE = 'agreement_on_file';
-
-	/** The bulk form of the on-file route: every Confirmed institution with nothing recorded, one link. */
-	const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
-
-	/** Where the last bulk recording's tally is kept, for the screen to read back. Non-autoloaded. */
-	const OPT_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
-
-	/** Seconds a bulk recording spends before it stops and says how far it got. */
-	const ON_FILE_ALL_BUDGET = 20;
 
 	/** Longest location note the on-file form keeps, in characters. */
 	const MAX_LOCATION = 200;
@@ -351,7 +343,6 @@ class WPCPM_Institution_Agreement {
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
 		add_action( 'admin_post_' . self::ACTION_ON_FILE, array( __CLASS__, 'handle_on_file' ) );
-		add_action( 'admin_post_' . self::ACTION_ON_FILE_ALL, array( __CLASS__, 'handle_on_file_all' ) );
 		add_action( 'admin_post_' . self::ACTION_UPLOAD, array( __CLASS__, 'handle_upload' ) );
 		add_action( 'admin_post_' . self::ACTION_DOWNLOAD, array( __CLASS__, 'handle_download' ) );
 		add_action( 'admin_post_nopriv_' . self::ACTION_DOWNLOAD, array( __CLASS__, 'handle_download' ) );
@@ -887,12 +878,14 @@ class WPCPM_Institution_Agreement {
 	/**
 	 * Record one institution's agreement as on file, and open its account.
 	 *
-	 * The write behind both on-file forms: the single one, which has already read and
-	 * checked its form, and the bulk one, which loops this over every Confirmed institution
-	 * with nothing recorded. Airtable first and refused outright on failure, then the legacy
-	 * post, then the option: an institution opened on the site while the base still says
-	 * otherwise is the shape this design exists to prevent. Answers with the outcome slug the
-	 * caller flashes, and never redirects itself, which is what lets it be looped.
+	 * The write behind the on-file form, which has already read and checked its form. Airtable
+	 * first and refused outright on failure, then the legacy post, then the option: an
+	 * institution opened on the site while the base still says otherwise is the shape this
+	 * design exists to prevent. Answers with the outcome slug the caller flashes, and never
+	 * redirects itself, so the reading and the writing stay two methods a test can read apart.
+	 * Until 1.123.26 a bulk form looped this over every Confirmed institution with nothing
+	 * recorded, with one link and no date guard; it was retired, because an institution
+	 * confirmed after the migration has not signed by being Confirmed.
 	 *
 	 * @param string $record   Institutions record ID, already known to the index.
 	 * @param string $drive    A Drive link, already validated.
@@ -1060,97 +1053,6 @@ class WPCPM_Institution_Agreement {
 		// matter have landed and the next run finishes the job, which is what the manager is
 		// told rather than "done" over a gate that is still closed.
 		return empty( $option ) ? 'agreement-later' : 'agreement-on-file';
-	}
-
-	/**
-	 * Record every Confirmed institution with nothing recorded as signed, with one link.
-	 *
-	 * Every institution the pipeline holds at Confirmed signed a Collaboration Agreement: that
-	 * is what the stage means, and it was true before this site existed to generate or upload
-	 * one. Decision 24 keeps them out of the gate by having a program manager record each as
-	 * on file, and with thirty-eight of them, "each" by hand is the kind of chore that gets
-	 * done for the pilot institution and nobody else, leaving the bulk button shut for
-	 * everyone. So this is that route applied to all of them at once, with one link: the
-	 * program's folder of signed agreements, which is where they actually are.
-	 *
-	 * The same write as the single route, per institution, in the same order, with the same
-	 * lock and the same audit row. Nothing is treated as signed by fiat: each institution gets
-	 * its own recorded agreement, its own row in the log naming who recorded it and on what
-	 * basis, and its own Airtable cells, so the base and the site agree afterwards. An
-	 * institution that fails is named and left for the single route; the run stops after
-	 * ON_FILE_ALL_BUDGET seconds and says how far it got, because a request that times out
-	 * halfway is one that has recorded some and cannot say which.
-	 */
-	public static function handle_on_file_all() {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( self::ACTION_ON_FILE_ALL );
-
-		// Read as typed, as the single route reads it (`handle_on_file()`).
-		$drive = esc_url_raw( WPCPM_Request::posted_verbatim( 'wpcpm_agreement_drive' ) );
-
-		if ( ! self::is_drive_link( $drive ) ) {
-			self::bounce_on_file( 'agreement-link' );
-		}
-
-		$where = trim( mb_substr( WPCPM_Request::posted_text( 'wpcpm_agreement_where' ), 0, self::MAX_LOCATION ) );
-		$tally = array(
-			'recorded' => 0,
-			'skipped'  => 0,
-			'failed'   => array(),
-			'left'     => 0,
-			'at'       => time(),
-			'actor'    => get_current_user_id(),
-		);
-		$began = microtime( true );
-		$todo  = array();
-
-		foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
-			if ( 'Confirmed' !== trim( (string) $row['stage'] ) || self::is_settled( $record_id ) ) {
-				continue;
-			}
-
-			$todo[] = $record_id;
-		}
-
-		if ( empty( $todo ) ) {
-			self::bounce_on_file( 'agreement-all-none' );
-		}
-
-		foreach ( $todo as $i => $record_id ) {
-			if ( microtime( true ) - $began > self::ON_FILE_ALL_BUDGET ) {
-				$tally['left'] = count( $todo ) - $i;
-				break;
-			}
-
-			// Decided per institution, on the manager ground, because that is what each audit
-			// row records: a bulk action is thirty-eight decisions, not one.
-			$decision = WPCPM_Institution_Policy::decide(
-				WPCPM_Institution_Policy::ACT_AGREEMENT,
-				WPCPM_Institution_Policy::subject_institution( $record_id )
-			);
-
-			if ( empty( $decision['allowed'] ) ) {
-				$tally['failed'][ $record_id ] = 'refused';
-				continue;
-			}
-
-			$outcome = self::record_on_file( $record_id, $drive, '', $where, $decision );
-
-			if ( 'agreement-on-file' === $outcome || 'agreement-later' === $outcome ) {
-				++$tally['recorded'];
-			} elseif ( 'agreement-standing' === $outcome ) {
-				++$tally['skipped'];
-			} else {
-				$tally['failed'][ $record_id ] = $outcome;
-			}
-		}
-
-		update_option( self::OPT_ON_FILE_ALL, $tally, false );
-
-		self::bounce_on_file( 'agreement-on-file-all' );
 	}
 
 	/**
@@ -2485,17 +2387,6 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
-	 * The last bulk recording's tally, for the screen.
-	 *
-	 * @return array|null
-	 */
-	public static function last_on_file_all() {
-		$tally = get_option( self::OPT_ON_FILE_ALL, null );
-
-		return is_array( $tally ) ? $tally : null;
-	}
-
-	/**
 	 * Mail the site owner an inventory of the signed files an uninstall leaves behind.
 	 *
 	 * Design spec 7.11: uninstall keeps the encrypted signed agreements and the key that
@@ -2971,12 +2862,12 @@ class WPCPM_Institution_Agreement {
 	/**
 	 * Return from the on-file handler with a one-shot outcome, and stop.
 	 *
-	 * The on-file forms are drawn in two places, the one for an institution on the Institution
-	 * Dashboard's agreement panel and the one for every Confirmed institution on the Institutions
-	 * screen's Agreements tab, so the destination is where the request came from rather than one
-	 * fixed screen; `wp_safe_redirect()` keeps that to this site, and a request with no referer
-	 * lands on the Institutions screen's own address. The words for each outcome live in
-	 * `WPCPM_Institution_Panel::messages()`, once, because both screens print them.
+	 * The on-file form is drawn on the Institution Dashboard's agreement panel, for an
+	 * Administrator viewing the institution, so the destination is where the request came from
+	 * rather than one fixed screen; `wp_safe_redirect()` keeps that to this site, and a request
+	 * with no referer lands on the Institutions screen's own address. The words for each outcome
+	 * live in `WPCPM_Institution_Panel::messages()`, once, which the Institutions screen prints
+	 * too, for the upload and the withdrawal made from its Manage members view.
 	 *
 	 * @param string $status Outcome slug.
 	 */

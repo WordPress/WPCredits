@@ -63,8 +63,9 @@ final class WPCPM_Settings_Rows {
 	 *                                     chosen from a list (`select_row()`); may contain <code> tags.
 	 * @param string          $placeholder Optional example of what to type.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
+	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
 	 */
-	public static function text_row( $name, $label, $value, $description = '', $type = 'text', $fallback = '', $placeholder = '', $details = '' ) {
+	public static function text_row( $name, $label, $value, $description = '', $type = 'text', $fallback = '', $placeholder = '', $details = '', $warning = '' ) {
 		printf(
 			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="%3$s" id="wpcpm-%1$s" name="%1$s" value="%4$s" class="regular-text"%5$s autocomplete="off" />',
 			esc_attr( $name ),
@@ -74,7 +75,7 @@ final class WPCPM_Settings_Rows {
 			'' === (string) $placeholder ? '' : ' placeholder="' . esc_attr( $placeholder ) . '"'
 		);
 
-		self::row_notes( $description, $fallback );
+		self::row_notes( $description, $fallback, $warning );
 		self::close_row( $label, $details );
 	}
 
@@ -191,12 +192,13 @@ final class WPCPM_Settings_Rows {
 	 * @param array           $notes       Optional note for a group of boxes: the group's label => the
 	 *                                     note, drawn once under the group's name, for the locked boxes
 	 *                                     in it that have no note of their own.
+	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
 	 */
-	public static function checklist_row( $name, $label, array $ticked, array $choices, $description = '', array $locked = array(), $fallback = '', array $other = array(), $details = '', array $notes = array() ) {
+	public static function checklist_row( $name, $label, array $ticked, array $choices, $description = '', array $locked = array(), $fallback = '', array $other = array(), $details = '', array $notes = array(), $warning = '' ) {
 		$ticked = array_values( array_map( 'strval', $ticked ) );
 
 		if ( array() === $choices ) {
-			self::textarea_row( $name, $label, $ticked, $description, $fallback, $details );
+			self::textarea_row( $name, $label, $ticked, $description, $fallback, $details, $warning );
 
 			return;
 		}
@@ -221,7 +223,7 @@ final class WPCPM_Settings_Rows {
 
 		echo '</fieldset>';
 
-		self::row_notes( $description );
+		self::row_notes( $description, '', $warning );
 		self::close_row( $label, $details );
 	}
 
@@ -236,19 +238,26 @@ final class WPCPM_Settings_Rows {
 	 * list, since no account holding the capability has an address, the row is the text input it
 	 * replaced, with the same name and value, and the sentence saying why.
 	 *
+	 * While the list names nobody, `$nobody` is said under the help as a warning, for a list whose
+	 * emptiness means more than silence: the institution emails' (`agreement_notify`) goes to every
+	 * Administrator account then (1.123.26). Empty is what `WPCPM_Institutions::notify_managers()`
+	 * reads as empty, the value trimmed to nothing.
+	 *
 	 * @param string          $name        Field name.
 	 * @param string          $label       Field label.
 	 * @param string          $value       The addresses saved, comma-separated.
 	 * @param string          $description Optional help text, one sentence; may contain <code> tags.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
+	 * @param string          $nobody      Optional sentence said, as a warning, while it names nobody.
 	 */
-	public static function reviewers_row( $name, $label, $value, $description = '', $details = '' ) {
+	public static function reviewers_row( $name, $label, $value, $description = '', $details = '', $nobody = '' ) {
 		$value       = (string) $value;
 		$managers    = WPCPM_Settings_Choices::managers();
 		$placeholder = __( 'one@example.org, two@example.org', 'wpcredits-program-manager' );
+		$warning     = '' === trim( $value ) ? (string) $nobody : '';
 
 		if ( array() === $managers ) {
-			self::text_row( $name, $label, $value, $description, 'text', self::typed( 'addresses', WPCPM_Settings_Choices::why_empty( 'managers' ) ), $placeholder, $details );
+			self::text_row( $name, $label, $value, $description, 'text', self::typed( 'addresses', WPCPM_Settings_Choices::why_empty( 'managers' ) ), $placeholder, $details, $warning );
 
 			return;
 		}
@@ -290,7 +299,9 @@ final class WPCPM_Settings_Rows {
 				'value'       => implode( ', ', $others ),
 				'placeholder' => $placeholder,
 			),
-			$details
+			$details,
+			array(),
+			$warning
 		);
 	}
 
@@ -445,8 +456,9 @@ final class WPCPM_Settings_Rows {
 	 * @param string          $fallback    Optional sentence saying why the list is typed; may contain
 	 *                                     <code> tags.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
+	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
 	 */
-	private static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '' ) {
+	private static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '', $warning = '' ) {
 		printf(
 			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><textarea id="wpcpm-%1$s" name="%1$s" rows="%3$d" class="regular-text">%4$s</textarea>',
 			esc_attr( $name ),
@@ -455,23 +467,30 @@ final class WPCPM_Settings_Rows {
 			esc_textarea( implode( "\n", $lines ) )
 		);
 
-		self::row_notes( $description, $fallback );
+		self::row_notes( $description, $fallback, $warning );
 		self::close_row( $label, $details );
 	}
 
 	/**
-	 * A row's help, and the sentence saying why a field is typed rather than chosen, when it is.
+	 * A row's help, the sentence saying why a field is typed rather than chosen, when it is, and a
+	 * warning about what the value saved means, when there is one, in the class the page's missing
+	 * line uses (`page_line()`). Each is its own paragraph, so the help stays one sentence.
 	 *
 	 * @param string $description Help text; may contain <code> tags.
 	 * @param string $fallback    The sentence; may contain <code> tags.
+	 * @param string $warning     The warning, plain text.
 	 */
-	private static function row_notes( $description, $fallback = '' ) {
+	private static function row_notes( $description, $fallback = '', $warning = '' ) {
 		if ( $description ) {
 			printf( '<p class="description">%s</p>', wp_kses( $description, array( 'code' => array() ) ) );
 		}
 
 		if ( $fallback ) {
 			printf( '<p class="description wpcpm-settings__fallback">%s</p>', wp_kses( $fallback, array( 'code' => array() ) ) );
+		}
+
+		if ( '' !== (string) $warning ) {
+			printf( '<p class="description wpcpm-warning">%s</p>', esc_html( (string) $warning ) );
 		}
 	}
 

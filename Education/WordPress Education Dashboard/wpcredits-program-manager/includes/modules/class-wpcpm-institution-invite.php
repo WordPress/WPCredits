@@ -708,7 +708,7 @@ class WPCPM_Institution_Invite {
 	public static function accept_page() {
 		$token = WPCPM_Request::text( self::TOKEN_ARG );
 
-		return self::confirm_document( self::invitation_for( $token ), $token );
+		return self::confirm_document( self::invitation_for( $token, false ), $token );
 	}
 
 	/**
@@ -733,7 +733,7 @@ class WPCPM_Institution_Invite {
 			self::refuse_accept();
 		}
 
-		self::complete_accept( self::invitation_for( $token ) );
+		self::complete_accept( self::invitation_for( $token, true ) );
 	}
 
 	/**
@@ -823,17 +823,21 @@ class WPCPM_Institution_Invite {
 	 * link that draws a page and then refuses under the button has told somebody they were
 	 * invited and then called them a stranger. Whether there is such a row, whether it is
 	 * still pending, whether it is inside its fourteen days, whether its own facts are usable,
-	 * whether the institution is still one this site knows, and whether the visitor is either
-	 * signed out or signed in as the invited address.
+	 * whether the institution is still one this site knows, whether the person who sent it
+	 * still vouches for it, and whether the visitor is either signed out or signed in as the
+	 * invited address.
 	 *
 	 * Every no is answered with the same sentence, by `refuse_accept()`.
 	 *
 	 * **It does not return when it refuses.**
 	 *
-	 * @param string $token The secret, from the link or from the form.
+	 * @param string $token   The secret, from the link or from the form.
+	 * @param bool   $pressed True on the button's POST, the one arm allowed to write: an
+	 *                        invitation whose sender no longer vouches for it is cancelled
+	 *                        there, and only refused on the link's GET.
 	 * @return array `id`, `record`, `email`.
 	 */
-	private static function invitation_for( $token ) {
+	private static function invitation_for( $token, $pressed ) {
 		$post = self::by_token( $token );
 
 		if ( ! $post instanceof WP_Post ) {
@@ -874,6 +878,23 @@ class WPCPM_Institution_Invite {
 			self::refuse_accept();
 		}
 
+		// **And the person who vouched for them.** Since 1.123.26 `detach()` cancels a
+		// member's invitations with the membership, but a link sent before that release by
+		// somebody removed before it is still pending, and a link already in a mailbox is not
+		// recalled by a database write. So the sender is asked again here: still a member of
+		// this institution, or still an account that can manage the program. The button's arm
+		// closes the row as the site's own act, so the card stops listing it as waiting; the
+		// link's arm only refuses, because nothing a GET reaches writes anything (see
+		// `handle_accept()`), and the nightly job expires the row if nobody presses.
+		if ( ! self::sender_vouches( $post_id, $record ) ) {
+			if ( $pressed ) {
+				self::settle( $post_id, self::STATE_CANCELLED );
+				self::log_system_cancel( $post_id, __( 'The invitation was canceled: the member who sent it is no longer one.', 'wpcredits-program-manager' ) );
+			}
+
+			self::refuse_accept();
+		}
+
 		// **Why a signed-in visitor with another address is refused.** Invitations get
 		// forwarded, and the account somebody happens to be signed into is not evidence about
 		// the mailbox the link was sent to. Attaching it would hand a colleague's institution
@@ -888,6 +909,39 @@ class WPCPM_Institution_Invite {
 			'record' => $record,
 			'email'  => $email,
 		);
+	}
+
+	/**
+	 * Whether the account that sent an invitation still vouches for it.
+	 *
+	 * Two accounts may send one, as `handle_invite()`'s policy decides: a member of the
+	 * institution, and an account that can manage the program. Either still standing is a yes.
+	 * Membership is read through `members_of()`, which applies the stamp, the flag and the
+	 * case check in the one place they are defined, rather than by comparing record IDs here.
+	 * An invitation with no sender recorded vouches for nobody.
+	 *
+	 * @param int    $post_id The invitation.
+	 * @param string $record  The institution it names, already checked as well-formed.
+	 * @return bool
+	 */
+	private static function sender_vouches( $post_id, $record ) {
+		$actor = (int) get_post_meta( (int) $post_id, self::META_ACTOR, true );
+
+		if ( $actor <= 0 ) {
+			return false;
+		}
+
+		if ( user_can( $actor, WPCPM_Roles::CAP_MANAGE ) ) {
+			return true;
+		}
+
+		foreach ( WPCPM_Institution_Members::members_of( $record ) as $member ) {
+			if ( (int) $member->ID === $actor ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1125,6 +1179,11 @@ class WPCPM_Institution_Invite {
 	 *
 	 * A resend is a send, so it claims the same daily ceiling as a first one, against the
 	 * member who pressed the button rather than against whoever sent the first message.
+	 *
+	 * An invitation whose sender no longer vouches for it (`sender_vouches()`) is not sent again:
+	 * the new link would be one more way in for somebody nobody now stands behind, and accepting
+	 * it would be refused anyway. It is cancelled as the site's own act, as accepting cancels one,
+	 * before a send of the day is claimed, and the press is told it is no longer waiting.
 	 */
 	public static function handle_resend() {
 		$post_id  = WPCPM_Request::posted_id( 'invite' );
@@ -1132,6 +1191,12 @@ class WPCPM_Institution_Invite {
 		$record   = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
 
 		if ( self::STATE_PENDING !== self::state_of( $post_id ) || self::lapsed( $post_id ) ) {
+			self::finish( 'invite-gone', '', $record );
+		}
+
+		if ( ! self::sender_vouches( $post_id, $record ) ) {
+			self::settle( $post_id, self::STATE_CANCELLED );
+			self::log_system_cancel( $post_id, __( 'The invitation was canceled: the member who sent it is no longer one.', 'wpcredits-program-manager' ) );
 			self::finish( 'invite-gone', '', $record );
 		}
 
@@ -1279,16 +1344,20 @@ class WPCPM_Institution_Invite {
 	}
 
 	/**
-	 * Cancel every invitation one account issued and nobody has answered.
+	 * Cancel every invitation one account issued to one institution and nobody has answered.
 	 *
 	 * A membership that has ended is not a recommendation that outlives it: the person who
 	 * vouched for the invitee is no longer someone this institution's members chose. Called
-	 * by `WPCPM_Institution_Members::detach()`.
+	 * by `WPCPM_Institution_Members::detach()`, with the institution the membership was of:
+	 * only that institution's rows go, since an account promoted to Administrator after it
+	 * was attached may have invited people to other institutions as an Administrator, and
+	 * those invitations still stand on that ground (1.123.26).
 	 *
-	 * @param int $user_id The account whose invitations end with its membership.
+	 * @param int    $user_id   The account whose invitations end with its membership.
+	 * @param string $record_id The institution the membership was of.
 	 * @return int How many were cancelled.
 	 */
-	public static function cancel_by_actor( $user_id ) {
+	public static function cancel_by_actor( $user_id, $record_id ) {
 		$user_id   = absint( $user_id );
 		$cancelled = 0;
 
@@ -1296,10 +1365,8 @@ class WPCPM_Institution_Invite {
 			return 0;
 		}
 
-		foreach ( self::posts_in_state( self::STATE_PENDING ) as $post ) {
-			$post_id = (int) $post->ID;
-
-			if ( (int) get_post_meta( $post_id, self::META_ACTOR, true ) !== $user_id || self::lapsed( $post_id ) ) {
+		foreach ( self::pending_for( $record_id ) as $post_id ) {
+			if ( (int) get_post_meta( $post_id, self::META_ACTOR, true ) !== $user_id ) {
 				continue;
 			}
 

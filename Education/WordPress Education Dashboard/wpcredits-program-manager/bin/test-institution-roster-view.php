@@ -969,6 +969,17 @@ $by_address = render( array( 'wpcpm_roster_search' => 'nia.example@' ), 'recINST
 ck( 'while a manager searching by address does', has( $by_address, 'Nia Example' ), true );
 ck( 'and a member searching by name still finds her', has( render( array( 'wpcpm_roster_search' => 'Nia' ) ), 'Nia Example' ), true );
 
+// The search box's hint says what the search reads, for the reader it reads for (1.123.26). It
+// promised "email" to an institution's member, whose search never reads an address, so a member
+// typing one found nobody and was told nothing. Each hint is written from the same list the search
+// reads, so the two cannot part again.
+ck( 'a member\'s search box lists what a member\'s search reads, with no email in it', has( render( array() ), 'placeholder="Name, WordPress.org username, tutor, field of study"' ), true );
+ck( 'and a manager\'s lists the address too, which theirs reads', has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study"' ), true );
+ck( 'the WordPress.org username and the field of study the hints name are read by the search', array(
+	group_count( render( array( 'wpcpm_roster_search' => 'adaexample' ) ), 'Current' ),
+	group_count( render( array( 'wpcpm_roster_search' => 'Engineering' ) ), 'Current' ),
+), array( 1, 1 ) );
+
 echo "\n=== The filter bar ===\n";
 
 $waiting = render( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_status' => 'waiting' ) );

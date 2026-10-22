@@ -307,6 +307,8 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	class WPCPM_Mail {
 		public static function send_to( $email, $context, $build, $locale = '' ) {
 			if ( ! is_email( $email ) || ! is_callable( $build ) ) { return false; }
+			// A mail server that refuses the hand-off, for the sends that must say so.
+			if ( ! empty( $GLOBALS['mail_fails'] ) ) { return false; }
 			$mail                = (array) call_user_func( $build, $email );
 			$mail['to']          = $email;
 			$mail['context']     = $context;
@@ -376,6 +378,7 @@ function reset_world() {
 	$GLOBALS['disallowed']  = false;
 	$GLOBALS['mx']          = true;
 	$GLOBALS['post_fails']  = false;
+	$GLOBALS['mail_fails']  = false;
 	$GLOBALS['enqueued']    = array();
 	$GLOBALS['nocache']     = 0;
 	$GLOBALS['on_page']     = 0;
@@ -733,10 +736,18 @@ ck( 'and so is a manager, with no sentence about a privacy page', array( false !
 reset_world();
 $GLOBALS['settings']['applications_enabled'] = false;
 
-ck( 'with the form switched off the public are shown nothing', WPCPM_Institution_Application::render(), '' );
+// Since 1.123.26 the one sentence the guide promises, in the form's place, for every visitor: until
+// then a visitor who followed a link to the page while the form was off was shown an empty page,
+// and the sentence could be read only after a post the page did not offer.
+$switched_off = WPCPM_Institution_Application::render();
+ck( 'with the form switched off every visitor is shown the one sentence saying applications are closed, and no form', array(
+	$switched_off,
+	strpos( $switched_off, 'switched off' ),
+), array( '<div class="wpcpm-application"><p class="wpcpm-application__message is-info" role="status">The program is not taking applications through this form at the moment.</p></div>', false ) );
 
 $GLOBALS['caps'] = true;
 ck( 'and a manager is told it is switched off', false !== strpos( WPCPM_Institution_Application::render(), 'switched off' ), true );
+ck( 'under the same sentence every visitor reads', substr_count( WPCPM_Institution_Application::render(), 'The program is not taking applications through this form at the moment.' ), 1 );
 // By the name the switch has on the screen that holds it, and where that screen is, as the sponsors'
 // form says of its own switch: no control on any screen is called "Accept institution applications".
 ck( 'and which switch turns it on, by the name it has on the Settings screen, and where it is', false !== strpos( WPCPM_Institution_Application::render(), 'Turn on &quot;Applications from institutions&quot; on the Institutions tab of WPCredits Program &gt; Settings when the program is ready to take them.' ), true );
@@ -1445,6 +1456,9 @@ follow( $GLOBALS['landed'] );
 $page = WPCPM_Institution_Application::render();
 
 ck( 'and the applicant is told their address is confirmed', false !== strpos( $page, 'address is confirmed' ), true );
+// The closed sentence stands in the form's place, and a confirmation draws no form: an applicant
+// whose application is with an Administrator is not told the program takes none.
+ck( 'and not that the program is taking no applications, since no form would be drawn here anyway', strpos( $page, 'not taking applications' ), false );
 ck( 'without a form they could not use', strpos( $page, '<form' ), false );
 ck( 'and without the sentence that is only a manager\'s business', strpos( $page, 'switched off' ), false );
 
@@ -1466,13 +1480,21 @@ follow( $replay['url'] );
 $page = WPCPM_Institution_Application::render();
 
 ck( 'and the sentence can now be read', false !== strpos( $page, 'not taking applications' ), true );
+ck( 'once, though the form is off as well', substr_count( $page, 'not taking applications' ), 1 );
 ck( 'with no form under it', strpos( $page, '<form' ), false );
 
-// Silence is still silence: nothing to say and nothing to draw is the empty string and not an
-// empty wrapper, which is the same silence with markup in it.
+// A stranger who simply walks onto the page while the form is off reads the one sentence (1.123.26).
+// Silence is still silence where there is nothing to say: with the countries list empty instead,
+// nothing to say and nothing to draw is the empty string and not an empty wrapper, which is the
+// same silence with markup in it.
 $_GET = array();
 
-ck( 'a stranger who simply walks onto the page sees nothing at all', WPCPM_Institution_Application::render(), '' );
+ck( 'a stranger who simply walks onto the page while the form is off reads that applications are closed', false !== strpos( WPCPM_Institution_Application::render(), 'not taking applications' ), true );
+
+$GLOBALS['settings']['applications_enabled'] = true;
+unset( $GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] );
+
+ck( 'and with the form on and no countries to offer, sees nothing at all', WPCPM_Institution_Application::render(), '' );
 
 echo "\n-- when storage itself fails -----------------------------------------\n";
 
@@ -1678,6 +1700,23 @@ foreach ( $GLOBALS['autoload'] as $name => $autoload ) {
 
 ck( 'no option this class writes is autoloaded', $autoloaded, array() );
 
+echo "\n=== The acknowledgement says the link is needed ===\n";
+
+reset_world();
+$applied = submit( answers() );
+
+ck( 'the acknowledgement asks for the link to be followed, and says why', array(
+	false !== strpos( mail_said( 0, 'body' ), "Please follow this link: we cannot take your application further until you do.\r\n\r\n" . WPCPM_Institution_Application::verify_url( only_row()->ID ) ),
+	strpos( mail_said( 0, 'body' ), 'it does nothing else' ),
+), array( true, false ) );
+
+follow( $applied['url'] );
+$done = WPCPM_Institution_Application::render();
+
+ck( 'and the page after sending says the same need where it speaks of the email', array(
+	false !== strpos( $done, 'with a link that confirms the address. Please follow it: we cannot take your application further until you do.' ),
+), array( true ) );
+
 echo "\n-- the editor's preview -----------------------------------------------\n";
 
 // Last, because this cannot be undone: a live preview would mint a nonce and a single-use
@@ -1720,6 +1759,47 @@ ck( 'past the ceiling the application is still stored', $row instanceof WP_Post,
 ck( 'and still new, not held or spammed for it', get_post_meta( $row->ID, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Institution_Application::STATE_NEW );
 ck( 'the queue is told why', in_array( 'mail-ceiling', (array) get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ), true ), true );
 ck( 'and the applicant is told plainly rather than promised a message that will not come', $capped['outcome'], 'sent-quiet' );
+
+echo "\n=== The confirmation link, sent again at an Administrator's press ===\n";
+
+// Approve refuses until the address is confirmed, and only the acknowledgement's link confirms it.
+// Until 1.123.26 nothing sent that link a second time, so a row past the day's limit on
+// acknowledgements, a spam-filed row put back, and an applicant who lost the email were stuck for
+// good. `acknowledge_again()` is the one way the queue sends it again: the same email the form
+// sends, through the same sender, counted against the same daily limit.
+reset_world();
+submit( answers() );
+$row             = only_row();
+$first_link      = WPCPM_Institution_Application::verify_url( $row->ID );
+$claimed_before  = WPCPM_Ceiling::count( WPCPM_Institution_Application::MAIL_KEY, DAY_IN_SECONDS );
+$GLOBALS['mail'] = array();
+
+ck( 'sent again, it goes', WPCPM_Institution_Application::acknowledge_again( $row->ID ), 'sent' );
+ck( 'once, to the address on the application, as the same email the form sends', array( count( $GLOBALS['mail'] ), mail_said( 0, 'to' ), mail_said( 0, 'context' ) ), array( 1, 'ana@example.edu', 'institution-applied' ) );
+ck( 'with the link that confirms the address', false !== strpos( mail_said( 0, 'body' ), WPCPM_Institution_Application::verify_url( $row->ID ) ), true );
+// The link is a signature over the application and its address, not a stored secret, so a send
+// made again carries the same link, and the one in the first email keeps working: nothing an
+// applicant who finds the first email follows is refused.
+ck( 'which is the link the first email carried, so that one keeps working', WPCPM_Institution_Application::verify_url( $row->ID ), $first_link );
+ck( 'and it counts against the day\'s limit on acknowledgements, as the first send does', WPCPM_Ceiling::count( WPCPM_Institution_Application::MAIL_KEY, DAY_IN_SECONDS ), $claimed_before + 1 );
+
+$GLOBALS['mail'] = array();
+
+for ( $i = 0; $i < WPCPM_Institution_Application::MAIL_PER_DAY; $i++ ) {
+	WPCPM_Ceiling::claim( WPCPM_Institution_Application::MAIL_KEY, WPCPM_Institution_Application::MAIL_PER_DAY, DAY_IN_SECONDS );
+}
+
+ck( 'past the day\'s limit it is refused, and nothing is sent', array( WPCPM_Institution_Application::acknowledge_again( $row->ID ), count( $GLOBALS['mail'] ) ), array( 'ceiling', 0 ) );
+
+reset_world();
+submit( answers() );
+$row                   = only_row();
+$GLOBALS['mail']       = array();
+$GLOBALS['mail_fails'] = true;
+
+ck( 'a hand-off the mail server refuses says so', WPCPM_Institution_Application::acknowledge_again( $row->ID ), 'failed' );
+
+$GLOBALS['mail_fails'] = false;
 
 echo "\n=== Words keep their backslashes ===\n";
 

@@ -1271,7 +1271,7 @@ echo "\n=== A reviewer list: the program managers under Administrators, and a li
 store( $connected );
 airtable_answers( true );
 
-$reviewers = row( 'reviewers_row', 'agreement_notify', 'Who reviews agreements', 'zoe@program.example,board@partner.example,ana@program.example', 'Addresses told when an agreement arrives.' );
+$reviewers = row( 'reviewers_row', 'agreement_notify', 'Who is emailed about institutions', 'zoe@program.example,board@partner.example,ana@program.example', 'Addresses told when an agreement arrives.' );
 
 ck( 'reviewers_row() draws a box per program manager, all under Administrators, each named with the address the box saves, the saved ones ticked whatever case the account spells its address in',
     null === $reviewers ? null : boxes_of( $reviewers, 'agreement_notify' ),
@@ -1291,7 +1291,7 @@ ck( 'and puts every saved address that is nobody\'s account on the Other address
     array( true, array( 'agreement_notify' => array( 'Ana@Program.example', 'zoe@program.example', 'board@partner.example' ) ) ) );
 
 $GLOBALS['manage'] = array();
-$typed             = row( 'reviewers_row', 'agreement_notify', 'Who reviews agreements', 'zoe@program.example,board@partner.example', 'Addresses told when an agreement arrives.' );
+$typed             = row( 'reviewers_row', 'agreement_notify', 'Who is emailed about institutions', 'zoe@program.example,board@partner.example', 'Addresses told when an agreement arrives.' );
 $GLOBALS['manage'] = array( 1, 2, 3, 4 );
 
 ck( 'with no program manager to list, the text input it stands in for, the same name and value, and the sentence saying why',
@@ -1302,6 +1302,22 @@ ck( 'with no program manager to list, the text input it stands in for, the same 
         null !== $typed && false !== strpos( $typed, ' placeholder="one@example.org, two@example.org"' ),
     ),
     array( false, array( 'agreement_notify' => 'zoe@program.example,board@partner.example' ), true, true ) );
+
+// A reviewer list can say, under the field, what it means that it names nobody (1.123.26): the
+// institution emails' list does, since with it empty every Administrator account gets them.
+$warned_empty  = row( 'reviewers_row', 'agreement_notify', 'Who is emailed about institutions', '', 'What it covers.', 'The fold.', 'Nobody is named.' );
+$warned_named  = row( 'reviewers_row', 'agreement_notify', 'Who is emailed about institutions', 'zoe@program.example', 'What it covers.', 'The fold.', 'Nobody is named.' );
+$GLOBALS['manage'] = array();
+$warned_typed  = row( 'reviewers_row', 'agreement_notify', 'Who is emailed about institutions', '', 'What it covers.', 'The fold.', 'Nobody is named.' );
+$GLOBALS['manage'] = array( 1, 2, 3, 4 );
+
+ck( 'a reviewer list naming nobody says so under its help, before its fold, as a list and as the text input it stands in for, and one naming somebody does not',
+    array(
+        null !== $warned_empty && false !== strpos( $warned_empty, '<p class="description">What it covers.</p><p class="description wpcpm-warning">Nobody is named.</p><details' ),
+        null !== $warned_typed && false !== strpos( $warned_typed, '<p class="description wpcpm-warning">Nobody is named.</p><details' ),
+        null !== $warned_named && false !== strpos( $warned_named, 'Nobody is named.' ),
+    ),
+    array( true, true, false ) );
 
 /* ---- each tab, with the lists answering ------------------------------------- */
 
@@ -1499,10 +1515,11 @@ ck( 'and the program managers are asked for once a draw, though the Institutions
 
 // With nobody ticked every Administrator is written to, which includes the accounts WordPress gives its
 // Administrator role for technical work: the warning says that in the role's own words and does not
-// name "technical administrators" as though they were a group beside the Administrators.
-ck( 'the agreement reviewers\' warning says every account with the WordPress Administrator role is written to, technical ones too, once',
+// name "technical administrators" as though they were a group beside the Administrators. Since
+// 1.123.26 the list is the institution emails' one setting, Who is emailed about institutions.
+ck( 'the institution emails\' warning says every account with the WordPress Administrator role is written to, technical ones too, once',
     array(
-        substr_count( $institutions, 'That includes every account with the WordPress Administrator role, technical ones too, so set it before the first real upload.' ),
+        substr_count( $institutions, 'Every Administrator account means every account with the WordPress Administrator role, technical ones too, so name somebody.' ),
         substr_count( $institutions, 'technical administrators' ),
     ),
     array( 1, 0 ) );

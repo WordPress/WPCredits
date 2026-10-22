@@ -708,9 +708,13 @@ ck( 'and so is a manager, with no sentence about a privacy page', array( false !
 
 reset_world();
 $GLOBALS['settings']['sponsor_applications_enabled'] = false;
-ck( 'with the form switched off the public are shown nothing', WPCPM_Sponsor_Application::render(), '' );
+// Since 1.123.26 the one sentence the guide promises, in the form's place, for every visitor, as
+// the institution form says its own: until then the page was empty for anybody who could not
+// turn the switch on.
+ck( 'with the form switched off every visitor is shown the one sentence saying applications are closed, and no form', WPCPM_Sponsor_Application::render(), '<div class="wpcpm-application"><p class="wpcpm-application__message is-info" role="status">The program is not taking sponsor applications through this form at the moment.</p></div>' );
 $GLOBALS['caps'] = true;
 ck( 'and a manager is told it is switched off, and where', false !== strpos( WPCPM_Sponsor_Application::render(), 'Applications from sponsors' ), true );
+ck( 'under the same sentence every visitor reads', substr_count( WPCPM_Sponsor_Application::render(), 'The program is not taking sponsor applications through this form at the moment.' ), 1 );
 ck( 'the switch by its name on the Settings screen, and the tab it is on', false !== strpos( WPCPM_Sponsor_Application::render(), 'Turn on &quot;Applications from sponsors&quot; on the Sponsors tab of WPCredits Program &gt; Settings when the program is ready to take them.' ), true );
 
 reset_world();

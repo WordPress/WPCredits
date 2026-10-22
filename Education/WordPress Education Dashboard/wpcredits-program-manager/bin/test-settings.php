@@ -3491,13 +3491,56 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
     ) );
 
+// The institution emails' one setting says what it is (1.123.26). Its key, `agreement_notify`, is who
+// `WPCPM_Institutions::notify_managers()` writes to unless told another, so it was who got every new
+// institution application, the agreement reminders, the template notice and a last member leaving,
+// under a label that said agreements; and with it empty every account that can manage the program
+// was written to, which the row did not say until somebody counted the mail.
+$institution_mail = help_of( $states['institutions'], 'Who is emailed about institutions' );
+// The row's label is a `<label>` while the field is the text input a list stands in for.
+preg_match( '#<tr><th scope="row">(?:<label[^>]*>)?Who is emailed about institutions(?:</label>)?</th>.*?</tr>#s', $states['institutions'], $institution_mail_row );
+ck( 'the setting who gets the institution emails is named for them, and says in its sentence what they are and who gets them with nobody named',
+    array(
+        null !== $institution_mail,
+        isset( $institution_mail[0] ) ? $institution_mail[0] : null,
+        null === help_of( $states['institutions'], 'Who reviews agreements' ),
+    ),
+    array( true, array( 'New applications, agreements to review, reminders, template problems and an institution\'s last member leaving; with nobody named, all Administrators get them.' ), true ) );
+ck( 'with nobody named, a notice under the field says what that means, before the fold, and it posts under the key it always had',
+    array(
+        isset( $institution_mail_row[0] ) && false !== strpos( $institution_mail_row[0], '<p class="description wpcpm-warning">Nobody is named, so every Administrator account gets these emails.</p><details' ),
+        isset( $institution_mail_row[0] ) && 1 === preg_match( '#name="agreement_notify(\[\])?"#', $institution_mail_row[0] ),
+    ),
+    array( true, true ) );
+ck( 'its fold lists the emails one by one',
+    isset( $institution_mail[1][0] ) ? $institution_mail[1][0] : null,
+    'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.' );
+ck( 'Agreement review says the applications are marked overdue by it too, in its one sentence',
+    help_of( $states['institutions'], 'Agreement review' )[0] ?? null,
+    array( 'How long a signed agreement or an institution\'s application may wait before the queue marks it overdue, and an agreement before the nightly reminder names it.' ) );
+
+// The six emails Tools > Emails says go to it name it as the screen does, quoted, as a setting is.
+$institution_templates = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/templates/institutions.php' );
+ck( 'the six institution emails that go to it name it, quoted, and none by its old name',
+    array(
+        substr_count( $institution_templates, 'to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.' ),
+        substr_count( $institution_templates, 'Who reviews agreements' ),
+    ),
+    array( 6, 0 ) );
+
+store_settings( array_merge( $defaults, array( 'agreement_notify' => 'one@example.org' ) ) );
+$named_tab = draw_settings( 'institutions' );
+store_settings( $defaults );
+preg_match( '#<tr><th scope="row">(?:<label[^>]*>)?Who is emailed about institutions(?:</label>)?</th>.*?</tr>#s', $named_tab, $named_row );
+ck( 'and with somebody named, no notice', isset( $named_row[0] ) ? strpos( $named_row[0], 'Nobody is named' ) : null, false );
+
 preg_match( '#<tr><th scope="row">Make mentors from applications</th>.*?</tr>#s', $states['people'], $activation_row );
 
 // The form writes nothing to Airtable; a mentor made from an application does, which its own switch
 // says. The fold's second paragraph names the privacy policy the form links (1.123.24).
 ck( 'the fold of Applications from mentors says the form writes nothing to Airtable, which is true of the form alone',
     help_of( $states['people'], 'Applications from mentors' )[1][0] ?? null,
-    'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.' );
+    'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off the page shows one sentence saying applications are closed, and an Administrator a second saying why.' );
 
 ck( 'the Mentor applications section draws Make mentors from applications after the form\'s own switch: its box, off by default, one sentence saying it waits for the launch, and its fold what waits meanwhile',
     array(

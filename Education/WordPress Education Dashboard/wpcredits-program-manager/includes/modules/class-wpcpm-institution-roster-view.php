@@ -456,7 +456,7 @@ class WPCPM_Institution_Roster_View {
 			esc_html__( 'Search', 'wpcredits-program-manager' ),
 			esc_attr( self::ARG_SEARCH ),
 			esc_attr( $filters['search'] ),
-			esc_attr__( 'Name, email, WordPress.org, tutor', 'wpcredits-program-manager' )
+			esc_attr( self::search_hint( $can_manage ) )
 		);
 
 		echo '</p>';
@@ -1488,14 +1488,7 @@ class WPCPM_Institution_Roster_View {
 	 * @return bool
 	 */
 	private static function matches( array $row, $search ) {
-		// The address is searchable by a manager only, for the reason `render_unlinked()`
-		// gives: a search box that answers "does anyone here have this address" is a directory
-		// lookup, whatever the list beside it prints.
-		$fields = self::$manages
-			? array( 'name', 'email', 'username', 'tutor', 'field_of_study' )
-			: array( 'name', 'username', 'tutor', 'field_of_study' );
-
-		foreach ( $fields as $field ) {
+		foreach ( array_keys( self::search_fields( self::$manages ) ) as $field ) {
 			if ( ! isset( $row[ $field ] ) || ! is_scalar( $row[ $field ] ) ) {
 				continue;
 			}
@@ -1506,6 +1499,46 @@ class WPCPM_Institution_Roster_View {
 		}
 
 		return false;
+	}
+
+	/**
+	 * The fields a search reads, each with the word its box's hint names it by, in the order the
+	 * hint lists them.
+	 *
+	 * The address is searchable by a manager only, for the reason `render_unlinked()` gives: a
+	 * search box that answers "does anyone here have this address" is a directory lookup, whatever
+	 * the list beside it prints, so an institution's member is not given it. One list for the
+	 * search (`matches()`) and for its hint (`search_hint()`): until 1.123.26 the hint was one
+	 * sentence for both readers and promised a member an email search their box never ran.
+	 *
+	 * @param bool $manages Whether the reader can manage the program.
+	 * @return array<string, string> Row field => the hint's word for it.
+	 */
+	private static function search_fields( $manages ) {
+		$fields = array(
+			'name'           => __( 'Name', 'wpcredits-program-manager' ),
+			'email'          => __( 'email', 'wpcredits-program-manager' ),
+			'username'       => __( 'WordPress.org username', 'wpcredits-program-manager' ),
+			'tutor'          => __( 'tutor', 'wpcredits-program-manager' ),
+			'field_of_study' => __( 'field of study', 'wpcredits-program-manager' ),
+		);
+
+		if ( ! $manages ) {
+			unset( $fields['email'] );
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * The search box's hint: exactly what this reader's search reads, from `search_fields()`.
+	 *
+	 * @param bool $manages Whether the reader can manage the program.
+	 * @return string "Name, WordPress.org username, tutor, field of study" for an institution's
+	 *                member, with "email" after the name for a manager.
+	 */
+	private static function search_hint( $manages ) {
+		return implode( ', ', self::search_fields( (bool) $manages ) );
 	}
 
 	/**

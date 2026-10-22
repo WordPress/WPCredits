@@ -840,10 +840,14 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Render the answer this request carries, the form, the confirmation, or nothing.
 	 *
-	 * One thing stops the form being drawn, and it answers a manager with one sentence and the
-	 * public with nothing: the form being switched off. The site having no privacy page was a second
-	 * until 1.123.24, when the form began linking the WordPress.org privacy policy instead. It does
-	 * not stop a sentence, so a `closed` outcome can be read on the page it applies to.
+	 * One thing stops the form being drawn, the form being switched off, and it answers a manager
+	 * with one sentence and the public with the `closed` one, in the form's place, since 1.123.26:
+	 * the guide promises that a switched-off form says applications are closed, and until then a
+	 * visitor who followed a link to the page was shown an empty one. Not after a sent application,
+	 * where no form would be drawn anyway, and once, when the post that brought them here was
+	 * answered `closed` already. The site having no privacy page was a second until 1.123.24, when
+	 * the form began linking the WordPress.org privacy policy instead. It does not stop a sentence,
+	 * so a `closed` outcome can be read on the page it applies to.
 	 * Nothing to say and nothing to draw returns the empty string, not an empty wrapper.
 	 *
 	 * @param array $atts Shortcode or block attributes.
@@ -882,11 +886,18 @@ class WPCPM_Sponsor_Application {
 			self::render_message( $outcome );
 		}
 
+		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy' ), true );
+
 		if ( '' !== $closed ) {
+			// Every visitor reads the sentence in the form's place, once; the reason is a manager's.
+			if ( $draws && 'closed' !== $outcome ) {
+				self::render_message( 'closed' );
+			}
+
 			if ( $can_manage ) {
 				printf( '<p class="wpcpm-application__notice">%s</p>', esc_html( $closed ) );
 			}
-		} elseif ( ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy' ), true ) ) {
+		} elseif ( $draws ) {
 			self::render_form(
 				isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array(),
 				isset( $stash['problems'] ) && is_array( $stash['problems'] ) ? $stash['problems'] : array()

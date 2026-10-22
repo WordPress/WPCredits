@@ -335,7 +335,10 @@ $wpcpm_applied = static function ( $call ) use ( $wpcpm_body ) {
 			'{reference}'
 		),
 		__( 'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account on the program site and send you the Collaboration Agreement to sign.', 'wpcredits-program-manager' ),
-		__( 'Please confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:', 'wpcredits-program-manager' ),
+		// An Administrator cannot approve an application until its address is confirmed, and this
+		// link is the only thing that confirms it, so the sentence says so (1.123.26): it used to
+		// say the link did nothing else, and an applicant who believed it never followed it.
+		__( 'Please follow this link: we cannot take your application further until you do.', 'wpcredits-program-manager' ),
 		'{verify_link}',
 	);
 
@@ -480,7 +483,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'reference', 'verify_link', 'applicant_email' ), array( 'verify_link' ), $wpcpm_as_applied ),
 	),
 	'institution-application'      => array(
-		'trigger'      => __( 'When an institution\'s application passes every check: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an institution\'s application passes every check: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: institution name. */
 			__( '[%1$s] New institution application from %2$s', 'wpcredits-program-manager' ),
@@ -586,14 +589,14 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'uploaded_on', 'uploaded_by', 'review_window' ), array() ),
 	),
 	'agreement-landed'             => array(
-		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices nothing: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices nothing: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_landed_subject,
 		'body'         => $wpcpm_landed( false ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'uploaded_on', 'uploaded_by', 'queue_link' ), array() ),
 	),
 	'agreement-landed-flagged'     => array(
-		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices something: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices something: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_landed_subject,
 		'body'         => $wpcpm_landed( true ),
 		'eol'          => "\r\n",
@@ -678,7 +681,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'revoked_on', 'administrator_name', 'note' ), array( 'note' ) ),
 	),
 	'agreement-reminder'           => array(
-		'trigger'      => __( 'Once a day, when signed agreements have waited longer than the review window: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'Once a day, when signed agreements have waited longer than the review window: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: how many signed agreements, counted with their verb, such as "3 signed agreements are". */
 			__( '[%1$s] %2$s waiting for review', 'wpcredits-program-manager' ),
@@ -701,7 +704,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'agreements_waiting', 'agreements_overdue', 'review_days', 'overdue_list', 'queue_link' ), array() ),
 	),
 	'agreement-template'           => array(
-		'trigger'      => __( 'When an institution asks the site to generate the Collaboration Agreement and the template cannot be used: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an institution asks the site to generate the Collaboration Agreement and the template cannot be used: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
 			__( '[%s] The Collaboration Agreement template needs attention', 'wpcredits-program-manager' ),
@@ -725,7 +728,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'reason', 'language', 'institution_record', 'name_asked_for' ), array() ),
 	),
 	'member-last'                  => array(
-		'trigger'      => __( 'When the last member of an institution leaves or is removed: to the addresses in Who reviews agreements, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When the last member of an institution leaves or is removed: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: institution name. */
 			__( '[%1$s] %2$s has no members left', 'wpcredits-program-manager' ),

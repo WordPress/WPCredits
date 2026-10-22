@@ -830,8 +830,13 @@ final class WPCPM_Mentor_Application_Form {
 	 * Render the answer this request carries, the form, the confirmation, or nothing.
 	 *
 	 * The form is drawn for nobody while it cannot be (`closed_reason()`); an Administrator is told
-	 * why in one sentence. The editor's preview is a static summary, because a live one would mint a
-	 * nonce and a single-use token on every keystroke.
+	 * why in one sentence. While it is switched off every visitor reads the `closed` sentence in its
+	 * place, once, as the institution and sponsor forms say theirs (1.123.26): until then the page
+	 * was empty for anybody who could not turn the switch on. Not where no form would be drawn
+	 * anyway, after a sent application or a confirmed address; and not for an empty countries or
+	 * teams list, which is not the form being off and is a state only the settings screen mends.
+	 * The editor's preview is a static summary, because a live one would mint a nonce and a
+	 * single-use token on every keystroke.
 	 *
 	 * @param array $atts Shortcode or block attributes.
 	 * @return string
@@ -866,11 +871,17 @@ final class WPCPM_Mentor_Application_Form {
 			self::render_message( $outcome );
 		}
 
+		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'verified', 'verified-already' ), true );
+
 		if ( '' !== $closed ) {
+			if ( ! self::is_open() && $draws && 'closed' !== $outcome ) {
+				self::render_message( 'closed' );
+			}
+
 			if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 				printf( '<p class="wpcpm-application__notice">%s</p>', esc_html( $closed ) );
 			}
-		} elseif ( ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'verified', 'verified-already' ), true ) ) {
+		} elseif ( $draws ) {
 			self::render_form(
 				self::values_to_draw( $stash ),
 				isset( $stash['problems'] ) && is_array( $stash['problems'] ) ? $stash['problems'] : array()

@@ -1130,7 +1130,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::page_line( $apply_url );
-		WPCPM_Settings_Rows::close_row( $applications, array( __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off, the page shows the public nothing, and an Administrator one sentence saying why.', 'wpcredits-program-manager' ), self::policy_note() ) );
+		WPCPM_Settings_Rows::close_row( $applications, array( __( 'Every application is stored for an Administrator to decide on the Mentors screen\'s Waiting for review tab, and the form writes nothing to Airtable. While this is off the page shows one sentence saying applications are closed, and an Administrator a second saying why.', 'wpcredits-program-manager' ), self::policy_note() ) );
 
 		// Make mentors from applications (1.122.33): off until the launch (owner item 1), the one switch
 		// `WPCPM_Mentor_Activation::enabled()` reads before it makes anybody a mentor.
@@ -1298,7 +1298,7 @@ class WPCPM_Settings_Screen {
 
 		$this->open_section(
 			__( 'Collaboration Agreements', 'wpcredits-program-manager' ),
-			__( 'How long a signed agreement may wait for review, who reviews it, and where its wording lives.', 'wpcredits-program-manager' ),
+			__( 'How long a signed agreement or an application may wait for review, who is emailed about institutions, and where the agreement\'s wording lives.', 'wpcredits-program-manager' ),
 			'collaboration-agreements'
 		);
 
@@ -1307,15 +1307,25 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Agreement review', 'wpcredits-program-manager' ),
 			esc_attr( (string) $settings['agreement_review_days'] ),
 			esc_html__( 'days', 'wpcredits-program-manager' ),
-			esc_html__( 'How long a signed agreement may wait before the queue marks it overdue and the nightly digest names it.', 'wpcredits-program-manager' )
+			esc_html__( 'How long a signed agreement or an institution\'s application may wait before the queue marks it overdue, and an agreement before the nightly reminder names it.', 'wpcredits-program-manager' )
 		);
 
+		// One setting, honestly named (1.123.26): `agreement_notify` is the key
+		// `WPCPM_Institutions::notify_managers()` writes to unless it is told another, so it is who
+		// gets every email about institutions an Administrator is sent, not the agreements' alone. The
+		// key and its value are kept; the label, the sentence and the notice say what it is.
 		WPCPM_Settings_Rows::reviewers_row(
 			'agreement_notify',
-			__( 'Who reviews agreements', 'wpcredits-program-manager' ),
+			__( 'Who is emailed about institutions', 'wpcredits-program-manager' ),
 			(string) $settings['agreement_notify'],
-			__( 'Addresses told when an agreement arrives and sent the overdue digest; with none, every Administrator is written to.', 'wpcredits-program-manager' ),
-			__( 'That includes every account with the WordPress Administrator role, technical ones too, so set it before the first real upload.', 'wpcredits-program-manager' )
+			// A row's help is one sentence of 160 characters at most, so the items are named short
+			// here and in full in the fold below.
+			__( 'New applications, agreements to review, reminders, template problems and an institution\'s last member leaving; with nobody named, all Administrators get them.', 'wpcredits-program-manager' ),
+			array(
+				__( 'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.', 'wpcredits-program-manager' ),
+				__( 'Every Administrator account means every account with the WordPress Administrator role, technical ones too, so name somebody.', 'wpcredits-program-manager' ),
+			),
+			__( 'Nobody is named, so every Administrator account gets these emails.', 'wpcredits-program-manager' )
 		);
 
 		$wording = __( 'The agreement wording', 'wpcredits-program-manager' );

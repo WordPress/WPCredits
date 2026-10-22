@@ -83,7 +83,9 @@
  * exact text it changes (docs/plans/2026-10-11-mail-fixes-1-122-23.md): an email that changes
  * without a line there fails, and so does a line that changes nothing. What 1.123.24 changes after
  * them is bin/stubs/mail-since-1-123-24.php's, run over every recorded body where it is compared,
- * and the suite says each change was made in the emails it belongs to and in no other.
+ * and the suite says each change was made in the emails it belongs to and in no other; what
+ * 1.123.26 changes, the acknowledgement's sentence about its link, is bin/stubs/mail-since-1-123-26.php's,
+ * run after it, the same way.
  *
  * Run from the plugin root:  php bin/test-institutions-sponsors-text.php
  * Record (once, against 1.122.21, before the move):  php bin/test-institutions-sponsors-text.php --record
@@ -431,6 +433,7 @@ require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-26.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
@@ -2109,7 +2112,7 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
-			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], wpcpm_mail_since_1_123_24( $mail['body'] ) );
+			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], wpcpm_mail_since_1_123_26( wpcpm_mail_since_1_123_24( $mail['body'] ) ) );
 			ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached' . $as, array( $now['headers'], $now['files'] ), array( $mail['headers'], 0 ) );
 		}
 	}
@@ -2125,6 +2128,9 @@ ck( 'the sponsor rejection asks again without guessing why, in the two emails th
 // 373: the two recordings' 372 emails and the one a change row brings in their place; none of their
 // bodies names the home page whole.
 ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.24 sends it, but one whose body names the home page whole', array( $GLOBALS['wpcpm_since_1_123_24']['site_line'], $GLOBALS['wpcpm_since_1_123_24']['site_kept'] ), array( 373, 0 ) );
+// 1.123.26: the acknowledgement says its link is needed, in the seven recorded acknowledgements of an
+// institution application and in no other email of either recording.
+ck( 'the acknowledgement of an institution application says its link is needed, in the seven emails that are one, as 1.123.26 sends it', $GLOBALS['wpcpm_since_1_123_26']['confirm_link'], 7 );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.

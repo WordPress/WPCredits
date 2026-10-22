@@ -718,6 +718,10 @@ $closed = array(
 		unset( $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] );
 	},
 );
+// With the switch off the public are told, since 1.123.26, in the one sentence the form's outcomes
+// already had for it, as the institution and sponsor forms say theirs; a form that cannot be drawn
+// for a want of countries or teams is not switched off, and says nothing to the public.
+$closed_said = '<div class="wpcpm-application"><p class="wpcpm-application__message is-info" role="status">The program is not taking mentor applications through this form at the moment.</p></div>';
 foreach ( $closed as $case => $close ) {
 	reset_world();
 	$close();
@@ -725,7 +729,7 @@ foreach ( $closed as $case => $close ) {
 	$GLOBALS['uid']    = 9;
 	$GLOBALS['manage'] = array( 9 );
 	$admin  = WPCPM_Mentor_Application_Form::render();
-	ck( sprintf( 'closed with %s: the public sees nothing, an Administrator one sentence and no form', $case ), array( $public, false !== strpos( $admin, 'wpcpm-application__notice' ), false !== strpos( $admin, '<form' ) ), array( '', true, false ) );
+	ck( sprintf( 'closed with %s: the public sees %s, an Administrator one sentence and no form', $case, 'the switch off' === $case ? 'that applications are closed' : 'nothing' ), array( $public, false !== strpos( $admin, 'wpcpm-application__notice' ), false !== strpos( $admin, '<form' ) ), array( 'the switch off' === $case ? $closed_said : '', true, false ) );
 }
 
 // Since 1.123.24 the form links the WordPress.org privacy policy (the site's owner, 22 October

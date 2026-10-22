@@ -142,7 +142,10 @@ return array(
 				__( 'Thank you for submitting your application to become a mentor in the WordPress Credits Program. We truly appreciate your willingness to contribute your time and expertise to support our students.', 'wpcredits-program-manager' ),
 				__( 'Please note that it may take several weeks before we are able to review all applications. Once the selection process is complete, we will contact you to let you know whether you have been chosen as a mentor.', 'wpcredits-program-manager' ),
 				__( 'We are grateful for your patience and interest in being part of this program.', 'wpcredits-program-manager' ),
-				__( 'Please confirm this address by following this link. It tells us we are writing to a real address, and it does nothing else:', 'wpcredits-program-manager' ),
+				// Select, Ask for more information and Decline wait until the address is confirmed,
+				// and this link is the only thing that confirms it, so the sentence says so, as the
+				// institution application's does (1.123.26).
+				__( 'Please follow this link: we cannot take your application further until you do.', 'wpcredits-program-manager' ),
 				'{verify_link}',
 				sprintf(
 					/* translators: 1: the address the message went to, 2: site name. */

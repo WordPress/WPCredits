@@ -36,6 +36,11 @@
  *   not a token for cancelling another.
  * - Accepting attaches with `invited` and the inviter as the actor, so the People card can
  *   say who let this person in.
+ * - **An invitation is only as good as the person who sent it.** Removing a member through
+ *   `detach()` cancels what they sent, and the last member leaving cancels everything the
+ *   institution had waiting. A link sent before 1.123.26 by somebody removed before it is
+ *   refused on both arms with the one sentence, and the button's arm cancels the row; one
+ *   from a current member or an Administrator is still accepted.
  * - A control pressed on the Institutions screen comes back to that institution's Manage
  *   members view on its Accounts tab, the People class's address for it, and one pressed on
  *   the Institution Dashboard comes back to the dashboard.
@@ -1045,23 +1050,151 @@ ck( 'an unstamped settled row is stamped and kept rather than guessed at', array
 	pmeta( $legacy, '_wpcpm_inv_settled' ) > 0,
 ), array( true, true ) );
 
+// The two rules that cancel by themselves, reached the way the site reaches them: through
+// `WPCPM_Institution_Members::detach()`, which a Remove press, a Leave press and the sync's
+// revoke phase all call. Until 1.123.26 the two steps in `detach()` were empty stubs while the
+// methods below them existed, so a removed member's links kept working for fourteen days and
+// a suite that called the methods directly stayed green.
+function cancelled_by_rule( $record ) {
+	$rows = array();
+	foreach ( WPCPM_Institution_Audit::entries_for( $record ) as $entry ) {
+		if ( 'invite_cancelled' === $entry['kind'] && 'system' === $entry['ground'] ) { $rows[] = $entry; }
+	}
+	return $rows;
+}
+
 reset_world();
 
-seed_invite( $A, 'one@example.test', 7, time() );
-seed_invite( $A, 'two@example.test', 8, time() );
-seed_invite( $B, 'three@example.test', 9, time() );
+$by_anna    = seed_invite( $A, 'one@example.test', 7, time() );
+$by_bob     = seed_invite( $A, 'two@example.test', 8, time() );
+$by_admin   = seed_invite( $A, 'four@example.test', 1, time() );
+$by_cleo    = seed_invite( $B, 'three@example.test', 9, time() );
+$by_admin_b = seed_invite( $B, 'five@example.test', 1, time() );
 
-ck( 'the last member leaving cancels this institution\'s invitations', WPCPM_Institution_Invite::cancel_for_institution( $A ), 2 );
-ck( 'and leaves another institution\'s alone', count( WPCPM_Institution_Invite::pending_for( $B ) ), 1 );
+ck( 'removing a member goes through', WPCPM_Institution_Members::detach( 7, 'removed', 1 ), true );
+ck( 'a member losing their membership cancels the invitations they sent', pmeta( $by_anna, '_wpcpm_inv_state' ), 'cancelled' );
+ck( 'and not their colleague\'s, nor an Administrator\'s', array( pmeta( $by_bob, '_wpcpm_inv_state' ), pmeta( $by_admin, '_wpcpm_inv_state' ) ), array( 'pending', 'pending' ) );
+ck( 'and its link is dead, its token forgotten', pmeta( $by_anna, '_wpcpm_inv_token' ), '' );
+ck( 'the cancellation is recorded as the site\'s own act', count( cancelled_by_rule( $A ) ), 1 );
 
+// B has one member, so her leaving is the last-member rule.
+ck( 'the other institution has one member', count( WPCPM_Institution_Members::members_of( $B ) ), 1 );
+ck( 'the last member leaving goes through', WPCPM_Institution_Members::detach( 9, 'left', 9 ), true );
+ck( 'the last member leaving cancels every invitation that institution had waiting, an Administrator\'s too', array(
+	pmeta( $by_cleo, '_wpcpm_inv_state' ),
+	pmeta( $by_admin_b, '_wpcpm_inv_state' ),
+	WPCPM_Institution_Invite::pending_for( $B ),
+), array( 'cancelled', 'cancelled', array() ) );
+ck( 'and leaves another institution\'s alone', array( pmeta( $by_bob, '_wpcpm_inv_state' ), count( WPCPM_Institution_Invite::pending_for( $A ) ) ), array( 'pending', 2 ) );
+ck( 'each one is recorded as the site\'s own act', count( cancelled_by_rule( $B ) ), 2 );
+
+// Back to the members the rest of the suite expects.
+WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 );
+WPCPM_Institution_Members::attach( 9, $B, 'manager', 1 );
+
+echo "\n=== An invitation from somebody who no longer vouches for it is refused ===\n";
+
+// An invitation sent before 1.123.26 by a member removed before it: `detach()` cancelled
+// nothing then, so the row is still pending with a live token. The membership is ended here
+// the way 1.123.25 ended it, by the meta alone, so nothing has cancelled the invitation.
 reset_world();
 
-seed_invite( $A, 'one@example.test', 7, time() );
-seed_invite( $A, 'two@example.test', 8, time() );
+invite_as( 7, $A, 'orphaned@example.test' );
+$orphan       = newest_invite();
+$orphan_token = token_from_mail();
 
-ck( 'a member losing their membership cancels the invitations they sent', WPCPM_Institution_Invite::cancel_by_actor( 7 ), 1 );
-ck( 'and not their colleague\'s', count( WPCPM_Institution_Invite::pending_for( $A ) ), 1 );
-ck( 'both are recorded as the site\'s own act', last_entry( $A )['ground'], 'system' );
+update_user_meta( 7, WPCPM_Institution_Members::META_RECORD_ID_WAS, $A );
+delete_user_meta( 7, WPCPM_Institution_Members::META_RECORD_ID );
+update_user_meta( 7, WPCPM_Institution_Members::META_ACTIVE, 0 );
+
+$members_left = count( WPCPM_Institution_Members::members_of( $A ) );
+$asked_orphan = ask_as( 0, $orphan_token );
+
+ck( 'the link refuses it with the one sentence', $asked_orphan, $unknown );
+ck( 'and the link writes nothing, so it is still pending until the button or the night', pmeta( $orphan, '_wpcpm_inv_state' ), 'pending' );
+
+$pressed_orphan = accept_as( 0, $orphan_token );
+
+ck( 'the button refuses it with the same sentence', $pressed_orphan, $unknown );
+ck( 'and marks it cancelled', array( pmeta( $orphan, '_wpcpm_inv_state' ), pmeta( $orphan, '_wpcpm_inv_token' ) ), array( 'cancelled', '' ) );
+ck( 'recorded as the site\'s own act', array( last_entry( $A )['kind'], last_entry( $A )['ground'] ), array( 'invite_cancelled', 'system' ) );
+ck( 'and nobody was let in', array(
+	get_user_by( 'email', 'orphaned@example.test' ) instanceof WP_User,
+	count( WPCPM_Institution_Members::members_of( $A ) ),
+), array( false, $members_left ) );
+
+// Back as a member: an invitation from a current member is accepted, as before.
+WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 );
+
+invite_as( 7, $A, 'vouched@example.test' );
+accept_as( 0, token_from_mail() );
+
+ck( 'an invitation from a current member is still accepted', WPCPM_Institution_Members::institution_of( get_user_by( 'email', 'vouched@example.test' ) ), $A );
+
+// And one from an Administrator, who is a member of no institution and may invite to any.
+invite_as( 1, $A, 'byadmin@example.test' );
+$admin_end = accept_as( 0, token_from_mail() );
+
+ck( 'an invitation from an Administrator is still accepted', array(
+	$admin_end,
+	WPCPM_Institution_Members::institution_of( get_user_by( 'email', 'byadmin@example.test' ) ),
+), array( 'redirect:https://example.test/institution-dashboard/', $A ) );
+
+// An Administrator who has since lost the program's capability vouches for nobody either.
+invite_as( 1, $A, 'formeradmin@example.test' );
+$former_token     = token_from_mail();
+$GLOBALS['manage'] = array();
+
+ck( 'one from an account that can no longer manage the program is refused', accept_as( 0, $former_token ), $unknown );
+
+$GLOBALS['manage'] = array( 1 );
+
+// Send again is the other way a link reaches a mailbox: a colleague pressing it on an invitation
+// whose sender has since been removed would mail a fresh link for a vouch nobody stands behind.
+// It is cancelled instead, as the site's own act, and nothing is sent.
+reset_world();
+
+invite_as( 8, $A, 'unvouched@example.test' );
+$unvouched = newest_invite();
+
+update_user_meta( 8, WPCPM_Institution_Members::META_RECORD_ID_WAS, $A );
+delete_user_meta( 8, WPCPM_Institution_Members::META_RECORD_ID );
+update_user_meta( 8, WPCPM_Institution_Members::META_ACTIVE, 0 );
+
+$GLOBALS['sent'] = array();
+$resent_end      = press( 7, 'handle_resend', $unvouched );
+
+ck( 'Send again on an invitation whose sender no longer vouches sends nothing and says it is no longer waiting', array(
+	$resent_end,
+	flash_status( 7 ),
+	count( $GLOBALS['sent'] ),
+), array( 'redirect:https://example.test/institution-dashboard/#wpcpm-people', 'invite-gone', 0 ) );
+ck( 'and the invitation is cancelled, its token forgotten, as the site\'s own act', array(
+	pmeta( $unvouched, '_wpcpm_inv_state' ),
+	pmeta( $unvouched, '_wpcpm_inv_token' ),
+	last_entry( $A )['kind'],
+	last_entry( $A )['ground'],
+), array( 'cancelled', '', 'invite_cancelled', 'system' ) );
+ck( 'and no send of the day was used up', WPCPM_Ceiling::count( 'invite:' . $A . ':7', DAY_IN_SECONDS ), 0 );
+
+WPCPM_Institution_Members::attach( 8, $A, 'provisioned', 0 );
+
+// A membership ends at one institution, and so do the invitations it vouched for there: an account
+// promoted to Administrator after it was attached may have invited people to other institutions as
+// an Administrator, and those still stand.
+reset_world();
+
+$own_school   = seed_invite( $A, 'mine@example.test', 7, time() );
+$other_school = seed_invite( $B, 'elsewhere@example.test', 7, time() );
+
+WPCPM_Institution_Members::detach( 7, 'removed', 1 );
+
+ck( 'removing a member cancels what they sent to that institution, and not what they sent to another', array(
+	pmeta( $own_school, '_wpcpm_inv_state' ),
+	pmeta( $other_school, '_wpcpm_inv_state' ),
+), array( 'cancelled', 'pending' ) );
+
+WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 );
 
 /* ---- what is drawn -------------------------------------------------------- */
 

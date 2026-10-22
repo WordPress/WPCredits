@@ -397,7 +397,7 @@ class WPCPM_Institution_Members {
 			}
 		}
 
-		self::cancel_invitations_by( $user->ID );
+		self::cancel_invitations_by( $user->ID, $record_id );
 
 		WPCPM_Institution_Audit::record(
 			array(
@@ -429,28 +429,48 @@ class WPCPM_Institution_Members {
 	}
 
 	/**
-	 * Cancel every pending invitation this account issued.
+	 * Cancel every pending invitation this account issued to the institution it was a member of.
 	 *
-	 * A deliberate no-op until the invitation post type (`wpcpm_inst_invite`) ships
-	 * in Phase 4. It is called now so `detach()` already has the step in the right order,
-	 * and the day the type exists this is the one place to fill in.
+	 * A membership that has ended is not a recommendation that outlives it, so the links this
+	 * person sent there stop working with it, through `WPCPM_Institution_Invite::cancel_by_actor()`;
+	 * each one gets its own `system` audit row there. Their colleagues' invitations are left
+	 * alone: those people still vouch for whoever they invited. So are this account's to other
+	 * institutions, which it can have sent only as an Administrator.
 	 *
-	 * @param int $user_id The account whose invitations end with its membership.
+	 * Reached through a `class_exists()` guard, the way the agreement's revoke reaches the
+	 * institution-wide cancel, so this file loads and its suite runs without the invitation
+	 * class. Until 1.123.26 this was the Phase 1 stub, empty, and a removed member's links kept
+	 * working for their fourteen days.
+	 *
+	 * @param int    $user_id   The account whose invitations end with its membership.
+	 * @param string $record_id The institution the membership was of.
+	 * @return int How many were cancelled.
 	 */
-	private static function cancel_invitations_by( $user_id ) {
-		unset( $user_id );
+	private static function cancel_invitations_by( $user_id, $record_id ) {
+		if ( ! class_exists( 'WPCPM_Institution_Invite' ) || ! method_exists( 'WPCPM_Institution_Invite', 'cancel_by_actor' ) ) {
+			return 0;
+		}
+
+		return (int) WPCPM_Institution_Invite::cancel_by_actor( (int) $user_id, (string) $record_id );
 	}
 
 	/**
 	 * Cancel every pending invitation for an institution.
 	 *
-	 * The last-member rule's first half; a no-op until Phase 4 for the same reason as
-	 * `cancel_invitations_by()`.
+	 * The last-member rule's first half: with nobody left to act for the institution, nobody
+	 * is left to vouch for the people it was adding, whoever sent the link, an Administrator
+	 * included. Through `WPCPM_Institution_Invite::cancel_for_institution()`, behind the same
+	 * guard as `cancel_invitations_by()` and for the same reason; a stub until 1.123.26.
 	 *
 	 * @param string $record_id Airtable record ID.
+	 * @return int How many were cancelled.
 	 */
 	private static function cancel_invitations_for( $record_id ) {
-		unset( $record_id );
+		if ( ! class_exists( 'WPCPM_Institution_Invite' ) || ! method_exists( 'WPCPM_Institution_Invite', 'cancel_for_institution' ) ) {
+			return 0;
+		}
+
+		return (int) WPCPM_Institution_Invite::cancel_for_institution( (string) $record_id );
 	}
 
 	/**

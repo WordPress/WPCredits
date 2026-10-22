@@ -24,7 +24,7 @@ day, which meant an institution changed in the base was a day old on the site. N
 has to be switched off and on again for the change to take: on the first request after the update
 each sync sees its own event still on the daily schedule, clears it and puts it back on the
 three-hour one. The housekeeping jobs are not syncs and stay daily - the two application retention
-runs, the two agreement discards, the reviewer's digest, invitation expiry, the semester report
+runs, the two agreement discards, the nightly reminder of agreements waiting, invitation expiry, the semester report
 drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
 down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
 reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
@@ -313,7 +313,6 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_administrator_page_title_fixed` | `WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_agreement_` | `WPCPM_Institution_Agreement::OPT_PREFIX` |
 | `wpcpm_agreement_drift` | `WPCPM_Agreement_Template::OPT_DRIFT` |
-| `wpcpm_agreement_on_file_all` | `WPCPM_Institution_Agreement::OPT_ON_FILE_ALL` |
 | `wpcpm_agreement_reminded` | `WPCPM_Institution_Agreement::OPT_REMINDED` |
 | `wpcpm_application_log` | `WPCPM_Institutions::OPT_APP_LOG` |
 | `wpcpm_application_page_id` | `WPCPM_Institution_Application::OPT_PAGE` |

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.25
+Stable tag: 1.123.26
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,17 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.26 =
+
+* An institution's invitations end with the person who sent them: removing a member, or the last member leaving, cancels the invitations they sent for that institution, and an invitation from someone who is no longer a member or an Administrator cannot be accepted or sent again.
+* The Agreements tab's one-press "Record all as signed" is gone. Each Confirmed institution with no agreement on the site is listed with a link to its own page, where an Administrator records the agreement the program holds, one at a time.
+* An institution application waiting on its confirmation link can be moved on: "Send the confirmation link again" emails the applicant the acknowledgement with the same link, and putting back a spam-filed application that was never acknowledged sends it. The acknowledgement, for institutions and mentors, now says the application cannot go further until the link is followed.
+* An approval that stopped partway is marked on the application in wp-admin and on the Administrator Dashboard, and Reject, Reject as spam and Put back in the queue are refused until Approve is pressed again to finish.
+* A switched-off application form, for institutions, sponsors or mentors, shows visitors one sentence saying applications are closed, where it showed a blank page.
+* The Institution Dashboard's student search says what it searches: name, WordPress.org username, tutor and field of study (an Administrator also searches email addresses).
+* Settings > Institutions: "Who reviews agreements" is now "Who is emailed about institutions", and says what it covers: new applications, agreements to review, reminders, template problems and an institution's last member leaving. With nobody named, a notice says every Administrator account gets these emails.
+* For developers: `WPCPM_Institution_Application::acknowledge_again()`, the action `wpcpm_app_resend_link` (`WPCPM_Institutions::ACTION_RESEND_LINK`); invitations check their sender when used; the on-file-all form, its handler, `ACTION_ON_FILE_ALL` and `OPT_ON_FILE_ALL` are removed.
 
 = 1.123.25 =
 

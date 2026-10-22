@@ -52,7 +52,9 @@
  *
  * And the footer has gained a line since, on purpose, in 1.123.24: the site's address under the
  * signature's first line. bin/stubs/mail-since-1-123-24.php puts it into each recorded email, this
- * recording's and M1's, and the suite checks it fell on all sixteen of this one's.
+ * recording's and M1's, and the suite checks it fell on all sixteen of this one's. In 1.123.26 the
+ * acknowledgement says its link is needed: bin/stubs/mail-since-1-123-26.php puts that sentence
+ * into the acknowledgements of both recordings, and the suite checks it fell on this one's four.
  *
  * Run from the plugin root:  php bin/test-mentor-activation-text.php
  * Record (once, against 1.122.33):  php bin/test-mentor-activation-text.php --record
@@ -65,6 +67,7 @@ if ( 'cli' !== PHP_SAPI ) {
 require_once __DIR__ . '/stubs/mentor-applications.php';
 require_once __DIR__ . '/stubs/options-lock-wpdb.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-26.php';
 
 $GLOBALS['sent']       = array();
 $GLOBALS['settings']   = array();
@@ -909,6 +912,13 @@ if ( is_array( $recorded ) && isset( $recorded['cases'] ) ) {
 
 ck( 'and 1.123.24\'s site address is put into the footer of every recorded email, and nothing else of 1.123.24', $GLOBALS['wpcpm_since_1_123_24'], array( 'declined' => 0, 'site_line' => 16, 'site_kept' => 0 ) );
 
+// And 1.123.26's sentence about the acknowledgement's link, in the four recorded acknowledgements.
+if ( is_array( $recorded ) && isset( $recorded['cases'] ) ) {
+	$recorded['cases'] = wpcpm_mails_since_1_123_26( $recorded['cases'] );
+}
+
+ck( 'and 1.123.26\'s sentence saying the link is needed is put into each of the four recorded acknowledgements, and into nothing else', $GLOBALS['wpcpm_since_1_123_26'], array( 'confirm_link' => 4 ) );
+
 echo "\n=== Every email of every case, as recorded ===\n";
 
 $as_sent = array();
@@ -942,8 +952,9 @@ echo "\n=== The emails M1 recorded, in these cases ===\n";
 // and the two notices, and its 'more-information-then-selected' case the selection's email.
 $first = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/mentor-applications-1-122-31.json' ), true );
 $first = isset( $first['cases'] ) ? $first['cases'] : array();
-// As 1.123.24 sends them, the site's address in their footers (bin/stubs/mail-since-1-123-24.php).
-$first = wpcpm_mails_since_1_123_24( $first );
+// As 1.123.24 sends them, the site's address in their footers (bin/stubs/mail-since-1-123-24.php),
+// and as 1.123.26 sends the acknowledgement (bin/stubs/mail-since-1-123-26.php).
+$first = wpcpm_mails_since_1_123_26( wpcpm_mails_since_1_123_24( $first ) );
 $mine  = array(
 	'applied'  => isset( $first['applied'] ) ? $first['applied'] : array(),
 	'selected' => isset( $first['more-information-then-selected'][4] ) ? $first['more-information-then-selected'][4] : null,

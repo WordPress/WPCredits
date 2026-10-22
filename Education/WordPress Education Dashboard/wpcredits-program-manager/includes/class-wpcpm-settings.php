@@ -175,9 +175,12 @@ class WPCPM_Settings {
 			'application_trusted_proxy'     => '',
 			// The signed-agreement upload. The size cap and the daily count per
 			// institution are what stops a Subscriber-based account filling the disk.
-			// `agreement_notify` is who hears about an upload, comma-separated; empty
-			// means every account that can manage the program, so the queue is never
-			// silently nobody's job. An upload nobody has looked at for
+			// `agreement_notify` is who is emailed about institutions, comma-separated:
+			// a new application, an upload, the reminder, the template notice and a last
+			// member leaving, since `WPCPM_Institutions::notify_managers()` writes to it
+			// unless told another key; empty means every account that can manage the
+			// program, so the queue is never silently nobody's job. The key kept its name
+			// when its label became "Who is emailed about institutions" in 1.123.26. An upload nobody has looked at for
 			// `agreement_review_days` is overdue and goes in the reminder; a withdrawn
 			// or returned file is deleted after `agreement_discard_days`, an accepted
 			// one never, because it is the agreement.

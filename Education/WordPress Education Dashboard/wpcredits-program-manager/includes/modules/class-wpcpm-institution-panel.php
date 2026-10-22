@@ -96,8 +96,6 @@ class WPCPM_Institution_Panel {
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstated'         => array( 'success', __( 'The agreement is back in force and the account is open again. Everybody at the institution has been emailed.', 'wpcredits-program-manager' ) ),
-			'agreement-all-none'           => array( 'info', __( 'Nothing to record: every Confirmed institution already has an agreement recorded.', 'wpcredits-program-manager' ) ),
-			'agreement-on-file-all'        => array( 'success', self::on_file_all_summary() ),
 			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ) ),
 			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.', 'wpcredits-program-manager' ) ),
 			'agreement-later'              => array( 'info', __( 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.', 'wpcredits-program-manager' ) ),
@@ -1574,45 +1572,6 @@ class WPCPM_Institution_Panel {
 		$version = trim( (string) get_post_meta( (int) $post_id, WPCPM_Institution_Agreement::META_TEMPLATE_VERSION, true ) );
 
 		return '' !== $version ? $version : __( 'unrecorded', 'wpcredits-program-manager' );
-	}
-	/**
-	 * What the last bulk recording did, in one sentence, for its outcome message.
-	 *
-	 * @return string
-	 */
-	public static function on_file_all_summary() {
-		$tally = WPCPM_Institution_Agreement::last_on_file_all();
-
-		if ( ! is_array( $tally ) ) {
-			return __( 'The agreements were recorded.', 'wpcredits-program-manager' );
-		}
-
-		$parts = array(
-			sprintf(
-				/* translators: %s: number of institutions. */
-				_n( '%s institution recorded as signed and its account opened.', '%s institutions recorded as signed and their accounts opened.', (int) $tally['recorded'], 'wpcredits-program-manager' ),
-				number_format_i18n( (int) $tally['recorded'] )
-			),
-		);
-
-		if ( ! empty( $tally['failed'] ) ) {
-			$parts[] = sprintf(
-				/* translators: 1: number of institutions, 2: their record IDs. */
-				_n( '%1$s could not be recorded and is left for the single form: %2$s.', '%1$s could not be recorded and are left for the single form: %2$s.', count( $tally['failed'] ), 'wpcredits-program-manager' ),
-				number_format_i18n( count( $tally['failed'] ) ),
-				implode( ', ', array_keys( $tally['failed'] ) )
-			);
-		}
-
-		if ( ! empty( $tally['left'] ) ) {
-			$parts[] = sprintf(
-				/* translators: %s: number of institutions. */
-				_n( 'The run stopped after its time budget with %s still to do: press it again.', 'The run stopped after its time budget with %s still to do: press it again.', (int) $tally['left'], 'wpcredits-program-manager' ),
-				number_format_i18n( (int) $tally['left'] )
-			);
-		}
-
-		return implode( ' ', $parts );
 	}
 }
 

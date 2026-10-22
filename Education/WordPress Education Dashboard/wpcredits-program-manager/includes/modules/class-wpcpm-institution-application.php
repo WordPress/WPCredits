@@ -191,6 +191,12 @@ class WPCPM_Institution_Application {
 	 */
 	const MAIL_PER_DAY = WPCPM_Form_Guard::MAIL_PER_DAY;
 
+	/**
+	 * The name the day's acknowledgements are counted under, by the form and by the queue's two
+	 * presses that send one again (`acknowledge_again()`), so the three share one limit.
+	 */
+	const MAIL_KEY = 'apply-mail';
+
 	/** How many links across the free text before the row is held for a human. */
 	const MAX_LINKS = WPCPM_Form_Guard::MAX_LINKS;
 
@@ -784,13 +790,18 @@ class WPCPM_Institution_Application {
 	/**
 	 * Render the answer this request carries, the form, the confirmation, or nothing.
 	 *
-	 * Two things stop the *form* being drawn, and both answer a manager with one sentence and
-	 * the public with nothing: the form being switched off, and the countries map being empty.
-	 * Nothing, rather than an apology, because a page that says "this form is broken" to a
-	 * stranger who followed a link from a conference talk is worse than a page that says nothing,
-	 * and because both are states only somebody with the settings screen can do anything about.
-	 * The site having no privacy page was a third until 1.123.24, when the form began linking the
-	 * WordPress.org privacy policy instead.
+	 * Two things stop the *form* being drawn, and both answer a manager with one sentence: the
+	 * form being switched off, and the countries map being empty. The public are told the first
+	 * in the `closed` sentence, in the form's place, since 1.123.26: the guide promises that a
+	 * switched-off form says applications are closed, and until then a visitor who followed a
+	 * link to the page was shown an empty one. Not where no form would be drawn anyway, after a
+	 * sent application or a confirmed address, whose applicant is not to read that the program
+	 * takes none, and once, when the post that brought them here was answered `closed` already.
+	 * The second still answers the public with nothing, rather than an apology: a page that says
+	 * "this form is broken" to a stranger who followed a link from a conference talk is worse
+	 * than a page that says nothing, and an empty countries list is a state only somebody with
+	 * the settings screen can do anything about. The site having no privacy page was a third
+	 * until 1.123.24, when the form began linking the WordPress.org privacy policy instead.
 	 *
 	 * **Neither stops a sentence, and that is a fix rather than a nicety.** While the
 	 * refusals returned before `render_message()` ran, two things were true and both were
@@ -844,16 +855,23 @@ class WPCPM_Institution_Application {
 			self::render_message( $outcome );
 		}
 
+		// Everything except the outcomes where drawing the form again would invite the same
+		// refusal or contradict what has just been said: a source that has used its five
+		// submissions this hour, an address that has just been confirmed and has nothing left to
+		// send, and the confirmation panel itself.
+		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'verified', 'verified-already' ), true );
+
 		if ( '' !== $closed ) {
-			// One sentence, and only for somebody who can do something about it.
+			// Switched off, every visitor reads the sentence in the form's place, once.
+			if ( ! self::is_open() && $draws && 'closed' !== $outcome ) {
+				self::render_message( 'closed' );
+			}
+
+			// The reason, and only for somebody who can do something about it.
 			if ( $can_manage ) {
 				printf( '<p class="wpcpm-application__notice">%s</p>', esc_html( $closed ) );
 			}
-		} elseif ( ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'verified', 'verified-already' ), true ) ) {
-			// Everything except the outcomes where drawing the form again would invite the same
-			// refusal or contradict what has just been said: a source that has used its five
-			// submissions this hour, an address that has just been confirmed and has nothing
-			// left to send, and the confirmation panel itself.
+		} elseif ( $draws ) {
 			self::render_form(
 				isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array(),
 				isset( $stash['problems'] ) && is_array( $stash['problems'] ) ? $stash['problems'] : array(),
@@ -1004,7 +1022,7 @@ class WPCPM_Institution_Application {
 					$acknowledged
 						? sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We have sent an acknowledgement to %s with a link that confirms the address. An Administrator reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We have sent an acknowledgement to %s with a link that confirms the address. Please follow it: we cannot take your application further until you do. An Administrator reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 						: sprintf(
@@ -1627,7 +1645,7 @@ class WPCPM_Institution_Application {
 			// The ceiling before the send, not after: see `MAIL_PER_DAY`. A claim that fails
 			// leaves the row exactly as it is and records why, so the queue shows a manager
 			// that this applicant is waiting on a message the site declined to send.
-			if ( WPCPM_Form_Guard::claim_mail( 'apply-mail', self::MAIL_PER_DAY ) ) {
+			if ( WPCPM_Form_Guard::claim_mail( self::MAIL_KEY, self::MAIL_PER_DAY ) ) {
 				self::mail_applicant( $post_id );
 			} else {
 				self::add_signal( $post_id, 'mail-ceiling' );
@@ -2380,6 +2398,46 @@ class WPCPM_Institution_Application {
 		self::add_event( $post_id, 'address confirmed', 0, '' );
 
 		self::bounce( 'verified' );
+	}
+
+	/**
+	 * Send the acknowledgement again, at an Administrator's press, and say how it went.
+	 *
+	 * The way the queue sends it after the form did, or in its place: Send the confirmation link
+	 * again, on an open application whose address is unconfirmed, and Put back in the queue, on a
+	 * spam-filed one that never had it (`WPCPM_Institutions::handle_resend_link()` and
+	 * `handle_reopen()`). Approve refuses until the address is confirmed and only this email's link
+	 * confirms it, so until 1.123.26, when nothing sent it again, a row past the day's limit, a
+	 * spam-filed row put back and an applicant who lost the email were stuck for good.
+	 *
+	 * The same email through the same sender (`mail_applicant()`), so the same template and the
+	 * same link: the link is a signature over the application and its address
+	 * (`verify_signature()`), not a stored secret, so this carries the link the first email
+	 * carried, and that one keeps working. Nothing is replaced, and nothing needs to be: the link
+	 * confirms one address for one application, and an applicant who finds the first email after
+	 * the second has the same link in both.
+	 *
+	 * Counted against the day's limit on acknowledgements as the form's send is (`MAIL_KEY`):
+	 * the limit is what keeps this path from being a mailer, and a press is one more email to an
+	 * address nobody has proved. An application with no usable address is answered `failed`
+	 * before the limit is asked, so it spends none of it.
+	 *
+	 * @param int $post_id Application post ID.
+	 * @return string `sent`, `ceiling` (the day's limit is reached, nothing sent) or `failed`
+	 *                (no usable address, or the mail layer refused the hand-off).
+	 */
+	public static function acknowledge_again( $post_id ) {
+		$fields = get_post_meta( (int) $post_id, self::META_FIELDS, true );
+
+		if ( ! is_email( self::email_of( is_array( $fields ) ? $fields : array() ) ) ) {
+			return 'failed';
+		}
+
+		if ( ! WPCPM_Form_Guard::claim_mail( self::MAIL_KEY, self::MAIL_PER_DAY ) ) {
+			return 'ceiling';
+		}
+
+		return self::mail_applicant( (int) $post_id ) ? 'sent' : 'failed';
 	}
 
 	/**

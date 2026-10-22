@@ -511,7 +511,8 @@ if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 			$GLOBALS['calls'][] = array( 'dashboard_ensure_page' );
 		}
 		public static function page_url() {
-			return 'https://example.test/institution-dashboard/';
+			// A suite may take the page away, as a trashed page does, to see what a link to it becomes.
+			return isset( $GLOBALS['institution_page_url'] ) ? (string) $GLOBALS['institution_page_url'] : 'https://example.test/institution-dashboard/';
 		}
 		public static function is_member( $user = null ) {
 			return false;
@@ -676,7 +677,6 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const ACTION_ON_FILE     = 'wpcpm_agreement_on_file';
 		const CRON_DISCARD       = 'wpcpm_agreement_discard';
 		const CRON_REMINDERS     = 'wpcpm_agreement_reminders';
-		const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
 		const MAX_LOCATION       = 200;
 		const STATE_GENERATED   = 'generated';
 		const STATE_SUBMITTED   = 'submitted';
@@ -823,15 +823,17 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 
 		/*
 		 * The four limits the queue quotes when it says in plain words why a submission was
-		 * held. The screen names them through this class rather than writing 6 and 3 and 30
-		 * and 40 into its sentences, so a limit changed on the form cannot leave the manager
+		 * held, and the day's limit on acknowledgements it quotes when a send is refused. The
+		 * screen names them through this class rather than writing 6 and 3 and 30 and 40 into
+		 * its sentences, so a limit changed on the form cannot leave the manager
 		 * screen quoting the old one; `php bin/check-references.php` is what proves the real
 		 * class still declares each of them.
 		 */
-		const MIN_SECONDS = 6;
-		const MAX_LINKS   = 3;
-		const MIN_REASON  = 30;
-		const PER_DAY     = 40;
+		const MIN_SECONDS  = 6;
+		const MAX_LINKS    = 3;
+		const MIN_REASON   = 30;
+		const PER_DAY      = 40;
+		const MAIL_PER_DAY = 200;
 
 		const META_FIELDS       = '_wpcpm_app_fields';
 		const META_STATE        = '_wpcpm_app_state';
@@ -924,6 +926,16 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 			return $out;
 		}
 
+		/**
+		 * The acknowledgement sent again, at an Administrator's press: recorded, and answered as the
+		 * suite says (`sent`, `ceiling` or `failed`). What it sends and the limit it counts against
+		 * are bin/test-institution-application.php's; what the queue owes it is the call, once.
+		 */
+		public static function acknowledge_again( $post_id ) {
+			$GLOBALS['acknowledged'][] = (int) $post_id;
+			return $GLOBALS['ack_result'] ?? 'sent';
+		}
+
 		/** IDs, like the real one: the bubble counts rows and draws none of them. */
 		public static function pending_count( $limit = 0 ) {
 			$found = count( self::application_ids( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ) ) );
@@ -953,6 +965,10 @@ if ( ! class_exists( 'WPCPM_Institution_Approval' ) ) {
 			$GLOBALS['approved'][] = array( (int) $application_id, (int) $manager_id );
 			return $GLOBALS['approve_result'] ?? array( 'record' => 'recAPPROVED00001', 'user_id' => 77, 'adopted' => false );
 		}
+		/** An approval begun and left unfinished, for the applications the suite names. */
+		public static function is_half_done( $application_id ) {
+			return in_array( (int) $application_id, (array) ( $GLOBALS['half_done'] ?? array() ), true );
+		}
 	}
 }
 
@@ -965,6 +981,7 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	 * `$GLOBALS['reviews']` records.
 	 */
 	class WPCPM_Institution_Panel {
+		const ANCHOR = 'wpcpm-agreement';
 		public static function messages() {
 			return array(
 				'agreement-uploaded'  => array( 'success', 'The signed agreement is uploaded. An Administrator reviews it and you will get an email either way.' ),
@@ -1589,7 +1606,7 @@ ck( 'and draws its cards as .wpcpm-card', substr_count( $src, "'<div class=\"wpc
 // (WPCPM_Accounts_Screen); the scan reads those three sources after this module's own.
 $handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' );
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $handler_src, $handlers );
-ck( 'the fourteen handlers exist', $handlers[1], array(
+ck( 'the fifteen handlers exist', $handlers[1], array(
 	// The account presses of the Accounts tab: one institution's Create account, and the
 	// invitations card's button. Create account on the ticked institutions and the invitations on
 	// the ticked accounts are the list's own form, handled on the screen's load hook.
@@ -1597,7 +1614,10 @@ ck( 'the fourteen handlers exist', $handlers[1], array(
 	// Linking an unlinked Students row to an institution, which used to be a sentence saying
 	// it would ship later.
 	'handle_link',
-	'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge',
+	'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen',
+	// Sending the confirmation link again, on an open application whose address is unconfirmed
+	// (1.123.26).
+	'handle_resend_link', 'handle_purge',
 	// From the shared sync module.
 	'handle_tick', 'handle_sync', 'handle_cancel',
 	// A row's invitation, from the shared accounts screen.
@@ -1812,9 +1832,10 @@ ck( 'each tab draws the cards of its job and none of another tab\'s', array_map(
 ) );
 
 // What each tab offers to press, by the action its forms post: the sync and the probe on Sync and
-// storage alone, and the agreements recorded on file on Agreements alone, where they are listed,
-// and no longer under the accounts gate. The Accounts tab's presses are its list's, a form to the
-// screen itself, and the invitations card's, which offers none while nobody is waiting for one.
+// storage alone. Agreements offers none since 1.123.26: its card lists the institutions with no
+// agreement recorded and links each to its own page, where one agreement is recorded. The Accounts
+// tab's presses are its list's, a form to the screen itself, and the invitations card's, which
+// offers none while nobody is waiting for one.
 $presses = function ( $html ) {
 	preg_match_all( '#<input type="hidden" name="action" value="([^"]+)" />#', (string) $html, $m );
 	return array_values( array_unique( $m[1] ) );
@@ -1824,7 +1845,7 @@ ck( 'each tab offers the presses of its own cards and no other tab\'s', array_ma
 	'pipeline'   => array(),
 	'accounts'   => array(),
 	'reports'    => array( 'wpcpm_report_ask', 'wpcpm_report_draft' ),
-	'agreements' => array( 'wpcpm_agreement_on_file_all' ),
+	'agreements' => array(),
 	'sync'       => array( 'wpcpm_institutions_sync', 'wpcpm_institutions_probe' ),
 ) );
 
@@ -1841,7 +1862,7 @@ ck( 'every form whose press comes back to a tab other than the queue names it', 
 	'pipeline'   => array(),
 	'accounts'   => array(),
 	'reports'    => array(),
-	'agreements' => array( 'agreements' => 1 ),
+	'agreements' => array(),
 	'sync'       => array( 'sync' => 2 ),
 ) );
 
@@ -2389,10 +2410,12 @@ ck( 'the outcome a failed press leaves is worded by the tab it comes back to: th
 
 /* ---- agreements on file ------------------------------------------------- */
 
-// Every Confirmed institution signed before this site could record an agreement, so the form that
-// records them all at once is the Agreements tab's, under the list of what it records. The list is
-// the form's own set, every Confirmed record whose agreement is not settled, so what the card names
-// and what the button counts are what a press records.
+// The card lists every Confirmed record whose agreement is not settled, and since 1.123.26 it records
+// nothing itself. Until then a button under the list marked every one of them signed in one press,
+// with one Drive link and no date guard: a day-one migration tool that, left live, would have marked
+// an institution confirmed last week as signed. Each name now opens that institution's own page, at
+// the Collaboration Agreement panel, where "Record an agreement the program already holds" records
+// one agreement with the copy the program holds for it.
 
 echo "\n=== Agreements on file ===\n";
 
@@ -2401,26 +2424,29 @@ $GLOBALS['summaries'] = array();
 $on_file_tab          = render_tab( 'agreements' );
 $on_file_card         = preg_match( '#<div class="wpcpm-card"><h2>Agreements on file</h2>(.*?)</div><div class="wpcpm-card">#s', $on_file_tab, $card_match ) ? $card_match[1] : '';
 
-preg_match_all( '#<li>(.*?) <code class="wpcpm-inst-record">([^<]*)</code></li>#', $on_file_card, $listed, PREG_SET_ORDER );
+preg_match_all( '#<li><a href="([^"]*)">(.*?)</a> <code class="wpcpm-inst-record">([^<]*)</code></li>#', $on_file_card, $listed, PREG_SET_ORDER );
 
 ck( 'the card says how many Confirmed institutions have no agreement recorded, and names every one with its record ID', array(
 	false !== strpos( $on_file_card, '<p>42 Confirmed institutions have no agreement recorded:</p><ul class="wpcpm-notices wpcpm-inst-unrecorded">' ),
-	array_column( $listed, 2 ),
-	isset( $listed[0][1] ) ? html_entity_decode( $listed[0][1], ENT_QUOTES ) : '',
+	array_column( $listed, 3 ),
+	isset( $listed[0][2] ) ? html_entity_decode( $listed[0][2], ENT_QUOTES ) : '',
 ), array( true, $confirmed, trim( $rows[ $confirmed[0] ]['name'] ) ) );
-ck( 'it opens with the words the form used to carry, printed once on the tab, then when the index was read, and the form follows the list', array(
-	0 === strpos( $on_file_card, '<p class="description">Every Confirmed institution signed a Collaboration Agreement before this site could record one.' ),
-	false !== strpos( $on_file_card, 'and its account can then be created.</p><p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>42 Confirmed institutions' ),
-	substr_count( $on_file_tab, 'Every Confirmed institution signed a Collaboration Agreement before this site could record one.' ),
-	false !== strpos( $on_file_card, '</ul><form class="wpcpm-on-file-all" method="post" action="https://example.test/wp-admin/admin-post.php">' ),
-), array( true, true, 1, true ) );
-ck( 'the form records them all and names its tab, and its button counts what it records', array(
-	form_fields( $on_file_tab, WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL ),
-	false !== strpos( $on_file_card, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_agreement_on_file_all" />' ),
-	false !== strpos( $on_file_card, 'name="wpcpm_agreement_drive" required' ),
-	false !== strpos( $on_file_card, 'name="wpcpm_agreement_where" maxlength="200"' ),
-	false !== strpos( $on_file_card, '<button type="submit" class="button button-secondary">Record all 42 institutions as signed</button>' ),
-), array( array( 'action' => 'wpcpm_agreement_on_file_all', 'wpcpm_tab' => 'agreements' ), true, true, true, true ) );
+ck( 'each name opens that institution\'s own page at its Collaboration Agreement panel, where one agreement is recorded', array(
+	isset( $listed[0][1] ) ? $listed[0][1] : '',
+	count( $listed ),
+), array( 'https://example.test/institution-dashboard/?wpcpm_institution_view=' . $confirmed[0] . '#wpcpm-agreement', 42 ) );
+ck( 'when the index was read comes first, and the one sentence under the list says how each is recorded', array(
+	0 === strpos( $on_file_card, '<p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>42 Confirmed institutions' ),
+	false !== strpos( $on_file_card, '</ul><p class="description">Record each one from its own page, with the signed copy the program holds.</p>' ),
+	substr_count( $on_file_tab, 'Record each one from its own page, with the signed copy the program holds.' ),
+), array( true, true, 1 ) );
+ck( 'the card records nothing itself: no form, no button, no bulk words', array(
+	strpos( $on_file_card, '<form' ),
+	strpos( $on_file_card, '<button' ),
+	strpos( $on_file_tab, 'wpcpm_agreement_on_file_all' ),
+	strpos( $on_file_tab, 'institutions as signed' ),
+	strpos( $on_file_tab, 'Every Confirmed institution signed a Collaboration Agreement before this site could record one.' ),
+), array( false, false, false, false, false ) );
 ck( 'and no address reaches the card, which is there, only the names', array( '' !== $on_file_card, preg_match( '/@example\.test/', $on_file_card ) ), array( true, 0 ) );
 
 // Two recorded and one waiting for review: the recorded ones leave the list and the count, the
@@ -2436,15 +2462,25 @@ ck( 'an institution whose agreement is recorded leaves the list and the count, a
 	strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[0] . '</code>' ),
 	strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[1] . '</code>' ),
 	false !== strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[2] . '</code>' ),
-	false !== strpos( $fewer, '>Record all 40 institutions as signed</button>' ),
-), array( true, false, false, true, true ) );
+), array( true, false, false, true ) );
+
+// With the Institution Dashboard's page missing there is nowhere to send the reader: the names are
+// printed plain, and the tab's other cards say the page is missing where it matters.
+$kept_url                                  = $GLOBALS['institution_page_url'] ?? null;
+$GLOBALS['institution_page_url']           = '';
+$unlinked                                  = render_tab( 'agreements' );
+$GLOBALS['institution_page_url']           = $kept_url;
+ck( 'with no Institution Dashboard page the names are listed without a link', array(
+	false !== strpos( $unlinked, '<li>' . esc_html( trim( $rows[ $confirmed[3] ]['name'] ) ) . ' <code class="wpcpm-inst-record">' . $confirmed[3] . '</code></li>' ),
+	substr_count( $unlinked, '#wpcpm-agreement' ),
+), array( true, 0 ) );
 
 $GLOBALS['summaries'] = array_fill_keys( $confirmed, array( 'state' => 'on_file' ) );
 $recorded             = render_tab( 'agreements' );
-ck( 'with every Confirmed institution recorded the card says so, and draws no list and no form', array(
+ck( 'with every Confirmed institution recorded the card says so, and draws no list and no sentence', array(
 	false !== strpos( $recorded, '<div class="wpcpm-card"><h2>Agreements on file</h2><p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>No Confirmed institution is waiting for its agreement to be recorded.</p></div>' ),
 	strpos( $recorded, 'wpcpm-inst-unrecorded' ),
-	strpos( $recorded, 'wpcpm-on-file-all' ),
+	strpos( $recorded, 'Record each one from its own page' ),
 ), array( true, false, false ) );
 
 $GLOBALS['summaries'] = $kept_summaries;
@@ -3752,7 +3788,7 @@ $GLOBALS['deleted'] = array();
 
 echo "\n=== The queue's handlers ===\n";
 
-$queue_handlers = array( 'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge' );
+$queue_handlers = array( 'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_resend_link', 'handle_purge' );
 
 $GLOBALS['caps'] = false;
 $_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 501 );
@@ -4229,6 +4265,218 @@ outcome( array( $module, 'handle_reopen' ) );
 ck( 'and refuses one that is already open', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'app-state' ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 
+/* ---- the confirmation link, sent again ----------------------------------- */
+
+// Approve refuses until the applicant's address is confirmed, and only the acknowledgement's link
+// confirms it. Until 1.123.26 nothing sent that link again, so a row over the day's limit on
+// acknowledgements, a spam-filed row put back and an applicant who lost the email were stuck for
+// good. Send the confirmation link again sends it on an open application whose address is not
+// confirmed; Put back in the queue sends it to a spam-filed row that never had it.
+echo "\n=== The confirmation link, sent again ===\n";
+
+seed_application(
+	540,
+	'Sin Confirmar Example',
+	WPCPM_Institution_Application::STATE_NEW,
+	$now - ( 3 * $day ),
+	array(
+		WPCPM_Institution_Application::META_FIELDS    => array( 'Contact Email' => 'pendiente@example.test' ),
+		WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0040',
+		WPCPM_Institution_Application::META_EMAIL     => 'hash-of-pendiente',
+		WPCPM_Institution_Application::META_SIGNALS   => array( 'mail-ceiling' ),
+	)
+);
+
+$link_events = static function ( $id ) {
+	return array_values(
+		array_filter(
+			array_map(
+				static function ( $row ) { return is_array( $row ) ? (string) $row['event'] : ''; },
+				(array) get_post_meta( (int) $id, WPCPM_Institution_Application::META_EVENT, false )
+			),
+			static function ( $event ) { return in_array( $event, array( 'confirmation link sent again', 'reopened, acknowledgement sent' ), true ); }
+		)
+	);
+};
+$link_press = static function ( $id, $result = 'sent' ) use ( $module ) {
+	$GLOBALS['acknowledged'] = array();
+	$GLOBALS['ack_result']   = $result;
+	$_POST                   = array( WPCPM_Institutions::FIELD_APPLICATION => (int) $id );
+	$went                    = outcome( array( $module, 'handle_resend_link' ) );
+	$flashed                 = get_user_meta( 1, WPCPM_Flash::META );
+	delete_user_meta( 1, WPCPM_Flash::META );
+	unset( $GLOBALS['ack_result'] );
+	return array( $went, $GLOBALS['referer'], $GLOBALS['acknowledged'], $flashed['institutions'] ?? '' );
+};
+
+ck( 'pressed on an open application whose address is not confirmed, it sends the acknowledgement once, with its nonce keyed to the application, and comes back to the queue', $link_press( 540 ), array( $back, array( 'wpcpm_app_resend_link_540' ), array( 540 ), 'app-link-sent' ) );
+ck( 'the notice says so, in the words asked for', WPCPM_Institutions::queue_messages()['app-link-sent'], array( 'success', 'The confirmation link was sent again.' ) );
+$link_history = get_post_meta( 540, WPCPM_Institution_Application::META_EVENT, false );
+ck( 'and the application\'s history says it went, and who sent it', array( $link_events( 540 ), end( $link_history )['actor'] ?? 0 ), array( array( 'confirmation link sent again' ), 1 ) );
+ck( 'the application stays where it was', (string) get_post_meta( 540, WPCPM_Institution_Application::META_STATE, true ), 'new' );
+
+ck( 'over the day\'s limit on acknowledgements nothing is sent and nothing is written, and the notice says why', array( $link_press( 540, 'ceiling' ), count( $link_events( 540 ) ) ), array( array( $back, array( 'wpcpm_app_resend_link_540' ), array( 540 ), 'app-mail-ceiling' ), 1 ) );
+ck( 'the limit is named, and so is when to try again', array(
+	WPCPM_Institutions::queue_messages()['app-mail-ceiling'][0],
+	false !== strpos( WPCPM_Institutions::queue_messages()['app-mail-ceiling'][1], 'Nothing was sent and nothing moved. This site has already sent the ' . WPCPM_Institution_Application::MAIL_PER_DAY . ' acknowledgements it sends in a day' ),
+	false !== strpos( WPCPM_Institutions::queue_messages()['app-mail-ceiling'][1], 'Try again tomorrow.' ),
+), array( 'error', true, true ) );
+ck( 'a hand-off the mail server refuses writes nothing either, and says so', array( $link_press( 540, 'failed' ), count( $link_events( 540 ) ) ), array( array( $back, array( 'wpcpm_app_resend_link_540' ), array( 540 ), 'app-ack-not-sent' ), 1 ) );
+ck( 'an application whose address is confirmed is sent nothing', $link_press( 501 ), array( $back, array( 'wpcpm_app_resend_link_501' ), array(), 'app-link-confirmed' ) );
+seed_application( 541, 'Closed Example', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 30 * $day ), array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'cerrada@example.test' ) ) );
+ck( 'and so is a closed one', $link_press( 541 ), array( $back, array( 'wpcpm_app_resend_link_541' ), array(), 'app-state' ) );
+seed_application( 542, 'No Address Example', WPCPM_Institution_Application::STATE_NEW, $now - ( 3 * $day ) );
+ck( 'and one with no address to send it to', $link_press( 542 ), array( $back, array( 'wpcpm_app_resend_link_542' ), array(), 'app-link-no-email' ) );
+
+// Drawn where the application's decisions are drawn, and only where the address waits on the link.
+ob_start();
+$module->render_application_actions( get_post( 540 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$unconfirmed_drawn = (string) ob_get_clean();
+ob_start();
+$module->render_application_actions( get_post( 501 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$confirmed_drawn = (string) ob_get_clean();
+ob_start();
+$module->render_application_actions( get_post( 542 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$no_address_drawn = (string) ob_get_clean();
+ck( 'on the Administrator Dashboard it is offered on an open application whose address is unconfirmed, first, with the fields that bring the press back to the card', array(
+	form_fields( $unconfirmed_drawn, 'wpcpm_app_resend_link' ),
+	strpos( $unconfirmed_drawn, 'wpcpm_app_resend_link' ) < strpos( $unconfirmed_drawn, 'wpcpm_app_approve' ),
+	false !== strpos( $unconfirmed_drawn, '>Send the confirmation link again</button>' ),
+	false !== strpos( $unconfirmed_drawn, esc_attr( 'Email the acknowledgement to pendiente@example.test again, with the link that confirms the address?' ) ),
+), array( array( 'action' => 'wpcpm_app_resend_link', 'wpcpm_application' => '540', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'applications' ), true, true, true ) );
+ck( 'and not on one whose address is confirmed, nor on one with no address', array( strpos( $confirmed_drawn, 'wpcpm_app_resend_link' ), strpos( $no_address_drawn, 'wpcpm_app_resend_link' ) ), array( false, false ) );
+ck( 'on this screen it is drawn with the four decisions of an application past the card\'s window', array(
+	substr_count( $held_past, 'nonce-wpcpm_app_resend_link_502' ),
+	substr_count( $info_past, 'nonce-wpcpm_app_resend_link_503' ),
+	substr_count( $first_past, 'wpcpm_app_resend_link' ),
+), array( 1, 1, 0 ) );
+
+// Put back in the queue: a spam-filed row the form's checks filed, or one past the day's limit,
+// never had the acknowledgement, so it is sent now, as the mentor applications' Reopen sends theirs.
+seed_application( 543, 'Filed As Spam Example', WPCPM_Institution_Application::STATE_SPAM, $now - ( 4 * $day ), array(
+	WPCPM_Institution_Application::META_FIELDS  => array( 'Contact Email' => 'rescatada@example.test' ),
+	WPCPM_Institution_Application::META_SIGNALS => array( 'dwell' ),
+) );
+$reopen_press = static function ( $id, $result = 'sent' ) use ( $module ) {
+	$GLOBALS['acknowledged'] = array();
+	$GLOBALS['ack_result']   = $result;
+	$_POST                   = array( WPCPM_Institutions::FIELD_APPLICATION => (int) $id );
+	outcome( array( $module, 'handle_reopen' ) );
+	$flashed = get_user_meta( 1, WPCPM_Flash::META );
+	delete_user_meta( 1, WPCPM_Flash::META );
+	unset( $GLOBALS['ack_result'] );
+	return array( $GLOBALS['acknowledged'], (string) get_post_meta( (int) $id, WPCPM_Institution_Application::META_STATE, true ), $flashed['institutions'] ?? '' );
+};
+
+ck( 'over the day\'s limit, a spam-filed row that never had the acknowledgement stays where it was', $reopen_press( 543, 'ceiling' ), array( array( 543 ), 'spam', 'app-mail-ceiling' ) );
+ck( 'and a send the mail server refuses leaves it there too', $reopen_press( 543, 'failed' ), array( array( 543 ), 'spam', 'app-ack-not-sent' ) );
+ck( 'put back in the queue, it is sent the acknowledgement with the link, and opens again', $reopen_press( 543 ), array( array( 543 ), 'new', 'app-reopened-sent' ) );
+ck( 'its history says both', $link_events( 543 ), array( 'reopened, acknowledgement sent' ) );
+ck( 'and the notice says the link went', false !== strpos( WPCPM_Institutions::queue_messages()['app-reopened-sent'][1], 'with the link that confirms the address' ), true );
+
+// Marked as spam again and put back once more: the history says it went, so it does not go twice.
+update_post_meta( 543, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_SPAM );
+ck( 'one that has had it is put back with nothing sent', $reopen_press( 543 ), array( array(), 'new', 'app-reopened' ) );
+
+// A row an Administrator marked as spam after the form acknowledged it carries no signal that kept
+// the acknowledgement: the applicant holds the link already, and is sent nothing.
+seed_application( 544, 'Marked By Hand Example', WPCPM_Institution_Application::STATE_SPAM, $now - ( 4 * $day ), array(
+	WPCPM_Institution_Application::META_FIELDS  => array( 'Contact Email' => 'marcada@example.test' ),
+	WPCPM_Institution_Application::META_SIGNALS => array( 'short' ),
+) );
+ck( 'one acknowledged before it was marked as spam is put back with nothing sent', $reopen_press( 544 ), array( array(), 'new', 'app-reopened' ) );
+// And a rejected row is put back with nothing sent: the link it needs, if it is lost, is the
+// open application's own decision.
+seed_application( 545, 'Rejected Unsent Example', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 4 * $day ), array(
+	WPCPM_Institution_Application::META_FIELDS  => array( 'Contact Email' => 'rechazada@example.test' ),
+	WPCPM_Institution_Application::META_SIGNALS => array( 'mail-ceiling' ),
+) );
+ck( 'and a rejected one is put back with nothing sent', $reopen_press( 545 ), array( array(), 'new', 'app-reopened' ) );
+
+foreach ( array( 540, 541, 542, 543, 544, 545 ) as $gone ) {
+	unset( $GLOBALS['posts'][ $gone ], $GLOBALS['pmeta'][ $gone ] );
+}
+$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 502 );
+
+/* ---- a half-done approval ------------------------------------------------ */
+
+// An approval that created the Airtable record, and maybe the account, and then stopped is
+// finished by pressing Approve again. Until 1.123.26 `is_half_done()` was asked by no screen and
+// no handler, so Reject and Reject as spam took such an application and the decline went out while
+// the record stood for the institution. They refuse it now, and so does Put back in the queue, as
+// the sponsor applications' do, and the decisions say why before anybody presses one.
+echo "\n=== A half-done approval ===\n";
+
+$half_fields = array( 'Contact Email' => 'mitad@example.test' );
+// Older than every other application seeded, so the queue's list draws it first.
+seed_application( 550, 'Half Done Example', WPCPM_Institution_Application::STATE_NEW, $now - ( 400 * $day ), array(
+	WPCPM_Institution_Application::META_FIELDS   => $half_fields,
+	WPCPM_Institution_Application::META_VERIFIED => (string) ( $now - ( 2 * $day ) ),
+) );
+seed_application( 551, 'Half Done Held Example', WPCPM_Institution_Application::STATE_HELD, $now - ( 3 * $day ), array(
+	WPCPM_Institution_Application::META_FIELDS   => $half_fields,
+	WPCPM_Institution_Application::META_VERIFIED => (string) ( $now - ( 2 * $day ) ),
+) );
+$GLOBALS['half_done'] = array( 550, 551 );
+
+$half_press = static function ( $id, $handler, array $posted = array() ) use ( $module ) {
+	$GLOBALS['mail'] = array();
+	$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => (int) $id ) + $posted;
+	$went            = outcome( array( $module, $handler ) );
+	$flashed         = get_user_meta( 1, WPCPM_Flash::META );
+	delete_user_meta( 1, WPCPM_Flash::META );
+	return array( $went, $flashed['institutions'] ?? '', (string) get_post_meta( (int) $id, WPCPM_Institution_Application::META_STATE, true ), count( $GLOBALS['mail'] ), count( (array) get_post_meta( (int) $id, WPCPM_Institution_Application::META_EVENT, false ) ) );
+};
+
+ck( 'Reject refuses a half-done approval: nothing is sent, nothing moves, nothing is written', $half_press( 550, 'handle_reject', array( 'wpcpm_reason' => 'Changed our mind.' ) ), array( $back, 'app-half-done', 'new', 0, 0 ) );
+ck( 'so does Reject as spam', $half_press( 550, 'handle_spam' ), array( $back, 'app-half-done', 'new', 0, 0 ) );
+ck( 'and Put back in the queue, on a held one', $half_press( 551, 'handle_reopen' ), array( $back, 'app-half-done', 'held', 0, 0 ) );
+ck( 'the refusal says what stopped partway and what finishes it', WPCPM_Institutions::queue_messages()['app-half-done'], array( 'error', 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.' ) );
+
+$GLOBALS['approved'] = array();
+$_POST               = array( WPCPM_Institutions::FIELD_APPLICATION => 550 );
+outcome( array( $module, 'handle_approve' ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+ck( 'Approve is still taken, since pressing it again is what finishes it', $GLOBALS['approved'], array( array( 550, 1 ) ) );
+
+$half_mark = '<p><span class="wpcpm-inst-mark wpcpm-inst-mark--half-done" title="' . esc_attr( 'An earlier press of Approve created the institution\'s Airtable record and then stopped, so the record, and maybe the account, already exist.' ) . '">approval stopped partway</span> Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.</p>';
+
+ob_start();
+$module->render_application_actions( get_post( 550 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$half_on_card = (string) ob_get_clean();
+$half_opened  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 550 ) );
+ob_start();
+$module->render_application_actions( get_post( 501 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+$whole_on_card = (string) ob_get_clean();
+
+$half_note = '<p class="wpcpm-administrator__note">' . esc_html( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.' ) . '</p>';
+ck( 'on the Administrator Dashboard\'s card it is the card\'s note, under the heading, above the decisions', array(
+	substr_count( $half_on_card, $half_note ),
+	strpos( $half_on_card, '<h3>What happens next</h3>' . $half_note ) !== false,
+	strpos( $half_on_card, 'wpcpm-inst-mark' ),
+), array( 1, true, false ) );
+ck( 'and on this screen the queue\'s mark, under the heading of where it is decided', array(
+	substr_count( $half_opened, $half_mark ),
+	strpos( $half_opened, '<h3>Where it is decided</h3>' . $half_mark ) !== false,
+), array( 1, true ) );
+ck( 'and on no application whose approval was not begun', strpos( $whole_on_card, 'stopped partway' ), false );
+// And on its row in the queue's list, as the sponsor applications' rows carry theirs, before the way
+// to open it: the list is where an Administrator meets it first.
+preg_match_all( '#<li class="wpcpm-queue-item[^"]*">.*?</li>#s', render_tab( 'queue' ), $queue_items );
+$half_rows = array_values( array_filter( $queue_items[0], static function ( $item ) { return false !== strpos( $item, 'Half Done' ); } ) );
+$rest_rows = array_values( array_filter( $queue_items[0], static function ( $item ) { return false === strpos( $item, 'Half Done' ); } ) );
+ck( 'the queue\'s list marks the rows of both approvals that stopped partway, each before its Open this application, and no other row', array(
+	count( $half_rows ),
+	count( array_filter( $half_rows, static function ( $item ) use ( $half_mark ) { return false !== strpos( $item, $half_mark . '<p><a class="button"' ); } ) ),
+	substr_count( implode( '', $rest_rows ), 'stopped partway' ),
+), array( 2, 2, 0 ) );
+
+
+$GLOBALS['half_done'] = array();
+foreach ( array( 550, 551 ) as $gone ) {
+	unset( $GLOBALS['posts'][ $gone ], $GLOBALS['pmeta'][ $gone ] );
+}
+
 // Purge by hand.
 $GLOBALS['deleted'] = array();
 $_POST              = array( WPCPM_Institutions::FIELD_APPLICATION => 501 );
@@ -4339,7 +4587,7 @@ $wanted = array(
 	// Linking an unlinked Students row.
 	'admin_post_wpcpm_institutions_link', 'wp_ajax_wpcpm_institutions_tick',
 	'admin_post_wpcpm_app_approve', 'admin_post_wpcpm_app_info', 'admin_post_wpcpm_app_reject',
-	'admin_post_wpcpm_app_spam', 'admin_post_wpcpm_app_reopen', 'admin_post_wpcpm_app_purge',
+	'admin_post_wpcpm_app_spam', 'admin_post_wpcpm_app_reopen', 'admin_post_wpcpm_app_resend_link', 'admin_post_wpcpm_app_purge',
 	'wpcpm_purge_applications',
 	// Last, the screen's own load hook, hooked once the menu exists, as every audience's
 	// accounts screen hooks it (`boot_screen()`); its rows-per-page save is a filter beside it.
@@ -4611,8 +4859,8 @@ ck( 'the map is built as read here: the screen\'s own outcomes with the agreemen
 // queue's decisions to the screen's own address, the queue, or to the application opened on it when
 // the question or the reason is refused for its own words; the ticked accounts, a row's invitation
 // and the invitations card's Stop to the Accounts tab, as do the upload and the withdraw on an
-// institution's Manage members view, by their referer; the bulk record on file to the Agreements tab,
-// by its referer; a request's decision posted here to the queue.
+// institution's Manage members view, by their referer; a request's decision posted here to the
+// queue. The Agreements tab has no press of its own since 1.123.26.
 $handler_tabs = array(
 	'handle_probe'         => 'sync',
 	'handle_provision_one' => 'accounts',
@@ -4622,6 +4870,7 @@ $handler_tabs = array(
 	'handle_reject'        => 'queue',
 	'handle_spam'          => 'queue',
 	'handle_reopen'        => 'queue',
+	'handle_resend_link'   => 'queue',
 	'handle_purge'         => 'queue',
 );
 $left         = array_fill_keys( array( 'queue', 'sync', 'accounts', 'agreements' ), array() );
@@ -4665,7 +4914,6 @@ foreach ( array( 'handle_list_form', 'invite_selected', 'handle_invite' ) as $me
 $lands( 'accounts', 'handle_stop', outcomes_handed( body_of_method( $mail_src, 'handle_stop' ), 'set', 1 ) );
 $lands( 'accounts', 'handle_upload', outcomes_handed( body_of_method( $agree_src, 'handle_upload' ), 'bounce', 0 ) );
 $lands( 'accounts', 'handle_withdraw', outcomes_handed( body_of_method( $agree_src, 'handle_withdraw' ), 'bounce', 0 ) );
-$lands( 'agreements', 'handle_on_file_all', outcomes_handed( body_of_method( $agree_src, 'handle_on_file_all' ), 'bounce_on_file', 0 ) );
 $lands( 'queue', 'handle_resolve', outcomes_handed( body_of_method( $request_src, 'handle_resolve' ), 'finish', 0 ) );
 
 // The outcomes handed over as code, each read where it is decided, as that code spells them: the
@@ -4703,7 +4951,7 @@ ck( 'every outcome a press on the screen leaves on its channel, read off the sou
 ck( 'and the read reaches every source: a sample of each press\'s outcomes is among them',
 	array_values(
 		array_diff(
-			array( 'queue: app-reopened', 'queue: app-member-taken', 'queue: app-question-loss', 'queue: app-reason-long', 'queue: request-done', 'queue: request-declined-loss', 'queue: request-done-long', 'queue: error', 'sync: probed', 'sync: cancelled', 'accounts: provision-already', 'accounts: provision-blocked', 'accounts: invites-stopped', 'accounts: invite-too-soon', 'accounts: invites-none', 'accounts: agreement-launch', 'accounts: agreement-withdrawn', 'agreements: agreement-on-file-all' ),
+			array( 'queue: app-reopened', 'queue: app-member-taken', 'queue: app-question-loss', 'queue: app-reason-long', 'queue: request-done', 'queue: request-declined-loss', 'queue: request-done-long', 'queue: error', 'sync: probed', 'sync: cancelled', 'accounts: provision-already', 'accounts: provision-blocked', 'accounts: invites-stopped', 'accounts: invite-too-soon', 'accounts: invites-none', 'accounts: agreement-launch', 'accounts: agreement-withdrawn' ),
 			call_user_func_array(
 				'array_merge',
 				array_map(

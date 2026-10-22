@@ -148,7 +148,7 @@ class WPCPM_Institution_Approval {
 		// Approval must never mail a password link to an address nobody claimed: the whole
 		// application is a stranger's typing until the address behind it answers.
 		if ( '' === trim( (string) get_post_meta( $application_id, WPCPM_Institution_Application::META_VERIFIED, true ) ) ) {
-			return new WP_Error( 'wpcpm_app_unverified', __( 'That address has not been confirmed yet: the applicant has not used the link in their acknowledgement. Nothing here can resend it, so write to them and ask them to use it, or ask them to apply again.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_app_unverified', __( 'That address has not been confirmed yet: the applicant has not used the link in their acknowledgement. Send the confirmation link again, and approve once they have followed it.', 'wpcredits-program-manager' ) );
 		}
 
 		$stored = get_post_meta( $application_id, WPCPM_Institution_Application::META_FIELDS, true );
