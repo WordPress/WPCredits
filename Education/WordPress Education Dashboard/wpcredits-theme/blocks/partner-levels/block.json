@@ -1,0 +1,22 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/partner-levels",
+	"title": "Partner levels",
+	"category": "theme",
+	"icon": "awards",
+	"description": "The partnership levels as cards, a Partner level block for each, the lowest first. The Levels at a glance table and the sponsor application read the levels from here.",
+	"keywords": [ "partners", "sponsors", "levels", "tiers" ],
+	"textdomain": "wpcredits-theme",
+	"allowedBlocks": [ "wpcredits/partner-level" ],
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"style": "wpcredits-partners",
+	"render": "file:./render.php"
+}

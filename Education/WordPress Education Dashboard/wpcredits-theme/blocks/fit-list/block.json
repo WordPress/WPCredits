@@ -11,24 +11,19 @@
 	"allowedBlocks": [ "wpcredits/fit-row" ],
 	"attributes": {
 		"fieldHeading": {
-			"type": "string",
-			"default": "Your field of study"
+			"type": "string"
 		},
 		"teamsHeading": {
-			"type": "string",
-			"default": "The team you join"
+			"type": "string"
 		},
 		"proofHeading": {
-			"type": "string",
-			"default": "What you'll have to show"
+			"type": "string"
 		},
 		"teamsLabel": {
-			"type": "string",
-			"default": "The team you join:"
+			"type": "string"
 		},
 		"proofLabel": {
-			"type": "string",
-			"default": "What you'll have to show:"
+			"type": "string"
 		}
 	},
 	"providesContext": {

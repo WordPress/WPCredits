@@ -9,6 +9,22 @@
 	"keywords": [ "programs", "education", "filter", "hub" ],
 	"textdomain": "wpcredits-theme",
 	"allowedBlocks": [ "wpcredits/program-card" ],
+	"attributes": {
+		"editable": {
+			"type": "boolean"
+		}
+	},
+	"variations": [
+		{
+			"name": "editable",
+			"title": "Program index",
+			"isDefault": true,
+			"attributes": {
+				"editable": true
+			},
+			"scope": [ "inserter" ]
+		}
+	],
 	"supports": {
 		"html": false,
 		"reusable": false,

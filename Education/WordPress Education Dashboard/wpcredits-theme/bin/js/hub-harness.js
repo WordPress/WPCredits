@@ -220,6 +220,204 @@ scenario( 'the script run twice, as when it is printed twice, still answers each
 	return [ where.document.querySelector( '.wpc-hub-index [role="status"]' ).textWrites, pressed( where ) ];
 } );
 
+// Theme 1.32.1: core's block visibility hides a card at a size of the window with CSS, so the card is on
+// the page and the server counted it; the chips count the cards shown where the person is. The page
+// 'hidden' hides Campus Connect (students) on mobile and Learn WordPress (students and faculty) on
+// desktop; the stand-in models core's media queries (480px and 782px).
+const openAt = ( width, hash ) => open( 'hidden', [ 'index' ], hash, ( where ) => {
+	where.window.innerWidth = width;
+} );
+const saysAt = ( width ) => {
+	const where = openAt( width );
+
+	return [ 'all', 'student', 'faculty', 'career' ].map( ( filter ) => {
+		tap( where, chip( where, filter ) );
+
+		return said( where, '.wpc-hub-index' );
+	} );
+};
+
+scenario( 'the chips count the cards shown at the window\'s width, not those core\'s block visibility hides there: four of five on a phone and on a desktop, all five between', [
+	[ 'Showing all 4 programs', 'Showing 2 of 4 programs for students', 'Showing 2 of 4 programs for faculty', 'Showing 2 of 4 programs in Career and credentials' ],
+	[ 'Showing all 5 programs', 'Showing 3 of 5 programs for students', 'Showing 2 of 5 programs for faculty', 'Showing 2 of 5 programs in Career and credentials' ],
+	[ 'Showing all 4 programs', 'Showing 2 of 4 programs for students', 'Showing 1 of 4 programs for faculty', 'Showing 2 of 4 programs in Career and credentials' ],
+], () => [ saysAt( 400 ), saysAt( 600 ), saysAt( 1280 ) ] );
+
+scenario( 'the sizes meet where core\'s queries do: a phone to 480px, a tablet above it to 782px, a desktop above that', [ 'Showing 2 of 4 programs for students', 'Showing 3 of 5 programs for students', 'Showing 3 of 5 programs for students', 'Showing 2 of 4 programs for students' ], () => [ 480, 481, 782, 783 ].map( ( width ) => saysAt( width )[ 1 ] ) );
+
+scenario( 'the filter\'s own hiding is left as it was: a card the filter hides and the window hides too stays hidden by the filter after the count, and the cards the window hides are not hidden by the script', [
+	[ 'facilitator-training', 'learn-wordpress' ],
+	true,
+	[ 'campus-connect', 'wordpress-credits', 'ai-leaders' ],
+	'Showing 2 of 4 programs for faculty',
+], () => {
+	const where = openAt( 400 );
+
+	tap( where, chip( where, 'faculty' ) );
+
+	return [
+		shown( where ),
+		where.document.getElementById( 'program-campus-connect' ).hidden,
+		where.document.querySelectorAll( '.wpc-hub-program' ).filter( ( card ) => card.hidden ).map( ( card ) => card.id.replace( 'program-', '' ) ),
+		said( where, '.wpc-hub-index' ),
+	];
+} );
+
+scenario( 'the window resized after a chip is pressed: the cards are counted again and the line says what the chip now shows, once, and not before a chip has been pressed', [ '', 'Showing 1 of 4 programs for faculty', 'Showing 2 of 4 programs for faculty', 'Showing 2 of 5 programs for faculty', 'Showing 2 of 5 programs for faculty', 1, 'Showing 1 of 4 programs for faculty' ], () => {
+	const where = openAt( 1280 );
+	const line = where.document.querySelector( '.wpc-hub-index [role="status"]' );
+	const lines = [];
+
+	where.window.resizeTo( 400 );
+	lines.push( said( where, '.wpc-hub-index' ) );
+	where.window.resizeTo( 1280 );
+	tap( where, chip( where, 'faculty' ) );
+	lines.push( said( where, '.wpc-hub-index' ) );
+	where.window.resizeTo( 400 );
+	lines.push( said( where, '.wpc-hub-index' ) );
+	where.window.resizeTo( 600 );
+	lines.push( said( where, '.wpc-hub-index' ) );
+	where.window.resizeTo( 700 );
+	lines.push( said( where, '.wpc-hub-index' ) );
+
+	// 600 and 700 are both tablets: the line is not written again.
+	const writes = line.textWrites;
+
+	where.window.resizeTo( 1280 );
+	lines.push( line.textWrites - writes, said( where, '.wpc-hub-index' ) );
+
+	return lines;
+} );
+
+scenario( 'a chip pressed after a resize counts where the window is now, and the card a link opens is shown whatever the width', [ 'Showing 2 of 4 programs for students', true ], () => {
+	const where = openAt( 1280 );
+
+	where.window.resizeTo( 400 );
+	tap( where, chip( where, 'student' ) );
+
+	return [ said( where, '.wpc-hub-index' ), ! where.document.getElementById( 'program-wordpress-credits' ).hidden ];
+} );
+
+scenario( 'a page with no card hidden at any size counts as the server did and reads no style: the chips say the server\'s sentences at any width', [ [ 'Showing all 5 programs', 'Showing 3 of 5 programs for students' ], 0 ], () => {
+	const where = open( 'index', [ 'index' ], '', ( one ) => {
+		one.window.innerWidth = 400;
+		one.window.reads = 0;
+		const read = one.window.getComputedStyle;
+
+		one.window.getComputedStyle = ( element ) => {
+			one.window.reads++;
+
+			return read( element );
+		};
+	} );
+
+	tap( where, chip( where, 'all' ) );
+	const all = said( where, '.wpc-hub-index' );
+
+	tap( where, chip( where, 'student' ) );
+	where.window.resizeTo( 1280 );
+
+	return [ [ all, said( where, '.wpc-hub-index' ) ], where.window.reads ];
+} );
+
+scenario( 'the script run twice, as when it is printed twice, counts and answers once', [ 1, 'Showing 2 of 4 programs for faculty' ], () => {
+	const where = open( 'hidden', [ 'index', 'index' ], '', ( one ) => {
+		one.window.innerWidth = 400;
+	} );
+
+	tap( where, chip( where, 'faculty' ) );
+
+	return [ where.document.querySelector( '.wpc-hub-index [role="status"]' ).textWrites, said( where, '.wpc-hub-index' ) ];
+} );
+
+/* ---- the Field of study rows block's editor (theme 1.32.1) -------------------------- */
+
+/*
+ * The list's editor script is run on a stand-in of the `wp.*` globals: an element is a plain object that
+ * keeps its props, a component a named function never called, and `wp.i18n.__` answers from a scenario's
+ * translations. The block's `edit` is called with the attributes a scenario saved, and the checks read
+ * the props it hands the header line's three RichText elements and the settings' two TextControls.
+ */
+function component( name ) {
+	const made = function () {};
+
+	Object.defineProperty( made, 'name', { value: name } );
+
+	return made;
+}
+
+function fitEditor( translations ) {
+	const registered = {};
+	const wp = {
+		blocks: {
+			registerBlockType: ( name, settings ) => {
+				registered[ name ] = settings;
+			},
+		},
+		element: {
+			createElement: ( type, props, ...children ) => ( { type, props: props || {}, children: children.flat( Infinity ).filter( ( child ) => null !== child && undefined !== child && false !== child ) } ),
+			Fragment: component( 'Fragment' ),
+		},
+		blockEditor: {
+			RichText: component( 'RichText' ),
+			InspectorControls: component( 'InspectorControls' ),
+			InnerBlocks: { Content: component( 'InnerBlocksContent' ) },
+			useBlockProps: ( props ) => Object.assign( {}, props ),
+			useInnerBlocksProps: ( props ) => Object.assign( {}, props ),
+		},
+		components: {
+			PanelBody: component( 'PanelBody' ),
+			TextControl: component( 'TextControl' ),
+		},
+		i18n: {
+			__: ( text ) => translations[ text ] || text,
+		},
+	};
+
+	vm.runInContext( fs.readFileSync( path.join( ROOT, 'blocks/fit-list/index.js' ), 'utf8' ), vm.createContext( { window: { wp } } ) );
+
+	return registered[ 'wpcredits/fit-list' ];
+}
+
+function elementsOf( node, name ) {
+	if ( ! node || 'object' !== typeof node ) {
+		return [];
+	}
+
+	return ( 'function' === typeof node.type && name === node.type.name ? [ node ] : [] ).concat( ...node.children.map( ( child ) => elementsOf( child, name ) ) );
+}
+
+/** What the editor shows for a list that saved these attributes: the three names and the two labels. */
+function fitShown( translations, attributes ) {
+	const tree = fitEditor( translations ).edit( { attributes, setAttributes: () => {} } );
+
+	return {
+		head: elementsOf( tree, 'RichText' ).map( ( one ) => one.props.value ),
+		labels: elementsOf( tree, 'TextControl' ).map( ( one ) => one.props.value ),
+	};
+}
+
+scenario( 'in the editor a list that saved none of its five words shows the translated strings, the three names and the two labels, as the server draws them', [ true, true ], () => PAGES.fit && [ 'today', 'translated' ].map( ( which ) => {
+	const drawn = PAGES.fit[ which ];
+	const shown = fitShown( drawn.translations, {} );
+
+	return JSON.stringify( [ shown.head, shown.labels ] ) === JSON.stringify( [ drawn.head, drawn.labels ] );
+} ) );
+
+scenario( 'in the editor a word saved shows as saved, the others stay the translations, and a word saved empty shows empty', [
+	{ head: [ '', 'Squad', 'What you\'ll have to show' ], labels: [ 'The team you join:', 'Shown:' ] },
+	{ head: [ '', '', '' ], labels: [ '', '' ] },
+], () => [
+	fitShown( {}, { fieldHeading: '', teamsHeading: 'Squad', proofLabel: 'Shown:' } ),
+	fitShown( {}, { fieldHeading: '', teamsHeading: '', proofHeading: '', teamsLabel: '', proofLabel: '' } ),
+] );
+
+scenario( 'in the editor a translated name is shown as rich text keeps a text, its ampersand and angle brackets escaped, and a label as the plain text it is', [ [ 'Fields &amp; &lt;more&gt;', 'The team you join', 'What you\'ll have to show' ], [ 'Teams & <co>:', 'What you\'ll have to show:' ] ], () => {
+	const shown = fitShown( { 'Your field of study': 'Fields & <more>', 'The team you join:': 'Teams & <co>:' }, {} );
+
+	return [ shown.head, shown.labels ];
+} );
+
 /* ---- the pathway --------------------------------------------------------------- */
 
 const ladderShown = ( where ) => where.document.querySelectorAll( '.wpc-hub-ladder' ).filter( ( ladder ) => ! ladder.hidden ).map( ( ladder ) => ladder.id.replace( 'wpc-hub-ladder-', '' ) );

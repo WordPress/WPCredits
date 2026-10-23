@@ -16,6 +16,16 @@
  * a scenario says: `element.box = { top, bottom, left, width }`, read by `getBoundingClientRect()`,
  * against the window's `innerHeight` (800); an element with no box lies in view, with no width. A
  * custom property a script sets on an element's `style` is kept, to be read back.
+ *
+ * One style rule is modeled, the one a script cannot read from the markup: core's block visibility
+ * (WordPress 7.0 and later) hides a block at a size of the window with the class `wp-block-hidden-<size>`
+ * and `display: none !important` inside a media query (wp-includes/block-supports/block-visibility.php),
+ * the sizes' queries being the site's breakpoints, 480px and 782px by default: `mobile` is
+ * `width <= 480px`, `tablet` `480px < width <= 782px` and `desktop` `width > 782px`. So
+ * `window.getComputedStyle( element ).display` is `none` for an element that is `hidden` (the user agent
+ * sheet and the hub's own `[hidden]` rule) or that carries the class of the size the window is at (the
+ * window's `innerWidth`, 1280 until a scenario says another with `window.resizeTo( width )`, which fires
+ * the window's `resize` listeners), and `block` for any other.
  */
 
 const VOID = new Set( [ 'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr' ] );
@@ -710,11 +720,24 @@ function page( html, hash ) {
 	const window = {
 		document,
 		innerHeight: 800,
+		innerWidth: 1280,
 		listeners: {},
 		location: { hash: hash || '' },
 		MutationObserver,
 		addEventListener( type, listener ) {
 			( window.listeners[ type ] = window.listeners[ type ] || [] ).push( listener );
+		},
+		// What a style sheet makes of an element, as far as the display goes (see the head of this file).
+		getComputedStyle( element ) {
+			const width = window.innerWidth;
+			const size = width <= 480 ? 'mobile' : width <= 782 ? 'tablet' : 'desktop';
+
+			return { display: element.hidden || element.className.split( /\s+/ ).includes( 'wp-block-hidden-' + size ) ? 'none' : 'block' };
+		},
+		// The window made another width, and told: the listeners of `resize` run.
+		resizeTo( width ) {
+			window.innerWidth = width;
+			( window.listeners.resize || [] ).forEach( ( listener ) => listener( makeEvent( 'resize' ) ) );
 		},
 		// A browser jumps to the target at once, if it is shown, and fires hashchange after.
 		navigate( next ) {

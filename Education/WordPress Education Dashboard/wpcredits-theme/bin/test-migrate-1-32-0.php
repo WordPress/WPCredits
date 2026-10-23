@@ -6,7 +6,13 @@
  *
  * Checked on live's own saved copy (bin/fixtures/saved-education-hub.html, the wp_template post as two
  * Administrators saved it on 22 October 2026, no personal data), rendered on the WordPress of
- * bin/stubs/hub-wp.php, with the posts, options and users the runner reaches stood in below.
+ * bin/stubs/hub-wp.php, with the posts, options and users the runner reaches stood in by
+ * bin/stubs/migrate-wp.php.
+ *
+ * The copy of the template as it was, kept before the write, is checked against the history live's run
+ * met: a visitor's request (kses on, no one signed in) and a newest revision that was the template
+ * without its svg. The suite also fails without the repair's guard against its own write, its catch
+ * and its option's catch.
  *
  * Run from the theme root:  php bin/test-migrate-1-32-0.php
  *
@@ -18,188 +24,12 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 require_once __DIR__ . '/stubs/hub-wp.php';
+require_once __DIR__ . '/stubs/migrate-wp.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub-content.php';
-
-/* ---- posts, options and users, as far as the runner reaches ----------------------- */
-
-$GLOBALS['posts']     = array(); // ID => WP_Post stand-in.
-$GLOBALS['terms']     = array(); // ID => the wp_theme term's name.
-$GLOBALS['calls']     = array(); // What the runner did, in order.
-$GLOBALS['user']      = array(
-	'id'   => 1,
-	'caps' => array( 'edit_theme_options' ),
-);
-$GLOBALS['user_meta'] = array();
-$GLOBALS['screen']    = 'site-editor';
-$GLOBALS['inline']    = array();
-
-/** A post, as core's WP_Post carries one. */
-class WP_Post {
-	public $ID;
-	public $post_type;
-	public $post_name;
-	public $post_status;
-	public $post_content;
-
-	public function __construct( array $fields ) {
-		foreach ( $fields as $key => $value ) {
-			$this->$key = $value;
-		}
-	}
-}
-
-/** Core's WP_Error, as far as is_wp_error() asks it. */
-class WP_Error {
-	public $code;
-
-	public function __construct( $code = '' ) {
-		$this->code = $code;
-	}
-}
-
-function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
-function get_stylesheet() { return 'wpcredits-theme'; }
-function wp_json_encode( $data, $flags = 0 ) { return json_encode( $data, $flags ); }
-function wp_slash( $value ) { return is_array( $value ) ? array_map( 'wp_slash', $value ) : addslashes( (string) $value ); }
-function wp_unslash( $value ) { return is_array( $value ) ? array_map( 'wp_unslash', $value ) : stripslashes( (string) $value ); }
-function add_option( $key, $value = '', $deprecated = '', $autoload = null ) {
-	if ( array_key_exists( $key, $GLOBALS['opts'] ) ) {
-		return false;
-	}
-
-	$GLOBALS['opts'][ $key ] = $value;
-	$GLOBALS['calls'][]      = 'add_option ' . $key . ' autoload ' . var_export( $autoload, true );
-
-	return true;
-}
-
-/**
- * Core's get_posts(), as far as the runner asks it: the posts of a type, a name and a status other
- * than trash, in ID order.
- *
- * @param array $args The query.
- * @return WP_Post[]
- */
-function get_posts( $args = array() ) {
-	$GLOBALS['calls'][] = 'get_posts ' . json_encode( $args );
-
-	return array_values(
-		array_filter(
-			$GLOBALS['posts'],
-			static function ( $post ) use ( $args ) {
-				return $post->post_type === $args['post_type'] && ( ! isset( $args['name'] ) || $post->post_name === $args['name'] ) && 'trash' !== $post->post_status;
-			}
-		)
-	);
-}
-
-function get_post( $post ) { $id = $post instanceof WP_Post ? $post->ID : (int) $post; return isset( $GLOBALS['posts'][ $id ] ) ? $GLOBALS['posts'][ $id ] : null; }
-function has_term( $term, $taxonomy, $post ) {
-	if ( ! empty( $GLOBALS['throw_terms'] ) ) {
-		throw new Error( 'thrown reading the terms' );
-	}
-
-	return 'wp_theme' === $taxonomy && isset( $GLOBALS['terms'][ $post->ID ] ) && $GLOBALS['terms'][ $post->ID ] === $term; }
-function wp_revisions_enabled( $post ) { return empty( $GLOBALS['revisions_off'] ); }
-function wp_save_post_revision( $id ) { $GLOBALS['calls'][] = 'revision ' . $id . ' of ' . sha1( $GLOBALS['posts'][ $id ]->post_content ); return 900 + $id; }
-function kses_remove_filters() { $GLOBALS['calls'][] = 'kses off'; }
-function kses_init() { $GLOBALS['calls'][] = 'kses on'; }
-
-/**
- * Core's wp_update_post(), as far as the runner asks it: the fields it is handed are slashed, as core
- * expects, and unslashed as core does before it saves them; a post that fails saves nothing.
- *
- * @param array $fields   The post's ID and fields, slashed.
- * @param bool  $wp_error Whether a failure is a WP_Error.
- * @return int|WP_Error
- */
-function wp_update_post( $fields, $wp_error = false ) {
-	$fields = wp_unslash( $fields );
-
-	$GLOBALS['calls'][] = 'update ' . $fields['ID'] . ' to ' . sha1( $fields['post_content'] );
-
-	if ( ! empty( $GLOBALS['fail_update'] ) ) {
-		return new WP_Error( 'db_update_error' );
-	}
-
-	// A plugin's hook, or the database layer, that throws in the middle of the write.
-	if ( ! empty( $GLOBALS['throw_update'] ) ) {
-		throw new RuntimeException( 'thrown in the write' );
-	}
-
-	// A plugin's content filter that rewrites what is saved, when a check asks for one.
-	$GLOBALS['posts'][ (int) $fields['ID'] ]->post_content = empty( $GLOBALS['rewrite_update'] ) ? $fields['post_content'] : str_replace( '<p', '<p data-rewritten', $fields['post_content'] );
-
-	// Core fires its after-insert action for every update, the runner's own writes among them.
-	do_action( 'wp_after_insert_post', (int) $fields['ID'], $GLOBALS['posts'][ (int) $fields['ID'] ], true, null );
-
-	return (int) $fields['ID'];
-}
-
-/**
- * Core's do_action(): each callback in priority order, with as many arguments as it takes; each firing
- * of a hook counted in `$GLOBALS['fired']`.
- *
- * @param string $hook    The action.
- * @param mixed  ...$args Its arguments.
- */
-function do_action( $hook, ...$args ) {
-	$GLOBALS['fired'][ $hook ] = ( isset( $GLOBALS['fired'][ $hook ] ) ? $GLOBALS['fired'][ $hook ] : 0 ) + 1;
-
-	$callbacks = isset( $GLOBALS['hooks'][ $hook ] ) ? $GLOBALS['hooks'][ $hook ] : array();
-
-	usort( $callbacks, static function ( $a, $b ) { return $a[1] - $b[1]; } );
-
-	foreach ( $callbacks as $callback ) {
-		call_user_func_array( $callback[0], array_slice( $args, 0, $callback[2] ) );
-	}
-}
-
-function update_option( $key, $value, $autoload = null ) { $GLOBALS['opts'][ $key ] = $value; $GLOBALS['calls'][] = 'update_option ' . $key . ' autoload ' . var_export( $autoload, true ); return true; }
-
-function get_current_user_id() { return (int) $GLOBALS['user']['id']; }
-function current_user_can( $capability ) { return in_array( $capability, $GLOBALS['user']['caps'], true ); }
-function get_user_meta( $user, $key, $single = false ) { return isset( $GLOBALS['user_meta'][ $user ][ $key ] ) ? $GLOBALS['user_meta'][ $user ][ $key ] : ''; }
-function update_user_meta( $user, $key, $value ) { $GLOBALS['user_meta'][ $user ][ $key ] = $value; return true; }
-function get_current_screen() { return (object) array( 'id' => $GLOBALS['screen'] ); }
-function wp_register_script( $handle, $src, $deps = array(), $ver = false, $args = array() ) { $GLOBALS['registered'][ $handle ] = array( $src, $deps, $ver, $args ); return true; }
-function wp_add_inline_script( $handle, $data, $position = 'after' ) { $GLOBALS['inline'][ $handle ][] = $data; return true; }
-function admin_url( $path = '' ) { return 'https://site.example/wp-admin/' . $path; }
-function wp_create_nonce( $action = -1 ) { return 'nonce-' . md5( $action . '|' . $GLOBALS['user']['id'] ); }
-
-if ( ! defined( 'WEEK_IN_SECONDS' ) ) {
-	define( 'WEEK_IN_SECONDS', 604800 );
-}
-
-/** What wp_send_json_*() ends a request with: core prints the answer and dies, here it is thrown. */
-class WPCREDITS_Test_Sent extends Exception {
-	public $answer;
-
-	public function __construct( array $answer ) {
-		parent::__construct( 'sent' );
-		$this->answer = $answer;
-	}
-}
-
-/**
- * Core's check_ajax_referer(): the request's `_ajax_nonce` checked against the action's nonce for the
- * reader; a wrong one ends the request with -1, as core's does.
- *
- * @param string $action The nonce's action.
- * @return int
- */
-function check_ajax_referer( $action = -1 ) {
-	if ( ! isset( $_REQUEST['_ajax_nonce'] ) || wp_create_nonce( $action ) !== $_REQUEST['_ajax_nonce'] ) {
-		throw new WPCREDITS_Test_Sent( array( 'die' => -1 ) );
-	}
-
-	return 1;
-}
-function wp_send_json_success( $data = null, $status = null ) { throw new WPCREDITS_Test_Sent( array( 'success' => true ) ); }
-function wp_send_json_error( $data = null, $status = null ) { throw new WPCREDITS_Test_Sent( array( 'success' => false, 'status' => $status ) ); }
-
+require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 require_once WPCREDITS_THEME_DIR . 'inc/migrate-1-32-0.php';
+require_once WPCREDITS_THEME_DIR . 'inc/migrate-1-32-1.php';
 
 $fail  = 0;
 $total = 0;
@@ -228,80 +58,6 @@ function ck( $label, $actual, $expected ) {
 		echo '       expected: ' . var_export( $expected, true ) . "\n";
 		echo '       actual:   ' . var_export( $actual, true ) . "\n";
 	}
-}
-
-/**
- * Some markup, parsed, to be asked with XPath.
- *
- * @param string $html The markup.
- * @return DOMXPath
- */
-function dom_of( $html ) {
-	$document = new DOMDocument();
-
-	libxml_use_internal_errors( true );
-	$document->loadHTML( '<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>' );
-	libxml_clear_errors();
-
-	return new DOMXPath( $document );
-}
-
-/**
- * A block's span in some markup: from its opening comment to its closing one, or its void comment.
- *
- * @param string $markup Block markup.
- * @param string $name   The block's name as its comment writes it, such as `wpcredits/program-index`.
- * @return array{0: int, 1: int}|null Its start and its length.
- */
-function span_of( $markup, $name ) {
-	if ( ! preg_match( '#<!-- wp:' . preg_quote( $name, '#' ) . '(?: \{.*?\})? (/?)-->#s', $markup, $open, PREG_OFFSET_CAPTURE ) ) {
-		return null;
-	}
-
-	if ( '/' === $open[1][0] ) {
-		return array( $open[0][1], strlen( $open[0][0] ) );
-	}
-
-	$close = strpos( $markup, '<!-- /wp:' . $name . ' -->', $open[0][1] );
-
-	return false === $close ? null : array( $open[0][1], $close + strlen( '<!-- /wp:' . $name . ' -->' ) - $open[0][1] );
-}
-
-/**
- * Some markup in pieces, cut at some spans: what lies before the first, between each two and after
- * the last.
- *
- * @param string  $markup The markup.
- * @param array[] $spans  Spans, as span_of() gives them, in order.
- * @return string[]
- */
-function pieces_around( $markup, array $spans ) {
-	$pieces = array();
-	$at     = 0;
-
-	foreach ( $spans as $span ) {
-		$pieces[] = substr( $markup, $at, $span[0] - $at );
-		$at       = $span[0] + $span[1];
-	}
-
-	$pieces[] = substr( $markup, $at );
-
-	return $pieces;
-}
-
-/** The plugin's two application pages and its Partners page, published. */
-class WPCPM_Institution_Application {
-	public static function page_url() { return 'https://wordpresseducation.org/apply/'; }
-}
-
-/** The sponsorship application's page. */
-class WPCPM_Sponsor_Application {
-	public static function page_url() { return 'https://wordpresseducation.org/sponsor-application/'; }
-}
-
-/** The Partners page. */
-class WPCPM_Sponsors_Page {
-	public static function page_url() { return 'https://wordpresseducation.org/partners/'; }
 }
 
 $saved = (string) file_get_contents( __DIR__ . '/fixtures/saved-education-hub.html' );
@@ -389,6 +145,12 @@ ck( 'the programs section now holds its head, the index with a Program card for 
 		'wordpress-credits-courses',
 		7,
 	) );
+
+// A marked index with every card removed is saved self-closing, as 1.31 saved its index; the mark is what
+// tells the two apart (theme 1.32.1), so the index the migration writes carries it.
+ck( 'the index the migration writes is marked `editable`, as the Site Editor marks one an Administrator edits, so a save with every card removed is not mistaken for the 1.31 index',
+	array( $index_block['attrs'] ?? null, wpcredits_hub_index_is_legacy( $index_block ?? array() ), 0 === strpos( substr( $after, $index_span[0] ), '<!-- wp:wpcredits/program-index {"editable":true} -->' ) ),
+	array( array( 'editable' => true ), false, true ) );
 
 ck( 'the index and the band are what the hub pattern writes, and the flow\'s rows, read from the saved markup, are today\'s seven, its labels today\'s',
 	array(
@@ -484,7 +246,36 @@ ck( 'the index keeps what an Administrator set on the old one, such as a lock; a
 		substr_count( $band_run['content'], '<!-- wp:wpcredits/course-band ' ),
 		false !== strpos( $band_run['content'], '<!-- wp:wpcredits/course-band {"anchor":"kept"} -->' ),
 	),
-	array( array( 'lock' => array( 'move' => true, 'remove' => true ) ), array( 'program-index', 'fit-list' ), 1, true ) );
+	array( array( 'editable' => true, 'lock' => array( 'move' => true, 'remove' => true ) ), array( 'program-index', 'fit-list' ), 1, true ) );
+
+// A marked index with no card is one an Administrator emptied (theme 1.32.1, ruling R3): the migration,
+// and the repair of a save, must not put the theme's cards back in it.
+$emptied_index = '<!-- wp:wpcredits/program-index {"editable":true} /-->';
+$emptied_saved = str_replace( '<!-- wp:wpcredits/program-index /-->', $emptied_index, $saved );
+$emptied_run   = wpcredits_migrate_1_32_0_content( $emptied_saved, 'page-education-hub' );
+$emptied_at    = strpos( $emptied_saved, $emptied_index );
+
+ck( 'an index an Administrator emptied (marked, no card) is left empty: no card is put in it and no courses band after it, and the migration says so; the flow after it is still read',
+	array(
+		$emptied_run['changed'],
+		$emptied_run['skipped'],
+		substr( $emptied_run['content'], 0, $emptied_at + strlen( $emptied_index ) ) === substr( $emptied_saved, 0, $emptied_at + strlen( $emptied_index ) ),
+		substr_count( $emptied_run['content'], 'wp:wpcredits/program-card' ),
+		substr_count( $emptied_run['content'], 'wp:wpcredits/course-band' ),
+		substr_count( $emptied_run['content'], '<!-- wp:wpcredits/fit-list ' ),
+	),
+	array( array( 'fit-list' ), array( 'program-index-emptied' ), true, 0, 0, 1 ) );
+
+$emptied_with_attrs = str_replace( '<!-- wp:wpcredits/program-index /-->', '<!-- wp:wpcredits/program-index {"editable":true,"lock":{"move":true}} /-->', $saved );
+
+ck( 'the mark is read among other attributes, in any order; a mark that is not the boolean true is not one, and that index is migrated as the 1.31 index',
+	array(
+		wpcredits_migrate_1_32_0_content( $emptied_with_attrs, 'page-education-hub' )['skipped'],
+		wpcredits_migrate_1_32_0_content( str_replace( '{"editable":true,"lock":{"move":true}}', '{"lock":{"move":true},"editable":true}', $emptied_with_attrs ), 'page-education-hub' )['skipped'],
+		wpcredits_migrate_1_32_0_content( str_replace( '"editable":true', '"editable":false', $emptied_with_attrs ), 'page-education-hub' )['changed'],
+		wpcredits_migrate_1_32_0_content( str_replace( '"editable":true', '"editable":"yes"', $emptied_with_attrs ), 'page-education-hub' )['changed'],
+	),
+	array( array( 'program-index-emptied' ), array( 'program-index-emptied' ), array( 'program-index', 'course-band', 'fit-list' ), array( 'program-index', 'course-band', 'fit-list' ) ) );
 
 $bare_template = '<!-- wp:paragraph -->' . "\n" . '<p>An Education Hub with neither.</p>' . "\n" . '<!-- /wp:paragraph -->';
 $bare_run      = wpcredits_migrate_1_32_0_content( $bare_template, 'page-education-hub' );
@@ -519,7 +310,7 @@ wpcredits_migrate_1_32_0();
 
 $record = get_option( 'wpcredits_migrated_1_32_0' );
 
-ck( 'the runner migrates this theme\'s saved Education Hub template alone: a revision of it as it was first, then its content written with kses off around the write, the option last, not autoloaded; another theme\'s copy and the Partners template are not touched',
+ck( 'the runner migrates this theme\'s saved Education Hub template alone: a revision of it as it was first, written with kses off, then its content written with kses off around the write, the option last, not autoloaded; another theme\'s copy and the Partners template are not touched',
 	array(
 		$GLOBALS['calls'],
 		$GLOBALS['posts'][1654]->post_content === $after,
@@ -529,7 +320,9 @@ ck( 'the runner migrates this theme\'s saved Education Hub template alone: a rev
 	array(
 		array(
 			'get_posts {"post_type":"wp_template","post_status":"any","name":"page-education-hub","posts_per_page":20,"orderby":"ID","order":"ASC"}',
+			'kses off',
 			'revision 1654 of ' . sha1( $saved ),
+			'kses on',
 			'kses off',
 			'update 1654 to ' . sha1( $after ),
 			'kses on',
@@ -540,11 +333,14 @@ ck( 'the runner migrates this theme\'s saved Education Hub template alone: a rev
 		'partners',
 	) );
 
-ck( 'it records what it did for each template it reached, for Administrators to see',
-	array( is_array( $record ) ? array_keys( $record ) : null, $record['templates'] ?? null ),
+$first_copy = newest_revision_of( 1654 );
+
+ck( 'it records what it did for each template it reached, for Administrators to see, and where the copy of the template as it was is kept: the revision, by its ID, byte for byte the saved copy, svg and all',
+	array( is_array( $record ) ? array_keys( $record ) : null, $record['templates'] ?? null, $first_copy ? $first_copy->post_content === $saved : null ),
 	array(
 		array( 'ran', 'templates' ),
-		array( array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array( 'program-index', 'course-band', 'fit-list' ), 'skipped' => array(), 'kept' => 'revision' ) ),
+		array( array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array( 'program-index', 'course-band', 'fit-list' ), 'skipped' => array(), 'kept' => 'revision', 'revision' => $first_copy ? $first_copy->ID : null ) ),
+		true,
 	) );
 
 $GLOBALS['calls'] = array();
@@ -666,6 +462,249 @@ ck( 'what was saved is read back: a filter that rewrote it is recorded, the chan
 	array( $rewritten['templates'][0]['changed'] ?? null, $rewritten['templates'][0]['skipped'] ?? null, false !== strpos( wpcredits_migrate_1_32_0_summary( $rewritten ), 'What was saved differs from what the update wrote, so compare the template with its revisions.' ) ),
 	array( array( 'program-index', 'course-band', 'fit-list' ), array( 'saved-differently' ), true ) );
 
+echo "\n=== The copy of the template as it was ===\n";
+
+// On live the migration asked for its revision on a request with no signed-in user, so kses was on: the
+// revision held the template without its svg, and core, comparing the post with the newest revision,
+// saw nothing new to keep. These checks rebuild that history.
+$without_svg = (string) preg_replace( '#<svg\b.*?</svg>#s', '', $saved );
+$visitor     = array(
+	'id'   => 0,
+	'caps' => array(),
+);
+
+$GLOBALS['user']                      = $visitor;
+$GLOBALS['kses_on']                   = true;
+$GLOBALS['posts'][1654]->post_author  = 7;
+$GLOBALS['posts'][1654]->post_content = $saved;
+
+drop_revisions();
+
+$stripped = add_revision( 1654, $without_svg, 7 );
+
+$GLOBALS['calls'] = array();
+$copy             = wpcredits_migrate_keep_copy( 1654 );
+$made             = newest_revision_of( 1654 );
+
+ck( 'live\'s case, a visitor\'s request: the newest revision is the template without its svg, and a revision byte for byte the template, svg and all, is added and said: its ID, nothing left for the record',
+	array(
+		$copy,
+		$made && $made->ID !== $stripped->ID,
+		$made ? $made->post_content === $saved : null,
+		count( wp_get_post_revisions( 1654 ) ),
+	),
+	array(
+		array( 'kept' => 'revision', 'revision' => $made ? $made->ID : null, 'before' => '' ),
+		true,
+		true,
+		2,
+	) );
+
+ck( 'the revision is written with kses off and kses is on again after it, the two filters it hooked gone; its author, with no one signed in, is the template\'s',
+	array( $GLOBALS['calls'], $GLOBALS['kses_on'], hooked_by_the_copy(), $made ? $made->post_author : null ),
+	array( array( 'kses off', 'revision 1654 of ' . sha1( $saved ), 'kses on' ), true, 0, 7 ) );
+
+// A revision whose author is the one who saved is the revision a person can follow in the editor.
+drop_revisions();
+add_revision( 1654, $without_svg, 7 );
+
+$GLOBALS['user'] = array(
+	'id'   => 5,
+	'caps' => array( 'edit_theme_options' ),
+);
+wpcredits_migrate_keep_copy( 1654 );
+
+ck( 'with someone signed in, the revision is theirs',
+	newest_revision_of( 1654 ) ? newest_revision_of( 1654 )->post_author : null, 5 );
+
+$GLOBALS['user'] = $visitor;
+
+// What an Administrator saved is already the newest revision: core keeps it as it saves, so there is
+// nothing to add, and the one that is there is said.
+drop_revisions();
+
+$exact            = add_revision( 1654, $saved, 7 );
+$GLOBALS['calls'] = array();
+$reused           = wpcredits_migrate_keep_copy( 1654 );
+
+ck( 'a newest revision that already holds the template exactly is the copy: none added, its ID said, nothing asked of core and kses left alone',
+	array( $reused, count( wp_get_post_revisions( 1654 ) ), $GLOBALS['calls'] ),
+	array( array( 'kept' => 'revision', 'revision' => $exact->ID, 'before' => '' ), 1, array() ) );
+
+// Core compares a post with its newest revision once whitespace is run together, and keeps nothing when
+// they match: a newest revision that differs by a newline is no exact copy, and one is added regardless.
+drop_revisions();
+
+$spaced = add_revision( 1654, $saved . "\n\n", 7 );
+$forced = wpcredits_migrate_keep_copy( 1654 );
+$newest = newest_revision_of( 1654 );
+
+ck( 'a newest revision that differs only in its whitespace is no exact copy: core sees no change, yet a revision byte for byte the template is added',
+	array( $forced['kept'], $newest && $newest->ID !== $spaced->ID, $newest ? $newest->post_content === $saved : null, $forced['revision'] === ( $newest ? $newest->ID : null ), count( wp_get_post_revisions( 1654 ) ) ),
+	array( 'revision', true, true, true, 2 ) );
+
+// An autosave is replaced by the next one: it is no copy to keep, exact or not.
+drop_revisions();
+
+add_revision( 1654, $without_svg, 7 );
+add_revision( 1654, $saved, 7, 'autosave' );
+
+$beside_autosave = wpcredits_migrate_keep_copy( 1654 );
+$real_one        = newest_revision_of( 1654 );
+
+ck( 'an autosave that holds the template is not the copy: a revision is added, and it is the one said',
+	array( $beside_autosave['kept'], $real_one ? $real_one->post_content === $saved : null, $beside_autosave['revision'] === ( $real_one ? $real_one->ID : null ), count( wp_get_post_revisions( 1654 ) ) ),
+	array( 'revision', true, true, 3 ) );
+
+// A revision that could not be written, or was stored as something else, or whose write threw: the
+// template as it was goes to the record, which is said, and kses is turned on again whatever happened.
+$attempts = array(
+	'the insert fails'                    => array( 'fail_revision', true, 1 ),
+	'what is stored is another\'s rewrite' => array( 'rewrite_revision', true, 2 ),
+	'the write throws before it stores'   => array( 'throw_revision', 'before', 1 ),
+);
+$outcomes = array();
+
+foreach ( $attempts as $label => $attempt ) {
+	drop_revisions();
+	add_revision( 1654, $without_svg, 7 );
+
+	$GLOBALS[ $attempt[0] ] = $attempt[1];
+	$GLOBALS['calls']       = array();
+	$kept_as                = wpcredits_migrate_keep_copy( 1654 );
+	$GLOBALS[ $attempt[0] ] = false;
+	$newest_now             = newest_revision_of( 1654 );
+
+	$outcomes[ $label ] = array( $kept_as, end( $GLOBALS['calls'] ), $GLOBALS['kses_on'], count( wp_get_post_revisions( 1654 ) ) === $attempt[2], $newest_now && $newest_now->post_content === $saved, hooked_by_the_copy() );
+}
+
+ck( 'a revision that cannot be written (the insert fails, what is stored is not what was written, the write throws) is the record\'s job: kept `record` with the template as it was in `before`, no revision of it exact, kses on again, the two filters it hooked gone',
+	$outcomes,
+	array(
+		'the insert fails'                    => array( array( 'kept' => 'record', 'revision' => 0, 'before' => $saved ), 'kses on', true, true, false, 0 ),
+		'what is stored is another\'s rewrite' => array( array( 'kept' => 'record', 'revision' => 0, 'before' => $saved ), 'kses on', true, true, false, 0 ),
+		'the write throws before it stores'   => array( array( 'kept' => 'record', 'revision' => 0, 'before' => $saved ), 'kses on', true, true, false, 0 ),
+	) );
+
+// A hook that throws after the revision is stored does not undo it: the revision is read back.
+drop_revisions();
+add_revision( 1654, $without_svg, 7 );
+
+$GLOBALS['throw_revision'] = 'after';
+$GLOBALS['calls']          = array();
+$thrown_after              = wpcredits_migrate_keep_copy( 1654 );
+$GLOBALS['throw_revision'] = false;
+$stored_anyway             = newest_revision_of( 1654 );
+
+ck( 'a hook that throws after the revision is stored does not lose it: it is read back, and is the copy',
+	array( $thrown_after, $stored_anyway ? $stored_anyway->post_content === $saved : null, end( $GLOBALS['calls'] ), $GLOBALS['kses_on'] ),
+	array( array( 'kept' => 'revision', 'revision' => $stored_anyway ? $stored_anyway->ID : null, 'before' => '' ), true, 'kses on', true ) );
+
+// Where revisions are off the template goes to the record at once, without a try.
+drop_revisions();
+
+$GLOBALS['revisions_off'] = true;
+$GLOBALS['calls']         = array();
+$off                      = wpcredits_migrate_keep_copy( 1654 );
+$GLOBALS['revisions_off'] = false;
+
+ck( 'where revisions are off for the template, the copy is the record\'s, without trying: no revision asked for, kses not touched',
+	array( $off, $GLOBALS['calls'] ), array( array( 'kept' => 'record', 'revision' => 0, 'before' => $saved ), array() ) );
+
+// The write uses it, and says where the copy is.
+drop_revisions();
+add_revision( 1654, $without_svg, 7 );
+
+$GLOBALS['calls'] = array();
+$written          = wpcredits_migrate_1_32_0_write( 1654, $after );
+$kept_by_write    = newest_revision_of( 1654 );
+
+ck( 'the write keeps the copy first and returns where it is, and that it saved: the revision\'s ID, the content written with kses off, svg and all',
+	array( $written, $kept_by_write ? $kept_by_write->post_content === $saved : null, $GLOBALS['posts'][1654]->post_content === $after, $GLOBALS['calls'] ),
+	array(
+		array( 'saved' => true, 'kept' => 'revision', 'revision' => $kept_by_write ? $kept_by_write->ID : null ),
+		true,
+		true,
+		array( 'kses off', 'revision 1654 of ' . sha1( $saved ), 'kses on', 'kses off', 'update 1654 to ' . sha1( $after ), 'kses on' ),
+	) );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['calls']                     = array();
+$unkept                               = wpcredits_migrate_1_32_0_write( 1654, $after, false );
+
+ck( 'asked to keep no revision, the write leaves the copy to the record, and says so',
+	array( $unkept, count( preg_grep( '/^revision /', $GLOBALS['calls'] ) ) ),
+	array( array( 'saved' => true, 'kept' => 'record', 'revision' => 0 ), 0 ) );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['fail_update']               = true;
+$failed_write                         = wpcredits_migrate_1_32_0_write( 1654, $after );
+$GLOBALS['fail_update']               = false;
+
+$GLOBALS['revisions_off']  = true;
+$GLOBALS['rewrite_update'] = true;
+$differing_write           = wpcredits_migrate_1_32_0_write( 1654, $after );
+$GLOBALS['rewrite_update'] = false;
+$GLOBALS['revisions_off']  = false;
+
+ck( 'a write that failed says `update-failed`, one a filter rewrote `saved-differently`, each with where the copy is',
+	array( $failed_write['saved'], $failed_write['kept'], $differing_write ),
+	array( 'update-failed', 'revision', array( 'saved' => 'saved-differently', 'kept' => 'record', 'revision' => 0 ) ) );
+
+// The reviewer's finding: a hook that throws after the database write has not undone it. The object
+// cache still holds the template as it was, so the write reads it back from the database.
+drop_revisions();
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['throw_after_update']        = true;
+$GLOBALS['calls']                     = array();
+wpcredits_migrate_1_32_0();
+$GLOBALS['throw_after_update'] = false;
+$late_throw                    = get_option( 'wpcredits_migrated_1_32_0' );
+$late_copy                     = newest_revision_of( 1654 );
+
+ck( 'a hook after the database write that throws is not a failed write: the template reads back with its new content, so it is recorded as saved (nothing skipped), the copy kept, kses on again, the cache left clean',
+	array(
+		$GLOBALS['posts'][1654]->post_content === $after,
+		$late_throw['templates'][0] ?? null,
+		$late_throw['failed'] ?? null,
+		$GLOBALS['kses_on'],
+		$GLOBALS['stale'],
+	),
+	array(
+		true,
+		array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array( 'program-index', 'course-band', 'fit-list' ), 'skipped' => array(), 'kept' => 'revision', 'revision' => $late_copy ? $late_copy->ID : null ),
+		null,
+		true,
+		array(),
+	) );
+
+// A template whose revision could not be kept is recorded with the copy in the record.
+drop_revisions();
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['fail_revision']             = true;
+wpcredits_migrate_1_32_0();
+$GLOBALS['fail_revision'] = false;
+$record_copy              = get_option( 'wpcredits_migrated_1_32_0' );
+
+ck( 'a revision that could not be written leaves the copy in the record, not autoloaded: kept `record`, no revision, the template as it was in `before`, and the notice says the record holds it, not the revisions',
+	array(
+		$record_copy['templates'][0]['kept'] ?? null,
+		$record_copy['templates'][0]['revision'] ?? null,
+		( $record_copy['templates'][0]['before'] ?? null ) === $saved,
+		false !== strpos( wpcredits_migrate_1_32_0_summary( $record_copy ), 'The template as it was before is kept in the theme\'s migration record.' ),
+		false !== strpos( wpcredits_migrate_1_32_0_summary( $record_copy ), 'revisions' ),
+	),
+	array( 'record', 0, true, true, false ) );
+
+$GLOBALS['user'] = array(
+	'id'   => 1,
+	'caps' => array( 'edit_theme_options' ),
+);
+
 echo "\n=== A save that brings the 1.31 parts back ===\n";
 
 // An editor tab opened before the update holds the template as it was; saved after the migration, it
@@ -673,6 +712,8 @@ echo "\n=== A save that brings the 1.31 parts back ===\n";
 ck( 'the repair is hooked where core reports a saved post, its terms set, taking the post\'s ID and the post',
 	array_values( array_map( static function ( $hooked ) { return $hooked[1] . ' ' . $hooked[2]; }, array_filter( $GLOBALS['hooks']['wp_after_insert_post'] ?? array(), static function ( $hooked ) { return 'wpcredits_migrate_1_32_0_on_save' === $hooked[0]; } ) ) ),
 	array( '10 2' ) );
+
+drop_revisions();
 
 $GLOBALS['posts'][1654]->post_content = $saved;
 $GLOBALS['calls']                     = array();
@@ -693,7 +734,9 @@ ck( 'a save of this theme\'s Education Hub template that holds the 1.31 index an
 	),
 	array(
 		array(
+			'kses off',
 			'revision 1654 of ' . sha1( $saved ),
+			'kses on',
 			'kses off',
 			'update 1654 to ' . sha1( $after ),
 			'kses on',
@@ -713,6 +756,79 @@ do_action( 'wp_after_insert_post', 1643, get_post( 1643 ), true, null );
 
 ck( 'a save of the migrated template is left alone, and so is another theme\'s copy and the Partners template, each holding nothing to repair or not ours',
 	$GLOBALS['calls'], array() );
+
+// A stale editor tab that saves the 1.31 flow back into a template whose index an Administrator emptied:
+// the flow is repaired, the index stays empty and no courses band appears under it.
+$GLOBALS['posts'][1654]->post_content = $emptied_saved;
+$GLOBALS['calls']                     = array();
+
+do_action( 'wp_after_insert_post', 1654, get_post( 1654 ), true, null );
+
+ck( 'a save that holds an emptied index and the 1.31 flow is repaired for the flow alone: one write, the index still marked and empty, no card and no courses band put in',
+	array(
+		count( preg_grep( '/^update /', $GLOBALS['calls'] ) ),
+		$GLOBALS['posts'][1654]->post_content === $emptied_run['content'],
+		substr_count( $GLOBALS['posts'][1654]->post_content, $emptied_index ),
+		substr_count( $GLOBALS['posts'][1654]->post_content, 'wp:wpcredits/program-card' ),
+		substr_count( $GLOBALS['posts'][1654]->post_content, 'wp:wpcredits/course-band' ),
+	),
+	array( 1, true, 1, 0, 0 ) );
+
+$GLOBALS['calls'] = array();
+
+do_action( 'wp_after_insert_post', 1654, get_post( 1654 ), true, null );
+
+ck( 'a save of that template with nothing else to repair is left alone: the emptied index is not repaired, no revision and no write',
+	array( $GLOBALS['calls'], substr_count( $GLOBALS['posts'][1654]->post_content, $emptied_index ) ),
+	array( array(), 1 ) );
+
+// The repair's own write fires the hook it listens to. What stops it setting itself off again is the
+// guard: the migrated content holds nothing to repair, so only a write that keeps a target tells the
+// guard from the content check (a plugin that puts the 1.31 index back, say).
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['keep_target']               = true;
+$GLOBALS['calls']                     = array();
+$GLOBALS['fired']                     = array();
+
+do_action( 'wp_after_insert_post', 1654, get_post( 1654 ), true, null );
+
+$GLOBALS['keep_target'] = false;
+
+ck( 'a write that keeps a target is not repaired again by the save it fires: one update, and the hook fired twice (the save, and the write\'s own)',
+	array( count( preg_grep( '/^update /', $GLOBALS['calls'] ) ), $GLOBALS['fired']['wp_after_insert_post'] ?? 0 ),
+	array( 1, 2 ) );
+
+// A save is never failed by the repair, whatever throws in it: reading the template's terms, or
+// recording the repair in the option.
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['throw_terms']               = true;
+$GLOBALS['calls']                     = array();
+$terms_save                           = 'returned';
+
+try {
+	do_action( 'wp_after_insert_post', 1654, get_post( 1654 ), true, null );
+} catch ( Throwable $error ) {
+	$terms_save = 'threw';
+}
+
+$GLOBALS['throw_terms'] = false;
+$terms_calls            = $GLOBALS['calls'];
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['throw_option']              = true;
+$option_save                          = 'returned';
+
+try {
+	do_action( 'wp_after_insert_post', 1654, get_post( 1654 ), true, null );
+} catch ( Throwable $error ) {
+	$option_save = 'threw';
+}
+
+$GLOBALS['throw_option'] = false;
+
+ck( 'a save returns whatever throws in the repair: reading the terms (nothing written), or saving the option after the template was repaired (the repair stands)',
+	array( $terms_save, $terms_calls, $option_save, $GLOBALS['posts'][1654]->post_content === $after ),
+	array( 'returned', array(), 'returned', true ) );
 
 echo "\n=== The notice ===\n";
 
@@ -757,6 +873,23 @@ ck( 'on the Site Editor, an Administrator is told what the migration did, as an 
 		'',
 		'The theme\'s update to 1.32.0 changed the saved Education Hub template, so every word of it can be edited here: the Program index now holds a Program card for each of the theme\'s programs; the Courses band of WordPress Credits\' courses was added under the index; "Find where you fit" is now Field of study rows, read from its Custom HTML block. The template as it was before is kept in its revisions.',
 	) );
+
+// The option is not autoloaded, so reading it is a query: a request that is not the Site Editor's, or
+// is not an Administrator's, or an Administrator who dismissed the notice, reads nothing.
+$GLOBALS['option_reads'] = array();
+
+$reads = array();
+
+foreach ( array( array( 'post', array( 'edit_theme_options' ), 4 ), array( 'site-editor', array( 'edit_posts' ), 3 ), array( 'site-editor', array( 'edit_theme_options' ), 2 ) ) as $request ) {
+	$GLOBALS['option_reads'] = array();
+
+	$notice_for( $request[0], $request[1], $request[2] );
+
+	$reads[] = count( array_keys( $GLOBALS['option_reads'], 'wpcredits_migrated_1_32_0', true ) );
+}
+
+ck( 'the notice reads its option only once it knows to show it: not on another screen, not for someone who cannot edit the theme; on the Site Editor, for an Administrator, once',
+	$reads, array( 0, 0, 1 ) );
 
 /**
  * The dismissal's request, as the notice sends it to admin-ajax.php: the reader's own nonce, or one
@@ -836,6 +969,15 @@ $skipped_record = array(
 ck( 'a template it left as it was is told with its reasons; a run that reached no template tells nothing',
 	array( wpcredits_migrate_1_32_0_summary( $skipped_record ), wpcredits_migrate_1_32_0_summary( array( 'ran' => 1, 'templates' => array() ) ) ),
 	array( 'The theme\'s update to 1.32.0 left the saved Education Hub template as it was: it holds no Program index; "Find where you fit" is already Field of study rows.', '' ) );
+
+$emptied_record = array(
+	'ran'       => 1,
+	'templates' => array( array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array(), 'skipped' => array( 'program-index-emptied', 'fit-list-done' ) ) ),
+);
+
+ck( 'an emptied Program index is told as left empty, in its own words, not as one that already holds cards',
+	wpcredits_migrate_1_32_0_summary( $emptied_record ),
+	'The theme\'s update to 1.32.0 left the saved Education Hub template as it was: its Program index was emptied in the Site Editor, so it stays empty; "Find where you fit" is already Field of study rows.' );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

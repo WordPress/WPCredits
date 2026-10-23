@@ -4,10 +4,15 @@
  * Hand-written against the `wp.*` globals rather than built from JSX, so the theme has no build step.
  * The index holds Program cards and nothing else; each card is edited where it is shown
  * (blocks/program-card/index.js). It is given no card of its own: an index with no inner blocks, a
- * 1.31 one among them, stays empty here until a card is added with its appender, and the page keeps
- * drawing the theme's programs for it; an empty card put in it would be saved, and the page would
- * then draw nothing. The chips are not drawn here: the server works them out from the cards when it
- * renders the page.
+ * 1.31 one among them, stays empty here until a card is added with its appender; an empty card put in
+ * it would be saved, and the page would then draw nothing. The chips are not drawn here: the server
+ * works them out from the cards when it renders the page.
+ *
+ * What the page draws for an index with no card depends on its `editable` attribute (block.json), the
+ * mark of an index an Administrator edits, set by the block's default variation on an index inserted
+ * from the inserter and written by the hub pattern and the 1.32.0 migration: a marked index with no
+ * card draws nothing on the page, as it shows here; an unmarked one is the 1.31 index, and the page
+ * keeps drawing the theme's programs for it.
  *
  * The block is dynamic: it saves its cards alone, as block comments with no markup of their own, and
  * the server draws the index from them, so a later change to the index's markup never leaves the

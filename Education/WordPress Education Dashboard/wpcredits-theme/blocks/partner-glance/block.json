@@ -1,0 +1,34 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/partner-glance",
+	"title": "Levels at a glance",
+	"category": "theme",
+	"icon": "editor-table",
+	"description": "The partnership levels compared in a table, drawn from the Partner levels of the Partners template in use: a column for each level, a row for each thing a level includes, Yes from the level that lists it up. Edit the levels to change it.",
+	"keywords": [ "partners", "sponsors", "levels", "compare", "table" ],
+	"textdomain": "wpcredits-theme",
+	"attributes": {
+		"label": {
+			"type": "string",
+			"default": ""
+		},
+		"yes": {
+			"type": "string",
+			"default": ""
+		},
+		"no": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"align": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"style": "wpcredits-partners",
+	"render": "file:./render.php"
+}

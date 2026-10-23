@@ -33,7 +33,7 @@ if ( wpcredits_hub_blank( $wpcredits_row['field'] ) ) {
 	return;
 }
 
-// The labels the list hands its rows, or today's words for a row drawn on its own.
+// The labels the list hands its rows, or the translated words (`wpcredits_hub_fit_labels()`) for a row drawn on its own and for a list that saved none: block.json holds no English default since theme 1.32.1, so a missing label hands no context.
 $wpcredits_labels  = wpcredits_hub_fit_labels();
 $wpcredits_context = $block instanceof WP_Block ? $block->context : array(); // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UndefinedVariable -- WordPress hands a block's render file its block.
 $wpcredits_teams   = array_key_exists( 'wpcredits/fitTeamsLabel', $wpcredits_context ) ? trim( (string) $wpcredits_context['wpcredits/fitTeamsLabel'] ) : $wpcredits_labels['teamsLabel'];

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.0
+Stable tag: 1.32.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.1 =
+* The Partners page's five levels and its "Levels at a glance" table are edited in the Site Editor. The Partner levels block holds a Partner level for each level: its name, amount, tag and lead are edited on the card, its list and the table's short amount in the level's settings. The table is a block of its own, drawn from those levels, with one row for each item a level lists and Yes from that level up, so the cards and the table always agree; its rows now read as the items do. The sponsor application's "What each level includes" reads the same levels, so the form tells a company what the page told it. A level, or the whole section, hidden in the Site Editor is left out of the table and the form too.
+* A Partners template already saved in the Site Editor is updated once, in place: the levels and the table become the new blocks, filled with what the page showed, and every other edit stays. The template as it was is kept as an exact revision, read back after it is written, and the Site Editor's notice says what changed. The Education Hub's Program index is marked as edited, so an index whose cards an Administrator removes stays empty instead of filling with the theme's programs again.
+* Smaller fixes: the courses band keeps its space above it outside the Education Hub, the field of study list's headings are translated, and the filter chips count only the program cards shown at the window's size.
 
 = 1.32.0 =
 * The Education Hub template is edited in the Site Editor, every word of it. The Program index holds a Program card for each program: its name, what it is and its time are edited on the card, and its status, audiences, address on the page, benefits and links in the card's settings; cards can be added, removed and reordered, and the filter chips count the cards there are. Under it, the Courses band holds a Course card for each WordPress Credits course, with its name, link, hours and line. "Find where you fit" is a list of Field of study rows, each with its field, the teams it joins and what the student will have to show, where it was a block of code. The page looks as it did.

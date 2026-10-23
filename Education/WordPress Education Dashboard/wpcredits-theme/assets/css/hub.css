@@ -1509,8 +1509,11 @@
    program cards' white boxes: one column, two from 640px and six from 900px, laid out so that no card
    sits alone on a row (below). Two classes deep, over core's layout styles and the theme's list and
    paragraph rules: since 1.32.0 the band is a block of its own after the index, in the programs
-   section's flow layout, so its 56px is set over that layout's block gap wherever it sits in the hub. */
-.wpc-hub .wpc-hub-courses {
+   section's flow layout, so its 56px is set over that layout's block gap wherever it sits in the hub.
+   A 1.31 index still draws the band inside itself, and one outside the hub (a draft page holds one)
+   has no `.wpc-hub` around it, so the same two classes inside the index keep that band its gap too. */
+.wpc-hub .wpc-hub-courses,
+.wpc-hub-index .wpc-hub-courses {
 	margin-top: 56px;
 	scroll-margin-top: var( --wpc-landing-offset );
 }

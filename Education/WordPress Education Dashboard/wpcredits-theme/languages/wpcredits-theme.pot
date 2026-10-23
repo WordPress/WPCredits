@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.0\n"
+"Project-Id-Version: WPCredits 1.32.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-22T21:45:59+00:00\n"
+"POT-Creation-Date: 2026-10-23T01:38:48+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -49,7 +49,7 @@ msgid "Need help?"
 msgstr ""
 
 #: blocks/pathway/render.php:33
-#: blocks/program-index/render.php:53
+#: blocks/program-index/render.php:64
 #: blocks/program-card/index.js:25
 msgid "For students"
 msgstr ""
@@ -211,22 +211,30 @@ msgstr ""
 msgid "You get"
 msgstr ""
 
-#: blocks/program-index/render.php:52
+#: blocks/program-index/render.php:63
 msgid "All"
 msgstr ""
 
-#: blocks/program-index/render.php:54
+#: blocks/program-index/render.php:65
 #: blocks/program-card/index.js:26
 msgid "For faculty"
 msgstr ""
 
-#: blocks/program-index/render.php:55
+#: blocks/program-index/render.php:66
 #: blocks/program-card/index.js:27
 msgid "Career and credentials"
 msgstr ""
 
+#. translators: %s: how many programs there are.
+#: blocks/program-index/render.php:93
+#, php-format
+msgid "Showing %s program"
+msgid_plural "Showing all %s programs"
+msgstr[0] ""
+msgstr[1] ""
+
 #. translators: 1: how many programs the filter shows, 2: how many there are.
-#: blocks/program-index/render.php:62
+#: blocks/program-index/render.php:95
 #, php-format
 msgid "Showing %1$s of %2$s program for students"
 msgid_plural "Showing %1$s of %2$s programs for students"
@@ -234,7 +242,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many programs the filter shows, 2: how many there are.
-#: blocks/program-index/render.php:64
+#: blocks/program-index/render.php:97
 #, php-format
 msgid "Showing %1$s of %2$s program for faculty"
 msgid_plural "Showing %1$s of %2$s programs for faculty"
@@ -242,24 +250,16 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: how many programs the filter shows, 2: how many there are.
-#: blocks/program-index/render.php:66
+#: blocks/program-index/render.php:99
 #, php-format
 msgid "Showing %1$s of %2$s program in Career and credentials"
 msgid_plural "Showing %1$s of %2$s programs in Career and credentials"
 msgstr[0] ""
 msgstr[1] ""
 
-#: blocks/program-index/render.php:71
+#: blocks/program-index/render.php:107
 msgid "Filter programs by audience"
 msgstr ""
-
-#. translators: %s: how many programs there are.
-#: blocks/program-index/render.php:84
-#, php-format
-msgid "Showing %s program"
-msgid_plural "Showing all %s programs"
-msgstr[0] ""
-msgstr[1] ""
 
 #: blocks/sign-in/render.php:59
 #: patterns/audiences.php:20
@@ -383,28 +383,28 @@ msgstr ""
 msgid "Profile photo of %s"
 msgstr ""
 
-#: functions.php:136
+#: functions.php:141
 msgid "WPCredits program"
 msgstr ""
 
-#: functions.php:137
+#: functions.php:142
 msgid "Sections for the program’s landing page."
 msgstr ""
 
-#: functions.php:152
+#: functions.php:157
 msgid "Card"
 msgstr ""
 
-#: functions.php:160
+#: functions.php:165
 msgid "Pale band"
 msgstr ""
 
-#: functions.php:168
+#: functions.php:173
 #: blocks/course-band/index.js:74
 msgid "Eyebrow"
 msgstr ""
 
-#: functions.php:176
+#: functions.php:181
 msgid "Pill"
 msgstr ""
 
@@ -995,174 +995,179 @@ msgctxt "a benefit not offered yet"
 msgid "(planned)"
 msgstr ""
 
-#: inc/hub-content.php:913
+#: inc/hub-content.php:923
 msgid "Choosing a course"
 msgstr ""
 
-#: inc/hub-content.php:914
+#: inc/hub-content.php:924
 msgid "Which WordPress Credits course?"
 msgstr ""
 
-#: inc/hub-content.php:915
+#: inc/hub-content.php:925
 msgid "What each asks of a student, so a school and its students can choose. Access to each course comes through the student's institution."
 msgstr ""
 
-#: inc/hub-content.php:941
-msgid "Computer science, engineering"
-msgstr ""
-
-#: inc/hub-content.php:943
-msgctxt "a WordPress team a student joins"
-msgid "Core"
-msgstr ""
-
-#: inc/hub-content.php:944
-msgctxt "a WordPress team a student joins"
-msgid "Plugins"
-msgstr ""
-
-#: inc/hub-content.php:945
-#: inc/hub-content.php:995
-msgctxt "a WordPress team a student joins"
-msgid "Testing"
-msgstr ""
-
-#: inc/hub-content.php:946
-#: inc/hub-content.php:994
-msgctxt "a WordPress team a student joins"
-msgid "Accessibility"
-msgstr ""
-
-#: inc/hub-content.php:948
-msgid "Merged code and reviewed patches"
-msgstr ""
-
 #: inc/hub-content.php:951
-msgid "Design, arts, UX"
+msgid "Computer science, engineering"
 msgstr ""
 
 #: inc/hub-content.php:953
 msgctxt "a WordPress team a student joins"
-msgid "Design"
+msgid "Core"
 msgstr ""
 
 #: inc/hub-content.php:954
 msgctxt "a WordPress team a student joins"
-msgid "Block patterns"
+msgid "Plugins"
 msgstr ""
 
 #: inc/hub-content.php:955
+#: inc/hub-content.php:1005
 msgctxt "a WordPress team a student joins"
-msgid "Themes"
+msgid "Testing"
 msgstr ""
 
-#: inc/hub-content.php:957
-msgid "Visual work in use on real sites"
-msgstr ""
-
-#: inc/hub-content.php:960
-msgid "Communications, journalism, marketing"
-msgstr ""
-
-#: inc/hub-content.php:962
+#: inc/hub-content.php:956
+#: inc/hub-content.php:1004
 msgctxt "a WordPress team a student joins"
-msgid "Documentation"
+msgid "Accessibility"
+msgstr ""
+
+#: inc/hub-content.php:958
+msgid "Merged code and reviewed patches"
+msgstr ""
+
+#: inc/hub-content.php:961
+msgid "Design, arts, UX"
 msgstr ""
 
 #: inc/hub-content.php:963
 msgctxt "a WordPress team a student joins"
-msgid "Learn WordPress"
+msgid "Design"
 msgstr ""
 
 #: inc/hub-content.php:964
 msgctxt "a WordPress team a student joins"
+msgid "Block patterns"
+msgstr ""
+
+#: inc/hub-content.php:965
+msgctxt "a WordPress team a student joins"
+msgid "Themes"
+msgstr ""
+
+#: inc/hub-content.php:967
+msgid "Visual work in use on real sites"
+msgstr ""
+
+#: inc/hub-content.php:970
+msgid "Communications, journalism, marketing"
+msgstr ""
+
+#: inc/hub-content.php:972
+msgctxt "a WordPress team a student joins"
+msgid "Documentation"
+msgstr ""
+
+#: inc/hub-content.php:973
+msgctxt "a WordPress team a student joins"
+msgid "Learn WordPress"
+msgstr ""
+
+#: inc/hub-content.php:974
+msgctxt "a WordPress team a student joins"
 msgid "Marketing"
 msgstr ""
 
-#: inc/hub-content.php:966
+#: inc/hub-content.php:976
 msgid "Published work with a byline"
 msgstr ""
 
-#: inc/hub-content.php:969
+#: inc/hub-content.php:979
 msgid "Translation, languages"
 msgstr ""
 
-#: inc/hub-content.php:971
+#: inc/hub-content.php:981
 msgctxt "a WordPress team a student joins"
 msgid "Polyglots"
 msgstr ""
 
-#: inc/hub-content.php:973
+#: inc/hub-content.php:983
 msgid "Published translations"
 msgstr ""
 
-#: inc/hub-content.php:976
+#: inc/hub-content.php:986
 msgid "Business, events, tourism"
 msgstr ""
 
-#: inc/hub-content.php:978
+#: inc/hub-content.php:988
 msgctxt "a WordPress team a student joins"
 msgid "Community"
 msgstr ""
 
-#: inc/hub-content.php:979
+#: inc/hub-content.php:989
 msgctxt "a WordPress team a student joins"
 msgid "WordCamps"
 msgstr ""
 
-#: inc/hub-content.php:981
+#: inc/hub-content.php:991
 msgid "An event you ran, with attendance numbers"
 msgstr ""
 
-#: inc/hub-content.php:984
+#: inc/hub-content.php:994
 msgctxt "a field of study"
 msgid "Education"
 msgstr ""
 
-#: inc/hub-content.php:986
+#: inc/hub-content.php:996
 msgctxt "a WordPress team a student joins"
 msgid "Learn WordPress lesson plans"
 msgstr ""
 
-#: inc/hub-content.php:987
+#: inc/hub-content.php:997
 msgctxt "a WordPress team a student joins"
 msgid "Training"
 msgstr ""
 
-#: inc/hub-content.php:989
+#: inc/hub-content.php:999
 msgid "Course material in public use"
 msgstr ""
 
-#: inc/hub-content.php:992
+#: inc/hub-content.php:1002
 msgid "Accessibility, social work"
 msgstr ""
 
-#: inc/hub-content.php:997
+#: inc/hub-content.php:1007
 msgid "Audit work on a global platform"
 msgstr ""
 
-#: inc/hub-content.php:1010
-#: blocks/fit-list/index.js:80
+#: inc/hub-content.php:1020
+#: blocks/fit-list/index.js:94
+#: blocks/fit-list/index.js:96
 msgid "Your field of study"
 msgstr ""
 
-#: inc/hub-content.php:1011
-#: blocks/fit-list/index.js:88
+#: inc/hub-content.php:1021
+#: blocks/fit-list/index.js:102
+#: blocks/fit-list/index.js:104
 msgid "The team you join"
 msgstr ""
 
-#: inc/hub-content.php:1012
-#: blocks/fit-list/index.js:96
+#: inc/hub-content.php:1022
+#: blocks/fit-list/index.js:110
+#: blocks/fit-list/index.js:112
 msgid "What you'll have to show"
 msgstr ""
 
 #. translators: Read by screen readers before the teams a field of study joins; the header line above the rows shows "The team you join" to the eye.
-#: inc/hub-content.php:1014
+#: inc/hub-content.php:1024
+#: blocks/fit-list/index.js:71
 msgid "The team you join:"
 msgstr ""
 
 #. translators: Read by screen readers before what a student will have to show for a field of study; the header line above the rows shows "What you'll have to show" to the eye.
-#: inc/hub-content.php:1016
+#: inc/hub-content.php:1026
+#: blocks/fit-list/index.js:78
 msgid "What you'll have to show:"
 msgstr ""
 
@@ -1184,236 +1189,341 @@ msgstr ""
 msgid "Code is poetry."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:473
+#: inc/migrate-1-32-0.php:644
 msgid "the Program index now holds a Program card for each of the theme's programs"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:474
+#: inc/migrate-1-32-0.php:645
 msgid "the Courses band of WordPress Credits' courses was added under the index"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:475
+#: inc/migrate-1-32-0.php:646
 msgid "\"Find where you fit\" is now Field of study rows, read from its Custom HTML block"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:476
+#: inc/migrate-1-32-0.php:647
 msgid "\"Find where you fit\" is now Field of study rows, the theme's own, as its Custom HTML block could not be read"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:477
+#: inc/migrate-1-32-0.php:648
 msgid "its Program index already holds Program cards"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:478
+#: inc/migrate-1-32-0.php:649
+#: inc/migrate-1-32-1.php:476
+msgid "its Program index was emptied in the Site Editor, so it stays empty"
+msgstr ""
+
+#: inc/migrate-1-32-0.php:650
+#: inc/migrate-1-32-1.php:478
 msgid "it holds no Program index"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:479
+#: inc/migrate-1-32-0.php:651
 msgid "\"Find where you fit\" is already Field of study rows"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:480
+#: inc/migrate-1-32-0.php:652
 msgid "it holds no \"Find where you fit\" Custom HTML block"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:481
+#: inc/migrate-1-32-0.php:653
+#: inc/migrate-1-32-1.php:479
 msgid "the update could not be saved"
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-0.php:493
+#: inc/migrate-1-32-0.php:665
 #, php-format
 msgid "The theme's update to 1.32.0 changed the saved Education Hub template, so every word of it can be edited here: %s."
 msgstr ""
 
 #. translators: %s: what the update left as it was, and why, a list.
-#: inc/migrate-1-32-0.php:497
+#: inc/migrate-1-32-0.php:669
+#: inc/migrate-1-32-1.php:505
 #, php-format
 msgid "It left the rest as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:501
+#: inc/migrate-1-32-0.php:673
+#: inc/migrate-1-32-1.php:513
 msgid "What was saved differs from what the update wrote, so compare the template with its revisions."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:504
+#: inc/migrate-1-32-0.php:676
+#: inc/migrate-1-32-1.php:521
 msgid "The template as it was before is kept in the theme's migration record."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:504
+#: inc/migrate-1-32-0.php:676
+#: inc/migrate-1-32-1.php:521
 msgid "The template as it was before is kept in its revisions."
 msgstr ""
 
 #. translators: %s: why the update left the template as it was, a list.
-#: inc/migrate-1-32-0.php:507
+#: inc/migrate-1-32-0.php:679
 #, php-format
 msgid "The theme's update to 1.32.0 left the saved Education Hub template as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:512
+#: inc/migrate-1-32-0.php:684
 msgid "The theme's update to 1.32.0 could not finish updating the saved Education Hub template; a template it did not reach is as it was."
 msgstr ""
 
-#: inc/partners.php:137
+#: inc/migrate-1-32-1.php:466
+msgid "the partnership levels are now the Partner levels block, read from its Custom HTML block"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:467
+msgid "its Custom HTML block of partnership levels held no level, so it is now an empty Partner levels block: until levels are added to it, the page shows no levels and no table, and the sponsor application lists none"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:468
+msgid "the Levels at a glance table is now its own block, drawn from those levels"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:469
+msgid "its Program index is now marked as edited in the Site Editor, so removing every card from it leaves it empty"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:470
+msgid "its partnership levels are already the Partner levels block"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:471
+msgid "it holds no Custom HTML block of partnership levels"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:472
+msgid "its Levels at a glance table is already its own block"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:473
+msgid "it holds no Custom HTML block of the Levels at a glance table"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:474
+msgid "its Levels at a glance table stays a Custom HTML block, as the template holds no partnership levels to draw it from"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:475
+msgid "its Program index is already marked"
+msgstr ""
+
+#: inc/migrate-1-32-1.php:477
+msgid "its Program index is still as theme 1.31 saved it, so it still shows the theme's own programs"
+msgstr ""
+
+#. translators: %s: what the update changed in the template, a list.
+#: inc/migrate-1-32-1.php:484
+#, php-format
+msgid "The theme's update to 1.32.1 changed the saved Partners template, so its partnership levels are edited here and the sponsor application shows the same ones: %s."
+msgstr ""
+
+#. translators: %s: what the update changed in the template, a list.
+#: inc/migrate-1-32-1.php:484
+#, php-format
+msgid "The theme's update to 1.32.1 left the saved Partners template as it was: %s."
+msgstr ""
+
+#. translators: %s: what the update changed in the template, a list.
+#: inc/migrate-1-32-1.php:486
+#, php-format
+msgid "The theme's update to 1.32.1 changed the saved Education Hub template: %s."
+msgstr ""
+
+#. translators: %s: what the update changed in the template, a list.
+#: inc/migrate-1-32-1.php:486
+#, php-format
+msgid "The theme's update to 1.32.1 left the saved Education Hub template as it was: %s."
+msgstr ""
+
+#: inc/migrate-1-32-1.php:509
+msgid "Its partnership levels could not be read from its Custom HTML block, so the theme's own levels were written in their place: compare them with the template as it was."
+msgstr ""
+
+#: inc/migrate-1-32-1.php:519
+msgid "The template as it was before could not be kept, in its revisions or in the theme's migration record."
+msgstr ""
+
+#: inc/migrate-1-32-1.php:531
+msgid "The theme's update to 1.32.1 could not finish updating the saved Partners and Education Hub templates; a template it did not reach is as it was."
+msgstr ""
+
+#: inc/partners.php:141
 #: patterns/partners-apply.php:19
 msgid "Become a partner"
 msgstr ""
 
-#: inc/partners.php:175
+#: inc/partners.php:178
 msgid "Friend"
 msgstr ""
 
-#: inc/partners.php:176
+#: inc/partners.php:179
 msgid "In-kind, through Five for the Future"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid.
-#: inc/partners.php:178
+#: inc/partners.php:181
 msgid "In-kind"
 msgstr ""
 
-#: inc/partners.php:179
+#: inc/partners.php:182
 msgid "For companies sponsoring mentors through Five for the Future."
 msgstr ""
 
-#: inc/partners.php:181
+#: inc/partners.php:184
 msgid "Company name on the partner page"
 msgstr ""
 
-#: inc/partners.php:182
-#: patterns/partners-levels.php:24
+#: inc/partners.php:185
 msgid "Mention in the mentor feature"
 msgstr ""
 
-#: inc/partners.php:183
+#: inc/partners.php:186
 msgid "Acknowledgement in the annual partner thank you post"
 msgstr ""
 
-#: inc/partners.php:187
+#: inc/partners.php:190
 msgid "Supporter"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:189
+#: inc/partners.php:192
 msgid "$5,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:191
+#: inc/partners.php:194
 msgid "$5,000"
 msgstr ""
 
-#: inc/partners.php:192
+#: inc/partners.php:195
 msgid "Everything in Friend, plus:"
 msgstr ""
 
-#: inc/partners.php:194
-#: patterns/partners-levels.php:26
+#: inc/partners.php:197
 msgid "Logo and description on the partner page"
 msgstr ""
 
-#: inc/partners.php:195
+#: inc/partners.php:198
 msgid "A badge for your own site"
 msgstr ""
 
-#: inc/partners.php:196
+#: inc/partners.php:199
 msgid "The annual program report"
 msgstr ""
 
-#: inc/partners.php:200
+#: inc/partners.php:203
 msgid "Backer"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:202
+#: inc/partners.php:205
 msgid "$10,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:204
+#: inc/partners.php:207
 msgid "$10,000"
 msgstr ""
 
-#: inc/partners.php:205
+#: inc/partners.php:208
 msgid "Everything in Supporter, plus:"
 msgstr ""
 
-#: inc/partners.php:207
+#: inc/partners.php:210
 msgid "Named for the part of the program you fund in program communications"
 msgstr ""
 
-#: inc/partners.php:208
+#: inc/partners.php:211
 msgid "A report covering that cost line"
 msgstr ""
 
-#: inc/partners.php:209
+#: inc/partners.php:212
 msgid "One self-written educational post about the sponsored product"
 msgstr ""
 
-#: inc/partners.php:213
+#: inc/partners.php:216
 msgid "Champion"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:215
+#: inc/partners.php:218
 msgid "$15,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:217
+#: inc/partners.php:220
 msgid "$15,000"
 msgstr ""
 
-#: inc/partners.php:218
+#: inc/partners.php:221
 msgid "Everything in Backer, plus:"
 msgstr ""
 
-#: inc/partners.php:220
+#: inc/partners.php:223
 msgid "A second self-written post with factual, value-neutral information about additional products"
 msgstr ""
 
-#: inc/partners.php:221
+#: inc/partners.php:224
 msgid "An invitation to the annual education partners session"
 msgstr ""
 
-#: inc/partners.php:222
+#: inc/partners.php:225
 msgid "A webinar or event co-hosted with the education program"
 msgstr ""
 
-#: inc/partners.php:226
+#: inc/partners.php:229
 msgctxt "the highest partnership level, a noun: a company that funds a named program"
 msgid "Partner"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year, the least it starts from.
-#: inc/partners.php:228
+#: inc/partners.php:231
 msgid "From $30,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from.
-#: inc/partners.php:230
+#: inc/partners.php:233
 msgid "From $30,000"
 msgstr ""
 
-#: inc/partners.php:231
+#: inc/partners.php:234
 msgid "Funds a named program"
 msgstr ""
 
-#: inc/partners.php:232
+#: inc/partners.php:235
 msgid "Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them."
 msgstr ""
 
-#: inc/partners.php:234
+#: inc/partners.php:237
 msgid "Named as program partner on the program you fund, with the exclusive role in that program"
 msgstr ""
 
-#: inc/partners.php:235
-#: patterns/partners-levels.php:36
+#: inc/partners.php:238
 msgid "Named in launch communications"
 msgstr ""
 
-#: inc/partners.php:236
+#: inc/partners.php:239
 msgid "A report specific to that program"
+msgstr ""
+
+#: inc/partners.php:862
+#: blocks/partner-glance/index.js:117
+msgid "Recognition"
+msgstr ""
+
+#: inc/partners.php:863
+#: blocks/partner-glance/index.js:118
+msgctxt "a partnership level has this recognition"
+msgid "Yes"
+msgstr ""
+
+#: inc/partners.php:864
+#: blocks/partner-glance/index.js:119
+msgctxt "a partnership level does not have this recognition"
+msgid "No"
 msgstr ""
 
 #: inc/template-tags.php:290
@@ -1941,90 +2051,29 @@ msgctxt "Pattern description"
 msgid "The pilot year, the five partnership levels with what each gives, and a table comparing them."
 msgstr ""
 
-#: patterns/partners-levels.php:23
-msgid "Name on the partner page"
-msgstr ""
-
 #: patterns/partners-levels.php:25
-msgid "Acknowledged in the partner thank you post"
-msgstr ""
-
-#: patterns/partners-levels.php:27
-msgid "Badge for your own site"
-msgstr ""
-
-#: patterns/partners-levels.php:28
-msgid "Annual program report"
-msgstr ""
-
-#: patterns/partners-levels.php:29
-msgid "Named for what you fund in program communications"
-msgstr ""
-
-#: patterns/partners-levels.php:30
-msgid "Report covering that cost line"
-msgstr ""
-
-#: patterns/partners-levels.php:31
-msgid "A self-written educational post about the sponsored product"
-msgstr ""
-
-#: patterns/partners-levels.php:32
-msgid "A second self-written post about additional products"
-msgstr ""
-
-#: patterns/partners-levels.php:33
-msgid "Invitation to the annual education partners session"
-msgstr ""
-
-#: patterns/partners-levels.php:34
-msgid "Co-hosted webinar or event"
-msgstr ""
-
-#: patterns/partners-levels.php:35
-msgid "Named as program partner on the program you fund"
-msgstr ""
-
-#: patterns/partners-levels.php:37
-msgid "Program-specific report"
-msgstr ""
-
-#: patterns/partners-levels.php:40
-msgctxt "a partnership level has this recognition"
-msgid "Yes"
-msgstr ""
-
-#: patterns/partners-levels.php:41
-msgctxt "a partnership level does not have this recognition"
-msgid "No"
-msgstr ""
-
-#: patterns/partners-levels.php:47
 msgid "2027 is a pilot year"
 msgstr ""
 
-#: patterns/partners-levels.php:51
+#: patterns/partners-levels.php:29
 msgid "This is the first time we have offered partnership levels, and we are treating it as a test. We will run it through 2027, publish what we learn, and adjust or retire whatever does not work. If none of the levels below fits what your company wants to do, write to us and we will shape something that does."
 msgstr ""
 
-#: patterns/partners-levels.php:59
+#: patterns/partners-levels.php:37
 msgid "Partnership levels"
 msgstr ""
 
-#: patterns/partners-levels.php:63
+#: patterns/partners-levels.php:41
 msgid "Five levels, from contributing mentor time through to funding a complete program. Recognition is consistent across all of them: partners are listed in the same format, with descriptions of the same length, in alphabetical order rather than by level."
 msgstr ""
 
-#: patterns/partners-levels.php:67
+#: patterns/partners-levels.php:45
 msgid "Compare all levels"
 msgstr ""
 
-#: patterns/partners-levels.php:92
+#: patterns/partners-levels.php:55
+#: blocks/partner-glance/index.js:197
 msgid "Levels at a glance"
-msgstr ""
-
-#: patterns/partners-levels.php:101
-msgid "Recognition"
 msgstr ""
 
 #: patterns/steps.php
@@ -2122,19 +2171,19 @@ msgstr ""
 msgid "What it asks, in a line"
 msgstr ""
 
-#: blocks/fit-list/index.js:51
+#: blocks/fit-list/index.js:67
 msgid "Read by screen readers"
 msgstr ""
 
-#: blocks/fit-list/index.js:52
+#: blocks/fit-list/index.js:68
 msgid "The page shows the header line's names above the rows; a screen reader hears these labels in each row instead."
 msgstr ""
 
-#: blocks/fit-list/index.js:54
+#: blocks/fit-list/index.js:70
 msgid "Before the teams"
 msgstr ""
 
-#: blocks/fit-list/index.js:61
+#: blocks/fit-list/index.js:77
 msgid "Before what the student will have to show"
 msgstr ""
 
@@ -2156,6 +2205,70 @@ msgstr ""
 
 #: blocks/fit-row/index.js:126
 msgid "What the student will have to show"
+msgstr ""
+
+#: blocks/partner-glance/index.js:136
+msgid "This editor shows no Partner levels block to draw the table from. On the page, the table compares the levels of the Partners template in use, and is left out while that template shows none."
+msgstr ""
+
+#: blocks/partner-glance/index.js:138
+msgid "No level includes anything yet. What each Partner level includes, in its settings, makes the table's rows."
+msgstr ""
+
+#: blocks/partner-glance/index.js:156
+msgid "The table's head word"
+msgstr ""
+
+#: blocks/partner-glance/index.js:198
+msgid "The table is drawn from the Partner levels of the Partners template in use: a level's name, short amount and what it includes are edited there."
+msgstr ""
+
+#: blocks/partner-glance/index.js:200
+msgid "The word for a level that has it"
+msgstr ""
+
+#: blocks/partner-glance/index.js:208
+msgid "The word for a level that does not"
+msgstr ""
+
+#: blocks/partner-level/index.js:73
+msgid "Partner level"
+msgstr ""
+
+#: blocks/partner-level/index.js:75
+msgid "Short amount"
+msgstr ""
+
+#: blocks/partner-level/index.js:77
+msgid "The amount the Levels at a glance table shows under the level's name, such as $5,000."
+msgstr ""
+
+#: blocks/partner-level/index.js:83
+msgid "What this level includes, one to a line"
+msgstr ""
+
+#: blocks/partner-level/index.js:85
+msgid "Each line is also a row of the Levels at a glance table, which says Yes from this level up."
+msgstr ""
+
+#: blocks/partner-level/index.js:108
+msgid "Level name"
+msgstr ""
+
+#: blocks/partner-level/index.js:117
+msgid "A tag, if the level has one"
+msgstr ""
+
+#: blocks/partner-level/index.js:126
+msgid "What it costs"
+msgstr ""
+
+#: blocks/partner-level/index.js:134
+msgid "The line before what it includes"
+msgstr ""
+
+#: blocks/partner-level/index.js:143
+msgid "Add what this level includes in the block's settings, one to a line."
 msgstr ""
 
 #: blocks/program-card/index.js:115
@@ -2218,15 +2331,15 @@ msgstr ""
 msgid "How long it takes"
 msgstr ""
 
-#: blocks/program-index/index.js:38
+#: blocks/program-index/index.js:43
 msgid "Program index"
 msgstr ""
 
-#: blocks/program-index/index.js:39
+#: blocks/program-index/index.js:44
 msgid "Each card is edited where it is shown: its name, what it is and its time on the card, and its status, audiences, slug, benefits and links in the card's settings."
 msgstr ""
 
-#: blocks/program-index/index.js:40
+#: blocks/program-index/index.js:45
 msgid "The filter chips and how many programs each shows are worked out on the page from the cards' audiences. A card in development is shown on the page only while the hub shows its planned content."
 msgstr ""
 
@@ -2386,6 +2499,90 @@ msgctxt "block keyword"
 msgid "search"
 msgstr ""
 
+#: blocks/partner-glance/block.json
+msgctxt "block title"
+msgid "Levels at a glance"
+msgstr ""
+
+#: blocks/partner-glance/block.json
+msgctxt "block description"
+msgid "The partnership levels compared in a table, drawn from the Partner levels of the Partners template in use: a column for each level, a row for each thing a level includes, Yes from the level that lists it up. Edit the levels to change it."
+msgstr ""
+
+#: blocks/partner-glance/block.json
+#: blocks/partner-levels/block.json
+msgctxt "block keyword"
+msgid "partners"
+msgstr ""
+
+#: blocks/partner-glance/block.json
+#: blocks/partner-levels/block.json
+msgctxt "block keyword"
+msgid "sponsors"
+msgstr ""
+
+#: blocks/partner-glance/block.json
+#: blocks/partner-levels/block.json
+#: blocks/pathway/block.json
+msgctxt "block keyword"
+msgid "levels"
+msgstr ""
+
+#: blocks/partner-glance/block.json
+msgctxt "block keyword"
+msgid "compare"
+msgstr ""
+
+#: blocks/partner-glance/block.json
+msgctxt "block keyword"
+msgid "table"
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block title"
+msgid "Partner level"
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block description"
+msgid "One partnership level of the Partner levels: its name, an optional tag after it, its amount, the line before its list and what it includes. Its short amount, for the Levels at a glance table's head, and what it includes are in the block's settings."
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block keyword"
+msgid "partner"
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block keyword"
+msgid "sponsor"
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block keyword"
+msgid "level"
+msgstr ""
+
+#: blocks/partner-level/block.json
+msgctxt "block keyword"
+msgid "tier"
+msgstr ""
+
+#: blocks/partner-levels/block.json
+msgctxt "block title"
+msgid "Partner levels"
+msgstr ""
+
+#: blocks/partner-levels/block.json
+msgctxt "block description"
+msgid "The partnership levels as cards, a Partner level block for each, the lowest first. The Levels at a glance table and the sponsor application read the levels from here."
+msgstr ""
+
+#: blocks/partner-levels/block.json
+msgctxt "block keyword"
+msgid "tiers"
+msgstr ""
+
 #: blocks/pathway/block.json
 msgctxt "block title"
 msgid "Pathway"
@@ -2404,11 +2601,6 @@ msgstr ""
 #: blocks/pathway/block.json
 msgctxt "block keyword"
 msgid "steps"
-msgstr ""
-
-#: blocks/pathway/block.json
-msgctxt "block keyword"
-msgid "levels"
 msgstr ""
 
 #: blocks/pathway/block.json
@@ -2454,6 +2646,11 @@ msgstr ""
 #: blocks/program-index/block.json
 msgctxt "block keyword"
 msgid "filter"
+msgstr ""
+
+#: blocks/program-index/block.json
+msgctxt "block variation title"
+msgid "Program index"
 msgstr ""
 
 #: blocks/program-stat/block.json

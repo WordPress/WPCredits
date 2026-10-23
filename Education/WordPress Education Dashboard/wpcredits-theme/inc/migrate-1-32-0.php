@@ -12,20 +12,26 @@
  *
  * - the old Program index becomes the index holding a Program card for each of the theme's programs,
  *   live and in development, followed by the Courses band if the template has none, as the hub
- *   pattern writes them, keeping whatever an Administrator set on the old block, such as a lock;
+ *   pattern writes them, keeping whatever an Administrator set on the old block, such as a lock; the
+ *   index is written marked `editable` (theme 1.32.1), and a self-closing index that already carries
+ *   the mark is one an Administrator emptied, which stays empty;
  * - the Custom HTML block that holds the flow's rows becomes the Field of study rows block, its rows
  *   and its labels read from that saved markup, so an Administrator's edits there are kept, and the
  *   theme's own rows written only when none can be read.
  *
  * Every other byte of the template is kept as it was: the two parts are cut out and the blocks put in
- * their place, with nothing parsed and written back around them. The template as it was is kept as a
- * revision first (in the record itself where revisions are off for it), the content is written with kses turned off around the write and read back, and
- * what was done to each template, or why it was left, is recorded in the option
- * `wpcredits_migrated_1_32_0`, written last, so a request that fails part way runs it again. Run again,
- * it finds nothing to replace and changes nothing. A later save of the template that brings either
- * part back, from an editor opened before the update, is repaired the same way at once. Each
- * Administrator is told what it did on the Site Editor until they dismiss the notice or a week has
- * passed. The Partners template is left alone in 1.32.0.
+ * their place, with nothing parsed and written back around them. The template as it was is kept first
+ * as a revision, written with kses turned off and read back to be byte for byte the template (in the
+ * record itself where revisions are off for it, or where that revision could not be made exact); the
+ * content is written with kses turned off around the write and read back, and what was done to each
+ * template, or why it was left, is recorded in the option `wpcredits_migrated_1_32_0`, written last,
+ * so a request that dies part way (a timeout) runs it again. Whatever throws is caught and recorded as
+ * a failure, which is told to Administrators once and not tried again. Run again, it finds nothing to
+ * replace and changes nothing. A later save of the template that brings either part back, from an
+ * editor opened before the update, is repaired the same way at once. Each Administrator is told what
+ * it did on the Site Editor until they dismiss the notice or a week has passed. The Partners template
+ * is left alone in 1.32.0; the 1.32.1 migration (inc/migrate-1-32-1.php) replaces its levels and marks
+ * the hub's index, after this one has run, and the repair of a save and the notice here cover both.
  *
  * @package WPCredits_Theme
  */
@@ -51,8 +57,8 @@ const WPCREDITS_BLOCK_ATTRS = '(\{(?:(?:[^}]+|}+(?=})|(?!}\s+\/?-->).)*+)?}\s+)?
  * @param string $slug    Its slug.
  * @return array{content: string, changed: string[], skipped: string[]} The content, what was replaced
  *         (`program-index`, `course-band`, `fit-list`, or `fit-list-theme-rows` when the rows could not
- *         be read), and why a part was left (`program-index-done`, `program-index-missing`,
- *         `fit-list-done`, `fit-list-missing`, `other-template`).
+ *         be read), and why a part was left (`program-index-done`, `program-index-emptied`,
+ *         `program-index-missing`, `fit-list-done`, `fit-list-missing`, `other-template`).
  */
 function wpcredits_migrate_1_32_0_content( $content, $slug ) {
 	$result = array(
@@ -72,7 +78,8 @@ function wpcredits_migrate_1_32_0_content( $content, $slug ) {
 
 /**
  * The 1.31 Program index, a self-closing block, replaced by the index holding a card for each of the
- * theme's programs and, when the template has no band of courses, the band after it.
+ * theme's programs and, when the template has no band of courses, the band after it. A self-closing
+ * index marked `editable` is not the 1.31 index but one an Administrator emptied, and is left as it is.
  *
  * @param array $result As `wpcredits_migrate_1_32_0_content()` builds it.
  * @return array The same, the index replaced.
@@ -87,8 +94,18 @@ function wpcredits_migrate_1_32_0_index( array $result ) {
 	}
 
 	$attributes = isset( $found[1] ) && '' !== $found[1][0] ? json_decode( trim( $found[1][0] ), true ) : array();
-	$markup     = wpcredits_hub_program_index_markup( wpcredits_hub_programs(), is_array( $attributes ) ? $attributes : array() );
-	$changed    = array( 'program-index' );
+	$attributes = is_array( $attributes ) ? $attributes : array();
+
+	// A self-closing index marked `editable` is one an Administrator emptied, not the 1.31 index (theme
+	// 1.32.1): it stays empty, with no band added under it either.
+	if ( ! wpcredits_hub_index_is_legacy( array( 'attrs' => $attributes ) ) ) {
+		$result['skipped'][] = 'program-index-emptied';
+
+		return $result;
+	}
+
+	$markup  = wpcredits_hub_program_index_markup( wpcredits_hub_programs(), $attributes );
+	$changed = array( 'program-index' );
 
 	if ( ! preg_match( '#<!--\s+wp:wpcredits/course-band\s#', $content ) ) {
 		$bands = wpcredits_hub_course_bands_markup( wpcredits_hub_programs() );
@@ -318,16 +335,20 @@ function wpcredits_migrate_1_32_0_ours( $post ) {
 
 /**
  * One saved template migrated: its content's 1.31 parts replaced and, when any was, written. Where
- * the template as it was is kept: in a revision, or, where revisions are off for it, in the record
- * itself, as `before` (wp_save_post_revision() says nothing either way).
+ * the template as it was is kept: in a revision that holds it exactly, or, where revisions are off for
+ * it or no such revision could be made, in the record itself, as `before`.
  *
- * @param WP_Post $template The template.
+ * @param WP_Post  $template The template.
+ * @param callable $migrate  The migration's content function, which takes the content and the slug and
+ *                           answers as `wpcredits_migrate_1_32_0_content()` does: this migration's, the
+ *                           1.32.1 migration's, or both (the repair of a save).
  * @return array What was done: `id`, `slug`, `changed`, `skipped` and `kept` (`revision`, `record`,
- *               or '' when nothing was written), and `before` when it is `record`.
+ *               or '' when nothing was written), and, when something was, `revision` (the revision's
+ *               ID, 0 when `kept` is `record`) and, when it is `record`, `before`.
  */
-function wpcredits_migrate_1_32_0_template( $template ) {
+function wpcredits_migrate_1_32_0_template( $template, $migrate = 'wpcredits_migrate_1_32_0_content' ) {
 	$before = (string) $template->post_content;
-	$result = wpcredits_migrate_1_32_0_content( $before, $template->post_name );
+	$result = call_user_func( $migrate, $before, $template->post_name );
 	$entry  = array(
 		'id'      => (int) $template->ID,
 		'slug'    => (string) $template->post_name,
@@ -340,18 +361,18 @@ function wpcredits_migrate_1_32_0_template( $template ) {
 		return $entry;
 	}
 
-	$revision = wp_revisions_enabled( $template );
-	$saved    = wpcredits_migrate_1_32_0_write( $template->ID, $result['content'], $revision );
+	$saved = wpcredits_migrate_1_32_0_write( $template->ID, $result['content'] );
 
 	// A write that failed changed nothing; one that saved something else did change the template.
-	if ( 'update-failed' === $saved ) {
+	if ( 'update-failed' === $saved['saved'] ) {
 		$entry['changed'] = array();
 	} else {
-		$entry['kept'] = $revision ? 'revision' : 'record';
+		$entry['kept']     = $saved['kept'];
+		$entry['revision'] = $saved['revision'];
 	}
 
-	if ( true !== $saved ) {
-		$entry['skipped'][] = $saved;
+	if ( true !== $saved['saved'] ) {
+		$entry['skipped'][] = $saved['saved'];
 	}
 
 	if ( 'record' === $entry['kept'] ) {
@@ -362,38 +383,54 @@ function wpcredits_migrate_1_32_0_template( $template ) {
 }
 
 /**
- * A save that brings the 1.31 parts back, repaired at once: an editor tab opened before the update
- * holds the template as it was, and saved after the migration it writes the 1.31 Program index and
- * the Custom HTML flow back. When this theme's saved Education Hub template is saved still holding
- * either, it is migrated as the runner migrates it, and the repair is added to the migration's record.
- * The migration's own writes fire this hook too, and are left alone.
+ * A save that brings the replaced parts back, repaired at once: an editor tab opened before an update
+ * holds the template as it was, and saved after the migration it writes the old parts back. When this
+ * theme's saved Education Hub or Partners template is saved still holding any, it is migrated as the
+ * runners migrate it, both migrations in order, in one write, keeping every other edit of the save:
+ * the 1.31 Program index and the Custom HTML flow (1.32.0), the unmarked index and the Custom HTML
+ * levels and table (1.32.1). The repair is added to the newer migration's record, the 1.32.1 one once it
+ * has run. The migrations' own writes fire this hook too, and are left alone.
  *
  * @param int     $post_id The post saved.
  * @param WP_Post $post    The post, as saved, its terms set.
  */
 function wpcredits_migrate_1_32_0_on_save( $post_id, $post ) {
-	// A save is never failed by the repair: whatever throws in it is caught, and the save stands.
+	// A save is never failed by the repair: whatever throws in it, reading the template's terms and
+	// recording the repair in the option included, is caught, and the save stands.
 	try {
-		if ( wpcredits_migrate_1_32_0_writing() || ! wpcredits_migrate_1_32_0_ours( $post ) ) {
+		if ( wpcredits_migrate_1_32_0_writing() || ! wpcredits_migrate_1_32_1_ours( $post ) ) {
 			return;
 		}
 
-		$entry = wpcredits_migrate_1_32_0_template( $post );
+		$entry = wpcredits_migrate_1_32_0_template( $post, 'wpcredits_migrate_1_32_1_repaired' );
+
+		if ( ! $entry['changed'] && ! in_array( 'update-failed', $entry['skipped'], true ) ) {
+			return;
+		}
+
+		if ( 'page-partners' === $entry['slug'] ) {
+			wpcredits_partner_levels_reset();
+		}
+
+		$option = is_array( get_option( WPCREDITS_MIGRATED_1_32_1, false ) ) ? WPCREDITS_MIGRATED_1_32_1 : WPCREDITS_MIGRATED_1_32_0;
+		$record = get_option( $option, false );
+
+		// The runner records the template itself when it has not run yet.
+		if ( is_array( $record ) ) {
+			$record['repairs'][] = $entry + array( 'at' => time() );
+
+			// The record that holds the only copy of the template as it was, and could not be stored, is
+			// stored saying the copy was lost, never that it was kept.
+			if ( ! update_option( $option, $record, false ) && 'record' === $entry['kept'] ) {
+				array_pop( $record['repairs'] );
+
+				$record['repairs'][] = wpcredits_migrate_copies_lost( array( $entry ) )[0] + array( 'at' => time() );
+
+				update_option( $option, $record, false );
+			}
+		}
 	} catch ( Throwable $error ) {
 		return;
-	}
-
-	if ( ! $entry['changed'] && ! in_array( 'update-failed', $entry['skipped'], true ) ) {
-		return;
-	}
-
-	$record = get_option( WPCREDITS_MIGRATED_1_32_0, false );
-
-	// The runner records the template itself when it has not run yet.
-	if ( is_array( $record ) ) {
-		$record['repairs'][] = $entry + array( 'at' => time() );
-
-		update_option( WPCREDITS_MIGRATED_1_32_0, $record, false );
 	}
 }
 add_action( 'wp_after_insert_post', 'wpcredits_migrate_1_32_0_on_save', 10, 2 );
@@ -415,26 +452,145 @@ function wpcredits_migrate_1_32_0_writing( $now = null ) {
 }
 
 /**
- * A template's new content written: a revision of it as it was first, where revisions are on for it,
- * then the content, slashed as wp_update_post() expects, with kses turned off around the write, so it does not rewrite markup an
- * Administrator saved on a request whose visitor could not have saved it. What was saved is read
- * back: another filter that changed it is reported.
+ * The newest revision of a post: a revision, not an autosave, which the next autosave replaces and no
+ * one would restore from, as core's wp_save_post_revision() reads the newest one.
+ *
+ * @param int $id The post's ID.
+ * @return WP_Post|null Null where the post has none.
+ */
+function wpcredits_migrate_newest_revision( $id ) {
+	foreach ( wp_get_post_revisions( $id ) as $revision ) {
+		if ( false !== strpos( $revision->post_name, $revision->post_parent . '-revision' ) ) {
+			return $revision;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * A revision of a post as it is now, asked of core with three changes to how core makes one, each a way
+ * the revision of live's run failed to hold the template:
+ *
+ * - kses is off while it is written: the run was a visitor's request, whose saves kses filters, and
+ *   it stripped every svg from the revision;
+ * - core is told to keep a revision though its comparison with the newest one, whitespace run
+ *   together, finds no change, so a newest revision that differs by a newline does not stand for the
+ *   copy;
+ * - its author is the current user or, with none, the post's own: core's revision data carries no
+ *   author, and wp_insert_post() gave the visitor's request the author 0.
+ *
+ * Kses and the two filters are put back whatever happens. What core answers is not trusted: the caller
+ * reads the revision back.
+ *
+ * @param WP_Post $post The post.
+ */
+function wpcredits_migrate_put_revision( $post ) {
+	$id     = (int) $post->ID;
+	$author = get_current_user_id() ? get_current_user_id() : (int) $post->post_author;
+	$always = static function () {
+		return false;
+	};
+	$stamp  = static function ( $data ) use ( $id, $author ) {
+		if ( isset( $data['post_type'], $data['post_parent'] ) && 'revision' === $data['post_type'] && (int) $data['post_parent'] === $id ) {
+			$data['post_author'] = $author;
+		}
+
+		return $data;
+	};
+
+	kses_remove_filters();
+	add_filter( 'wp_save_post_revision_check_for_changes', $always, 99 );
+	add_filter( 'wp_insert_post_data', $stamp, 99 );
+
+	try {
+		wp_save_post_revision( $id );
+	} catch ( Throwable $error ) {
+		// A hook that threw may have done so after the revision was stored: the caller reads it back.
+		unset( $error );
+	} finally {
+		remove_filter( 'wp_insert_post_data', $stamp, 99 );
+		remove_filter( 'wp_save_post_revision_check_for_changes', $always, 99 );
+		kses_init();
+	}
+}
+
+/**
+ * A post as it is now, kept: as a revision that holds its content byte for byte, the newest revision
+ * itself where it already does (core keeps one for every save, so a template an Administrator saved
+ * has it), and otherwise one written for it and read back. Where revisions are off for the post, or no
+ * revision that exact could be made, the record has to keep it.
+ *
+ * Asking core for a revision and trusting its answer is not enough, as live's run showed: with kses on
+ * for a visitor's request the revision held the template without its svg, and the record said it was
+ * kept all the same.
+ *
+ * @param int $id The post's ID.
+ * @return array `kept` (`revision`, or `record`), `revision` (the revision's ID, 0 for `record`) and
+ *               `before` (the content, for the record to keep, when `kept` is `record`; '' otherwise).
+ */
+function wpcredits_migrate_keep_copy( $id ) {
+	$id   = (int) $id;
+	$post = get_post( $id );
+	$copy = array(
+		'kept'     => 'record',
+		'revision' => 0,
+		'before'   => $post ? (string) $post->post_content : '',
+	);
+
+	if ( ! $post || ! wp_revisions_enabled( $post ) ) {
+		return $copy;
+	}
+
+	$revision = wpcredits_migrate_newest_revision( $id );
+
+	if ( ! $revision || $revision->post_content !== $copy['before'] ) {
+		wpcredits_migrate_put_revision( $post );
+
+		$revision = wpcredits_migrate_newest_revision( $id );
+	}
+
+	if ( $revision && $revision->post_content === $copy['before'] ) {
+		return array(
+			'kept'     => 'revision',
+			'revision' => (int) $revision->ID,
+			'before'   => '',
+		);
+	}
+
+	return $copy;
+}
+
+/**
+ * A template's new content written: a copy of it as it was kept first (a revision that holds it
+ * exactly, or the record, see `wpcredits_migrate_keep_copy()`), then the content, slashed as
+ * wp_update_post() expects, with kses turned off around the write, so it does not rewrite markup an
+ * Administrator saved on a request whose visitor could not have saved it. What is saved is read back,
+ * from the database: a write that reported a failure may have been stored before a hook after it
+ * threw, and another filter that changed it is reported.
  *
  * @param int    $id       The template's post ID.
  * @param string $content  Its new content.
- * @param bool   $revision Whether to keep a revision of it as it was first.
- * @return true|string True, or why it was not saved: `update-failed`, or `saved-differently` when what
- *                     was saved is not what was written.
+ * @param bool   $revision Whether to keep a revision of it as it was first; false leaves the copy to the
+ *                         record, as it is where revisions are off.
+ * @return array `saved`: true, or why it was not saved: `update-failed`, or `saved-differently` when
+ *               what was saved is not what was written; `kept` and `revision`: where the copy of the
+ *               template as it was is, as `wpcredits_migrate_keep_copy()` says. When `kept` is
+ *               `record`, the caller keeps the template as it was in the record.
  */
 function wpcredits_migrate_1_32_0_write( $id, $content, $revision = true ) {
-	if ( $revision ) {
-		wp_save_post_revision( $id );
-	}
+	$post   = get_post( $id );
+	$before = $post ? (string) $post->post_content : '';
+	$copy   = $revision ? wpcredits_migrate_keep_copy( $id ) : array(
+		'kept'     => 'record',
+		'revision' => 0,
+	);
 
 	kses_remove_filters();
 	wpcredits_migrate_1_32_0_writing( true );
 
-	// A write that throws is a write that failed; kses and the guard are restored whatever happens.
+	// A write that throws is a write that failed, until the post is read back; kses and the guard are
+	// restored whatever happens.
 	try {
 		$updated = wp_update_post(
 			wp_slash(
@@ -452,13 +608,28 @@ function wpcredits_migrate_1_32_0_write( $id, $content, $revision = true ) {
 		kses_init();
 	}
 
-	if ( is_wp_error( $updated ) || ! $updated ) {
-		return 'update-failed';
+	$reported = ! is_wp_error( $updated ) && $updated;
+
+	if ( ! $reported ) {
+		// Core cleans the post's cache after the database write, so a hook that threw between the two
+		// leaves the post as it was in the cache, and as it is in the database.
+		clean_post_cache( $id );
 	}
 
 	$post = get_post( $id );
+	$now  = $post ? (string) $post->post_content : null;
 
-	return $post && $post->post_content === $content ? true : 'saved-differently';
+	if ( null === $now || ( ! $reported && $now === $before ) ) {
+		$saved = 'update-failed';
+	} else {
+		$saved = $now === $content ? true : 'saved-differently';
+	}
+
+	return array(
+		'saved'    => $saved,
+		'kept'     => $copy['kept'],
+		'revision' => $copy['revision'],
+	);
 }
 
 /**
@@ -475,6 +646,7 @@ function wpcredits_migrate_1_32_0_summary( $record ) {
 		'fit-list'              => __( '"Find where you fit" is now Field of study rows, read from its Custom HTML block', 'wpcredits-theme' ),
 		'fit-list-theme-rows'   => __( '"Find where you fit" is now Field of study rows, the theme\'s own, as its Custom HTML block could not be read', 'wpcredits-theme' ),
 		'program-index-done'    => __( 'its Program index already holds Program cards', 'wpcredits-theme' ),
+		'program-index-emptied' => __( 'its Program index was emptied in the Site Editor, so it stays empty', 'wpcredits-theme' ),
 		'program-index-missing' => __( 'it holds no Program index', 'wpcredits-theme' ),
 		'fit-list-done'         => __( '"Find where you fit" is already Field of study rows', 'wpcredits-theme' ),
 		'fit-list-missing'      => __( 'it holds no "Find where you fit" Custom HTML block', 'wpcredits-theme' ),
@@ -516,27 +688,55 @@ function wpcredits_migrate_1_32_0_summary( $record ) {
 }
 
 /**
- * The migration's notice, on the Site Editor: an editor notice saying what it did to the saved
- * template, for each Administrator until they dismiss it or a week has passed since the migration ran,
- * whichever comes first. A default editor notice shows only inside the editor, not on the Site
- * Editor's browse view, so it is not taken as seen when it is merely enqueued: its dismissal tells the
- * site (`wpcredits_migrate_1_32_0_dismiss()`).
+ * The migrations whose records the Site Editor's notice tells, oldest first: each record's option, and
+ * the function that says what the record holds.
+ *
+ * @return array<string, callable>
+ */
+function wpcredits_migrate_notice_records() {
+	return array(
+		WPCREDITS_MIGRATED_1_32_0 => 'wpcredits_migrate_1_32_0_summary',
+		WPCREDITS_MIGRATED_1_32_1 => 'wpcredits_migrate_1_32_1_summary',
+	);
+}
+
+/**
+ * The migrations' notice, on the Site Editor: one editor notice saying what the 1.32.0 and 1.32.1
+ * migrations did to the saved templates, the older one's sentences first, for each Administrator until
+ * they dismiss it or a week has passed since the newer of the runs that has something to tell, whichever
+ * comes first. A record the Administrator dismissed before is not told again, and its option not read.
+ * A default editor notice shows only inside the editor, not on the Site Editor's browse view, so it is
+ * not taken as seen when it is merely enqueued: its dismissal tells the site which records it told
+ * (`wpcredits_migrate_1_32_0_dismiss()`).
  */
 function wpcredits_migrate_1_32_0_notice() {
 	$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-	$record = get_option( WPCREDITS_MIGRATED_1_32_0, array() );
 
-	if ( ! $screen || 'site-editor' !== $screen->id || ! current_user_can( 'edit_theme_options' ) || get_user_meta( get_current_user_id(), WPCREDITS_MIGRATED_1_32_0 . '_seen', true ) ) {
+	if ( ! $screen || 'site-editor' !== $screen->id || ! current_user_can( 'edit_theme_options' ) ) {
 		return;
 	}
 
-	if ( ! is_array( $record ) || empty( $record['ran'] ) || time() > (int) $record['ran'] + WEEK_IN_SECONDS ) {
-		return;
+	$told      = array();
+	$sentences = array();
+	$newest    = 0;
+
+	foreach ( wpcredits_migrate_notice_records() as $option => $summary ) {
+		if ( get_user_meta( get_current_user_id(), $option . '_seen', true ) ) {
+			continue;
+		}
+
+		// The options are not autoloaded, so each is read once the notice is known to be for this request.
+		$record  = get_option( $option, array() );
+		$message = is_array( $record ) && ! empty( $record['ran'] ) ? call_user_func( $summary, $record ) : '';
+
+		if ( '' !== $message ) {
+			$told[]      = $option;
+			$sentences[] = $message;
+			$newest      = max( $newest, (int) $record['ran'] );
+		}
 	}
 
-	$message = wpcredits_migrate_1_32_0_summary( $record );
-
-	if ( '' === $message ) {
+	if ( ! $sentences || time() > $newest + WEEK_IN_SECONDS ) {
 		return;
 	}
 
@@ -548,19 +748,22 @@ function wpcredits_migrate_1_32_0_notice() {
 		. ' var body = new window.FormData();'
 		. ' body.append( "action", "wpcredits_migration_1_32_0_seen" );'
 		. ' body.append( "_ajax_nonce", %2$s );'
+		. ' body.append( "told", %4$s );'
 		. ' window.fetch( %3$s, { method: "POST", credentials: "same-origin", body: body } );'
 		. ' } } ); } );';
 
 	wp_register_script( 'wpcredits-migration-1-32-0', false, array( 'wp-data', 'wp-notices', 'wp-dom-ready' ), WPCREDITS_VERSION, true );
 	wp_enqueue_script( 'wpcredits-migration-1-32-0' );
-	wp_add_inline_script( 'wpcredits-migration-1-32-0', sprintf( $script, wp_json_encode( $message ), wp_json_encode( wp_create_nonce( 'wpcredits_migration_1_32_0_seen' ) ), wp_json_encode( admin_url( 'admin-ajax.php' ) ) ) );
+	wp_add_inline_script( 'wpcredits-migration-1-32-0', sprintf( $script, wp_json_encode( implode( ' ', $sentences ) ), wp_json_encode( wp_create_nonce( 'wpcredits_migration_1_32_0_seen' ) ), wp_json_encode( admin_url( 'admin-ajax.php' ) ), wp_json_encode( implode( ',', $told ) ) ) );
 }
 add_action( 'enqueue_block_editor_assets', 'wpcredits_migrate_1_32_0_notice' );
 
 /**
  * The notice dismissed, told by its request to admin-ajax.php: the Administrator who dismissed it is
- * not shown it again. A request without the reader's nonce, or from someone who cannot edit the theme,
- * marks nothing.
+ * not told the records it told again. The request names them (`told`), and only the migrations' own
+ * records are marked; a request that names none was sent by a notice theme 1.32.0 printed, which told
+ * the 1.32.0 record alone. A request without the reader's nonce, or from someone who cannot edit the
+ * theme, marks nothing.
  */
 function wpcredits_migrate_1_32_0_dismiss() {
 	check_ajax_referer( 'wpcredits_migration_1_32_0_seen' );
@@ -569,7 +772,12 @@ function wpcredits_migrate_1_32_0_dismiss() {
 		wp_send_json_error( null, 403 );
 	}
 
-	update_user_meta( get_current_user_id(), WPCREDITS_MIGRATED_1_32_0 . '_seen', time() );
+	$told = isset( $_POST['told'] ) ? explode( ',', sanitize_text_field( wp_unslash( $_POST['told'] ) ) ) : array( WPCREDITS_MIGRATED_1_32_0 );
+
+	foreach ( array_intersect( array_keys( wpcredits_migrate_notice_records() ), $told ) as $option ) {
+		update_user_meta( get_current_user_id(), $option . '_seen', time() );
+	}
+
 	wp_send_json_success();
 }
 add_action( 'wp_ajax_wpcredits_migration_1_32_0_seen', 'wpcredits_migrate_1_32_0_dismiss' );

@@ -13,10 +13,14 @@
  * the button on to the sponsorship application (a program Administrator asked for it and the site's
  * owner agreed, 22 October 2026; until then it led to the application itself).
  *
- * The five levels' words are kept here, in `wpcredits_partner_levels()`: the page's levels pattern
- * draws its cards and its table from them, and the plugin's sponsor application shows the same words
- * in its "What each level includes" section, asked through its `wpcpm_partner_levels` filter, so the
- * two never say different things.
+ * The levels are written once, in the Partners template, and edited in the Site Editor (theme 1.32.1,
+ * the design's D5 and D6): the Partner levels block holds a Partner level block for each level and
+ * draws the cards, and the Levels at a glance block draws the comparison table from the levels of the
+ * Partners template in use, `wpcredits_partner_levels()`, so the cards and the table cannot disagree.
+ * The plugin's sponsor application shows the same levels in its "What each level includes" section,
+ * asked through its `wpcpm_partner_levels` filter, as plain text. The five levels the theme ships, in
+ * a program lead's words, are `wpcredits_partner_levels_defaults()`, which the levels pattern writes
+ * into the blocks.
  *
  * @package WPCredits_Theme
  */
@@ -155,21 +159,20 @@ function wpcredits_partners_menu_item_block( $block, $type, $position, $anchor )
 add_filter( 'hooked_block_core/navigation-link', 'wpcredits_partners_menu_item_block', 10, 4 );
 
 /**
- * The five partnership levels in a program lead's words (21 October 2026), the lowest first.
+ * The five partnership levels the theme ships, in a program lead's words (21 October 2026), the lowest
+ * first: what the levels pattern (`patterns/partners-levels.php`) writes into the Partner levels block,
+ * and so the Partners template's levels while no copy of it is saved.
  *
- * Kept in a function, and not in the pattern that draws them, because two places read them: the
- * Partners page's levels pattern (`patterns/partners-levels.php`), for its cards and its comparison
- * table, and the plugin's sponsor application, through `wpcredits_partners_levels_for_form()`. The
- * texts are looked up when this is called, never when the file loads, since translations are not
+ * The texts are looked up when this is called, never when the file loads, since translations are not
  * ready until `init`. The amounts are the program's own, text on the page; the site handles no
  * payment.
  *
- * @return array[] Each level: `name`, `amount` (what it costs, as the cards say it), `short` (the
- *                 amount in the comparison table's head), `lead` (the line before its list, or what
- *                 the level funds), `items` (what it adds, a list of strings) and, for the Partner
- *                 level alone, `tag`.
+ * @return array[] Each level, as plain text: `name`, `amount` (what it costs, as the cards say it),
+ *                 `short` (the amount in the comparison table's head), `lead` (the line before its
+ *                 list, or what the level funds), `items` (what it adds, a list of strings) and, for
+ *                 the Partner level alone, `tag`.
  */
-function wpcredits_partner_levels() {
+function wpcredits_partner_levels_defaults() {
 	return array(
 		array(
 			'name'   => __( 'Friend', 'wpcredits-theme' ),
@@ -239,34 +242,726 @@ function wpcredits_partner_levels() {
 	);
 }
 
+/*
+ * The levels as blocks (theme 1.32.1): what a Partner level block's attributes hold, how the levels of
+ * the Partners template in use are read, and the block markup the levels pattern and the 1.32.1
+ * migration write.
+ */
+
+/**
+ * Whether an item of a level says something: it has a character that is not white space, a no-break
+ * space among the white space. An item is plain text, edited one to a line in the block's settings,
+ * where the editor's own trim drops an item that is only a no-break space; PHP's trim keeps it, so the
+ * page, the table and the plugin's form would print an empty-looking list item and a blank row.
+ *
+ * @param string $item An item.
+ * @return bool
+ */
+function wpcredits_partner_item_has_words( $item ) {
+	$words = preg_replace( '/[\s\x{00A0}]+/u', '', (string) $item );
+
+	// An item that is not valid UTF-8 cannot be read as white space: it is kept, not taken for blank.
+	return null === $words || '' !== $words;
+}
+
+/**
+ * A level as the Partner levels block draws it, from a Partner level block's attributes: its name,
+ * amount, tag and lead as rich text keeps them, its short amount trimmed, and its items, each trimmed,
+ * an empty one, or one of only white space, a no-break space among it, left out.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{name: string, amount: string, short: string, tag: string, lead: string, items: string[]}
+ */
+function wpcredits_partner_level( array $attributes ) {
+	return array(
+		'name'   => wpcredits_hub_attribute( $attributes, 'name' ),
+		'amount' => wpcredits_hub_attribute( $attributes, 'amount' ),
+		'short'  => trim( wpcredits_hub_attribute( $attributes, 'short' ) ),
+		'tag'    => wpcredits_hub_attribute( $attributes, 'tag' ),
+		'lead'   => wpcredits_hub_attribute( $attributes, 'lead' ),
+		'items'  => array_values( array_filter( wpcredits_hub_strings( $attributes, 'items' ), 'wpcredits_partner_item_has_words' ) ),
+	);
+}
+
+/**
+ * A level as `wpcredits_partner_levels()` lists it, from what `wpcredits_partner_level()` gives: its
+ * `name`, `amount`, `short`, its `tag` only when the tag has words, its `lead` and its `items`, in the
+ * order of the defaults.
+ *
+ * @param array $level A level, as `wpcredits_partner_level()` gives it.
+ * @return array|null The level, or null for one with no name, a draft the page does not draw.
+ */
+function wpcredits_partner_level_listed( array $level ) {
+	if ( wpcredits_hub_blank( $level['name'] ) ) {
+		return null;
+	}
+
+	$listed = array(
+		'name'   => $level['name'],
+		'amount' => $level['amount'],
+		'short'  => $level['short'],
+	);
+
+	if ( ! wpcredits_hub_blank( $level['tag'] ) ) {
+		$listed['tag'] = $level['tag'];
+	}
+
+	$listed['lead']  = $level['lead'];
+	$listed['items'] = $level['items'];
+
+	return $listed;
+}
+
+/**
+ * A Partner level block's attributes for a level of plain text, as the defaults and the 1.31 cards'
+ * reading give one: its name, amount, tag and lead as rich text keeps them, escaped, so an ampersand or
+ * an angle bracket stays a character; its short amount and its items as they are, since they are
+ * edited in the block's settings as plain text. A text or a list with nothing in it is not written, as
+ * the editor leaves out an attribute at its default.
+ *
+ * @param array $level A level: `name`, `amount`, `short`, `tag`, `lead` and `items`, any of them missing.
+ * @return array The attributes.
+ */
+function wpcredits_partner_level_attributes( array $level ) {
+	$attributes = array();
+
+	foreach ( array( 'name', 'amount', 'short', 'tag', 'lead' ) as $key ) {
+		$text = wpcredits_hub_attribute( $level, $key );
+
+		if ( '' !== trim( $text ) ) {
+			$attributes[ $key ] = 'short' === $key ? $text : wpcredits_hub_rich( $text );
+		}
+	}
+
+	$items = wpcredits_hub_strings( $level, 'items' );
+
+	if ( $items ) {
+		$attributes['items'] = $items;
+	}
+
+	return $attributes;
+}
+
+/**
+ * Levels of plain text as the Partner level blocks hold them, and as `wpcredits_partner_levels()` lists
+ * them, a level with no name left out.
+ *
+ * @param array[] $levels Levels, as the defaults and the 1.31 cards' reading give them.
+ * @return array[]
+ */
+function wpcredits_partner_levels_as_blocks( array $levels ) {
+	$listed = array();
+
+	foreach ( $levels as $level ) {
+		$level = is_array( $level ) ? wpcredits_partner_level_listed( wpcredits_partner_level( wpcredits_partner_level_attributes( $level ) ) ) : null;
+
+		if ( null !== $level ) {
+			$listed[] = $level;
+		}
+	}
+
+	return $listed;
+}
+
+/**
+ * Whether WordPress draws a block as nothing: one an Administrator hid from its menu in the Site Editor,
+ * which saves `"metadata":{"blockVisibility":false}` in its comment. Core's block visibility support
+ * (WordPress 7.0 and later, `wp_render_block_visibility_support()`) then draws it, and the blocks it holds
+ * with it, as nothing. A block hidden at some window sizes only (`"blockVisibility":{"viewport":...}`) is
+ * drawn, and shown at the other sizes, so it is not hidden here.
+ *
+ * @param array $parsed A parsed block.
+ * @return bool
+ */
+function wpcredits_partner_hidden( array $parsed ) {
+	return isset( $parsed['attrs']['metadata']['blockVisibility'] ) && false === $parsed['attrs']['metadata']['blockVisibility'];
+}
+
+/**
+ * The levels a Partner levels block holds, as parse_blocks() gives the block: its Partner level blocks'
+ * in their order, a level with no name left out, and a level an Administrator hid
+ * (`wpcredits_partner_hidden()`), which the page draws as nothing.
+ *
+ * @param array $parsed The Partner levels block, parsed.
+ * @return array[] Each level as `wpcredits_partner_level_listed()` gives it.
+ */
+function wpcredits_partner_levels_of( array $parsed ) {
+	$levels = array();
+
+	foreach ( isset( $parsed['innerBlocks'] ) && is_array( $parsed['innerBlocks'] ) ? $parsed['innerBlocks'] : array() as $inner ) {
+		if ( ! is_array( $inner ) || ! isset( $inner['blockName'] ) || 'wpcredits/partner-level' !== $inner['blockName'] || wpcredits_partner_hidden( $inner ) ) {
+			continue;
+		}
+
+		$level = wpcredits_partner_level_listed( wpcredits_partner_level( isset( $inner['attrs'] ) && is_array( $inner['attrs'] ) ? $inner['attrs'] : array() ) );
+
+		if ( null !== $level ) {
+			$levels[] = $level;
+		}
+	}
+
+	return $levels;
+}
+
+/**
+ * The Partner levels block in some parsed blocks: looked for at every depth among the blocks themselves
+ * first, and only when it is not among them, in the content a block that refers to other content draws
+ * in its place, read as WordPress draws it, each reference in the order of the markup and its content
+ * read the same way: a pattern a `core/pattern` block refers to, a synced pattern a `core/block` block
+ * refers to and a template part of this theme a `core/template-part` block refers to. An Administrator
+ * can turn the levels group into a synced pattern or a template part, and the saved template then holds
+ * only the reference.
+ *
+ * So a saved Partners template whose levels block is in its own blocks is read without the template
+ * parts it opens with, the WordPress.org bar and the header, being read. Where a template holds a levels
+ * block in its own blocks and another in what it refers to, its own is the one read, wherever the
+ * reference stands in the markup; elsewhere the first found is.
+ *
+ * The block is the one WordPress draws: a levels block an Administrator hid, or one in a block that is
+ * hidden, a reference among them (`wpcredits_partner_hidden()`), is drawn as nothing, so it is passed
+ * over for one that is drawn; when each levels block found is hidden, the answer is false, and the page
+ * shows no levels.
+ *
+ * @param array[]  $blocks Parsed blocks.
+ * @param string[] $seen   The references being read (`wpcredits_partner_reference()`), so content that
+ *                         refers to itself, or to what refers to it, is read once.
+ * @param bool     $hidden Whether the blocks are in a hidden block, so none of them is drawn.
+ * @return array|false|null The levels block WordPress draws, parsed; false when the blocks hold levels
+ *                          blocks but WordPress draws none of them; null when they hold none.
+ */
+function wpcredits_partner_levels_block_in( array $blocks, array $seen = array(), $hidden = false ) {
+	$references = array();
+	$found      = wpcredits_partner_levels_block_among( $blocks, $hidden, $references );
+
+	foreach ( $references as $held ) {
+		if ( is_array( $found ) ) {
+			break;
+		}
+
+		list( $parsed, $hides ) = $held;
+		$reference              = wpcredits_partner_reference( $parsed );
+
+		if ( ! in_array( $reference, $seen, true ) ) {
+			$within = wpcredits_partner_levels_block_in( wpcredits_partner_reference_blocks( $parsed ), array_merge( $seen, array( $reference ) ), $hides );
+			$found  = null === $within ? $found : $within;
+		}
+	}
+
+	return $found;
+}
+
+/**
+ * The first Partner levels block WordPress draws among some parsed blocks and the blocks they hold, at
+ * every depth, what a block refers to left unread: each block that refers to other content
+ * (`wpcredits_partner_reference()`) is put on a list instead, in the order of the markup, with whether it
+ * is hidden or in a hidden block, for `wpcredits_partner_levels_block_in()` to follow.
+ *
+ * @param array[] $blocks     Parsed blocks.
+ * @param bool    $hidden     Whether the blocks are in a hidden block.
+ * @param array[] $references The blocks met that refer to other content, each `array( parsed block,
+ *                            hidden )`; those met here are added.
+ * @return array|false|null The block, parsed; false when the blocks hold only levels blocks WordPress
+ *                          does not draw; null when they hold none.
+ */
+function wpcredits_partner_levels_block_among( array $blocks, $hidden, array &$references ) {
+	$found = null;
+
+	foreach ( $blocks as $parsed ) {
+		if ( ! is_array( $parsed ) || empty( $parsed['blockName'] ) ) {
+			continue;
+		}
+
+		$hides = $hidden || wpcredits_partner_hidden( $parsed );
+
+		if ( 'wpcredits/partner-levels' === $parsed['blockName'] ) {
+			if ( ! $hides ) {
+				return $parsed;
+			}
+
+			$found = false;
+			continue;
+		}
+
+		if ( '' !== wpcredits_partner_reference( $parsed ) ) {
+			$references[] = array( $parsed, $hides );
+			continue;
+		}
+
+		$within = wpcredits_partner_levels_block_among( isset( $parsed['innerBlocks'] ) && is_array( $parsed['innerBlocks'] ) ? $parsed['innerBlocks'] : array(), $hides, $references );
+
+		if ( is_array( $within ) ) {
+			return $within;
+		}
+
+		$found = null === $within ? $found : $within;
+	}
+
+	return $found;
+}
+
+/**
+ * What a block refers to, if it draws other content in its place: `pattern:` and the slug of a
+ * `core/pattern` block, `block:` and the ID of a `core/block` block (a synced pattern), `part:` and the
+ * slug of a `core/template-part` block. The same content is the same reference, wherever it is placed.
+ *
+ * @param array $parsed A parsed block.
+ * @return string The reference, or '' for a block that refers to nothing, or to nothing named.
+ */
+function wpcredits_partner_reference( array $parsed ) {
+	$attrs = isset( $parsed['attrs'] ) && is_array( $parsed['attrs'] ) ? $parsed['attrs'] : array();
+
+	switch ( $parsed['blockName'] ) {
+		case 'core/pattern':
+			return isset( $attrs['slug'] ) && is_string( $attrs['slug'] ) && '' !== $attrs['slug'] ? 'pattern:' . $attrs['slug'] : '';
+
+		case 'core/block':
+			return isset( $attrs['ref'] ) && is_numeric( $attrs['ref'] ) && (int) $attrs['ref'] > 0 ? 'block:' . (int) $attrs['ref'] : '';
+
+		case 'core/template-part':
+			return isset( $attrs['slug'] ) && is_string( $attrs['slug'] ) && '' !== $attrs['slug'] ? 'part:' . $attrs['slug'] : '';
+	}
+
+	return '';
+}
+
+/**
+ * The blocks a block that refers to other content draws in its place, parsed (see
+ * `wpcredits_partner_reference()`).
+ *
+ * @param array $parsed A parsed block that refers to something.
+ * @return array[] The blocks, none for content WordPress would not draw.
+ */
+function wpcredits_partner_reference_blocks( array $parsed ) {
+	$attrs = isset( $parsed['attrs'] ) && is_array( $parsed['attrs'] ) ? $parsed['attrs'] : array();
+
+	switch ( $parsed['blockName'] ) {
+		case 'core/pattern':
+			return wpcredits_partner_pattern_blocks( (string) $attrs['slug'] );
+
+		case 'core/block':
+			return wpcredits_partner_synced_blocks( (int) $attrs['ref'] );
+
+		case 'core/template-part':
+			return wpcredits_partner_part_blocks( (string) $attrs['slug'], isset( $attrs['theme'] ) && is_string( $attrs['theme'] ) ? $attrs['theme'] : '' );
+	}
+
+	return array();
+}
+
+/**
+ * A registered pattern's blocks, parsed: what a `core/pattern` block that refers to it draws.
+ *
+ * @param string $slug The pattern's name, such as `wpcredits/partners-levels`.
+ * @return array[] Its blocks, none for a pattern the site does not have.
+ */
+function wpcredits_partner_pattern_blocks( $slug ) {
+	if ( ! class_exists( 'WP_Block_Patterns_Registry' ) ) {
+		return array();
+	}
+
+	$pattern = WP_Block_Patterns_Registry::get_instance()->get_registered( $slug );
+
+	return is_array( $pattern ) && isset( $pattern['content'] ) && is_string( $pattern['content'] ) ? parse_blocks( $pattern['content'] ) : array();
+}
+
+/**
+ * A synced pattern's blocks, parsed: what a `core/block` block that refers to its post draws. As core's
+ * block does, it draws a `wp_block` post that is published and has no password, and nothing else: not a
+ * draft or one in the trash, not a post of another type, not an ID no post has.
+ *
+ * @param int $id The post's ID, above 0 (core's get_post() answers the global post for 0).
+ * @return array[] Its blocks, none for a pattern WordPress would not draw.
+ */
+function wpcredits_partner_synced_blocks( $id ) {
+	$post = get_post( $id );
+
+	if ( ! is_object( $post ) || 'wp_block' !== $post->post_type || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		return array();
+	}
+
+	return parse_blocks( (string) $post->post_content );
+}
+
+/**
+ * A template part's blocks, parsed: what a `core/template-part` block that refers to it draws. As
+ * core's block does, it draws a part of the active theme only, the theme being this one when the block
+ * names none; the part's saved copy while that is published (core asks for `publish`, though
+ * get_block_template() also answers with a draft or one in the trash), else the theme's own file of
+ * that name.
+ *
+ * @param string $slug  The part's slug.
+ * @param string $theme The theme the block names, or ''.
+ * @return array[] Its blocks, none for a part WordPress would not draw.
+ */
+function wpcredits_partner_part_blocks( $slug, $theme ) {
+	if ( '' !== $theme && get_stylesheet() !== $theme ) {
+		return array();
+	}
+
+	$id   = get_stylesheet() . '//' . $slug;
+	$part = get_block_template( $id, 'wp_template_part' );
+
+	if ( $part instanceof WP_Block_Template && 'custom' === $part->source && 'publish' !== $part->status ) {
+		$part = get_block_file_template( $id, 'wp_template_part' );
+	}
+
+	return $part instanceof WP_Block_Template ? parse_blocks( (string) $part->content ) : array();
+}
+
+/**
+ * The levels of the Partners template in use, the lowest first: what the page's table draws, and what
+ * the plugin's sponsor application is handed, as plain text (`wpcredits_partners_levels_for_form()`).
+ *
+ * The template in use is the copy of the Partners template saved in the Site Editor, if there is one,
+ * else the theme's file (the design's D6, as ruling R2 has it):
+ *
+ * - no saved copy, or one that is not published (in draft or in the trash: get_block_template()
+ *   answers with those, but WordPress draws only a published copy): the levels the theme's file draws,
+ *   the defaults its levels pattern writes;
+ * - a saved copy with the Partner levels block, found at any depth among its own blocks first, then in a
+ *   pattern, a synced pattern or a template part it refers to (an Administrator can turn the levels
+ *   group into one of the last two; `wpcredits_partner_levels_block_in()`): the levels the block holds,
+ *   none when an Administrator emptied it, and a level an Administrator hid in the Site Editor left
+ *   out, as the page draws it as nothing (`wpcredits_partner_hidden()`); a level hidden at some window
+ *   sizes only stays, the page showing it at the others;
+ * - a saved copy whose levels block an Administrator hid, or put in a block that is hidden, with none
+ *   drawn elsewhere: none, as the page shows none, whatever else the markup holds;
+ * - a saved copy without the block but with the cards as theme 1.31 drew them, saved before the 1.32.1
+ *   migration or from an editor opened before the update: the levels read from those cards;
+ * - a saved copy with neither: none, so the page shows no levels, and the plugin's form names the
+ *   Partners page instead of listing levels the page does not show.
+ *
+ * Read once a request: the template is read on the first call, and `wpcredits_partner_levels_reset()`
+ * forgets what was read.
+ *
+ * @return array[] Each level as the Partner level blocks hold it, a level with no name left out: `name`,
+ *                 `amount`, `short`, `tag` (only for a level that has one), `lead` and `items`; the name,
+ *                 amount, tag and lead as rich text keeps them, the short amount and the items as plain
+ *                 text.
+ */
+function wpcredits_partner_levels() {
+	if ( ! isset( $GLOBALS['wpcredits_partner_levels'] ) || ! is_array( $GLOBALS['wpcredits_partner_levels'] ) ) {
+		$GLOBALS['wpcredits_partner_levels'] = wpcredits_partner_levels_read();
+	}
+
+	return $GLOBALS['wpcredits_partner_levels'];
+}
+
+/**
+ * Forget the levels read in this request, so the next `wpcredits_partner_levels()` reads the template
+ * again.
+ */
+function wpcredits_partner_levels_reset() {
+	unset( $GLOBALS['wpcredits_partner_levels'] );
+}
+
+/**
+ * The levels of the Partners template in use, read from it now: see `wpcredits_partner_levels()`.
+ *
+ * @return array[]
+ */
+function wpcredits_partner_levels_read() {
+	$template = get_block_template( get_stylesheet() . '//page-' . WPCREDITS_PARTNERS_SLUG );
+
+	if ( ! $template instanceof WP_Block_Template || 'custom' !== $template->source || 'publish' !== $template->status ) {
+		return wpcredits_partner_levels_as_blocks( wpcredits_partner_levels_defaults() );
+	}
+
+	$content = (string) $template->content;
+	$block   = wpcredits_partner_levels_block_in( parse_blocks( $content ) );
+
+	if ( is_array( $block ) ) {
+		return wpcredits_partner_levels_of( $block );
+	}
+
+	// A levels block WordPress does not draw: the page shows no levels, and the 1.31 cards' reading is not
+	// asked.
+	if ( false === $block ) {
+		return array();
+	}
+
+	return wpcredits_partner_levels_as_blocks( wpcredits_partner_levels_from_html( $content ) );
+}
+
+/**
+ * The levels in markup as theme 1.31 drew them: the cards (`ul.wpc-partners-levels__grid`), as a saved
+ * copy of the Partners template holds them in a Custom HTML block, and an Administrator may have edited
+ * them there, and the short amounts from the comparison table's head, where the markup holds it.
+ *
+ * Each card gives a level: its name and its tag from its heading, its amount, its lead and its items,
+ * each as plain text, white space run together. The short amount of the level in a card is the amount
+ * in the table head's column for that card, the first column being the head word's, as 1.31.11 drew
+ * the cards and the columns from one list. A card with no name, and an empty item, are left out.
+ *
+ * @param string $html The markup, such as a whole saved template.
+ * @return array[] Each level as plain text, in the order of the defaults: `name`, `amount`, `short`
+ *                 (where the table's head has it), `tag` (where the card has one), `lead` and `items`;
+ *                 an empty list when no card can be read.
+ */
+function wpcredits_partner_levels_from_html( $html ) {
+	$html   = (string) $html;
+	$levels = array();
+
+	if ( '' === trim( $html ) || ! class_exists( 'DOMDocument' ) ) {
+		return $levels;
+	}
+
+	$document = new DOMDocument();
+	$errors   = libxml_use_internal_errors( true );
+
+	$document->loadHTML( '<?xml encoding="UTF-8"><html><body>' . $html . '</body></html>' );
+	libxml_clear_errors();
+	libxml_use_internal_errors( $errors );
+
+	$xpath  = new DOMXPath( $document );
+	$shorts = array();
+
+	foreach ( $xpath->query( '(//table[' . wpcredits_partners_class( 'wpc-partners-glance__table' ) . '])[1]/thead/tr[1]/th[position() > 1]' ) as $head ) {
+		$shorts[] = wpcredits_partners_text( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-glance__amount' ) . ']', $head )->item( 0 ) );
+	}
+
+	foreach ( $xpath->query( '(//*[' . wpcredits_partners_class( 'wpc-partners-levels__grid' ) . '])[1]/li[' . wpcredits_partners_class( 'wpc-partners-level' ) . ']' ) as $column => $card ) {
+		$heading = $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-level__name' ) . ']', $card )->item( 0 );
+		$tag     = $heading ? wpcredits_partners_text( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-tag' ) . ']', $heading )->item( 0 ) ) : '';
+		$name    = '';
+
+		if ( $heading ) {
+			$heading = $heading->cloneNode( true );
+
+			foreach ( iterator_to_array( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-tag' ) . ']', $heading ) ) as $tag_node ) {
+				$tag_node->parentNode->removeChild( $tag_node ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- The DOM extension's own property name.
+			}
+
+			$name = wpcredits_partners_text( $heading );
+		}
+
+		if ( '' === $name ) {
+			continue;
+		}
+
+		$level = array(
+			'name'   => $name,
+			'amount' => wpcredits_partners_text( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-level__amount' ) . ']', $card )->item( 0 ) ),
+		);
+
+		if ( isset( $shorts[ $column ] ) && '' !== $shorts[ $column ] ) {
+			$level['short'] = $shorts[ $column ];
+		}
+
+		if ( '' !== $tag ) {
+			$level['tag'] = $tag;
+		}
+
+		$level['lead']  = wpcredits_partners_text( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-level__lead' ) . ']', $card )->item( 0 ) );
+		$level['items'] = array();
+
+		foreach ( $xpath->query( './/*[' . wpcredits_partners_class( 'wpc-partners-level__items' ) . ']/li', $card ) as $item ) {
+			$text = wpcredits_partners_text( $item );
+
+			if ( '' !== $text ) {
+				$level['items'][] = $text;
+			}
+		}
+
+		$levels[] = $level;
+	}
+
+	return $levels;
+}
+
+/**
+ * An XPath test that an element carries a class, as a whole word of its class attribute.
+ *
+ * @param string $name The class.
+ * @return string
+ */
+function wpcredits_partners_class( $name ) {
+	return 'contains(concat(" ", normalize-space(@class), " "), " ' . $name . ' ")';
+}
+
+/**
+ * The text of a node, its entities read, white space run together and trimmed; '' for no node.
+ *
+ * @param DOMNode|null $node The node.
+ * @return string
+ */
+function wpcredits_partners_text( $node ) {
+	return $node ? trim( (string) preg_replace( '/\s+/u', ' ', $node->textContent ) ) : ''; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- The DOM extension's own property name.
+}
+
+/**
+ * The Partner levels block holding a Partner level block for each of some levels, as the Site Editor
+ * saves it: what the levels pattern writes, and the 1.32.1 migration in place of the 1.31 cards.
+ *
+ * @param array[] $levels Levels of plain text, as `wpcredits_partner_levels_defaults()` and
+ *                        `wpcredits_partner_levels_from_html()` give them.
+ * @return string Block markup; the block alone, with nothing in it, for no levels.
+ */
+function wpcredits_partner_levels_markup( array $levels ) {
+	$inner = array();
+
+	foreach ( $levels as $level ) {
+		$inner[] = wpcredits_hub_block_markup( 'wpcredits/partner-level', wpcredits_partner_level_attributes( (array) $level ) );
+	}
+
+	return wpcredits_hub_block_markup( 'wpcredits/partner-levels', array(), $inner );
+}
+
+/**
+ * The Levels at a glance block as the Site Editor saves it, with no attribute: its words are the
+ * translated defaults until an Administrator types others.
+ *
+ * @return string Block markup.
+ */
+function wpcredits_partner_glance_markup() {
+	return wpcredits_hub_block_markup( 'wpcredits/partner-glance' );
+}
+
+/**
+ * The renders of the levels a Partner levels block holds, in its order, a level with no name left out.
+ *
+ * @param WP_Block|null $block The levels.
+ * @return string[] Each level's render, trimmed.
+ */
+function wpcredits_partner_levels_cards( $block ) {
+	$cards = array();
+
+	if ( ! $block instanceof WP_Block ) {
+		return $cards;
+	}
+
+	foreach ( $block->inner_blocks as $inner ) {
+		if ( 'wpcredits/partner-level' !== $inner->name ) {
+			continue;
+		}
+
+		$html = trim( $inner->render() );
+
+		if ( '' !== $html ) {
+			$cards[] = $html;
+		}
+	}
+
+	return $cards;
+}
+
+/**
+ * The words of the comparison table's frame: the head cell's word and the two words its cells say, as
+ * typed in the Levels at a glance block's settings, and where none is, the translated strings theme
+ * 1.31.11's pattern printed.
+ *
+ * @param array $attributes The block's attributes.
+ * @return array{label: string, yes: string, no: string} Plain text.
+ */
+function wpcredits_partner_glance_words( array $attributes ) {
+	$label = trim( wpcredits_hub_attribute( $attributes, 'label' ) );
+	$yes   = trim( wpcredits_hub_attribute( $attributes, 'yes' ) );
+	$no    = trim( wpcredits_hub_attribute( $attributes, 'no' ) );
+
+	return array(
+		'label' => '' !== $label ? $label : __( 'Recognition', 'wpcredits-theme' ),
+		'yes'   => '' !== $yes ? $yes : _x( 'Yes', 'a partnership level has this recognition', 'wpcredits-theme' ),
+		'no'    => '' !== $no ? $no : _x( 'No', 'a partnership level does not have this recognition', 'wpcredits-theme' ),
+	);
+}
+
+/**
+ * The comparison table's rows: one for each item of each level, the lowest level's first, each with the
+ * level that lists it, from which up the table says Yes (the design's D5).
+ *
+ * @param array[] $levels Levels, as `wpcredits_partner_levels()` lists them.
+ * @return array[] Each row's `item`, plain text, and `from`, the position of the level that lists it.
+ */
+function wpcredits_partner_glance_rows( array $levels ) {
+	$rows = array();
+
+	foreach ( array_values( $levels ) as $from => $level ) {
+		foreach ( $level['items'] as $item ) {
+			$rows[] = array(
+				'item' => $item,
+				'from' => $from,
+			);
+		}
+	}
+
+	return $rows;
+}
+
+/**
+ * A text edited as rich text, a level's name, amount, lead or tag, as the plugin's sponsor application is
+ * handed it: plain text, since the plugin escapes what it prints. A line break becomes a space, the tags
+ * are taken out and the entities read, and white space is run together.
+ *
+ * @param string $text A text, as rich text keeps it.
+ * @return string
+ */
+function wpcredits_partner_plain( $text ) {
+	$text = (string) preg_replace( '#<br\s*/?>#i', ' ', (string) $text );
+	$text = html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+	return trim( (string) preg_replace( '/[ \t\r\n]+/', ' ', $text ) );
+}
+
+/**
+ * An item of a level as the plugin's sponsor application is handed it. An item is plain text already,
+ * typed in the level's settings, and the page and the table print it with esc_html(), so an angle
+ * bracket in it is a character: "Up to <5 students" and "<3 mentors" are shown whole. So it is handed as
+ * the page shows it, its entities read and its white space run together, and no tag is taken out, which
+ * would cut the first short and leave the second out.
+ *
+ * @param string $item An item.
+ * @return string
+ */
+function wpcredits_partner_plain_item( $item ) {
+	$item = html_entity_decode( (string) $item, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+	return trim( (string) preg_replace( '/[ \t\r\n]+/', ' ', $item ) );
+}
+
 /**
  * The levels the plugin's sponsor application shows in its "What each level includes" section: the
- * Partners page's own, so a company reading the form is told what the page told it.
+ * Partners page's own, the levels of the Partners template in use, so a company reading the form is
+ * told what the page told it.
  *
  * The plugin defines `wpcpm_partner_levels` and asks it while the levels are public, passing an empty
  * list; what is returned replaces it, so the filter's argument is not read. The answer does not
  * depend on whether the levels are public, since the plugin only asks while they are. The contract,
  * as the plugin defines it: a list of levels in order, each with `name` (string), `amount` (string),
  * `lead` (string), `items` (a list of strings) and, optionally, `tag` (string); the plugin skips a
- * malformed entry and escapes everything it prints. The comparison table's `short` is left out, the
- * form has no use for it.
+ * malformed entry and escapes everything it prints, so every text is handed as plain text: a name,
+ * amount, lead or tag the Site Editor keeps in bold, or with an apostrophe as an entity, reaches the form
+ * as its words (`wpcredits_partner_plain()`), and an item, plain text already, as the page shows it, an
+ * angle bracket in it kept (`wpcredits_partner_plain_item()`). An item, or a tag, with no words left is
+ * left out. The comparison table's `short` is left out too, the form has no use for it. With no levels,
+ * the list is empty, and the plugin's form names the Partners page instead.
  *
  * @param array $levels What the filter received: the plugin passes an empty list. Not read.
- * @return array[] Each level: `name`, `amount`, `lead`, `items` and, for the Partner level alone, `tag`.
+ * @return array[] Each level: `name`, `amount`, `lead`, `items` and, for a level that has one, `tag`.
  */
 function wpcredits_partners_levels_for_form( $levels ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found,VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- replaced, see the docblock.
 	$for_form = array();
 
 	foreach ( wpcredits_partner_levels() as $level ) {
-		$entry = array(
-			'name'   => $level['name'],
-			'amount' => $level['amount'],
-			'lead'   => $level['lead'],
-			'items'  => array_values( $level['items'] ),
-		);
+		$items = array();
 
-		if ( isset( $level['tag'] ) ) {
-			$entry['tag'] = $level['tag'];
+		foreach ( $level['items'] as $item ) {
+			$item = wpcredits_partner_plain_item( $item );
+
+			if ( '' !== $item ) {
+				$items[] = $item;
+			}
+		}
+
+		$entry = array(
+			'name'   => wpcredits_partner_plain( $level['name'] ),
+			'amount' => wpcredits_partner_plain( $level['amount'] ),
+			'lead'   => wpcredits_partner_plain( $level['lead'] ),
+			'items'  => $items,
+		);
+		$tag   = isset( $level['tag'] ) ? wpcredits_partner_plain( $level['tag'] ) : '';
+
+		if ( '' !== $tag ) {
+			$entry['tag'] = $tag;
 		}
 
 		$for_form[] = $entry;

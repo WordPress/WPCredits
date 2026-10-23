@@ -743,32 +743,43 @@ function wpcredits_hub_program_cards_markup( array $programs ) {
 }
 
 /**
- * The Program index holding a card for each of some programs.
+ * The Program index holding a card for each of some programs, marked `editable`: the mark an index an
+ * Administrator edits carries (see `wpcredits_hub_index_is_legacy()`), written first among the
+ * attributes as the Site Editor writes them. An index of no programs is the marked index with no card,
+ * as an Administrator who removes every card saves it.
  *
  * @param array[] $programs   Programs, as `wpcredits_hub_programs()` gives them.
  * @param array   $attributes The index's own attributes, such as a lock an Administrator set.
  * @return string Block markup.
  */
 function wpcredits_hub_program_index_markup( array $programs, array $attributes = array() ) {
-	return wpcredits_hub_block_markup( 'wpcredits/program-index', $attributes, $programs ? array( wpcredits_hub_program_cards_markup( $programs ) ) : array() );
+	return wpcredits_hub_block_markup( 'wpcredits/program-index', array( 'editable' => true ) + $attributes, $programs ? array( wpcredits_hub_program_cards_markup( $programs ) ) : array() );
 }
 
 /**
- * Whether a Program index is as theme 1.31 and earlier saved it: a block that holds no Program card.
- * Such an index draws the theme's own programs, and the band of courses under them, inside the index,
- * where 1.31.12 drew it (`wpcredits_hub_index_cards()`, blocks/program-index/render.php): an editor tab
- * opened before the update and saved after it, or a migration write that failed, leaves the page as it
- * was.
+ * Whether a Program index is as theme 1.31 and earlier saved it: a block that holds no Program card and
+ * is not marked `editable`. Such an index draws the theme's own programs, and the band of courses under
+ * them, inside the index, where 1.31.12 drew it (`wpcredits_hub_index_cards()`,
+ * blocks/program-index/render.php): an editor tab opened before the update and saved after it, or a
+ * migration write that failed, leaves the page as it was.
  *
- * @param WP_Block|null $block The index.
+ * The mark is what tells that index from one an Administrator emptied. An Administrator who removes every
+ * card saves the block with no inner block, `<!-- wp:wpcredits/program-index /-->`, the very form 1.31
+ * saved; the index the Site Editor writes carries `"editable":true` (the block's default variation, the
+ * pattern, the 1.32.0 migration), so the page draws nothing for it (theme 1.32.1). Only the boolean true
+ * marks; only a Program card is a card.
+ *
+ * @param array $block The index, as `parse_blocks()` gives it, or a WP_Block's `parsed_block`.
  * @return bool
  */
-function wpcredits_hub_index_is_legacy( $block ) {
-	if ( $block instanceof WP_Block ) {
-		foreach ( $block->inner_blocks as $inner ) {
-			if ( 'wpcredits/program-card' === $inner->name ) {
-				return false;
-			}
+function wpcredits_hub_index_is_legacy( array $block ): bool {
+	if ( isset( $block['attrs']['editable'] ) && true === $block['attrs']['editable'] ) {
+		return false;
+	}
+
+	foreach ( isset( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ? $block['innerBlocks'] : array() as $inner ) {
+		if ( is_array( $inner ) && isset( $inner['blockName'] ) && 'wpcredits/program-card' === $inner['blockName'] ) {
+			return false;
 		}
 	}
 
@@ -777,8 +788,9 @@ function wpcredits_hub_index_is_legacy( $block ) {
 
 /**
  * The cards a Program index draws, in its order, each with its own render: the Program card blocks it
- * holds, or, for an index that holds no card block at all (as 1.31 and earlier saved it), a card for
- * each of the theme's programs. A card the hub does not draw (`wpcredits_hub_card_shown()`) is left out.
+ * holds, or, for the 1.31 index (`wpcredits_hub_index_is_legacy()`), a card for each of the theme's
+ * programs. A marked index with no card draws none. A card the hub does not draw
+ * (`wpcredits_hub_card_shown()`) is left out.
  *
  * @param WP_Block|null $block The index.
  * @return array[] Each `card`, as `wpcredits_hub_card()` gives it, and `html`, its render.
@@ -786,17 +798,15 @@ function wpcredits_hub_index_is_legacy( $block ) {
 function wpcredits_hub_index_cards( $block ) {
 	$parsed = array();
 
-	if ( $block instanceof WP_Block ) {
+	if ( ! $block instanceof WP_Block || wpcredits_hub_index_is_legacy( $block->parsed_block ) ) {
+		foreach ( wpcredits_hub_programs() as $program ) {
+			$parsed[] = wpcredits_hub_parsed_block( 'wpcredits/program-card', wpcredits_hub_program_card_attributes( $program ) );
+		}
+	} else {
 		foreach ( $block->inner_blocks as $inner ) {
 			if ( 'wpcredits/program-card' === $inner->name ) {
 				$parsed[] = $inner->parsed_block;
 			}
-		}
-	}
-
-	if ( ! $parsed ) {
-		foreach ( wpcredits_hub_programs() as $program ) {
-			$parsed[] = wpcredits_hub_parsed_block( 'wpcredits/program-card', wpcredits_hub_program_card_attributes( $program ) );
 		}
 	}
 

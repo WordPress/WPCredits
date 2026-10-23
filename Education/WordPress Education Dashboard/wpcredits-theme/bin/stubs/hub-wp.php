@@ -4,10 +4,13 @@
  *
  * bin/test-hub.php renders the hub's template rule, content, blocks and patterns with these, and
  * bin/test-hub-js.php renders the two blocks' markup with them for its scenarios. bin/test-header.php
- * runs the header's filters on them, over the markup bin/stubs/header-markup.php prints. Nothing here
+ * runs the header's filters on them, over the markup bin/stubs/header-markup.php prints, and
+ * bin/test-partners.php draws the Partners page, its levels read from the template in use. Nothing here
  * talks to a database or the network: every answer comes from the globals below, which a check sets.
  *
  * - `$GLOBALS['opts']`: option => value; `blogname` is what `get_bloginfo( 'name' )` answers.
+ * - `$GLOBALS['option_reads']`: the key of every `get_option()` call, in order, so a check can tell
+ *   that a request read an option, or did not.
  * - `$GLOBALS['request']`: `singular` (the post type a singular request shows, or ''), `id` (the
  *   queried object's ID) and `templates`, page ID => the page template slug it stores.
  * - `$GLOBALS['marked']`: when true, every translated string comes back in brackets, `[like this]`,
@@ -33,6 +36,13 @@
  *   `$GLOBALS['scripts']` and `$GLOBALS['blocks']`: what the theme hooked, registered and enqueued;
  *   `hooks` is hook => a list of `array( callback, priority, accepted arguments )`, one per
  *   `add_action()` or `add_filter()` call, and `scripts` is handle => `array( src, deps, ver, args )`.
+ * - `$GLOBALS['block_templates']`: template ID (`wpcredits-theme//page-partners`) => the copy saved in
+ *   the Site Editor that get_block_template() answers with, as wpcredits_test_saved_template() puts it
+ *   there; a template with none is the theme's own file. A template part's saved copy is kept under
+ *   `part:` and its ID (`part:wpcredits-theme//header`), and the theme's own file for a part is in
+ *   parts/. `$GLOBALS['template_reads']` counts the get_block_template() calls for a template, and
+ *   `$GLOBALS['part_reads']` those for a template part, so a check can tell how often a request read
+ *   either.
  *
  *
  * Blocks (theme 1.32.0, whose hub blocks hold inner blocks): parse_blocks() is core's parser ported,
@@ -40,7 +50,9 @@
  * render_block() and do_blocks() render through a WP_Block that holds its inner blocks, fills in the
  * defaults of the theme's block.json files and runs a theme block's render.php after its inner blocks,
  * as core does. Core's blocks are not registered here, so they render as their saved markup; block
- * supports' filters and attribute validation are not modeled. Each is described where it is defined.
+ * supports' filters and attribute validation are not modeled, but for core's block visibility, which a
+ * suite hooks on `render_block` when it asks for it (wpcredits_test_block_visibility(), theme 1.32.1).
+ * Each is described where it is defined.
  *
  * Loaded with `require_once __DIR__ . '/stubs/hub-wp.php';` from a suite's header, before the theme's
  * files.
@@ -78,6 +90,10 @@ $GLOBALS['editor_styles'] = array();
 $GLOBALS['blocks']        = array();
 $GLOBALS['rendering']     = '';
 
+$GLOBALS['block_templates'] = array();
+$GLOBALS['template_reads']  = 0;
+$GLOBALS['part_reads']      = 0;
+
 /* ---- translation and escaping ------------------------------------------------- */
 
 /**
@@ -106,6 +122,7 @@ function _x( $text, $context, $domain = null ) { return wpcredits_test_said( $te
 function _n( $single, $plural, $number, $domain = null ) { return wpcredits_test_said( 1 === (int) $number ? $single : $plural ); }
 function esc_html( $text ) { return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' ); }
 function esc_attr( $text ) { return esc_html( $text ); }
+function wp_json_encode( $data, $flags = 0 ) { return json_encode( $data, $flags ); }
 function esc_html__( $text, $domain = null ) { return esc_html( __( $text ) ); }
 function esc_attr__( $text, $domain = null ) { return esc_attr( __( $text ) ); }
 function esc_html_x( $text, $context, $domain = null ) { return esc_html( _x( $text, $context ) ); }
@@ -149,7 +166,7 @@ function wp_strip_all_tags( $text, $remove_breaks = false ) {
 
 /* ---- options, dates and the request ------------------------------------------------ */
 
-function get_option( $key, $default = false ) { return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default; }
+function get_option( $key, $default = false ) { $GLOBALS['option_reads'][] = $key; return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default; }
 function get_bloginfo( $show = '', $filter = 'raw' ) { return 'name' === $show ? (string) get_option( 'blogname', '' ) : ''; }
 function home_url( $path = '' ) { return 'https://site.example' . $path; }
 function untrailingslashit( $value ) { return rtrim( (string) $value, '/\\' ); }
@@ -189,6 +206,26 @@ function wp_login_url( $redirect = '' ) {
 
 function add_action( $hook, $callback, $priority = 10, $accepted = 1 ) { $GLOBALS['hooks'][ $hook ][] = array( $callback, $priority, $accepted ); return true; }
 function add_filter( $hook, $callback, $priority = 10, $accepted = 1 ) { return add_action( $hook, $callback, $priority, $accepted ); }
+
+/**
+ * Take one callback off a hook, the same callback at the same priority, as WordPress does.
+ *
+ * @param string   $hook     The hook.
+ * @param callable $callback The callback added.
+ * @param int      $priority The priority it was added at.
+ * @return bool Whether it was hooked.
+ */
+function remove_filter( $hook, $callback, $priority = 10 ) {
+	foreach ( isset( $GLOBALS['hooks'][ $hook ] ) ? $GLOBALS['hooks'][ $hook ] : array() as $at => $hooked ) {
+		if ( $hooked[0] === $callback && $hooked[1] === $priority ) {
+			unset( $GLOBALS['hooks'][ $hook ][ $at ] );
+
+			return true;
+		}
+	}
+
+	return false;
+}
 
 /**
  * Run a filter's callbacks in priority order, as WordPress does.
@@ -895,6 +932,194 @@ function wpcredits_test_block_in( $markup, $name ) {
  */
 function wpcredits_test_drawn_pattern( $file ) {
 	return do_blocks( wpcredits_test_pattern( $file ) );
+}
+
+/**
+ * Core's block visibility support (WordPress 7.0 and later), as far as the markup goes, for a suite that
+ * hooks it on `render_block` (`add_filter( 'render_block', 'wpcredits_test_block_visibility', 10, 2 )`):
+ * a port of `wp_render_block_visibility_support()` from wp-includes/block-supports/block-visibility.php
+ * of WordPress 7.1.3, which the Gutenberg plugin 24.0.0 repeats, read in the Docker copy of the site.
+ *
+ * An Administrator hides a block in the Site Editor, in the block's menu, and it is saved in the block's
+ * comment as `"metadata":{"blockVisibility":...}`. `false` hides it everywhere: the server draws
+ * nothing, so the block never reaches the page. An object with `viewport` and a size set to false
+ * (`mobile`, `tablet` or `desktop`) hides it at that size: the server draws the block with the class
+ * `wp-block-hidden-<size>` added to its first tag, one for each size in alphabetical order, and prints
+ * a style rule for it, `display: none !important` inside a media query for the size, so the block is on
+ * the page and a script can only tell that it is hidden from its computed style. The sizes' media
+ * queries, from the site's breakpoints (theme.json `settings.viewport`, 480px and 782px by default):
+ * `mobile` is `width <= 480px`, `tablet` `480px < width <= 782px` and `desktop` `width > 782px`. The
+ * style rules are not modeled here, only the markup; bin/js/hub-dom.js models the rules for the scripts.
+ *
+ * @param string $block_content Rendered block content.
+ * @param array  $block         The parsed block.
+ * @return string
+ */
+function wpcredits_test_block_visibility( $block_content, $block ) {
+	$visibility = isset( $block['attrs']['metadata']['blockVisibility'] ) ? $block['attrs']['metadata']['blockVisibility'] : null;
+
+	if ( false === $visibility ) {
+		return '';
+	}
+
+	$viewport = is_array( $visibility ) && isset( $visibility['viewport'] ) && is_array( $visibility['viewport'] ) ? $visibility['viewport'] : array();
+	$hidden   = array();
+
+	foreach ( $viewport as $size => $is_visible ) {
+		if ( false === $is_visible && in_array( $size, array( 'mobile', 'tablet', 'desktop' ), true ) ) {
+			$hidden[] = $size;
+		}
+	}
+
+	if ( ! $hidden || '' === $block_content ) {
+		return $block_content;
+	}
+
+	sort( $hidden );
+
+	$classes = implode( ' ', array_map( static function ( $size ) { return 'wp-block-hidden-' . $size; }, $hidden ) );
+
+	// WP_HTML_Tag_Processor::add_class() on the first tag: appended to its class attribute, or one made.
+	if ( preg_match( '/^(\s*<[a-z0-9]+\b[^>]*?\sclass=")([^"]*)"/i', $block_content ) ) {
+		return (string) preg_replace( '/^(\s*<[a-z0-9]+\b[^>]*?\sclass=")([^"]*)"/i', '$1$2 ' . $classes . '"', $block_content, 1 );
+	}
+
+	return (string) preg_replace( '/^(\s*<[a-z0-9]+\b)/i', '$1 class="' . $classes . '"', $block_content, 1 );
+}
+
+/* ---- templates and patterns, for the Partners page's levels (theme 1.32.1) ------------- */
+
+/**
+ * Core's WP_Block_Template, as far as the theme reads one: its ID, theme and slug, its source
+ * (`theme` for the theme's own file, `custom` for a copy saved in the Site Editor), its status and its
+ * content.
+ */
+class WP_Block_Template {
+	public $type    = 'wp_template';
+	public $id      = '';
+	public $theme   = '';
+	public $slug    = '';
+	public $source  = 'theme';
+	public $status  = 'publish';
+	public $content = '';
+}
+
+/**
+ * Core's get_block_template(): the copy of a template or of a template part saved in the Site Editor,
+ * in any status, from `$GLOBALS['block_templates']` by its ID, else, as core falls back to it, the
+ * theme's own file (get_block_file_template()). Each call is counted in `$GLOBALS['template_reads']`,
+ * or in `$GLOBALS['part_reads']` for a template part.
+ *
+ * @param string $id            The template's ID, `theme//slug`.
+ * @param string $template_type `wp_template` or `wp_template_part`.
+ * @return WP_Block_Template|null
+ */
+function get_block_template( $id, $template_type = 'wp_template' ) {
+	$part = 'wp_template_part' === $template_type;
+
+	++$GLOBALS[ $part ? 'part_reads' : 'template_reads' ];
+
+	$key = $part ? 'part:' . $id : $id;
+
+	if ( isset( $GLOBALS['block_templates'][ $key ] ) ) {
+		return $GLOBALS['block_templates'][ $key ];
+	}
+
+	return get_block_file_template( $id, $template_type );
+}
+
+/**
+ * Core's get_block_file_template(): the theme's own file for a template, in templates/, or for a
+ * template part, in parts/, with the source `theme`; null for one the theme has no file for. A copy
+ * saved in the Site Editor is not looked at.
+ *
+ * @param string $id            The template's ID, `theme//slug`.
+ * @param string $template_type `wp_template` or `wp_template_part`.
+ * @return WP_Block_Template|null
+ */
+function get_block_file_template( $id, $template_type = 'wp_template' ) {
+	$parts = explode( '//', (string) $id, 2 );
+	$file  = 2 === count( $parts ) ? WPCREDITS_THEME_DIR . ( 'wp_template_part' === $template_type ? 'parts/' : 'templates/' ) . $parts[1] . '.html' : '';
+
+	if ( '' === $file || ! is_file( $file ) ) {
+		return null;
+	}
+
+	$template          = new WP_Block_Template();
+	$template->type    = $template_type;
+	$template->id      = $id;
+	$template->theme   = $parts[0];
+	$template->slug    = $parts[1];
+	$template->content = (string) file_get_contents( $file );
+
+	return $template;
+}
+
+/**
+ * Put a copy of one of the theme's templates, or of one of its template parts, where
+ * get_block_template() finds it, as the Site Editor saves one: the source `custom`, the content given.
+ *
+ * @param string $slug    The template's slug, such as `page-partners`, or the part's.
+ * @param string $content Its saved content.
+ * @param string $status  Its post's status: `publish`, the only one the front end draws, `draft` and
+ *                        the others it does not, or `trash` for one an Administrator deleted.
+ * @param string $type    `wp_template`, or `wp_template_part` for a template part.
+ * @return WP_Block_Template
+ */
+function wpcredits_test_saved_template( $slug, $content, $status = 'publish', $type = 'wp_template' ) {
+	$template          = new WP_Block_Template();
+	$template->type    = $type;
+	$template->id      = 'wpcredits-theme//' . $slug;
+	$template->theme   = 'wpcredits-theme';
+	$template->slug    = $slug;
+	$template->source  = 'custom';
+	$template->status  = $status;
+	$template->content = (string) $content;
+
+	$GLOBALS['block_templates'][ 'wp_template_part' === $type ? 'part:' . $template->id : $template->id ] = $template;
+
+	return $template;
+}
+
+/**
+ * Core's block pattern registry, as far as the theme asks it: each of the theme's patterns, registered
+ * by the Slug of its file's header, as core registers a theme's patterns, its content the file's
+ * output, read when it is asked for.
+ */
+class WP_Block_Patterns_Registry {
+	private static $instance = null;
+
+	public static function get_instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+
+		return self::$instance;
+	}
+
+	public function is_registered( $name ) {
+		return '' !== self::file_of( $name );
+	}
+
+	public function get_registered( $name ) {
+		$file = self::file_of( $name );
+
+		return '' === $file ? null : array(
+			'name'    => $name,
+			'content' => wpcredits_test_pattern( basename( $file ) ),
+		);
+	}
+
+	/** The theme's pattern file whose header names this slug, or ''. */
+	private static function file_of( $name ) {
+		foreach ( glob( WPCREDITS_THEME_DIR . 'patterns/*.php' ) as $file ) {
+			if ( preg_match( '/^\s*\*\s*Slug:\s*(\S+)\s*$/m', (string) file_get_contents( $file ), $slug ) && $slug[1] === $name ) {
+				return $file;
+			}
+		}
+
+		return '';
+	}
 }
 
 /**

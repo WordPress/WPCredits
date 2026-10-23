@@ -1,0 +1,48 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/partner-level",
+	"title": "Partner level",
+	"category": "theme",
+	"icon": "awards",
+	"description": "One partnership level of the Partner levels: its name, an optional tag after it, its amount, the line before its list and what it includes. Its short amount, for the Levels at a glance table's head, and what it includes are in the block's settings.",
+	"keywords": [ "partner", "sponsor", "level", "tier" ],
+	"textdomain": "wpcredits-theme",
+	"parent": [ "wpcredits/partner-levels" ],
+	"attributes": {
+		"name": {
+			"type": "string",
+			"default": ""
+		},
+		"amount": {
+			"type": "string",
+			"default": ""
+		},
+		"short": {
+			"type": "string",
+			"default": ""
+		},
+		"tag": {
+			"type": "string",
+			"default": ""
+		},
+		"lead": {
+			"type": "string",
+			"default": ""
+		},
+		"items": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"default": []
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"customClassName": false
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

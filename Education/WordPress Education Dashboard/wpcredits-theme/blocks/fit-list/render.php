@@ -14,6 +14,12 @@
  * Written as theme 1.31's Custom HTML block held the flow, so the page's markup for the same texts is
  * byte for byte what it was.
  *
+ * The header line's three names are the translated strings of `wpcredits_hub_fit_labels()` while an
+ * attribute is missing (theme 1.32.1): block.json holds no English text default, since a default is
+ * stored with the block and never translated. The editor leaves out an attribute at its default, so
+ * every list 1.32.0 saved with the stock words holds none, and draws the same words on an English site.
+ * A name saved empty is a name taken out on purpose, and stays left out.
+ *
  * @package WPCredits_Theme
  *
  * @var array    $attributes Block attributes.
@@ -31,10 +37,11 @@ if ( ! $wpcredits_rows ) {
 	return;
 }
 
+$wpcredits_words = wpcredits_hub_fit_labels();
 $wpcredits_heads = array();
 
 foreach ( array( 'field', 'teams', 'proof' ) as $wpcredits_step ) {
-	$wpcredits_heads[ $wpcredits_step ] = isset( $attributes[ $wpcredits_step . 'Heading' ] ) && is_scalar( $attributes[ $wpcredits_step . 'Heading' ] ) ? (string) $attributes[ $wpcredits_step . 'Heading' ] : ''; // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UndefinedVariable -- WordPress hands a block's render file its attributes.
+	$wpcredits_heads[ $wpcredits_step ] = isset( $attributes[ $wpcredits_step . 'Heading' ] ) && is_scalar( $attributes[ $wpcredits_step . 'Heading' ] ) ? (string) $attributes[ $wpcredits_step . 'Heading' ] : $wpcredits_words[ $wpcredits_step . 'Heading' ]; // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UndefinedVariable -- WordPress hands a block's render file its attributes.
 }
 
 ?>
