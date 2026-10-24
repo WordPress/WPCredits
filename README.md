@@ -88,7 +88,7 @@ All students track time spent on each task and project activity. This data helps
 
 ## Get Involved
 
-- **Universities and educational institutions** interested in participating can reach out by filling the [interest form](https://airtable.com/appIzQKfwTn5dyPVp/shrYvY0CDNIkILIre).
+- **Universities and educational institutions** interested in participating can reach out by filling the [application form](https://wordpresseducation.org/institution-application/).
 - **Companies and sponsors** can support the program by:
   - Sponsoring mentors
   - Providing tools or learning resources

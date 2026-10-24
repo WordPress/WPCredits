@@ -233,7 +233,7 @@ Meet professionals and industry leaders from around the world during the event.
 
 **Ask your Professor, Teacher, or Lecturer to scan the QR and leave their details, and we will contact them back as soon as possible.**
 
-[https://airtable.com/appIzQKfwTn5dyPVp/shrYvY0CDNIkILIre](https://airtable.com/appIzQKfwTn5dyPVp/shrYvY0CDNIkILIre) 
+[https://wordpresseducation.org/institution-application/](https://wordpresseducation.org/institution-application/) 
 
 ---
 

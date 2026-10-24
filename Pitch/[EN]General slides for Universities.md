@@ -259,7 +259,7 @@ Meet professionals and industry leaders from around the world during the event.
 
 **Scan the QR, leave the details and we will contact you back as soon as possible.**
 
-[https://airtable.com/appIzQKfwTn5dyPVp/shrYvY0CDNIkILIre](https://airtable.com/appIzQKfwTn5dyPVp/shrYvY0CDNIkILIre) 
+[https://wordpresseducation.org/institution-application/](https://wordpresseducation.org/institution-application/) 
 
 ---
 
