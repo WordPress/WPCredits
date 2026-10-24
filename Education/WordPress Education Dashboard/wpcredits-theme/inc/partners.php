@@ -793,18 +793,20 @@ function wpcredits_partners_text( $node ) {
  * The Partner levels block holding a Partner level block for each of some levels, as the Site Editor
  * saves it: what the levels pattern writes, and the 1.32.1 migration in place of the 1.31 cards.
  *
- * @param array[] $levels Levels of plain text, as `wpcredits_partner_levels_defaults()` and
- *                        `wpcredits_partner_levels_from_html()` give them.
+ * @param array[] $levels     Levels of plain text, as `wpcredits_partner_levels_defaults()` and
+ *                            `wpcredits_partner_levels_from_html()` give them.
+ * @param array   $attributes The levels block's own attributes, none unless the block that it replaces
+ *                            carried some (its `metadata`, in the 1.32.1 migration).
  * @return string Block markup; the block alone, with nothing in it, for no levels.
  */
-function wpcredits_partner_levels_markup( array $levels ) {
+function wpcredits_partner_levels_markup( array $levels, array $attributes = array() ) {
 	$inner = array();
 
 	foreach ( $levels as $level ) {
 		$inner[] = wpcredits_hub_block_markup( 'wpcredits/partner-level', wpcredits_partner_level_attributes( (array) $level ) );
 	}
 
-	return wpcredits_hub_block_markup( 'wpcredits/partner-levels', array(), $inner );
+	return wpcredits_hub_block_markup( 'wpcredits/partner-levels', $attributes, $inner );
 }
 
 /**

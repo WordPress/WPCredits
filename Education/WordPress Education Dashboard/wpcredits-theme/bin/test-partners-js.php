@@ -39,6 +39,12 @@ if ( ! function_exists( 'get_stylesheet' ) ) {
 	function get_stylesheet() { return 'wpcredits-theme'; }
 }
 
+// Core's get_post(), for the synced patterns (wp_block posts) a template refers to: `$GLOBALS['synced']`,
+// post ID => the post, published.
+if ( ! function_exists( 'get_post' ) ) {
+	function get_post( $post = null ) { return isset( $GLOBALS['synced'][ (int) $post ] ) ? $GLOBALS['synced'][ (int) $post ] : null; }
+}
+
 require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 require_once __DIR__ . '/stubs/node-suite.php';
 
@@ -79,14 +85,20 @@ function wpcredits_test_glance_drawn( array $levels, array $attributes = array()
  *                                  theme's file the template in use.
  * @param array       $attributes   The table block's attributes.
  * @param array       $translations What a translated string comes back as.
+ * @param array       $parts        Slug => content: saved template parts of this theme, published, that
+ *                                  the template may refer to.
  * @return array{head: string[], rows: string[][]}|null Null when the server draws no table.
  */
-function wpcredits_test_glance_drawn_in( $template, array $attributes = array(), array $translations = array() ) {
+function wpcredits_test_glance_drawn_in( $template, array $attributes = array(), array $translations = array(), array $parts = array() ) {
 	$GLOBALS['block_templates'] = array();
 	$GLOBALS['translated']      = $translations;
 
 	if ( null !== $template ) {
 		wpcredits_test_saved_template( 'page-partners', $template );
+	}
+
+	foreach ( $parts as $slug => $content ) {
+		wpcredits_test_saved_template( $slug, $content, 'publish', 'wp_template_part' );
 	}
 
 	wpcredits_partner_levels_reset();
@@ -154,6 +166,43 @@ $on_phones         = $today;
 $hidden[1]    += $hidden_everywhere;
 $on_phones[2] += array( 'metadata' => array( 'blockVisibility' => array( 'viewport' => array( 'mobile' => false ) ) ) );
 
+// Theme 1.32.2: a template that holds two Partner levels blocks shown, one among its own blocks and one in
+// what it refers to (a synced pattern, a template part), even earlier in the markup. The server reads the
+// template's own blocks first, and follows a reference only where they hold no levels block it draws,
+// each reference's own blocks again first; the editor's table names the same block. The levels in the
+// references are the edited ones, so each table tells which block it was drawn from.
+$GLOBALS['synced'] = array(
+	601 => (object) array(
+		'ID'            => 601,
+		'post_type'     => 'wp_block',
+		'post_status'   => 'publish',
+		'post_content'  => wpcredits_test_levels_markup( $edited ),
+		'post_password' => '',
+	),
+	602 => (object) array(
+		'ID'            => 602,
+		'post_type'     => 'wp_block',
+		'post_status'   => 'publish',
+		'post_content'  => '<!-- wp:template-part {"slug":"partners-inner-part","theme":"wpcredits-theme"} /-->' . "\n\n" . wpcredits_test_levels_markup( $today ),
+		'post_password' => '',
+	),
+	603 => (object) array(
+		'ID'            => 603,
+		'post_type'     => 'wp_block',
+		'post_status'   => 'publish',
+		'post_content'  => '<!-- wp:template-part {"slug":"partners-today-part","theme":"wpcredits-theme"} /-->',
+		'post_password' => '',
+	),
+);
+$own_levels        = wpcredits_hub_block_markup( 'core/group', array(), array( wpcredits_test_levels_markup( $today ) ) );
+$synced_levels     = '<!-- wp:block {"ref":601} /-->';
+$part_levels       = '<!-- wp:template-part {"slug":"partners-levels-part","theme":"wpcredits-theme"} /-->';
+$parts             = array(
+	'partners-levels-part' => wpcredits_test_levels_markup( $edited ),
+	'partners-inner-part'  => wpcredits_test_levels_markup( $edited ),
+	'partners-today-part'  => wpcredits_test_levels_markup( $today ),
+);
+
 $cases = array(
 	'today'        => array(
 		'levels' => $today,
@@ -191,6 +240,18 @@ $cases = array(
 	'typed'        => array(
 		'attributes' => $typed,
 		'drawn'      => wpcredits_test_glance_drawn( $today, $typed ),
+	),
+	// The template's own levels block after a synced pattern, or a template part, holding another; the
+	// reference alone; the template's own levels block hidden, with the synced pattern after it; a synced
+	// pattern that holds a template part with levels, then its own levels block; and two synced patterns,
+	// the first holding a template part with levels, the second a levels block of its own.
+	'references'   => array(
+		'ownAfterSynced' => wpcredits_test_glance_drawn_in( $synced_levels . "\n\n" . $own_levels ),
+		'ownAfterPart'   => wpcredits_test_glance_drawn_in( $part_levels . "\n\n" . $own_levels, array(), array(), $parts ),
+		'syncedOnly'     => wpcredits_test_glance_drawn_in( $synced_levels ),
+		'hiddenOwn'      => wpcredits_test_glance_drawn_in( wpcredits_test_levels_markup( $today, $hidden_everywhere ) . "\n\n" . $synced_levels ),
+		'nested'         => wpcredits_test_glance_drawn_in( '<!-- wp:block {"ref":602} /-->', array(), array(), $parts ),
+		'firstReference' => wpcredits_test_glance_drawn_in( '<!-- wp:block {"ref":603} /-->' . "\n\n" . $synced_levels, array(), array(), $parts ),
 	),
 );
 

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.1
+Stable tag: 1.32.2
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -187,6 +187,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.2 =
+* The one-time updates of saved templates that came with 1.32.0 and 1.32.1 now hold a lock while they run, so two first visits at the same moment do not both update the same template. A lock that a broken visit left behind is taken over after ten minutes, a visit that finds the update already done once it holds the lock does nothing more, and a visit lets go only of its own lock.
+* Where the site keeps only a few revisions and the copy kept of a template is pruned after the update, the update's record keeps the template as it was instead, and the Site Editor's notice says the copy is in the record.
+* When a template holds more than one Partner levels block, the "Levels at a glance" table in the Site Editor reads the same one as the page: the template's own before one inside a synced pattern or template part.
+* A 1.31 Partners cards block or levels table hidden in the Site Editor stays hidden after the update.
 
 = 1.32.1 =
 * The Partners page's five levels and its "Levels at a glance" table are edited in the Site Editor. The Partner levels block holds a Partner level for each level: its name, amount, tag and lead are edited on the card, its list and the table's short amount in the level's settings. The table is a block of its own, drawn from those levels, with one row for each item a level lists and Yes from that level up, so the cards and the table always agree; its rows now read as the items do. The sponsor application's "What each level includes" reads the same levels, so the form tells a company what the page told it. A level, or the whole section, hidden in the Site Editor is left out of the table and the form too.

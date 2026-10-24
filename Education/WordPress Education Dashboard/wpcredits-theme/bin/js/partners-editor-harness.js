@@ -62,9 +62,10 @@ RichText.Content = component( 'RichTextContent' );
  * Load the three editor scripts on a fresh stand-in.
  *
  * @param {Object} store        The editor's store: `held`, client ID => the blocks a block holds,
- *                              `names`, block name => the client IDs of the blocks of that name,
- *                              `attributes`, client ID => a block's attributes, and `parents`, client
- *                              ID => the client IDs of the blocks it sits in, the outermost first.
+ *                              `names`, block name => the client IDs of the blocks of that name, in
+ *                              the order of the markup, `attributes`, client ID => a block's
+ *                              attributes, `parents`, client ID => the client IDs of the blocks it sits
+ *                              in, the outermost first, and `blockNames`, client ID => a block's name.
  * @param {Object} translations Text, or context, \u0004 and text => its translation.
  * @return {Object} The blocks registered, by name, and what the levels asked of its inner blocks.
  */
@@ -108,6 +109,7 @@ function editor( store, translations ) {
 				getBlocks: ( clientId ) => store.held[ clientId ] || [],
 				getBlockAttributes: ( clientId ) => ( store.attributes || {} )[ clientId ] || null,
 				getBlockParents: ( clientId ) => ( store.parents || {} )[ clientId ] || [],
+				getBlockName: ( clientId ) => ( store.blockNames || {} )[ clientId ] || null,
 			} : null ) ),
 		},
 	};
@@ -145,6 +147,36 @@ function holding( levels, own, around ) {
 		store.attributes[ id ] = ( Array.isArray( own ) ? own[ at ] : own ) || {};
 		store.parents[ id ] = ( around || [] ).map( ( attributes, up ) => 'around-' + up );
 	} );
+
+	return store;
+}
+
+/**
+ * The store of an editor holding some blocks, as the markup has them, the editor holding what a synced
+ * pattern or a template part draws as that block's own inner blocks, as it does: each block `{ name,
+ * attributes, inner }`, a Partner levels block's `inner` its levels' attributes, any other's its blocks.
+ * Client IDs are given in the order of the markup, as `getBlocksByName()` answers with them.
+ */
+function storeOf( blocks ) {
+	const store = { names: {}, held: {}, attributes: {}, parents: {}, blockNames: {} };
+	let made = 0;
+
+	const add = ( block, around ) => {
+		const id = 'block-' + ( ++made );
+
+		store.blockNames[ id ] = block.name;
+		store.attributes[ id ] = block.attributes || {};
+		store.parents[ id ] = around;
+		store.names[ block.name ] = ( store.names[ block.name ] || [] ).concat( id );
+
+		if ( 'wpcredits/partner-levels' === block.name ) {
+			store.held[ id ] = ( block.inner || [] ).map( ( attributes ) => ( { name: 'wpcredits/partner-level', attributes } ) );
+		} else {
+			( block.inner || [] ).forEach( ( inner ) => add( inner, around.concat( id ) ) );
+		}
+	};
+
+	blocks.forEach( ( block ) => add( block, [] ) );
 
 	return store;
 }
@@ -266,6 +298,33 @@ scenario( 'a levels block shown at only some window sizes, or in a group that is
 ] );
 
 scenario( 'with a hidden Partner levels block before one that is shown, the table is drawn from the one shown', CASES.today.drawn, () => table( glanceOn( holding( [ [ { name: 'Hidden', items: [ 'Not on the page' ] } ], CASES.today.levels ], [ HIDDEN, {} ] ) ) ) );
+
+/* ---- two levels blocks, one in a reference (theme 1.32.2) -------------------------------------- */
+
+const REFS = CASES.references;
+const levelsBlock = ( levels, attributes ) => ( { name: 'wpcredits/partner-levels', attributes: attributes || {}, inner: levels } );
+const inGroup = ( ...inner ) => ( { name: 'core/group', inner } );
+const synced = ( ref, ...inner ) => ( { name: 'core/block', attributes: { ref }, inner } );
+const part = ( slug, ...inner ) => ( { name: 'core/template-part', attributes: { slug, theme: 'wpcredits-theme' }, inner } );
+
+scenario( 'a template\'s own levels block after a synced pattern that holds another, both shown: the table is drawn from the template\'s own, as the server draws it, not from the first in the markup', [ REFS.ownAfterSynced, false ], () => [
+	table( glanceOn( storeOf( [ synced( 601, levelsBlock( CASES.edited.levels ) ), inGroup( levelsBlock( CASES.today.levels ) ) ] ) ) ),
+	JSON.stringify( REFS.ownAfterSynced ) === JSON.stringify( REFS.syncedOnly ),
+] );
+
+scenario( 'the same with a template part that holds the other levels block: the template\'s own is the table\'s source', REFS.ownAfterPart, () => table( glanceOn( storeOf( [ part( 'partners-levels-part', levelsBlock( CASES.edited.levels ) ), inGroup( levelsBlock( CASES.today.levels ) ) ] ) ) ) );
+
+scenario( 'with no levels block of its own, or its own hidden, the template\'s table is the reference\'s, as the server draws it', [ REFS.syncedOnly, REFS.hiddenOwn ], () => [
+	table( glanceOn( storeOf( [ synced( 601, levelsBlock( CASES.edited.levels ) ) ] ) ) ),
+	table( glanceOn( storeOf( [ levelsBlock( CASES.today.levels, HIDDEN ), synced( 601, levelsBlock( CASES.edited.levels ) ) ] ) ) ),
+] );
+
+scenario( 'in a synced pattern that holds a template part with levels before its own levels block, the pattern\'s own is read first, as the server reads each reference', REFS.nested, () => table( glanceOn( storeOf( [ synced( 602, part( 'partners-inner-part', levelsBlock( CASES.edited.levels ) ), levelsBlock( CASES.today.levels ) ) ] ) ) ) );
+
+scenario( 'of two synced patterns, the first in the markup is followed first, though its levels are in a template part it holds and the second\'s are its own: the references are read in their order, not by how deep the levels sit', [ REFS.firstReference, CASES.today.drawn ], () => [
+	table( glanceOn( storeOf( [ synced( 603, part( 'partners-today-part', levelsBlock( CASES.today.levels ) ) ), synced( 601, levelsBlock( CASES.edited.levels ) ) ] ) ) ),
+	REFS.firstReference,
+] );
 
 scenario( 'the head word and the two cell words, with none typed, are the translated strings the server prints, the head word as its field\'s placeholder', CASES.translated.drawn, () => table( glance( CASES.today.levels, {}, CASES.translated.translations ) ) );
 

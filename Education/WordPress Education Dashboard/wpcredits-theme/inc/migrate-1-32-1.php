@@ -35,7 +35,8 @@
  * template, or why it was left, is recorded in the option `wpcredits_migrated_1_32_1`, written last; a
  * record that holds the only copy of a template and cannot be stored is stored without it, saying the
  * copy was lost rather than kept. Whatever throws is caught and recorded as a failure. Run again, it finds
- * nothing to replace and changes nothing.
+ * nothing to replace and changes nothing. It runs in its own lock, as the 1.32.0 migration does
+ * (`wpcredits_migrate_lock()`), so a request that comes while it runs does nothing.
  *
  * The 1.32.0 migration runs first and this one waits for it: on a site that updates from 1.31 straight
  * to 1.32.1 both run on the first request, in that order, and neither undoes the other (the index 1.32.0
@@ -108,6 +109,10 @@ function wpcredits_migrate_1_32_1_content( $content, $slug ) {
  * converted here or a levels block already in the template: the block draws nothing without them,
  * where the Custom HTML block shows the table.
  *
+ * A Custom HTML block an Administrator hid in the Site Editor, or named, carries that in its metadata:
+ * the block that replaces it carries the same metadata (theme 1.32.2), so a hidden part stays hidden;
+ * both blocks of one Custom HTML block carry it. A block with no metadata is replaced as before.
+ *
  * @param array $result As `wpcredits_migrate_1_32_1_content()` builds it.
  * @return array The same, the two replaced.
  */
@@ -161,8 +166,9 @@ function wpcredits_migrate_1_32_1_partners( array $result ) {
 	$replace = array();
 
 	if ( null !== $cards ) {
-		$levels  = wpcredits_partner_levels_from_html( $blocks[ $cards ][2][0] . ( null !== $table && $table !== $cards ? $blocks[ $table ][2][0] : '' ) );
-		$emptied = ! $levels && wpcredits_migrate_1_32_1_grid_found( $blocks[ $cards ][2][0] );
+		$levels   = wpcredits_partner_levels_from_html( $blocks[ $cards ][2][0] . ( null !== $table && $table !== $cards ? $blocks[ $table ][2][0] : '' ) );
+		$emptied  = ! $levels && wpcredits_migrate_1_32_1_grid_found( $blocks[ $cards ][2][0] );
+		$metadata = wpcredits_migrate_1_32_1_metadata( $blocks[ $cards ] );
 
 		// Only markup that is not a readable grid gets the theme's levels; a grid that holds none stays empty.
 		if ( ! $levels && ! $emptied ) {
@@ -170,12 +176,12 @@ function wpcredits_migrate_1_32_1_partners( array $result ) {
 			$result['skipped'][] = 'partner-levels-unreadable';
 		}
 
-		$replace[ $cards ]   = array( wpcredits_partner_levels_markup( $levels ) );
+		$replace[ $cards ]   = array( wpcredits_partner_levels_markup( $levels, $metadata ? array( 'metadata' => $metadata ) : array() ) );
 		$result['changed'][] = $emptied ? 'partner-levels-emptied' : 'partner-levels';
 	}
 
 	if ( null !== $table ) {
-		$glance = wpcredits_migrate_1_32_1_glance_markup( $blocks[ $table ][2][0] );
+		$glance = wpcredits_migrate_1_32_1_glance_markup( $blocks[ $table ][2][0], wpcredits_migrate_1_32_1_metadata( $blocks[ $table ] ) );
 
 		if ( $table === $cards ) {
 			$html  = $blocks[ $table ][2][0];
@@ -241,36 +247,57 @@ function wpcredits_migrate_1_32_1_grid_found( $html ) {
 }
 
 /**
+ * The metadata a Custom HTML block carries in its comment, for the block that replaces it to carry: an
+ * Administrator who hid the block in the Site Editor saved `"blockVisibility":false` there, which core
+ * draws as nothing whatever the block's support, and a name given to it in List View is kept there too.
+ * Its other attributes, such as a lock, are not carried.
+ *
+ * @param array $block The Custom HTML block as `wpcredits_migrate_1_32_1_partners()` matched it, its
+ *                     attributes, if it has any, the first group.
+ * @return array The metadata; none where the block carries none, or an empty one.
+ */
+function wpcredits_migrate_1_32_1_metadata( array $block ) {
+	$text       = isset( $block[1] ) && -1 !== $block[1][1] ? trim( $block[1][0] ) : '';
+	$attributes = '' !== $text ? json_decode( $text, true ) : null;
+
+	return is_array( $attributes ) && isset( $attributes['metadata'] ) && is_array( $attributes['metadata'] ) ? $attributes['metadata'] : array();
+}
+
+/**
  * The Levels at a glance block for the 1.31 table in some markup: its head word and the words of its
  * Yes and No cells, read from the table, are written as the block's attributes where they are not the
  * theme's, so an Administrator who changed them keeps them; the theme's words write no attribute, as the
- * Site Editor leaves out an attribute at its default.
+ * Site Editor leaves out an attribute at its default. The metadata of the Custom HTML block it replaces,
+ * where there is any, is written after them, as the Site Editor writes it, so a hidden table stays hidden.
  *
- * @param string $html The Custom HTML block's markup.
+ * @param string $html     The Custom HTML block's markup.
+ * @param array  $metadata That block's metadata (`wpcredits_migrate_1_32_1_metadata()`).
  * @return string Block markup.
  */
-function wpcredits_migrate_1_32_1_glance_markup( $html ) {
+function wpcredits_migrate_1_32_1_glance_markup( $html, array $metadata = array() ) {
 	$xpath = wpcredits_migrate_1_32_0_xpath( $html );
+	$words = array();
 
-	if ( ! $xpath ) {
-		return wpcredits_partner_glance_markup();
+	if ( $xpath ) {
+		$table   = '(//table[' . wpcredits_partners_class( 'wpc-partners-glance__table' ) . '])[1]';
+		$queries = array(
+			'label' => $table . '/thead/tr[1]/th[1]',
+			'yes'   => $table . '//td[' . wpcredits_partners_class( 'wpc-partners-glance__yes' ) . ']',
+			'no'    => $table . '//td[' . wpcredits_partners_class( 'wpc-partners-glance__no' ) . ']',
+		);
+		$theirs  = wpcredits_partner_glance_words( array() );
+
+		foreach ( $queries as $word => $query ) {
+			$text = wpcredits_partners_text( $xpath->query( $query )->item( 0 ) );
+
+			if ( '' !== $text && $theirs[ $word ] !== $text ) {
+				$words[ $word ] = $text;
+			}
+		}
 	}
 
-	$table   = '(//table[' . wpcredits_partners_class( 'wpc-partners-glance__table' ) . '])[1]';
-	$queries = array(
-		'label' => $table . '/thead/tr[1]/th[1]',
-		'yes'   => $table . '//td[' . wpcredits_partners_class( 'wpc-partners-glance__yes' ) . ']',
-		'no'    => $table . '//td[' . wpcredits_partners_class( 'wpc-partners-glance__no' ) . ']',
-	);
-	$theirs  = wpcredits_partner_glance_words( array() );
-	$words   = array();
-
-	foreach ( $queries as $word => $query ) {
-		$text = wpcredits_partners_text( $xpath->query( $query )->item( 0 ) );
-
-		if ( '' !== $text && $theirs[ $word ] !== $text ) {
-			$words[ $word ] = $text;
-		}
+	if ( $metadata ) {
+		$words['metadata'] = $metadata;
 	}
 
 	return $words ? wpcredits_hub_block_markup( 'wpcredits/partner-glance', $words ) : wpcredits_partner_glance_markup();
@@ -370,57 +397,75 @@ function wpcredits_migrate_1_32_1_repaired( $content, $slug ) {
 
 /**
  * The migration, once, after the 1.32.0 migration's: this theme's saved Partners and Education Hub
- * templates, a copy of each kept first, its content written, and what was done recorded last.
+ * templates, a copy of each kept first, its content written, and what was done recorded last. It runs
+ * in its lock (`wpcredits_migrate_lock()`), so a request that comes while it runs does nothing.
  */
 function wpcredits_migrate_1_32_1() {
-	// The 1.32.0 migration runs first: until its option is set, this one waits.
+	// The 1.32.0 migration runs first: until its option is set, this one waits, its lock not taken.
 	if ( false !== get_option( WPCREDITS_MIGRATED_1_32_1, false ) || false === get_option( WPCREDITS_MIGRATED_1_32_0, false ) ) {
 		return;
 	}
 
-	$record = array(
-		'ran'       => time(),
-		'templates' => array(),
-	);
+	$taken = wpcredits_migrate_lock( WPCREDITS_MIGRATED_1_32_1 );
 
-	// Whatever throws is caught and recorded, and the option is set all the same: a failure is reported
-	// to Administrators once, not tried again on every request.
-	try {
-		foreach ( WPCREDITS_MIGRATE_1_32_1_SLUGS as $slug ) {
-			$templates = get_posts(
-				array(
-					'post_type'      => 'wp_template',
-					'post_status'    => 'any',
-					'name'           => $slug,
-					'posts_per_page' => 20,
-					'orderby'        => 'ID',
-					'order'          => 'ASC',
-				)
-			);
-
-			foreach ( $templates as $template ) {
-				if ( wpcredits_migrate_1_32_1_ours( $template ) ) {
-					$record['templates'][] = wpcredits_migrate_1_32_0_template( $template, 'wpcredits_migrate_1_32_1_content' );
-				}
-			}
-		}
-	} catch ( Throwable $error ) {
-		$record['failed'] = 'update-failed';
+	if ( ! $taken ) {
+		return;
 	}
 
-	// The levels read in this request were read from the template before it was written.
-	wpcredits_partner_levels_reset();
-
-	if ( ! add_option( WPCREDITS_MIGRATED_1_32_1, $record, '', false ) ) {
-		$lost = wpcredits_migrate_copies_lost( $record['templates'] );
-
-		// The record was the only copy of a template as it was, and could not be stored: the record
-		// stored in its place says the copy was lost, never that it was kept.
-		if ( $lost !== $record['templates'] ) {
-			$record['templates'] = $lost;
-
-			add_option( WPCREDITS_MIGRATED_1_32_1, $record, '', false );
+	// The lock is let go of once the option is stored, and whatever happens after it was taken.
+	try {
+		// Another request may have run the migration between the check above and the lock: both options are
+		// read again, from the database, and where this one's is there now this request does nothing more.
+		if ( false !== wpcredits_migrate_option_now( WPCREDITS_MIGRATED_1_32_1 ) || false === wpcredits_migrate_option_now( WPCREDITS_MIGRATED_1_32_0 ) ) {
+			return;
 		}
+
+		$record = array(
+			'ran'       => time(),
+			'templates' => array(),
+		);
+
+		// Whatever throws is caught and recorded, and the option is set all the same: a failure is reported
+		// to Administrators once, not tried again on every request.
+		try {
+			foreach ( WPCREDITS_MIGRATE_1_32_1_SLUGS as $slug ) {
+				$templates = get_posts(
+					array(
+						'post_type'      => 'wp_template',
+						'post_status'    => 'any',
+						'name'           => $slug,
+						'posts_per_page' => 20,
+						'orderby'        => 'ID',
+						'order'          => 'ASC',
+					)
+				);
+
+				foreach ( $templates as $template ) {
+					if ( wpcredits_migrate_1_32_1_ours( $template ) ) {
+						$record['templates'][] = wpcredits_migrate_1_32_0_template( $template, 'wpcredits_migrate_1_32_1_content' );
+					}
+				}
+			}
+		} catch ( Throwable $error ) {
+			$record['failed'] = 'update-failed';
+		}
+
+		// The levels read in this request were read from the template before it was written.
+		wpcredits_partner_levels_reset();
+
+		if ( ! add_option( WPCREDITS_MIGRATED_1_32_1, $record, '', false ) ) {
+			$lost = wpcredits_migrate_copies_lost( $record['templates'] );
+
+			// The record was the only copy of a template as it was, and could not be stored: the record
+			// stored in its place says the copy was lost, never that it was kept.
+			if ( $lost !== $record['templates'] ) {
+				$record['templates'] = $lost;
+
+				add_option( WPCREDITS_MIGRATED_1_32_1, $record, '', false );
+			}
+		}
+	} finally {
+		wpcredits_migrate_unlock( WPCREDITS_MIGRATED_1_32_1, $taken );
 	}
 }
 add_action( 'init', 'wpcredits_migrate_1_32_1', 21 );

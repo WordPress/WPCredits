@@ -9,7 +9,7 @@
  * - `$GLOBALS['posts']`: ID => a WP_Post stand-in, revisions among them; `$GLOBALS['terms']`: ID =>
  *   the name of the post's wp_theme term.
  * - `$GLOBALS['calls']`: what the runners did, in order: each get_posts(), revision, write, kses
- *   switch and option write, so a check can tell what was done and in which order.
+ *   switch, option write and option deleted, so a check can tell what was done and in which order.
  * - `$GLOBALS['user']`: the reader, `id` and `caps`; `$GLOBALS['user_meta']`; `$GLOBALS['screen']`, the
  *   admin screen's ID; `$GLOBALS['inline']`, the inline scripts added, by handle.
  * - `$GLOBALS['kses_on']`: whether a save is filtered through kses, as a visitor's request is; with it
@@ -19,6 +19,16 @@
  *   `throw_revision` (`before` or `after`), `revisions_off`, `throw_terms`, `throw_option`, and
  *   `refuse_copies`, a database that refuses an option whose value holds a copy of a template (`before`),
  *   as one refuses a value too large for it or with characters its table cannot hold.
+ * - `$GLOBALS['option_cache']`: with it on, this request keeps options in its object cache as core does
+ *   (`$GLOBALS['wp_cache']['options']`, `notoptions` among it), and `$GLOBALS['opts']` is the database,
+ *   which a check writes to directly as another request would, behind this request's cache;
+ *   `$GLOBALS['before_add'][ $key ]`, what another request does just before this one adds that option.
+ *   `throw_option`: true makes update_option() throw, an option's name add_option() and update_option()
+ *   for that option alone.
+ * - `$GLOBALS['revisions_to_keep']`: the site's revisions limit, as WP_POST_REVISIONS sets it (-1 for
+ *   none). Left null, a write keeps no revision of what it saved and none is deleted, the history the
+ *   suites' other checks are built on; set, each write keeps one, as core does, and each revision stored
+ *   deletes the oldest beyond the limit, as core's wp_save_post_revision() does; 0 turns revisions off.
  *
  * Loaded after bin/stubs/hub-wp.php, whose options, hooks and blocks it builds on, and before the
  * migration's files.
@@ -41,6 +51,9 @@ $GLOBALS['inline']    = array();
 $GLOBALS['kses_on']   = true; // This request is a visitor's, whose saves WordPress filters through kses.
 $GLOBALS['last_id']   = 2000; // The last ID a revision was given.
 $GLOBALS['stale']     = array(); // ID => the post as the object cache still holds it, until clean_post_cache().
+$GLOBALS['option_cache'] = false; // Whether this request keeps options in its object cache, as core does.
+$GLOBALS['wp_cache']     = array(); // Group => key => value: this request's object cache, while it is on.
+$GLOBALS['before_add']   = array(); // Option => what another request does just before this one adds it.
 
 /** A post, as core's WP_Post carries one. */
 class WP_Post {
@@ -95,9 +108,40 @@ function wpcredits_test_refused( $value ) {
 	return false;
 }
 
+/**
+ * Core's add_option(). It stores nothing where the option is there already; with this request's option
+ * cache on (`$GLOBALS['option_cache']`), it asks as core does: where the cache says the option is missing
+ * it does not look, and its insert, core's `ON DUPLICATE KEY UPDATE`, writes over what another request
+ * stored. What another request does just before the insert, `$GLOBALS['before_add'][ $key ]`, is run first.
+ * `$GLOBALS['throw_option']` set to the option's name makes it throw, as a database layer can.
+ *
+ * @param string $key        The option.
+ * @param mixed  $value      Its value.
+ * @param string $deprecated Unused.
+ * @param mixed  $autoload   Whether it is autoloaded.
+ * @return bool
+ */
 function add_option( $key, $value = '', $deprecated = '', $autoload = null ) {
-	if ( array_key_exists( $key, $GLOBALS['opts'] ) ) {
+	if ( isset( $GLOBALS['before_add'][ $key ] ) ) {
+		$before = $GLOBALS['before_add'][ $key ];
+
+		unset( $GLOBALS['before_add'][ $key ] );
+		$before();
+	}
+
+	if ( empty( $GLOBALS['option_cache'] ) ) {
+		$there = array_key_exists( $key, $GLOBALS['opts'] );
+	} else {
+		$notoptions = wp_cache_get( 'notoptions', 'options' );
+		$there      = ! ( is_array( $notoptions ) && isset( $notoptions[ $key ] ) ) && false !== get_option( $key, false );
+	}
+
+	if ( $there || ( array_key_exists( $key, $GLOBALS['opts'] ) && $GLOBALS['opts'][ $key ] === $value ) ) {
 		return false;
+	}
+
+	if ( isset( $GLOBALS['throw_option'] ) && $key === $GLOBALS['throw_option'] ) {
+		throw new RuntimeException( 'thrown adding the option' );
 	}
 
 	if ( wpcredits_test_refused( $value ) ) {
@@ -109,7 +153,102 @@ function add_option( $key, $value = '', $deprecated = '', $autoload = null ) {
 	$GLOBALS['opts'][ $key ] = $value;
 	$GLOBALS['calls'][]      = 'add_option ' . $key . ' autoload ' . var_export( $autoload, true );
 
+	wpcredits_test_cache_option( $key, $value );
+
 	return true;
+}
+
+/**
+ * Core's delete_option(): the option taken out of the database, false where there is none; this
+ * request's cache then says it is missing.
+ *
+ * @param string $key The option.
+ * @return bool
+ */
+function delete_option( $key ) {
+	if ( ! array_key_exists( $key, $GLOBALS['opts'] ) ) {
+		return false;
+	}
+
+	unset( $GLOBALS['opts'][ $key ] );
+	$GLOBALS['calls'][] = 'delete_option ' . $key;
+
+	if ( ! empty( $GLOBALS['option_cache'] ) ) {
+		wp_cache_delete( $key, 'options' );
+
+		$notoptions         = wp_cache_get( 'notoptions', 'options' );
+		$notoptions         = is_array( $notoptions ) ? $notoptions : array();
+		$notoptions[ $key ] = true;
+
+		wp_cache_set( 'notoptions', $notoptions, 'options' );
+	}
+
+	return true;
+}
+
+/* ---- this request's object cache of options, as core keeps it -------------------------- */
+
+function wp_cache_get( $key, $group = '' ) { return isset( $GLOBALS['wp_cache'][ $group ] ) && array_key_exists( $key, $GLOBALS['wp_cache'][ $group ] ) ? $GLOBALS['wp_cache'][ $group ][ $key ] : false; }
+function wp_cache_set( $key, $value, $group = '' ) { $GLOBALS['wp_cache'][ $group ][ $key ] = $value; return true; }
+function wp_cache_delete( $key, $group = '' ) { unset( $GLOBALS['wp_cache'][ $group ][ $key ] ); return true; }
+
+/**
+ * An option this request wrote, kept in its cache as core keeps it: its value cached, and no longer
+ * among the options the cache says are missing. Nothing while the cache is off.
+ *
+ * @param string $key   The option.
+ * @param mixed  $value Its value.
+ */
+function wpcredits_test_cache_option( $key, $value ) {
+	if ( empty( $GLOBALS['option_cache'] ) ) {
+		return;
+	}
+
+	$notoptions = wp_cache_get( 'notoptions', 'options' );
+
+	if ( is_array( $notoptions ) && isset( $notoptions[ $key ] ) ) {
+		unset( $notoptions[ $key ] );
+		wp_cache_set( 'notoptions', $notoptions, 'options' );
+	}
+
+	wp_cache_set( $key, $value, 'options' );
+}
+
+/**
+ * Core's get_option() for an option that is not autoloaded, with this request's cache on
+ * (bin/stubs/hub-wp.php asks it): an option the cache says is missing is missing, without a look; one
+ * it holds is what it holds; any other is read from the database (`$GLOBALS['opts']`) and cached, or
+ * marked missing.
+ *
+ * @param string $key     The option.
+ * @param mixed  $default What a missing option reads as.
+ * @return mixed
+ */
+function wpcredits_test_cached_option( $key, $default ) {
+	$notoptions = wp_cache_get( 'notoptions', 'options' );
+
+	if ( is_array( $notoptions ) && isset( $notoptions[ $key ] ) ) {
+		return $default;
+	}
+
+	$cached = wp_cache_get( $key, 'options' );
+
+	if ( false !== $cached ) {
+		return $cached;
+	}
+
+	if ( array_key_exists( $key, $GLOBALS['opts'] ) ) {
+		wp_cache_set( $key, $GLOBALS['opts'][ $key ], 'options' );
+
+		return $GLOBALS['opts'][ $key ];
+	}
+
+	$notoptions         = is_array( $notoptions ) ? $notoptions : array();
+	$notoptions[ $key ] = true;
+
+	wp_cache_set( 'notoptions', $notoptions, 'options' );
+
+	return $default;
 }
 
 /**
@@ -149,7 +288,31 @@ function has_term( $term, $taxonomy, $post ) {
 	}
 
 	return 'wp_theme' === $taxonomy && isset( $GLOBALS['terms'][ $post->ID ] ) && $GLOBALS['terms'][ $post->ID ] === $term; }
-function wp_revisions_enabled( $post ) { return empty( $GLOBALS['revisions_off'] ); }
+function wp_revisions_enabled( $post ) { return empty( $GLOBALS['revisions_off'] ) && 0 !== ( $GLOBALS['revisions_to_keep'] ?? null ); }
+
+/**
+ * Core's pruning in wp_save_post_revision(), with a limit set (`$GLOBALS['revisions_to_keep']`, as
+ * WP_POST_REVISIONS sets it, -1 for no limit): once a revision is stored, the oldest of the post's
+ * revisions beyond the limit, autosaves counted, are deleted, an autosave among them kept.
+ *
+ * @param int $id The post's ID.
+ */
+function wpcredits_test_prune_revisions( $id ) {
+	$keep = $GLOBALS['revisions_to_keep'] ?? null;
+
+	if ( null === $keep || $keep < 0 ) {
+		return;
+	}
+
+	$oldest = array_reverse( wp_get_post_revisions( $id ), true );
+
+	foreach ( array_slice( $oldest, 0, max( 0, count( $oldest ) - $keep ), true ) as $revision ) {
+		if ( false === strpos( $revision->post_name, 'autosave' ) ) {
+			unset( $GLOBALS['posts'][ $revision->ID ] );
+			$GLOBALS['calls'][] = 'revision ' . $revision->ID . ' deleted';
+		}
+	}
+}
 
 /** Core's normalize_whitespace(), which wp_save_post_revision() compares a post and its newest revision by. */
 function normalize_whitespace( $str ) {
@@ -242,6 +405,8 @@ function wp_save_post_revision( $id ) {
 
 	$GLOBALS['posts'][ $revision->ID ] = $revision;
 
+	wpcredits_test_prune_revisions( $id );
+
 	if ( 'after' === ( $GLOBALS['throw_revision'] ?? '' ) ) {
 		throw new RuntimeException( 'thrown by a hook after the revision is stored' );
 	}
@@ -308,6 +473,13 @@ function wp_update_post( $fields, $wp_error = false ) {
 
 	clean_post_cache( $id );
 
+	// With a revisions limit set, core keeps a revision of what was saved, as its own callback on the
+	// after-insert action does (wp_save_post_revision_on_insert(), at priority 9, before any of the
+	// theme's), and deletes the oldest beyond the limit. Without one, the suites' history is as before.
+	if ( null !== ( $GLOBALS['revisions_to_keep'] ?? null ) ) {
+		wp_save_post_revision( $id );
+	}
+
 	// Core fires its after-insert action for every update, the runner's own writes among them.
 	++$depth;
 
@@ -340,7 +512,7 @@ function do_action( $hook, ...$args ) {
 }
 
 function update_option( $key, $value, $autoload = null ) {
-	if ( ! empty( $GLOBALS['throw_option'] ) ) {
+	if ( isset( $GLOBALS['throw_option'] ) && ( true === $GLOBALS['throw_option'] || $key === $GLOBALS['throw_option'] ) ) {
 		throw new RuntimeException( 'thrown saving the option' );
 	}
 
@@ -352,6 +524,8 @@ function update_option( $key, $value, $autoload = null ) {
 
 	$GLOBALS['opts'][ $key ] = $value;
 	$GLOBALS['calls'][]      = 'update_option ' . $key . ' autoload ' . var_export( $autoload, true );
+
+	wpcredits_test_cache_option( $key, $value );
 
 	return true;
 }
@@ -368,6 +542,10 @@ function wp_create_nonce( $action = -1 ) { return 'nonce-' . md5( $action . '|' 
 
 if ( ! defined( 'WEEK_IN_SECONDS' ) ) {
 	define( 'WEEK_IN_SECONDS', 604800 );
+}
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
 }
 
 /** What wp_send_json_*() ends a request with: core prints the answer and dies, here it is thrown. */

@@ -24,14 +24,16 @@
  * as a revision, written with kses turned off and read back to be byte for byte the template (in the
  * record itself where revisions are off for it, or where that revision could not be made exact); the
  * content is written with kses turned off around the write and read back, and what was done to each
- * template, or why it was left, is recorded in the option `wpcredits_migrated_1_32_0`, written last,
- * so a request that dies part way (a timeout) runs it again. Whatever throws is caught and recorded as
- * a failure, which is told to Administrators once and not tried again. Run again, it finds nothing to
- * replace and changes nothing. A later save of the template that brings either part back, from an
- * editor opened before the update, is repaired the same way at once. Each Administrator is told what
- * it did on the Site Editor until they dismiss the notice or a week has passed. The Partners template
- * is left alone in 1.32.0; the 1.32.1 migration (inc/migrate-1-32-1.php) replaces its levels and marks
- * the hub's index, after this one has run, and the repair of a save and the notice here cover both.
+ * template, or why it was left, is recorded in the option `wpcredits_migrated_1_32_0`, written last.
+ * It runs in a lock, so a request that comes while it runs does nothing; a request that dies part way
+ * (a timeout) leaves its lock behind, which is taken over ten minutes on, and the migration runs again
+ * (`wpcredits_migrate_lock()`). Whatever throws is caught and recorded as a failure, which is told to
+ * Administrators once and not tried again. Run again, it finds nothing to replace and changes nothing.
+ * A later save of the template that brings either part back, from an editor opened before the update,
+ * is repaired the same way at once. Each Administrator is told what it did on the Site Editor until
+ * they dismiss the notice or a week has passed. The Partners template is left alone in 1.32.0; the
+ * 1.32.1 migration (inc/migrate-1-32-1.php) replaces its levels and marks the hub's index, after this
+ * one has run, and the repair of a save and the notice here cover both.
  *
  * @package WPCredits_Theme
  */
@@ -283,44 +285,141 @@ function wpcredits_fit_labels_from_html( $html ) {
 
 /**
  * The migration, once: this theme's saved Education Hub template, a revision of it kept first, its
- * content written, and what was done recorded last.
+ * content written, and what was done recorded last. It runs in its lock (`wpcredits_migrate_lock()`),
+ * so a request that comes while it runs does nothing.
  */
 function wpcredits_migrate_1_32_0() {
 	if ( false !== get_option( WPCREDITS_MIGRATED_1_32_0, false ) ) {
 		return;
 	}
 
-	$record = array(
-		'ran'       => time(),
-		'templates' => array(),
-	);
+	$taken = wpcredits_migrate_lock( WPCREDITS_MIGRATED_1_32_0 );
 
-	// Whatever throws is caught and recorded, and the option is set all the same: a failure is reported
-	// to Administrators once, not tried again on every request.
-	try {
-		$templates = get_posts(
-			array(
-				'post_type'      => 'wp_template',
-				'post_status'    => 'any',
-				'name'           => 'page-education-hub',
-				'posts_per_page' => 20,
-				'orderby'        => 'ID',
-				'order'          => 'ASC',
-			)
-		);
-
-		foreach ( $templates as $template ) {
-			if ( wpcredits_migrate_1_32_0_ours( $template ) ) {
-				$record['templates'][] = wpcredits_migrate_1_32_0_template( $template );
-			}
-		}
-	} catch ( Throwable $error ) {
-		$record['failed'] = 'update-failed';
+	if ( ! $taken ) {
+		return;
 	}
 
-	add_option( WPCREDITS_MIGRATED_1_32_0, $record, '', false );
+	// The lock is let go of once the option is stored, and whatever happens after it was taken.
+	try {
+		// Another request may have run the migration between the check above and the lock: the option is
+		// read again, from the database, and where it is there now this request does nothing more.
+		if ( false !== wpcredits_migrate_option_now( WPCREDITS_MIGRATED_1_32_0 ) ) {
+			return;
+		}
+
+		$record = array(
+			'ran'       => time(),
+			'templates' => array(),
+		);
+
+		// Whatever throws is caught and recorded, and the option is set all the same: a failure is reported
+		// to Administrators once, not tried again on every request.
+		try {
+			$templates = get_posts(
+				array(
+					'post_type'      => 'wp_template',
+					'post_status'    => 'any',
+					'name'           => 'page-education-hub',
+					'posts_per_page' => 20,
+					'orderby'        => 'ID',
+					'order'          => 'ASC',
+				)
+			);
+
+			foreach ( $templates as $template ) {
+				if ( wpcredits_migrate_1_32_0_ours( $template ) ) {
+					$record['templates'][] = wpcredits_migrate_1_32_0_template( $template );
+				}
+			}
+		} catch ( Throwable $error ) {
+			$record['failed'] = 'update-failed';
+		}
+
+		add_option( WPCREDITS_MIGRATED_1_32_0, $record, '', false );
+	} finally {
+		wpcredits_migrate_unlock( WPCREDITS_MIGRATED_1_32_0, $taken );
+	}
 }
 add_action( 'init', 'wpcredits_migrate_1_32_0', 20 );
+
+/**
+ * A runner's lock, taken before it reads the templates. Without it, two requests that come at once after
+ * an update both run the migration: the second can read a template the first has written, keep a second
+ * copy of it and store its own record, which says there was nothing to do, before the first stores its
+ * own, which is then refused, with the only copy of a template as it was that it may hold.
+ *
+ * The lock is an option beside the runner's own, its name with `_lock` after it, not autoloaded,
+ * holding the time it was taken. add_option() stores nothing where the option is there already, so the
+ * request that adds it holds it; core checks before it inserts, so two requests that add it in the same
+ * instant can both hold it, a window of that instant rather than of the whole run. A lock taken less
+ * than ten minutes ago is a request still running, and this one does nothing. An older one was left by
+ * a request that died before it let go (a timeout, a fatal error), and is taken over, the time written
+ * in it again, so a lock left behind never stops the migration for good; so is one that holds no time,
+ * or a time more than ten minutes ahead, which no running request wrote.
+ *
+ * The lock alone leaves one window: a request that found the runner's option missing just before
+ * another stored it and let go of its lock is then granted the lock. So the runner reads its option
+ * again once the lock is taken, from the database (`wpcredits_migrate_option_now()`), and stops where it
+ * is there now.
+ *
+ * @param string $option The runner's option.
+ * @return int The time written in the lock, which this request now holds; 0 where it holds none.
+ */
+function wpcredits_migrate_lock( $option ) {
+	$lock = $option . '_lock';
+	$now  = time();
+
+	if ( add_option( $lock, $now, '', false ) ) {
+		return $now;
+	}
+
+	$held = get_option( $lock, 0 );
+
+	if ( is_numeric( $held ) && abs( $now - (int) $held ) < 10 * MINUTE_IN_SECONDS ) {
+		return 0;
+	}
+
+	return update_option( $lock, $now, false ) ? $now : 0;
+}
+
+/**
+ * A runner's lock let go of (see `wpcredits_migrate_lock()`), but only while it is still this request's:
+ * a run that outlived ten minutes had its lock taken over by another request, whose lock it leaves. The
+ * lock is read from the database, since this request's object cache holds the time it wrote itself.
+ *
+ * @param string $option The runner's option.
+ * @param int    $taken  The time this request wrote in the lock.
+ */
+function wpcredits_migrate_unlock( $option, $taken ) {
+	$lock = $option . '_lock';
+	$held = (string) wpcredits_migrate_option_now( $lock );
+
+	if ( (string) $taken === $held ) {
+		delete_option( $lock );
+	}
+}
+
+/**
+ * An option that is not autoloaded as the database holds it now, not as this request's object cache
+ * remembers it: get_option() answers an option this request found missing from the cache's
+ * `notoptions`, and one it read or wrote from the cache, so it would not see what another request
+ * stored since. That option is taken out of `notoptions` and out of the cache, and read again.
+ *
+ * @param string $option The option.
+ * @return mixed Its value, false where there is none.
+ */
+function wpcredits_migrate_option_now( $option ) {
+	$notoptions = wp_cache_get( 'notoptions', 'options' );
+
+	if ( is_array( $notoptions ) && isset( $notoptions[ $option ] ) ) {
+		unset( $notoptions[ $option ] );
+		wp_cache_set( 'notoptions', $notoptions, 'options' );
+	}
+
+	wp_cache_delete( $option, 'options' );
+
+	return get_option( $option, false );
+}
 
 /**
  * Whether a post is this theme's saved Education Hub template: a `wp_template` named
@@ -567,7 +666,9 @@ function wpcredits_migrate_keep_copy( $id ) {
  * wp_update_post() expects, with kses turned off around the write, so it does not rewrite markup an
  * Administrator saved on a request whose visitor could not have saved it. What is saved is read back,
  * from the database: a write that reported a failure may have been stored before a hook after it
- * threw, and another filter that changed it is reported.
+ * threw, and another filter that changed it is reported. The revision kept as the copy is read back
+ * after the write as well, since the revision core keeps of the write can make it delete the copy (a
+ * site that keeps one revision); a copy that is gone is the record's to keep.
  *
  * @param int    $id       The template's post ID.
  * @param string $content  Its new content.
@@ -625,11 +726,35 @@ function wpcredits_migrate_1_32_0_write( $id, $content, $revision = true ) {
 		$saved = $now === $content ? true : 'saved-differently';
 	}
 
+	// The copy is read back after the write too: core keeps a revision of what was written, and where the
+	// site keeps few (WP_POST_REVISIONS) it then deletes the oldest beyond the limit, which, with one kept,
+	// is the copy. A copy no longer there, or no longer the template as it was, is the record's to keep.
+	if ( 'revision' === $copy['kept'] && ! wpcredits_migrate_revision_holds( $copy['revision'], $id, $before ) ) {
+		$copy = array(
+			'kept'     => 'record',
+			'revision' => 0,
+		);
+	}
+
 	return array(
 		'saved'    => $saved,
 		'kept'     => $copy['kept'],
 		'revision' => $copy['revision'],
 	);
+}
+
+/**
+ * Whether a revision of a post is there and holds some content byte for byte.
+ *
+ * @param int    $revision The revision's ID.
+ * @param int    $id       The post's ID.
+ * @param string $content  The content.
+ * @return bool
+ */
+function wpcredits_migrate_revision_holds( $revision, $id, $content ) {
+	$revision = (int) $revision > 0 ? get_post( (int) $revision ) : null;
+
+	return $revision instanceof WP_Post && 'revision' === $revision->post_type && (int) $revision->post_parent === (int) $id && (string) $revision->post_content === (string) $content;
 }
 
 /**

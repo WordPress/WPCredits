@@ -166,7 +166,16 @@ function wp_strip_all_tags( $text, $remove_breaks = false ) {
 
 /* ---- options, dates and the request ------------------------------------------------ */
 
-function get_option( $key, $default = false ) { $GLOBALS['option_reads'][] = $key; return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default; }
+function get_option( $key, $default = false ) {
+	$GLOBALS['option_reads'][] = $key;
+
+	// A suite that models this request's object cache of options (bin/stubs/migrate-wp.php) reads through it.
+	if ( ! empty( $GLOBALS['option_cache'] ) && function_exists( 'wpcredits_test_cached_option' ) ) {
+		return wpcredits_test_cached_option( $key, $default );
+	}
+
+	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
+}
 function get_bloginfo( $show = '', $filter = 'raw' ) { return 'name' === $show ? (string) get_option( 'blogname', '' ) : ''; }
 function home_url( $path = '' ) { return 'https://site.example' . $path; }
 function untrailingslashit( $value ) { return rtrim( (string) $value, '/\\' ); }

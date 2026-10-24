@@ -7,11 +7,13 @@
  * headed by its name and short amount, a row for each thing a level includes, Yes from that level up.
  * Those words are the levels', edited there. A level hidden from its block's menu is left out, and a
  * Partner levels block hidden, or in a block that is hidden, is taken for none, as the page draws them
- * as nothing; one hidden at some window sizes only is kept. With no Partner levels block shown in this
- * editor, a short note where the table would be says so, and what the page shows: the server draws the
- * table from the Partners template in use wherever the block is placed, so on the page the table
- * compares that template's levels, and is left out while it shows none. With levels of which none
- * includes anything, a note says that.
+ * as nothing; one hidden at some window sizes only is kept. Where the editor holds more than one levels
+ * block shown, the table is drawn from the one the server reads: the template's own first, then one in
+ * a synced pattern or a template part it refers to (theme 1.32.2). With no Partner levels block shown
+ * in this editor, a short note where the table would be says so, and what the page shows: the server
+ * draws the table from the Partners template in use wherever the block is placed, so on the page the
+ * table compares that template's levels, and is left out while it shows none. With levels of which
+ * none includes anything, a note says that.
  *
  * The table's own words are the head word, edited in place, and the two words its cells say, in the
  * block's settings; each is the translated default until another is typed, as the server draws it. A
@@ -63,6 +65,57 @@
 		return !! attributes && !! attributes.metadata && false === attributes.metadata.blockVisibility;
 	}
 
+	// The blocks that draw other content in their place, which the server's reader follows only after the
+	// template's own blocks: a synced pattern and a template part. The editor holds what each draws as its
+	// inner blocks. A pattern block (`core/pattern`) the editor replaces with the pattern's blocks as it
+	// loads them, so here they are among the template's own.
+	var REFERENCES = [ 'core/block', 'core/template-part' ];
+
+	// Whether a levels block met later in the markup is read before one met earlier, as the server reads
+	// them: each is given by the references it sits in, the outermost first. Past the references the two
+	// share, the server reads the blocks that sit there before what a further reference draws, so the
+	// later one is read first only when it sits there and the earlier one is in a further reference.
+	function readFirst( later, earlier ) {
+		var at = 0;
+
+		while ( at < later.length && at < earlier.length && later[ at ] === earlier[ at ] ) {
+			at++;
+		}
+
+		return at === later.length && at < earlier.length;
+	}
+
+	// The Partner levels block the server's reader names, of those the editor holds: of the levels blocks
+	// the page draws (not hidden, nor in a block that is hidden), the first among the template's own
+	// blocks, at any depth, and only when there is none, one in what they refer to, each reference in the
+	// order of the markup, its own blocks again first. Null when the page draws none.
+	function drawnLevels( store ) {
+		var named = null;
+		var within = null;
+
+		store.getBlocksByName( 'wpcredits/partner-levels' ).forEach( function ( clientId ) {
+			var parents = store.getBlockParents( clientId );
+			var references;
+
+			if ( hidden( store.getBlockAttributes( clientId ) ) || parents.some( function ( parent ) {
+				return hidden( store.getBlockAttributes( parent ) );
+			} ) ) {
+				return;
+			}
+
+			references = parents.filter( function ( parent ) {
+				return -1 !== REFERENCES.indexOf( store.getBlockName( parent ) );
+			} );
+
+			if ( null === named || readFirst( references, within ) ) {
+				named = clientId;
+				within = references;
+			}
+		} );
+
+		return named;
+	}
+
 	// The levels the table compares, as the server reads them from the Partner levels block: its
 	// Partner level blocks in their order, a level with no name left out, and a hidden one.
 	function levelsOf( held ) {
@@ -98,19 +151,15 @@
 			var setAttributes = props.setAttributes;
 			var blockProps = blockEditor.useBlockProps( { className: 'wpc-partners-glance__scroll' } );
 
-			// The Partner levels block's own levels, or null while the template holds no such block that the
-			// page draws: a levels block hidden, or in a block that is hidden, is drawn as nothing, as the
-			// server has it. The store answers with the same list until a level changes, so the table is
-			// drawn again only then.
+			// The levels of the Partner levels block the server's reader names (`drawnLevels()`), or null while
+			// the template holds no such block that the page draws: a levels block hidden, or in a block that
+			// is hidden, is drawn as nothing, as the server has it. The store answers with the same list
+			// until a level changes, so the table is drawn again only then.
 			var held = data.useSelect( function ( select ) {
 				var store = select( 'core/block-editor' );
-				var found = store.getBlocksByName( 'wpcredits/partner-levels' ).filter( function ( clientId ) {
-					return ! hidden( store.getBlockAttributes( clientId ) ) && ! store.getBlockParents( clientId ).some( function ( parent ) {
-						return hidden( store.getBlockAttributes( parent ) );
-					} );
-				} );
+				var named = drawnLevels( store );
 
-				return found.length ? store.getBlocks( found[ 0 ] ) : null;
+				return null !== named ? store.getBlocks( named ) : null;
 			}, [] );
 			var levels = levelsOf( held );
 			var rows = rowsOf( levels );

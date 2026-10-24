@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.1\n"
+"Project-Id-Version: WPCredits 1.32.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-23T01:38:48+00:00\n"
+"POT-Creation-Date: 2026-10-24T14:55:20+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -1189,164 +1189,164 @@ msgstr ""
 msgid "Code is poetry."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:644
+#: inc/migrate-1-32-0.php:769
 msgid "the Program index now holds a Program card for each of the theme's programs"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:645
+#: inc/migrate-1-32-0.php:770
 msgid "the Courses band of WordPress Credits' courses was added under the index"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:646
+#: inc/migrate-1-32-0.php:771
 msgid "\"Find where you fit\" is now Field of study rows, read from its Custom HTML block"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:647
+#: inc/migrate-1-32-0.php:772
 msgid "\"Find where you fit\" is now Field of study rows, the theme's own, as its Custom HTML block could not be read"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:648
+#: inc/migrate-1-32-0.php:773
 msgid "its Program index already holds Program cards"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:649
-#: inc/migrate-1-32-1.php:476
+#: inc/migrate-1-32-0.php:774
+#: inc/migrate-1-32-1.php:521
 msgid "its Program index was emptied in the Site Editor, so it stays empty"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:650
-#: inc/migrate-1-32-1.php:478
+#: inc/migrate-1-32-0.php:775
+#: inc/migrate-1-32-1.php:523
 msgid "it holds no Program index"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:651
+#: inc/migrate-1-32-0.php:776
 msgid "\"Find where you fit\" is already Field of study rows"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:652
+#: inc/migrate-1-32-0.php:777
 msgid "it holds no \"Find where you fit\" Custom HTML block"
 msgstr ""
 
-#: inc/migrate-1-32-0.php:653
-#: inc/migrate-1-32-1.php:479
+#: inc/migrate-1-32-0.php:778
+#: inc/migrate-1-32-1.php:524
 msgid "the update could not be saved"
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-0.php:665
+#: inc/migrate-1-32-0.php:790
 #, php-format
 msgid "The theme's update to 1.32.0 changed the saved Education Hub template, so every word of it can be edited here: %s."
 msgstr ""
 
 #. translators: %s: what the update left as it was, and why, a list.
-#: inc/migrate-1-32-0.php:669
-#: inc/migrate-1-32-1.php:505
+#: inc/migrate-1-32-0.php:794
+#: inc/migrate-1-32-1.php:550
 #, php-format
 msgid "It left the rest as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:673
-#: inc/migrate-1-32-1.php:513
+#: inc/migrate-1-32-0.php:798
+#: inc/migrate-1-32-1.php:558
 msgid "What was saved differs from what the update wrote, so compare the template with its revisions."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:676
-#: inc/migrate-1-32-1.php:521
+#: inc/migrate-1-32-0.php:801
+#: inc/migrate-1-32-1.php:566
 msgid "The template as it was before is kept in the theme's migration record."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:676
-#: inc/migrate-1-32-1.php:521
+#: inc/migrate-1-32-0.php:801
+#: inc/migrate-1-32-1.php:566
 msgid "The template as it was before is kept in its revisions."
 msgstr ""
 
 #. translators: %s: why the update left the template as it was, a list.
-#: inc/migrate-1-32-0.php:679
+#: inc/migrate-1-32-0.php:804
 #, php-format
 msgid "The theme's update to 1.32.0 left the saved Education Hub template as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-0.php:684
+#: inc/migrate-1-32-0.php:809
 msgid "The theme's update to 1.32.0 could not finish updating the saved Education Hub template; a template it did not reach is as it was."
 msgstr ""
 
-#: inc/migrate-1-32-1.php:466
+#: inc/migrate-1-32-1.php:511
 msgid "the partnership levels are now the Partner levels block, read from its Custom HTML block"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:467
+#: inc/migrate-1-32-1.php:512
 msgid "its Custom HTML block of partnership levels held no level, so it is now an empty Partner levels block: until levels are added to it, the page shows no levels and no table, and the sponsor application lists none"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:468
+#: inc/migrate-1-32-1.php:513
 msgid "the Levels at a glance table is now its own block, drawn from those levels"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:469
+#: inc/migrate-1-32-1.php:514
 msgid "its Program index is now marked as edited in the Site Editor, so removing every card from it leaves it empty"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:470
+#: inc/migrate-1-32-1.php:515
 msgid "its partnership levels are already the Partner levels block"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:471
+#: inc/migrate-1-32-1.php:516
 msgid "it holds no Custom HTML block of partnership levels"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:472
+#: inc/migrate-1-32-1.php:517
 msgid "its Levels at a glance table is already its own block"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:473
+#: inc/migrate-1-32-1.php:518
 msgid "it holds no Custom HTML block of the Levels at a glance table"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:474
+#: inc/migrate-1-32-1.php:519
 msgid "its Levels at a glance table stays a Custom HTML block, as the template holds no partnership levels to draw it from"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:475
+#: inc/migrate-1-32-1.php:520
 msgid "its Program index is already marked"
 msgstr ""
 
-#: inc/migrate-1-32-1.php:477
+#: inc/migrate-1-32-1.php:522
 msgid "its Program index is still as theme 1.31 saved it, so it still shows the theme's own programs"
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-1.php:484
+#: inc/migrate-1-32-1.php:529
 #, php-format
 msgid "The theme's update to 1.32.1 changed the saved Partners template, so its partnership levels are edited here and the sponsor application shows the same ones: %s."
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-1.php:484
+#: inc/migrate-1-32-1.php:529
 #, php-format
 msgid "The theme's update to 1.32.1 left the saved Partners template as it was: %s."
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-1.php:486
+#: inc/migrate-1-32-1.php:531
 #, php-format
 msgid "The theme's update to 1.32.1 changed the saved Education Hub template: %s."
 msgstr ""
 
 #. translators: %s: what the update changed in the template, a list.
-#: inc/migrate-1-32-1.php:486
+#: inc/migrate-1-32-1.php:531
 #, php-format
 msgid "The theme's update to 1.32.1 left the saved Education Hub template as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-1.php:509
+#: inc/migrate-1-32-1.php:554
 msgid "Its partnership levels could not be read from its Custom HTML block, so the theme's own levels were written in their place: compare them with the template as it was."
 msgstr ""
 
-#: inc/migrate-1-32-1.php:519
+#: inc/migrate-1-32-1.php:564
 msgid "The template as it was before could not be kept, in its revisions or in the theme's migration record."
 msgstr ""
 
-#: inc/migrate-1-32-1.php:531
+#: inc/migrate-1-32-1.php:576
 msgid "The theme's update to 1.32.1 could not finish updating the saved Partners and Education Hub templates; a template it did not reach is as it was."
 msgstr ""
 
@@ -1509,19 +1509,19 @@ msgstr ""
 msgid "A report specific to that program"
 msgstr ""
 
-#: inc/partners.php:862
-#: blocks/partner-glance/index.js:117
+#: inc/partners.php:864
+#: blocks/partner-glance/index.js:166
 msgid "Recognition"
 msgstr ""
 
-#: inc/partners.php:863
-#: blocks/partner-glance/index.js:118
+#: inc/partners.php:865
+#: blocks/partner-glance/index.js:167
 msgctxt "a partnership level has this recognition"
 msgid "Yes"
 msgstr ""
 
-#: inc/partners.php:864
-#: blocks/partner-glance/index.js:119
+#: inc/partners.php:866
+#: blocks/partner-glance/index.js:168
 msgctxt "a partnership level does not have this recognition"
 msgid "No"
 msgstr ""
@@ -2072,7 +2072,7 @@ msgid "Compare all levels"
 msgstr ""
 
 #: patterns/partners-levels.php:55
-#: blocks/partner-glance/index.js:197
+#: blocks/partner-glance/index.js:246
 msgid "Levels at a glance"
 msgstr ""
 
@@ -2207,27 +2207,27 @@ msgstr ""
 msgid "What the student will have to show"
 msgstr ""
 
-#: blocks/partner-glance/index.js:136
+#: blocks/partner-glance/index.js:185
 msgid "This editor shows no Partner levels block to draw the table from. On the page, the table compares the levels of the Partners template in use, and is left out while that template shows none."
 msgstr ""
 
-#: blocks/partner-glance/index.js:138
+#: blocks/partner-glance/index.js:187
 msgid "No level includes anything yet. What each Partner level includes, in its settings, makes the table's rows."
 msgstr ""
 
-#: blocks/partner-glance/index.js:156
+#: blocks/partner-glance/index.js:205
 msgid "The table's head word"
 msgstr ""
 
-#: blocks/partner-glance/index.js:198
+#: blocks/partner-glance/index.js:247
 msgid "The table is drawn from the Partner levels of the Partners template in use: a level's name, short amount and what it includes are edited there."
 msgstr ""
 
-#: blocks/partner-glance/index.js:200
+#: blocks/partner-glance/index.js:249
 msgid "The word for a level that has it"
 msgstr ""
 
-#: blocks/partner-glance/index.js:208
+#: blocks/partner-glance/index.js:257
 msgid "The word for a level that does not"
 msgstr ""
 

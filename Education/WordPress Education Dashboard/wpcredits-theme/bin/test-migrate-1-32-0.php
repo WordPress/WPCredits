@@ -310,15 +310,17 @@ wpcredits_migrate_1_32_0();
 
 $record = get_option( 'wpcredits_migrated_1_32_0' );
 
-ck( 'the runner migrates this theme\'s saved Education Hub template alone: a revision of it as it was first, written with kses off, then its content written with kses off around the write, the option last, not autoloaded; another theme\'s copy and the Partners template are not touched',
+ck( 'the runner migrates this theme\'s saved Education Hub template alone: its lock taken first, not autoloaded, before it reads the templates; a revision of the template as it was, written with kses off, then its content written with kses off around the write, the option, not autoloaded, and the lock let go of last; another theme\'s copy and the Partners template are not touched',
 	array(
 		$GLOBALS['calls'],
 		$GLOBALS['posts'][1654]->post_content === $after,
 		$GLOBALS['posts'][1700]->post_content === $saved,
 		$GLOBALS['posts'][1643]->post_content,
+		array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ),
 	),
 	array(
 		array(
+			'add_option wpcredits_migrated_1_32_0_lock autoload false',
 			'get_posts {"post_type":"wp_template","post_status":"any","name":"page-education-hub","posts_per_page":20,"orderby":"ID","order":"ASC"}',
 			'kses off',
 			'revision 1654 of ' . sha1( $saved ),
@@ -327,10 +329,12 @@ ck( 'the runner migrates this theme\'s saved Education Hub template alone: a rev
 			'update 1654 to ' . sha1( $after ),
 			'kses on',
 			'add_option wpcredits_migrated_1_32_0 autoload false',
+			'delete_option wpcredits_migrated_1_32_0_lock',
 		),
 		true,
 		true,
 		'partners',
+		false,
 	) );
 
 $first_copy = newest_revision_of( 1654 );
@@ -354,7 +358,7 @@ $GLOBALS['calls'] = array();
 wpcredits_migrate_1_32_0();
 
 ck( 'and should the option be lost, a run over the migrated template writes nothing and records why',
-	array( $GLOBALS['calls'][1] ?? null, get_option( 'wpcredits_migrated_1_32_0' )['templates'][0]['skipped'] ?? null ),
+	array( $GLOBALS['calls'][2] ?? null, get_option( 'wpcredits_migrated_1_32_0' )['templates'][0]['skipped'] ?? null ),
 	array( 'add_option wpcredits_migrated_1_32_0 autoload false', array( 'program-index-done', 'fit-list-done' ) ) );
 
 unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
@@ -400,11 +404,11 @@ wpcredits_migrate_1_32_0();
 $GLOBALS['throw_terms'] = false;
 $terms_record           = get_option( 'wpcredits_migrated_1_32_0' );
 
-ck( 'a write that throws is caught: the template is left as it was and recorded as failed, kses turned back on after it, the option set, and the next request tries nothing; a save that throws in the repair still returns, the failure recorded with the repairs; a run that throws before any write records the failure, which the notice tells, and is set all the same',
+ck( 'a write that throws is caught: the template is left as it was and recorded as failed, kses turned back on after it, the option set and the lock let go of, and the next request tries nothing; a save that throws in the repair still returns, the failure recorded with the repairs; a run that throws before any write records the failure, which the notice tells, and is set all the same',
 	array(
 		$GLOBALS['posts'][1654]->post_content === $saved,
 		$thrown_record['templates'][0] ?? null,
-		array_slice( $thrown_calls, -3 ),
+		array_slice( $thrown_calls, -4 ),
 		$thrown_save,
 		array_slice( $thrown_save_calls, -3 ),
 		$after_thrown,
@@ -413,7 +417,7 @@ ck( 'a write that throws is caught: the template is left as it was and recorded 
 	array(
 		true,
 		array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array(), 'skipped' => array( 'update-failed' ), 'kept' => '' ),
-		array( 'update 1654 to ' . sha1( $after ), 'kses on', 'add_option wpcredits_migrated_1_32_0 autoload false' ),
+		array( 'update 1654 to ' . sha1( $after ), 'kses on', 'add_option wpcredits_migrated_1_32_0 autoload false', 'delete_option wpcredits_migrated_1_32_0_lock' ),
 		'returned',
 		array( 'update 1654 to ' . sha1( $after ), 'kses on', 'update_option wpcredits_migrated_1_32_0 autoload false' ),
 		array(),
@@ -461,6 +465,191 @@ $rewritten                 = get_option( 'wpcredits_migrated_1_32_0' );
 ck( 'what was saved is read back: a filter that rewrote it is recorded, the change kept, and the notice says to compare the template with its revisions',
 	array( $rewritten['templates'][0]['changed'] ?? null, $rewritten['templates'][0]['skipped'] ?? null, false !== strpos( wpcredits_migrate_1_32_0_summary( $rewritten ), 'What was saved differs from what the update wrote, so compare the template with its revisions.' ) ),
 	array( array( 'program-index', 'course-band', 'fit-list' ), array( 'saved-differently' ), true ) );
+
+echo "\n=== The lock ===\n";
+
+// Two requests at once: the first runs, and a second comes before it has stored its option. Here the
+// second is run from inside the first's write, which is where it would do harm: it would read the
+// template the first is writing, keep a second copy and record what it found.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+drop_revisions();
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$meanwhile                            = array();
+$second_request                       = static function () use ( &$meanwhile ) {
+	$from = count( $GLOBALS['calls'] );
+
+	wpcredits_migrate_1_32_0();
+
+	$meanwhile[] = array( array_slice( $GLOBALS['calls'], $from ), $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] ?? null, array_key_exists( 'wpcredits_migrated_1_32_0', $GLOBALS['opts'] ) );
+};
+
+add_action( 'wp_after_insert_post', $second_request, 5 );
+
+$GLOBALS['calls'] = array();
+$locked_at        = time();
+wpcredits_migrate_1_32_0();
+
+remove_filter( 'wp_after_insert_post', $second_request, 5 );
+
+ck( 'a second request while the runner runs finds its lock, which holds the time it was taken, and does nothing: it reads no template, writes nothing and leaves no record; the first writes once and records, and lets go of the lock',
+	array(
+		count( $meanwhile ),
+		$meanwhile ? $meanwhile[0][0] : null,
+		$meanwhile ? $meanwhile[0][1] >= $locked_at && $meanwhile[0][1] <= time() : null,
+		$meanwhile ? $meanwhile[0][2] : null,
+		count( preg_grep( '/^update /', $GLOBALS['calls'] ) ),
+		get_option( 'wpcredits_migrated_1_32_0' )['templates'][0]['changed'] ?? null,
+		array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ),
+	),
+	array( 1, array(), true, false, 1, array( 'program-index', 'course-band', 'fit-list' ), false ) );
+
+// A lock a request left behind when it died (a timeout, a fatal error) must not stop the migration for
+// ever: one taken ten minutes ago or more is no running request's, and is taken over; so is one that
+// holds no time, or a time more than ten minutes ahead, which no running request wrote.
+$locks    = array(
+	'taken nine minutes ago'      => time() - 9 * MINUTE_IN_SECONDS,
+	'dated five minutes ahead'    => time() + 5 * MINUTE_IN_SECONDS,
+	'taken eleven minutes ago'    => time() - 11 * MINUTE_IN_SECONDS,
+	'dated a day ahead'           => time() + DAY_IN_SECONDS,
+	'holding no time'             => 'locked',
+);
+$outcomes = array();
+
+foreach ( $locks as $label => $held ) {
+	unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+	$GLOBALS['posts'][1654]->post_content            = $saved;
+	$GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] = $held;
+	$GLOBALS['calls']                                = array();
+
+	wpcredits_migrate_1_32_0();
+
+	$outcomes[ $label ] = array(
+		array_key_exists( 'wpcredits_migrated_1_32_0', $GLOBALS['opts'] ),
+		$GLOBALS['calls'] ? array( $GLOBALS['calls'][0], end( $GLOBALS['calls'] ) ) : array(),
+		$GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] ?? 'let go of',
+	);
+
+	unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] );
+}
+
+$taken_over = array( true, array( 'update_option wpcredits_migrated_1_32_0_lock autoload false', 'delete_option wpcredits_migrated_1_32_0_lock' ), 'let go of' );
+
+ck( 'a lock younger than ten minutes, or dated up to ten minutes ahead, holds the runner off, and is left as it is; one ten minutes old or more, one dated further ahead and one that holds no time are taken over, the time written in them, and let go of once the option is stored',
+	$outcomes,
+	array(
+		'taken nine minutes ago'   => array( false, array(), $locks['taken nine minutes ago'] ),
+		'dated five minutes ahead' => array( false, array(), $locks['dated five minutes ahead'] ),
+		'taken eleven minutes ago' => $taken_over,
+		'dated a day ahead'        => $taken_over,
+		'holding no time'          => $taken_over,
+	) );
+
+// The lock is let go of on the runner's failure paths too: a run that throws, and an option that cannot
+// be stored (here the record holds the only copy, revisions being off, and the database refuses it), so
+// the next request runs it again at once rather than ten minutes later.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['throw_terms']               = true;
+$GLOBALS['calls']                     = array();
+wpcredits_migrate_1_32_0();
+$GLOBALS['throw_terms'] = false;
+$failed_lock            = array( get_option( 'wpcredits_migrated_1_32_0' )['failed'] ?? null, array_slice( $GLOBALS['calls'], -2 ), array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ) );
+
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['revisions_off'] = true;
+$GLOBALS['refuse_copies'] = true;
+$GLOBALS['calls']         = array();
+wpcredits_migrate_1_32_0();
+$GLOBALS['refuse_copies'] = false;
+$GLOBALS['revisions_off'] = false;
+$refused_lock             = array( array_key_exists( 'wpcredits_migrated_1_32_0', $GLOBALS['opts'] ), array_slice( $GLOBALS['calls'], -2 ), array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ) );
+
+ck( 'a run that throws records the failure and lets go of the lock after the option is stored; a record the database refuses is not stored, and the lock is let go of all the same',
+	array( $failed_lock, $refused_lock ),
+	array(
+		array( 'update-failed', array( 'add_option wpcredits_migrated_1_32_0 autoload false', 'delete_option wpcredits_migrated_1_32_0_lock' ), false ),
+		array( false, array( 'add_option wpcredits_migrated_1_32_0 refused', 'delete_option wpcredits_migrated_1_32_0_lock' ), false ),
+	) );
+
+// The window the lock leaves on its own: this request finds no option, then another request stores its
+// own and lets go of its lock, and only then is this one's lock granted. This request's object cache, as
+// core keeps it, still says the option is missing, so the runner reads it again, from the database, and
+// stops there, its lock let go of.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['option_cache']              = true;
+$GLOBALS['wp_cache']                  = array();
+$others_record                        = array(
+	'ran'       => time(),
+	'templates' => array( array( 'id' => 1654, 'slug' => 'page-education-hub', 'changed' => array( 'program-index', 'course-band', 'fit-list' ), 'skipped' => array(), 'kept' => 'revision', 'revision' => 1 ) ),
+);
+
+$GLOBALS['before_add']['wpcredits_migrated_1_32_0_lock'] = static function () use ( $others_record ) {
+	$GLOBALS['opts']['wpcredits_migrated_1_32_0'] = $others_record;
+};
+
+$GLOBALS['calls'] = array();
+wpcredits_migrate_1_32_0();
+$granted_late = array( $GLOBALS['calls'], ( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] ?? null ) === $others_record, $GLOBALS['posts'][1654]->post_content === $saved, array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ) );
+
+// A run that outlives its ten minutes: another request takes its lock over meanwhile (here, during the
+// first one's write, in the database behind the first one's cache, which still holds its own time), and
+// the first, done at last, leaves the lock the other holds now.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['wp_cache']                  = array();
+$others_time                          = null;
+$take_over                            = static function () use ( &$others_time ) {
+	$others_time = (int) $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] + 11 * MINUTE_IN_SECONDS;
+
+	$GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] = $others_time;
+};
+
+add_action( 'wp_after_insert_post', $take_over, 5 );
+
+$GLOBALS['calls'] = array();
+wpcredits_migrate_1_32_0();
+
+remove_filter( 'wp_after_insert_post', $take_over, 5 );
+
+$outlived                 = array( get_option( 'wpcredits_migrated_1_32_0' )['templates'][0]['changed'] ?? null, in_array( 'delete_option wpcredits_migrated_1_32_0_lock', $GLOBALS['calls'], true ), null !== $others_time && ( $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] ?? null ) === $others_time );
+$GLOBALS['option_cache']  = false;
+$GLOBALS['wp_cache']      = array();
+
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] );
+
+ck( 'a lock granted after another request stored the option, which this request\'s cache still says is missing, is let go of with no template read and nothing written, the other\'s record kept; a run whose lock another request took over meanwhile records what it did and leaves that request\'s lock in place',
+	array( $granted_late, $outlived ),
+	array(
+		array( array( 'add_option wpcredits_migrated_1_32_0_lock autoload false', 'delete_option wpcredits_migrated_1_32_0_lock' ), true, true, false ),
+		array( array( 'program-index', 'course-band', 'fit-list' ), false, true ),
+	) );
+
+// And when storing the record throws, as a database layer can, the lock is let go of on the way out.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['throw_option']              = 'wpcredits_migrated_1_32_0';
+$GLOBALS['calls']                     = array();
+$record_throws                        = 'returned';
+
+try {
+	wpcredits_migrate_1_32_0();
+} catch ( Throwable $error ) {
+	$record_throws = 'threw';
+}
+
+$GLOBALS['throw_option'] = false;
+
+ck( 'a record whose storing throws: the throw goes on, the record is not stored, and the lock is let go of',
+	array( $record_throws, end( $GLOBALS['calls'] ), array_key_exists( 'wpcredits_migrated_1_32_0', $GLOBALS['opts'] ), array_key_exists( 'wpcredits_migrated_1_32_0_lock', $GLOBALS['opts'] ) ),
+	array( 'threw', 'delete_option wpcredits_migrated_1_32_0_lock', false, false ) );
 
 echo "\n=== The copy of the template as it was ===\n";
 
@@ -650,6 +839,74 @@ $GLOBALS['revisions_off']  = false;
 ck( 'a write that failed says `update-failed`, one a filter rewrote `saved-differently`, each with where the copy is',
 	array( $failed_write['saved'], $failed_write['kept'], $differing_write ),
 	array( 'update-failed', 'revision', array( 'saved' => 'saved-differently', 'kept' => 'record', 'revision' => 0 ) ) );
+
+// Core keeps a revision of what a write saved, and where the site keeps few (WP_POST_REVISIONS) it then
+// deletes the oldest beyond the limit: with one kept, the write's own revision takes the place of the copy
+// made just before it, and the copy is gone though core said it was stored. Each history here starts
+// with an older revision, live's stripped one, or one that already holds the template, which is reused.
+$limits   = array(
+	'no limit'             => -1,
+	'twenty-five'          => 25,
+	'two'                  => 2,
+	'one'                  => 1,
+	'one, the copy reused' => 1,
+);
+$outcomes = array();
+
+foreach ( $limits as $label => $keep ) {
+	drop_revisions();
+	add_revision( 1654, 'one, the copy reused' === $label ? $saved : $without_svg, 7 );
+
+	$GLOBALS['posts'][1654]->post_content = $saved;
+	$GLOBALS['revisions_to_keep']         = $keep;
+	$GLOBALS['calls']                     = array();
+	$limited                              = wpcredits_migrate_1_32_0_write( 1654, $after );
+	$GLOBALS['revisions_to_keep']         = null;
+	$kept_one                             = $limited['revision'] ? get_post( $limited['revision'] ) : null;
+
+	$outcomes[ $label ] = array( $limited, $kept_one ? $kept_one->post_content === $saved : null, count( wp_get_post_revisions( 1654 ) ), count( preg_grep( '/ deleted$/', $GLOBALS['calls'] ) ) );
+}
+
+$copy_at = static function ( $label ) use ( $outcomes ) {
+	return $outcomes[ $label ][0]['revision'];
+};
+
+ck( 'after the write, the revision recorded as the copy is read back: with no limit, or a large one, or one that leaves it, it holds the template as it was and is said, as before; with one revision kept, core deleted it for the write\'s own, made or reused, and the copy is the record\'s',
+	$outcomes,
+	array(
+		'no limit'             => array( array( 'saved' => true, 'kept' => 'revision', 'revision' => $copy_at( 'no limit' ) ), true, 3, 0 ),
+		'twenty-five'          => array( array( 'saved' => true, 'kept' => 'revision', 'revision' => $copy_at( 'twenty-five' ) ), true, 3, 0 ),
+		'two'                  => array( array( 'saved' => true, 'kept' => 'revision', 'revision' => $copy_at( 'two' ) ), true, 2, 1 ),
+		'one'                  => array( array( 'saved' => true, 'kept' => 'record', 'revision' => 0 ), null, 1, 2 ),
+		'one, the copy reused' => array( array( 'saved' => true, 'kept' => 'record', 'revision' => 0 ), null, 1, 1 ),
+	) );
+
+// The runner records it so, the template as it was in the record, and the notice says the record holds it.
+drop_revisions();
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['revisions_to_keep']         = 1;
+wpcredits_migrate_1_32_0();
+$pruned_record = get_option( 'wpcredits_migrated_1_32_0' );
+
+drop_revisions();
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'] );
+
+$GLOBALS['posts'][1654]->post_content = $saved;
+$GLOBALS['revisions_to_keep']         = -1;
+wpcredits_migrate_1_32_0();
+$GLOBALS['revisions_to_keep'] = null;
+$unlimited_record             = get_option( 'wpcredits_migrated_1_32_0' );
+
+ck( 'a runner on a site that keeps one revision records the copy in the record, `before` byte for byte the template, and the notice says the record holds it; on a site with no limit it records the revision, which holds the template, as before',
+	array(
+		array( $pruned_record['templates'][0]['kept'] ?? null, $pruned_record['templates'][0]['revision'] ?? null, ( $pruned_record['templates'][0]['before'] ?? null ) === $saved ),
+		false !== strpos( wpcredits_migrate_1_32_0_summary( $pruned_record ), 'The template as it was before is kept in the theme\'s migration record.' ),
+		false !== strpos( wpcredits_migrate_1_32_0_summary( $pruned_record ), 'revisions' ),
+		array( $unlimited_record['templates'][0]['kept'] ?? null, array_key_exists( 'before', $unlimited_record['templates'][0] ?? array() ), get_post( $unlimited_record['templates'][0]['revision'] ?? 0 ) ? get_post( $unlimited_record['templates'][0]['revision'] )->post_content === $saved : null ),
+	),
+	array( array( 'record', 0, true ), true, false, array( 'revision', false, true ) ) );
 
 // The reviewer's finding: a hook that throws after the database write has not undone it. The object
 // cache still holds the template as it was, so the write reads it back from the database.

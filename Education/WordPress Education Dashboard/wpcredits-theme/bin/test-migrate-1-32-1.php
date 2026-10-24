@@ -441,6 +441,75 @@ ck( 'a Custom HTML block of 1.31 cards beside the Partner levels block an Admini
 	array( $beside_run['content'] === $beside, $beside_run['changed'], $beside_run['skipped'], $named_run['content'] === $named, $named_run['skipped'] ),
 	array( true, array(), array( 'partner-levels-done', 'partner-glance-done' ), true, array( 'partner-levels-missing', 'partner-glance-missing' ) ) );
 
+// The 1.31 cards, or the table, hidden in the Site Editor: the Custom HTML block was saved with
+// `"metadata":{"blockVisibility":false}` in its comment, which core draws as nothing whatever the block's
+// support, so the page showed no cards, or no table. The block that replaces it carries the same metadata,
+// a name an Administrator gave it in List View among it, so a hidden part stays hidden; a block with no
+// metadata, or an empty one, or other attributes alone (a lock), is replaced exactly as live's is.
+$html_open   = '<!-- wp:html -->';
+$opened_with = static function ( $markup, array $span, $open ) use ( $html_open ) {
+	return substr_replace( $markup, $open, $span[0], strlen( $html_open ) );
+};
+$hide        = '{"metadata":{"blockVisibility":false}}';
+$hide_named  = '{"metadata":{"blockVisibility":false,"name":"The table"}}';
+$levels_open = '<!-- wp:wpcredits/partner-levels -->';
+$glance_void = '<!-- wp:wpcredits/partner-glance /-->';
+
+$hidden_runs = array(
+	'the cards hidden'           => wpcredits_migrate_1_32_1_content( $opened_with( $partners, $cards_span, '<!-- wp:html ' . $hide . ' -->' ), 'page-partners' ),
+	'the table hidden and named' => wpcredits_migrate_1_32_1_content( $opened_with( $partners, $table_span, '<!-- wp:html ' . $hide_named . ' -->' ), 'page-partners' ),
+	'both in one block, hidden'  => wpcredits_migrate_1_32_1_content( $opened_with( $merged, $cards_span, '<!-- wp:html ' . $hide . ' -->' ), 'page-partners' ),
+	'an emptied grid, hidden'    => wpcredits_migrate_1_32_1_content( $opened_with( $emptied_cards, $cards_span, '<!-- wp:html ' . $hide . ' -->' ), 'page-partners' ),
+	'an empty metadata'          => wpcredits_migrate_1_32_1_content( $opened_with( $partners, $cards_span, '<!-- wp:html {"metadata":{}} -->' ), 'page-partners' ),
+	'a lock and no metadata'     => wpcredits_migrate_1_32_1_content( $opened_with( $opened_with( $partners, $table_span, '<!-- wp:html {"lock":{"remove":true}} -->' ), $cards_span, '<!-- wp:html {"lock":{"move":true}} -->' ), 'page-partners' ),
+);
+$both_blocks = array( 'partner-levels', 'partner-glance' );
+$hidden_want = array(
+	'the cards hidden'           => array( substr_replace( $after, '<!-- wp:wpcredits/partner-levels ' . $hide . ' -->', strpos( $after, $levels_open ), strlen( $levels_open ) ), $both_blocks ),
+	'the table hidden and named' => array( substr_replace( $after, '<!-- wp:wpcredits/partner-glance ' . $hide_named . ' /-->', strpos( $after, $glance_void ), strlen( $glance_void ) ), $both_blocks ),
+	'both in one block, hidden'  => array( str_replace( array( $levels_open, $glance_void ), array( '<!-- wp:wpcredits/partner-levels ' . $hide . ' -->', '<!-- wp:wpcredits/partner-glance ' . $hide . ' /-->' ), $merged_run['content'] ), $both_blocks ),
+	'an emptied grid, hidden'    => array( str_replace( '<!-- wp:wpcredits/partner-levels /-->', '<!-- wp:wpcredits/partner-levels ' . $hide . ' /-->', $emptied_run['content'] ), array( 'partner-levels-emptied', 'partner-glance' ) ),
+	'an empty metadata'          => array( $after, $both_blocks ),
+	'a lock and no metadata'     => array( $after, $both_blocks ),
+);
+
+$hidden_got = array();
+
+foreach ( $hidden_runs as $label => $run ) {
+	$hidden_got[ $label ] = array( $run['content'] === $hidden_want[ $label ][0], $run['changed'] );
+}
+
+ck( 'a Custom HTML block of 1.31 cards, or of the table, that carries metadata is replaced by a block that carries the same, every other byte as live\'s template migrates; the two blocks of one such block both carry it; a block with an empty metadata, or with a lock and no metadata, is replaced exactly as live\'s is',
+	$hidden_got,
+	array_map( static function ( $want ) { return array( true, $want[1] ); }, $hidden_want ) );
+
+// What the page draws, with core's block visibility hooked: the hidden cards drew nothing before the
+// migration and their block draws nothing after it, so the page shows no levels and the table no
+// columns, and the sponsor application lists none, as the page shows; the hidden table is still hidden.
+add_filter( 'render_block', 'wpcredits_test_block_visibility', 10, 2 );
+
+$hidden_cards_html = substr( $opened_with( $partners, $cards_span, '<!-- wp:html ' . $hide . ' -->' ), $cards_span[0], $cards_span[1] + strlen( $hide ) + 1 );
+
+wpcredits_test_saved_template( 'page-partners', $hidden_runs['the cards hidden']['content'] );
+wpcredits_partner_levels_reset();
+
+$hidden_drawn = array(
+	trim( render_block( parse_blocks( $hidden_cards_html )[0] ) ),
+	trim( render_block( wpcredits_test_block_in( $hidden_runs['the cards hidden']['content'], 'wpcredits/partner-levels' ) ) ),
+	trim( render_block( wpcredits_test_block_in( $hidden_runs['the cards hidden']['content'], 'wpcredits/partner-glance' ) ) ),
+	wpcredits_partners_levels_for_form( array() ),
+	trim( render_block( wpcredits_test_block_in( $hidden_runs['the table hidden and named']['content'], 'wpcredits/partner-glance' ) ) ),
+	'' !== trim( render_block( wpcredits_test_block_in( $after, 'wpcredits/partner-levels' ) ) ),
+);
+
+remove_filter( 'render_block', 'wpcredits_test_block_visibility', 10 );
+wpcredits_test_saved_template( 'page-partners', $after );
+wpcredits_partner_levels_reset();
+
+ck( 'the hidden cards stay hidden: their Custom HTML block drew nothing, and so do the Partner levels block and the table drawn from it, and the sponsor application is handed no level; the hidden table stays hidden; the levels block of a block not hidden draws its cards',
+	$hidden_drawn,
+	array( '', '', '', array(), '', true ) );
+
 $bare_template = '<!-- wp:paragraph -->' . "\n" . '<p>A Partners page with neither.</p>' . "\n" . '<!-- /wp:paragraph -->';
 $bare_run      = wpcredits_migrate_1_32_1_content( $bare_template, 'page-partners' );
 $other_run     = wpcredits_migrate_1_32_1_content( $partners, 'page' );
@@ -496,7 +565,7 @@ wpcredits_migrate_1_32_1();
 $record   = get_option( 'wpcredits_migrated_1_32_1' );
 $hub_copy = newest_revision_of( 1654 );
 
-ck( 'the runner migrates this theme\'s saved Partners and Education Hub templates alone: the Partners template, whose newest revision already holds it, written with kses off; the hub, a revision of it as it was kept first, then written; the option last, not autoloaded; another theme\'s copies are not touched',
+ck( 'the runner migrates this theme\'s saved Partners and Education Hub templates alone: its lock taken first, not autoloaded, before it reads the templates; the Partners template, whose newest revision already holds it, written with kses off; the hub, a revision of it as it was kept first, then written; the option, not autoloaded, and the lock let go of last; another theme\'s copies are not touched',
 	array(
 		$GLOBALS['calls'],
 		$GLOBALS['posts'][1643]->post_content === $after,
@@ -506,6 +575,7 @@ ck( 'the runner migrates this theme\'s saved Partners and Education Hub template
 	),
 	array(
 		array(
+			'add_option wpcredits_migrated_1_32_1_lock autoload false',
 			query_for( 'page-partners' ),
 			'kses off',
 			'update 1643 to ' . sha1( $after ),
@@ -518,6 +588,7 @@ ck( 'the runner migrates this theme\'s saved Partners and Education Hub template
 			'update 1654 to ' . sha1( $hub_1320 ),
 			'kses on',
 			'add_option wpcredits_migrated_1_32_1 autoload false',
+			'delete_option wpcredits_migrated_1_32_1_lock',
 		),
 		true,
 		true,
@@ -579,16 +650,20 @@ $GLOBALS['posts'] = array();
 $GLOBALS['calls'] = array();
 $fresh_order      = run_init_migrations();
 
-ck( 'on a fresh install, with no saved template, both run on the first request, the 1.32.0 runner first, and each records that it reached nothing, which the notice does not tell',
+ck( 'on a fresh install, with no saved template, both run on the first request, the 1.32.0 runner first, each in its own lock, and each records that it reached nothing, which the notice does not tell',
 	array( $fresh_order, $GLOBALS['calls'], get_option( 'wpcredits_migrated_1_32_0' )['templates'] ?? null, get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? null, wpcredits_migrate_1_32_1_summary( get_option( 'wpcredits_migrated_1_32_1' ) ) ),
 	array(
 		array( 'wpcredits_migrate_1_32_0 20', 'wpcredits_migrate_1_32_1 21' ),
 		array(
+			'add_option wpcredits_migrated_1_32_0_lock autoload false',
 			query_for( 'page-education-hub' ),
 			'add_option wpcredits_migrated_1_32_0 autoload false',
+			'delete_option wpcredits_migrated_1_32_0_lock',
+			'add_option wpcredits_migrated_1_32_1_lock autoload false',
 			query_for( 'page-partners' ),
 			query_for( 'page-education-hub' ),
 			'add_option wpcredits_migrated_1_32_1 autoload false',
+			'delete_option wpcredits_migrated_1_32_1_lock',
 		),
 		array(),
 		array(),
@@ -618,6 +693,7 @@ ck( 'where 1.32.0\'s runner never ran, both run on the first request, in order: 
 	),
 	array(
 		array(
+			'add_option wpcredits_migrated_1_32_0_lock autoload false',
 			query_for( 'page-education-hub' ),
 			'kses off',
 			'revision 1654 of ' . sha1( $hub_saved ),
@@ -626,6 +702,8 @@ ck( 'where 1.32.0\'s runner never ran, both run on the first request, in order: 
 			'update 1654 to ' . sha1( $hub_1320 ),
 			'kses on',
 			'add_option wpcredits_migrated_1_32_0 autoload false',
+			'delete_option wpcredits_migrated_1_32_0_lock',
+			'add_option wpcredits_migrated_1_32_1_lock autoload false',
 			query_for( 'page-partners' ),
 			'kses off',
 			'revision 1643 of ' . sha1( $partners ),
@@ -635,6 +713,7 @@ ck( 'where 1.32.0\'s runner never ran, both run on the first request, in order: 
 			'kses on',
 			query_for( 'page-education-hub' ),
 			'add_option wpcredits_migrated_1_32_1 autoload false',
+			'delete_option wpcredits_migrated_1_32_1_lock',
 		),
 		true,
 		true,
@@ -727,15 +806,15 @@ $GLOBALS['refuse_copies'] = false;
 $GLOBALS['revisions_off'] = false;
 $lost_record              = get_option( 'wpcredits_migrated_1_32_1' );
 
-ck( 'a record that holds the only copies and is refused is not taken as stored: a record without the copies is stored in its place, each template\'s copy said lost, and the notice says the template as it was could not be kept, never that it was',
+ck( 'a record that holds the only copies and is refused is not taken as stored: a record without the copies is stored in its place, each template\'s copy said lost, then the lock let go of, and the notice says the template as it was could not be kept, never that it was',
 	array(
-		array_slice( $GLOBALS['calls'], -2 ),
+		array_slice( $GLOBALS['calls'], -3 ),
 		array_map( static function ( $entry ) { return array( $entry['slug'], $entry['kept'], array_key_exists( 'before', $entry ) ); }, $lost_record['templates'] ?? array() ),
 		false !== strpos( wpcredits_migrate_1_32_1_summary( $lost_record ), 'The template as it was before could not be kept, in its revisions or in the theme\'s migration record.' ),
 		false !== strpos( wpcredits_migrate_1_32_1_summary( $lost_record ), 'is kept' ),
 	),
 	array(
-		array( 'add_option wpcredits_migrated_1_32_1 refused', 'add_option wpcredits_migrated_1_32_1 autoload false' ),
+		array( 'add_option wpcredits_migrated_1_32_1 refused', 'add_option wpcredits_migrated_1_32_1 autoload false', 'delete_option wpcredits_migrated_1_32_1_lock' ),
 		array( array( 'page-partners', 'lost', false ), array( 'page-education-hub', 'lost', false ) ),
 		true,
 		false,
@@ -755,7 +834,7 @@ $record_copy              = get_option( 'wpcredits_migrated_1_32_1' );
 
 ck( 'a record that holds the only copies and is stored keeps each template as it was, byte for byte, in `before`, and the notice says so',
 	array(
-		count( preg_grep( '/^add_option /', $GLOBALS['calls'] ) ),
+		count( preg_grep( '/^add_option wpcredits_migrated_1_32_1 /', $GLOBALS['calls'] ) ),
 		array_map( static function ( $entry ) { return array( $entry['kept'], $entry['revision'] ); }, $record_copy['templates'] ?? array() ),
 		( $record_copy['templates'][0]['before'] ?? null ) === $partners,
 		( $record_copy['templates'][1]['before'] ?? null ) === $hub_live,
@@ -776,8 +855,65 @@ wpcredits_migrate_1_32_1();
 $GLOBALS['refuse_copies'] = false;
 
 ck( 'where the copies are revisions the record holds none, so it is stored at the first try',
-	array( preg_grep( '/^add_option /', $GLOBALS['calls'] ), array_column( get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? array(), 'kept' ) ),
-	array( array( count( $GLOBALS['calls'] ) - 1 => 'add_option wpcredits_migrated_1_32_1 autoload false' ), array( 'revision', 'revision' ) ) );
+	array( preg_grep( '/^add_option wpcredits_migrated_1_32_1 /', $GLOBALS['calls'] ), array_column( get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? array(), 'kept' ) ),
+	array( array( count( $GLOBALS['calls'] ) - 2 => 'add_option wpcredits_migrated_1_32_1 autoload false' ), array( 'revision', 'revision' ) ) );
+
+// Live's case on a site that keeps one revision (WP_POST_REVISIONS): core keeps a revision of each write
+// and deletes the oldest beyond the limit, so the Partners template's newest revision, which held it,
+// and the hub's copy, made for it, are both gone once the templates are written. Each is read back, and
+// the record keeps the template as it was instead; then a stale tab's save, repaired on the same site.
+$limited_run = static function ( $keep ) use ( $partners, $hub_live ) {
+	unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+	drop_revisions();
+
+	$GLOBALS['posts'][1643]->post_content = $partners;
+	$GLOBALS['posts'][1654]->post_content = $hub_live;
+	$GLOBALS['revisions_to_keep']         = $keep;
+
+	add_revision( 1643, $partners, 7 );
+	add_revision( 1654, (string) preg_replace( '#<svg\b.*?</svg>#s', '', $hub_live ), 7 );
+	wpcredits_migrate_1_32_1();
+
+	$GLOBALS['revisions_to_keep'] = null;
+	$limited                      = get_option( 'wpcredits_migrated_1_32_1' );
+
+	// Each template's slug, where its copy is, and whether that copy, the record's or the revision's, holds
+	// the template as it was byte for byte.
+	return array(
+		array_map(
+			static function ( $entry ) use ( $partners, $hub_live ) {
+				$was  = 'page-partners' === $entry['slug'] ? $partners : $hub_live;
+				$copy = array_key_exists( 'before', $entry ) ? $entry['before'] : ( get_post( $entry['revision'] ?? 0 ) ? get_post( $entry['revision'] )->post_content : null );
+
+				return array( $entry['slug'], $entry['kept'], $entry['revision'], $copy === $was );
+			},
+			$limited['templates'] ?? array()
+		),
+		substr_count( wpcredits_migrate_1_32_1_summary( $limited ), 'The template as it was before is kept in the theme\'s migration record.' ),
+		substr_count( wpcredits_migrate_1_32_1_summary( $limited ), 'The template as it was before is kept in its revisions.' ),
+	);
+};
+
+$one_kept       = $limited_run( 1 );
+$none_limit     = $limited_run( -1 );
+$stale_partners = str_replace( '<li>Named in launch communications</li>', '<li>Named in every launch communication</li>', $partners );
+
+$GLOBALS['posts'][1643]->post_content = $stale_partners;
+$GLOBALS['revisions_to_keep']         = 1;
+
+do_action( 'wp_after_insert_post', 1643, get_post( 1643 ), true, null );
+
+$GLOBALS['revisions_to_keep'] = null;
+$limited_repairs              = get_option( 'wpcredits_migrated_1_32_1' )['repairs'] ?? array();
+$limited_repair               = $limited_repairs ? $limited_repairs[ count( $limited_repairs ) - 1 ] : array();
+
+ck( 'on a site that keeps one revision, the runner reads each copy back after the write, finds it deleted, and records it in the record instead, `before` byte for byte the template, which the notice says for both; on a site with no limit both are revisions that hold the templates, as before; a stale tab\'s save repaired where one revision is kept is recorded the same way',
+	array( $one_kept, $none_limit, array( $limited_repair['kept'] ?? null, $limited_repair['revision'] ?? null, ( $limited_repair['before'] ?? null ) === $stale_partners ) ),
+	array(
+		array( array( array( 'page-partners', 'record', 0, true ), array( 'page-education-hub', 'record', 0, true ) ), 2, 0 ),
+		array( array( array( 'page-partners', 'revision', $none_limit[0][0][2], true ), array( 'page-education-hub', 'revision', $none_limit[0][1][2], true ) ), 0, 2 ),
+		array( 'record', 0, true ),
+	) );
 
 unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
 
@@ -800,6 +936,163 @@ $thrown                 = get_option( 'wpcredits_migrated_1_32_1' );
 ck( 'a run that throws is caught and recorded as a failure, which the notice tells, and the option is set all the same',
 	array( $thrown['templates'] ?? null, $thrown['failed'] ?? null, wpcredits_migrate_1_32_1_summary( $thrown ) ),
 	array( array(), 'update-failed', 'The theme\'s update to 1.32.1 could not finish updating the saved Partners and Education Hub templates; a template it did not reach is as it was.' ) );
+
+echo "\n=== The lock ===\n";
+
+// Two requests at once on live's site, the 1.32.0 runner done: the second comes while the first writes the
+// Partners template, before it has stored its option, and runs init's migrations as every request does.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+drop_revisions();
+
+$GLOBALS['opts']['wpcredits_migrated_1_32_0'] = $live_record_1_32_0;
+$GLOBALS['posts'][1643]->post_content         = $partners;
+$GLOBALS['posts'][1654]->post_content         = $hub_live;
+$meanwhile                                    = array();
+$second_request                               = static function () use ( &$meanwhile ) {
+	$from = count( $GLOBALS['calls'] );
+
+	run_init_migrations();
+
+	$meanwhile[] = array( array_slice( $GLOBALS['calls'], $from ), is_int( $GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] ?? null ), array_key_exists( 'wpcredits_migrated_1_32_1', $GLOBALS['opts'] ) );
+};
+
+add_action( 'wp_after_insert_post', $second_request, 5 );
+
+$GLOBALS['calls'] = array();
+wpcredits_migrate_1_32_1();
+
+remove_filter( 'wp_after_insert_post', $second_request, 5 );
+
+ck( 'a second request while the 1.32.1 runner runs, at each of its two writes, finds its lock and does nothing, either runner: no template read, nothing written, no record; the first writes each template once and records both, and lets go of the lock',
+	array(
+		$meanwhile,
+		count( preg_grep( '/^update /', $GLOBALS['calls'] ) ),
+		array_column( get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? array(), 'changed' ),
+		array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ),
+	),
+	array(
+		array( array( array(), true, false ), array( array(), true, false ) ),
+		2,
+		array( array( 'partner-levels', 'partner-glance' ), array( 'program-index-marked' ) ),
+		false,
+	) );
+
+// On a site that updates from 1.31 straight to 1.32.1, a request while the 1.32.0 runner runs: that one
+// finds the 1.32.0 lock, and the 1.32.1 runner waits for the 1.32.0 option, its own lock not taken.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0'], $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+
+$GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] = time() - MINUTE_IN_SECONDS;
+$GLOBALS['calls']                                  = array();
+run_init_migrations();
+$while_1_32_0 = array( $GLOBALS['calls'], array_key_exists( 'wpcredits_migrated_1_32_0', $GLOBALS['opts'] ), array_key_exists( 'wpcredits_migrated_1_32_1', $GLOBALS['opts'] ), array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ) );
+
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_0_lock'] );
+
+// A lock a request left behind when it died is taken over once it is ten minutes old.
+$GLOBALS['opts']['wpcredits_migrated_1_32_0']      = $live_record_1_32_0;
+$GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] = time() - 11 * MINUTE_IN_SECONDS;
+$GLOBALS['posts'][1643]->post_content              = $partners;
+$GLOBALS['posts'][1654]->post_content              = $hub_live;
+$GLOBALS['calls']                                  = array();
+wpcredits_migrate_1_32_1();
+$stale_1_32_1 = array( $GLOBALS['calls'][0] ?? null, end( $GLOBALS['calls'] ), array_column( get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? array(), 'changed' ), array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ) );
+
+// And let go of on the failure path: a run that throws.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+
+$GLOBALS['throw_terms'] = true;
+$GLOBALS['calls']       = array();
+wpcredits_migrate_1_32_1();
+$GLOBALS['throw_terms'] = false;
+$failed_1_32_1          = array( get_option( 'wpcredits_migrated_1_32_1' )['failed'] ?? null, array_slice( $GLOBALS['calls'], -2 ), array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ) );
+
+ck( 'while the 1.32.0 runner holds its lock, neither runner does anything, the 1.32.1 lock not even taken; a 1.32.1 lock eleven minutes old is taken over, the run done and the lock let go of; a run that throws records the failure and lets go of the lock',
+	array( $while_1_32_0, $stale_1_32_1, $failed_1_32_1 ),
+	array(
+		array( array(), false, false, false ),
+		array( 'update_option wpcredits_migrated_1_32_1_lock autoload false', 'delete_option wpcredits_migrated_1_32_1_lock', array( array( 'partner-levels', 'partner-glance' ), array( 'program-index-marked' ) ), false ),
+		array( 'update-failed', array( 'add_option wpcredits_migrated_1_32_1 autoload false', 'delete_option wpcredits_migrated_1_32_1_lock' ), false ),
+	) );
+
+// The window the lock leaves on its own: this request finds no 1.32.1 option, then another request stores
+// its own and lets go of its lock, and only then is this one's lock granted. This request's object cache,
+// as core keeps it, still says the option is missing, so the runner reads both options again, from the
+// database, and stops there, its lock let go of.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+
+$GLOBALS['opts']['wpcredits_migrated_1_32_0'] = $live_record_1_32_0;
+$GLOBALS['posts'][1643]->post_content         = $partners;
+$GLOBALS['posts'][1654]->post_content         = $hub_live;
+$GLOBALS['option_cache']                      = true;
+$GLOBALS['wp_cache']                          = array();
+$others_record                                = array(
+	'ran'       => time(),
+	'templates' => array( array( 'id' => 1643, 'slug' => 'page-partners', 'changed' => array( 'partner-levels', 'partner-glance' ), 'skipped' => array(), 'kept' => 'revision', 'revision' => 1 ) ),
+);
+
+$GLOBALS['before_add']['wpcredits_migrated_1_32_1_lock'] = static function () use ( $others_record ) {
+	$GLOBALS['opts']['wpcredits_migrated_1_32_1'] = $others_record;
+};
+
+$GLOBALS['calls'] = array();
+wpcredits_migrate_1_32_1();
+$granted_late = array( $GLOBALS['calls'], ( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] ?? null ) === $others_record, $GLOBALS['posts'][1643]->post_content === $partners && $GLOBALS['posts'][1654]->post_content === $hub_live, array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ) );
+
+// A run that outlives its ten minutes: another request takes its lock over during the first one's write
+// of the Partners template, in the database behind the first one's cache; the first, done at last, leaves
+// the lock the other holds now.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+
+$GLOBALS['posts'][1643]->post_content = $partners;
+$GLOBALS['posts'][1654]->post_content = $hub_live;
+$GLOBALS['wp_cache']                  = array();
+$others_time                          = null;
+$take_over                            = static function () use ( &$others_time ) {
+	if ( null === $others_time ) {
+		$others_time = (int) $GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] + 11 * MINUTE_IN_SECONDS;
+
+		$GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] = $others_time;
+	}
+};
+
+add_action( 'wp_after_insert_post', $take_over, 5 );
+
+$GLOBALS['calls'] = array();
+wpcredits_migrate_1_32_1();
+
+remove_filter( 'wp_after_insert_post', $take_over, 5 );
+
+$outlived                = array( array_column( get_option( 'wpcredits_migrated_1_32_1' )['templates'] ?? array(), 'changed' ), in_array( 'delete_option wpcredits_migrated_1_32_1_lock', $GLOBALS['calls'], true ), null !== $others_time && ( $GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] ?? null ) === $others_time );
+$GLOBALS['option_cache'] = false;
+$GLOBALS['wp_cache']     = array();
+
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1_lock'] );
+
+// And when storing the record throws, as a database layer can, the lock is let go of on the way out.
+unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
+
+$GLOBALS['posts'][1643]->post_content = $partners;
+$GLOBALS['posts'][1654]->post_content = $hub_live;
+$GLOBALS['throw_option']              = 'wpcredits_migrated_1_32_1';
+$GLOBALS['calls']                     = array();
+$record_throws                        = 'returned';
+
+try {
+	wpcredits_migrate_1_32_1();
+} catch ( Throwable $error ) {
+	$record_throws = 'threw';
+}
+
+$GLOBALS['throw_option'] = false;
+$record_threw            = array( $record_throws, end( $GLOBALS['calls'] ), array_key_exists( 'wpcredits_migrated_1_32_1', $GLOBALS['opts'] ), array_key_exists( 'wpcredits_migrated_1_32_1_lock', $GLOBALS['opts'] ) );
+
+ck( 'a lock granted after another request stored the 1.32.1 option, which this request\'s cache still says is missing, is let go of with no template read and nothing written, the other\'s record kept; a run whose lock another request took over meanwhile records what it did and leaves that request\'s lock in place; a record whose storing throws goes on throwing, unstored, and the lock is let go of',
+	array( $granted_late, $outlived, $record_threw ),
+	array(
+		array( array( 'add_option wpcredits_migrated_1_32_1_lock autoload false', 'delete_option wpcredits_migrated_1_32_1_lock' ), true, true, false ),
+		array( array( array( 'partner-levels', 'partner-glance' ), array( 'program-index-marked' ) ), false, true ),
+		array( 'threw', 'delete_option wpcredits_migrated_1_32_1_lock', false, false ),
+	) );
 
 // The migrated site again, as the checks below begin from.
 unset( $GLOBALS['opts']['wpcredits_migrated_1_32_1'] );
