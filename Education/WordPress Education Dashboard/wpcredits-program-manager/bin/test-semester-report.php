@@ -181,7 +181,13 @@ function get_bloginfo( $what = '', $filter = '' ) { return 'charset' === $what ?
 function get_locale() { return 'en_US'; }
 function is_rtl() { return false; }
 function wp_enqueue_style() {}
-function wp_enqueue_script() {}
+// The script the Draft now picker's one field registers and enqueues (`WPCPM_Dashboards::render_combo()`),
+// recorded.
+$GLOBALS['registered_scripts'] = array();
+$GLOBALS['enqueued_scripts']   = array();
+function wp_register_script( $h, $src = '', $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return 'registered' === $list ? isset( $GLOBALS['registered_scripts'][ $h ] ) : in_array( $h, $GLOBALS['enqueued_scripts'], true ); }
+function wp_enqueue_script( $h = '' ) { $GLOBALS['enqueued_scripts'][] = $h; }
 function wp_add_inline_style() {}
 function wp_localize_script() {}
 
@@ -994,6 +1000,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 // The real class, not a stand-in: WPCPM_Return::url() is what a refused Draft now (final
 // review, Important 2) has to resolve through, and a stub could quietly disagree with it.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
+// The real one field for a long list, which the Draft now picker draws its institution with.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 // WPCPM_Ceiling is stubbed above, so a test can pre-fill $GLOBALS['ceiling'] to make a claim
 // land full; the real option-backed class is not loaded here, and nothing this suite exercises
 // (class-wpcpm-student-report-form.php's fields() included) calls the real one.
@@ -3193,6 +3201,18 @@ ck( 'the picker posts Draft now', has( $picker, 'value="' . WPCPM_Semester_Repor
 ck( 'the institution options list the two active institutions with a roster', has( $picker, 'value="' . $A . '"' ) && has( $picker, 'value="' . $B . '"' ), true );
 ck( 'and not the one outside the active stages', has( $picker, 'value="' . $C . '"' ), false );
 ck( 'the cohort options include the finished semester and the current one', has( $picker, '2026-H1' ) && has( $picker, WPCPM_Cohort::current() ), true );
+
+// The institution is the one field for a long list, as the Emails tool's Email filter is: labeled,
+// taking typing and narrowing, the plain select still what the form sends without the script.
+preg_match( '#<select name="institution" id="wpcpm-draft-institution" autocomplete="off">(.*?)</select>#s', $picker, $institution_select );
+ck( 'the institution is chosen in one labeled field that takes typing, wrapped for the wp-admin field rules, the script enqueued', array(
+	has( $picker, '<div class="wpcpm-admin-combo"><label for="wpcpm-draft-institution" id="wpcpm-draft-institution-label">Institution</label> <select name="institution" id="wpcpm-draft-institution" autocomplete="off">' ),
+	has( $picker, '<input type="text" id="wpcpm-draft-institution-input" class="wpcpm-dashboard__switcher-input" role="combobox"' ),
+	has( $picker, '<ul id="wpcpm-draft-institution-list" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="wpcpm-draft-institution-label" hidden></ul>' ),
+	in_array( WPCPM_Dashboards::SWITCHER_SCRIPT, $GLOBALS['enqueued_scripts'], true ),
+), array( true, true, true, true ) );
+ck( 'over the same options as before: the two active institutions with a roster, by name, nothing chosen', $institution_select[1] ?? null, '<option value="' . $B . '">Universidad Beta</option><option value="' . $A . '">Uniwersytet Łexample</option>' );
+ck( 'and the semester and Draft now follow it in the same form', has( $picker, '</div> </div><select name="cohort">' ) && has( $picker, '<button type="submit" class="button">Draft now</button></form>' ), true );
 
 $GLOBALS['index'][ $B ]['rows'] = array();
 ob_start();

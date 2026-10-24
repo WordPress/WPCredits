@@ -2547,6 +2547,194 @@ $GLOBALS['opts'][ 'wpcpm_agreement_lock_' . $rec_a ] = time();
 ck( 'a held lock stops a revocation rather than racing it', run( 'handle_revoke' ), 'agreement-busy' );
 ck( 'and nothing was read, written or sent', array( $GLOBALS['journal'], WPCPM_Institution_Agreement::is_settled( $rec_a ) ), array( array(), true ) );
 
+/* ---- revoke, 1.123.29: the note comes back in its box, and the audit row carries it ---------- */
+
+echo "\n=== handle_revoke(): a refused note comes back in its box, and the audit row carries the note (1.123.29) ===\n";
+
+// The Institutions screen's Agreements tab draws the form for every agreement in force. A refusal
+// returns to it, and a manager who typed a long reason must not have to type it again: the note is
+// kept for that document and that person, as the return's is, and handed back once.
+$kept_revoke = static function ( $id ) {
+	return get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-revoke:' . $id ]['typed'] ?? null;
+};
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = 'too short';
+ck( 'a note under twenty characters comes back to that document\'s box as typed, and nothing was written', array(
+	run( 'handle_revoke' ),
+	$kept_revoke( $id ),
+	$GLOBALS['patched'],
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+	$GLOBALS['mail'],
+	$GLOBALS['audit'],
+), array( 'agreement-revoke-note', array( 'note' => 'too short' ), array(), 'accepted', true, array(), array() ) );
+
+$id                            = settled_world();
+$too_long                      = str_repeat( 'a', 2001 );
+$_POST['wpcpm_agreement_note'] = $too_long;
+ck( 'one over two thousand comes back too, up to the room the box has', array( run( 'handle_revoke' ), $kept_revoke( $id ) ), array( 'agreement-revoke-note', array( 'note' => str_repeat( 'a', WPCPM_Institution_Agreement::MAX_NOTE ) ) ) );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = '';
+ck( 'an empty box has nothing to give back', array( run( 'handle_revoke' ), $kept_revoke( $id ) ), array( 'agreement-revoke-note', null ) );
+
+// "Kids <12 free, adults >18 pay": core's cleaner takes "<12 free, adults >" for a tag and drops it,
+// words and all. The note is mailed to every member as the reason, so such a note is refused before
+// the lock, the base, the document, the audit log and the mail, and the box gets back what was typed.
+$id                            = settled_world();
+$lossy_note                    = "Clause 4 says kids <12 free, adults >18 pay, which is not the program's.\r\nPlease change it.";
+$_POST['wpcpm_agreement_note'] = $lossy_note;
+$claims                        = $GLOBALS['lock_claims'];
+$outcome                       = run( 'handle_revoke' );
+ck( 'a note the cleaner would take words from is refused, in the panel\'s words for it', $outcome, 'agreement-revoke-loss' );
+ck( 'and nothing was done: no lock taken, no base written, the document as it was, the gate open, no audit row, no mail', array(
+	$GLOBALS['lock_claims'],
+	$GLOBALS['patched'],
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+	$GLOBALS['audit'],
+	$GLOBALS['mail'],
+), array( $claims, array(), 'accepted', true, array(), array() ) );
+ck( 'what was typed waits for that document\'s box, a line break read as the one LF the box counts', $kept_revoke( $id ), array( 'note' => str_replace( "\r\n", "\n", $lossy_note ) ) );
+
+// The panel words the outcome the screen prints. An institution's button says "Revoke this
+// agreement", so the sentence says to revoke it again and never to take it out of force, which is
+// the Sponsors screen's button.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
+$revoke_loss_words = WPCPM_Institution_Panel::messages()[ $outcome ] ?? array();
+ck( 'and the sentence it prints says nothing was revoked and to revoke it again, never "out of force"', array(
+	$revoke_loss_words,
+	false === stripos( (string) ( $revoke_loss_words[1] ?? '' ), 'out of force' ),
+), array(
+	array( 'error', 'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is revoked, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then revoke it again.' ),
+	true,
+) );
+
+// A refusal after the checks that need only the posted string comes back to the box too: the base
+// that would not take the status, and a lock another request holds. The manager typed the same
+// reason for either, and the press that was refused did nothing.
+$id                  = settled_world();
+$typed_note          = (string) $_POST['wpcpm_agreement_note'];
+$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Service Unavailable' );
+ck( 'a PATCH that fails refuses the revocation and the note comes back to its box', array( run( 'handle_revoke' ), $kept_revoke( $id ), get_post_meta( $id, '_wpcpm_agr_state', true ) ), array( 'agreement-airtable', array( 'note' => $typed_note ), 'accepted' ) );
+
+$id                                                  = settled_world();
+$GLOBALS['opts'][ 'wpcpm_agreement_lock_' . $rec_a ] = time();
+ck( 'and so does a lock another request holds', array( run( 'handle_revoke' ), $kept_revoke( $id ) ), array( 'agreement-busy', array( 'note' => (string) $_POST['wpcpm_agreement_note'] ) ) );
+
+// The next page is a new request, which reads the flash afresh. `WPCPM_Flash::take()` memoizes per
+// person and per channel for the life of a request, and the press above took this channel once
+// already, so a manager of their own holding what the press left stands in for that next page.
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = $lossy_note;
+run( 'handle_revoke' );
+$left                                     = get_user_meta( 1, WPCPM_Flash::META, true );
+$GLOBALS['users'][9]                      = new WP_User( 9, 'Second Manager', 'second@example.test' );
+$GLOBALS['umeta'][9][ WPCPM_Flash::META ] = $left;
+$GLOBALS['uid']                           = 4;
+$member_sees                              = WPCPM_Institution_Agreement::kept_revoke_note( $id );
+$GLOBALS['uid']                           = 9;
+$other_document                           = WPCPM_Institution_Agreement::kept_revoke_note( $id + 1000 );
+$the_return_box                           = WPCPM_Institution_Agreement::kept_return_note( $id );
+$given_back                               = WPCPM_Institution_Agreement::kept_revoke_note( $id );
+$still_waiting                            = isset( get_user_meta( 9, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-revoke:' . $id ] );
+$GLOBALS['uid']                           = 1;
+ck( 'the class hands it back once, for that document and that person alone, and the return\'s box on the same document gets none', array( $member_sees, $other_document, $the_return_box, $given_back, $still_waiting ), array( null, null, null, str_replace( "\r\n", "\n", $lossy_note ), false ) );
+
+// A clean note goes as it did, and its press drops what an earlier refusal of the form kept. Called
+// straight rather than through `run()`, which empties the flash first.
+$id                            = settled_world();
+$note                          = (string) $_POST['wpcpm_agreement_note'];
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_REVOKE, $id ), 'note', 'An earlier refused note', WPCPM_Institution_Agreement::MAX_NOTE );
+$was_kept = isset( get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-revoke:' . $id ] );
+try {
+	WPCPM_Institution_Agreement::handle_revoke();
+} catch ( Exception $e ) {
+	unset( $e );
+}
+ck( 'a clean note is revoked as before, and the press dropped what the refusal before it kept', array(
+	$was_kept,
+	flashed(),
+	isset( get_user_meta( 1, WPCPM_Flash::META, true )[ WPCPM_Typed_Text::KEPT_CHANNEL . 'inst-agreement-revoke:' . $id ] ),
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+), array( true, 'agreement-revoked', false, 'revoked' ) );
+
+// Both limits are counted on what was typed, as the box counts it: an entity typed out is as many
+// characters as it was typed with, and a reference typed out after a "<", which the cleaner writes
+// in core's longer form, is counted as it was typed too.
+$length_revoke = static function ( $typed ) use ( $kept_revoke ) {
+	$id                            = settled_world();
+	$_POST['wpcpm_agreement_note'] = $typed;
+	$outcome                       = run( 'handle_revoke' );
+
+	return array( $outcome, get_post_meta( $id, '_wpcpm_agr_state', true ), $kept_revoke( $id ) ?? array() );
+};
+$at_most_typed = str_repeat( 'Clause 8 < 12 &#9; ok. ', 86 ) . 'Please resend it soon.';
+ck( 'the note below is 2,000 characters as typed, and the count of what the cleaner keeps reads it as more', array( WPCPM_Typed_Text::box_length( $at_most_typed ), WPCPM_Typed_Text::typed_length( sanitize_textarea_field( $at_most_typed ) ) > WPCPM_Institution_Agreement::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $at_most_typed, 'lines' ) ), array( WPCPM_Institution_Agreement::MAX_NOTE, true, false ) );
+ck( 'a note of exactly 20 characters as typed, "Type &lt;b&gt; bold.", is revoked on', $length_revoke( 'Type &lt;b&gt; bold.' ), array( 'agreement-revoked', 'revoked', array() ) );
+ck( 'one of 19 characters as typed, "Clause 1 < &#50; ok", is refused as too short, though the cleaner writes it longer, and comes back to its box', $length_revoke( 'Clause 1 < &#50; ok' ), array( 'agreement-revoke-note', 'accepted', array( 'note' => 'Clause 1 < &#50; ok' ) ) );
+ck( 'one of exactly 2,000 characters as typed is revoked on', $length_revoke( $at_most_typed ), array( 'agreement-revoked', 'revoked', array() ) );
+ck( 'one of 2,001 characters as typed, each "&lt;" typed out, is refused as too long, the typing kept up to the box\'s room', $length_revoke( str_repeat( '&lt;', 500 ) . '.' ), array( 'agreement-revoke-note', 'accepted', array( 'note' => str_repeat( '&lt;', 500 ) ) ) );
+
+// The Institution Dashboard's history reads the note from the audit row's data (1.123.29), so the
+// row carries the note as the document stores it, and the same words reach the members.
+$id   = settled_world();
+$note = (string) $_POST['wpcpm_agreement_note'];
+run( 'handle_revoke' );
+ck( 'the audit row carries the note, as the document stores it, beside the facts it carried before', array(
+	$GLOBALS['audit'][0]['kind'],
+	$GLOBALS['audit'][0]['data']['note'] ?? null,
+	$GLOBALS['audit'][0]['data']['note'] === get_post_meta( $id, '_wpcpm_agr_note', true ),
+	$GLOBALS['audit'][0]['data']['kind'] ?? null,
+	$GLOBALS['audit'][0]['data']['members'] ?? null,
+), array( 'agreement_revoke', $note, true, 'template', 2 ) );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = "Reason one: the privacy review.\nReason two: the rector's request, in writing.";
+run( 'handle_revoke' );
+ck( 'a note of two lines is handed to the audit log as the document stores it, line break and all (the log itself folds a string to one line)', array(
+	get_post_meta( $id, '_wpcpm_agr_note', true ),
+	$GLOBALS['audit'][0]['data']['note'] ?? null,
+), array( "Reason one: the privacy review.\nReason two: the rector's request, in writing.", "Reason one: the privacy review.\nReason two: the rector's request, in writing." ) );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = 'Too short';
+run( 'handle_revoke' );
+ck( 'a refused revoke leaves no audit row, and so no note in a history', $GLOBALS['audit'], array() );
+
+// Pressed twice from two open tabs. The first revokes. The second is the same form pressed against
+// a page drawn before: the state check turns it away before the note is read, so nothing is
+// written to the base, nobody is mailed a second time, no second row goes in the log, and the note
+// the first press stored is the one on the document.
+$id                  = settled_world();
+$first_note          = (string) $_POST['wpcpm_agreement_note'];
+$first_outcome       = run( 'handle_revoke' );
+$after_first         = array( count( $GLOBALS['patched'] ), count( $GLOBALS['mail'] ), count( $GLOBALS['audit'] ), $GLOBALS['journal'] );
+$claims              = $GLOBALS['lock_claims'];
+$_POST['wpcpm_agreement_note'] = 'A second reason, long enough to pass on its own.';
+$second_outcome      = run( 'handle_revoke' );
+ck( 'the first press revokes and the second, from a stale tab, is turned away by the state check', array( $first_outcome, $second_outcome ), array( 'agreement-revoked', 'agreement-not-accepted' ) );
+ck( 'the second press wrote nothing to the base, mailed nobody, added no audit row, and took no lock', array(
+	array( count( $GLOBALS['patched'] ), count( $GLOBALS['mail'] ), count( $GLOBALS['audit'] ), $GLOBALS['journal'] ),
+	$GLOBALS['lock_claims'],
+), array( $after_first, $claims ) );
+ck( 'and the document keeps the first press\'s note, revoked once', array( get_post_meta( $id, '_wpcpm_agr_note', true ), get_post_meta( $id, '_wpcpm_agr_state', true ) ), array( $first_note, 'revoked' ) );
+
+$_POST['wpcpm_agreement_note'] = 'short';
+ck( 'a stale tab with a short note is told the state, not the note, and keeps nothing of it', array( run( 'handle_revoke' ), $kept_revoke( $id ), count( $GLOBALS['patched'] ), count( $GLOBALS['mail'] ), count( $GLOBALS['audit'] ) ), array( 'agreement-not-accepted', null, 1, 2, 1 ) );
+
+// Read from the source: the order of the handler's checks is a property of the text, and the new
+// refusals must stay ahead of the lock, as the return's are.
+$revoke_now = method_body( file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' ), 'handle_revoke' );
+ck( 'revoke checks the state, then the policy, then the note, then the lock, then Airtable', array(
+	strpos( $revoke_now, 'self::document_in_state( $post_id, self::STATE_ACCEPTED )' ) < strpos( $revoke_now, 'WPCPM_Institution_Policy::decide' ),
+	strpos( $revoke_now, 'WPCPM_Institution_Policy::decide' ) < strpos( $revoke_now, 'cleaner_loses' ),
+	strpos( $revoke_now, 'cleaner_loses' ) < strpos( $revoke_now, 'box_length' ),
+	strpos( $revoke_now, 'box_length' ) < strpos( $revoke_now, 'self::lock(' ),
+	strpos( $revoke_now, 'self::lock(' ) < strpos( $revoke_now, 'update_records' ),
+), array( true, true, true, true, true ) );
+
 /* ---- reinstate ---------------------------------------------------------- */
 
 echo "\n=== handle_reinstate(): the abort that makes revoking a safe click (T9) ===\n";

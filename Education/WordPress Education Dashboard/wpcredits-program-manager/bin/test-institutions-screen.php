@@ -10,6 +10,11 @@
  *   agreement-gap count and the consent sentence are the fixture's numbers and nothing else.
  * - Names print trimmed and the row says when the stored one was not; ten names in the base
  *   end in a space and a manager searching the grid should know why a match is not exact.
+ * - The Pipeline counts what is in play (1.123.29). SPAM, Not Moving Forward, Revisit Later and no
+ *   stage, read trimmed, are left out of every count on the tab and folded under "Not counted
+ *   above"; a stage the lists do not know is counted. The Sync and storage tab's member count is
+ *   still over every record. Each name opens the institution's page, and one field, Find an
+ *   institution, opens any record's, whatever its stage; with no page published there is neither.
  * - The consent card never says "lost". The brief read a date boundary as consent dropping
  *   between form and record; the sentence here is the one the design spec fixes.
  * - Every handler checks the capability before the nonce, asserted by reading the source,
@@ -282,6 +287,7 @@ function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, null === $ts ? time() : (int) $ts ); }
+function date_i18n( $format, $ts = false ) { return gmdate( $format, (int) $ts ); }
 function wp_timezone_string() { return 'UTC'; }
 function get_role( $r ) { return new WP_Role(); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
@@ -314,6 +320,22 @@ function remove_accents( $text, $locale = '' ) { return strtr( (string) $text, a
 function esc_html_e( $s, $d = null ) { echo esc_html__( $s ); }
 function _n_noop( $singular, $plural, $domain = null ) { return array( 0 => $singular, 1 => $plural, 'singular' => $singular, 'plural' => $plural, 'context' => null, 'domain' => $domain ); }
 function translate_nooped_plural( $nooped, $count, $domain = 'default' ) { return __( _n( $nooped['singular'], $nooped['plural'], $count ) ); }
+
+// What the Pipeline's Find an institution reaches of WordPress (`WPCPM_Dashboards::render_combo()`):
+// core's `selected()`, a string comparison as core's is; the script the field registers and enqueues,
+// recorded; and the query of the Institution Dashboard's address, read as core's `wp_parse_str()`
+// reads one.
+$GLOBALS['registered'] = array();
+$GLOBALS['enqueued']   = array();
+function selected( $a, $b, $echo = true ) {
+	$out = ( (string) $a === (string) $b ) ? " selected='selected'" : '';
+	if ( $echo ) { echo $out; }
+	return $out;
+}
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return 'registered' === $list ? isset( $GLOBALS['registered'][ $h ] ) : in_array( $h, $GLOBALS['enqueued'], true ); }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function wp_parse_str( $input, &$result ) { parse_str( (string) $input, $result ); }
 
 
 /*
@@ -386,6 +408,7 @@ require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
@@ -401,6 +424,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 // The real tab bar, the one every audience screen prints, so the bar read here is the bar a
 // manager gets.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
+// The real one field for a long list, which the Pipeline's Find an institution is drawn with, so the
+// field read here is the field a manager gets.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 
 /**
  * The plugin's lazy loader, as this suite has it: the stand-in for core's list table, then the
@@ -436,14 +462,27 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 		public static function has( $id ) { return null !== self::row( $id ); }
 		public static function write( array $rows, $read ) { update_option( self::OPT_NAME, array( 'v' => 1, 'read' => (int) $read, 'rows' => $rows ), false ); }
 		public static function insert( array $row ) { $r = self::read(); $r['rows'][ $row['record_id'] ] = $row; update_option( self::OPT_NAME, $r, false ); }
+		/**
+		 * The real one's contract: the stages with rows, `STAGE_ORDER` then the terminal stages, then
+		 * any stage the lists do not know as stored (so "SPAM " and "Paused" are groups of their own),
+		 * sorted, then the empty stage.
+		 */
 		public static function by_stage() {
-			$order  = array_merge( WPCPM_Institution_Agreement::STAGE_ORDER, WPCPM_Institution_Agreement::TERMINAL_STAGES, array( '' ) );
-			$groups = array_fill_keys( $order, array() );
+			$groups = array();
 			foreach ( self::rows() as $id => $row ) {
-				$stage = in_array( $row['stage'], $order, true ) ? $row['stage'] : '';
-				$groups[ $stage ][ $id ] = $row;
+				$groups[ (string) $row['stage'] ][ $id ] = $row;
 			}
-			return $groups;
+			$ordered = array();
+			foreach ( array_merge( WPCPM_Institution_Agreement::STAGE_ORDER, WPCPM_Institution_Agreement::TERMINAL_STAGES ) as $stage ) {
+				if ( isset( $groups[ $stage ] ) ) { $ordered[ $stage ] = $groups[ $stage ]; unset( $groups[ $stage ] ); }
+			}
+			$unknown = array_keys( $groups );
+			sort( $unknown, SORT_STRING );
+			foreach ( $unknown as $stage ) {
+				if ( '' !== $stage ) { $ordered[ $stage ] = $groups[ $stage ]; }
+			}
+			if ( isset( $groups[''] ) ) { $ordered[''] = $groups['']; }
+			return $ordered;
 		}
 	}
 }
@@ -708,6 +747,9 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const SUMMARY_REVOKED   = 'revoked';
 		const SUMMARY_ACCEPTED  = 'accepted';
 		const SUMMARY_ON_FILE   = 'on_file';
+		const ACTION_REVOKE     = 'wpcpm_agreement_revoke';
+		const MIN_NOTE          = 20;
+		const MAX_NOTE          = 2000;
 		const STAGE_ORDER       = array( 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Confirmed', 'Student' );
 		const TERMINAL_STAGES   = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 		const AIRTABLE_SETTLED  = array( 'Accepted', 'On file' );
@@ -731,6 +773,8 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			$words = array( 'none' => 'Not started', 'generated' => 'Template generated', 'submitted' => 'Awaiting review', 'returned' => 'Returned', 'revoked' => 'Revoked', 'accepted' => 'Accepted', 'on_file' => 'On file' );
 			return isset( $words[ $state ] ) ? $words[ $state ] : (string) $state;
 		}
+		/** What a refused revoke kept for that document's box, for the one time the form is drawn again: set per document by the suite. */
+		public static function kept_revoke_note( $post_id ) { return $GLOBALS['kept_revoke'][ (int) $post_id ] ?? null; }
 		public static function rebuild( $id, array $airtable ) { return array(); }
 		public static function discrepancies() { return $GLOBALS['discrepancies'] ?? array(); }
 		public static function posts_for( $id ) { return array(); }
@@ -748,6 +792,15 @@ if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 		public static function record( array $entry ) { return 1; }
 		public static function entries_for( $institution, $limit = 50 ) { return array(); }
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Audit::delete_all' ); }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	/** Stands in for the institutions' own records (1.123.29): booted and swept at uninstall, drawn nowhere here. */
+	class WPCPM_Institution_Record {
+		const POST_TYPE = 'wpcpm_inst_record';
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Record::init' ); }
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Record::delete_all' ); }
 	}
 }
 
@@ -866,13 +919,16 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		const META_RECORD       = '_wpcpm_app_record';
 		const META_USER         = '_wpcpm_app_user';
 		const META_EVENT        = '_wpcpm_app_event';
+		const META_SITE         = '_wpcpm_app_site';
 
 		/**
-		 * The thirteen columns of design spec 7.1, keyed by Airtable column name.
+		 * The thirteen columns of design spec 7.1, keyed by Airtable column name, and the five
+		 * answers kept on the site since 1.123.29, keyed by name and flagged `site`, in form order.
 		 *
 		 * The spec's shape, because the queue prints the question from `label` and matches the
 		 * two the server holds by column name: a value that was only a group name would let
-		 * either of those pass without being exercised.
+		 * either of those pass without being exercised. The flag is what tells the queue an answer
+		 * is read from `site_answers()` and has no column to print.
 		 */
 		public static function fields() {
 			return array(
@@ -882,16 +938,27 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 				'Website'        => array( 'group' => 'about', 'label' => 'Website' ),
 				'Contact Person' => array( 'group' => 'contact', 'label' => 'Name of the person we should contact' ),
 				'Contact Email'  => array( 'group' => 'contact', 'label' => 'Their email address' ),
+				'contact_role'   => array( 'group' => 'contact', 'label' => 'Their role at the institution', 'site' => true ),
 				'Department'     => array( 'group' => 'contact', 'label' => 'Department or faculty' ),
 				'How do your internships or practices typically work?' => array( 'group' => 'program', 'label' => 'How do your internships or practices typically work?' ),
 				'Comments'       => array( 'group' => 'program', 'label' => 'If you ticked "Other", please tell us how' ),
 				'Estimated number of students who may be interested'   => array( 'group' => 'program', 'label' => 'How many students might be interested?' ),
+				'student_languages' => array( 'group' => 'program', 'label' => 'In which languages do your students study?', 'site' => true ),
+				'signer_name'    => array( 'group' => 'agreement', 'label' => 'Who will sign the agreement for the institution?', 'site' => true ),
+				'signer_title'   => array( 'group' => 'agreement', 'label' => 'Their title', 'site' => true ),
+				'credits_page'   => array( 'group' => 'agreement', 'label' => 'Your page about WordPress Credits', 'site' => true ),
 				'Why are you interested in offering WordPress Credits to your students?' => array( 'group' => 'more', 'label' => 'Why are you interested in offering WordPress Credits to your students?' ),
 				'Anything else you’d like us to know?' => array( 'group' => 'more', 'label' => 'Anything else you’d like us to know?' ),
 				// The words the form asks since 1.123.24; the application seeded below was filed before,
 				// under the sentence its consent record holds.
 				'Privacy Policy Compliance' => array( 'group' => 'consent', 'label' => 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' ),
 			);
+		}
+
+		/** The answers kept on the site, as the real one reads them: the stored list, or none. */
+		public static function site_answers( $application_id ) {
+			$answers = get_post_meta( (int) $application_id, self::META_SITE, true );
+			return is_array( $answers ) ? $answers : array();
 		}
 
 		/** The reference, computed from the ID the way the real one is. */
@@ -1000,6 +1067,10 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	 */
 	class WPCPM_Institution_Panel {
 		const ANCHOR = 'wpcpm-agreement';
+		/** The revoke note's box by its name, as the real panel words it: the form and the refusal name it alike. */
+		public static function revoke_label() {
+			return 'Why it is revoked, in your own words';
+		}
 		public static function messages() {
 			return array(
 				'agreement-uploaded'  => array( 'success', 'The signed agreement is uploaded. An Administrator reviews it and you will get an email either way.' ),
@@ -1383,6 +1454,20 @@ function stage_headings( $html ) {
 	preg_match_all( '#<h3 class="wpcpm-inst-stage">(.*?) <span class="wpcpm-count">(\d+)</span></h3>#', $html, $m, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $m as $h ) { $out[ html_entity_decode( $h[1], ENT_QUOTES ) ] = (int) $h[2]; }
+	return $out;
+}
+
+/**
+ * Every folded stage under "Not counted above", with its count, in document order, and whether it
+ * is drawn open.
+ *
+ * @param string $html Rendered screen.
+ * @return array<string, array{0: int, 1: bool}> Label => count and open.
+ */
+function folded_groups( $html ) {
+	preg_match_all( '#<details class="wpcpm-inst-folded"( open)?><summary>(.*?) <span class="wpcpm-count">(\d+)</span></summary>#', $html, $m, PREG_SET_ORDER );
+	$out = array();
+	foreach ( $m as $f ) { $out[ html_entity_decode( $f[2], ENT_QUOTES ) ] = array( (int) $f[3], '' !== $f[1] ); }
 	return $out;
 }
 
@@ -1779,6 +1864,15 @@ $slugs     = array( 'queue', 'pipeline', 'accounts', 'reports', 'agreements', 's
 $tabs      = array();
 $confirmed = array_keys( array_filter( $rows, function ( $r ) { return 'Confirmed' === $r['stage']; } ) );
 
+// The Pipeline tab's counts leave out the four stages a record is set aside at (1.123.29): SPAM,
+// Not Moving Forward, Revisit Later and no stage, read trimmed. Written out here rather than read
+// off the class, so a list that loses or gains a stage fails below. The fixture holds 17 of them.
+$uncounted_stages = array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' );
+$counted_of       = function ( array $of ) use ( $uncounted_stages ) {
+	return array_filter( $of, function ( $r ) use ( $uncounted_stages ) { return ! in_array( trim( (string) $r['stage'] ), $uncounted_stages, true ); } );
+};
+$counted          = $counted_of( $rows );
+
 foreach ( $slugs as $slug ) {
 	$tabs[ $slug ] = render_tab( $slug );
 }
@@ -1851,13 +1945,15 @@ ck( 'each tab draws the cards of its job and none of another tab\'s', array_map(
 	'pipeline'   => array( 'Pipeline', 'Consent' ),
 	'accounts'   => array( 'Invitations', 'Institution accounts' ),
 	'reports'    => array( 'Semester reports' ),
-	'agreements' => array( 'Agreements on file', 'Agreement discrepancies', 'Agreement template' ),
+	'agreements' => array( 'Agreements on file', 'Agreements in force', 'Agreement discrepancies', 'Agreement template' ),
 	'sync'       => array( 'Airtable sync', 'Reconciliation', 'Storage' ),
 ) );
 
 // What each tab offers to press, by the action its forms post: the sync and the probe on Sync and
-// storage alone. Agreements offers none since 1.123.26: its card lists the institutions with no
-// agreement recorded and links each to its own page, where one agreement is recorded. The Accounts
+// storage alone. Agreements offers none while no agreement is in force (the fixture's, here): its
+// first card lists the institutions with no agreement recorded and links each to its own page, where
+// one agreement is recorded, and its second draws a revoke form for each agreement in force, which
+// is checked where it is drawn. The Accounts
 // tab's presses are its list's, a form to the screen itself, and the invitations card's, which
 // offers none while nobody is waiting for one.
 $presses = function ( $html ) {
@@ -1892,17 +1988,18 @@ ck( 'every form whose press comes back to a tab other than the queue names it', 
 
 echo "\n=== Each tab reads what it draws ===\n";
 
-// The membership counts are a user query per institution, a hundred and six of them here, and the
+// The membership counts are a user query per institution, a hundred and four of them here, and the
 // provisioning reasons up to two more per Confirmed one, which the Accounts tab's list asks for the
-// count its No account view carries: a tab that does not print them must not pay for them.
+// count its No account view carries: a tab that does not print them must not pay for them. Pipeline
+// asks them of the institutions it counts, 87 of the 104, and Sync and storage of every one.
 $reads = array();
 foreach ( $slugs as $slug ) {
 	render_tab( $slug );
 	$reads[ $slug ] = array( count( $GLOBALS['member_reads'] ), count( $GLOBALS['blocks_read'] ), $GLOBALS['progress_reads'], $GLOBALS['counts_reads'] );
 }
-ck( 'the membership counts are asked on Pipeline and on Sync and storage alone, the provisioning reasons on Accounts alone, and the sync\'s progress and the roster counts on Sync and storage alone', $reads, array(
+ck( 'the membership counts are asked on Pipeline, of the institutions it counts, and on Sync and storage, of every one, the provisioning reasons on Accounts alone, and the sync\'s progress and the roster counts on Sync and storage alone', $reads, array(
 	'queue'      => array( 0, 0, 0, 0 ),
-	'pipeline'   => array( count( $rows ), 0, 0, 0 ),
+	'pipeline'   => array( count( $counted ), 0, 0, 0 ),
 	'accounts'   => array( 0, count( $confirmed ), 0, 0 ),
 	'reports'    => array( 0, 0, 0, 0 ),
 	'agreements' => array( 0, 0, 0, 0 ),
@@ -1975,38 +2072,43 @@ echo "\n=== The pipeline, on its tab ===\n";
 
 $html = render_tab( 'pipeline' );
 
-ck( 'the pipeline counts every fixture row', false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . $seed['counts']['institutions'] . '</span>' ), true );
+ck( 'the pipeline counts the fixture rows at a counted stage, 87 of its 104', array( count( $counted ), false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . count( $counted ) . '</span>' ) ), array( $seed['counts']['institutions'] - 17, true ) );
 
 $headings = stage_headings( $html );
 $expected = array();
-foreach ( array_merge( WPCPM_Institution_Agreement::STAGE_ORDER, WPCPM_Institution_Agreement::TERMINAL_STAGES ) as $stage ) {
+foreach ( WPCPM_Institution_Agreement::STAGE_ORDER as $stage ) {
 	if ( isset( $seed['counts']['by_stage'][ $stage ] ) ) { $expected[ $stage ] = (int) $seed['counts']['by_stage'][ $stage ]; }
 }
-ck( 'the groups are the fixture\'s stage counts, in STAGE_ORDER then the terminal stages', $headings, $expected );
-ck( 'and no group is drawn for the empty stage the fixture does not have', isset( $headings['No stage'] ), false );
+ck( 'the groups above the line are the fixture\'s counted stages and their counts, in STAGE_ORDER', $headings, $expected );
+ck( 'the three terminal stages fold under it, closed, in the order they always had, each with its count', folded_groups( $html ), array(
+	'Not Moving Forward' => array( (int) $seed['counts']['by_stage']['Not Moving Forward'], false ),
+	'SPAM'               => array( (int) $seed['counts']['by_stage']['SPAM'], false ),
+	'Revisit Later'      => array( (int) $seed['counts']['by_stage']['Revisit Later'], false ),
+) );
+ck( 'and no group is drawn for the empty stage the fixture does not have', array( isset( $headings['No stage'] ), isset( folded_groups( $html )['No stage'] ) ), array( false, false ) );
 
 // The read time, once per card that reads the index (the pipeline and the consent report on the
-// Pipeline tab, the agreements on file, the discrepancies and the template versions on the
-// Agreements tab) and once for
+// Pipeline tab, the agreements on file, the agreements in force, the discrepancies and the template
+// versions on the Agreements tab) and once for
 // the countries map and the roster counts, each on the tab of the card that reads it. A stale
 // count must never look fresh.
 $read_lines = function ( $needle ) use ( $tabs ) {
 	return array_map( function ( $drawn ) use ( $needle ) { return substr_count( (string) $drawn, $needle ); }, $tabs );
 };
-ck( 'the index read time is printed with the date and the age, once by each card that reads the index, on its tab', $read_lines( 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 2, 'accounts' => 0, 'reports' => 0, 'agreements' => 3, 'sync' => 0 ) );
+ck( 'the index read time is printed with the date and the age, once by each card that reads the index, on its tab', $read_lines( 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 2, 'accounts' => 0, 'reports' => 0, 'agreements' => 4, 'sync' => 0 ) );
 ck( 'so is the roster counts\' read time, on Sync and storage', $read_lines( 'Roster counts: read ' . gmdate( 'Y-m-d H:i', $read_at - 3600 ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 1 ) );
 ck( 'and the countries map\'s, on Pipeline', $read_lines( 'Countries map: read ' . gmdate( 'Y-m-d H:i', $read_at - 600 ) ), array( 'queue' => 0, 'pipeline' => 1, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 0 ) );
 
 // Names: trimmed, with the mark where the stored one was not.
 $trailing = array();
-foreach ( $seed['institutions'] as $i ) { if ( $i['name'] !== rtrim( $i['name'] ) ) { $trailing[] = $i['name']; } }
+foreach ( $seed['institutions'] as $i ) { if ( $i['name'] !== rtrim( $i['name'] ) ) { $trailing[ $i['id'] ] = $i['name']; } }
 ck( 'the fixture has ten names ending in a space', count( $trailing ), $seed['counts']['trailing_space_names'] );
 
 $trimmed_ok = true;
-foreach ( $trailing as $name ) {
+foreach ( $trailing as $id => $name ) {
 	$trimmed_ok = $trimmed_ok
-		&& false !== strpos( $html, '<span class="wpcpm-inst-name__text">' . esc_html( trim( $name ) ) . '</span>' )
-		&& false === strpos( $html, esc_html( $name ) . '</span>' );
+		&& false !== strpos( $html, '<span class="wpcpm-inst-name__text"><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $id . '">' . esc_html( trim( $name ) ) . '</a></span>' )
+		&& false === strpos( $html, esc_html( $name ) . '</a>' );
 }
 ck( 'every such name prints trimmed', $trimmed_ok, true );
 ck( 'and carries the whitespace mark', substr_count( $html, 'wpcpm-inst-mark--space' ), $seed['counts']['trailing_space_names'] );
@@ -2029,11 +2131,16 @@ foreach ( $rows as $row ) {
 	if ( '' !== $row['country'] && null === WPCPM_Countries::routing( $row['country'] ) ) { $named_without_contact++; }
 }
 ck( 'the fixture names three countries with no contact', count( array_unique( array_map( function ( $r ) { return $r['country']; }, array_filter( $rows, function ( $r ) { return '' !== $r['country'] && null === WPCPM_Countries::routing( $r['country'] ); } ) ) ) ), $seed['counts']['countries_used_without_contact'] );
-ck( 'each row naming one carries the no-contact mark', substr_count( $html, 'wpcpm-inst-mark--routing' ), $named_without_contact );
-ck( 'and the routing gaps are listed by name', preg_match( '/Countries named by institutions with no Administrator contact in the Countries table: ([^<]+)</', $html, $m ), 1 );
-$gap_names = isset( $m[1] ) ? array_map( function ( $p ) { return preg_replace( '/ \(\d+\)$/', '', $p ); }, explode( ', ', html_entity_decode( $m[1], ENT_QUOTES ) ) ) : array();
-sort( $gap_names );
-ck( 'which are Cambodia, Nigeria and Thailand', $gap_names, array( 'Cambodia', 'Nigeria', 'Thailand' ) );
+ck( 'each row naming one carries the no-contact mark, in the folded stages too', substr_count( $html, 'wpcpm-inst-mark--routing' ), $named_without_contact );
+// Cambodia, Nigeria and Thailand are named only by institutions at Not Moving Forward, which the counts
+// leave out, so the line under the counts names none of them. A counted institution naming one is
+// listed by name below, where the Review Focus rows are drawn.
+$gap_rows = array_filter( $rows, function ( $r ) { return '' !== $r['country'] && null === WPCPM_Countries::routing( $r['country'] ); } );
+ck( 'every row naming one is at Not Moving Forward, so the routing line, over the counted rows, says every country has a contact', array(
+	array_values( array_unique( array_column( $gap_rows, 'stage' ) ) ),
+	preg_match( '/Countries named by institutions with no Administrator contact/', $html ),
+	false !== strpos( $html, '<p>Every country an institution names has an Administrator contact.</p>' ),
+), array( array( 'Not Moving Forward' ), 0, true ) );
 ck( 'no row prints an unresolved country', strpos( $html, 'unknown country' ), false );
 ck( 'the rows with no country say so', substr_count( $html, '>no country<' ), count( array_filter( $rows, function ( $r ) { return '' === $r['country']; } ) ) );
 
@@ -2090,15 +2197,19 @@ ck( 'a filter value that is not the one offered shows every stage', count( stage
 
 echo "\n=== The consent report ===\n";
 
+// Over the counted rows, as every count on the tab is: of the fixture's 84 records from before the
+// question, the 16 at a stage left out are not counted, and all 38 at Confirmed are.
+$before = 0;
+foreach ( $counted as $row ) { if ( ! $row['consent'] && '' !== $row['created'] && strcmp( $row['created'], '2026-07-20' ) < 0 ) { $before++; } }
 $sentence = sprintf(
 	'%d institution records were collected before the consent question was added on 20 July 2026, %d of them at Confirmed.',
-	$seed['counts']['created_before_consent_question'],
+	$before,
 	$seed['counts']['created_before_consent_question_confirmed']
 );
-ck( 'the sentence carries the fixture\'s 84 and 38', false !== strpos( $html, '<p class="wpcpm-inst-consent">' . $sentence . '</p>' ), true );
+ck( 'the sentence counts the counted records: 68 of the fixture\'s 84, and its 38 at Confirmed', array( $before, false !== strpos( $html, '<p class="wpcpm-inst-consent">' . $sentence . '</p>' ) ), array( $seed['counts']['created_before_consent_question'] - 16, true ) );
 
 $since = 0;
-foreach ( $rows as $row ) { if ( ! $row['consent'] && strcmp( $row['created'], '2026-07-20' ) >= 0 ) { $since++; } }
+foreach ( $counted as $row ) { if ( ! $row['consent'] && strcmp( $row['created'], '2026-07-20' ) >= 0 ) { $since++; } }
 ck( 'and the count of hand-entered records since', false !== strpos( $html, 'Since then, ' . $since . ' records have been created without the tick' ), true );
 ck( 'the word "lost" appears on no tab', stripos( implode( '', $tabs ), 'lost' ), false );
 ck( 'nor does "modules", a word for the plugin\'s code and not for anything a manager reads', stripos( implode( '', $tabs ), 'modules' ), false );
@@ -2110,7 +2221,180 @@ $boundary['recBOUNDARY0000001'] = array_merge( reset( $rows ), array( 'record_id
 $boundary['recEVE000000000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recEVE000000000001', 'name' => 'Eve', 'stage' => 'Confirmed', 'created' => '2026-07-19', 'consent' => false ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $boundary;
 $edge = render_tab( 'pipeline' );
-ck( '20 July itself is after the question, 19 July before it', false !== strpos( $edge, sprintf( '%d institution records were collected before the consent question was added on 20 July 2026, %d of them at Confirmed.', $seed['counts']['created_before_consent_question'] + 1, $seed['counts']['created_before_consent_question_confirmed'] + 1 ) ), true );
+ck( '20 July itself is after the question, 19 July before it', false !== strpos( $edge, sprintf( '%d institution records were collected before the consent question was added on 20 July 2026, %d of them at Confirmed.', $before + 1, $seed['counts']['created_before_consent_question_confirmed'] + 1 ) ), true );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
+
+/* ---- what the Pipeline counts, what it folds, and the way to a record ---- */
+
+echo "\n=== The Pipeline's counts, its folded stages, its names and its field ===\n";
+
+// Review Focus 4. A stage stored with a space around it is the stage it names, so "SPAM " is left out
+// of every count as "SPAM" is and folds with it; a stage the lists do not know, "Paused", is counted
+// and drawn above the line, after the stages the lists know. Two records beside the fixture's 104:
+// the spaced one names Cambodia, created after the consent question without the tick and with a
+// contact address, and the paused one names Nigeria, created before it. Neither country has an
+// Administrator contact.
+$country_id = function ( $name ) use ( $countries ) {
+	foreach ( $countries as $id => $country ) { if ( $name === $country['name'] ) { return $id; } }
+	return '';
+};
+$spaced = 'recSPACEDSPAM0001';
+$paused = 'recPAUSEDSTAGE001';
+$focus  = $rows;
+
+$focus[ $spaced ] = array_merge( reset( $rows ), array( 'record_id' => $spaced, 'name' => 'Spaced Spam College', 'stage' => 'SPAM ', 'country' => $country_id( 'Cambodia' ), 'country_name' => 'Cambodia', 'city' => 'City S', 'contact_email' => 'spaced@example.test', 'created' => '2026-08-01', 'consent' => false ) );
+$focus[ $paused ] = array_merge( reset( $rows ), array( 'record_id' => $paused, 'name' => 'Paused Polytechnic', 'stage' => 'Paused', 'country' => $country_id( 'Nigeria' ), 'country_name' => 'Nigeria', 'city' => 'City P', 'contact_email' => '', 'created' => '2026-03-01', 'consent' => false ) );
+
+$focus_counted = $counted_of( $focus );
+$focus_emailed = array_filter( $focus, function ( $r ) { return '' !== $r['contact_email']; } );
+
+ck( 'the four stages the counts leave out are SPAM, Not Moving Forward, Revisit Later and no stage', WPCPM_Institutions::UNCOUNTED_STAGES, array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' ) );
+ck( 'counted_rows() keeps the 88 rows whose trimmed stage is not one of them, keyed as given: "Paused" kept, "SPAM " left out', array(
+	count( WPCPM_Institutions::counted_rows( $focus ) ),
+	array_keys( WPCPM_Institutions::counted_rows( $focus ) ) === array_keys( $focus_counted ),
+	isset( WPCPM_Institutions::counted_rows( $focus )[ $paused ] ),
+	isset( WPCPM_Institutions::counted_rows( $focus )[ $spaced ] ),
+	WPCPM_Institutions::counted_rows( array() ),
+), array( 88, true, true, false, array() ) );
+
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $focus;
+$GLOBALS['enqueued']                                           = array();
+$focus_html                                                    = render_tab( 'pipeline' );
+$focus_pipeline_reads                                          = count( $GLOBALS['member_reads'] );
+$focus_sync                                                    = render_tab( 'sync' );
+$focus_sync_reads                                              = count( $GLOBALS['member_reads'] );
+$focus_filtered                                                = render_tab( 'pipeline', array( 'wpcpm_filter' => 'agreement_gap' ) );
+
+$above = $expected;
+$above['Paused'] = 1;
+$line_at         = strpos( $focus_html, '<h3 class="wpcpm-inst-uncounted">Not counted above</h3>' );
+
+ck( 'the card total is the 88 of the 106 at a counted stage', false !== strpos( $focus_html, 'Pipeline <span class="wpcpm-count">88</span>' ), true );
+ck( 'the stage counts above the line are the counted stages\', "Paused" drawn after the ones the lists know', stage_headings( substr( $focus_html, 0, (int) $line_at ) ), $above );
+ck( 'the line "Not counted above" comes once, after the last counted table and before the folded stages, and nothing counted is drawn after it', array(
+	substr_count( $focus_html, 'Not counted above' ),
+	false !== $line_at && $line_at > strrpos( substr( $focus_html, 0, (int) $line_at ), '</table>' ),
+	$line_at < strpos( $focus_html, '<details class="wpcpm-inst-folded">' ),
+	stage_headings( substr( $focus_html, (int) $line_at ) ),
+), array( 1, true, true, array() ) );
+ck( 'under it, each stage left out is a closed fold whose summary is the stage and its count, "SPAM " folded in with SPAM', folded_groups( $focus_html ), array(
+	'Not Moving Forward' => array( 14, false ),
+	'SPAM'               => array( 3, false ),
+	'Revisit Later'      => array( 1, false ),
+) );
+
+$spam_fold = preg_match( '#<details class="wpcpm-inst-folded"><summary>SPAM <span class="wpcpm-count">3</span></summary>(.*?)</details>#s', $focus_html, $fold ) ? $fold[1] : '';
+ck( 'a fold\'s rows draw as before: the table\'s columns, each row\'s name, record ID, country mark and agreement, "SPAM " among them', array(
+	0 === strpos( $spam_fold, '<table class="widefat striped wpcpm-list wpcpm-inst-table"><thead><tr><th scope="col">Institution</th><th scope="col">Country</th>' ),
+	substr_count( $spam_fold, '<tr><td class="wpcpm-inst-name">' ),
+	false !== strpos( $spam_fold, '<a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $spaced . '">Spaced Spam College</a></span><br /><code class="wpcpm-inst-record">' . $spaced . '</code></td><td>Cambodia <span class="wpcpm-inst-mark wpcpm-inst-mark--routing"' ),
+	substr_count( $spam_fold, '<td class="wpcpm-inst-agreement">Not started</td>' ),
+), array( true, 3, true, 3 ) );
+ck( 'and "Paused" is a counted table of its own, above the line', false !== strpos( substr( $focus_html, 0, (int) $line_at ), '<code class="wpcpm-inst-record">' . $paused . '</code>' ), true );
+
+$focus_before = 0;
+$focus_since  = 0;
+foreach ( $focus_counted as $row ) {
+	if ( ! $row['consent'] && '' !== $row['created'] ) {
+		if ( strcmp( $row['created'], '2026-07-20' ) < 0 ) { $focus_before++; } else { $focus_since++; }
+	}
+}
+ck( 'every other count on the tab is over the counted rows too: Confirmed with no agreement, no live member, the routing line and the consent card', array(
+	false !== strpos( $focus_html, 'Confirmed with no agreement recorded <span class="wpcpm-count">' . ( $seed['counts']['by_stage']['Confirmed'] - 3 ) . '</span></a>' ),
+	false !== strpos( $focus_html, 'Institutions with no live member <span class="wpcpm-count">88</span>' ),
+	$focus_pipeline_reads,
+	false !== strpos( $focus_html, '<p class="wpcpm-inst-routing">Countries named by institutions with no Administrator contact in the Countries table: Nigeria (1)</p>' ),
+	array( $focus_before, $focus_since ),
+	false !== strpos( $focus_html, '<p class="wpcpm-inst-consent">' . $focus_before . ' institution records were collected before the consent question was added on 20 July 2026, ' . $seed['counts']['created_before_consent_question_confirmed'] . ' of them at Confirmed.</p>' ),
+	false !== strpos( $focus_html, 'Since then, ' . $focus_since . ' records have been created without the tick' ),
+), array( true, true, 88, true, array( 69, 4 ), true, true ) );
+ck( 'and the Sync and storage tab still counts every one: each institution asked once, every contact address that is not a member\'s counted, the spaced SPAM record\'s among them', array(
+	$focus_sync_reads,
+	false !== strpos( $focus_sync, '<th scope="row">Contacts who are not members</th><td>' . count( $focus_emailed ) . ' ' ),
+	count( $focus_emailed ),
+), array( 106, true, 103 ) );
+ck( 'the filtered view draws Confirmed alone, with no line and no fold', array( array_keys( stage_headings( $focus_filtered ) ), strpos( $focus_filtered, 'Not counted above' ), strpos( $focus_filtered, '<details' ) ), array( array( 'Confirmed' ), false, false ) );
+
+// No stage is the fourth: a record with none folds last, under the name the card has always given it.
+$stageless                                                     = 'recNOSTAGEROW0001';
+$with_stageless                                                = $focus;
+$with_stageless[ $stageless ]                                  = array_merge( reset( $rows ), array( 'record_id' => $stageless, 'name' => 'Stageless School', 'stage' => '', 'city' => 'City N' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $with_stageless;
+$stageless_html                                                = render_tab( 'pipeline' );
+ck( 'a record with no stage folds last, as No stage, and is not counted', array( array_keys( folded_groups( $stageless_html ) ), folded_groups( $stageless_html )['No stage'] ?? null, false !== strpos( $stageless_html, 'Pipeline <span class="wpcpm-count">88</span>' ) ), array( array( 'Not Moving Forward', 'SPAM', 'Revisit Later', 'No stage' ), array( 1, false ), true ) );
+ck( 'and its option in the field reads its name and city alone', false !== strpos( $stageless_html, '<option value="' . $stageless . '">Stageless School, City N</option>' ), true );
+
+// Names: each opens the institution's page as an Administrator sees it, the address the Agreements
+// tab links to, with no panel anchor.
+$linked_ok = true;
+foreach ( $focus as $id => $row ) {
+	$linked_ok = $linked_ok && false !== strpos( $focus_html, '<span class="wpcpm-inst-name__text"><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $id . '">' . esc_html( trim( $row['name'] ) ) . '</a></span>' );
+}
+ck( 'every Pipeline name, folded or not, links to its Institution Dashboard as an Administrator sees it, and none to a panel', array( $linked_ok, substr_count( $focus_html, '<span class="wpcpm-inst-name__text"><a href="' ), substr_count( $focus_html, '#wpcpm-agreement' ) ), array( true, 106, 0 ) );
+
+// The field: Find an institution, over every record whatever its stage, to the same address.
+$find_form = preg_match( '#<form method="get" action="https://example.test/institution-dashboard/" class="wpcpm-inst-find wpcpm-admin-picker">(.*?)</form>#s', $focus_html, $found ) ? $found[1] : '';
+preg_match( '#<select name="wpcpm_institution_view" id="wpcpm-pipeline-find" autocomplete="off">(.*?)</select>#s', $find_form, $find_select );
+preg_match_all( '#<option value="([^"]*)"( selected=\'selected\')?>([^<]*)</option>#', $find_select[1] ?? '', $find_options, PREG_SET_ORDER );
+$find_labels = array();
+foreach ( $find_options as $option ) { $find_labels[ $option[1] ] = html_entity_decode( $option[3], ENT_QUOTES ); }
+// The first option is the placeholder, chosen, with no record behind it: the sort check and the
+// records' labels read over the records only.
+$find_first  = $find_options[0] ?? array();
+$find_empty  = $find_labels[''] ?? null;
+unset( $find_labels[''] );
+$find_ids  = array_keys( $find_labels );
+$sorted_ok = count( $find_ids ) > 1;
+for ( $i = 1; $i < count( $find_ids ); $i++ ) {
+	$sorted_ok = $sorted_ok && WPCPM_Dashboards::compare_names( trim( $focus[ $find_ids[ $i - 1 ] ]['name'] ), trim( $focus[ $find_ids[ $i ] ]['name'] ) ) <= 0;
+}
+ck( 'one form above the groups sends a GET to the Institution Dashboard\'s page, with the field, wrapped for its rules, and its Open its page button', array(
+	'' !== $find_form,
+	false !== strpos( $find_form, '<div class="wpcpm-admin-combo"><label for="wpcpm-pipeline-find" id="wpcpm-pipeline-find-label">Find an institution</label> <select name="wpcpm_institution_view" id="wpcpm-pipeline-find" autocomplete="off">' ),
+	false !== strpos( $find_form, '<input type="text" id="wpcpm-pipeline-find-input" class="wpcpm-dashboard__switcher-input" role="combobox"' ),
+	false !== strpos( $find_form, '<ul id="wpcpm-pipeline-find-list" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="wpcpm-pipeline-find-label" hidden></ul>' ),
+	false !== strpos( $find_form, '</div> </div><button type="submit" class="button">Open its page</button>' ),
+	substr_count( $focus_html, 'id="wpcpm-pipeline-find"' ),
+	strpos( $focus_html, '<form method="get" action="https://example.test/institution-dashboard/"' ) < strpos( $focus_html, '<h3 class="wpcpm-inst-stage">' ),
+	in_array( WPCPM_Dashboards::SWITCHER_SCRIPT, $GLOBALS['enqueued'], true ),
+), array( true, true, true, true, true, 1, true, true ) );
+ck( 'its options are the placeholder first, then all 106 records, keyed by record ID, sorted by name', array( count( $find_options ), count( $find_labels ), array_diff( array_keys( $focus ), $find_ids ), $sorted_ok ), array( 107, 106, array(), true ) );
+ck( 'the placeholder is "Choose an institution", empty, the one chosen, and the only empty option, so an untouched Open its page sends no record', array(
+	$find_first[1] ?? null,
+	! empty( $find_first[2] ),
+	$find_empty,
+	substr_count( $find_select[1] ?? '', '<option value=""' ),
+	substr_count( $find_select[1] ?? '', 'selected=' ),
+), array( '', true, 'Choose an institution', 1, 1 ) );
+ck( 'each reads "Name, City (Stage)", trimmed, the city or the stage left out when there is none', array(
+	$find_labels[ $paused ] ?? null,
+	$find_labels[ $spaced ] ?? null,
+	$find_labels['recSEED0000000118'] ?? null,
+	$find_labels['recSEED0000000048'] ?? null,
+	$find_labels['recSEED0000000002'] ?? null,
+), array( 'Paused Polytechnic, City P (Paused)', 'Spaced Spam College, City S (SPAM)', 'Institution 86 (SPAM)', 'Institution 30, City 2 (First Contact Made)', 'Institution 1, City 1 (Info Sent)' ) );
+ck( 'and the field carries no address, and the form no nonce and no action', array( preg_match( '/@example\.test/', $find_form ), strpos( $find_form, '_wpnonce' ), strpos( $find_form, 'name="action"' ) ), array( 0, false, false ) );
+
+// The page addressed by its query, as a site without pretty permalinks addresses it: a GET form drops
+// the query of its action, so each argument goes in a hidden field, and the links carry it.
+$GLOBALS['institution_page_url'] = 'https://example.test/?page_id=42';
+$plain_permalinks                = render_tab( 'pipeline' );
+$GLOBALS['institution_page_url'] = '';
+$no_page                         = render_tab( 'pipeline' );
+unset( $GLOBALS['institution_page_url'] );
+$queried_form = preg_match( '#<form method="get" action="https://example.test/\?page_id=42" class="wpcpm-inst-find wpcpm-admin-picker">(.*?)</form>#s', $plain_permalinks, $found ) ? $found[1] : '';
+ck( 'a page addressed by its query keeps it: each argument in a hidden field of the form, and in every link', array(
+	0 === strpos( $queried_form, '<input type="hidden" name="page_id" value="42" /><div class="wpcpm-admin-combo">' ),
+	false !== strpos( $plain_permalinks, '<a href="https://example.test/?page_id=42&wpcpm_institution_view=' . $paused . '">Paused Polytechnic</a>' ),
+), array( true, true ) );
+ck( 'with no published Institution Dashboard the names are plain and no field is drawn', array(
+	false !== strpos( $no_page, '<span class="wpcpm-inst-name__text">Paused Polytechnic</span>' ),
+	strpos( $no_page, 'wpcpm_institution_view' ),
+	strpos( $no_page, 'wpcpm-pipeline-find' ),
+	strpos( $no_page, 'Open its page' ),
+	false !== strpos( $no_page, 'Pipeline <span class="wpcpm-count">88</span>' ),
+), array( true, false, false, false, true ) );
+
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the reconciliation card -------------------------------------------- */
@@ -2280,12 +2564,12 @@ echo "\n=== The manager backstop counts ===\n";
 // Day one, with nothing provisioned: every institution is missing a member, and every
 // address the base names for one belongs to nobody on this site.
 $emailed = array_keys( array_filter( $rows, function ( $r ) { return '' !== $r['contact_email']; } ) );
-ck( 'the fixture names a contact address for 102 of the 106 institutions', count( $emailed ), 102 );
+ck( 'the fixture names a contact address for 102 of the 104 institutions', count( $emailed ), 102 );
 $pipeline_html = render_tab( 'pipeline' );
 $sync_html     = render_tab( 'sync' );
 
-ck( 'with nobody provisioned, both counts are the whole pipeline', array(
-	false !== strpos( $pipeline_html, 'Institutions with no live member <span class="wpcpm-count">' . count( $rows ) . '</span>' ),
+ck( 'with nobody provisioned, both counts are the whole pipeline: the Pipeline\'s over the institutions it counts, Sync and storage\'s over every one', array(
+	false !== strpos( $pipeline_html, 'Institutions with no live member <span class="wpcpm-count">' . count( $counted ) . '</span>' ),
 	false !== strpos( $sync_html, '<th scope="row">Contacts who are not members</th><td>' . count( $emailed ) . ' ' ),
 ), array( true, true ) );
 
@@ -2334,15 +2618,15 @@ $pipeline_reads = $GLOBALS['member_reads'];
 $members_sync   = render_tab( 'sync' );
 $sync_reads     = $GLOBALS['member_reads'];
 
-ck( 'two institutions with a live member leave 104 with none', false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $rows ) - 2 ) . '</span>' ), true );
+ck( 'two counted institutions with a live member leave 85 with none', array( count( array_intersect_key( $GLOBALS['members_of'], $counted ) ), false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $counted ) - 2 ) . '</span>' ) ), array( 2, true ) );
 ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members_sync, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed ) - 1 ) . ' ' ), true );
 ck( 'and the card says what a contact who is not a member means, and what is not built for it yet', false !== strpos( $members_sync, 'A Contact Email that belongs to no member is the address Airtable names for the institution' ), true );
-ck( 'each tab that prints a membership count asks each institution for its members exactly once, for both counts together', array(
+ck( 'each tab that prints a membership count asks each institution it counts for its members exactly once, for both counts together: Pipeline the 87 it counts, Sync and storage all 104', array(
 	count( $pipeline_reads ),
 	count( array_unique( $pipeline_reads ) ),
 	count( $sync_reads ),
 	count( array_unique( $sync_reads ) ),
-), array( count( $rows ), count( $rows ), count( $rows ), count( $rows ) ) );
+), array( count( $counted ), count( $counted ), count( $rows ), count( $rows ) ) );
 ck( 'no address reaches the screen, the member\'s least of all', preg_match( '/@example\.test/i', $members . $members_sync ), 0 );
 
 $GLOBALS['members_of']   = array();
@@ -2508,6 +2792,167 @@ ck( 'with every Confirmed institution recorded the card says so, and draws no li
 ), array( true, false, false ) );
 
 $GLOBALS['summaries'] = $kept_summaries;
+
+/* ---- agreements in force ------------------------------------------------ */
+
+// The card lists every institution whose agreement is in force, the one accepted on the site and the
+// ones recorded on file alike, and draws a folded form to revoke each (1.123.29). It posts to the
+// handler that has been there since the revoke was built, which nothing posted to: the form is
+// the new part, and what it posts is what the handler reads.
+
+echo "\n=== Agreements in force ===\n";
+
+$force_ids   = array_keys( $rows );
+$force_rows  = $rows;
+$force_names = array(
+	0 => 'Zeta College',
+	1 => 'alpha Institute ',
+	2 => 'Émile School',
+);
+foreach ( $force_names as $at => $force_name ) {
+	$force_rows[ $force_ids[ $at ] ]['name'] = $force_name;
+}
+// The second is in force and no longer Confirmed: the card lists what is in force, not a stage.
+$force_rows[ $force_ids[2] ]['stage'] = 'Under Review';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+
+$GLOBALS['summaries'] = array(
+	$force_ids[0] => array( 'state' => 'accepted', 'kind' => 'template', 'accepted_at' => '2026-02-02', 'agreement_id' => 7001, 'route' => 'site' ),
+	$force_ids[1] => array( 'state' => 'on_file', 'kind' => 'legacy', 'accepted_at' => '2026-09-02', 'agreement_id' => 7002, 'route' => 'grid' ),
+	$force_ids[2] => array( 'state' => 'accepted', 'kind' => 'own', 'accepted_at' => '2026-03-05', 'agreement_id' => 7003, 'route' => 'site' ),
+	// Not in force: nothing to revoke, so no row.
+	$force_ids[3] => array( 'state' => 'generated', 'generated_id' => 7004 ),
+	$force_ids[4] => array( 'state' => 'submitted', 'pending_id' => 7005 ),
+	$force_ids[5] => array( 'state' => 'returned' ),
+	$force_ids[6] => array( 'state' => 'revoked' ),
+);
+$in_force_tab  = render_tab( 'agreements' );
+$in_force_card = preg_match( '#<div class="wpcpm-card"><h2>Agreements in force</h2>(.*?)</div><div class="wpcpm-card">#s', $in_force_tab, $force_match ) ? $force_match[1] : '';
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $in_force_card, $force_listed );
+$force_li = $force_listed[1];
+$link_of  = function ( $name, $record ) {
+	return '<a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '">' . esc_html( $name ) . '</a>';
+};
+
+ck( 'the card comes after Agreements on file, and the tab draws four cards in their order', array(
+	strpos( $in_force_tab, '<h2>Agreements on file</h2>' ) < strpos( $in_force_tab, '<h2>Agreements in force</h2>' ),
+	strpos( $in_force_tab, '<h2>Agreements in force</h2>' ) < strpos( $in_force_tab, 'Agreement discrepancies' ),
+	cards_of( $in_force_tab ),
+), array( true, true, array( 'Agreements on file', 'Agreements in force', 'Agreement discrepancies', 'Agreement template' ) ) );
+ck( 'it holds one row for each agreement in force, the one accepted on the site and the ones recorded on file, whatever the stage, and none for a generated, submitted, returned or revoked one', count( $force_li ), 3 );
+ck( 'sorted by name, without regard to case or accents, the name linked to its Institution Dashboard as an Administrator sees it', array(
+	0 === strpos( $force_li[0], '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">' . $link_of( 'alpha Institute', $force_ids[1] ) . '</span>' ),
+	0 === strpos( $force_li[1], '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">' . $link_of( 'Émile School', $force_ids[2] ) . '</span>' ),
+	0 === strpos( $force_li[2], '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">' . $link_of( 'Zeta College', $force_ids[0] ) . '</span>' ),
+), array( true, true, true ) );
+ck( 'each row says how its agreement came to be in force, and the day, in the site\'s date format', array(
+	false !== strpos( $force_li[0], '<span class="wpcpm-inst-muted">Recorded on file, September 2, 2026</span>' ),
+	false !== strpos( $force_li[1], '<span class="wpcpm-inst-muted">Accepted on the site, March 5, 2026</span>' ),
+	false !== strpos( $force_li[2], '<span class="wpcpm-inst-muted">Accepted on the site, February 2, 2026</span>' ),
+), array( true, true, true ) );
+ck( 'and a closed fold, "Revoke this agreement", holds the row\'s form', array(
+	substr_count( $in_force_card, '<details class="wpcpm-inst-folded"><summary>Revoke this agreement</summary>' ),
+	substr_count( $in_force_card, '<details' ),
+	substr_count( $in_force_card, '<details class="wpcpm-inst-folded" open>' ),
+	substr_count( $in_force_card, '<form' ),
+), array( 3, 3, 0, 3 ) );
+
+// The form: what the handler reads, under the names it reads them by.
+$form_of = function ( $li ) {
+	return preg_match( '#<form[^>]*>.*?</form>#s', $li, $m ) ? $m[0] : '';
+};
+$first_form = $form_of( $force_li[2] );
+ck( 'the form posts to the revoke handler, keyed to the document, once', array(
+	0 === strpos( $first_form, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-review__form" data-wpcpm-once data-wpcpm-busy="Revoking">' ),
+	false !== strpos( $first_form, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_agreement_revoke_7001" />' ),
+	false !== strpos( $first_form, '<input type="hidden" name="action" value="wpcpm_agreement_revoke" />' ),
+	false !== strpos( $first_form, '<input type="hidden" name="wpcpm_agreement_post" value="7001" />' ),
+), array( true, true, true, true ) );
+ck( 'each row\'s form is keyed to its own document', array(
+	false !== strpos( $form_of( $force_li[0] ), 'nonce-wpcpm_agreement_revoke_7002' ) && false !== strpos( $form_of( $force_li[0] ), 'name="wpcpm_agreement_post" value="7002"' ),
+	false !== strpos( $form_of( $force_li[1] ), 'nonce-wpcpm_agreement_revoke_7003' ) && false !== strpos( $form_of( $force_li[1] ), 'name="wpcpm_agreement_post" value="7003"' ),
+), array( true, true ) );
+ck( 'the note is a required box of 20 to 2,000 characters, named the way the handler reads it, under the label the refusal names it by', array(
+	false !== strpos( $first_form, '<label for="wpcpm-revoke-note-7001">Why it is revoked, in your own words</label>' ),
+	false !== strpos( $first_form, '<textarea id="wpcpm-revoke-note-7001" name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required></textarea>' ),
+	WPCPM_Institution_Panel::revoke_label(),
+), array( true, true, 'Why it is revoked, in your own words' ) );
+ck( 'and the line under it says who receives the note', false !== strpos( $first_form, '<p class="description">Every member of this institution receives this note by email.</p>' ), true );
+ck( 'the button is "Revoke this agreement" and asks first, naming the institution and what follows', false !== strpos( $first_form, '<button type="submit" class="button button-primary" data-wpcpm-confirm="Revoke the agreement with Zeta College? Its members keep their accounts but reach only the agreement panel, pending invitations are canceled, and every member receives your note by email.">Revoke this agreement</button>' ), true );
+ck( 'the form comes back to the tab it was drawn on: no way back to a dashboard is carried, so the handler goes back where the request came from', array(
+	strpos( $first_form, 'wpcpm_return' ),
+	strpos( $in_force_card, 'wpcpm_return' ),
+), array( false, false ) );
+ck( 'the card is the only place the tab offers a press, and this is the handler\'s own action', array_values( array_unique( ( function ( $html ) { preg_match_all( '#<input type="hidden" name="action" value="([^"]+)" />#', $html, $m ); return $m[1]; } )( $in_force_tab ) ) ), array( 'wpcpm_agreement_revoke' ) );
+ck( 'when the index was read comes first, as every card that reads the index says', 0 === strpos( $in_force_card, '<p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p>' ), true );
+ck( 'the card asks for no member and no address, and no record ID is printed', array( count( $GLOBALS['member_reads'] ), preg_match( '/@example\.test/', $in_force_card ), false !== strpos( $in_force_card, 'wpcpm-inst-record' ) ), array( 0, 0, false ) );
+
+// A name with markup, an apostrophe and a quote: escaped in the row and in the question.
+$force_rows[ $force_ids[0] ]['name'] = 'St. Mary\'s <b>& "Sons"</b> College';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$escaped = render_tab( 'agreements' );
+ck( 'a name is escaped wherever it is printed', array(
+	false !== strpos( $escaped, esc_html( 'St. Mary\'s <b>& "Sons"</b> College' ) ),
+	false !== strpos( $escaped, 'Revoke the agreement with ' . esc_attr( 'St. Mary\'s <b>& "Sons"</b> College' ) . '?' ),
+	false !== strpos( $escaped, '<b>& "Sons"</b>' ),
+), array( true, true, false ) );
+$force_rows[ $force_ids[0] ]['name'] = 'Zeta College';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+
+// A refused revoke comes back to its row: the fold open, the note as typed, once, in that row's box
+// alone. A line break at the start of the note is kept, which the parser would otherwise drop.
+$GLOBALS['kept_revoke'] = array( 7003 => "\nThe rector asked us to pause <every> agreement & \"all\" of them." );
+$kept_tab               = render_tab( 'agreements' );
+$GLOBALS['kept_revoke'] = array();
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $kept_tab, $kept_listed );
+ck( 'the refused row\'s fold is open and its box holds the note as typed, escaped; the other rows stay closed and empty', array(
+	substr_count( $kept_tab, '<details class="wpcpm-inst-folded" open><summary>Revoke this agreement</summary>' ),
+	false !== strpos( $kept_listed[1][1], '<details class="wpcpm-inst-folded" open>' ),
+	false !== strpos( $kept_listed[1][1], 'required>' . "\n" . "\n" . 'The rector asked us to pause &lt;every&gt; agreement &amp; &quot;all&quot; of them.</textarea>' ),
+	false !== strpos( $kept_listed[1][0], '<details class="wpcpm-inst-folded">' ) && false !== strpos( $kept_listed[1][0], 'required></textarea>' ),
+	false !== strpos( $kept_listed[1][2], '<details class="wpcpm-inst-folded">' ) && false !== strpos( $kept_listed[1][2], 'required></textarea>' ),
+), array( 1, true, true, true, true ) );
+
+// With the Institution Dashboard's page missing there is nowhere to send the reader: plain names.
+$kept_url                        = $GLOBALS['institution_page_url'] ?? null;
+$GLOBALS['institution_page_url'] = '';
+$force_plain                     = render_tab( 'agreements' );
+$GLOBALS['institution_page_url'] = $kept_url;
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $force_plain, $plain_listed );
+ck( 'with no Institution Dashboard page the names are listed without a link, and the forms are still there', array(
+	0 === strpos( $plain_listed[1][0], '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">alpha Institute</span>' ),
+	false !== strpos( $plain_listed[1][2], '<span class="wpcpm-inst-name__text">Zeta College</span>' ),
+	substr_count( $force_plain, 'wpcpm_institution_view' ),
+	substr_count( $force_plain, 'value="wpcpm_agreement_revoke"' ),
+), array( true, true, 0, 3 ) );
+
+// A summary in force with no document behind it cannot be revoked: its row is drawn and its form is not.
+$GLOBALS['summaries'] = array( $force_ids[0] => array( 'state' => 'on_file', 'agreement_id' => 0, 'accepted_at' => '2026-02-02' ) );
+$no_document          = render_tab( 'agreements' );
+ck( 'a row with no document to act on says what it is and draws no form', array( substr_count( $no_document, 'wpcpm-inst-inforce__row' ), substr_count( $no_document, 'wpcpm_agreement_revoke' ), substr_count( $no_document, '<details' ) ), array( 1, 0, 0 ) );
+
+// None in force: the card says so, with no list.
+$GLOBALS['summaries'] = array(
+	$force_ids[3] => array( 'state' => 'generated', 'generated_id' => 7004 ),
+	$force_ids[6] => array( 'state' => 'revoked' ),
+);
+$none_in_force = render_tab( 'agreements' );
+ck( 'with none in force the card says so and draws no row and no form', array(
+	false !== strpos( $none_in_force, '<div class="wpcpm-card"><h2>Agreements in force</h2><p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>No institution has an agreement in force.</p></div>' ),
+	substr_count( $none_in_force, 'wpcpm-inst-inforce' ),
+	substr_count( $none_in_force, 'wpcpm_agreement_revoke' ),
+), array( true, 0, 0 ) );
+
+// The queue and the other tabs are not given the card.
+$GLOBALS['summaries'] = array( $force_ids[0] => array( 'state' => 'accepted', 'agreement_id' => 7001, 'accepted_at' => '2026-02-02' ) );
+$elsewhere            = array();
+foreach ( array( 'queue', 'pipeline', 'accounts', 'reports', 'sync' ) as $other_tab ) {
+	$elsewhere[ $other_tab ] = substr_count( render_tab( $other_tab ), 'Agreements in force' ) + substr_count( render_tab( $other_tab ), 'wpcpm_agreement_revoke' );
+}
+ck( 'no other tab draws the card or the form', $elsewhere, array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'sync' => 0 ) );
+
+$GLOBALS['summaries'] = $kept_summaries;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- discrepancies and the template card -------------------------------- */
 
@@ -3014,6 +3459,16 @@ $answers = array(
 	'Anything else you’d like us to know?'                                   => '',
 );
 
+// The five answers kept on the site since 1.123.29, under their own key and never in the fields an
+// approval writes to Airtable.
+$site_answers = array(
+	'contact_role'      => 'Internship coordinator',
+	'student_languages' => array( 'Spanish', 'Portuguese' ),
+	'signer_name'       => 'Signer Example',
+	'signer_title'      => '<em>Dean</em> of the Faculty of Engineering',
+	'credits_page'      => 'https://universidad.example/wordpress-credits',
+);
+
 seed_application(
 	501,
 	'Universidad Example',
@@ -3021,6 +3476,7 @@ seed_application(
 	$now - ( 10 * $day ),
 	array(
 		WPCPM_Institution_Application::META_FIELDS       => $answers,
+		WPCPM_Institution_Application::META_SITE         => $site_answers,
 		WPCPM_Institution_Application::META_REFERENCE    => 'APP-2026-0007',
 		WPCPM_Institution_Application::META_COUNTRY      => $routed,
 		WPCPM_Institution_Application::META_COUNTRY_NAME => $routed_name,
@@ -3364,15 +3820,54 @@ $GLOBALS['airtable_page'] = array( 'records' => array(), 'offset' => null );
 $open                     = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
 
 $asked = array();
+$rowed = array();
 
 foreach ( WPCPM_Institution_Application::fields() as $column => $spec ) {
 	// The consent under the sentence its applicant agreed to, which the record holds: this one was
-	// filed before 1.123.24, when the form asked other words.
+	// filed before 1.123.24, when the form asked other words. An answer kept on the site has no
+	// column, so its heading is the question alone.
 	$heading = 'Privacy Policy Compliance' === $column ? $consent['sentence'] : $spec['label'];
-	$asked[] = false !== strpos( $open, '<th scope="row">' . esc_html( $heading ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code></th>' );
+	$asked[] = false !== strpos( $open, empty( $spec['site'] )
+		? '<th scope="row">' . esc_html( $heading ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code></th>'
+		: '<tr><th scope="row">' . esc_html( $heading ) . '</th>' );
+	$rowed[] = empty( $spec['site'] ) ? esc_html( $heading ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code>' : esc_html( $heading );
 }
 
-ck( 'all thirteen questions are shown, the consent under the sentence its applicant agreed to', $asked, array_fill( 0, 13, true ) );
+/** The answers table of a drawn application, row by row: each heading cell and its answer. */
+$answer_rows = static function ( $html ) {
+	if ( ! preg_match( '#<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>(.*?)</tbody></table>#s', $html, $table ) ) {
+		return array();
+	}
+	preg_match_all( '#<tr><th scope="row">(.*?)</th><td>(.*?)</td></tr>#s', $table[1], $found, PREG_SET_ORDER );
+	return array_map( static function ( $row ) { return array( $row[1], $row[2] ); }, $found );
+};
+$open_rows = $answer_rows( $open );
+
+ck( 'all eighteen questions are shown, the consent under the sentence its applicant agreed to', $asked, array_fill( 0, 18, true ) );
+ck( 'in eighteen rows, in the order the form asks them, the five kept on the site with no column name under the question', array_column( $open_rows, 0 ), $rowed );
+ck( 'so the table names thirteen columns, and none of the five keys is printed anywhere in it', array(
+	substr_count( implode( '', array_column( $open_rows, 0 ) ), '<code class="wpcpm-inst-record">' ),
+	array_values( array_filter( array( 'contact_role', 'student_languages', 'signer_name', 'signer_title', 'credits_page' ), static function ( $key ) use ( $open_rows ) { return false !== strpos( implode( '', array_merge( array_column( $open_rows, 0 ), array_column( $open_rows, 1 ) ) ), $key ); } ) ),
+), array( 13, array() ) );
+ck( 'the five are answered from the site\'s own key, the languages joined as the internship choices are, and escaped', array_slice( array_column( $open_rows, 1 ), 0, 17 ), array(
+	'Universidad Example',
+	esc_html( $routed_name ),
+	'Cartago',
+	'universidad.example',
+	'Ana Example',
+	'ana@example.test',
+	'Internship coordinator',
+	'Computer Science',
+	' Credit-bearing internships, Final projects',
+	'&lt;script&gt;alert(1)&lt;/script&gt;',
+	'25',
+	'Spanish, Portuguese',
+	'Signer Example',
+	'&lt;em&gt;Dean&lt;/em&gt; of the Faculty of Engineering',
+	'https://universidad.example/wordpress-credits',
+	'Our students need real projects.',
+	'<span class="wpcpm-inst-muted">no answer</span>',
+) );
 ck( 'the answers are escaped, prose from a stranger being what they are', array(
 	false !== strpos( $open, '&lt;script&gt;alert(1)&lt;/script&gt;' ),
 	false === strpos( $open, '<script>alert(1)</script>' ),
@@ -3406,6 +3901,25 @@ foreach ( $GLOBALS['calls'] as $call ) {
 }
 
 ck( 'opening one asks the base about the trimmed name and the lowered address', $formula, "OR(TRIM(LOWER({Name})) = 'universidad example', LOWER({Contact Email}) = 'ana@example.test')" );
+
+// An application filed before 1.123.29 holds no site answers: its five rows are drawn all the same,
+// unanswered as any question left empty is, with no column name under them.
+$before_rows = $answer_rows( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) ) );
+$before_site = array();
+
+foreach ( array_keys( WPCPM_Institution_Application::fields() ) as $index => $column ) {
+	if ( ! empty( WPCPM_Institution_Application::fields()[ $column ]['site'] ) ) {
+		$before_site[] = $before_rows[ $index ] ?? null;
+	}
+}
+
+ck( 'one filed before the five were asked draws their rows unanswered, with no column name', array( count( $before_rows ), $before_site ), array( 18, array(
+	array( 'Their role at the institution', '<span class="wpcpm-inst-muted">no answer</span>' ),
+	array( 'In which languages do your students study?', '<span class="wpcpm-inst-muted">no answer</span>' ),
+	array( 'Who will sign the agreement for the institution?', '<span class="wpcpm-inst-muted">no answer</span>' ),
+	array( 'Their title', '<span class="wpcpm-inst-muted">no answer</span>' ),
+	array( 'Your page about WordPress Credits', '<span class="wpcpm-inst-muted">no answer</span>' ),
+) ) );
 
 // A view of the queue tab, reached by its query argument: drawn in place of the list rather than
 // above it, with the way back to the list.
@@ -3907,6 +4421,7 @@ $refusals = array(
 	'wpcpm_app_no_email'   => 'app-incomplete',
 	'wpcpm_app_name'       => 'app-incomplete',
 	'wpcpm_app_airtable'   => 'app-failed',
+	'wpcpm_app_answers'    => 'app-failed',
 	'wpcpm_app_actor'      => 'app-failed',
 );
 
@@ -4592,7 +5107,11 @@ $GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] = array();
 
 seed_application( 504, 'Old Rejection', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2025-0001' ) );
 seed_application( 505, 'Old Spam', WPCPM_Institution_Application::STATE_SPAM, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0002' ) );
-seed_application( 506, 'Old Approval', WPCPM_Institution_Application::STATE_APPROVED, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2025-0003' ) );
+// The approved one holds the answers kept on the site since 1.123.29, which go with it when it goes.
+seed_application( 506, 'Old Approval', WPCPM_Institution_Application::STATE_APPROVED, $now - ( 400 * $day ), array(
+	WPCPM_Institution_Application::META_REFERENCE => 'APP-2025-0003',
+	WPCPM_Institution_Application::META_SITE      => array( 'contact_role' => 'Internship coordinator', 'student_languages' => array( 'Spanish' ) ),
+) );
 
 // Decided yesterday, arrived a year ago: the clock runs from the decision, so lengthening a
 // retention setting gives every row the longer life rather than deleting a batch at once.
@@ -4620,7 +5139,8 @@ ck( 'each deletion is logged with the rule that removed it and nobody who presse
 ), array( 2, 'APP-2026-0002', 'spam', 30, 0, 'APP-2025-0001', 365 ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 30;
-ck( 'and takes the approved one as soon as the setting names a number of days', array( WPCPM_Institutions::purge_applications(), null === get_post( 506 ) ), array( 1, true ) );
+ck( 'the approved one keeps its site-only answers while it is kept', WPCPM_Institution_Application::site_answers( 506 ), array( 'contact_role' => 'Internship coordinator', 'student_languages' => array( 'Spanish' ) ) );
+ck( 'and takes the approved one as soon as the setting names a number of days, its site-only answers with it', array( WPCPM_Institutions::purge_applications(), null === get_post( 506 ), isset( $GLOBALS['pmeta'][506][ WPCPM_Institution_Application::META_SITE ] ), WPCPM_Institution_Application::site_answers( 506 ) ), array( 1, true, false, array() ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 0;
 
 // FANON-3 gave the sponsor queue held-row retention; the institution queue shares the same
@@ -4677,9 +5197,10 @@ ck( 'boot() wires every handler this module has, the retention cron and the scre
 // Everything `boot()` starts, in order. Read as a slice so a handler added later fails here
 // rather than passing unnoticed: this assertion is the only thing that says the module's
 // pieces are actually started, and a subset check would say nothing.
-ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 11 ), array(
+ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 12 ), array(
 	array( 'WPCPM_Institution_Agreement::init' ),
 	array( 'WPCPM_Institution_Audit::init' ),
+	array( 'WPCPM_Institution_Record::init' ),
 	array( 'add_action', 'init' ),
 	array( 'ceiling_init' ),
 	array( 'application_init' ),
@@ -4792,13 +5313,15 @@ ck( 'uninstall() drops the three options, every delete_all(), the membership sta
 	// Two delete_all() methods documented as "called on uninstall" that nothing called.
 	in_array( 'WPCPM_Institution_Invite::delete_all', $names, true ),
 	in_array( 'WPCPM_Institution_Request::delete_all', $names, true ),
+	// The institutions' own records (1.123.29) outlive the applications' purge, so this is what removes them.
+	in_array( 'WPCPM_Institution_Record::delete_all', $names, true ),
 	in_array( 'delete_option:wpcpm_institutions_state', $names, true ) && in_array( 'delete_option:wpcpm_institutions_report', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_sync', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_error', $names, true ) && in_array( 'delete_option:wpcpm_institutions_lock', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id_was', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_profile', $names, true ),
 	// A manager's rows-per-page choice for the institution accounts, which core keeps as user meta.
 	in_array( 'delete_metadata:wpcpm_institutions_per_page', $names, true ),
-), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
+), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
 // The form's page is the site's to keep, but the plugin's note of which page it is goes, and so does
 // the stamp of its one-time move to /institution-application/, or a reinstall would never move it.

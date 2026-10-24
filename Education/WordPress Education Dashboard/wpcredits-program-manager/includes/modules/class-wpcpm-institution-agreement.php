@@ -304,6 +304,13 @@ class WPCPM_Institution_Agreement {
 	 */
 	const TYPED_RETURN = 'inst-agreement-return';
 
+	/**
+	 * What a refused revoke keeps its note under, the return's twin: the Institutions screen's
+	 * Agreements tab draws a revoke form on every agreement in force, and a reason typed for one
+	 * comes back in that document's box and in no other.
+	 */
+	const TYPED_REVOKE = 'inst-agreement-revoke';
+
 	/** Longest original filename kept for display. It is never used on disk or in a header. */
 	const MAX_FILENAME = 200;
 
@@ -1715,6 +1722,14 @@ class WPCPM_Institution_Agreement {
 	 * The note is required and mailed verbatim. "Your access has been removed" with no reason
 	 * is what makes somebody ring a program manager, and there is nowhere else the
 	 * institution can read why.
+	 *
+	 * **A refused press gives the note back.** The form is drawn for every agreement in force on
+	 * the Institutions screen's Agreements tab, and a refusal there returns to it: a note the
+	 * cleaner would take words from, one too short or too long as typed, a base that would not
+	 * take the status and a lock another request holds each keep what was typed for that
+	 * document's box (`kept_revoke_note()`), as the return's refusals do. A press the state check
+	 * turns away, a second tab's, keeps nothing: there is no box left to give it back to. The
+	 * note also goes into the audit row's data, so the institution's history can show why.
 	 */
 	public static function handle_revoke() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1740,13 +1755,30 @@ class WPCPM_Institution_Agreement {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
-		$note   = self::posted_note();
-		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $note ) : strlen( $note );
+		$form = WPCPM_Typed_Text::box_form( self::TYPED_REVOKE, $post_id );
 
-		// Ahead of the lock, because this refusal needs nothing but the posted string, and a
+		// What an earlier refusal of this form kept is stale once the form is posted again.
+		WPCPM_Typed_Text::forget( $form );
+
+		$typed = WPCPM_Request::posted_raw( 'wpcpm_agreement_note' );
+		$note  = self::posted_note();
+
+		// Both refusals ahead of the lock, because they need nothing but the posted string, and a
 		// manager who pressed the button with an empty box must not find the institution's
-		// record locked for five minutes by their typo.
+		// record locked for five minutes by their typo. A note the cleaner would take words from
+		// would reach every member missing them without a word said.
+		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
+			self::bounce( 'agreement-revoke-loss' );
+		}
+
+		// Counted on what the manager typed, as the box counts it (`WPCPM_Typed_Text::box_length()`),
+		// for the reason `handle_return()` gives: a note the box took is never refused for what the
+		// cleaner made of it, and one it would not take is not let through.
+		$length = WPCPM_Typed_Text::box_length( $typed );
+
 		if ( $length < self::MIN_NOTE || $length > self::MAX_NOTE ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-revoke-note' );
 		}
 
@@ -1756,6 +1788,7 @@ class WPCPM_Institution_Agreement {
 		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
 
 		if ( ! self::lock( $record ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::bounce( 'agreement-busy' );
 		}
 
@@ -1788,6 +1821,7 @@ class WPCPM_Institution_Agreement {
 		// and answers with the ones it did, so "nothing was updated" must not read as success
 		// on the path where success closes an account.
 		if ( is_wp_error( $written ) || empty( $written ) ) {
+			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::unlock( $record );
 			self::bounce( 'agreement-airtable' );
 		}
@@ -1828,9 +1862,12 @@ class WPCPM_Institution_Agreement {
 				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
 				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
 				'message'     => __( 'An accepted Collaboration Agreement was revoked, and the institution\'s account closed.', 'wpcredits-program-manager' ),
+				// The note as the document stores it, for the institution's history to show why
+				// (the audit folds a string to one line; the document keeps the lines).
 				'data'        => array(
 					'kind'    => (string) get_post_meta( $post_id, self::META_KIND, true ),
 					'members' => count( WPCPM_Institution_Members::members_of( $record ) ),
+					'note'    => $note,
 				),
 			)
 		);
@@ -3577,6 +3614,17 @@ class WPCPM_Institution_Agreement {
 	 */
 	public static function kept_return_note( $post_id ) {
 		return WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id ), 'note' );
+	}
+
+	/**
+	 * What a refused revoke typed into its note, handed back once for the one time its form is drawn
+	 * again, on the Institutions screen's Agreements tab, or null when nothing is.
+	 *
+	 * @param int $post_id The accepted document.
+	 * @return string|null
+	 */
+	public static function kept_revoke_note( $post_id ) {
+		return WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REVOKE, $post_id ), 'note' );
 	}
 
 	/**

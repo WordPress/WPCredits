@@ -249,6 +249,42 @@ usort( $sorted, array( 'WPCPM_Dashboards', 'compare_names' ) );
 ck( 'its list opens on Every email, then every email the catalog names and Other email, A to Z', array( $email_options[2][0] ?? '', $email_options[1][0] ?? 'x', count( $labels ), $labels === $sorted, in_array( 'Other email', $labels, true ) ), array( 'Every email', '', count( WPCPM_Mail_Catalog::emails() ) + 1, true, true ) );
 ck( 'and its count sentence is the Log\'s own', false !== strpos( $form, 'data-wpcpm-count="Emails in the list: %s" data-wpcpm-none="No email has that name."' ), true );
 
+// The field's rules are wp-admin's since 1.123.29: admin.css, which every screen of the plugin loads,
+// holds them under the wrapper each such field is drawn in, here and on the Institutions screen, so
+// emails.css keeps none of them and no rule dresses the class the front end's stylesheet owns bare.
+$selectors_of = function ( $file ) {
+	preg_match_all( '/([^{}@]+)\{[^{}]*\}/', (string) preg_replace( '#/\*.*?\*/#s', '', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/' . $file ) ), $rules );
+	$out = array();
+	foreach ( $rules[1] as $list ) {
+		foreach ( explode( ',', $list ) as $selector ) {
+			$selector = trim( preg_replace( '/\s+/', ' ', $selector ) );
+			if ( false !== strpos( $selector, 'switcher' ) || false !== strpos( $selector, 'select[hidden]' ) ) { $out[] = $selector; }
+		}
+	}
+	return $out;
+};
+ck( 'the Email field\'s rules are in admin.css alone, every one under .wpcpm-admin-combo, and the Email filter is drawn inside that wrapper', array(
+	$selectors_of( 'emails.css' ),
+	$selectors_of( 'admin.css' ),
+	false !== strpos( $form, '<div class="wpcpm-emails__filter wpcpm-emails__email wpcpm-admin-combo"><label for="wpcpm-emails-email"' ),
+), array( array(), array(
+	'.wpcpm-admin-combo select[hidden]',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-combo[hidden]',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-list[hidden]',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-combo',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-input',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-list',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-empty',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option:hover',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-active',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-current',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-empty',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-active',
+	'.wpcpm-admin-combo .wpcpm-dashboard__switcher-status',
+), true ) );
+
 // The Email field, run by node on the form as drawn: the script wires it up, or the select stays what
 // it was and the field stays hidden.
 echo "\n=== The Email field, run by node ===\n";

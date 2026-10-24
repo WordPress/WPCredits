@@ -629,6 +629,11 @@ final class WPCPM_Semester_Report_Screen {
 	 * actually be drafted** - a report may already exist for it, or the semester may hold none
 	 * of that institution's rows - and a decision drawn twice in two places is a decision that
 	 * can disagree with itself.
+	 *
+	 * The institution is the one field for a long list (`WPCPM_Dashboards::render_combo()`, 1.123.29),
+	 * as on the Pipeline tab: it drops down, takes typing and narrows, and without the script the
+	 * plain select it stands for is what the form sends. Its rules are wp-admin's (admin.css, under
+	 * `.wpcpm-admin-combo`), since the picker is drawn on the Institutions screen alone.
 	 */
 	public static function render_draft_picker() {
 		$active  = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
@@ -690,7 +695,7 @@ final class WPCPM_Semester_Report_Screen {
 		);
 
 		printf(
-			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form class="wpcpm-report-card__generate wpcpm-admin-picker" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Reading the program records', 'wpcredits-program-manager' )
 		);
@@ -699,13 +704,18 @@ final class WPCPM_Semester_Report_Screen {
 
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
 
-		echo '<select name="institution">';
-
-		foreach ( $options as $record => $name ) {
-			printf( '<option value="%1$s">%2$s</option>', esc_attr( $record ), esc_html( $name ) );
-		}
-
-		echo '</select>';
+		echo '<div class="wpcpm-admin-combo">';
+		WPCPM_Dashboards::render_combo(
+			array(
+				'id'      => 'wpcpm-draft-institution',
+				'name'    => 'institution',
+				'options' => $options,
+				'label'   => __( 'Institution', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'none'    => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+			)
+		);
+		echo '</div>';
 
 		echo '<select name="cohort">';
 

@@ -42,6 +42,17 @@
  * - **The base's spelling is the fixture's.** `create_records()` sends no `typecast`, so
  *   every column name and both choice values are checked against
  *   `bin/fixtures/institutions-table-fields.json`.
+ * - **The institution's record on the site (1.123.29).** The five answers Airtable has no
+ *   column for are handed to `WPCPM_Institution_Record::fill_empty()` once the account half has
+ *   landed and before the application is called approved, on the path that creates the Airtable
+ *   record and on the one that joins a record the program already has. The cells that reach
+ *   Airtable are the same fifteen as before, byte for byte. An application filed before the
+ *   five were asked has none, approves exactly as it always did and leaves no record. A second
+ *   press of Approve is refused and changes none. The record is read back after the fill: when
+ *   an answer the application gave is not on it, the approval is refused before the state moves
+ *   (no approved event, no audit row, the lock given back, the Airtable record and the account
+ *   kept), and the next press finishes it without a second create or account. Non-empty is the
+ *   test, not equal, so a joined record that already holds every answer is approved.
  *
  * The other pieces are stood in for exactly at their contracts: the application form's post
  * type and meta keys, the agreement option, the membership stamp, the mail queue, the sync's
@@ -78,6 +89,10 @@ $GLOBALS['invited']       = array();
 $GLOBALS['rebuilt']       = array();
 $GLOBALS['members']       = array();
 $GLOBALS['mail_queue']    = array();
+$GLOBALS['site_filled']   = array();
+$GLOBALS['site_records']  = array();
+$GLOBALS['site_fails']    = false;
+$GLOBALS['site_read']     = 0;
 $GLOBALS['search_answer'] = array();
 $GLOBALS['create_answer'] = null;
 $GLOBALS['record_answer'] = null;
@@ -240,6 +255,7 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		const STATE_APPROVED     = 'approved';
 		const STATE_REJECTED     = 'rejected';
 		const META_FIELDS        = '_wpcpm_app_fields';
+		const META_SITE          = '_wpcpm_app_site';
 		const META_STATE         = '_wpcpm_app_state';
 		const META_REFERENCE     = '_wpcpm_app_reference';
 		const META_COUNTRY       = '_wpcpm_app_country';
@@ -252,6 +268,12 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		const META_RECORD        = '_wpcpm_app_record';
 		const META_USER          = '_wpcpm_app_user';
 		const META_EVENT         = '_wpcpm_app_event';
+
+		/** The answers kept on the site, as the real one reads them: a list, or none. */
+		public static function site_answers( $application_id ) {
+			$answers = get_post_meta( (int) $application_id, self::META_SITE, true );
+			return is_array( $answers ) ? $answers : array();
+		}
 	}
 }
 
@@ -398,6 +420,57 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			);
 			update_option( self::option_name( $record_id ), $option, false );
 			return $option;
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	/**
+	 * The institution's record on the site, at its contract.
+	 *
+	 * `fill_empty()` journals the call, keeps the arguments it was given in `site_filled`, and
+	 * does what the real one promises: nothing for answers that are all blank, otherwise one
+	 * post per institution whose answers are the first ones given, a later call filling only the
+	 * keys still empty, and `true` only when it changed something. `get()` answers with what the
+	 * record holds, an empty list for an institution with none, and counts its asks in
+	 * `site_read`. A write WordPress refuses is `site_fails`: the call is journaled and false is
+	 * answered, and nothing is kept. The real class's behavior is `bin/test-institution-record.php`'s;
+	 * here it is what lets "leaves no record" mean something.
+	 */
+	class WPCPM_Institution_Record {
+		const POST_TYPE = 'wpcpm_inst_record';
+		public static function get( $record_id ) {
+			++$GLOBALS['site_read'];
+			return $GLOBALS['site_records'][ $record_id ] ?? array();
+		}
+		public static function fill_empty( $record_id, array $answers ) {
+			$GLOBALS['journal'][]     = 'site';
+			$GLOBALS['site_filled'][] = array( $record_id, $answers );
+			if ( $GLOBALS['site_fails'] ) {
+				return false;
+			}
+			$kept                     = array_filter(
+				$answers,
+				static function ( $value ) {
+					return '' !== trim( is_array( $value ) ? implode( '', $value ) : (string) $value );
+				}
+			);
+			if ( empty( $kept ) ) {
+				return false;
+			}
+			if ( ! isset( $GLOBALS['site_records'][ $record_id ] ) ) {
+				wp_insert_post(
+					array(
+						'post_type'   => self::POST_TYPE,
+						'post_status' => 'private',
+						'post_title'  => $record_id,
+					)
+				);
+				$GLOBALS['site_records'][ $record_id ] = array();
+			}
+			$before                                = $GLOBALS['site_records'][ $record_id ];
+			$GLOBALS['site_records'][ $record_id ] = $before + $kept;
+			return $GLOBALS['site_records'][ $record_id ] !== $before;
 		}
 	}
 }
@@ -564,6 +637,10 @@ function reset_world() {
 	$GLOBALS['rebuilt']       = array();
 	$GLOBALS['members']       = array();
 	$GLOBALS['mail_queue']    = array();
+	$GLOBALS['site_filled']   = array();
+	$GLOBALS['site_records']  = array();
+	$GLOBALS['site_fails']    = false;
+	$GLOBALS['site_read']     = 0;
 	$GLOBALS['search_answer'] = array();
 	$GLOBALS['create_answer'] = null;
 	$GLOBALS['record_answer'] = null;
@@ -1075,6 +1152,366 @@ ck( 'and its agreement option is not written again', count( $GLOBALS['rebuilt'] 
 ck( 'the sync\'s row stands untouched', WPCPM_Institutions_Index::row( $other )['stage'], 'Confirmed' );
 ck( 'and the account half is all that is left to do', $GLOBALS['journal'], array( 'user', 'attach', 'invite', 'audit' ) );
 
+echo "\n-- the institution's record on the site: the five answers Airtable has no column for --\n";
+
+/**
+ * The posts of the record type the stand-in has made.
+ *
+ * @return int How many.
+ */
+function record_posts() {
+	$count = 0;
+
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( WPCPM_Institution_Record::POST_TYPE === $post->post_type ) {
+			++$count;
+		}
+	}
+
+	return $count;
+}
+
+$site = array(
+	'contact_role'      => 'Head of the international office',
+	'student_languages' => array( 'English', 'Spanish' ),
+	'signer_name'       => 'First Signer',
+	'signer_title'      => 'Dean of Engineering',
+	'credits_page'      => 'https://example.test/credits',
+);
+
+// The fifteen cells the base is sent on a created record: the eleven answers the form stores, the
+// three the seeded answers carry that the real form never stores, and the server's four over them.
+// Written out by name and then compared whole, so a sixteenth cell, a renamed one or a changed
+// value fails here whichever it is.
+$fifteen = array(
+	'Name',
+	'City',
+	'Website',
+	'Contact Person',
+	'Contact Email',
+	'Department',
+	'How do your internships or practices typically work?',
+	'Comments',
+	'Estimated number of students who may be interested',
+	'Why are you interested in offering WordPress Credits to your students?',
+	'Anything else you’d like us to know?',
+	'Country',
+	'Current Stage',
+	'Privacy Policy Compliance',
+	'Agreement Status',
+);
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+$sent                     = $GLOBALS['created'][0]['records'][0]['fields'];
+
+ck( 'an application with site answers is approved as ever', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $institution, false ) );
+ck( 'the record on the site was filled once', count( $GLOBALS['site_filled'] ), 1 );
+ck( 'for the institution the Airtable record made, with exactly the five answers the application kept', $GLOBALS['site_filled'][0] ?? null, array( $institution, $site ) );
+ck( 'and one record exists', record_posts(), 1 );
+ck( 'the fill comes after the account half and before the audit row', $GLOBALS['journal'], array( 'search', 'create', 'agreement', 'user', 'attach', 'invite', 'site', 'audit' ) );
+ck( 'the cells sent to Airtable are the fifteen of today', array_keys( $sent ), $fifteen );
+ck( 'and have the values of today, none of them one of the five', $sent, array_merge(
+	seeded_answers(),
+	array(
+		'Country'                   => array( $country ),
+		'Current Stage'             => 'First Contact Made',
+		'Privacy Policy Compliance' => true,
+		'Agreement Status'          => 'Not started',
+	)
+) );
+ck( 'one create, one table', array( count( $GLOBALS['created'] ), $GLOBALS['created'][0]['table'], count( $GLOBALS['created'][0]['records'] ) ), array( 1, 'tbl4V0FEbzRP7I2w2', 1 ) );
+ck( 'the audit row names no answer', array_keys( $GLOBALS['audit'][0]['data'] ), array( 'application', 'user', 'adopted' ) );
+ck( 'the application is approved', get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ), 'approved' );
+ck( 'and still holds the five, for the purge to take later', WPCPM_Institution_Application::site_answers( $app ), $site );
+
+// A second press is the state check's refusal, as ever, and the record is not touched.
+$GLOBALS['journal'] = array();
+$again              = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a second press of Approve is refused as before', is_wp_error( $again ) ? $again->get_error_code() : $again, 'wpcpm_app_state' );
+ck( 'it fills nothing', count( $GLOBALS['site_filled'] ), 1 );
+ck( 'it writes nothing at all', $GLOBALS['journal'], array() );
+ck( 'the record is as the first press left it', array( record_posts(), $GLOBALS['site_records'] ), array( 1, array( $institution => $site ) ) );
+ck( 'and no second Airtable record or account was made', array( count( $GLOBALS['created'] ), count( $GLOBALS['users'] ) ), array( 1, 1 ) );
+
+echo "\n-- the same on a record the program already had --\n";
+
+reset_world();
+$GLOBALS['search_answer'] = array(
+	array(
+		'id'     => $other,
+		'fields' => adopted_cells(),
+	),
+);
+$app    = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$result = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'the application joins the record the program has', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $other, true ) );
+ck( 'the record on the site is filled once, for that record', $GLOBALS['site_filled'], array( array( $other, $site ) ) );
+ck( 'and exists once', record_posts(), 1 );
+ck( 'nothing the applicant typed is written to Airtable', count( $GLOBALS['created'] ), 0 );
+ck( 'the fill is in the same place in the order', $GLOBALS['journal'], array( 'search', 'agreement', 'user', 'attach', 'invite', 'site', 'audit' ) );
+ck( 'the index row is still the base\'s own', WPCPM_Institutions_Index::row( $other )['contact_person'], 'Someone Else' );
+
+// What a pressing of Approve on a joined record that already has its answers does: the first
+// answers stand, which is the record's rule, and the application is approved all the same.
+reset_world();
+$GLOBALS['search_answer']                = array(
+	array(
+		'id'     => $other,
+		'fields' => adopted_cells(),
+	),
+);
+$GLOBALS['site_records'][ $other ]       = array( 'contact_role' => 'Registrar' );
+$app                                     = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$result                                  = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a joined record that already holds an answer is still approved', is_array( $result ), true );
+ck( 'and was offered the application\'s five, to fill what it lacks', $GLOBALS['site_filled'], array( array( $other, $site ) ) );
+ck( 'the answer it held stands and the empty ones are filled', $GLOBALS['site_records'][ $other ], array_merge( $site, array( 'contact_role' => 'Registrar' ) ) );
+
+echo "\n-- an application filed before the five were asked --\n";
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$app                      = seed_application();
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'it has no site answers', WPCPM_Institution_Application::site_answers( $app ), array() );
+ck( 'and is approved exactly as it was', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $institution, false ) );
+ck( 'the record on the site is not asked for anything', $GLOBALS['site_filled'], array() );
+ck( 'no record exists', array( record_posts(), $GLOBALS['site_records'] ), array( 0, array() ) );
+ck( 'the halves happen in the order they always did', $GLOBALS['journal'], array( 'search', 'create', 'agreement', 'user', 'attach', 'invite', 'audit' ) );
+ck( 'the cells sent to Airtable are the same fifteen', array_keys( $GLOBALS['created'][0]['records'][0]['fields'] ), $fifteen );
+ck( 'the application is approved', get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ), 'approved' );
+
+reset_world();
+$GLOBALS['search_answer'] = array(
+	array(
+		'id'     => $other,
+		'fields' => adopted_cells(),
+	),
+);
+$app    = seed_application();
+$result = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'one filed before that joins a record the program has is approved the same way', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $other, true ) );
+ck( 'and leaves no record either', array( $GLOBALS['site_filled'], record_posts() ), array( array(), 0 ) );
+ck( 'with the journal it always had', $GLOBALS['journal'], array( 'search', 'agreement', 'user', 'attach', 'invite', 'audit' ) );
+
+// Whatever the meta holds that is not a list of answers is none: an empty list, a string a
+// hand-made post carries, a row some earlier code wrote as false.
+foreach ( array( 'an empty list' => array(), 'a string' => 'garbled', 'false' => false ) as $why => $held ) {
+	reset_world();
+	$GLOBALS['create_answer'] = $institution;
+	$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $held ) );
+	$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+	ck( sprintf( 'site meta that is %s is no answers: approved, nothing filled, no record', $why ), array( is_array( $result ), $GLOBALS['site_filled'], record_posts() ), array( true, array(), 0 ) );
+}
+
+echo "\n-- the record waits for the account, and a resume makes it once --\n";
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$GLOBALS['insert_dies']   = true;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+
+try {
+	WPCPM_Institution_Approval::approve( $app, 7 );
+} catch ( Exception $e ) {
+	$died = $e->getMessage();
+}
+
+ck( 'a press that died before the account was made had asked for no record', array( $GLOBALS['site_filled'], record_posts() ), array( array(), 0 ) );
+
+$GLOBALS['opts'][ WPCPM_Institution_Approval::lock_name( $app ) ] = time() - ( WPCPM_Institution_Approval::LOCK_TIMEOUT + 1 );
+$result = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'the press that finishes it fills the record, once, for the record the first press made', is_array( $result ) ? array( $GLOBALS['site_filled'], record_posts() ) : $result, array( array( array( $institution, $site ) ), 1 ) );
+ck( 'and still sent Airtable the one create', count( $GLOBALS['created'] ), 1 );
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$GLOBALS['attach_fails']  = 1;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$out                      = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an account half that stopped is refused', is_wp_error( $out ) ? $out->get_error_code() : $out, 'wpcpm_member_not_indexed' );
+ck( 'and no record was asked for on the back of it', array( $GLOBALS['site_filled'], record_posts() ), array( array(), 0 ) );
+ck( 'the application is still undecided', get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ), 'new' );
+
+$result = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'the next press finishes the approval and fills the record once', is_array( $result ) ? array( $GLOBALS['site_filled'], record_posts() ) : $result, array( array( array( $institution, $site ) ), 1 ) );
+ck( 'the record holds the five', $GLOBALS['site_records'], array( $institution => $site ) );
+
+// A press that died after the fill but before the state was set asks again on its resume, and
+// the record's own rule makes the second ask change nothing.
+reset_world();
+list( $app, $user ) = seed_stamped_account( $institution );
+update_post_meta( $app, WPCPM_Institution_Application::META_SITE, $site );
+WPCPM_Institution_Members::attach( $user, $institution, WPCPM_Institution_Members::HOW_APPROVED, 7 );
+WPCPM_Mail::queue_invites( array( $user ) );
+WPCPM_Institution_Record::fill_empty( $institution, $site );
+
+$GLOBALS['site_filled'] = array();
+$result                 = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a resume after a press that had already filled the record is approved', is_array( $result ), true );
+ck( 'it asks again, and the record is as it was', array( $GLOBALS['site_filled'], $GLOBALS['site_records'], record_posts() ), array( array( array( $institution, $site ) ), array( $institution => $site ), 1 ) );
+
+echo "\n-- a record the site could not keep: the approval stops, and the next press finishes it --\n";
+
+/**
+ * The kinds of the events an application has been given, in order.
+ *
+ * @param int $application_id The application post.
+ * @return string[]
+ */
+function event_kinds( $application_id ) {
+	$kinds = array();
+
+	foreach ( get_post_meta( $application_id, WPCPM_Institution_Application::META_EVENT, false ) as $row ) {
+		$kinds[] = $row['event'];
+	}
+
+	return $kinds;
+}
+
+/**
+ * The kinds of the audit rows written so far.
+ *
+ * @return string[]
+ */
+function audit_kinds() {
+	return array_column( $GLOBALS['audit'], 'kind' );
+}
+
+$unkept = 'The answers this application gave could not be kept on the site, so it is not approved yet. Approve it again: the record and the account already made are kept.';
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$GLOBALS['site_fails']    = true;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$out                      = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a record write that keeps nothing refuses', is_wp_error( $out ) ? $out->get_error_code() : $out, 'wpcpm_app_answers' );
+ck( 'with the sentence that says what happened and what to press', is_wp_error( $out ) ? $out->get_error_message() : $out, $unkept );
+ck( 'the record was asked to keep the five, and the site was asked what it holds', array( $GLOBALS['site_filled'], $GLOBALS['site_read'] ), array( array( array( $institution, $site ) ), 1 ) );
+ck( 'the application is still as it was', get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ), 'new' );
+ck( 'no approved event was written, and the two halves that landed are on record', event_kinds( $app ), array( WPCPM_Institution_Approval::EVENT_RECORD_CREATED, WPCPM_Institution_Approval::EVENT_ACCOUNT_CREATED ) );
+ck( 'no application_approved audit row was written', audit_kinds(), array() );
+ck( 'the lock is given back', get_option( WPCPM_Institution_Approval::lock_name( $app ) ), false );
+ck( 'the Airtable record and the account are stamped on the application', array(
+	get_post_meta( $app, WPCPM_Institution_Application::META_RECORD, true ),
+	(int) get_post_meta( $app, WPCPM_Institution_Application::META_USER, true ) > 0,
+), array( $institution, true ) );
+ck( 'the queue calls it half done, so the next press is the one it offers', WPCPM_Institution_Approval::is_half_done( $app ), true );
+ck( 'one Airtable create, one account, no record on the site', array( count( $GLOBALS['created'] ), count( $GLOBALS['users'] ), record_posts() ), array( 1, 1, 0 ) );
+
+// The next press, with a record that works.
+$GLOBALS['site_fails'] = false;
+$GLOBALS['journal']    = array();
+$result                = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'the next press approves', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $institution, false ) );
+ck( 'it sends no second Airtable create and makes no second account', array( count( $GLOBALS['created'] ), count( $GLOBALS['users'] ) ), array( 1, 1 ) );
+ck( 'the record on the site now holds the five', array( $GLOBALS['site_records'], record_posts() ), array( array( $institution => $site ), 1 ) );
+ck( 'the application is approved, with one approved event and one audit row', array(
+	get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ),
+	event_kinds( $app ),
+	audit_kinds(),
+), array( 'approved', array( WPCPM_Institution_Approval::EVENT_RECORD_CREATED, WPCPM_Institution_Approval::EVENT_ACCOUNT_CREATED, WPCPM_Institution_Approval::EVENT_APPROVED ), array( WPCPM_Institution_Approval::LOG_APPROVED ) ) );
+ck( 'and the lock is given back', get_option( WPCPM_Institution_Approval::lock_name( $app ) ), false );
+
+// A record that kept only some of the answers is the same refusal: every one that was given has
+// to be there.
+reset_world();
+$GLOBALS['create_answer']          = $institution;
+$GLOBALS['site_fails']             = true;
+$GLOBALS['site_records'][ $institution ] = array( 'contact_role' => 'Registrar' );
+$app                               = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$out                               = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a record that kept only some of the answers refuses the same way', array( is_wp_error( $out ) ? $out->get_error_code() : $out, get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ), audit_kinds() ), array( 'wpcpm_app_answers', 'new', array() ) );
+
+// Not equal but non-empty: a joined record keeps its first answers, and an answer it holds that
+// differs from the application's is no loss.
+reset_world();
+$held                     = array(
+	'contact_role'      => 'Registrar',
+	'student_languages' => array( 'French' ),
+	'signer_name'       => 'Earlier Signer',
+	'signer_title'      => 'Rector',
+	'credits_page'      => 'https://example.test/earlier',
+);
+$GLOBALS['search_answer'] = array(
+	array(
+		'id'     => $other,
+		'fields' => adopted_cells(),
+	),
+);
+$GLOBALS['site_records'][ $other ] = $held;
+$app                               = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$result                            = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'a joined record that already held every answer is approved', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $other, true ) );
+ck( 'its first answers stand, and the fill changed nothing', $GLOBALS['site_records'][ $other ], $held );
+ck( 'with one approved event and one audit row', array( in_array( WPCPM_Institution_Approval::EVENT_APPROVED, event_kinds( $app ), true ), audit_kinds() ), array( true, array( WPCPM_Institution_Approval::LOG_APPROVED ) ) );
+
+// The same when the write itself would fail: the site holds every answer, so nothing is wrong.
+reset_world();
+$GLOBALS['search_answer'] = array(
+	array(
+		'id'     => $other,
+		'fields' => adopted_cells(),
+	),
+);
+$GLOBALS['site_fails']             = true;
+$GLOBALS['site_records'][ $other ] = $held;
+$app                               = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) );
+$result                            = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'it is the answers held that count, not what the write answered', is_array( $result ), true );
+
+// Answers that say nothing have nothing to keep: a blank string, a list of nothing, only space.
+foreach ( array(
+	'every answer blank' => array(
+		'contact_role'      => '',
+		'student_languages' => array(),
+		'signer_name'       => '   ',
+		'signer_title'      => '',
+		'credits_page'      => '',
+	),
+	'a list holding only a blank' => array(
+		'student_languages' => array( '' ),
+	),
+) as $why => $blank ) {
+	reset_world();
+	$GLOBALS['create_answer'] = $institution;
+	$GLOBALS['site_fails']    = true;
+	$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $blank ) );
+	$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+	ck( sprintf( 'site answers that are %s need nothing kept: approved, with no record made', $why ), array( is_array( $result ), record_posts(), get_post_meta( $app, WPCPM_Institution_Application::META_STATE, true ) ), array( true, 0, 'approved' ) );
+}
+
+// An application with no site answers is approved as it was, its journal and cells unchanged, and
+// the site's record is neither written nor read.
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$GLOBALS['site_fails']    = true;
+$app                      = seed_application();
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an application filed before the five were asked is approved though the record would refuse a write', is_array( $result ) ? array( $result['record'], $result['adopted'] ) : $result, array( $institution, false ) );
+ck( 'the journal it always had', $GLOBALS['journal'], array( 'search', 'create', 'agreement', 'user', 'attach', 'invite', 'audit' ) );
+ck( 'and the record on the site was not asked for, nor read', array( $GLOBALS['site_filled'], $GLOBALS['site_read'] ), array( array(), 0 ) );
+
 echo "\n-- every refusal, and what it leaves behind --\n";
 
 reset_world();
@@ -1188,6 +1625,17 @@ $fixed   = json_decode( file_get_contents( WPCPM_PLUGIN_DIR . 'bin/fixtures/inst
 // single test noticing.
 ck( 'the members class still refuses an account it has already attached with that code', preg_match( "/'" . WPCPM_Institution_Approval::MEMBER_ALREADY . "'/", $members ), 1 );
 
+// The stand-in above only promises what this suite says it does, so the real class is read for
+// the three things the stand-in relies on: the type's name, the one method's signature, and the
+// application's own reader of the answers that method is handed.
+$record_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record.php' );
+$app_src    = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php' );
+
+ck( 'the real record class still has the type the stand-in names', false !== strpos( $record_src, "const POST_TYPE = '" . WPCPM_Institution_Record::POST_TYPE . "';" ), true );
+ck( 'and fill_empty( $record_id, array $answers )', false !== strpos( $record_src, 'public static function fill_empty( $record_id, array $answers )' ), true );
+ck( 'and get( $record_id ), which answers with a list', false !== strpos( $record_src, 'public static function get( $record_id )' ), true );
+ck( 'the application class still keeps the five under the key the stand-in reads', false !== strpos( $app_src, "const META_SITE = '" . WPCPM_Institution_Application::META_SITE . "';" ), true );
+
 foreach ( WPCPM_Institutions_Sync::fields() as $key => $column ) {
 	ck( sprintf( 'the base has a column called %s', $column ), in_array( $column, $fixed['fields'], true ), true );
 }
@@ -1221,6 +1669,8 @@ $offsets = array(
 	'airtable' => strpos( $approve, 'self::search(' ),
 	'index'    => strpos( $approve, 'self::index(' ),
 	'account'  => strpos( $approve, 'self::account(' ),
+	'site'     => strpos( $approve, 'WPCPM_Institution_Record::fill_empty(' ),
+	'kept'     => strpos( $approve, 'WPCPM_Institution_Record::get(' ),
 	'state_on' => strpos( $approve, 'STATE_APPROVED' ),
 	'audit'    => strpos( $approve, 'WPCPM_Institution_Audit::record(' ),
 	'unlock'   => strpos( $approve, 'self::unlock(' ),
@@ -1229,6 +1679,9 @@ $sorted  = $offsets;
 asort( $sorted );
 
 ck( 'approve() reads in the order the design fixes', array_keys( $sorted ), array_keys( $offsets ) );
+ck( 'the record on the site is asked for once in approve(), and nowhere else in the class', array( substr_count( $approve, 'WPCPM_Institution_Record::fill_empty(' ), substr_count( $src, 'WPCPM_Institution_Record::fill_empty(' ) ), array( 1, 1 ) );
+ck( 'and only when the application kept some answers', 1 === preg_match( '/if \( ! empty\( \$site \) \) \{\s+WPCPM_Institution_Record::fill_empty\(/', $approve ), true );
+ck( 'and what it holds is read once, between the fill and the state, and only there', array( substr_count( $approve, 'WPCPM_Institution_Record::get(' ), substr_count( $src, 'WPCPM_Institution_Record::get(' ) ), array( 1, 1 ) );
 ck( 'the record half is stamped before the index half is even called', strpos( $approve, 'META_RECORD, $record' ) < $offsets['index'], true );
 ck( 'the create merges rather than adds, so the server values win', array( substr_count( $create, 'array_merge(' ), substr_count( $create, '$stored +' ) ), array( 1, 0 ) );
 
@@ -1238,7 +1691,7 @@ ck( 'the create merges rather than adds, so the server values win', array( subst
 $after = substr( $approve, (int) strpos( $approve, 'wpcpm_app_busy' ) );
 
 ck( 'every refusal from the lock onwards hands it back', substr_count( $after, 'return new WP_Error(' ), 0 );
-ck( 'and there is one for every way the halves can stop', substr_count( $after, 'return self::refuse(' ), 8 );
+ck( 'and there is one for every way the halves can stop', substr_count( $after, 'return self::refuse(' ), 9 );
 ck( 'the audit row is written before the lock is released', strpos( $approve, 'WPCPM_Institution_Audit::record(' ) < strrpos( $approve, 'self::unlock(' ), true );
 
 ck( 'the class writes no option that autoloads', substr_count( $src, "add_option( \$key, time(), '', false )" ), 1 );

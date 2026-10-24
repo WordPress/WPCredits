@@ -48,6 +48,7 @@ class WPCPM_Roles { const CAP_MANAGE = 'wpcpm_manage_program'; }
 class WPCPM_Mentor_Calls { const POST_TYPE = 'wpcpm_mentor_call'; }
 class WPCPM_Mentor_Notes { const POST_TYPE = 'wpcpm_mentor_note'; }
 class WPCPM_Institution_Audit { const POST_TYPE = 'wpcpm_audit_entry'; }
+class WPCPM_Institution_Record { const POST_TYPE = 'wpcpm_inst_record'; }
 class FakeDB {
 	public $posts = 'wp_posts';
 	public $updates = array();
@@ -150,9 +151,11 @@ $GLOBALS['db'] = array(
 	3 => array( 'type' => 'wpcpm_audit_entry', 'status' => 'publish' ),
 	4 => array( 'type' => 'post', 'status' => 'publish' ),
 	5 => array( 'type' => 'wpcpm_mentor_call', 'status' => 'trash' ),
+	6 => array( 'type' => 'wpcpm_inst_record', 'status' => 'publish' ),
 );
 WPCPM_Privacy_Guard::maybe_upgrade();
 ck( 'the three private types are made private', array( $GLOBALS['db'][1]['status'], $GLOBALS['db'][2]['status'], $GLOBALS['db'][3]['status'] ), array( 'private', 'private', 'private' ) );
+ck( 'and so is the institution record, which names an institution\'s contact and who signs for it', $GLOBALS['db'][6]['status'], 'private' );
 ck( 'a real post is not', $GLOBALS['db'][4]['status'], 'publish' );
 ck( 'nor a trashed row', $GLOBALS['db'][5]['status'], 'trash' );
 ck( 'the schema version is recorded', (int) get_option( WPCPM_Privacy_Guard::OPT_VERSION ), WPCPM_Privacy_Guard::SCHEMA_VERSION );
@@ -163,14 +166,14 @@ ck( 'and a second load does nothing', count( $wpdb->updates ), $before );
 echo "\n=== Nothing the plugin keeps about people is published ===\n";
 
 $publish = array();
-foreach ( array( 'class-wpcpm-mentor-calls.php', 'class-wpcpm-mentor-notes.php', 'class-wpcpm-institution-notes.php', 'class-wpcpm-institution-audit.php', 'class-wpcpm-group-sessions.php' ) as $file ) {
+foreach ( array( 'class-wpcpm-mentor-calls.php', 'class-wpcpm-mentor-notes.php', 'class-wpcpm-institution-notes.php', 'class-wpcpm-institution-audit.php', 'class-wpcpm-institution-record.php', 'class-wpcpm-group-sessions.php' ) as $file ) {
 	$src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
 	if ( preg_match( "/'post_status'\s*=>\s*'publish'/", $src ) ) {
 		$publish[] = $file;
 	}
 }
-ck( 'no call, note, session or audit row is inserted as publish', $publish, array() );
-ck( 'the guard names the types it flips', WPCPM_Privacy_Guard::private_post_types(), array( 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_audit_entry' ) );
+ck( 'no call, note, session, audit row or institution record is inserted as publish', $publish, array() );
+ck( 'the guard names the types it flips', WPCPM_Privacy_Guard::private_post_types(), array( 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_audit_entry', 'wpcpm_inst_record' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

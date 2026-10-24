@@ -17,6 +17,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 // stat.
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-guard.php';
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
+// The mentor form, for its list of languages, which the languages question offers (1.123.29): one
+// list for the two forms, read where it is kept. Loaded here for the same reason as the two above,
+// so every suite that requires this file has the list the form draws.
+require_once __DIR__ . '/class-wpcpm-mentor-application-form.php';
 
 /**
  * The form an institution fills in to ask to join the program, and everything that guards it.
@@ -28,11 +32,11 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  * convention for this, and the order the checks run in *is* the design.
  *
  * **The order, and why it is that order.** Honeypot, dwell token, per-actor ceiling, consent,
- * the thirteen fields, requiredness once, content scoring and the site-wide degrade, then
+ * the eighteen fields, requiredness once, content scoring and the site-wide degrade, then
  * storage. The two cheapest tests come first because they cost nothing and answer for most of
  * what arrives; the ceilings come next because a refusal that never reads the form cannot be
  * made expensive; consent comes before the fields because a submission without it is not
- * stored at all, so cleaning twenty-two values first would be work done for a row that will
+ * stored at all, so cleaning eighteen values first would be work done for a row that will
  * not exist. Everything after that is about *how* a row is filed, never whether: content
  * scoring holds a row for a human and never refuses it, because the cost of a wrongly refused
  * application is an institution that never applies again and nobody ever knowing.
@@ -153,7 +157,7 @@ class WPCPM_Institution_Application {
 	/** The argument the manager's queue opens one application with. */
 	const QUERY_QUEUE = 'wpcpm_app_id';
 
-	/** The posted array holding the thirteen answers, keyed by `form_key()`. */
+	/** The posted array holding the eighteen answers, keyed by `form_key()`. */
 	const FIELD_ANSWERS = 'wpcpm_application';
 
 	/**
@@ -236,6 +240,15 @@ class WPCPM_Institution_Application {
 
 	/** Post meta: the cleaned answers, keyed by Airtable column name. Immutable after insert. */
 	const META_FIELDS = '_wpcpm_app_fields';
+
+	/**
+	 * Post meta: the cleaned answers kept on the site only, keyed by field key (1.123.29).
+	 *
+	 * Apart from `META_FIELDS` because approval writes every key of that one to Airtable under its
+	 * own name, with no typecast, and the base has no column for any of these: one of them in it
+	 * would make Airtable refuse the whole record. Immutable after insert, as the fields are.
+	 */
+	const META_SITE = '_wpcpm_app_site';
 
 	/** Post meta: one of the `STATE_*` values. */
 	const META_STATE = '_wpcpm_app_state';
@@ -645,7 +658,8 @@ class WPCPM_Institution_Application {
 	 */
 
 	/**
-	 * The thirteen questions, keyed by the exact Airtable column name.
+	 * The eighteen questions, in the order the form asks them: thirteen keyed by the exact Airtable
+	 * column name, and five kept on the site only, keyed by a name of the plugin's own.
 	 *
 	 * Keyed by column name because that is what the record is created from: an approval writes
 	 * these keys straight through, so a name that drifts from the base is a 422 for the whole
@@ -665,7 +679,19 @@ class WPCPM_Institution_Application {
 	 * what the form's field name is hashed from (`form_key()`), so a key that moved would be a
 	 * column the base does not have and a field name an open page does not post.
 	 *
-	 * @return array<string, array> Column name => spec.
+	 * **Five answers never reach Airtable** (1.123.29): the contact's role, the languages the
+	 * students study in, who signs the agreement, their title and the institution's page about the
+	 * program. The base has no column for any of them, so each carries `'site' => true`, `store()`
+	 * keeps them under `META_SITE` and never in the fields approval writes, and the check that every
+	 * column exists in `bin/fixtures/institutions-table-fields.json` reads only the others. Their
+	 * keys are the plugin's own and posted the same way, hashed (`form_key()`).
+	 *
+	 * The order of this list is the form's: `render_form()` draws group by group and, inside a group,
+	 * in this order, which is what makes `site_fields()` the form's order too. A list of boxes names
+	 * its own choices (`'choices'`), and one long enough to need columns says so (`'columns'`), as the
+	 * mentor form draws its languages.
+	 *
+	 * @return array<string, array> Column name or field key => spec.
 	 */
 	public static function fields() {
 		return array(
@@ -717,6 +743,15 @@ class WPCPM_Institution_Application {
 				'auto'     => 'email',
 				'help'     => __( 'We send the acknowledgement here, and the account when the program says yes.', 'wpcredits-program-manager' ),
 			),
+			'contact_role'                         => array(
+				'group'     => 'contact',
+				'label'     => __( 'Their role at the institution', 'wpcredits-program-manager' ),
+				'type'      => 'text',
+				'required'  => true,
+				'maxlength' => 120,
+				'help'      => __( 'For example: internship coordinator, or head of the computer science department.', 'wpcredits-program-manager' ),
+				'site'      => true,
+			),
 			'Department'                           => array(
 				'group'     => 'contact',
 				'label'     => __( 'Department or faculty', 'wpcredits-program-manager' ),
@@ -729,6 +764,7 @@ class WPCPM_Institution_Application {
 				'label'    => __( 'How do your internships or practicums typically work?', 'wpcredits-program-manager' ),
 				'type'     => 'choices',
 				'required' => true,
+				'choices'  => self::internship_choices(),
 				'help'     => __( 'Tick everything that applies.', 'wpcredits-program-manager' ),
 			),
 			'Comments'                             => array(
@@ -748,6 +784,50 @@ class WPCPM_Institution_Application {
 				'min'      => 1,
 				'max'      => 10000,
 				'help'     => __( 'A rough number is fine. Nobody is held to it.', 'wpcredits-program-manager' ),
+			),
+			// The mentor form's own list, read from its class, so the two forms never offer the same
+			// language under two names. Values, not words to translate: they are the names stored.
+			'student_languages'                    => array(
+				'group'    => 'program',
+				'label'    => __( 'In which languages do your students study?', 'wpcredits-program-manager' ),
+				'type'     => 'choices',
+				'required' => true,
+				'choices'  => WPCPM_Mentor_Application_Form::languages(),
+				'columns'  => true,
+				'help'     => __( 'Tick every language your students study in.', 'wpcredits-program-manager' ),
+				'site'     => true,
+			),
+			'signer_name'                          => array(
+				'group'     => 'agreement',
+				'label'     => __( 'Who will sign the agreement for the institution?', 'wpcredits-program-manager' ),
+				'type'      => 'text',
+				// Not required on its own: asked for only when a title is given with no name beside
+				// it (`add_required()`), the name being what the title is of.
+				'required'  => false,
+				'maxlength' => 120,
+				'help'      => __( 'Somebody who can commit the institution, such as a dean. Leave it empty if you do not know yet.', 'wpcredits-program-manager' ),
+				'site'      => true,
+			),
+			'signer_title'                         => array(
+				'group'     => 'agreement',
+				'label'     => __( 'Their title', 'wpcredits-program-manager' ),
+				'type'      => 'text',
+				// Required exactly when somebody is named to sign, which `add_required()` decides.
+				'required'  => false,
+				'maxlength' => 120,
+				'help'      => __( 'For example: Dean of the Faculty of Engineering.', 'wpcredits-program-manager' ),
+				'site'      => true,
+			),
+			// Cleaned as Website is: a scheme-less address gains `https://`, and one naming any other
+			// scheme is refused (`clean()`).
+			'credits_page'                         => array(
+				'group'     => 'agreement',
+				'label'     => __( 'Your page about WordPress Credits', 'wpcredits-program-manager' ),
+				'type'      => 'url',
+				'required'  => false,
+				'maxlength' => 200,
+				'help'      => __( 'The agreement asks the institution to publish a page about the program on its website. If it is up already, give its address; if not, leave this empty.', 'wpcredits-program-manager' ),
+				'site'      => true,
 			),
 			'Why are you interested in offering WordPress Credits to your students?' => array(
 				'group'    => 'more',
@@ -771,18 +851,55 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
-	 * The five groups the questions are asked in, in order.
+	 * The six groups the questions are asked in, in order.
+	 *
+	 * The agreement's since 1.123.29: who signs it, their title and the institution's page about the
+	 * program, which its section 2 asks for.
 	 *
 	 * @return array<string, string> Group key => heading.
 	 */
 	public static function groups() {
 		return array(
-			'about'   => __( 'About your institution', 'wpcredits-program-manager' ),
-			'contact' => __( 'Who we should contact', 'wpcredits-program-manager' ),
-			'program' => __( 'How your program works', 'wpcredits-program-manager' ),
-			'more'    => __( 'Tell us more', 'wpcredits-program-manager' ),
-			'consent' => __( 'Before you send this', 'wpcredits-program-manager' ),
+			'about'     => __( 'About your institution', 'wpcredits-program-manager' ),
+			'contact'   => __( 'Who we should contact', 'wpcredits-program-manager' ),
+			'program'   => __( 'How your program works', 'wpcredits-program-manager' ),
+			'agreement' => __( 'The agreement', 'wpcredits-program-manager' ),
+			'more'      => __( 'Tell us more', 'wpcredits-program-manager' ),
+			'consent'   => __( 'Before you send this', 'wpcredits-program-manager' ),
 		);
+	}
+
+	/**
+	 * The questions kept on the site only: the specs of `fields()` that carry `'site' => true`, in
+	 * the order the form asks them.
+	 *
+	 * For whatever reads these answers apart from the form, for their labels and the order to give
+	 * them in, so a question added to the form is read there without a second list to keep in step.
+	 *
+	 * @return array<string, array> Field key => spec.
+	 */
+	public static function site_fields() {
+		return array_filter(
+			self::fields(),
+			static function ( $spec ) {
+				return ! empty( $spec['site'] );
+			}
+		);
+	}
+
+	/**
+	 * One application's answers kept on the site, keyed by field key, as `store()` wrote them.
+	 *
+	 * An application filed before 1.123.29 has none, and nor does a post that is no application:
+	 * both are answered with an empty list.
+	 *
+	 * @param int $application_id Application post ID.
+	 * @return array
+	 */
+	public static function site_answers( $application_id ) {
+		$answers = get_post_meta( (int) $application_id, self::META_SITE, true );
+
+		return is_array( $answers ) ? $answers : array();
 	}
 
 	/**
@@ -790,10 +907,11 @@ class WPCPM_Institution_Application {
 	 *
 	 * Hashed rather than used raw because one column name carries U+2019 and another is a
 	 * whole sentence with a question mark in it, and a form field name is not the place for
-	 * either. Twelve hex characters, which is enough that the thirteen cannot collide and
-	 * short enough to read in a browser's inspector.
+	 * either. Twelve hex characters, which is enough that the eighteen cannot collide and
+	 * short enough to read in a browser's inspector. A site answer's key is hashed the same way,
+	 * so every name the form posts has one shape.
 	 *
-	 * @param string $column Airtable column name.
+	 * @param string $column Airtable column name, or a site answer's key.
 	 * @return string
 	 */
 	public static function form_key( $column ) {
@@ -837,10 +955,15 @@ class WPCPM_Institution_Application {
 	 * growing a second set of rules here: that class exists because the report form and the
 	 * feedback forms each grew their own copy and then disagreed in small ways. The three
 	 * types it has no equivalent for are the ones this form invented - a country that is a
-	 * record ID, a multi-select of pinned choices, and consent, which is a precondition
-	 * rather than a value.
+	 * record ID, a multi-select of the choices its spec names, and consent, which is a
+	 * precondition rather than a value.
 	 *
-	 * @param string $column Airtable column name.
+	 * An address is the one rule added on top of that class's: one that names a scheme of its own
+	 * other than http or https, such as `javascript:` or `mailto:`, is refused rather than handed
+	 * to `WPCPM_Field_Value::clean_url()`, which would put `https://` in front of it and keep it.
+	 * Since 1.123.29, for the Website and the page about the program alike, as one rule for both.
+	 *
+	 * @param string $column Airtable column name, or a site answer's key.
 	 * @param mixed  $raw    Posted value.
 	 * @return array{ok:bool,value:mixed,problem:string}
 	 */
@@ -877,7 +1000,7 @@ class WPCPM_Institution_Application {
 		}
 
 		if ( 'choices' === $type ) {
-			$known  = self::internship_choices();
+			$known  = isset( $spec['choices'] ) ? (array) $spec['choices'] : array();
 			$picked = array();
 
 			foreach ( (array) $raw as $value ) {
@@ -905,6 +1028,10 @@ class WPCPM_Institution_Application {
 			return self::accept( WPCPM_Form_Guard::consented( $raw ) );
 		}
 
+		if ( 'url' === $type && is_scalar( $raw ) && self::names_other_scheme( (string) $raw ) ) {
+			return self::refuse( 'bad_url' );
+		}
+
 		$rules = array( 'type' => 'text' === $type ? 'text' : $type );
 
 		foreach ( array( 'maxlength', 'min', 'max' ) as $rule ) {
@@ -924,6 +1051,24 @@ class WPCPM_Institution_Application {
 		}
 
 		return WPCPM_Field_Value::clean( $raw, $rules );
+	}
+
+	/**
+	 * Whether a typed address names a scheme of its own other than http or https.
+	 *
+	 * A scheme is letters, digits, `+`, `-` and `.`, starting with a letter, then a colon. A colon
+	 * followed by a digit is a port rather than a scheme, so `example.edu:8080/credits` is an
+	 * address with no scheme, which `WPCPM_Field_Value::clean_url()` gives one.
+	 *
+	 * @param string $typed The address as posted.
+	 * @return bool
+	 */
+	private static function names_other_scheme( $typed ) {
+		if ( ! preg_match( '/^([a-z][a-z0-9+.\-]*):(?!\d)/i', trim( $typed ), $scheme ) ) {
+			return false;
+		}
+
+		return ! in_array( strtolower( $scheme[1] ), array( 'http', 'https' ), true );
 	}
 
 	/**
@@ -1346,7 +1491,7 @@ class WPCPM_Institution_Application {
 	 * stands in for kept in the form as what is sent. That select posts a Countries record ID, as it
 	 * always has, so the combobox is a way to find one and not a second answer; it carries no name.
 	 *
-	 * @param string $column    Airtable column name.
+	 * @param string $column    Airtable column name, or a site answer's key.
 	 * @param array  $spec      Its spec.
 	 * @param mixed  $value     Its value from a failed attempt, or null.
 	 * @param string $problem   The problem slug from that attempt, or ''.
@@ -1383,10 +1528,12 @@ class WPCPM_Institution_Application {
 		// scattered a field set across a row the last time this was got wrong.
 		$wrapper = in_array( $type, array( 'choices', 'country' ), true ) ? 'div' : 'p';
 
+		// A long list of boxes is drawn in columns, by the rule the mentor form's languages are.
 		printf(
-			'<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s">',
+			'<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s%4$s">',
 			esc_attr( $wrapper ),
 			esc_attr( $type ),
+			! empty( $spec['columns'] ) ? ' wpcpm-field--columns' : '',
 			'' !== $problem ? ' has-problem' : ''
 		);
 
@@ -1412,14 +1559,15 @@ class WPCPM_Institution_Application {
 
 			printf( '<span class="wpcpm-field__choices" role="group" aria-labelledby="%1$s-label"%2$s>', esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
 
-			foreach ( self::internship_choices() as $choice ) {
+			foreach ( isset( $spec['choices'] ) ? (array) $spec['choices'] : array() as $choice ) {
 				printf(
 					'<label class="wpcpm-field__check"><input type="checkbox" name="%1$s[]" value="%2$s"%3$s /> <span>%4$s</span></label>',
 					esc_attr( $name ),
 					esc_attr( $choice ),
 					checked( in_array( $choice, $picked, true ), true, false ),
 					// Trimmed for display only. The value above keeps the leading space the
-					// column has, because that is the string Airtable matches.
+					// internship column's first choice has, because that is the string Airtable
+					// matches.
 					esc_html( trim( $choice ) )
 				);
 			}
@@ -1761,14 +1909,14 @@ class WPCPM_Institution_Application {
 			self::bounce( 'consent', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		// 7. The thirteen fields, walked from `fields()` and never from `$_POST`: a key nobody
+		// 7. The eighteen fields, walked from `fields()` and never from `$_POST`: a key nobody
 		// asked about cannot become a cell that way.
 		$cleaned  = self::clean_all( $posted );
 		$values   = $cleaned['values'];
 		$problems = $cleaned['problems'];
 
 		// 8. Requiredness, once, after cleaning. A row already headed for the spam pile skips
-		// it: telling a bot which of thirteen fields it missed is free tuition.
+		// it: telling a bot which of eighteen fields it missed is free tuition.
 		if ( ! $spam ) {
 			$problems = self::add_required( $values, $problems );
 
@@ -1888,7 +2036,7 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
-	 * Clean every one of the thirteen answers.
+	 * Clean every one of the eighteen answers.
 	 *
 	 * Pure: it reads, it decides, it writes nothing. That is what lets the refusal paths call
 	 * it on their way out to fill the form back in.
@@ -1899,7 +2047,7 @@ class WPCPM_Institution_Application {
 	 * the application would say they had.
 	 *
 	 * @param array $posted The posted answers, keyed by form key.
-	 * @return array{values:array,problems:array} Both keyed by Airtable column name.
+	 * @return array{values:array,problems:array} Both keyed by Airtable column name or field key.
 	 */
 	private static function clean_all( array $posted ) {
 		$values   = array();
@@ -1957,6 +2105,18 @@ class WPCPM_Institution_Application {
 			if ( 'Comments' === $column ) {
 				$picked   = isset( $values[ $internships ] ) ? (array) $values[ $internships ] : array();
 				$required = in_array( self::other_choice(), $picked, true );
+			}
+
+			// The signer's pair (1.123.29), rendered always for the same reason: a title is asked
+			// for exactly when somebody is named to sign, and a title given with nobody named asks
+			// for the name, so a title is never kept as an answer about nobody. Neither is asked
+			// for when both are empty, which is what "Leave it empty if you do not know yet" says.
+			if ( 'signer_title' === $column ) {
+				$required = ! self::is_blank( isset( $values['signer_name'] ) ? $values['signer_name'] : null );
+			}
+
+			if ( 'signer_name' === $column ) {
+				$required = ! self::is_blank( isset( $values['signer_title'] ) ? $values['signer_title'] : null );
 			}
 
 			if ( ! $required ) {
@@ -2169,11 +2329,16 @@ class WPCPM_Institution_Application {
 	 * fields meta is what an approval writes to Airtable unchanged, so anything in it is a cell
 	 * the site is claiming an applicant typed.
 	 *
+	 * **Nor do the five answers kept on the site** (1.123.29). They are split off here, into
+	 * `META_SITE`, keyed by field key: the base has no column for any of them, and one key of
+	 * them in the fields meta would make Airtable refuse the whole record at approval. A title
+	 * with no signer's name is not kept, whatever state the row is filed under.
+	 *
 	 * The words are written as slashed copies (`wp_slash()`): `wp_insert_post()` and post meta
 	 * unslash what they are handed, and the answers, the browser's name and the country's row
 	 * were read unslashed, so a backslash in them would otherwise be gone.
 	 *
-	 * @param array  $values  Cleaned values, keyed by Airtable column name.
+	 * @param array  $values  Cleaned values, keyed by Airtable column name or field key.
 	 * @param string $state   One of the `STATE_*` values.
 	 * @param array  $signals Why it is in that state.
 	 * @return int The post ID, or 0.
@@ -2183,9 +2348,28 @@ class WPCPM_Institution_Application {
 		$email   = self::email_of( $values );
 		$country = isset( $values['Country'] ) ? (string) $values['Country'] : '';
 		$fields  = $values;
+		$site    = array();
 
 		foreach ( self::server_held() as $column ) {
 			unset( $fields[ $column ] );
+		}
+
+		foreach ( array_keys( self::site_fields() ) as $key ) {
+			if ( array_key_exists( $key, $fields ) ) {
+				$site[ $key ] = $fields[ $key ];
+			}
+
+			unset( $fields[ $key ] );
+		}
+
+		// A title is the signer's. A submission filed as spam skips requiredness, so it can reach
+		// this point with a title and no name, and approving that row once it was put back in the
+		// queue would copy a title that belongs to nobody. Emptied here and not in `clean_all()`,
+		// which also refills a refused form and must hand back what was typed.
+		$signer = isset( $site['signer_name'] ) && is_scalar( $site['signer_name'] ) ? trim( (string) $site['signer_name'] ) : '';
+
+		if ( '' === $signer && array_key_exists( 'signer_title', $site ) ) {
+			$site['signer_title'] = '';
 		}
 
 		$post_id = wp_insert_post(
@@ -2212,6 +2396,7 @@ class WPCPM_Institution_Application {
 		$routing = '' !== $country ? WPCPM_Countries::routing( $country ) : null;
 
 		update_post_meta( $post_id, self::META_FIELDS, wp_slash( $fields ) );
+		update_post_meta( $post_id, self::META_SITE, wp_slash( $site ) );
 		update_post_meta( $post_id, self::META_STATE, $state );
 		update_post_meta( $post_id, self::META_REFERENCE, self::reference( $post_id ) );
 		update_post_meta( $post_id, self::META_COUNTRY, $country );
@@ -2701,7 +2886,7 @@ class WPCPM_Institution_Application {
 	/**
 	 * Tell the program managers there is something on the queue.
 	 *
-	 * Facts and a link, and none of the applicant's own writing: the queue shows all thirteen
+	 * Facts and a link, and none of the applicant's own writing: the queue shows all eighteen
 	 * answers to somebody who has signed in, and a mail is a copy of them in an inbox that
 	 * nothing on this site can withdraw.
 	 *

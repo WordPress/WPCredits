@@ -440,9 +440,11 @@
 }
 
 /* The long lists of boxes, the languages and the contribution teams: in columns as wide as the
-   longest name needs, so a phone shows one and a wide screen several. */
+   longest name needs, so a phone shows one and a wide screen several. The institution form's
+   languages (1.123.29) are the mentor form's list, drawn by the same rule. */
 .wpcpm-field--languages .wpcpm-field__choices,
-.wpcpm-field--teams .wpcpm-field__choices {
+.wpcpm-field--teams .wpcpm-field__choices,
+.wpcpm-field--columns .wpcpm-field__choices {
 	display: grid;
 	gap: 0 1.25em;
 	grid-template-columns: repeat( auto-fill, minmax( 13em, 1fr ) );

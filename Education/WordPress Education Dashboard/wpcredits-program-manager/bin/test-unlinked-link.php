@@ -32,6 +32,8 @@
  *   nothing written.
  * - The PATCH carries the institution link and no other cell. Every other cell on that row is
  *   somebody else's writing.
+ * - The institution is picked in the one field for a long list (1.123.29), its ids the row's, so
+ *   two forms on one page never share one, and the list leaves out the SPAM records.
  *
  * Run from the plugin root:  php bin/test-unlinked-link.php
  */
@@ -163,6 +165,19 @@ function add_query_arg( $k, $v = '', $u = '' ) { return $u . ( false === strpos(
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect:' . $to ); }
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die:' . $m ); }
+// What the Link picker's one field reaches of WordPress (`WPCPM_Dashboards::render_combo()`): core's
+// `selected()`, a string comparison as core's is, and the script it registers and enqueues, recorded.
+$GLOBALS['registered'] = array();
+$GLOBALS['enqueued']   = array();
+function selected( $a, $b, $echo = true ) {
+	$out = ( (string) $a === (string) $b ) ? " selected='selected'" : '';
+	if ( $echo ) { echo $out; }
+	return $out;
+}
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return 'registered' === $list ? isset( $GLOBALS['registered'][ $h ] ) : in_array( $h, $GLOBALS['enqueued'], true ); }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function remove_accents( $text, $locale = '' ) { return (string) $text; }
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
@@ -173,6 +188,8 @@ require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+// The real one field for a long list, which the Link picker is drawn with.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -537,9 +554,18 @@ $REPORTED  = 'recREPORT00000001';
 $NOEMAIL   = 'recNOEMAIL0000001';
 $MALFORMED = 'recBAD';
 
+// Two SPAM records, one stored with a space after the stage, which the Link picker leaves out, and one
+// that is not moving forward, which it keeps: a student filed long ago may belong to it.
+$SPAM        = 'recSPAMINST000001';
+$SPACED_SPAM = 'recSPAMINST000002';
+$STOPPED     = 'recSTOPPED0000001';
+
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed' ),
-	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed' ),
+	$A           => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed' ),
+	$B           => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed' ),
+	$SPAM        => array( 'record_id' => $SPAM, 'name' => 'Spam Institute', 'stage' => 'SPAM' ),
+	$SPACED_SPAM => array( 'record_id' => $SPACED_SPAM, 'name' => 'Spaced Spam Institute', 'stage' => 'SPAM ' ),
+	$STOPPED     => array( 'record_id' => $STOPPED, 'name' => 'Stopped School', 'stage' => 'Not Moving Forward' ),
 );
 
 /**
@@ -678,11 +704,38 @@ ck( 'posting to the module\'s own action', has( $html, '<input type="hidden" nam
 // is a row it refuses: the refusal would then rest on the markup, which is not a check.
 ck( 'under a nonce keyed to that row', has( $html, 'value="nonce-wpcpm_institutions_link_' . $CLEAN . '"' ), true );
 
-ck( 'the institution is chosen from the index, not typed', array(
-	has( $html, '<select id="wpcpm-link-' . $CLEAN . '" name="wpcpm_institution" required>' ),
-	has( $html, '<option value="' . $A . '">' ),
-	has( $html, '<option value="' . $B . '">Universidad Example</option>' ),
-), array( true, true, true ) );
+// The one field for a long list, as the Emails tool's Email filter is: labeled, taking typing and
+// narrowing, the plain select still what the form sends without the script. It opens on its prompt,
+// so a press with nothing chosen sends nothing the handler would link.
+preg_match( '#<select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off">(.*?)</select>#s', $html, $link_select );
+ck( 'the institution is chosen from the index, not typed, in one field that takes typing, wrapped for the wp-admin field rules', array(
+	has( $html, '<form class="wpcpm-inst-link wpcpm-admin-picker" method="post"' ),
+	has( $html, '<div class="wpcpm-admin-combo"><label for="wpcpm-link-' . $CLEAN . '" id="wpcpm-link-' . $CLEAN . '-label">Institution to link this row to</label> <select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off">' ),
+	has( $html, '<input type="text" id="wpcpm-link-' . $CLEAN . '-input" class="wpcpm-dashboard__switcher-input" role="combobox"' ),
+	has( $html, '</div> </div> <button type="submit" class="button">Link</button></form>' ),
+	in_array( WPCPM_Dashboards::SWITCHER_SCRIPT, $GLOBALS['enqueued'], true ),
+	0 === strpos( $link_select[1] ?? '', '<option value="" selected=\'selected\'>Choose an institution</option>' ),
+	has( $link_select[1] ?? '', '<option value="' . $A . '">' ),
+	has( $link_select[1] ?? '', '<option value="' . $B . '">Universidad Example</option>' ),
+), array( true, true, true, true, true, true, true, true ) );
+
+// A SPAM record is no institution a student belongs to. "SPAM " is SPAM too; Not Moving Forward stays.
+ck( 'the picker leaves out the SPAM records, "SPAM " among them, and keeps the one not moving forward', array(
+	array_keys( method( 'link_choices' )->invoke( null ) ),
+	has( $link_select[1] ?? '', 'Spam Institute' ),
+), array( array( $STOPPED, $A, $B ), false ) );
+
+// Every Link form is on one page, one per row, so each field's ids are its row's.
+ob_start();
+method( 'render_link_form' )->invokeArgs( new WPCPM_Institutions(), array( $CLEAN, 'Clean Row', method( 'link_choices' )->invoke( null ) ) );
+method( 'render_link_form' )->invokeArgs( new WPCPM_Institutions(), array( $NOEMAIL, 'No Address Row', method( 'link_choices' )->invoke( null ) ) );
+$two_forms = (string) ob_get_clean();
+preg_match_all( '#\sid="([^"]*)"#', $two_forms, $two_ids );
+ck( 'two forms on one page carry distinct ids, each field\'s its own row\'s', array(
+	array_keys( array_filter( array_count_values( $two_ids[1] ), function ( $n ) { return 1 !== $n; } ) ),
+	has( $two_forms, 'id="wpcpm-link-' . $CLEAN . '"' ) && has( $two_forms, 'id="wpcpm-link-' . $NOEMAIL . '"' ),
+	has( $two_forms, 'aria-controls="wpcpm-link-' . $NOEMAIL . '-list"' ),
+), array( array(), true, true ) );
 
 // Ten institution names in the base end in a space and two Confirmed records have no name at
 // all. A picker that printed the stored string would show a manager two entries that look

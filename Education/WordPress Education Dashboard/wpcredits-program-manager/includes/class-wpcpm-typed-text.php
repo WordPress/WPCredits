@@ -441,14 +441,17 @@ final class WPCPM_Typed_Text {
 	 * it is shown on is the caller's.
 	 *
 	 * A form says what its own button does: a save, a send ("Send this question"), Plan the event, a
-	 * return with a note, Take it out of force, Reject, a cancel with a note ("Cancel with this
-	 * note"), or the two that close a request from an institution, Mark as handled and Decline. Each action has a whole sentence of its own, saying what did not happen
+	 * return with a note, Take it out of force, Revoke this agreement, Reject, a cancel with a note
+	 * ("Cancel with this note"), or the two that close a request from an institution, Mark as handled
+	 * and Decline. Each action has a whole sentence of its own, saying what did not happen
 	 * and what to press again, so that none is built from pieces a translator meets apart. An action
 	 * this method does not know reads as a save.
 	 *
 	 * @param string $label  The name of the box, as its form labels it.
-	 * @param string $action What the form's button does: `save`, `send`, `plan`, `return`, `revoke`,
-	 *                       `reject`, `cancel`, `handle` or `decline`. Default `save`.
+	 * @param string $action What the form's button does: `save`, `send`, `plan`, `return`, `revoke`
+	 *                       (a sponsor's Take it out of force), `revoke-agreement` (an institution's
+	 *                       Revoke this agreement), `reject`, `cancel`, `handle` or `decline`.
+	 *                       Default `save`.
 	 * @return string
 	 */
 	public static function loss_message( $label, $action = 'save' ) {
@@ -475,6 +478,12 @@ final class WPCPM_Typed_Text {
 				return sprintf(
 					/* translators: %s: the name of the box, such as Why it is out of force, in your own words. */
 					__( 'Nothing was revoked, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then take it out of force again.', 'wpcredits-program-manager' ),
+					(string) $label
+				);
+			case 'revoke-agreement':
+				return sprintf(
+					/* translators: %s: the name of the box, such as Why it is revoked, in your own words. */
+					__( 'Nothing was revoked, because WordPress would remove part of what you typed in "%s". To keep every word, put a space after each "<" (or write "less than") and after each "%%", then revoke it again.', 'wpcredits-program-manager' ),
 					(string) $label
 				);
 			case 'reject':

@@ -599,14 +599,15 @@ ck( 'it is plain text: a label goes in as given, and escaping it is the caller\'
 // again, in a whole sentence of its own per action, so a translator never meets half of one.
 $GLOBALS['domains'] = array();
 $actions            = array(
-	'send'    => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
-	'plan'    => WPCPM_Typed_Text::loss_message( 'Title', 'plan' ),
-	'return'  => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
-	'revoke'  => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
-	'reject'  => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
-	'cancel'  => WPCPM_Typed_Text::loss_message( 'A note for the sponsor', 'cancel' ),
-	'handle'  => WPCPM_Typed_Text::loss_message( 'What you did about it', 'handle' ),
-	'decline' => WPCPM_Typed_Text::loss_message( 'What you did about it', 'decline' ),
+	'send'             => WPCPM_Typed_Text::loss_message( 'Anything else', 'send' ),
+	'plan'             => WPCPM_Typed_Text::loss_message( 'Title', 'plan' ),
+	'return'           => WPCPM_Typed_Text::loss_message( 'A note for the author', 'return' ),
+	'revoke'           => WPCPM_Typed_Text::loss_message( 'Why it is out of force, in your own words', 'revoke' ),
+	'revoke-agreement' => WPCPM_Typed_Text::loss_message( 'Why it is revoked, in your own words', 'revoke-agreement' ),
+	'reject'           => WPCPM_Typed_Text::loss_message( 'Why, for the next Administrator who reads this', 'reject' ),
+	'cancel'           => WPCPM_Typed_Text::loss_message( 'A note for the sponsor', 'cancel' ),
+	'handle'           => WPCPM_Typed_Text::loss_message( 'What you did about it', 'handle' ),
+	'decline'          => WPCPM_Typed_Text::loss_message( 'What you did about it', 'decline' ),
 );
 ck( 'for a form that sends, it says nothing was sent and to send it again',
     $actions['send'],
@@ -620,6 +621,9 @@ ck( 'for a return, that nothing was returned and to return it again',
 ck( 'for Take it out of force, that nothing was revoked and to take it out of force again',
     $actions['revoke'],
     'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is out of force, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then take it out of force again.' );
+ck( 'for an institution\'s Revoke this agreement, that nothing was revoked and to revoke it again, never to take it out of force',
+    $actions['revoke-agreement'],
+    'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is revoked, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then revoke it again.' );
 ck( 'for a rejection, that nothing was rejected and to reject the application again',
     $actions['reject'],
     'Nothing was rejected, because WordPress would remove part of what you typed in "Why, for the next Administrator who reads this". To keep every word, put a space after each "<" (or write "less than") and after each "%", then reject the application again.' );
@@ -632,13 +636,13 @@ ck( 'for Mark as handled, that nothing was marked as handled and to mark it as h
 ck( 'for Decline, that nothing was declined and to decline it again',
     $actions['decline'],
     'Nothing was declined, because WordPress would remove part of what you typed in "What you did about it". To keep every word, put a space after each "<" (or write "less than") and after each "%", then decline it again.' );
-ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array_fill( 0, 8, 'wpcredits-program-manager' ) );
+ck( 'each through the plugin\'s text domain', $GLOBALS['domains'], array_fill( 0, 9, 'wpcredits-program-manager' ) );
 ck( 'and a form that saves, named or not, keeps the first sentence, as does an action the method does not know', array( WPCPM_Typed_Text::loss_message( 'Offer text', 'save' ), WPCPM_Typed_Text::loss_message( 'Offer text' ), WPCPM_Typed_Text::loss_message( 'Offer text', 'publish' ), WPCPM_Typed_Text::loss_message( 'Offer text', true ) ), array( $said, $said, $said, $said ) );
 // Each sentence is one msgid, with a translators comment right above it, never built from pieces.
 $tt_src  = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-typed-text.php' );
 $tt_body = substr( $tt_src, (int) strpos( $tt_src, 'public static function loss_message(' ) );
 $tt_body = substr( $tt_body, 0, (int) strpos( $tt_body, "\n\t}\n" ) );
-ck( 'the nine sentences are nine whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|planned|returned|revoked|rejected|canceled|marked as handled|declined), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 9, 9 ) );
+ck( 'the ten sentences are ten whole msgids, each under its own translators comment', array( preg_match_all( "/__\\( 'Nothing was (saved|sent|planned|returned|revoked|rejected|canceled|marked as handled|declined), because WordPress would remove part of what you typed in \"%s\"\\. To keep every word, [^']*', 'wpcredits-program-manager' \\)/", $tt_body ), preg_match_all( '#/\\* translators: %s: [^*]*\\*/\\s*__\\( \'Nothing was#', $tt_body ) ), array( 10, 10 ) );
 
 echo "\n=== keep(), kept() and forget(): a refused form gets back what was typed, once ===\n";
 

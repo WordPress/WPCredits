@@ -1033,3 +1033,125 @@
 	margin: 0 0 1.5em;
 	padding: 1em 1.25em;
 }
+
+/* -------------------------------------------------------------------------
+ * For Administrators (1.123.29): the answers the application gave and the
+ * institution's history, at the foot of the page for Administrators only.
+ *
+ * The section is a <section> under the last module, and it deliberately carries
+ * no `wpcpm-module` class: modules.js collects every element with that class to
+ * read, and send, the order of the movable modules, and this one has no place in
+ * that order. Without the WPCredits theme it is spaced here, 1.25em under the
+ * last module. Its two cards are the page's folded cards (`wpcpm-group__disclosure`),
+ * drawn and spaced by the group rules the roster shares; what follows is the
+ * inside of their bodies.
+ *
+ * On the WPCredits theme a module's hairline, its top padding, the room from the
+ * module above and the margins of its cards are the theme's rules for
+ * `.wpc-institution-page .wpcpm-module` and the three rules after it, which a
+ * section with no such class does not match. So the last block below carries the
+ * same values for the section, scoped to that page, value for value.
+ * ---------------------------------------------------------------------- */
+.wpcpm-institution__admin {
+	margin: 1.25em 0 0;
+}
+
+/* A body's inset is its padding, and only its padding, as it is for the agreement panels above.
+   That is the result without the theme. On the WPCredits theme the first block of an open card
+   stands 14px under the summary's line (`.wpc-institution-page .wpcpm-group__disclosure[open]
+   .wpcpm-group__body > :first-child`), which outweighs the first rule below, so these two cards
+   start where every other card on the page does. */
+.wpcpm-admin-answers__body > :first-child,
+.wpcpm-admin-history__body > :first-child {
+	margin-block-start: 0;
+}
+
+.wpcpm-admin-answers__body > :last-child,
+.wpcpm-admin-history__body > :last-child {
+	margin-block-end: 0;
+}
+
+/* Each question over its answer, the answer given room to wrap: an address or a long title
+   must not push the card wider than the page. */
+.wpcpm-admin-answers__list {
+	margin: 0;
+}
+
+.wpcpm-admin-answers__list dt {
+	font-weight: 600;
+	margin: 1em 0 0.2em;
+}
+
+.wpcpm-admin-answers__list dt:first-child {
+	margin-top: 0;
+}
+
+.wpcpm-admin-answers__list dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+/* One line of meta (when, and who) over the sentence, in the rhythm of the import preview's
+   rows: a rule above each, the quiet part first, the sentence given the whole width. */
+.wpcpm-admin-history__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-admin-history__row {
+	align-items: baseline;
+	border-top: 1px solid var( --wpcpm-border );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3em 0.75em;
+	padding: 0.75em 0;
+}
+
+.wpcpm-admin-history__row:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-admin-history__row:last-child {
+	padding-bottom: 0;
+}
+
+.wpcpm-admin-history__meta {
+	flex: none;
+	font-size: 0.9em;
+	opacity: 0.72;
+}
+
+.wpcpm-admin-history__what {
+	flex: 1 1 100%;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-admin-history__limit {
+	margin: 1em 0 0;
+}
+
+/* The theme's module rhythm, for the section (theme assets/css/dashboard.css, "The Institution
+   Dashboard's three modules"), value for value:
+   - `.wpc-institution-page .wpcpm-module`: `border-top: 1px solid var( --wpc-line-soft )` and
+     `padding-top: 20px`, the hairline over every module's title;
+   - `.wpc-institution-page .wpcpm-module + .wpcpm-module`: `margin-top: 22px`, the room from the
+     module above;
+   - `.wpc-institution-page .wpcpm-module > .wpcpm-institution__card`: margin 0 top and bottom, and
+     the rule after it, `margin-top: 10px` between one card and the next.
+   The soft line's own value, #ededed, is the fallback where the variable is not defined. */
+.wpc-institution-page .wpcpm-institution__admin {
+	border-top: 1px solid var( --wpc-line-soft, #ededed );
+	margin-top: 22px;
+	padding-top: 20px;
+}
+
+.wpc-institution-page .wpcpm-institution__admin > .wpcpm-institution__card {
+	margin-bottom: 0;
+	margin-top: 0;
+}
+
+.wpc-institution-page .wpcpm-institution__admin > .wpcpm-institution__card + .wpcpm-institution__card {
+	margin-top: 10px;
+}

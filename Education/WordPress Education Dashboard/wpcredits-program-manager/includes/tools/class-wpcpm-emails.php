@@ -126,7 +126,8 @@ class WPCPM_Emails extends WPCPM_Tool {
 
 	/**
 	 * The screen's stylesheet, on this screen only. The Email field's script is enqueued by the
-	 * field itself (`WPCPM_Dashboards::render_combo()`).
+	 * field itself (`WPCPM_Dashboards::render_combo()`), and its rules are admin.css's, which every
+	 * screen of the plugin loads (`WPCPM_Admin::enqueue_assets()`).
 	 *
 	 * @param string $hook The screen's hook suffix.
 	 */
@@ -1045,11 +1046,12 @@ class WPCPM_Emails extends WPCPM_Tool {
 			$filters['status']
 		);
 
-		// The Email filter is the one long list: one field that drops down, takes typing and narrows.
+		// The Email filter is the one long list: one field that drops down, takes typing and narrows,
+		// dressed by admin.css under the wrapper every such field in wp-admin is drawn in.
 		/* translators: %s: how many emails the Email filter's list shows, as a number. */
 		$count = __( 'Emails in the list: %s', 'wpcredits-program-manager' );
 
-		echo '<div class="wpcpm-emails__filter wpcpm-emails__email">';
+		echo '<div class="wpcpm-emails__filter wpcpm-emails__email wpcpm-admin-combo">';
 		WPCPM_Dashboards::render_combo(
 			array(
 				'id'      => 'wpcpm-emails-email',

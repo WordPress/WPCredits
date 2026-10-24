@@ -779,7 +779,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -790,6 +790,12 @@ foreach ( $plugin_types as $type ) {
 a_post( 'wpcpm_agreement', 'private', array( '_wpcpm_agr_file' => array( 'path' => '/srv/example/wp-content/uploads/.wpcpm-private/agreement-one.pdf.enc', 'sha256' => str_repeat( 'a', 64 ) ), '_wpcpm_agr_institution' => 'recSEED0000000001' ) );
 a_post( 'wpcpm_inst_report', 'trash' );
 a_post( 'wpcpm_track', 'trash' );
+
+// An institution's record on the site (1.123.29), with the answers it holds, and a second one a command
+// line trashed: the record is outside the application's purge on purpose, so the clean-up is the only
+// thing that ever removes it, and it must take the trashed one with it.
+$institution_record = a_post( 'wpcpm_inst_record', 'private', array( '_wpcpm_inst_record' => 'recSEED0000000001', '_wpcpm_inst_answers' => array( 'contact_role' => 'Registrar', 'student_languages' => array( 'English' ) ) ) );
+$trashed_record     = a_post( 'wpcpm_inst_record', 'trash', array( '_wpcpm_inst_record' => 'recSEED0000000002', '_wpcpm_inst_answers' => array( 'contact_role' => 'Director' ) ) );
 
 // A sponsor's annual report, with a real file under the private files' own base, at a path in the
 // shape WPCPM_Private_Files::store() returns: WPCPM_Sponsor_Report::delete_all() reads this path
@@ -1075,7 +1081,8 @@ ck( 'no option of the plugin\'s is left but that key', array_values( preg_grep( 
 echo "\n=== The posts ===\n";
 
 ck( 'a canceled call goes, though canceling put it in the trash', null === get_post( $canceled_call ), true );
-ck( 'every post of the plugin\'s goes, a trashed track, a trashed report, a canceled call and a legacy Handbook page included', left_of( $plugin_types ), array() );
+ck( 'every post of the plugin\'s goes, a trashed track, a trashed report, a trashed institution record, a canceled call and a legacy Handbook page included', left_of( $plugin_types ), array() );
+ck( 'the institution records go with their answers, whatever their status', array( null === get_post( $institution_record ), null === get_post( $trashed_record ), isset( $GLOBALS['pmeta'][ $institution_record ] ), isset( $GLOBALS['pmeta'][ $trashed_record ] ) ), array( true, true, false, false ) );
 ck( 'with the revisions of each track', left_of( array( 'revision' ) ), array() );
 ck( 'and a page of the site\'s own stays', null !== get_post( $page ), true );
 
@@ -1169,6 +1176,9 @@ $names = array(
 	'WPCPM_Track_Store::POST_TYPE'                  => 'wpcpm_track',
 	'WPCPM_Semester_Report::POST_TYPE'              => 'wpcpm_inst_report',
 	'WPCPM_Institution_Request::POST_TYPE'          => 'wpcpm_inst_request',
+	'WPCPM_Institution_Record::POST_TYPE'           => 'wpcpm_inst_record',
+	'WPCPM_Institution_Record::META_RECORD'         => '_wpcpm_inst_record',
+	'WPCPM_Institution_Record::META_ANSWERS'        => '_wpcpm_inst_answers',
 	'WPCPM_Institution_Application::POST_TYPE'      => 'wpcpm_inst_app',
 	'WPCPM_Institution_Agreement::POST_TYPE'        => 'wpcpm_agreement',
 	'WPCPM_Sponsor_Application::POST_TYPE'          => 'wpcpm_sponsor_app',

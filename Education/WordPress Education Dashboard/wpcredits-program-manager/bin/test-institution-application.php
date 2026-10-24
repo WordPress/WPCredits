@@ -1,6 +1,6 @@
 <?php
 /**
- * The public application form: its anti-spam, its thirteen fields and its two mails.
+ * The public application form: its anti-spam, its eighteen fields and its two mails.
  *
  * What each block pins, and why it is worth pinning:
  *
@@ -38,13 +38,23 @@
  *   four internship choices are compared byte for byte against
  *   `bin/fixtures/institutions-table-fields.json`, including the U+2019 in one name and the
  *   leading space on one choice. `create_records()` sends no `typecast`, so a name spelled
- *   any other way is a 422 for the whole record.
+ *   any other way is a 422 for the whole record. The check reads only the questions that go
+ *   to Airtable, and is shown failing for a column the base does not have.
+ * - **Five answers are kept on the site and never reach Airtable** (1.123.29). The contact's
+ *   role, the languages the students study in, who signs the agreement, their title and the
+ *   institution's page about the program carry `'site' => true`: they are stored under their own
+ *   meta key, and the fields meta keeps exactly today's eleven columns, because an approval
+ *   writes every key of it to the base and a column the base does not have refuses the record.
+ *   The languages are the mentor form's own list, read from its class. A tampered post is
+ *   cleaned or refused, never stored as typed: a language not on the list is dropped, a title
+ *   with no signer refuses the signer's name, a signer with no title refuses the title, and a
+ *   page address naming any scheme but http or https is refused.
  * - **A failure never hands back a tick.** The stash that refills the form is asserted to
  *   carry no consent value at all, in every failure path.
  * - **A label is the applicant's words and a key is the base's.** The internship question asks
  *   about "practicums" (1.123.27) over the column that says "practices": the thirteen columns and
- *   the field name each posts under, hashed from the column, are pinned as they were, so only the
- *   label moved. It is a heading with the "Required" mark over its boxes in a group the heading
+ *   the field name each posts under, hashed from the column, are pinned as they were, with the five
+ *   site answers' names hashed from their keys among them in form order, so only the label moved. It is a heading with the "Required" mark over its boxes in a group the heading
  *   names and the hint describes.
  * - **The country is one field to type into, and it still posts a record ID.** The combobox is
  *   `WPCPM_Dashboards::render_combo()`'s; the hidden select carries no `required` attribute, or a
@@ -60,7 +70,9 @@
  * The other pieces are stood in for exactly at their contracts: the mail exit, the manager
  * notification, the settings. `WPCPM_Countries`, `WPCPM_Dashboards`, `WPCPM_Field_Value`,
  * `WPCPM_Ceiling`, `WPCPM_Request` and `WPCPM_Roles` are the real files, because what half of
- * this suite is about is whether this form uses them properly.
+ * this suite is about is whether this form uses them properly. So is
+ * `WPCPM_Mentor_Application_Form`, whose list of languages the form offers, and which this suite
+ * does not require: the application's own file brings it, as a site's loader would.
  *
  * Run from the plugin root:  php bin/test-institution-application.php
  */
@@ -565,7 +577,10 @@ function dwell_token( $age = 30 ) {
 	return $issued . '.' . $random . '.' . substr( wp_hash( 'wpcpm-application-dwell|' . $issued . '|' . $random . '|' . wp_create_nonce( WPCPM_Institution_Application::ACTION_SUBMIT ) ), 0, 32 );
 }
 
-/** The thirteen answers a good application carries, keyed by form key. */
+/**
+ * The eighteen answers a good application carries, keyed by form key: the thirteen that go to
+ * Airtable and the five kept on the site, every one of them given.
+ */
 function answers( array $overrides = array() ) {
 	$values = array(
 		'Name'                                                                  => 'Universidad Example',
@@ -574,10 +589,15 @@ function answers( array $overrides = array() ) {
 		'Website'                                                               => 'example.edu',
 		'Contact Person'                                                        => 'Ana Ruiz',
 		'Contact Email'                                                         => 'ana@example.edu',
+		'contact_role'                                                          => 'Internship coordinator',
 		'Department'                                                            => 'Faculty of Engineering',
 		'How do your internships or practices typically work?'                  => array( ' Based on required hours (e.g. 150 hours)' ),
 		'Comments'                                                              => '',
 		'Estimated number of students who may be interested'                    => '25',
+		'student_languages'                                                     => array( 'Spanish', 'English' ),
+		'signer_name'                                                           => 'Signer Example',
+		'signer_title'                                                          => 'Dean of the Faculty of Engineering',
+		'credits_page'                                                          => 'example.edu/credits',
 		'Why are you interested in offering WordPress Credits to your students?' => 'Our students need real open source experience before they graduate.',
 		'Anything else you’d like us to know?'                                  => 'We run two intakes a year.',
 		'Privacy Policy Compliance'                                             => '1',
@@ -727,6 +747,82 @@ function method_body( $src, $name ) {
 	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
 }
 
+/**
+ * A method of the class that 1.123.29 adds, called only once the class has it, so each check that
+ * needs it fails on its own before it exists rather than ending the run.
+ *
+ * @param string $method The method's name.
+ * @param mixed  ...$args What to call it with.
+ * @return mixed Its answer, or null while the class has no such method.
+ */
+function app_call( $method, ...$args ) {
+	return method_exists( 'WPCPM_Institution_Application', $method ) ? call_user_func_array( array( 'WPCPM_Institution_Application', $method ), $args ) : null;
+}
+
+/** One question's spec, its keys sorted, so a check reads what it holds and not the order it was written in. */
+function spec_of( $key ) {
+	$fields = WPCPM_Institution_Application::fields();
+
+	if ( ! isset( $fields[ $key ] ) ) {
+		return null;
+	}
+
+	$spec = $fields[ $key ];
+	ksort( $spec );
+
+	return $spec;
+}
+
+/** The same, for a spec a check writes out. */
+function sorted( array $spec ) {
+	ksort( $spec );
+
+	return $spec;
+}
+
+/**
+ * The columns of a set of questions the Institutions table does not have.
+ *
+ * Only the questions that go to Airtable are read: an answer kept on the site (`'site' => true`)
+ * is never a cell, so it is no column the base has to hold.
+ *
+ * @param array $fields  Questions, keyed as `fields()` keys them.
+ * @param array $fixture The fixture, read.
+ * @return string[]
+ */
+function missing_from_fixture( array $fields, array $fixture ) {
+	$missing = array();
+
+	foreach ( $fields as $column => $spec ) {
+		if ( empty( $spec['site'] ) && ! in_array( (string) $column, $fixture['fields'], true ) ) {
+			$missing[] = (string) $column;
+		}
+	}
+
+	return $missing;
+}
+
+/** The meta key the site-only answers are stored under, as the class names it from 1.123.29. */
+const SITE_META = '_wpcpm_app_site';
+
+/** The five kept on the site, by key, in the order the form asks them. */
+const SITE_KEYS = array( 'contact_role', 'student_languages', 'signer_name', 'signer_title', 'credits_page' );
+
+/** The eleven columns `_wpcpm_app_fields` held before 1.123.29, in order, and holds still. */
+const STORED_COLUMNS = array(
+	'Name',
+	'City',
+	'Website',
+	'Contact Person',
+	'Contact Email',
+	'Department',
+	'How do your internships or practices typically work?',
+	'Comments',
+	'Estimated number of students who may be interested',
+	'Why are you interested in offering WordPress Credits to your students?',
+	"Anything else you\xE2\x80\x99d like us to know?",
+);
+
 $src     = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php' );
 $fixture = json_decode( file_get_contents( WPCPM_PLUGIN_DIR . 'bin/fixtures/institutions-table-fields.json' ), true );
 
@@ -734,17 +830,101 @@ echo "\n-- the base's spelling, byte for byte --------------------------------\n
 
 // Every column this form claims an applicant filled in has to exist in the Institutions
 // table under exactly that name: `create_records()` sends no `typecast`, so one wrong name is
-// a 422 for the whole record and the application is lost at the moment of approval.
-$missing = array();
+// a 422 for the whole record and the application is lost at the moment of approval. The five
+// answers kept on the site are no cell, so the check reads the others, and it still refuses a
+// question that goes to Airtable under a name the base does not have.
+$all_fields = WPCPM_Institution_Application::fields();
+$to_airtable = array_filter( $all_fields, static function ( $spec ) { return empty( $spec['site'] ); } );
+$on_site     = array_filter( $all_fields, static function ( $spec ) { return ! empty( $spec['site'] ); } );
 
-foreach ( array_keys( WPCPM_Institution_Application::fields() ) as $column ) {
-	if ( ! in_array( $column, $fixture['fields'], true ) ) {
-		$missing[] = $column;
-	}
+ck( 'every one of the thirteen columns that go to Airtable is in the fixture', missing_from_fixture( $all_fields, $fixture ), array() );
+ck( 'and the check fails for a column the base does not have', missing_from_fixture( $all_fields + array( 'Signer Title' => array( 'group' => 'agreement' ) ), $fixture ), array( 'Signer Title' ) );
+ck( 'eighteen questions: thirteen columns of the base and five kept on the site', array( count( $all_fields ), count( $to_airtable ), array_keys( $on_site ) ), array( 18, 13, SITE_KEYS ) );
+ck( 'and none of the five is a column of the base, which is why the check passes them by', array_values( array_intersect( array_keys( $on_site ), $fixture['fields'] ) ), array() );
+
+// The languages are the mentor form's own list, so the two forms never offer different names, and
+// its class comes with the application's file wherever the form runs, this suite included.
+$languages = class_exists( 'WPCPM_Mentor_Application_Form', false ) ? WPCPM_Mentor_Application_Form::languages() : array( 'the mentor form is not loaded' );
+
+ck( 'the mentor form\'s class is loaded with the application\'s file, which this suite requires alone', class_exists( 'WPCPM_Mentor_Application_Form', false ), true );
+
+echo "\n-- the five answers kept on the site ----------------------------------\n";
+
+ck( 'the site-only answers have a meta key of their own', defined( 'WPCPM_Institution_Application::META_SITE' ) ? constant( 'WPCPM_Institution_Application::META_SITE' ) : null, SITE_META );
+
+ck( 'the contact\'s role: who we should contact, required, a short line', spec_of( 'contact_role' ), sorted( array(
+	'group'     => 'contact',
+	'label'     => 'Their role at the institution',
+	'type'      => 'text',
+	'required'  => true,
+	'maxlength' => 120,
+	'help'      => 'For example: internship coordinator, or head of the computer science department.',
+	'site'      => true,
+) ) );
+ck( 'the languages: how the program works, required, the mentor form\'s list drawn in columns', spec_of( 'student_languages' ), sorted( array(
+	'group'    => 'program',
+	'label'    => 'In which languages do your students study?',
+	'type'     => 'choices',
+	'required' => true,
+	'choices'  => $languages,
+	'columns'  => true,
+	'help'     => 'Tick every language your students study in.',
+	'site'     => true,
+) ) );
+ck( 'who signs: the agreement, not required', spec_of( 'signer_name' ), sorted( array(
+	'group'     => 'agreement',
+	'label'     => 'Who will sign the agreement for the institution?',
+	'type'      => 'text',
+	'required'  => false,
+	'maxlength' => 120,
+	'help'      => 'Somebody who can commit the institution, such as a dean. Leave it empty if you do not know yet.',
+	'site'      => true,
+) ) );
+ck( 'their title: the agreement, required only beside a name', spec_of( 'signer_title' ), sorted( array(
+	'group'     => 'agreement',
+	'label'     => 'Their title',
+	'type'      => 'text',
+	'required'  => false,
+	'maxlength' => 120,
+	'help'      => 'For example: Dean of the Faculty of Engineering.',
+	'site'      => true,
+) ) );
+ck( 'the page about WordPress Credits: the agreement, an address, not required', spec_of( 'credits_page' ), sorted( array(
+	'group'     => 'agreement',
+	'label'     => 'Your page about WordPress Credits',
+	'type'      => 'url',
+	'required'  => false,
+	'maxlength' => 200,
+	'help'      => 'The agreement asks the institution to publish a page about the program on its website. If it is up already, give its address; if not, leave this empty.',
+	'site'      => true,
+) ) );
+ck( 'the internship question names its own choices, which stay the column\'s', isset( $all_fields['How do your internships or practices typically work?']['choices'] ) ? $all_fields['How do your internships or practices typically work?']['choices'] : null, WPCPM_Institution_Application::internship_choices() );
+
+$order = array_keys( $all_fields );
+$in    = static function ( $group ) use ( $all_fields ) {
+	return array_keys( array_filter( $all_fields, static function ( $spec ) use ( $group ) { return $group === $spec['group']; } ) );
+};
+
+ck( 'the role is asked right after the contact\'s address, before the department', array_slice( $order, (int) array_search( 'Contact Email', $order, true ), 3 ), array( 'Contact Email', 'contact_role', 'Department' ) );
+ck( 'the languages are the last question of How your program works', $in( 'program' ), array( 'How do your internships or practices typically work?', 'Comments', 'Estimated number of students who may be interested', 'student_languages' ) );
+ck( 'and the agreement asks who signs, their title, then the page', $in( 'agreement' ), array( 'signer_name', 'signer_title', 'credits_page' ) );
+ck( 'six groups, the agreement after How your program works', array_keys( WPCPM_Institution_Application::groups() ), array( 'about', 'contact', 'program', 'agreement', 'more', 'consent' ) );
+ck( 'and the new one is headed The agreement', WPCPM_Institution_Application::groups()['agreement'] ?? null, 'The agreement' );
+// The form draws group by group and, inside a group, in the order `fields()` lists, so a list that
+// runs group by group is the order the form asks: what makes `site_fields()` the form's order.
+$rank  = array_flip( array_keys( WPCPM_Institution_Application::groups() ) );
+$ranks = array();
+
+foreach ( $all_fields as $spec ) {
+	$ranks[] = isset( $rank[ $spec['group'] ] ) ? $rank[ $spec['group'] ] : -1;
 }
 
-ck( 'every one of the thirteen columns is in the fixture', $missing, array() );
-ck( 'and there are thirteen of them', count( WPCPM_Institution_Application::fields() ), 13 );
+$in_order = $ranks;
+sort( $in_order );
+
+ck( 'the questions are listed group by group, in the groups\' order, so the list is the form\'s order', array( $ranks, min( $ranks ) ), array( $in_order, 0 ) );
+ck( 'site_fields() is the five specs of fields() that carry the flag, in form order', app_call( 'site_fields' ), $on_site );
+ck( 'by their keys', array_keys( (array) app_call( 'site_fields' ) ), SITE_KEYS );
 
 ck(
 	'the internship choices are the column\'s own, in order',
@@ -758,7 +938,7 @@ $columns = array_keys( WPCPM_Institution_Application::fields() );
 
 ck(
 	'the "anything else" column carries U+2019 and not an apostrophe',
-	bin2hex( $columns[11] ),
+	bin2hex( $columns[16] ?? '' ),
 	bin2hex( "Anything else you\xE2\x80\x99d like us to know?" )
 );
 ck( 'the first internship choice keeps its leading space', substr( WPCPM_Institution_Application::internship_choices()[0], 0, 1 ), ' ' );
@@ -770,14 +950,14 @@ foreach ( $columns as $column ) {
 	$keys[] = WPCPM_Institution_Application::form_key( $column );
 }
 
-ck( 'the thirteen form keys are distinct', count( array_unique( $keys ) ), 13 );
+ck( 'the eighteen form keys are distinct', count( array_unique( $keys ) ), 18 );
 $shaped = 0;
 
 foreach ( $keys as $key ) {
 	$shaped += preg_match( '/^f[0-9a-f]{12}$/', $key );
 }
 
-ck( 'and each is one letter and twelve hex digits', $shaped, 13 );
+ck( 'and each is one letter and twelve hex digits', $shaped, 18 );
 ck( 'the U+2019 column hashes to a key nothing else has to spell', WPCPM_Institution_Application::form_key( "Anything else you\xE2\x80\x99d like us to know?" ), 'f3e11bfbf4a59' );
 
 // The three the server holds. Named here as well as in the class, because "never stored" is
@@ -830,6 +1010,41 @@ ck( 'consent: "yes" is not', WPCPM_Institution_Application::clean( 'Privacy Poli
 ck( 'consent: "0" is not', WPCPM_Institution_Application::clean( 'Privacy Policy Compliance', '0' )['value'], false );
 
 ck( 'a column nobody asked about is refused rather than stored', WPCPM_Institution_Application::clean( 'Notes', 'anything' )['problem'], 'unknown_field' );
+
+// The five kept on the site, cleaned by the same rules as the thirteen.
+$clean = WPCPM_Institution_Application::clean( 'contact_role', '  Head of the computer science department  ' );
+ck( 'a role is trimmed and kept', array( $clean['ok'], $clean['value'] ), array( true, 'Head of the computer science department' ) );
+ck( 'and cut to its 120 characters', mb_strlen( (string) WPCPM_Institution_Application::clean( 'contact_role', str_repeat( 'a', 300 ) )['value'] ), 120 );
+ck( 'and so are a signer\'s name and title', array( mb_strlen( (string) WPCPM_Institution_Application::clean( 'signer_name', str_repeat( 'a', 300 ) )['value'] ), mb_strlen( (string) WPCPM_Institution_Application::clean( 'signer_title', str_repeat( 'a', 300 ) )['value'] ) ), array( 120, 120 ) );
+
+$clean = WPCPM_Institution_Application::clean( 'student_languages', array( 'Spanish', 'Klingon', 'English', 'Spanish', array( 'Polish' ) ) );
+ck( 'a language not on the list is dropped, and the rest kept once each, as ticked', array( $clean['ok'], $clean['value'] ), array( true, array( 'Spanish', 'English' ) ) );
+ck( 'and a list with nothing on it the form offers is left empty, for requiredness to refuse', WPCPM_Institution_Application::clean( 'student_languages', array( 'Klingon' ) )['value'], array() );
+ck( 'every language the mentor form offers is one the institution form takes', WPCPM_Institution_Application::clean( 'student_languages', $languages )['value'], $languages );
+
+$clean = WPCPM_Institution_Application::clean( 'credits_page', 'example.edu/credits' );
+ck( 'the page about WordPress Credits gains its scheme, as Website does', array( $clean['ok'], $clean['value'] ), array( true, 'https://example.edu/credits' ) );
+ck( 'one given with its scheme keeps it', WPCPM_Institution_Application::clean( 'credits_page', 'http://example.edu/credits' )['value'], 'http://example.edu/credits' );
+ck( 'an address with a port is an address and not a scheme', WPCPM_Institution_Application::clean( 'credits_page', 'example.edu:8080/credits' )['value'], 'https://example.edu:8080/credits' );
+ck( 'and an empty one stays empty', WPCPM_Institution_Application::clean( 'credits_page', '' ), array( 'ok' => true, 'value' => '', 'problem' => '' ) );
+
+// Anything that names a scheme of its own other than http or https is refused rather than given
+// `https://` in front of it, and the Website answer, cleaned by the same rule, the same.
+$schemes = array();
+
+foreach ( array( 'javascript:alert(1)', ' JavaScript:alert(1)', 'data:text/html,hello', 'mailto:office@example.test', 'ftp://example.edu/credits' ) as $typed ) {
+	$clean     = WPCPM_Institution_Application::clean( 'credits_page', $typed );
+	$schemes[] = array( $typed, $clean['ok'], $clean['problem'] );
+}
+
+ck( 'a page address naming any other scheme is refused, never stored as typed', $schemes, array(
+	array( 'javascript:alert(1)', false, 'bad_url' ),
+	array( ' JavaScript:alert(1)', false, 'bad_url' ),
+	array( 'data:text/html,hello', false, 'bad_url' ),
+	array( 'mailto:office@example.test', false, 'bad_url' ),
+	array( 'ftp://example.edu/credits', false, 'bad_url' ),
+) );
+ck( 'and so is a website that names one', WPCPM_Institution_Application::clean( 'Website', 'javascript:alert(1)' )['problem'], 'bad_url' );
 
 echo "\n-- what is drawn, and when nothing is ---------------------------------\n";
 
@@ -891,21 +1106,22 @@ foreach ( $keys as $key ) {
 	$drawn += substr_count( $form, 'wpcpm_application[' . $key . ']' ) > 0 ? 1 : 0;
 }
 
-ck( 'all thirteen questions are drawn', $drawn, 13 );
+ck( 'all eighteen questions are drawn', $drawn, 18 );
 
 echo "\n-- required fields say so ----------------------------------------------\n";
 
 // Every rendered `required` attribute pairs with exactly one visible mark: both come from the
 // same boolean in render_field(), so a field that is not required prints neither and one that
-// is prints both. Two required questions are the exception, each with a mark and no attribute:
-// the internship checklist, because a checkbox array has no native `required` that means "at
-// least one", and the country, because its list is hidden behind its field once the script
-// runs, where a browser would refuse the form over a control nobody can see. Both are checked by
-// name below instead of by count.
+// is prints both. Three required questions are the exception, each with a mark and no attribute:
+// the internship checklist and the languages, because a checkbox array has no native `required`
+// that means "at least one", and the country, because its list is hidden behind its field once
+// the script runs, where a browser would refuse the form over a control nobody can see. They are
+// checked by name below instead of by count. Since 1.123.29 the contact's role is one more of
+// each, and the languages one more mark; who signs, their title and the page are neither.
 ck(
-	'a visible mark for every rendered `required` attribute and one more for each of the two questions that cannot carry the attribute: nine and eleven',
+	'a visible mark for every rendered `required` attribute and one more for each of the three questions that cannot carry the attribute: ten and thirteen',
 	array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ),
-	array( 9, 11 )
+	array( 10, 13 )
 );
 
 $name_key = WPCPM_Institution_Application::form_key( 'Name' );
@@ -916,7 +1132,47 @@ ck( 'and a required textarea\'s', false !== strpos( $form, '<label for="wpcpm-ap
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, "students&#039; details with the program under it. <span class=\"wpcpm-field__required\">Required</span></label>" ), true );
 ck( 'an optional textarea carries no mark', false !== strpos( $form, 'please tell us how</label>' ), true );
 
-ck( 'the five groups are drawn as fieldsets', substr_count( $form, '<fieldset' ), 5 );
+ck( 'the six groups are drawn as fieldsets', substr_count( $form, '<fieldset' ), 6 );
+
+preg_match_all( '#<legend>([^<]*)</legend>#', $form, $legends );
+ck( 'under their headings, the agreement fourth', $legends[1], array( 'About your institution', 'Who we should contact', 'How your program works', 'The agreement', 'Tell us more', 'Before you send this' ) );
+
+preg_match( '#<legend>The agreement</legend>(.*?)</fieldset>#s', $form, $agreement_set );
+preg_match_all( '#name="wpcpm_application\[(f[0-9a-f]{12})\]"#', $agreement_set[1] ?? '', $agreement_names );
+ck( 'which asks who signs, their title and the page, and nothing else', $agreement_names[1], array( WPCPM_Institution_Application::form_key( 'signer_name' ), WPCPM_Institution_Application::form_key( 'signer_title' ), WPCPM_Institution_Application::form_key( 'credits_page' ) ) );
+
+$role_id   = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'contact_role' );
+$signer_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_name' );
+$title_id  = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_title' );
+$page_id   = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'credits_page' );
+$speaks_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'student_languages' );
+
+ck( 'the role is a required line of 120 characters, with its mark and its hint', array(
+	false !== strpos( $form, '<label for="' . $role_id . '">Their role at the institution <span class="wpcpm-field__required">Required</span></label><input type="text" id="' . $role_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'contact_role' ) . ']" value="" maxlength="120" required="required" aria-describedby="' . $role_id . '-help" />' ),
+	false !== strpos( $form, '<span class="wpcpm-field__hint" id="' . $role_id . '-help">For example: internship coordinator, or head of the computer science department.</span>' ),
+), array( true, true ) );
+ck( 'who signs and their title are lines of 120 characters with no mark and no attribute, each with its hint', array(
+	false !== strpos( $form, '<label for="' . $signer_id . '">Who will sign the agreement for the institution?</label><input type="text" id="' . $signer_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'signer_name' ) . ']" value="" maxlength="120" aria-describedby="' . $signer_id . '-help" />' ),
+	false !== strpos( $form, '<span class="wpcpm-field__hint" id="' . $signer_id . '-help">Somebody who can commit the institution, such as a dean. Leave it empty if you do not know yet.</span>' ),
+	false !== strpos( $form, '<label for="' . $title_id . '">Their title</label><input type="text" id="' . $title_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'signer_title' ) . ']" value="" maxlength="120" aria-describedby="' . $title_id . '-help" />' ),
+	false !== strpos( $form, '<span class="wpcpm-field__hint" id="' . $title_id . '-help">For example: Dean of the Faculty of Engineering.</span>' ),
+), array( true, true, true, true ) );
+ck( 'the page is a text box that takes an address, as Website is, of 200 characters, with its hint', array(
+	false !== strpos( $form, '<label for="' . $page_id . '">Your page about WordPress Credits</label><input type="text" id="' . $page_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'credits_page' ) . ']" value="" maxlength="200" inputmode="url" aria-describedby="' . $page_id . '-help" />' ),
+	false !== strpos( $form, '<span class="wpcpm-field__hint" id="' . $page_id . '-help">The agreement asks the institution to publish a page about the program on its website. If it is up already, give its address; if not, leave this empty.</span>' ),
+), array( true, true ) );
+
+// The languages, drawn as the mentor form draws its own: a group of boxes the heading names and
+// the hint describes, in columns, every box posting under the question's name as a list.
+preg_match( '#<div class="wpcpm-field wpcpm-field--choices wpcpm-field--columns"><span class="wpcpm-field__label" id="' . $speaks_id . '-label">In which languages do your students study\? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" role="group" aria-labelledby="' . $speaks_id . '-label" aria-describedby="' . $speaks_id . '-help">(.*?)</span><span class="wpcpm-field__hint" id="' . $speaks_id . '-help">Tick every language your students study in\.</span></div>#', $form, $speaks );
+preg_match_all( '#<label class="wpcpm-field__check"><input type="checkbox" name="wpcpm_application\[' . WPCPM_Institution_Application::form_key( 'student_languages' ) . '\]\[\]" value="([^"]*)" /> <span>([^<]*)</span></label>#', $speaks[1] ?? '', $boxes );
+ck( 'the languages are a group of boxes in columns, under a heading with the mark, the hint describing them', isset( $speaks[1] ), true );
+ck( 'one box for each language the mentor form offers, in its order, each named as it is valued', array( $boxes[1], $boxes[2] ), array( $languages, $languages ) );
+ck( 'and no box carries the attribute, none of them being the whole answer', preg_match( '#name="wpcpm_application\[' . WPCPM_Institution_Application::form_key( 'student_languages' ) . '\]\[\]"[^>]*required="required"#', $form ), 0 );
+ck( 'the internship boxes are not drawn in columns', false !== strpos( $form, '<div class="wpcpm-field wpcpm-field--choices"><span class="wpcpm-field__label" id="wpcpm-application-' . WPCPM_Institution_Application::form_key( 'How do your internships or practices typically work?' ) . '-label">' ), true );
+
+$application_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/application.css' );
+ck( 'the columns are the rule the mentor form\'s languages and teams are drawn by', 1 === preg_match( '#\.wpcpm-field--languages \.wpcpm-field__choices,\s*\.wpcpm-field--teams \.wpcpm-field__choices,\s*\.wpcpm-field--columns \.wpcpm-field__choices \{\s*display: grid;#', $application_css ), true );
 ck( 'the U+2019 label survives to the page', false !== strpos( $form, "Anything else you\xE2\x80\x99d like us to know?" ), true );
 ck( 'the checkbox values keep the leading space the column has', false !== strpos( $form, 'value=" Based on required hours (e.g. 150 hours)"' ), true );
 ck( 'and show it trimmed', false !== strpos( $form, '<span>Based on required hours (e.g. 150 hours)</span>' ), true );
@@ -939,7 +1195,8 @@ echo "\n-- the internship question: a plain label over the same column ---------
 
 // The label is what an applicant reads. The column beside it is what the record is written under
 // and what the form's field name is hashed from (`form_key()`), so the label can change and the
-// name cannot. The thirteen names are pinned as they were before the label changed.
+// name cannot. The thirteen names are pinned as they were before the label changed, and the five
+// kept on the site since 1.123.29 post under names hashed the same way from their keys.
 $posted_before = array(
 	'Name'                                                                   => 'f49ee3087348e',
 	'Country'                                                                => 'f59716c97497e',
@@ -955,6 +1212,20 @@ $posted_before = array(
 	"Anything else you\xE2\x80\x99d like us to know?"                          => 'f3e11bfbf4a59',
 	'Privacy Policy Compliance'                                              => 'f62b991a00670',
 );
+$posted_new = array(
+	'contact_role'      => 'f7831932173fc',
+	'student_languages' => 'ff2a977f69784',
+	'signer_name'       => 'fb539cfbe7f25',
+	'signer_title'      => 'f56c4aac67e61',
+	'credits_page'      => 'f53cc2321c1a9',
+);
+// The eighteen in the order the form asks them: the role after the contact's address, the
+// languages last in the program's group, the agreement's three before Tell us more.
+$posted_now = array();
+
+foreach ( array( 'Name', 'Country', 'City', 'Website', 'Contact Person', 'Contact Email', 'contact_role', 'Department', 'How do your internships or practices typically work?', 'Comments', 'Estimated number of students who may be interested', 'student_languages', 'signer_name', 'signer_title', 'credits_page', 'Why are you interested in offering WordPress Credits to your students?', "Anything else you\xE2\x80\x99d like us to know?", 'Privacy Policy Compliance' ) as $column ) {
+	$posted_now[ $column ] = isset( $posted_before[ $column ] ) ? $posted_before[ $column ] : $posted_new[ $column ];
+}
 
 reset_world();
 $form        = WPCPM_Institution_Application::render();
@@ -967,12 +1238,13 @@ foreach ( array_keys( WPCPM_Institution_Application::fields() ) as $column ) {
 
 preg_match_all( '#name="wpcpm_application\[(f[0-9a-f]{12})\](?:\[\])?"#', $form, $posted );
 
-ck( 'the thirteen columns are spelled as they were, in order, and each posts under the name it posted under before', $field_names, $posted_before );
-ck( 'and the form posts those names and no others', array_values( array_unique( $posted[1] ) ), array_values( $posted_before ) );
+ck( 'the thirteen columns are spelled as they were, in order, and each posts under the name it posted under before', array_diff_key( $field_names, $posted_new ), $posted_before );
+ck( 'the eighteen are in form order, the five new ones under names hashed from their keys', $field_names, $posted_now );
+ck( 'and the form posts those names and no others', array_values( array_unique( $posted[1] ) ), array_values( $posted_now ) );
 
 ck(
 	'the question\'s words say practicums, and the column it is written under does not',
-	array( WPCPM_Institution_Application::fields()[ $internships ]['label'], bin2hex( array_keys( WPCPM_Institution_Application::fields() )[7] ) ),
+	array( WPCPM_Institution_Application::fields()[ $internships ]['label'], bin2hex( array_keys( WPCPM_Institution_Application::fields() )[8] ?? '' ) ),
 	array( 'How do your internships or practicums typically work?', bin2hex( $internships ) )
 );
 ck( 'nothing on the page says practices', array( substr_count( $form, 'practicums' ), strpos( $form, 'practices' ) ), array( 1, false ) );
@@ -1097,6 +1369,39 @@ ck( 'the stored fields hold no Country', array_key_exists( 'Country', $fields ),
 ck( 'no Current Stage', array_key_exists( 'Current Stage', $fields ), false );
 ck( 'and no Privacy Policy Compliance', array_key_exists( 'Privacy Policy Compliance', $fields ), false );
 ck( 'eleven columns are stored: the thirteen less the country and the consent', count( $fields ), 11 );
+ck( 'exactly the eleven they were before 1.123.29, in order, and none of the five kept on the site', array_keys( $fields ), STORED_COLUMNS );
+
+// The five go to their own key, cleaned, in form order: the page has its scheme and the languages
+// are the list ticked. An approval writes every key of the fields meta to Airtable, so not one of
+// them may be in it.
+$site = get_post_meta( $row->ID, SITE_META, true );
+
+ck( 'the five answers kept on the site are stored under their own key, cleaned, in form order', $site, array(
+	'contact_role'      => 'Internship coordinator',
+	'student_languages' => array( 'Spanish', 'English' ),
+	'signer_name'       => 'Signer Example',
+	'signer_title'      => 'Dean of the Faculty of Engineering',
+	'credits_page'      => 'https://example.edu/credits',
+) );
+ck( 'and site_answers() reads them back', app_call( 'site_answers', $row->ID ), $site );
+
+// An application filed before 1.123.29 has none, and is answered with an empty list rather than
+// an empty string, as is a post that is no application at all.
+$before_release = $GLOBALS['pmeta'][ $row->ID ][ SITE_META ] ?? null;
+unset( $GLOBALS['pmeta'][ $row->ID ][ SITE_META ] );
+ck( 'an application filed before the five were asked has no site answers, and says so with an empty list', array( app_call( 'site_answers', $row->ID ), app_call( 'site_answers', 42 ), app_call( 'site_answers', 9999 ) ), array( array(), array(), array() ) );
+if ( null !== $before_release ) {
+	$GLOBALS['pmeta'][ $row->ID ][ SITE_META ] = $before_release;
+}
+$holding = array();
+
+foreach ( $GLOBALS['pmeta'][ $row->ID ] as $key => $meta_rows ) {
+	if ( false !== strpos( serialize( $meta_rows ), 'Internship coordinator' ) || false !== strpos( serialize( $meta_rows ), 'example.edu/credits' ) ) {
+		$holding[] = $key;
+	}
+}
+
+ck( 'and no other meta of the row holds any of them', $holding, array( SITE_META ) );
 
 ck( 'the U+2019 column round-trips into storage under its own name', $fields[ "Anything else you\xE2\x80\x99d like us to know?" ], 'We run two intakes a year.' );
 ck( 'the multi-select is stored as the column\'s own choice, leading space and all', $fields['How do your internships or practices typically work?'], array( ' Based on required hours (e.g. 150 hours)' ) );
@@ -1214,7 +1519,7 @@ ck( 'and held as spam', get_post_meta( $row->ID, WPCPM_Institution_Application::
 ck( 'saying why', in_array( 'honeypot', get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ), true ), true );
 ck( 'and nothing is sent to anybody', array( count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 0, 0 ) );
 
-// A honeypot row skips requiredness on purpose: telling a bot which of thirteen fields it
+// A honeypot row skips requiredness on purpose: telling a bot which of eighteen fields it
 // missed is free tuition, and the row is going to a human either way.
 reset_world();
 submit( answers( array( 'Name' => '', 'City' => '' ) ), array( 'honeypot' => 'x' ) );
@@ -1517,6 +1822,150 @@ reset_world();
 submit( answers( array( "Anything else you\xE2\x80\x99d like us to know?" => '' ) ) );
 
 ck( 'and the last question is genuinely optional', count( stored() ), 1 );
+
+// The five kept on the site. The role and the languages are required; who signs, their title and
+// the page are not, and the title is asked for exactly when somebody is named to sign.
+reset_world();
+$no_role = submit( answers( array( 'contact_role' => '  ' ) ) );
+
+ck( 'the contact\'s role is required', array( $no_role['outcome'], $no_role['stash']['problems']['contact_role'] ?? null, count( stored() ) ), array( 'again', 'required', 0 ) );
+
+reset_world();
+$titled = submit( answers( array( 'signer_title' => '' ) ) );
+
+ck( 'a signer named with no title is refused on the title, and nothing is stored', array( $titled['outcome'], $titled['stash']['problems'] ?? null, count( stored() ) ), array( 'again', array( 'signer_title' => 'required' ), 0 ) );
+
+follow( $titled['url'] );
+$again    = WPCPM_Institution_Application::render();
+$title_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_title' );
+
+ck( 'and the form handed back says so under the title, with the name kept as typed', array(
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $title_id . '-problem">Please fill this in.</span>' ),
+	false !== strpos( $again, 'value="Signer Example"' ),
+), array( true, true ) );
+
+// The other half of the pair, which only a post made by hand or a box left by mistake sends: a
+// title with nobody's name beside it is refused on the name, the title handed back as typed, and
+// never stored as an answer about nobody.
+reset_world();
+$untitled = submit( answers( array( 'signer_name' => '', 'signer_title' => 'Dean of the Faculty of Engineering' ) ) );
+
+ck( 'a title with no signer is refused on the signer, and nothing is stored', array( $untitled['outcome'], $untitled['stash']['problems'] ?? null, count( stored() ) ), array( 'again', array( 'signer_name' => 'required' ), 0 ) );
+
+follow( $untitled['url'] );
+$again     = WPCPM_Institution_Application::render();
+$signer_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_name' );
+
+ck( 'and the form handed back says so under the name, with the title kept as typed', array(
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $signer_id . '-problem">Please fill this in.</span>' ),
+	false !== strpos( $again, 'value="Dean of the Faculty of Engineering"' ),
+), array( true, true ) );
+
+reset_world();
+submit( answers( array( 'signer_name' => '', 'signer_title' => '', 'credits_page' => '' ) ) );
+$row = only_row();
+
+ck( 'no signer, no title and no page is an application all the same', $row instanceof WP_Post, true );
+ck( 'with the three kept empty on the site, and the role and the languages as given', $row ? get_post_meta( $row->ID, SITE_META, true ) : null, array(
+	'contact_role'      => 'Internship coordinator',
+	'student_languages' => array( 'Spanish', 'English' ),
+	'signer_name'       => '',
+	'signer_title'      => '',
+	'credits_page'      => '',
+) );
+
+$speaks_key = 'student_languages';
+$speaks_id  = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( $speaks_key );
+
+reset_world();
+$silent = submit( answers( array( $speaks_key => array() ) ) );
+
+ck( 'no language ticked is refused, and nothing is stored', array( $silent['outcome'], $silent['stash']['problems'][ $speaks_key ] ?? null, count( stored() ) ), array( 'again', 'required', 0 ) );
+
+follow( $silent['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck( 'and the form handed back says Please fill this in. under the boxes, which the problem describes as well as the hint', array(
+	false !== strpos( $again, 'role="group" aria-labelledby="' . $speaks_id . '-label" aria-describedby="' . $speaks_id . '-help ' . $speaks_id . '-problem">' ),
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $speaks_id . '-problem">Please fill this in.</span>' ),
+), array( true, true ) );
+
+reset_world();
+$unknown = submit( answers( array( $speaks_key => array( 'Klingon', 'Elvish' ) ) ) );
+
+ck( 'a post ticking only languages not on the list has them dropped, and with nothing left is refused the same way', array( $unknown['stash']['problems'][ $speaks_key ] ?? null, count( stored() ) ), array( 'required', 0 ) );
+
+reset_world();
+submit( answers( array( $speaks_key => array( 'Klingon', 'Polish' ) ) ) );
+
+ck( 'and one known language beside an unknown one is stored alone', only_row() ? get_post_meta( only_row()->ID, SITE_META, true )[ $speaks_key ] ?? null : null, array( 'Polish' ) );
+
+reset_world();
+$script  = submit( answers( array( 'credits_page' => 'javascript:alert(1)' ) ) );
+$page_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'credits_page' );
+
+ck( 'a page address with a javascript: scheme is refused, and nothing is stored', array( $script['outcome'], $script['stash']['problems'] ?? null, count( stored() ) ), array( 'again', array( 'credits_page' => 'bad_url' ), 0 ) );
+
+follow( $script['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck( 'and the form handed back says the answer could not be read, the address gone from the box', array(
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $page_id . '-problem">That answer could not be read. Please try it again.</span>' ),
+	strpos( $again, 'javascript:' ),
+), array( true, false ) );
+
+// A row filed as spam skips requiredness, so a title with no signer is not refused there; it is
+// not kept either, or approving that row once it was put back in the queue would copy a title
+// with nobody to hold it. The tampered answers that are cleaned are still dropped on that path.
+reset_world();
+submit(
+	answers(
+		array(
+			'signer_name'       => '',
+			'signer_title'      => 'Dean of the Faculty of Engineering',
+			'student_languages' => array( 'Klingon', 'Polish' ),
+			'credits_page'      => 'javascript:alert(1)',
+		)
+	),
+	array( 'honeypot' => 'x' )
+);
+$row = only_row();
+
+ck( 'a spam-filed submission with a title and no signer is stored, as spam', $row ? get_post_meta( $row->ID, WPCPM_Institution_Application::META_STATE, true ) : null, WPCPM_Institution_Application::STATE_SPAM );
+ck( 'its site answers keep no title alone, no language off the list and no javascript: page (the page is left out, as an answer that could not be read always is)', $row ? get_post_meta( $row->ID, SITE_META, true ) : null, array(
+	'contact_role'      => 'Internship coordinator',
+	'student_languages' => array( 'Polish' ),
+	'signer_name'       => '',
+	'signer_title'      => '',
+) );
+
+// A post that leaves the signer's field out altogether is the same: no name, so no title.
+reset_world();
+submit( answers( array( 'signer_name' => null ) ), array( 'honeypot' => 'x' ) );
+$row = only_row();
+
+ck( 'a spam-filed submission that leaves the signer out altogether keeps no title either', $row ? ( get_post_meta( $row->ID, SITE_META, true )['signer_title'] ?? 'absent' ) : null, '' );
+
+reset_world();
+submit( answers(), array( 'honeypot' => 'x' ) );
+$row = only_row();
+
+ck( 'a spam-filed submission that names a signer keeps the title beside the name', $row ? array( get_post_meta( $row->ID, SITE_META, true )['signer_name'] ?? null, get_post_meta( $row->ID, SITE_META, true )['signer_title'] ?? null ) : null, array( 'Signer Example', 'Dean of the Faculty of Engineering' ) );
+
+// A form handed back for another answer keeps the five as they were given.
+reset_world();
+$elsewhere = submit( answers( array( 'Name' => '' ) ) );
+follow( $elsewhere['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck( 'a form handed back for another answer keeps the role, the languages ticked, the signer, the title and the page', array(
+	false !== strpos( $again, 'value="Internship coordinator"' ),
+	substr_count( $again, 'name="wpcpm_application[' . WPCPM_Institution_Application::form_key( $speaks_key ) . '][]" value="Spanish" checked="checked"' ) + substr_count( $again, 'name="wpcpm_application[' . WPCPM_Institution_Application::form_key( $speaks_key ) . '][]" value="English" checked="checked"' ),
+	substr_count( $again, 'name="wpcpm_application[' . WPCPM_Institution_Application::form_key( $speaks_key ) . '][]" value="Polish" checked="checked"' ),
+	false !== strpos( $again, 'value="Signer Example"' ),
+	false !== strpos( $again, 'value="Dean of the Faculty of Engineering"' ),
+	false !== strpos( $again, 'value="https://example.edu/credits"' ),
+), array( true, 2, 0, true, true, true ) );
 
 echo "\n-- duplicates are flagged and never merged ----------------------------\n";
 
@@ -2147,8 +2596,17 @@ ck( 'two rows stored in the same second are ordered by ID, so a window keeps the
 ck( 'a caller that asks for no states gets no rows, never every row', WPCPM_Institution_Application::applications( array() ), array() );
 ck( 'and a state nobody has heard of is dropped rather than queried', WPCPM_Institution_Application::applications( array( 'wide-open' ) ), array() );
 
+// Post meta goes with its post, the site-only answers' key included, which is why `delete_all()`
+// names no meta key: three rows hold them before, and none after.
+$with_site_answers = static function () {
+	return count( array_filter( $GLOBALS['pmeta'], static function ( $meta ) { return isset( $meta[ SITE_META ] ); } ) );
+};
+
+ck( 'before uninstall, the three applications hold their site-only answers', $with_site_answers(), 3 );
+
 WPCPM_Institution_Application::delete_all();
 ck( 'uninstall takes every application with it', count( stored() ), 0 );
+ck( 'and every one\'s site-only answers', $with_site_answers(), 0 );
 
 echo "\n-- read off the source ------------------------------------------------\n";
 
@@ -2259,8 +2717,9 @@ $preview = WPCPM_Institution_Application::render();
 
 ck( 'the editor is shown no form at all', strpos( $preview, '<form' ), false );
 ck( 'and no token', strpos( $preview, WPCPM_Institution_Application::TOKEN_FIELD ), false );
-ck( 'it names the groups', substr_count( $preview, '<li>' ), 5 );
+ck( 'it names the groups', substr_count( $preview, '<li>' ), 6 );
 ck( 'says how many questions each asks', false !== strpos( $preview, '4 questions' ), true );
+ck( 'the agreement among them, with its three', false !== strpos( $preview, '<li><strong>The agreement</strong> 3 questions</li>' ), true );
 ck( 'and how many countries the list offers', false !== strpos( $preview, 'offers 2 countries' ), true );
 
 /* ---- the cap on unauthenticated outbound mail ---------------------------- */

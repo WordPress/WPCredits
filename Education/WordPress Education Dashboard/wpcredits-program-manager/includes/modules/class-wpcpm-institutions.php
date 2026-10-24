@@ -129,6 +129,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	const FILTER_GAP = 'agreement_gap';
 
 	/**
+	 * The stages the Pipeline tab leaves out of its counts (1.123.29): the records the program has set
+	 * aside, and the ones with no stage at all. Every count on the tab is over the other records
+	 * (`counted_rows()`), and these four are listed under the counted ones, folded, each with its own
+	 * count. A stage is read trimmed, so "SPAM " is SPAM; a stage this list does not know is counted.
+	 *
+	 * A fixed list and not a setting: the setting "Institution pipeline stages" says which stages
+	 * other screens treat as active, and an Administrator may change it, but what the Pipeline counts
+	 * is what a manager compares from one week to the next.
+	 */
+	const UNCOUNTED_STAGES = array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' );
+
+	/**
 	 * Linking one unlinked Students row to an institution, from the reconciliation card.
 	 *
 	 * A program manager's act and never an institution's. An import preview that answered
@@ -415,10 +427,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Hooks.
 	 */
 	public function boot() {
-		// The two private post types this module keeps, registered on `init` the way the
-		// Students module boots its helpers.
+		// The private post types this module keeps, registered on `init` the way the Students
+		// module boots its helpers: the agreements, the audit log and, since 1.123.29, the
+		// institutions' own records.
 		WPCPM_Institution_Agreement::init();
 		WPCPM_Institution_Audit::init();
+		WPCPM_Institution_Record::init();
 
 		// The daily jobs, put back on the clock whenever they are missing: see the method.
 		add_action( 'init', array( __CLASS__, 'schedule_cron' ), 20 );
@@ -635,6 +649,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// record ID, and both outlived the plugin.
 		WPCPM_Institution_Invite::delete_all();
 		WPCPM_Institution_Request::delete_all();
+		// The institutions' own records (1.123.29) outlive the applications' purge on purpose, so
+		// this is the one thing that removes the answers an application told us.
+		WPCPM_Institution_Record::delete_all();
 		// The batch posts hold a school's list of names and addresses, so they go with the
 		// rest rather than outliving the plugin that made them.
 		WPCPM_Institution_Import::delete_all();
@@ -2701,14 +2718,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * The Pipeline tab: every institution record by stage, with the agreement-gap filter, the
-	 * institutions nobody can act for and the routing gaps, then the consent report.
+	 * institutions nobody can act for, the routing gaps and the field that finds a record, then the
+	 * consent report.
 	 *
 	 * The membership counts are a user query per institution, so they are asked here and on Sync
-	 * and storage, the two tabs that print one of them, and on no other.
+	 * and storage, the two tabs that print one of them, and on no other. Here they are asked of the
+	 * institutions the tab counts (`counted_rows()`), as every count on it is; Sync and storage's
+	 * count is over every record, as it always was.
 	 */
 	private function render_tab_pipeline() {
 		$index = WPCPM_Institutions_Index::read();
-		$gaps  = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
+		$gaps  = self::membership_gaps( self::counted_rows( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() ) );
 
 		$this->render_pipeline( $index, WPCPM_Request::key( 'wpcpm_filter' ), $gaps );
 		$this->render_consent( $index );
@@ -2850,14 +2870,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * The Agreements tab: the Confirmed institutions with no agreement recorded, each linked to where
-	 * its one agreement is recorded, then the agreements the site and Airtable disagree about, then
-	 * the template and the versions signed against it. The tab offers no press of its own since
-	 * 1.123.26, when the form that recorded every Confirmed institution at once was retired.
+	 * its one agreement is recorded, then the agreements in force, each with a folded form to revoke
+	 * it, then the agreements the site and Airtable disagree about, then the template and the
+	 * versions signed against it. Recording an agreement has no press here since 1.123.26, when the
+	 * form that recorded every Confirmed institution at once was retired; the one press the tab
+	 * offers, since 1.123.29, is the revoke.
 	 */
 	private function render_tab_agreements() {
 		$index = WPCPM_Institutions_Index::read();
 
 		$this->render_agreements_on_file( $index );
+		$this->render_agreements_in_force( $index );
 		$this->render_discrepancies( $index );
 		$this->render_template( $index );
 	}
@@ -3346,6 +3369,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The question is printed as the applicant read it, with the Airtable column under it,
 	 * because the manager deciding this is the person who will look the record up in the base.
+	 * An answer kept on the site only (1.123.29) has no column, so it prints none, and it is read
+	 * from `WPCPM_Institution_Application::site_answers()`; an application filed before those
+	 * questions were asked has no such answers, and their rows say so as any unanswered one does.
 	 *
 	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
 	 *
@@ -3353,16 +3379,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	public function render_application_answers( WP_Post $post ) {
 		$fields  = self::application_fields( $post );
+		$site    = WPCPM_Institution_Application::site_answers( (int) $post->ID );
 		$columns = WPCPM_Institutions_Sync::fields();
 		$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
 
 		echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
 
 		foreach ( WPCPM_Institution_Application::fields() as $column => $spec ) {
-			$column = (string) $column;
-			$label  = is_array( $spec ) && ! empty( $spec['label'] ) ? (string) $spec['label'] : $column;
+			$column  = (string) $column;
+			$label   = is_array( $spec ) && ! empty( $spec['label'] ) ? (string) $spec['label'] : $column;
+			$on_site = is_array( $spec ) && ! empty( $spec['site'] );
 
-			if ( isset( $columns['country'] ) && $columns['country'] === $column ) {
+			if ( $on_site ) {
+				$answer = isset( $site[ $column ] ) ? $site[ $column ] : '';
+				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
+			} elseif ( isset( $columns['country'] ) && $columns['country'] === $column ) {
 				$value = self::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) );
 			} elseif ( isset( $columns['consent'] ) && $columns['consent'] === $column ) {
 				$consent = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_CONSENT, true );
@@ -3374,9 +3405,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			}
 
 			printf(
-				'<tr><th scope="row">%1$s<br /><code class="wpcpm-inst-record">%2$s</code></th><td>%3$s</td></tr>',
+				'<tr><th scope="row">%1$s%2$s</th><td>%3$s</td></tr>',
 				esc_html( $label ),
-				esc_html( $column ),
+				$on_site ? '' : '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code>',
 				'' !== trim( $value )
 					? esc_html( $value )
 					: '<span class="wpcpm-inst-muted">' . esc_html__( 'no answer', 'wpcredits-program-manager' ) . '</span>'
@@ -4126,28 +4157,42 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The pipeline: every institution record, grouped by stage.
+	 * The pipeline: every institution record, grouped by stage, the four stages a record is set aside
+	 * at folded under the others.
+	 *
+	 * Every count the card prints is over `counted_rows()`: its total, the counts above the line and
+	 * the agreement gap, as the tab's member, routing and consent counts are. A manager reads the
+	 * total as the partnerships in play, and the SPAM, Not Moving Forward and Revisit Later records
+	 * in it said otherwise. The four `UNCOUNTED_STAGES` are still listed, after the line "Not counted
+	 * above", each a closed fold with its own count, in the order the index groups them
+	 * (`by_stage()`), and a stage stored with a space around it folds with the stage it names.
+	 *
+	 * Each name opens the institution's page, and the field above the groups finds any record
+	 * whatever its stage (`render_pipeline_find()`). Both need the Institution Dashboard's page, read
+	 * once here: without it the names print plain and the field is not drawn.
 	 *
 	 * @param array  $index  The pipeline index, from `WPCPM_Institutions_Index::read()`.
 	 * @param string $filter The `wpcpm_filter` argument, already sanitised.
-	 * @param array  $gaps   The membership counts, from `membership_gaps()`.
+	 * @param array  $gaps   The membership counts, from `membership_gaps()` over the counted rows.
 	 */
 	private function render_pipeline( array $index, $filter, array $gaps ) {
 		$rows      = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
 		$read      = isset( $index['read'] ) ? (int) $index['read'] : 0;
+		$counted   = self::counted_rows( $rows );
+		$page      = (string) $this->dashboard_url();
 		$summaries = array();
 
 		foreach ( $rows as $record_id => $row ) {
 			$summaries[ $record_id ] = WPCPM_Institution_Agreement::summary( $record_id );
 		}
 
-		$gap = self::agreement_gap( $rows, $summaries );
+		$gap = self::agreement_gap( $counted, $summaries );
 
 		echo '<div class="wpcpm-card">';
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html__( 'Pipeline', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $rows ) ) )
+			esc_html( number_format_i18n( count( $counted ) ) )
 		);
 
 		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
@@ -4187,12 +4232,24 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		$this->render_member_gap( $gaps, $read );
-		$this->render_routing_gaps( $rows );
+		$this->render_routing_gaps( $counted );
+		$this->render_pipeline_find( $rows, $page );
+
+		$groups = array();
+		$folded = array();
 
 		if ( self::FILTER_GAP === $filter ) {
 			$groups = array( 'Confirmed' => $gap );
 		} else {
-			$groups = WPCPM_Institutions_Index::by_stage();
+			foreach ( WPCPM_Institutions_Index::by_stage() as $stage => $group ) {
+				$trimmed = trim( (string) $stage );
+
+				if ( in_array( $trimmed, self::UNCOUNTED_STAGES, true ) ) {
+					$folded[ $trimmed ] = ( isset( $folded[ $trimmed ] ) ? $folded[ $trimmed ] : array() ) + $group;
+				} else {
+					$groups[ $stage ] = $group;
+				}
+			}
 		}
 
 		foreach ( $groups as $stage => $group ) {
@@ -4206,27 +4263,172 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html( number_format_i18n( count( $group ) ) )
 			);
 
-			echo '<table class="widefat striped wpcpm-list wpcpm-inst-table"><thead><tr>';
-			echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'Country', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'City', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'Contact', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'Created', 'wpcredits-program-manager' ) . '</th>';
-			echo '<th scope="col">' . esc_html__( 'Agreement', 'wpcredits-program-manager' ) . '</th>';
-			echo '</tr></thead><tbody>';
+			$this->render_pipeline_table( $group, $summaries, $page );
+		}
 
-			foreach ( $group as $row ) {
-				$record_id = isset( $row['record_id'] ) ? (string) $row['record_id'] : '';
-				$summary   = isset( $summaries[ $record_id ] ) ? $summaries[ $record_id ] : WPCPM_Institution_Agreement::summary( $record_id );
+		$folded = array_filter( $folded );
 
-				$this->render_pipeline_row( $row, $summary );
+		if ( ! empty( $folded ) ) {
+			printf( '<h3 class="wpcpm-inst-uncounted">%s</h3>', esc_html__( 'Not counted above', 'wpcredits-program-manager' ) );
+
+			foreach ( $folded as $stage => $group ) {
+				printf(
+					'<details class="wpcpm-inst-folded"><summary>%1$s <span class="wpcpm-count">%2$s</span></summary>',
+					esc_html( self::stage_label( $stage ) ),
+					esc_html( number_format_i18n( count( $group ) ) )
+				);
+
+				$this->render_pipeline_table( $group, $summaries, $page );
+
+				echo '</details>';
 			}
-
-			echo '</tbody></table>';
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * One stage's table in the pipeline, counted or folded: the same columns either way.
+	 *
+	 * @param array  $group     The stage's index rows.
+	 * @param array  $summaries Agreement summaries keyed by record ID, read once for the card.
+	 * @param string $page      The Institution Dashboard's address, or '' when it is not published.
+	 */
+	private function render_pipeline_table( array $group, array $summaries, $page ) {
+		echo '<table class="widefat striped wpcpm-list wpcpm-inst-table"><thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Country', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'City', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Contact', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Created', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Agreement', 'wpcredits-program-manager' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $group as $row ) {
+			$record_id = isset( $row['record_id'] ) ? (string) $row['record_id'] : '';
+			$summary   = isset( $summaries[ $record_id ] ) ? $summaries[ $record_id ] : WPCPM_Institution_Agreement::summary( $record_id );
+
+			$this->render_pipeline_row( $row, $summary, $page );
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Find an institution: one field over every record the index holds, whatever its stage, that
+	 * opens the institution's page, the address its name in the list links to.
+	 *
+	 * The one field for a long list (`WPCPM_Dashboards::render_combo()`), so it drops down, takes
+	 * typing and narrows; without the script the plain select, sorted by name, and the button still
+	 * work. Each entry reads "Name, City (Stage)", trimmed, the city or the stage left out where the
+	 * record has none, because a hundred names include some alike and the city and stage tell them
+	 * apart. A record with no name is listed by its record ID, as the Viewing as switcher lists it.
+	 *
+	 * A GET form drops the query of the address it is sent to, so an Institution Dashboard addressed
+	 * by its query, as a site without pretty permalinks addresses it, gets each argument back in a
+	 * hidden field. Not drawn when the page is not published: there would be nowhere to go.
+	 *
+	 * @param array  $rows Every index row.
+	 * @param string $page The Institution Dashboard's address, or '' when it is not published.
+	 */
+	private function render_pipeline_find( array $rows, $page ) {
+		if ( '' === (string) $page ) {
+			return;
+		}
+
+		$entries = array();
+
+		foreach ( $rows as $key => $row ) {
+			if ( ! is_array( $row ) || '' === trim( (string) $key ) ) {
+				continue;
+			}
+
+			$record_id = trim( (string) $key );
+			$name      = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+			$name      = '' !== $name ? $name : $record_id;
+			$city      = isset( $row['city'] ) ? trim( (string) $row['city'] ) : '';
+			$stage     = isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+			$label     = '' !== $city ? sprintf( '%1$s, %2$s', $name, $city ) : $name;
+			$label     = '' !== $stage ? sprintf( '%1$s (%2$s)', $label, $stage ) : $label;
+
+			$entries[] = array( $record_id, $name, $label );
+		}
+
+		// By name, as a reader looks for one (`WPCPM_Dashboards::compare_names()`); two of one name by
+		// the rest of the entry, then by record ID, so the list does not reshuffle between two reads.
+		usort(
+			$entries,
+			static function ( $a, $b ) {
+				$order = WPCPM_Dashboards::compare_names( $a[1], $b[1] );
+				$order = 0 !== $order ? $order : WPCPM_Dashboards::compare_names( $a[2], $b[2] );
+
+				return 0 !== $order ? $order : strnatcmp( $a[0], $b[0] );
+			}
+		);
+
+		$options = array();
+
+		foreach ( $entries as $entry ) {
+			$options[ $entry[0] ] = $entry[2];
+		}
+
+		printf( '<form method="get" action="%s" class="wpcpm-inst-find wpcpm-admin-picker">', esc_url( $page ) );
+
+		$query = array();
+		wp_parse_str( (string) wp_parse_url( $page, PHP_URL_QUERY ), $query );
+
+		foreach ( $query as $key => $value ) {
+			if ( is_scalar( $value ) && WPCPM_Institution_Roster::ARG_VIEW !== (string) $key ) {
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $key ), esc_attr( (string) $value ) );
+			}
+		}
+
+		echo '<div class="wpcpm-admin-combo">';
+		WPCPM_Dashboards::render_combo(
+			array(
+				'id'      => 'wpcpm-pipeline-find',
+				// The roster's constant, as the Viewing as switcher's: it is what the page reads.
+				'name'    => WPCPM_Institution_Roster::ARG_VIEW,
+				// Opens on its placeholder, as the Reconciliation picker does: with a record first, the
+				// script writes that record's name into the field and an untouched Open its page opens
+				// it. An empty choice sends an empty `wpcpm_institution_view`, and the Institution
+				// Dashboard shows its own default view.
+				'options' => array( '' => __( 'Choose an institution', 'wpcredits-program-manager' ) ) + $options,
+				'label'   => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'none'    => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+			)
+		);
+		echo '</div>';
+
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Open its page', 'wpcredits-program-manager' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * An institution's name as the Institutions screen prints it: escaped, and linked to the
+	 * institution's Institution Dashboard as an Administrator sees it (the page's address with
+	 * `WPCPM_Institution_Roster::ARG_VIEW` set to the record ID), the address the Agreements tab's
+	 * names open, without its panel anchor. Plain where the page is not published or the record has
+	 * no ID, since there is nowhere to send the reader.
+	 *
+	 * @param string $name      The name as it is to read, unescaped.
+	 * @param string $record_id Institutions record ID.
+	 * @param string $page      The Institution Dashboard's address, from `dashboard_url()`, read once
+	 *                          per draw, or '' when it is not published.
+	 * @return string HTML.
+	 */
+	private static function institution_link( $name, $record_id, $page ) {
+		if ( '' === (string) $page || '' === (string) $record_id ) {
+			return esc_html( $name );
+		}
+
+		return sprintf(
+			'<a href="%1$s">%2$s</a>',
+			esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record_id, (string) $page ) ),
+			esc_html( $name )
+		);
 	}
 
 	/**
@@ -4234,14 +4436,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The name prints trimmed and the row says when the stored one was not: ten names in
 	 * the base end in a space and two records have none, and a manager searching the grid
-	 * for an institution by its printed name should know why the match is not exact.
+	 * for an institution by its printed name should know why the match is not exact. It opens
+	 * the institution's page (`institution_link()`), "(no name)" included, since a record with no
+	 * name has a page all the same.
 	 *
-	 * @param array $row     An index row.
-	 * @param array $summary The institution's agreement summary.
+	 * @param array  $row     An index row.
+	 * @param array  $summary The institution's agreement summary.
+	 * @param string $page    The Institution Dashboard's address, or '' when it is not published.
 	 */
-	private function render_pipeline_row( array $row, array $summary ) {
-		$name    = isset( $row['name'] ) ? (string) $row['name'] : '';
-		$trimmed = trim( $name );
+	private function render_pipeline_row( array $row, array $summary, $page ) {
+		$name      = isset( $row['name'] ) ? (string) $row['name'] : '';
+		$trimmed   = trim( $name );
+		$record_id = isset( $row['record_id'] ) ? (string) $row['record_id'] : '';
 
 		echo '<tr>';
 
@@ -4250,12 +4456,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		if ( '' === $trimmed ) {
 			printf(
 				'<span class="wpcpm-inst-name__text wpcpm-inst-muted">%1$s</span> <span class="wpcpm-inst-mark wpcpm-inst-mark--empty" title="%2$s">%3$s</span>',
-				esc_html__( '(no name)', 'wpcredits-program-manager' ),
+				self::institution_link( __( '(no name)', 'wpcredits-program-manager' ), $record_id, $page ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the words, and the link around them.
 				esc_attr__( 'This record has no Name in Airtable.', 'wpcredits-program-manager' ),
 				esc_html__( 'no name', 'wpcredits-program-manager' )
 			);
 		} else {
-			printf( '<span class="wpcpm-inst-name__text">%s</span>', esc_html( $trimmed ) );
+			printf(
+				'<span class="wpcpm-inst-name__text">%s</span>',
+				self::institution_link( $trimmed, $record_id, $page ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the name, and the link around it.
+			);
 
 			if ( $name !== $trimmed ) {
 				printf(
@@ -4336,7 +4545,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * Under the count, where such an institution is given an account (`render_routes_in()`).
 	 *
-	 * @param array $gaps From `membership_gaps()`.
+	 * @param array $gaps From `membership_gaps()`, over the institutions the tab counts
+	 *                    (`counted_rows()`): a record set aside needs nobody to act for it.
 	 * @param int   $read Unix time the pipeline index was read.
 	 */
 	private function render_member_gap( array $gaps, $read ) {
@@ -4388,10 +4598,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * A routing gap, never an error: the acknowledgement for an applicant from one of these
 	 * countries has no manager to name, and the queue shows no contact for information. Read
-	 * from the index rows and the countries map, so the list is the three the base has today
-	 * and not the fifty-eight countries nobody has applied from.
+	 * from the index rows and the countries map, so the list is the countries institutions name
+	 * and not the fifty-eight nobody has applied from. Since 1.123.29 the rows are the ones the
+	 * Pipeline counts (`counted_rows()`): a country named only by a record set aside is no gap
+	 * anybody has to close, and the row's own mark still says so in its fold.
 	 *
-	 * @param array $rows Index rows.
+	 * @param array $rows The counted index rows.
 	 */
 	private function render_routing_gaps( array $rows ) {
 		$gaps      = array();
@@ -4524,6 +4736,161 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<p class="description">' . esc_html__( 'Record each one from its own page, with the signed copy the program holds.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '</div>';
+	}
+
+	/**
+	 * Agreements in force: every institution whose agreement stands, the one accepted on the site and
+	 * the ones recorded on file alike, each with a folded form to revoke it.
+	 *
+	 * The rows are the institutions whose agreement summary is `accepted` or `on_file` (whatever the
+	 * stage the base holds), by name without regard to case or accents. Until 1.123.29 the revoke
+	 * handler (`WPCPM_Institution_Agreement::handle_revoke()`) had no button: this card is where an
+	 * Administrator reaches it. The handler keeps its order of checks, and a press it refuses comes
+	 * back to this tab with the fold open and the note as it was typed.
+	 *
+	 * On live every agreement on file is a document in state `accepted`, the same as one accepted on
+	 * the site, so one form and one handler serve every row; the row says which it is.
+	 *
+	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
+	 */
+	private function render_agreements_in_force( array $index ) {
+		$rows = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
+		$read = isset( $index['read'] ) ? (int) $index['read'] : 0;
+		$held = array();
+
+		foreach ( $rows as $record_id => $row ) {
+			$record_id = (string) $record_id;
+			$summary   = WPCPM_Institution_Agreement::summary( $record_id );
+
+			if ( ! self::is_settled_summary( $summary ) ) {
+				continue;
+			}
+
+			$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+
+			$held[] = array(
+				'id'      => $record_id,
+				'name'    => '' !== $name ? $name : $record_id,
+				'summary' => $summary,
+			);
+		}
+
+		usort(
+			$held,
+			static function ( $a, $b ) {
+				$order = strcasecmp( remove_accents( $a['name'] ), remove_accents( $b['name'] ) );
+
+				return 0 !== $order ? $order : strcmp( $a['id'], $b['id'] );
+			}
+		);
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Agreements in force', 'wpcredits-program-manager' ) . '</h2>';
+
+		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
+
+		if ( empty( $held ) ) {
+			echo '<p>' . esc_html__( 'No institution has an agreement in force.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		$page = (string) $this->dashboard_url();
+
+		echo '<ul class="wpcpm-inst-inforce">';
+
+		foreach ( $held as $item ) {
+			$summary = $item['summary'];
+			$word    = WPCPM_Institution_Agreement::SUMMARY_ON_FILE === (string) $summary['state'] ? __( 'Recorded on file', 'wpcredits-program-manager' ) : __( 'Accepted on the site', 'wpcredits-program-manager' );
+			$day     = WPCPM_Dates::day( (string) $summary['accepted_at'] );
+
+			echo '<li class="wpcpm-inst-inforce__row">';
+
+			printf(
+				'<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">%1$s</span> <span class="wpcpm-inst-muted">%2$s</span></p>',
+				self::institution_link( $item['name'], $item['id'], $page ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the name, and the link around it.
+				esc_html(
+					'' === $day ? $word : sprintf(
+						/* translators: 1: "Accepted on the site" or "Recorded on file", 2: the day it was accepted, in the site's date format. */
+						__( '%1$s, %2$s', 'wpcredits-program-manager' ),
+						$word,
+						$day
+					)
+				)
+			);
+
+			// A summary in force always names its document; one that did not would have nothing to
+			// revoke, and a form posting a zero would only be refused.
+			if ( (int) $summary['agreement_id'] > 0 ) {
+				$this->render_revoke_form( (int) $summary['agreement_id'], $item['name'] );
+			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+		echo '</div>';
+	}
+
+	/**
+	 * One agreement's revoke form, folded: a required note, the line saying who receives it, and a
+	 * button that asks first and submits once.
+	 *
+	 * It posts the handler's own fields (`WPCPM_Institution_Agreement::handle_revoke()`): the action,
+	 * the nonce keyed to the document, the document's ID and the note. It names no way back, so the
+	 * handler's outcome comes back to this tab, where `WPCPM_Institution_Panel::messages()` words it;
+	 * a refusal that kept the note opens the fold with it in the box, with the leading line break the
+	 * parser would drop kept (`kept_revoke_note()`). The label is the first words of the refusal's
+	 * own name for the box (`WPCPM_Institution_Panel::revoke_label()`).
+	 *
+	 * @param int    $post_id The accepted document, from the agreement summary.
+	 * @param string $name    The institution's name, for the question the button asks.
+	 */
+	private function render_revoke_form( $post_id, $name ) {
+		$kept = WPCPM_Institution_Agreement::kept_revoke_note( $post_id );
+
+		printf(
+			'<details class="wpcpm-inst-folded"%1$s><summary>%2$s</summary>',
+			is_string( $kept ) ? ' open' : '',
+			esc_html__( 'Revoke this agreement', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<form method="post" action="%1$s" class="wpcpm-review__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Revoking', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_REVOKE . '_' . $post_id );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_REVOKE ) );
+		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
+
+		printf(
+			'<p class="wpcpm-review__note"><label for="%1$s">%2$s</label> <textarea id="%1$s" name="wpcpm_agreement_note" rows="4" minlength="%3$d" maxlength="%4$d" required>%5$s</textarea></p>',
+			esc_attr( 'wpcpm-revoke-note-' . $post_id ),
+			esc_html( WPCPM_Institution_Panel::revoke_label() ),
+			(int) WPCPM_Institution_Agreement::MIN_NOTE,
+			(int) WPCPM_Institution_Agreement::MAX_NOTE,
+			// The parser drops one line feed right after the opening tag, so a kept note that
+			// begins with a line break keeps it.
+			is_string( $kept ) ? "\n" . esc_textarea( $kept ) : ''
+		);
+
+		printf( '<p class="description">%s</p>', esc_html__( 'Every member of this institution receives this note by email.', 'wpcredits-program-manager' ) );
+
+		printf(
+			'<button type="submit" class="button button-primary" data-wpcpm-confirm="%1$s">%2$s</button>',
+			esc_attr(
+				sprintf(
+					/* translators: %s: the institution's name. */
+					__( 'Revoke the agreement with %s? Its members keep their accounts but reach only the agreement panel, pending invitations are canceled, and every member receives your note by email.', 'wpcredits-program-manager' ),
+					$name
+				)
+			),
+			esc_html__( 'Revoke this agreement', 'wpcredits-program-manager' )
+		);
+
+		echo '</form></details>';
 	}
 
 	/**
@@ -5175,16 +5542,20 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * a nonce that covered the action rather than the row would let a token taken from a row
 	 * the site is willing to link be posted for the row beside it, which is a row it refuses.
 	 *
-	 * The institution is a `<select>` and never a free-text record ID: the base holds
-	 * near-collisions and ten names ending in a space, and a mistyped record ID is a link to
-	 * nothing that no later screen would show as wrong.
+	 * The institution is chosen from the list and never typed as a free-text record ID: the base
+	 * holds near-collisions and ten names ending in a space, and a mistyped record ID is a link to
+	 * nothing that no later screen would show as wrong. Since 1.123.29 the list is the one field for
+	 * a long list (`WPCPM_Dashboards::render_combo()`), which drops down, takes typing and narrows,
+	 * the select it stands for still what the form sends without the script. Its ids are the row's,
+	 * since every row's form is on one page. It opens on "Choose an institution", which sends
+	 * nothing the handler would link; the select is not `required`, because the script hides it,
+	 * and a browser refuses to send a form whose hidden required field is empty without saying why.
 	 *
 	 * @param string $record_id Students record ID.
 	 * @param string $name      The student's name, for the confirm.
 	 * @param array  $choices   Institution record ID to name, from `link_choices()`.
 	 */
 	private function render_link_form( $record_id, $name, array $choices ) {
-		$field   = 'wpcpm-link-' . $record_id;
 		$confirm = sprintf(
 			/* translators: %s: the student's name as the Students table holds it. */
 			__( 'Link %s to the institution chosen here? This writes Educational Institutions onto the Students row in Airtable. The row is read again first and the write is refused if it would create a second Students Reports row.', 'wpcredits-program-manager' ),
@@ -5192,26 +5563,27 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		);
 
 		printf(
-			' <form class="wpcpm-inst-link" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
+			' <form class="wpcpm-inst-link wpcpm-admin-picker" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr( $confirm )
 		);
 		wp_nonce_field( self::ACTION_LINK . '_' . $record_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LINK ) );
 		printf( '<input type="hidden" name="wpcpm_student" value="%s" />', esc_attr( $record_id ) );
-		printf(
-			'<label class="screen-reader-text" for="%1$s">%2$s</label>',
-			esc_attr( $field ),
-			esc_html__( 'Institution to link this row to', 'wpcredits-program-manager' )
+
+		echo '<div class="wpcpm-admin-combo">';
+		WPCPM_Dashboards::render_combo(
+			array(
+				'id'      => 'wpcpm-link-' . $record_id,
+				'name'    => 'wpcpm_institution',
+				'options' => array( '' => __( 'Choose an institution', 'wpcredits-program-manager' ) ) + $choices,
+				'label'   => __( 'Institution to link this row to', 'wpcredits-program-manager' ),
+				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'none'    => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+			)
 		);
-		printf( '<select id="%s" name="wpcpm_institution" required>', esc_attr( $field ) );
-		printf( '<option value="">%s</option>', esc_html__( 'Choose an institution', 'wpcredits-program-manager' ) );
+		echo '</div>';
 
-		foreach ( $choices as $choice => $label ) {
-			printf( '<option value="%1$s">%2$s</option>', esc_attr( $choice ), esc_html( $label ) );
-		}
-
-		echo '</select>';
 		printf( ' <button type="submit" class="button">%s</button>', esc_html__( 'Link', 'wpcredits-program-manager' ) );
 		echo '</form>';
 	}
@@ -5300,13 +5672,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * record ID: ten names in the base end in a space and two Confirmed records have no name
 	 * at all, and neither is a row a manager should have to pick blind.
 	 *
+	 * The SPAM records are left out (1.123.29), their stage read trimmed as the Pipeline reads it:
+	 * a SPAM record is no institution a student belongs to, and the list is long enough without
+	 * them. A record not moving forward stays, since a student filed long ago may belong to it.
+	 *
 	 * @return array<string, string>
 	 */
 	private static function link_choices() {
 		$choices = array();
 
-		foreach ( array_keys( WPCPM_Institutions_Index::rows() ) as $record_id ) {
+		foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
 			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+				continue;
+			}
+
+			if ( is_array( $row ) && isset( $row['stage'] ) && 'SPAM' === trim( (string) $row['stage'] ) ) {
 				continue;
 			}
 
@@ -5340,14 +5720,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The brief read 79 records with the required answer and 16 with the tick as consent
 	 * dropped between form and record. It is a date boundary: the checkbox was added to the
 	 * form on 20 July 2026. So the sentence here is the one the design spec fixes, computed
-	 * from the index, and it never says anything went missing, because nothing was asked.
+	 * from the index, and it never says anything went missing, because nothing was asked. Over the
+	 * records the Pipeline counts (`counted_rows()`), as every count on its tab is.
 	 *
 	 * @param array $index The pipeline index.
 	 */
 	private function render_consent( array $index ) {
 		$rows   = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
 		$read   = isset( $index['read'] ) ? (int) $index['read'] : 0;
-		$counts = self::consent_counts( $rows );
+		$counts = self::consent_counts( self::counted_rows( $rows ) );
 
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</h2>';
@@ -5996,6 +6377,28 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 					human_time_diff( $read, time() )
 				)
 			)
+		);
+	}
+
+	/**
+	 * The index rows the Pipeline tab counts: those whose stage, trimmed, is not one of
+	 * `UNCOUNTED_STAGES`, keyed as given.
+	 *
+	 * Trimmed because the base stores what was typed, and a stage with a space after it is the stage
+	 * it names: "SPAM " is left out as "SPAM" is. A stage the list does not know is counted, so a
+	 * stage the base grows later shows in the totals rather than vanishing from them.
+	 *
+	 * @param array $rows Index rows.
+	 * @return array The counted rows.
+	 */
+	public static function counted_rows( array $rows ) {
+		return array_filter(
+			$rows,
+			static function ( $row ) {
+				$stage = is_array( $row ) && isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+
+				return ! in_array( $stage, self::UNCOUNTED_STAGES, true );
+			}
 		);
 	}
 

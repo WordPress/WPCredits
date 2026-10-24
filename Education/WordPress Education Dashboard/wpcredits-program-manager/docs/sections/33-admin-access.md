@@ -63,6 +63,30 @@ which is the one **Show** opens. Enter in the field never sends the form, and a 
 how many names the list shows. In a browser running no JavaScript the field is not shown, and the
 plain sorted list works on its own.
 
+### The For Administrators section of an institution's page
+
+At the foot of an institution's Institution Dashboard, under its sections and above the line that says
+when its records were last read, an Administrator is shown **For Administrators**, with the line "Only
+Administrators see this section." It is drawn on any institution's page, opened through the switcher or
+reached as the page you land on. Nobody who acts for the institution sees it, or anything in it, whatever
+state their agreement is in. It holds two folded cards.
+
+**From the application** lists the answers the institution's application gave that Airtable has no column
+for, each under the question it was asked: the contact's role, the languages the students study in, who
+will sign the agreement, their title, and the institution's page about WordPress Credits. They are kept
+when the application is approved and stay after the application itself is removed. An institution approved
+before 1.123.29 has none, and the card says "Nothing kept from the application."
+
+**History** lists the latest 100 things that happened to the institution, newest first. Each row gives
+when, in the site's date and time formats; who, as the account's name, "The site" when the site did it
+itself, as when an invitation expires, or "A removed account" when the account is gone; and what happened,
+in a plain sentence. It covers the institution's members and invitations, with the address each invitation
+went to, its application and its agreement from the template being generated to a revoke, which also gives
+the note it was revoked with after "Note:", its requests, the notes about its students, its imports, the
+changes made to its students, and the roster's refusals. When there are more than 100, the card says
+"Showing the latest 100." An institution with nothing recorded says "Nothing has been recorded for this
+institution yet."
+
 ### Arranging the Student Report Card
 
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the

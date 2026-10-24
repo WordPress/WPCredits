@@ -92,6 +92,7 @@ class WPCPM_Institution_Panel {
 			// redirects, the page looks untouched, and the manager presses it again.
 			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. From its next page load the institution\'s account shows only the Collaboration Agreement card, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the institution as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
+			'agreement-revoke-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::revoke_label(), 'revoke-agreement' ) ),
 			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
@@ -686,8 +687,9 @@ class WPCPM_Institution_Panel {
 	 *
 	 * The institution, `Confirmed`, and how many people are emailed: three consequences the
 	 * reviewer cannot see from the button, one of which reaches other people's inboxes. The
-	 * last sentence says it can be revoked from here, because a dialog listing three
-	 * irreversible-sounding things is a dialog people dismiss without reading.
+	 * last sentence names where it is revoked, the Institutions screen's Agreements tab, because
+	 * a dialog listing three irreversible-sounding things is a dialog people dismiss without
+	 * reading.
 	 *
 	 * @param int    $post_id Agreement post ID.
 	 * @param string $name    Institution name, as printed.
@@ -715,8 +717,8 @@ class WPCPM_Institution_Panel {
 				sprintf(
 					/* translators: 1: institution name, 2: number of people emailed. */
 					_n(
-						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it from here later.',
-						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it from here later.',
+						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
+						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
 						(int) $members,
 						'wpcredits-program-manager'
 					),
@@ -789,6 +791,18 @@ class WPCPM_Institution_Panel {
 	private static function return_label() {
 		/* translators: The name of the box an Administrator types why a signed agreement is returned in, the first words of its label. */
 		return __( 'What has to change, in your own words', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The revoke note's box by its name, the first words of the label the Institutions screen's
+	 * Agreements tab gives it, so the form and the sentence that refuses a note name it alike. The
+	 * label's second sentence says who receives the note, and reads as no part of a name.
+	 *
+	 * @return string
+	 */
+	public static function revoke_label() {
+		/* translators: The name of the box an Administrator types why an agreement is revoked in, the first words of its label. */
+		return __( 'Why it is revoked, in your own words', 'wpcredits-program-manager' );
 	}
 
 	/**

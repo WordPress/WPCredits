@@ -249,6 +249,28 @@ class WPCPM_Institution_Approval {
 			return self::refuse( $application_id, $user_id );
 		}
 
+		// The five answers Airtable has no column for are copied to the institution's record on
+		// the site (1.123.29, design spec 3.2), so they outlive the application's purge. After the
+		// account half, because an approval that stops before it is finished by the next press and
+		// must leave no record behind; before the state, so an application that gave answers is
+		// not called approved until the site holds them. On a joined record the answers only fill
+		// what the record lacks: the join writes nothing the applicant typed over the Airtable
+		// record, and the site's record follows the same rule. An application filed before the
+		// five were asked has none and makes no record. The answer of `fill_empty()` is not what
+		// decides: false is also a record that already holds them, or a resume. The record is read
+		// back instead, and a missing answer stops the approval here, with the state still
+		// approvable. The purge would otherwise delete the only copy of an answer the site never
+		// kept. The record and the account already made are stamped, so the next press finishes it.
+		$site = WPCPM_Institution_Application::site_answers( $application_id );
+
+		if ( ! empty( $site ) ) {
+			WPCPM_Institution_Record::fill_empty( $record, $site );
+
+			if ( ! self::answers_kept( $site, WPCPM_Institution_Record::get( $record ) ) ) {
+				return self::refuse( $application_id, new WP_Error( 'wpcpm_app_answers', __( 'The answers this application gave could not be kept on the site, so it is not approved yet. Approve it again: the record and the account already made are kept.', 'wpcredits-program-manager' ) ) );
+			}
+		}
+
 		update_post_meta( $application_id, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_APPROVED );
 		self::event( $application_id, self::EVENT_APPROVED, $manager_id, $record );
 
@@ -818,6 +840,63 @@ class WPCPM_Institution_Approval {
 			if ( is_array( $row ) && isset( $row['event'] ) && (string) $event === (string) $row['event'] ) {
 				return true;
 			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether the institution's record on the site holds every answer the application gave.
+	 *
+	 * Non-empty, not equal: a joined record keeps its first answers, so an answer it holds that
+	 * differs from the application's is no loss. An answer that says nothing is not owed, and
+	 * what says nothing is the record's own rule, so a key the record never writes can never be
+	 * missed here.
+	 *
+	 * @param array $given The application's site answers, keyed by field key.
+	 * @param array $held  What the record class's `get()` answered.
+	 * @return bool
+	 */
+	private static function answers_kept( array $given, array $held ) {
+		foreach ( $given as $key => $value ) {
+			if ( self::says_nothing( $value ) ) {
+				continue;
+			}
+
+			if ( ! array_key_exists( $key, $held ) || self::says_nothing( $held[ $key ] ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Whether an answer says nothing: not given, only space, or a list of nothing.
+	 *
+	 * The rule the record class's `fill_empty()` applies before it writes, so what it leaves out
+	 * is what this does not look for. A zero is an answer, and so is false.
+	 *
+	 * @param mixed $value One answer.
+	 * @return bool
+	 */
+	private static function says_nothing( $value ) {
+		if ( null === $value ) {
+			return true;
+		}
+
+		if ( is_string( $value ) ) {
+			return '' === trim( $value );
+		}
+
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				if ( ! self::says_nothing( $item ) ) {
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		return false;

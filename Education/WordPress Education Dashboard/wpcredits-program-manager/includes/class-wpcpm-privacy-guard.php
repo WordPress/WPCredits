@@ -79,8 +79,10 @@ class WPCPM_Privacy_Guard {
 	/**
 	 * The plugin's post types whose rows are private records about named people.
 	 *
-	 * Calls and group sessions share one type, mentor and institution notes another. These are
-	 * the types `maybe_upgrade()` flips and bin/test-privacy-guard.php holds to `private`.
+	 * Calls and group sessions share one type, mentor and institution notes another; the audit log
+	 * has its own, and so, since 1.123.29, do the institutions' records, which name a contact and
+	 * who signs for the institution. These are the types `maybe_upgrade()` flips and
+	 * bin/test-privacy-guard.php holds to `private`.
 	 *
 	 * @return string[]
 	 */
@@ -89,6 +91,7 @@ class WPCPM_Privacy_Guard {
 			WPCPM_Mentor_Calls::POST_TYPE,
 			WPCPM_Mentor_Notes::POST_TYPE,
 			WPCPM_Institution_Audit::POST_TYPE,
+			WPCPM_Institution_Record::POST_TYPE,
 		);
 	}
 

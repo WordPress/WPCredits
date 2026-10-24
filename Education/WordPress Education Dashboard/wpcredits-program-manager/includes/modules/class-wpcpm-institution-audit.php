@@ -458,10 +458,11 @@ class WPCPM_Institution_Audit {
 	/**
 	 * Reduce `data` to facts: scalars, and arrays of scalars, a few levels deep.
 	 *
-	 * Strings are sanitised as single-line text so a paragraph cannot arrive here under a
-	 * key called `note`; the message field is where prose belongs, and it is capped. Objects
-	 * and resources are dropped rather than serialised, since nothing that renders the log
-	 * knows what to do with them.
+	 * Strings are sanitized as single-line text, so a paragraph arrives here folded to one line:
+	 * an agreement's revoke carries the note it was revoked with under `note` that way, for the
+	 * institution's history to show, and the document keeps the lines. The message field is where
+	 * prose belongs, and it is capped. Objects and resources are dropped rather than serialized,
+	 * since nothing that renders the log knows what to do with them.
 	 *
 	 * @param array $data  What the caller handed in.
 	 * @param int   $depth Current nesting level, from 1.

@@ -203,7 +203,18 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   approves it; while this is off, the page shows one sentence saying applications are closed. Since
   1.123.24 the form's consent box links to the WordPress.org privacy policy, not to the page chosen
   under Settings > Privacy, so the form no longer waits on this site having a privacy page, and the
-  row's fold says which policy it links.
+  row's fold says which policy it links. Since 1.123.29 the form also asks the contact's role at the
+  institution and, from the mentor form's list, the languages the students study in, both required,
+  and under **The agreement**, who will sign it for the institution, their title and the
+  institution's page about WordPress Credits, none of them required, though a title is asked for
+  when somebody is named to sign and a name when a title is given. These five answers are kept on
+  this site and never sent to Airtable. On approval they are copied to a record of the institution
+  on this site, kept under its Airtable record ID, so they are still there once the application
+  has been deleted. When the approval joins a record the program already had, they fill only what
+  that record does not hold yet, and a second press of **Approve** changes nothing. If the site
+  cannot keep them, the approval stops before the application is called approved, the Airtable
+  record and the account already made stay, and pressing **Approve** again finishes it. An
+  institution approved before 1.123.29 has no such record.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
   the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the

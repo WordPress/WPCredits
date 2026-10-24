@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.28
+Stable tag: 1.123.29
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,13 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.29 =
+
+* The institution application asks five more questions: the contact's role at the institution, the languages the students study in (the mentor form's list), and, in a new group named The agreement, who will sign the agreement, their title and the institution's page about WordPress Credits. Every question asked before stays, worded as before. The new answers stay on the site and are never sent to Airtable; the queue and the Administrator Dashboard show them with the application, and an approved institution keeps them in a record of its own that outlives the application's clean-up, and an approval whose answers could not be kept stops and can simply be pressed again. An address that names any scheme but http or https is refused, for the website and the page alike.
+* On the Institutions screen, the Pipeline tab links each institution's name to its page, and one "Find an institution" field, which opens on "Choose an institution", finds any record by typing and opens its page. Its counts leave out SPAM, Not Moving Forward, Revisit Later and No stage, which are listed below the others, folded, under "Not counted above". The semester report's institution picker and the Reconciliation picker are the same kind of field.
+* The Agreements tab lists the agreements in force, each with a folded "Revoke this agreement" and a required note that every member of the institution receives by email. A refused note comes back in its box, and a second press from another tab is refused without a second email. The accept dialog now says where an agreement is revoked.
+* An institution's page shows Administrators, and only Administrators, a For Administrators section at its foot: what was kept from the application, and the institution's history in plain sentences, the latest 100 entries, a revoke's note included.
 
 = 1.123.28 =
 

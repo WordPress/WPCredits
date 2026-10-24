@@ -1543,5 +1543,158 @@ delete_option( 'wpcpm_agreement_' . $krakow );
 $html = render_as( 2 );
 ck( 'a locked account, which sees no module, gets no list either', array( $GLOBALS['sevents'], strpos( $html, 'data-stub="sevents"' ) ), array( array(), false ) );
 
+echo "\n=== The For Administrators section (1.123.29) ===\n";
+
+// Review Focus 3. The section holds the answers the application gave, the addresses invitations
+// went to, who did what and the notes an Administrator wrote: an Administrator's, through the
+// switcher or on the page they land on, and never a member's, whatever state the agreement is in.
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+
+// Declared here and not with the other cards, so every render above ran without the class, as a
+// checkout without it would: the page guards the call.
+$before = render_as( $manager, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'a checkout without the section\'s class draws the page without it', array( class_exists( 'WPCPM_Institution_History' ), false !== strpos( $before, 'For Administrators' ) ), array( false, false ) );
+
+$GLOBALS['history_reads'] = array();
+$GLOBALS['kept']          = array(
+	$krakow => array(
+		'contact_role'      => 'Internship coordinator',
+		'student_languages' => array( 'English', 'Polish' ),
+		'signer_name'       => 'Example Signer',
+	),
+);
+$GLOBALS['audit_rows']    = array(
+	$krakow => array(
+		array( 'id' => 3, 'kind' => 'invite_accepted', 'actor' => 2, 'message' => 'The invitation to invitee@example.test was accepted.', 'data' => array(), 'time' => 1756300000 ),
+		array( 'id' => 2, 'kind' => 'agreement_revoke', 'actor' => 4, 'message' => 'An accepted Collaboration Agreement was revoked, and the institution\'s account closed.', 'data' => array( 'note' => 'Ended with the partnership.' ), 'time' => 1756200000 ),
+		array( 'id' => 1, 'kind' => 'student_linked', 'actor' => 0, 'message' => '', 'data' => array(), 'time' => 1756100000 ),
+	),
+);
+
+// The section's neighbors, as the real classes keep them, stood in for to their contracts.
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	class WPCPM_Institution_Record {
+		public static function get( $record_id ) {
+			$GLOBALS['history_reads'][] = array( 'record', $record_id );
+			return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array();
+		}
+	}
+}
+if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
+	class WPCPM_Institution_Audit {
+		public static function entries_for( $record_id, $limit = 50 ) {
+			$GLOBALS['history_reads'][] = array( 'audit', $record_id, $limit );
+			return isset( $GLOBALS['audit_rows'][ $record_id ] ) ? array_slice( $GLOBALS['audit_rows'][ $record_id ], 0, $limit ) : array();
+		}
+	}
+}
+if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
+	class WPCPM_Institution_Application {
+		public static function site_fields() {
+			return array(
+				'contact_role'      => array( 'label' => 'Their role at the institution' ),
+				'student_languages' => array( 'label' => 'In which languages do your students study?' ),
+				'signer_name'       => array( 'label' => 'Who will sign the agreement for the institution?' ),
+				'signer_title'      => array( 'label' => 'Their title' ),
+				'credits_page'      => array( 'label' => 'Your page about WordPress Credits' ),
+			);
+		}
+	}
+}
+if ( ! function_exists( 'get_userdata' ) ) {
+	function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
+}
+if ( ! function_exists( 'wp_date' ) ) {
+	function wp_date( $format, $time = null ) { return gmdate( $format, (int) $time ); }
+}
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-history.php';
+
+// Everything the section prints for Krakow, by the words an Administrator reads, for the pages
+// that must hold none of it.
+$tells = array(
+	'For Administrators',
+	'Only Administrators see this section',
+	'wpcpm-institution__admin',
+	'wpcpm-for-administrators',
+	'From the application',
+	'Internship coordinator',
+	'English, Polish',
+	'Example Signer',
+	'invitee@example.test',
+	'Ended with the partnership',
+	'A student was linked to this institution',
+	'wpcpm-admin-history',
+);
+
+/** The tell-tale words one page holds. */
+function tells_in( $html ) {
+	global $tells;
+	return array_values( array_filter( $tells, function ( $word ) use ( $html ) { return false !== strpos( $html, $word ); } ) );
+}
+
+ck( 'the class is loaded for everything below, so a page without the section is the page\'s doing', class_exists( 'WPCPM_Institution_History' ), true );
+
+// An Administrator, through the switcher.
+$GLOBALS['history_reads'] = array();
+$out                      = render_as( $manager, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'an Administrator viewing an institution through the switcher gets the section, once', array( substr_count( $out, '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">For Administrators</h2>' ), substr_count( $out, 'id="wpcpm-for-administrators"' ) ), array( 1, 1 ) );
+ck( 'with the line that says who it is for', substr_count( $out, 'Only Administrators see this section.' ), 1 );
+ck( 'the answers the application gave', array( false !== strpos( $out, '<dd>Internship coordinator</dd>' ), false !== strpos( $out, '<dd>English, Polish</dd>' ), false !== strpos( $out, '<dd>Example Signer</dd>' ) ), array( true, true, true ) );
+ck( 'and the history, in plain sentences, newest first, the revoke row with its note', 1 === preg_match( '/invitee@example\.test was accepted\..*account closed\. Note: Ended with the partnership\..*A student was linked to this institution\./s', $out ), true );
+ck( 'read for the institution being viewed, the history up to a hundred and one rows', $GLOBALS['history_reads'], array( array( 'record', $krakow ), array( 'audit', $krakow, 101 ) ) );
+ck( 'after the modules, and before the read line at the foot', array( strrpos( $out, 'id="wpcpm-module-' ) < strpos( $out, 'id="wpcpm-for-administrators"' ), strpos( $out, 'id="wpcpm-for-administrators"' ) < strpos( $out, 'wpcpm-dashboard__updated' ) ), array( true, true ) );
+ck( 'the read line is still the page\'s, once', substr_count( $out, 'Read from the program records on' ), 1 );
+preg_match_all( '/id="wpcpm-module-([a-z]+)"/', $out, $mods );
+sort( $mods[1] );
+ck( 'the section is not a movable module: no module id, no module class for the script to find, and the movers are the modules\' alone', array( $mods[1], substr_count( $out, 'class="wpcpm-module__mover"' ), preg_match( '/class="[^"]*\bwpcpm-module\b[^"]*"[^>]*id="wpcpm-for-administrators"|id="wpcpm-for-administrators"[^>]*class="[^"]*\bwpcpm-module\b/', $out ), preg_match( '/<section class="[^"]*\bwpcpm-module\b/', $out ) ), array( array( 'people', 'students' ), 2, 0, 0 ) );
+
+// The page an Administrator lands on with no switcher argument.
+$out = render_as( $manager );
+ck( 'an Administrator on the page they land on gets it too, once', substr_count( $out, 'For Administrators' ), 1 );
+
+// An institution with nothing kept and nothing recorded still has the section, and says so.
+$GLOBALS['history_reads'] = array();
+$out                      = render_as( $manager, array( 'wpcpm_institution_view' => $institute ) );
+ck( 'an institution with nothing kept and no history is still shown the section, with both empty states', array( substr_count( $out, 'For Administrators' ), false !== strpos( $out, 'Nothing kept from the application.' ), false !== strpos( $out, 'Nothing has been recorded for this institution yet.' ) ), array( 1, true, true ) );
+ck( 'and asked about that institution, not Krakow', $GLOBALS['history_reads'], array( array( 'record', $institute ), array( 'audit', $institute, 101 ) ) );
+
+// An Administrator on an institution whose agreement is not settled: the banner, and the section.
+$out = banner_for( WPCPM_Institution_Agreement::SUMMARY_SUBMITTED );
+ck( 'the banner over an unsettled institution does not take the section away', array( false !== strpos( $out, 'wpcpm-institution__banner' ), substr_count( $out, 'For Administrators' ) ), array( true, 1 ) );
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+
+// A member's own page, and the same page asked for another institution by hand.
+foreach ( array( 'own page' => array(), 'asking for Krakow by hand' => array( 'wpcpm_institution_view' => $krakow ), 'asking for the other institution' => array( 'wpcpm_institution_view' => $institute ) ) as $how => $get ) {
+	$GLOBALS['history_reads'] = array();
+	$out                      = render_as( 2, $get );
+	ck( 'a member\'s ' . $how . ' holds none of the section, its heading or any of its text', tells_in( $out ), array() );
+	ck( 'and the page never read the history or the record to build it', $GLOBALS['history_reads'], array() );
+}
+
+// A member whose agreement is not settled: the locked page.
+delete_option( 'wpcpm_agreement_' . $krakow );
+$GLOBALS['history_reads'] = array();
+$out                      = render_as( 2 );
+ck( 'a locked account\'s page holds none of the section either, and read nothing for it', array( tells_in( $out ), $GLOBALS['history_reads'], cards_run() ), array( array(), array(), array( 'panel' ) ) );
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+
+// Nobody else.
+$GLOBALS['history_reads'] = array();
+$out                      = render_as( 5, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'a stranger\'s page holds none of it', array( tells_in( $out ), $GLOBALS['history_reads'] ), array( array(), array() ) );
+$out = render_as( 0 );
+ck( 'nor does a logged-out visitor\'s', array( tells_in( $out ), $GLOBALS['history_reads'] ), array( array(), array() ) );
+
+// A contact of the institution who is also given the capability to manage the program is an
+// Administrator for this page's purposes: the section follows the capability, not the membership.
+$GLOBALS['manage'][] = 2;
+$out                 = render_as( 2 );
+ck( 'the section follows the capability and not the membership', substr_count( $out, 'For Administrators' ), 1 );
+$GLOBALS['manage'] = array( 4 );
+$out               = render_as( 2 );
+ck( 'and goes with it', tells_in( $out ), array() );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

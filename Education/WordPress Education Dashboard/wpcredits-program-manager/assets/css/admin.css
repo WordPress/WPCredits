@@ -335,6 +335,129 @@ p.wpcpm-settings__intro {
 }
 
 /* -------------------------------------------------------------------------
+ * One field for a long list
+ *
+ * The combobox assets/js/switcher.js shows in a select's place, as the Viewing
+ * as switchers draw it on the dashboards (assets/css/dashboard.css), in
+ * wp-admin's own colors: the Emails tool's Email filter, and on the
+ * Institutions screen the Pipeline's Find an institution, the Draft now
+ * picker's institution and each Reconciliation row's Link. Every rule is under
+ * the wrapper the field is drawn in, `.wpcpm-admin-combo`, so none redefines a
+ * switcher class the dashboards' stylesheet owns. An author `display` beats the
+ * browser's `[hidden]`, so the hidden state is said again.
+ * ---------------------------------------------------------------------- */
+.wpcpm-admin-combo {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+	max-width: 100%;
+}
+
+.wpcpm-admin-combo select[hidden],
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-combo[hidden],
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-list[hidden] {
+	display: none;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-combo {
+	box-sizing: border-box;
+	max-width: 100%;
+	position: relative;
+	width: 18em;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-input {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+/* The field's list: under the field, at its width, over what follows. About ten rows show before it
+   scrolls: switcher.js sets the height from a row it measures, and this one stands until it does. */
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-list {
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.12 );
+	box-sizing: border-box;
+	color: #1d2327;
+	left: 0;
+	list-style: none;
+	margin: 0;
+	max-height: 24em;
+	overflow-y: auto;
+	padding: 0;
+	position: absolute;
+	top: calc( 100% + 2px );
+	width: 100%;
+	z-index: 10;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-option,
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-empty {
+	margin: 0;
+	overflow-wrap: anywhere;
+	padding: 0.375em 0.5em;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-option {
+	cursor: pointer;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-option:hover {
+	background: #f0f0f1;
+}
+
+/* The highlighted row, the one Enter picks. */
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-active {
+	background: #2271b1;
+	color: #fff;
+}
+
+/* The entry picked, which the select holds: by weight, so it is not told by a color alone. */
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-current {
+	font-weight: 600;
+}
+
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-empty {
+	color: #646970;
+}
+
+/* Forced colors replace the backgrounds; the system's own pair keeps the highlighted row apart. */
+@media ( forced-colors: active ) {
+
+	.wpcpm-admin-combo .wpcpm-dashboard__switcher-option.is-active {
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+}
+
+/* For a screen reader: how many entries the list shows, or that none match. Out of sight but never
+   out of the page, because a status region that is not in the page when its text arrives is not
+   read out. */
+.wpcpm-admin-combo .wpcpm-dashboard__switcher-status {
+	border: 0;
+	clip: rect( 0 0 0 0 );
+	clip-path: inset( 50% );
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+/* A form built around one such field: the field, any other control and the button in one row that
+   wraps, their bottoms aligned, so the button sits beside the field and a phone stacks them. */
+.wpcpm-admin-picker {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 0.75em;
+}
+
+/* -------------------------------------------------------------------------
  * Bulk invitations
  *
  * The card that sends invitations to everybody who has never had one, and then
@@ -442,6 +565,67 @@ p.wpcpm-settings__intro {
    description lines that follow it carry their own spacing. */
 .wpcpm-inst-members {
 	margin: 8px 0 4px;
+}
+
+/* Find an institution, between the counts' lines and the first stage, whose heading keeps its own
+   24px above it. */
+.wpcpm-inst-find {
+	margin: 16px 0 0;
+}
+
+/* A Reconciliation row's Link, on the line under the student's name and status. */
+.wpcpm-inst-link {
+	margin: 4px 0 0;
+}
+
+/* The stages the counts leave out, under their line, each folded: the line is set further off than a
+   stage heading, as the end of what is counted, and each summary reads as a smaller stage heading
+   with its count, a line in itself that opens its table. */
+.wpcpm-inst-uncounted {
+	margin: 32px 0 8px;
+}
+
+.wpcpm-inst-folded {
+	margin: 0 0 8px;
+}
+
+.wpcpm-inst-folded summary {
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	padding: 4px 0;
+}
+
+.wpcpm-inst-folded[open] summary {
+	margin: 0 0 8px;
+}
+
+/* The Agreements tab's agreements in force: a plain list, a rule between the rows, the name and how
+   its agreement stands on one line, and the revoke form folded under it. The fold keeps no bottom
+   margin of its own, so the rule between two rows is the only gap under a closed one. */
+.wpcpm-inst-inforce {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-inst-inforce__row {
+	border-top: 1px solid #f0f0f1;
+	margin: 0;
+	padding: 12px 0;
+}
+
+.wpcpm-inst-inforce__row:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-inst-inforce__line {
+	margin: 0 0 4px;
+}
+
+.wpcpm-inst-inforce .wpcpm-inst-folded {
+	margin: 0;
 }
 
 /* A template version is a date and the names beside it are the long half, so this

@@ -1895,10 +1895,18 @@ ck( 'drawn on the Administrator Dashboard, Accept and Return each carry the way 
 ck( 'the Accept confirm names the institution', false !== strpos( $template_review, 'Accept the signed agreement from Universidad Example?' ), true );
 ck( 'names Confirmed', false !== strpos( $template_review, 'sets Current Stage to Confirmed in Airtable' ), true );
 ck( 'names how many people it emails', false !== strpos( $template_review, 'emails the 3 people at the institution' ), true );
-ck( 'and says it can be undone', false !== strpos( $template_review, 'You can revoke it from here later' ), true );
+ck( 'and says it can be undone, and where: the Agreements tab of the Institutions screen, which is true wherever the dialog is drawn', array(
+	false !== strpos( $template_review, 'and emails the 3 people at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.' ),
+	false !== strpos( $template_review, 'from here' ),
+), array( true, false ) );
 
 $GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska' );
-ck( 'one member is one person, not one people', false !== strpos( review( $review_id ), 'emails the 1 person at the institution' ), true );
+$one_member_review            = review( $review_id );
+ck( 'one member is one person, not one people', false !== strpos( $one_member_review, 'emails the 1 person at the institution' ), true );
+ck( 'and the singular dialog ends the same way, with no "from here" in it', array(
+	false !== strpos( $one_member_review, 'emails the 1 person at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.' ),
+	false !== strpos( $one_member_review, 'from here' ),
+), array( true, false ) );
 $GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniewski' );
 
 ck( 'the return note is the one free-text field in the block', substr_count( $template_review, '<textarea' ), 1 );
@@ -1929,6 +1937,13 @@ ck( 'a refused return\'s note comes back in its box exactly as typed, once, the 
 ), array( 1, $returned_kept, 1 ) );
 ck( 'and it is taken: the page after that draws the box empty, as does another person\'s', array( substr_count( $next_review, $empty_box ), substr_count( $someone_else, $empty_box ), $someone_else === $template_review ), array( 1, 1, true ) );
 ck( 'the refusal names the box by its label and says to return it again', WPCPM_Institution_Panel::messages()['agreement-return-loss'] ?? null, array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "What has to change, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) );
+ck( 'the revoke refusals: a note the cleaner would take words from names its box by its label and says to revoke it again, and the Institutions screen\'s Agreements tab prints both', array(
+	WPCPM_Institution_Panel::messages()['agreement-revoke-loss'] ?? null,
+	WPCPM_Institution_Panel::messages()['agreement-revoke-note'] ?? null,
+), array(
+	array( 'error', 'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is revoked, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then revoke it again.' ),
+	array( 'error', 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the institution as the reason, so it has to say something.' ),
+) );
 unset( $GLOBALS['umeta'][21], $GLOBALS['umeta'][22], $GLOBALS['umeta'][23] );
 ck( 'drawn to decide, the block does not send the reviewer anywhere else', strpos( $template_review, 'wpcpm-review__open' ), false );
 

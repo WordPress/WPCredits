@@ -479,10 +479,44 @@ class WPCPM_Roster_Index {
 }
 class WPCPM_Countries {
 	public static function contact_of( $country ) { return 'recCOUNTRY0000001' === (string) $country ? 'Ana Manager' : ''; }
+	// The name the countries map holds for a record, which the answers table prints before the one stored.
+	public static function name_of( $country ) { return 'recCOUNTRY0000001' === (string) $country ? 'Poland' : ''; }
 }
 class WPCPM_Institution_Application {
 	const STATE_NEW = 'new'; const STATE_HELD = 'held'; const STATE_INFO = 'info'; const STATE_REJECTED = 'rejected'; const STATE_SPAM = 'spam'; const STATE_APPROVED = 'approved';
 	const META_STATE = '_wpcpm_app_state'; const META_COUNTRY = '_wpcpm_app_country'; const META_COUNTRY_NAME = '_wpcpm_app_country_name';
+	const META_FIELDS = '_wpcpm_app_fields'; const META_CONSENT = '_wpcpm_app_consent'; const META_SITE = '_wpcpm_app_site';
+	/**
+	 * The form's questions in the order it asks them, at the spec's shape the answers table reads: the
+	 * thirteen keyed by Airtable column, and the five kept on the site since 1.123.29, flagged `site`.
+	 */
+	public static function fields() {
+		return array(
+			'Name'              => array( 'group' => 'about', 'label' => 'Name of your institution' ),
+			'Country'           => array( 'group' => 'about', 'label' => 'Country' ),
+			'City'              => array( 'group' => 'about', 'label' => 'City' ),
+			'Website'           => array( 'group' => 'about', 'label' => 'Website' ),
+			'Contact Person'    => array( 'group' => 'contact', 'label' => 'Name of the person we should contact' ),
+			'Contact Email'     => array( 'group' => 'contact', 'label' => 'Their email address' ),
+			'contact_role'      => array( 'group' => 'contact', 'label' => 'Their role at the institution', 'site' => true ),
+			'Department'        => array( 'group' => 'contact', 'label' => 'Department or faculty' ),
+			'How do your internships or practices typically work?' => array( 'group' => 'program', 'label' => 'How do your internships or practicums typically work?' ),
+			'Comments'          => array( 'group' => 'program', 'label' => 'If you ticked "Other", please tell us how' ),
+			'Estimated number of students who may be interested'   => array( 'group' => 'program', 'label' => 'Roughly how many students may be interested?' ),
+			'student_languages' => array( 'group' => 'program', 'label' => 'In which languages do your students study?', 'site' => true ),
+			'signer_name'       => array( 'group' => 'agreement', 'label' => 'Who will sign the agreement for the institution?', 'site' => true ),
+			'signer_title'      => array( 'group' => 'agreement', 'label' => 'Their title', 'site' => true ),
+			'credits_page'      => array( 'group' => 'agreement', 'label' => 'Your page about WordPress Credits', 'site' => true ),
+			'Why are you interested in offering WordPress Credits to your students?' => array( 'group' => 'more', 'label' => 'Why are you interested in offering WordPress Credits to your students?' ),
+			"Anything else you\xE2\x80\x99d like us to know?" => array( 'group' => 'more', 'label' => "Anything else you\xE2\x80\x99d like us to know?" ),
+			'Privacy Policy Compliance' => array( 'group' => 'consent', 'label' => 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' ),
+		);
+	}
+	/** The answers kept on the site, as the real one reads them: the stored list, or none. */
+	public static function site_answers( $application_id ) {
+		$answers = get_post_meta( (int) $application_id, self::META_SITE, true );
+		return is_array( $answers ) ? $answers : array();
+	}
 	/**
 	 * The rows in those states, as the real one reads them: bounded when the caller says so.
 	 *
@@ -527,7 +561,12 @@ class WPCPM_Institutions {
 	}
 	public static function country_name( $id, $stored ) { return '' !== $stored ? $stored : ( 'recCOUNTRY0000001' === (string) $id ? 'Poland' : '' ); }
 	public static function queue_messages() { return array( 'app-approved' => array( 'success', 'The application is approved.' ) ); }
-	public function render_application_answers( WP_Post $post ) { echo '<table class="wpcpm-app-answers" data-app="' . (int) $post->ID . '"></table>'; }
+	/**
+	 * The answers table, the real one's: the Institutions screen's class is read in under another
+	 * name below, and this hands it the post, so the card's "Read the application" folds in exactly
+	 * what the screen's queue draws.
+	 */
+	public function render_application_answers( WP_Post $post ) { ( new WPCPM_Test_Real_Institutions() )->render_application_answers( $post ); }
 	public function render_application_actions( WP_Post $post, $state, $return = '' ) {
 		echo '<form class="wpcpm-app-action" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Working">';
 		echo '<input type="hidden" name="action" value="' . self::ACTION_APPROVE . '" /><input type="hidden" name="wpcpm_application" value="' . (int) $post->ID . '" />';
@@ -629,6 +668,8 @@ class WPCPM_Students_Sync {
 class WPCPM_Institutions_Sync {
 	const CRON_DAILY = 'wpcpm_institutions_sync_daily';
 	public static function progress() { return $GLOBALS['sync']['institutions']; }
+	// The columns the answers table matches the country and the consent by, as the real map names them.
+	public static function fields() { return array( 'name' => 'Name', 'country' => 'Country', 'contact_email' => 'Contact Email', 'consent' => 'Privacy Policy Compliance' ); }
 	public static function last_read() { return (int) get_option( 'wpcpm_institutions_last_sync', 0 ); }
 }
 class WPCPM_Private_Files {
@@ -879,6 +920,17 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+// The Institutions screen's class, the real one, read in under another name through a rewrite of its
+// source, as bin/test-sponsors-screen.php reads the sponsor posts' class: the stand-in above keeps
+// the class's own name for everything the cards ask of it, and hands the answers table to this one,
+// which extends the same stand-in parent and uses the trait declared above.
+$wpcpm_test_institutions_source = preg_replace( '/^<\?php/', '', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ), 1 );
+$wpcpm_test_institutions_source = str_replace( "\nclass WPCPM_Institutions extends WPCPM_Sync_Module {\n", "\nclass WPCPM_Test_Real_Institutions extends WPCPM_Sync_Module {\n", $wpcpm_test_institutions_source, $wpcpm_test_renamed );
+if ( 1 !== $wpcpm_test_renamed ) {
+	echo "FAIL the real WPCPM_Institutions was not found where its declaration was read, so the answers table has nothing to draw it\n";
+	exit( 1 );
+}
+eval( $wpcpm_test_institutions_source );
 // The Mentor engagement card reads its summary through this class (1.122.26). The seam is set to an
 // empty site before the suite's first collect() and cleared at the end of the run, so no later code
 // in a longer process reads a stale input.
@@ -1043,7 +1095,20 @@ $GLOBALS['agr_summary'] = array( $A => 'accepted', $B => 'submitted' );
 seed_post( 701, 'wpcpm_inst_report', 'Report A 2026-H1', array( '_wpcpm_report_state' => 'draft', '_wpcpm_report_institution' => $A, '_wpcpm_report_cohort' => '2026-H1' ) );
 $GLOBALS['reports_of'] = array( $A => array( '2026-H1' => $GLOBALS['posts'][701] ) );
 
-seed_post( 501, 'wpcpm_inst_app', 'Uni Nueva', array( '_wpcpm_app_state' => 'new', '_wpcpm_app_country' => 'recCOUNTRY0000001', '_wpcpm_app_country_name' => 'Poland' ), '2026-09-01 08:00:00' );
+// Uni Nueva carries the five answers kept on the site since 1.123.29; Uni Held was filed before them.
+seed_post( 501, 'wpcpm_inst_app', 'Uni Nueva', array(
+	'_wpcpm_app_state'        => 'new',
+	'_wpcpm_app_country'      => 'recCOUNTRY0000001',
+	'_wpcpm_app_country_name' => 'Poland',
+	'_wpcpm_app_fields'       => array( 'Name' => 'Uni Nueva', 'City' => 'Krakow', 'Contact Email' => 'office@example.test' ),
+	'_wpcpm_app_site'         => array(
+		'contact_role'      => 'Internship coordinator',
+		'student_languages' => array( 'Polish', 'English' ),
+		'signer_name'       => '',
+		'signer_title'      => '',
+		'credits_page'      => 'https://uni-nueva.example/credits',
+	),
+), '2026-09-01 08:00:00' );
 seed_post( 502, 'wpcpm_inst_app', 'Uni Held', array( '_wpcpm_app_state' => 'held', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '' ), '2026-09-02 08:00:00' );
 seed_post( 503, 'wpcpm_inst_app', 'Uni Rejected', array( '_wpcpm_app_state' => 'rejected', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '' ), '2026-08-01 08:00:00' );
 
@@ -1688,7 +1753,7 @@ ck( 'every card with nothing in it is drawn folded, in this page\'s shape, its z
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
 ck( 'each open application names itself, its reference, country and routed manager', has( $apps, 'Uni Nueva' ) && has( $apps, 'APP-2026-0501' ) && has( $apps, 'Poland' ) && has( $apps, 'Ana Manager' ), true );
-ck( 'the answers are the module\'s, behind a disclosure', has( $apps, 'data-app="501"' ) && has( $apps, 'wpcpm-administrator__answers' ), true );
+ck( 'the answers are the module\'s, behind a disclosure', has( $apps, '<details class="wpcpm-administrator__answers"><summary>Read the application</summary><table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>' ), true );
 ck( 'the decisions are the module\'s, and come back here', substr_count( $apps, 'name="wpcpm_return" value="dashboard"' ), 4 );
 // Reject, Reject as spam and Delete for good carry a confirm; a cancelled dialog must not
 // leave the guard thinking a submit is on its way (final review, Critical 1).
@@ -1705,6 +1770,38 @@ $held_note = '<p class="wpcpm-administrator__note">Held by the anti-spam checks.
 ck( 'each application row prints its state in the Institutions screen\'s words, as they are given: lowercase, the way the sponsor applications row prints its own', array_map( static function ( $row ) { return 1 === preg_match( '#<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">([^<]*)</span>#', $row, $fact ) ? $fact[1] : null; }, $app_rows ), array( '501' => 'new', '502' => 'held by the anti-spam checks', '503' => 'rejected' ) );
 ck( 'each title links to the application in the Institutions screen\'s queue, as a sponsor application\'s links to its own', array_map( static function ( $id ) use ( $app_rows ) { return has( $app_rows[ $id ], '<h4 class="wpcpm-administrator__item-title"><a href="' . esc_url( WPCPM_Institution_Application::queue_url( (int) $id ) ) . '">' ) && has( $app_rows[ $id ], '</a> <code class="wpcpm-administrator__ref">APP-2026-' . sprintf( '%04d', (int) $id ) . '</code></h4>'); }, array_combine( array_keys( $app_rows ), array_keys( $app_rows ) ) ), array( '501' => true, '502' => true, '503' => true ) );
 ck( 'a held application carries the note that says where to read which check held it, and no other row does', array_map( static function ( $row ) use ( $held_note ) { return substr_count( $row, $held_note ); }, $app_rows ), array( '501' => 0, '502' => 1, '503' => 0 ) );
+
+// "Read the application" folds in the Institutions screen's own answers table, drawn by its real
+// method (read in above): every question in the form's order, the five kept on the site since
+// 1.123.29 with no column name under them, as bin/test-institutions-screen.php pins for the queue.
+$read_rows = static function ( $row ) {
+	if ( ! preg_match( '#<details class="wpcpm-administrator__answers"><summary>Read the application</summary><table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>(.*?)</tbody></table></details>#s', (string) $row, $fold ) ) {
+		return array();
+	}
+	preg_match_all( '#<tr><th scope="row">(.*?)</th><td>(.*?)</td></tr>#s', $fold[1], $found, PREG_SET_ORDER );
+	return array_map( static function ( $found_row ) { return array( $found_row[1], $found_row[2] ); }, $found );
+};
+$read_new  = $read_rows( $app_rows['501'] ?? '' );
+$read_held = $read_rows( $app_rows['502'] ?? '' );
+$headings  = array();
+$site_at   = array();
+foreach ( array_keys( WPCPM_Institution_Application::fields() ) as $index => $column ) {
+	$spec       = WPCPM_Institution_Application::fields()[ $column ];
+	$headings[] = empty( $spec['site'] ) ? esc_html( $spec['label'] ) . '<br /><code class="wpcpm-inst-record">' . esc_html( $column ) . '</code>' : esc_html( $spec['label'] );
+	if ( ! empty( $spec['site'] ) ) {
+		$site_at[] = $index;
+	}
+}
+$site_answered = static function ( array $rows ) use ( $site_at ) {
+	return array_map( static function ( $index ) use ( $rows ) { return $rows[ $index ][1] ?? null; }, $site_at );
+};
+$unanswered = '<span class="wpcpm-inst-muted">no answer</span>';
+ck( 'Read the application holds the queue\'s answers table: eighteen rows in the form\'s order, the five kept on the site with no column name', array( array_column( $read_new, 0 ), array_column( $read_held, 0 ) ), array( $headings, $headings ) );
+ck( 'the five answered from the site\'s own key, and on one filed before them, unanswered', array( $site_answered( $read_new ), $site_answered( $read_held ) ), array(
+	array( 'Internship coordinator', 'Polish, English', $unanswered, $unanswered, 'https://uni-nueva.example/credits' ),
+	array_fill( 0, 5, $unanswered ),
+) );
+ck( 'beside the answers that go to Airtable, read from the fields as the queue reads them', array( $read_new[0][1] ?? null, $read_new[1][1] ?? null, $read_new[2][1] ?? null ), array( 'Uni Nueva', 'Poland', 'Krakow' ) );
 
 echo "\n=== The application lists cap where the queue caps ===\n";
 
@@ -3203,9 +3300,12 @@ echo "\n=== An institution's agreement and a company's each read their own words
 // page prints from told an institution's Administrator what the company was told. So the sponsor
 // agreement flashes its outcomes here under its own prefix, and the page reads its sentences under
 // that prefix: the institution's keys, the channel's own, keep the institution's words.
+// Read off the page's messages alone: the page also folds in the institution applications' answers,
+// and since 1.123.29 one of their questions is "Their role at the institution".
 $said_for = static function ( $status ) {
 	$GLOBALS['flash'] = array( 'institutions' => $status );
-	return WPCPM_Administrators_Dashboard::render( array() );
+	preg_match_all( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--[a-z]+">(.*?)</p>#s', WPCPM_Administrators_Dashboard::render( array() ), $said );
+	return implode( "\n", $said[1] );
 };
 $institution_returned = $said_for( 'agreement-returned' );
 $institution_refused  = $said_for( 'agreement-note' );

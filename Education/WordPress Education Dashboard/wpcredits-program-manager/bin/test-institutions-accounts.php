@@ -339,6 +339,9 @@ class WPCPM_Institution_Request {
 class WPCPM_Institution_Audit {
 	public static function init() {}
 }
+class WPCPM_Institution_Record {
+	public static function init() {}
+}
 class WPCPM_Ceiling {
 	public static function init() {}
 }

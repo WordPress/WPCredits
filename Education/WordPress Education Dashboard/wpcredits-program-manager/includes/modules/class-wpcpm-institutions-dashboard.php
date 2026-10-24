@@ -475,6 +475,16 @@ class WPCPM_Institutions_Dashboard {
 				WPCPM_Sponsor_Event_List::render( $viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );
 			}
 
+			// What the program keeps about this institution that its own people are not shown: the
+			// answers its application gave and its history. After the modules and outside their saved
+			// order, and for a viewer who can manage the program alone, which is why the call is made
+			// here and not left to the section: a member's page never builds it, and so never reads
+			// the history it holds the invited addresses and the Administrators' notes in. Guarded as
+			// the cards are, so a checkout without the class draws the page without it.
+			if ( $can_manage && class_exists( 'WPCPM_Institution_History' ) ) {
+				echo WPCPM_Institution_History::render( $record ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the class, which escapes what it interpolates.
+			}
+
 			// When the records were last read, once, at the foot of the page under its own
 			// line, as the Student Report Card ends (owner, 1.96.5). The roster is told its module
 			// is titled and prints none, and neither does its strip, so the page holds it once.
