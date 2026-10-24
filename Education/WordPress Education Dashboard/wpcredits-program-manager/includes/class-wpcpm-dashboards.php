@@ -368,6 +368,9 @@ class WPCPM_Dashboards {
 	 *                              none (the mentor application form's country, 1.122.31).
 	 *     @type string     $describedby The ids of a hint and a problem the select and the field are
 	 *                              described by, space-separated, or '' for none.
+	 *     @type bool       $invalid Whether the form refused the answer: the select and the field are
+	 *                              then both marked `aria-invalid`, ahead of what describes them.
+	 *                              False by default, and only a form that bounced a post sets it.
 	 * }
 	 */
 	public static function render_combo( array $args ) {
@@ -383,6 +386,7 @@ class WPCPM_Dashboards {
 				'count'       => '',
 				'mark'        => '',
 				'describedby' => '',
+				'invalid'     => false,
 			),
 			$args
 		);
@@ -407,14 +411,19 @@ class WPCPM_Dashboards {
 			$count = __( 'Names in the list: %s', 'wpcredits-program-manager' );
 		}
 
+		// `$aria` goes to both controls, because which one a person meets depends on the script: the
+		// select until it has run, and the field they type into once it has. `aria-invalid` goes ahead
+		// of `aria-describedby`, as the forms' other fields write the pair.
 		$mark        = '' !== (string) $args['mark'] ? ' <span class="wpcpm-field__required">' . esc_html( $args['mark'] ) . '</span>' : '';
+		$invalid     = ! empty( $args['invalid'] ) ? ' aria-invalid="true"' : '';
 		$describedby = '' !== (string) $args['describedby'] ? ' aria-describedby="' . esc_attr( $args['describedby'] ) . '"' : '';
+		$aria        = $invalid . $describedby;
 
 		printf( '<label for="%1$s" id="%2$s">%3$s%4$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_html() above.
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
-		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s>', esc_attr( $args['name'] ), esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s>', esc_attr( $args['name'] ), esc_attr( $id ), $aria ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 
 		foreach ( (array) $args['options'] as $value => $label ) {
 			printf(
@@ -436,7 +445,7 @@ class WPCPM_Dashboards {
 			esc_attr( $field ),
 			esc_attr( $list ),
 			esc_attr( $args['find'] ),
-			$describedby // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+			$aria // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 		);
 		printf( '<ul id="%1$s" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="%2$s" hidden></ul>', esc_attr( $list ), esc_attr( $named ) );
 		// Empty until the list opens: a status region is read out when its text changes. Both

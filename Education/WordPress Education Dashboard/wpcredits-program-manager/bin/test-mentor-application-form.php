@@ -804,6 +804,24 @@ ck(
 	array( true, true, false, 0 )
 );
 
+// The country is the question a person types into, so a refusal marks the field they type in and the
+// select behind it as invalid, as every other question's control is; a refusal of another question
+// leaves the country's pair unmarked, and so does the form before any post.
+$country_invalid = static function ( $page ) {
+	return array( 1 === preg_match( '#id="wpcpm-mentor-application-country"[^>]*aria-invalid="true"#', $page ), 1 === preg_match( '#id="wpcpm-mentor-application-country-input"[^>]*aria-invalid="true"#', $page ) );
+};
+ck( 'a form handed back over another question leaves the country unmarked, and so does the form before any post', array( $country_invalid( $again ), $country_invalid( $page ) ), array( array( false, false ), array( false, false ) ) );
+
+reset_world();
+$no_country = submit( answers( array( 'country' => 'Atlantis' ) ) );
+$_GET       = array( WPCPM_Mentor_Application_Form::QUERY_STASH => substr( $no_country['url'], strpos( $no_country['url'], '=' ) + 1 ) );
+$again      = WPCPM_Mentor_Application_Form::render();
+ck(
+	'a country off the list is refused, and the form handed back marks the select and the field invalid, described by the sentence under them',
+	array( $no_country['outcome'], $country_invalid( $again ), false !== strpos( $again, 'id="wpcpm-mentor-application-country" autocomplete="off" aria-invalid="true" aria-describedby="wpcpm-mentor-application-country-problem">' ), false !== strpos( $again, 'placeholder="Type to find your country" aria-invalid="true" aria-describedby="wpcpm-mentor-application-country-problem" />' ) ),
+	array( 'again', array( true, true ), true, true )
+);
+
 reset_world();
 $hostile = submit( answers( array( 'profile' => '"><script>alert(1)</script>', 'anything' => '</textarea><script>alert(2)</script>' ) ) );
 $_GET    = array( WPCPM_Mentor_Application_Form::QUERY_STASH => substr( $hostile['url'], strpos( $hostile['url'], '=' ) + 1 ) );

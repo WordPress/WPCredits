@@ -1849,7 +1849,11 @@ $review_id = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WP
 $template_review = review( $review_id );
 
 ck( 'the block names the institution it is about', false !== strpos( $template_review, 'Review the signed agreement from Universidad Example' ), true );
-ck( 'and who uploaded it, when, and how big it is', false !== strpos( $template_review, 'Uploaded by Wera Rektor on 2025-09-01, 234 KB.' ), true );
+ck( 'and who uploaded it, when, in the site\'s date format, and how big it is', false !== strpos( $template_review, 'Uploaded by Wera Rektor on September 1, 2025, 234 KB.' ), true );
+ck( 'and not the date as year-month-day', false !== strpos( $template_review, '2025-09-01' ), false );
+$GLOBALS['opts']['date_format'] = 'j M Y';
+ck( 'a site with another date format reads its own', false !== strpos( review( $review_id ), 'Uploaded by Wera Rektor on 1 Sep 2025, 234 KB.' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
 ck( 'the checklist is read, not ticked: three sentences and no boxes', array( substr_count( $template_review, '<li>' ), substr_count( $template_review, 'type="checkbox"' ) ), array( 3, 0 ) );
 ck( 'a template-kind document names the version the footer should carry', false !== strpos( $template_review, 'The footer on the signed copy names template version 2025-11-04.' ), true );
 ck( 'and the two names, side by side', false !== strpos( $template_review, 'The name on the document is Universidad Example Sede Central. Airtable&#039;s Name for this institution is Universidad Example.' ), true );
@@ -1940,7 +1944,7 @@ $read_review = review( $review_id, true, null, false );
 ck( 'read, the block keeps everything a reviewer reads', array(
 	false !== strpos( $read_review, '<section class="wpcpm-review" id="wpcpm-review-' . $review_id . '">' ),
 	false !== strpos( $read_review, 'Review the signed agreement from Universidad Example' ),
-	false !== strpos( $read_review, 'Uploaded by Wera Rektor on 2025-09-01, 234 KB.' ),
+	false !== strpos( $read_review, 'Uploaded by Wera Rektor on September 1, 2025, 234 KB.' ),
 	false !== strpos( $read_review, 'The institution says this is the program&#039;s template, signed.' ),
 	substr_count( $read_review, '<li>' ),
 	false !== strpos( $read_review, 'The scan noticed these in the file: JavaScript code (/JavaScript), an action that runs when the file is opened (/OpenAction).' ),

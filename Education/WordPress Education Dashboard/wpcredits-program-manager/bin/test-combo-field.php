@@ -15,6 +15,9 @@
  *   after its "Every email". The chosen one is selected, and only it.
  * - **The count's sentence is the caller's**, with the switcher's "Names in the list: %s" when none
  *   is given.
+ * - **A refused answer marks both controls.** A form that bounced a post passes `invalid`, and the
+ *   select and the field a person types into both carry `aria-invalid="true"`, ahead of what describes
+ *   them; with no refusal neither does.
  * - **No form, no Show and no note**: those are the switcher's. The script is registered and
  *   enqueued by the field, so a page that draws one loads it.
  *
@@ -137,6 +140,23 @@ ck(
 	array( true, true, true )
 );
 ck( 'and a field asked for neither draws neither', array( strpos( $html, 'wpcpm-field__required' ), strpos( $html, 'aria-describedby' ) ), array( false, false ) );
+
+// A form that refused the answer marks the field a person types into, and the select behind it, as
+// invalid: the sentence under the question is the words, and this is the same news for a screen reader.
+// The attribute comes before `aria-describedby`, as the forms' other fields write the pair.
+$refused = combo(
+	array(
+		'invalid'     => true,
+		'describedby' => 'wpcpm-test-email-problem',
+	)
+);
+ck(
+	'a field the form refused marks the select and the field it stands for as invalid, ahead of what describes them',
+	array( false !== strpos( $refused, '<select name="email" id="wpcpm-test-email" autocomplete="off" aria-invalid="true" aria-describedby="wpcpm-test-email-problem">' ), 1 === preg_match( '#<input type="text" id="wpcpm-test-email-input"[^>]* placeholder="Type to find an email" aria-invalid="true" aria-describedby="wpcpm-test-email-problem" />#', $refused ), substr_count( $refused, 'aria-invalid' ) ),
+	array( true, true, 2 )
+);
+ck( 'invalid on its own marks both and describes neither', array( substr_count( combo( array( 'invalid' => true ) ), 'aria-invalid="true"' ), strpos( combo( array( 'invalid' => true ) ), 'aria-describedby' ) ), array( 2, false ) );
+ck( 'a field not refused carries neither, by default and when asked for false', array( strpos( $html, 'aria-invalid' ), strpos( combo( array( 'invalid' => false ) ), 'aria-invalid' ) ), array( false, false ) );
 
 // The switcher draws its fields through this one, so the two cannot drift apart.
 $source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php' );

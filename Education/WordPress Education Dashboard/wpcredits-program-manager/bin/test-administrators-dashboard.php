@@ -1914,9 +1914,11 @@ ck( 'the locked account is named', has( $health, 'Rep One' ), true );
 ck( 'the probe verdict and the invitation run are there', has( $health, 'blocked' ) && has( $health, '3 of 5' ), true );
 // The mail line reads the email log: the latest email by its name, its address masked, when, and its
 // status in a sentence of its own; then the last day's failures; each linked to the Emails tool's Log.
+// Some names hold a "to" of their own ("..., to Administrators"), so the address follows "sent to"
+// and the line never reads "to Administrators to m***@...".
 $failed_since = isset( $GLOBALS['mail_failed_since'][0] ) ? (int) strtotime( $GLOBALS['mail_failed_since'][0] . ' UTC' ) : 0;
 ck( 'the mail line names the latest email, masks its address, and gives its status in a sentence of its own',
-	array( has( $health, 'Last email: Semester report drafted, to Administrators to m***@example.test on ' ), has( $health, '. Status: Handed to the mail server. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), has( $health, 'mia@example.test' ) ),
+	array( has( $health, 'Last email: Semester report drafted, to Administrators, sent to m***@example.test on ' ), has( $health, '. Status: Handed to the mail server. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), has( $health, 'mia@example.test' ) ),
 	array( true, true, false ) );
 ck( 'and counts the failures of the last day, linked to the Log\'s failed emails',
 	array( has( $health, '<li>1 email failed in the last day. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed">Show the failed emails</a></li>' ), abs( $failed_since - ( time() - DAY_IN_SECONDS ) ) <= 5 ),

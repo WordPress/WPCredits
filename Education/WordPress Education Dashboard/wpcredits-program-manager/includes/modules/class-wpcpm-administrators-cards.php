@@ -2880,6 +2880,8 @@ final class WPCPM_Administrators_Cards {
 		);
 		// The latest email by name, and the last day's failures, each linked to the Emails tool's Log.
 		// The address is masked: this is a page of the site, and the full one is the Log's, in wp-admin.
+		// The sentence says "sent to" because some names hold a "to" of their own ("..., to Administrators"),
+		// and a bare "to" after one read as "to Administrators to m***@...".
 		$latest = isset( $mail['latest'] ) ? (array) $mail['latest'] : array();
 		$failed = isset( $mail['failed'] ) ? (int) $mail['failed'] : 0;
 		$ready  = ! isset( $mail['ready'] ) || $mail['ready'];
@@ -2893,7 +2895,7 @@ final class WPCPM_Administrators_Cards {
 					? ( $ready ? __( 'No email has been sent yet.', 'wpcredits-program-manager' ) : __( 'The email log is not ready yet.', 'wpcredits-program-manager' ) )
 					: sprintf(
 						/* translators: 1: an email's name, 2: a masked address, 3: a date, 4: the email's status. */
-						__( 'Last email: %1$s to %2$s on %3$s. Status: %4$s.', 'wpcredits-program-manager' ),
+						__( 'Last email: %1$s, sent to %2$s on %3$s. Status: %4$s.', 'wpcredits-program-manager' ),
 						WPCPM_Mail_Catalog::label( isset( $latest['template'] ) ? $latest['template'] : '' ),
 						WPCPM_Mail::mask_address( isset( $latest['to_email'] ) ? $latest['to_email'] : '' ),
 						self::when( isset( $latest['sent_at'] ) ? (int) strtotime( $latest['sent_at'] . ' UTC' ) : 0 ),

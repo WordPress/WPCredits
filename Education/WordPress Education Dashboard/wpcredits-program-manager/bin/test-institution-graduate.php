@@ -571,8 +571,8 @@ reset_world();
 
 $states = WPCPM_Institution_Students::states();
 
-// The default is the switch turned off: a school records a student as dropped out, and program
-// managers record graduations in Airtable.
+// The default is the switch turned off: a school records a student as dropped out, and
+// Administrators record graduations in the program records.
 ck( 'by default the list holds dropped out alone', $states, array( 'withdrawn' => 'Dropped out' ) );
 ck( 'so Graduate is not a value a school can write', in_array( 'Graduate', $states, true ), false );
 // Nothing else about graduating is taken away, so offering it again is the filter and no more.
@@ -608,7 +608,16 @@ $GLOBALS['users'][5]   = new WP_User( 5, 'A Registrar', 'registrar@example.test'
 $GLOBALS['members'][5] = array( $inst_a );
 press( 5, $student, 'graduated' );
 ck( 'and the card says graduating is switched off, in so many words',
-    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in Airtable.</p>' ), true );
+    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in the program records.</p>' ), true );
+// A school reads "the program records" everywhere else on this screen, and the base's own name is
+// for the people who work in it. The sentence and the three docblocks that explain the switch say so.
+ck( 'and the sentence does not name the base', has( draw( 5, $student, array() ), 'record graduations in Airtable' ), false );
+
+$switch_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-students.php' );
+ck( 'the sentence and the three docblocks that explain the switch say the program records',
+    substr_count( $switch_source, 'Administrators record graduations in the program records' ), 4 );
+ck( 'and none of the four names the base', substr_count( $switch_source, 'record graduations in Airtable' ), 0 );
+ck( 'nor says program managers record them', substr_count( $switch_source, 'program managers record graduations' ), 0 );
 
 press( 2, $student, 'paused' );
 ck( 'any other state this screen does not make keeps the general refusal', flash_outcome(), 'status-unknown' );

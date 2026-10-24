@@ -570,6 +570,9 @@ class WPCPM_Institution_Panel {
 	 * a two-page agreement that weighs nine megabytes is a photograph of every page, which
 	 * is a slower read and a different conversation from a signed text PDF.
 	 *
+	 * The date is the site's own format (`WPCPM_Dates::day()`), as every other date on this panel
+	 * is. The facts hold the stored day, `Y-m-d`, which a sentence a person reads never prints.
+	 *
 	 * @param array $facts From `WPCPM_Institution_Agreement::review_facts()`.
 	 */
 	private static function render_review_facts( array $facts ) {
@@ -582,7 +585,7 @@ class WPCPM_Institution_Panel {
 					/* translators: 1: the uploader's name, 2: date, 3: file size. */
 					__( 'Uploaded by %1$s on %2$s, %3$s.', 'wpcredits-program-manager' ),
 					trim( (string) ( isset( $facts['uploaded_by'] ) ? $facts['uploaded_by'] : '' ) ),
-					trim( (string) ( isset( $facts['uploaded_at'] ) ? $facts['uploaded_at'] : '' ) ),
+					WPCPM_Dates::day( trim( (string) ( isset( $facts['uploaded_at'] ) ? $facts['uploaded_at'] : '' ) ) ),
 					size_format( (int) ( isset( $facts['size'] ) ? $facts['size'] : 0 ) )
 				)
 			)

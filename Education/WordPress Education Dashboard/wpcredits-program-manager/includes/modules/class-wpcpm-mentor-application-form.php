@@ -1195,6 +1195,8 @@ final class WPCPM_Mentor_Application_Form {
 					'label'       => $spec['label'],
 					'mark'        => $mark,
 					'describedby' => implode( ' ', $says ),
+					// A refused post marks the field a person types into, and the select behind it.
+					'invalid'     => '' !== $problem,
 					/* translators: Shown in the empty country field, which takes typing. */
 					'find'        => __( 'Type to find your country', 'wpcredits-program-manager' ),
 					'none'        => __( 'No country has that name.', 'wpcredits-program-manager' ),

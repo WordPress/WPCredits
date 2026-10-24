@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.27
+Stable tag: 1.123.28
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,14 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.28 =
+
+* The message a school sees when marking a student as graduated is switched off says Administrators record graduations in the program records, without naming Airtable.
+* The Administrator Dashboard's email health line reads "Last email: ..., sent to ... on ...", so an email's name ending in "to Administrators" no longer runs into the address.
+* After a refused application, the country field on the institution and mentor forms is marked as the one to correct for screen readers, as the other fields are.
+* The Administrators' review of an uploaded agreement prints the upload date in the site's date format.
+* The institution application page is created with its title and content kept exactly, a translation holding a backslash included.
 
 = 1.123.27 =
 

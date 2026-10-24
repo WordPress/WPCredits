@@ -49,7 +49,8 @@
  * - **The country is one field to type into, and it still posts a record ID.** The combobox is
  *   `WPCPM_Dashboards::render_combo()`'s; the hidden select carries no `required` attribute, or a
  *   browser would refuse the form over a control nobody can see, while the server refuses a form
- *   with no country as it always has, and a country's name is not an answer.
+ *   with no country as it always has, and a country's name is not an answer. A refused country
+ *   marks the select and the field `aria-invalid`, and another question's refusal does not.
  * - **The old address answers exactly /apply/, and the move takes only what is the plugin's.**
  *   A 404 whose matched path is the old slug sends a 301 to the form with its query string; a
  *   deeper path ending in it, a slug that starts with it and a real page there are left alone.
@@ -268,6 +269,9 @@ function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', 
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 
 function wp_insert_post( $a, $error = false ) {
+	// What it was handed, as it was handed, for a test that asks whether the words arrived slashed.
+	$GLOBALS['inserts'][] = $a;
+
 	if ( ! empty( $GLOBALS['post_fails'] ) ) {
 		return $error ? new WP_Error( 'wpcpm_test_insert', 'refused' ) : 0;
 	}
@@ -279,7 +283,9 @@ function wp_insert_post( $a, $error = false ) {
 	// Unslashed as core's insert unslashes it, so a title handed over as it stands loses a backslash.
 	$post->post_title              = stripslashes( (string) ( $a['post_title'] ?? '' ) );
 	$post->post_name               = (string) ( $a['post_name'] ?? '' );
-	$post->post_content            = (string) ( $a['post_content'] ?? '' );
+	// The content too, as core's insert unslashes the whole post: handed over as it stands, a
+	// backslash in a translated intro is lost on the way in.
+	$post->post_content            = stripslashes( (string) ( $a['post_content'] ?? '' ) );
 	$post->post_date               = gmdate( 'Y-m-d H:i:s', $GLOBALS['clock'] );
 	$post->post_modified_gmt       = $post->post_date;
 	$GLOBALS['clock']             += 60;
@@ -484,6 +490,7 @@ function reset_world() {
 	$GLOBALS['hooks']       = array();
 	$GLOBALS['redirects']   = array();
 	$GLOBALS['updates']     = array();
+	$GLOBALS['inserts']     = array();
 	$GLOBALS['is_404']      = false;
 	$GLOBALS['query_vars']  = array();
 	$GLOBALS['wp']          = (object) array( 'request' => '' );
@@ -1043,10 +1050,17 @@ follow( $nobody['url'] );
 $again = WPCPM_Institution_Application::render();
 
 ck(
-	'and the form handed back says so under the field, which the select and the field are described by',
-	array( false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $country_id . '-problem">Please fill this in.</span>' ), false !== strpos( $again, 'id="' . $country_id . '" autocomplete="off" aria-describedby="' . $country_id . '-problem">' ), false !== strpos( $again, 'id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" aria-describedby="' . $country_id . '-problem"' ) ),
+	'and the form handed back says so under the field, which the select and the field are marked invalid by and described by',
+	array( false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $country_id . '-problem">Please fill this in.</span>' ), false !== strpos( $again, 'id="' . $country_id . '" autocomplete="off" aria-invalid="true" aria-describedby="' . $country_id . '-problem">' ), false !== strpos( $again, 'id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" aria-invalid="true" aria-describedby="' . $country_id . '-problem"' ) ),
 	array( true, true, true )
 );
+// The mark is the refusal's, so the form drawn before any post, and a form handed back over another
+// answer, leave the country's select and field unmarked.
+$country_invalid = static function ( $page ) use ( $country_id ) {
+	return array( 1 === preg_match( '#id="' . preg_quote( $country_id, '#' ) . '"[^>]*aria-invalid#', $page ), 1 === preg_match( '#id="' . preg_quote( $country_id, '#' ) . '-input"[^>]*aria-invalid#', $page ) );
+};
+ck( 'the country carries aria-invalid on the select and on the field after its own refusal', $country_invalid( $again ), array( true, true ) );
+ck( 'and not on the form before any post', $country_invalid( $form ), array( false, false ) );
 
 reset_world();
 $named = submit( answers( array( 'Country' => 'Costa Rica' ) ) );
@@ -1059,6 +1073,7 @@ follow( $name_missing['url'] );
 $again = WPCPM_Institution_Application::render();
 
 ck( 'a form handed back for another answer keeps the country picked, chosen in the select', array( false !== strpos( $again, '<option value="recNG000000000002" selected="selected">Nigeria</option>' ), false !== strpos( $again, '<option value="" selected="selected">' ) ), array( true, false ) );
+ck( 'and does not mark it invalid: another answer was refused, not the country', $country_invalid( $again ), array( false, false ) );
 
 echo "\n-- one good application, end to end -----------------------------------\n";
 
@@ -1856,6 +1871,39 @@ ck( 'at the new address, under the new title, holding the intro and the form', a
 ck( 'and records it', (int) get_option( WPCPM_Institution_Application::OPT_PAGE ), $made );
 ck( 'with no meta at all, so no access level gates it', $GLOBALS['pmeta'][ $made ] ?? array(), array() );
 ck( 'a second call finds it and makes nothing more', array( WPCPM_Institution_Application::ensure_page(), count( $GLOBALS['posts'] ) ), array( $made, 2 ) );
+
+// The insert is handed slashed copies, as `wp_insert_post()` unslashes what it is given: the exact
+// bytes of an English site's title and intro reach the page, and so does a backslash in a
+// translation of either, which `maybe_move_page()` already keeps on its way in.
+$pages_inserted = static function () {
+	return array_values( array_filter( $GLOBALS['inserts'], static function ( $args ) { return 'page' === ( $args['post_type'] ?? '' ); } ) );
+};
+
+reset_world();
+unset( $GLOBALS['posts'][42], $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+WPCPM_Institution_Application::ensure_page();
+$handed = $pages_inserted();
+
+ck( 'an English site\'s title and content are handed over byte for byte, there being nothing in them to slash', array( count( $handed ), $handed[0]['post_title'] ?? null, $handed[0]['post_content'] ?? null ), array( 1, 'Bring WordPress Credits to your institution', WPCPM_Institution_Application::page_content() ) );
+
+reset_world();
+unset( $GLOBALS['posts'][42], $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+$GLOBALS['translations']['Bring WordPress Credits to your institution'] = 'Bring WordPress Credits to your institution \\ school';
+$made   = WPCPM_Institution_Application::ensure_page();
+$handed = $pages_inserted();
+
+ck( 'a translated title with a backslash is handed over slashed', $handed[0]['post_title'] ?? null, 'Bring WordPress Credits to your institution \\\\ school' );
+ck( 'so the backslash is still there on the page that was made', get_post( $made )->post_title, 'Bring WordPress Credits to your institution \\ school' );
+
+reset_world();
+unset( $GLOBALS['posts'][42], $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+$GLOBALS['translations']['For universities, colleges and schools that would like to offer WordPress Credits to their students: an Administrator reads every application and writes back, usually within a few working days.'] = 'An intro with a \\ backslash and "quotes" and an apostrophe\'s.';
+$made   = WPCPM_Institution_Application::ensure_page();
+$handed = $pages_inserted();
+
+ck( 'a translated intro with a backslash is handed over slashed', false !== strpos( (string) ( $handed[0]['post_content'] ?? '' ), 'An intro with a \\\\ backslash and &quot;quotes&quot; and an apostrophe&#039;s.' ), true );
+ck( 'so the backslash is still there on the page that was made, with its quotes escaped as they were', false !== strpos( get_post( $made )->post_content, 'An intro with a \\ backslash and &quot;quotes&quot; and an apostrophe&#039;s.' ), true );
+ck( 'and the slug and the status are handed over as they are', array( $handed[0]['post_name'] ?? null, $handed[0]['post_status'] ?? null, $handed[0]['post_type'] ?? null ), array( 'institution-application', 'publish', 'page' ) );
 
 // A site restored from a backup, or migrated, that has the page and not the option.
 reset_world();

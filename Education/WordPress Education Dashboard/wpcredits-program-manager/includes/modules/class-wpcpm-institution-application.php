@@ -428,13 +428,17 @@ class WPCPM_Institution_Application {
 			}
 		}
 
+		// The title and the content are slashed, as `wp_insert_post()` unslashes what it is given and
+		// `maybe_move_page()` slashes what it hands `wp_update_post()`: a backslash in a translated
+		// title or intro would otherwise be lost on the way in. An English site's words hold none, so
+		// they reach the page byte for byte.
 		$page_id = wp_insert_post(
 			array(
 				'post_type'    => 'page',
 				'post_status'  => 'publish',
-				'post_title'   => self::page_title(),
+				'post_title'   => wp_slash( self::page_title() ),
 				'post_name'    => self::SLUG,
-				'post_content' => self::page_content(),
+				'post_content' => wp_slash( self::page_content() ),
 			),
 			true
 		);
@@ -1433,6 +1437,8 @@ class WPCPM_Institution_Application {
 					'label'       => $spec['label'],
 					'mark'        => ! empty( $spec['required'] ) ? __( 'Required', 'wpcredits-program-manager' ) : '',
 					'describedby' => implode( ' ', $says ),
+					// A refused post marks the field a person types into, and the select behind it.
+					'invalid'     => '' !== $problem,
 					/* translators: Shown in the empty country field, which takes typing. */
 					'find'        => __( 'Type to find your country', 'wpcredits-program-manager' ),
 					'none'        => __( 'No country has that name.', 'wpcredits-program-manager' ),

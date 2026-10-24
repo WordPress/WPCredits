@@ -21,13 +21,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **Guard 1: one state or two, and they are the whole list.** `states()` offers `Dropped out`,
  * and `Graduate` beside it only while `graduation_offered()` says so, which by default it does
- * not: program managers record graduations in Airtable. `Paused` and `Pending graduation` are
- * tracked statuses since decision 21, so the first design's reason for leaving them out - a
- * student moved to either lost their role at the next sync - no longer holds. They stay out
- * because pausing a student and holding them at pending graduation are the program's calls about
- * its own process, not a school's. The handler matches the posted state against `states()`
- * before anything reaches the network, so a POST naming any status the list does not hold spends
- * no request and writes nothing.
+ * not: Administrators record graduations in the program records. `Paused` and
+ * `Pending graduation` are tracked statuses since decision 21, so the first design's reason for
+ * leaving them out - a student moved to either lost their role at the next sync - no longer
+ * holds. They stay out because pausing a student and holding them at pending graduation are the
+ * program's calls about its own process, not a school's. The handler matches the posted state
+ * against `states()` before anything reaches the network, so a POST naming any status the list
+ * does not hold spends no request and writes nothing.
  *
  * **Guard 2: the row is read live and has to agree, in `WPCPM_Mentor_Checker_Runner::promote()`'s
  * shape.** `claim()` returns the Students row as the base holds it now, `check()` reads its
@@ -132,7 +132,7 @@ final class WPCPM_Institution_Students {
 	 * Whether a school may mark one of its own students as graduated.
 	 *
 	 * **Off, for the time being.** The owner switched the option off on 29 September 2026:
-	 * program managers record graduations in Airtable, as before, and a school still marks a
+	 * Administrators record graduations in the program records, as before, and a school still marks a
 	 * student as dropped out. The `wpcpm_institution_graduation_offered` filter offers it
 	 * again, and so would a later release that flips the default.
 	 *
@@ -153,7 +153,7 @@ final class WPCPM_Institution_Students {
 		 * Filter whether a school may mark one of its students as graduated from the Institution
 		 * Dashboard.
 		 *
-		 * @param bool $offered False by default: program managers record graduations in Airtable.
+		 * @param bool $offered False by default: Administrators record graduations in the program records.
 		 */
 		return (bool) apply_filters( 'wpcpm_institution_graduation_offered', false );
 	}
@@ -730,7 +730,7 @@ final class WPCPM_Institution_Students {
 			self::OUT_PAUSED                  => array( 'error', __( 'Nothing was changed.', 'wpcredits-program-manager' ) . ' ' . self::paused_sentence() ),
 			self::OUT_UNTRACKED               => array( 'error', __( 'Nothing was changed: this student is not on the program right now, so how their placement ended is an Administrator\'s to record.', 'wpcredits-program-manager' ) ),
 			'status-unknown'                  => array( 'error', __( 'Nothing was changed: that is not a change this screen makes. Graduated and dropped out are the two it records; everything else about a student\'s status is the program\'s.', 'wpcredits-program-manager' ) ),
-			'status-graduation-off'           => array( 'error', __( 'Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in Airtable.', 'wpcredits-program-manager' ) ),
+			'status-graduation-off'           => array( 'error', __( 'Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in the program records.', 'wpcredits-program-manager' ) ),
 			'status-refused'                  => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
 			'status-unreadable'               => array( 'error', __( 'Nothing was changed: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'status-airtable'                 => array( 'error', __( 'Nothing was changed: the program records refused the change. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
