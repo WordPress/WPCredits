@@ -1,4 +1,10 @@
 <?php
+/**
+ * Frontend template for the contributor quiz and results containers.
+ *
+ * @package Find_Your_Team
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }

@@ -3,18 +3,20 @@
  * Plugin Name: Contributor Team Matcher
  * Plugin URI:  https://make.wordpress.org/contribute/
  * Description: An interactive quiz that helps contributors find the right WordPress contribution team based on their interests and skills.
- * Version:     1.0.12
+ * Version:     1.0.13
  * Author:      Maciej Pilarski
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: find-your-team
+ *
+ * @package Find_Your_Team
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CONTTEMA_VERSION', '1.0.12' );
+define( 'CONTTEMA_VERSION', '1.0.13' );
 define( 'CONTTEMA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CONTTEMA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 

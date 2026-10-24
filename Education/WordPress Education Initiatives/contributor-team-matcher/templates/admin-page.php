@@ -1,8 +1,14 @@
 <?php
+/**
+ * Administration template for quiz questions, teams, and usage instructions.
+ *
+ * @package Find_Your_Team
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-// Variables available: $active_tab, $questions, $teams. phpcs:ignore Squiz.PHP.CommentedOutCode.Found
+// Variables available: $active_tab, $questions, $teams. // phpcs:ignore Squiz.PHP.CommentedOutCode.Found -- Template variables.
 ?>
 <div class="wrap ctm-admin-wrap">
 
@@ -30,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						'tab'  => 'questions',
 					),
 					admin_url( 'admin.php' )
-				) 
+				)
 			);
 			?>
 			"
@@ -49,7 +55,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						'tab'  => 'teams',
 					),
 					admin_url( 'admin.php' )
-				) 
+				)
 			);
 			?>
 			"
@@ -68,7 +74,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						'tab'  => 'shortcode',
 					),
 					admin_url( 'admin.php' )
-				) 
+				)
 			);
 			?>
 			"

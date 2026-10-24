@@ -1,10 +1,22 @@
 <?php
+/**
+ * Quiz shortcodes, frontend assets, and AJAX results for Contributor Team Matcher.
+ *
+ * @package Find_Your_Team
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Provides quiz shortcodes, frontend assets, and AJAX results.
+ */
 class CONTTEMA_Shortcode {
 
+	/**
+	 * Register quiz shortcodes, frontend asset hooks, and AJAX handlers.
+	 */
 	public static function init() {
 		add_shortcode( 'conttema_quiz', array( __CLASS__, 'render' ) );
 		// Backward-compat aliases for content created with earlier plugin versions.
@@ -15,6 +27,9 @@ class CONTTEMA_Shortcode {
 		add_action( 'wp_ajax_nopriv_conttema_get_results', array( __CLASS__, 'ajax_get_results' ) );
 	}
 
+	/**
+	 * Register quiz assets and supply quiz data and translations to the script.
+	 */
 	public static function enqueue_assets() {
 		wp_register_style(
 			'contributor-team-matcher',
@@ -58,6 +73,12 @@ class CONTTEMA_Shortcode {
 		);
 	}
 
+	/**
+	 * Enqueue quiz assets and return the rendered quiz template.
+	 *
+	 * @param array|string $atts Shortcode attributes, currently unused. Default empty array.
+	 * @return string Rendered quiz markup.
+	 */
 	public static function render( $atts = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- $atts reserved for future shortcode attributes.
 		wp_enqueue_style( 'contributor-team-matcher' );
 		wp_enqueue_script( 'contributor-team-matcher' );
@@ -67,6 +88,9 @@ class CONTTEMA_Shortcode {
 		return ob_get_clean();
 	}
 
+	/**
+	 * Verify the AJAX nonce and send the top five team matches as JSON.
+	 */
 	public static function ajax_get_results() {
 		check_ajax_referer( 'conttema_nonce', 'nonce' );
 

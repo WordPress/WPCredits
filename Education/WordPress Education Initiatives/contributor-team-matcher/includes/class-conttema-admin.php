@@ -1,10 +1,22 @@
 <?php
+/**
+ * Administration page and settings handlers for Contributor Team Matcher.
+ *
+ * @package Find_Your_Team
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Manages the quiz administration page and saved settings.
+ */
 class CONTTEMA_Admin {
 
+	/**
+	 * Register administration hooks.
+	 */
 	public static function init() {
 		if ( ! is_admin() ) {
 			return;
@@ -17,6 +29,9 @@ class CONTTEMA_Admin {
 		add_action( 'admin_post_conttema_reset_teams', array( __CLASS__, 'reset_teams' ) );
 	}
 
+	/**
+	 * Add the Contributor Team Matcher administration menu page.
+	 */
 	public static function add_menu() {
 		add_menu_page(
 			__( 'Contributor Team Matcher', 'find-your-team' ),
@@ -29,6 +44,11 @@ class CONTTEMA_Admin {
 		);
 	}
 
+	/**
+	 * Enqueue styles and scripts for the plugin administration page.
+	 *
+	 * @param string $hook Current administration page hook suffix.
+	 */
 	public static function enqueue_assets( $hook ) {
 		if ( 'toplevel_page_contributor-team-matcher' !== $hook ) {
 			return;
@@ -52,6 +72,9 @@ class CONTTEMA_Admin {
 	// Page render
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Display the settings page for users who can manage options.
+	 */
 	public static function render_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -66,6 +89,12 @@ class CONTTEMA_Admin {
 	// Helpers used by the template
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Output an editable quiz question and its answer rows.
+	 *
+	 * @param array $q     Question data.
+	 * @param int   $q_idx Question index used in form field names.
+	 */
 	public static function render_question_item( $q, $q_idx ) {
 		$q_id   = isset( $q['id'] ) ? esc_attr( $q['id'] ) : '';
 		$q_text = isset( $q['text'] ) ? esc_attr( $q['text'] ) : '';
@@ -158,6 +187,13 @@ class CONTTEMA_Admin {
 		<?php
 	}
 
+	/**
+	 * Output an editable answer row for a quiz question.
+	 *
+	 * @param array  $a        Answer data.
+	 * @param string $q_prefix Parent question form field prefix.
+	 * @param int    $a_idx    Answer index used in form field names.
+	 */
 	public static function render_answer_row( $a, $q_prefix, $a_idx ) {
 		$a_id   = isset( $a['id'] ) ? esc_attr( $a['id'] ) : '';
 		$a_text = isset( $a['text'] ) ? esc_attr( $a['text'] ) : '';
@@ -188,6 +224,12 @@ class CONTTEMA_Admin {
 		<?php
 	}
 
+	/**
+	 * Output an editable team and its tag weight rows.
+	 *
+	 * @param array $t     Team data.
+	 * @param int   $t_idx Team index used in form field names.
+	 */
 	public static function render_team_item( $t, $t_idx ) {
 		$t_id   = isset( $t['id'] ) ? esc_attr( $t['id'] ) : '';
 		$t_name = isset( $t['name'] ) ? esc_attr( $t['name'] ) : '';
@@ -276,9 +318,17 @@ class CONTTEMA_Admin {
 		<?php
 	}
 
+	/**
+	 * Output an editable tag weight row for a team.
+	 *
+	 * @param string   $tag      Tag name.
+	 * @param int      $weight   Tag weight.
+	 * @param string   $t_prefix Parent team form field prefix.
+	 * @param int|null $idx      Row index, or null to use a counter for the team prefix.
+	 */
 	public static function render_tag_row( $tag, $weight, $t_prefix, $idx ) {
 		static $static_idx = array();
-		// $idx is null when called from PHP loop — derive from static counter per prefix.
+		// $idx is null when called from PHP loop - derive from static counter per prefix.
 		if ( null === $idx ) {
 			if ( ! isset( $static_idx[ $t_prefix ] ) ) {
 				$static_idx[ $t_prefix ] = 0;
@@ -312,6 +362,9 @@ class CONTTEMA_Admin {
 	// Save handlers
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Validate the request, save sanitized questions, and redirect to the questions tab.
+	 */
 	public static function save_questions() {
 		check_admin_referer( 'conttema_save_questions', 'conttema_questions_nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -375,6 +428,9 @@ class CONTTEMA_Admin {
 		exit;
 	}
 
+	/**
+	 * Validate the request, save sanitized teams, and redirect to the teams tab.
+	 */
 	public static function save_teams() {
 		check_admin_referer( 'conttema_save_teams', 'conttema_teams_nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -424,6 +480,9 @@ class CONTTEMA_Admin {
 		exit;
 	}
 
+	/**
+	 * Validate the request, delete saved questions, and redirect to the questions tab.
+	 */
 	public static function reset_questions() {
 		check_admin_referer( 'conttema_reset_questions', 'conttema_reset_questions_nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -443,6 +502,9 @@ class CONTTEMA_Admin {
 		exit;
 	}
 
+	/**
+	 * Validate the request, delete saved teams, and redirect to the teams tab.
+	 */
 	public static function reset_teams() {
 		check_admin_referer( 'conttema_reset_teams', 'conttema_reset_teams_nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {

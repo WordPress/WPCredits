@@ -1,8 +1,17 @@
 <?php
+/**
+ * Quiz questions, team data, and team scoring for Contributor Team Matcher.
+ *
+ * @package Find_Your_Team
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Provides quiz data and scores teams against selected answer tags.
+ */
 class CONTTEMA_Quiz_Data {
 
 	/**
@@ -545,7 +554,7 @@ class CONTTEMA_Quiz_Data {
 			$teams,
 			function ( $a, $b ) {
 				return $b['score'] <=> $a['score'];
-			} 
+			}
 		);
 
 		return $teams;
