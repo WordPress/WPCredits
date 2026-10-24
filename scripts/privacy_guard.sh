@@ -40,6 +40,12 @@ ALLOW=(
   "Education/WordPress Education Initiatives/student-impact/data/seed-totals.json"
   "Education/WordPress Education Initiatives/wpcredits-tracker/data/seed.json"
   "data/post_grad_summary.json"
+  # The theme's test fixture: live's saved copy of the Partners page template.
+  # Its only address is education@wordpressfoundation.org, the Foundation's
+  # public role address, which the theme's own patterns (partners-hero.php,
+  # partners-apply.php) ship and the live Partners page shows. No person's
+  # data, no handles. Under Education/, so GitHub Pages does not serve it.
+  "Education/WordPress Education Dashboard/wpcredits-theme/bin/fixtures/saved-partners.html"
 )
 
 is_allowed() {
