@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.2
+Version: 1.32.3
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -1686,6 +1686,16 @@ p.is-style-pill {
 		font-size: 34px;
 	}
 
+	.wpc-cta {
+		gap: 20px;
+		padding: 28px !important;
+	}
+}
+
+/* The four audiences drop their padding and dividers only once core's Columns block has stacked
+   them, at 781px and below (core keeps columns side by side from 782px). Under 900px with them
+   still in a row, those rules left the columns touching on a tablet held upright (834px). */
+@media ( max-width: 781px ) {
 	.wpc-audiences__grid {
 		row-gap: 24px;
 	}
@@ -1698,11 +1708,6 @@ p.is-style-pill {
 
 	.wpc-audience + .wpc-audience {
 		border-left: 0;
-	}
-
-	.wpc-cta {
-		gap: 20px;
-		padding: 28px !important;
 	}
 }
 
