@@ -154,28 +154,31 @@ final class WPCPM_Mail_Catalog {
 			// acknowledgement with no call to book, the upload the courtesy scan noticed something in,
 			// the agreement put back in force (sent as an acceptance until then) and the revocation with
 			// no country contact are new; the agreement's names say Collaboration Agreement in full.
-			'institution-applied'                => array( __( 'Application received, to the applicant', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
-			'institution-applied-no-call'        => array( __( 'Application received, to an applicant with no call to book', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
+			// The names of the emails about an application, an upload, a reminder and a template say they
+			// are the institution's, as the sponsors' say they are the sponsor's, since the Log's Email field
+			// lists every name side by side.
+			'institution-applied'                => array( __( 'Institution application received, to the applicant', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
+			'institution-applied-no-call'        => array( __( 'Institution application received, to an applicant with no call to book', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-application'            => array( __( 'New institution application, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
-			'institution-information'            => array( __( 'Question about an application', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
-			'institution-declined'               => array( __( 'Application declined', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
+			'institution-information'            => array( __( 'Question about an institution application', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
+			'institution-declined'               => array( __( 'Institution application declined', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-invite'                 => array( __( 'Invitation to join an institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'institution-invite-no-sender'       => array( __( 'Invitation to join an institution, with no sender named', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-received'                 => array( __( 'Collaboration Agreement received, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
-			'agreement-landed'                   => array( __( 'Collaboration Agreement uploaded, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
-			'agreement-landed-flagged'           => array( __( 'Collaboration Agreement uploaded with the scan\'s notes, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'agreement-landed'                   => array( __( 'Collaboration Agreement uploaded by an institution, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'agreement-landed-flagged'           => array( __( 'Collaboration Agreement uploaded by an institution with the scan\'s notes, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'agreement-accepted'                 => array( __( 'Collaboration Agreement accepted, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-reinstated'               => array( __( 'Collaboration Agreement back in force, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-returned'                 => array( __( 'Collaboration Agreement returned with a note, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-revoked'                  => array( __( 'Collaboration Agreement taken out of force, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-revoked-no-contact'       => array( __( 'Collaboration Agreement taken out of force, to an institution with no country contact', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
-			'agreement-reminder'                 => array( __( 'Collaboration Agreements waiting for review', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
-			'agreement-template'                 => array( __( 'Collaboration Agreement could not be generated', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'agreement-reminder'                 => array( __( 'Collaboration Agreements from institutions waiting for review, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'agreement-template'                 => array( __( 'Collaboration Agreement for an institution could not be generated, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'member-last'                        => array( __( 'Institution has no members left, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			// Semester reports.
-			'report-drafted'                     => array( __( 'Semester report drafted', 'wpcredits-program-manager' ), $r, self::TYPE_ADMIN ),
-			'report-approved'                    => array( __( 'Semester report approved', 'wpcredits-program-manager' ), $r, self::TYPE_INSTITUTION ),
-			'report-consent'                     => array( __( 'Consent for the semester report', 'wpcredits-program-manager' ), $r, self::TYPE_STUDENT ),
+			'report-drafted'                     => array( __( 'Semester report drafted, to Administrators', 'wpcredits-program-manager' ), $r, self::TYPE_ADMIN ),
+			'report-approved'                    => array( __( 'Semester report approved, to the institution', 'wpcredits-program-manager' ), $r, self::TYPE_INSTITUTION ),
+			'report-consent'                     => array( __( 'Consent for the semester report, to the student', 'wpcredits-program-manager' ), $r, self::TYPE_STUDENT ),
 			// Sponsors. Since 1.122.22 the acknowledgement whose logo was not kept and the request to
 			// sponsor a mentor (sent as a sponsor's interest until then) have ids of their own, and the
 			// agreement's names say who receives each email, as the institution's do.

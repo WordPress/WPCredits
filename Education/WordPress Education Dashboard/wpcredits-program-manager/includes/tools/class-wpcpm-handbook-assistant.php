@@ -379,7 +379,7 @@ class WPCPM_Handbook_Assistant {
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/student-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					// Named for a screen reader, which gets no help at all from the icon.
-					'chat'  => __( 'Ask in the students Slack channel', 'wpcredits-program-manager' ),
+					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
 				'mentor'        => array(
 					'label' => __( 'Mentor guide', 'wpcredits-program-manager' ),
@@ -387,9 +387,9 @@ class WPCPM_Handbook_Assistant {
 					'slack' => 'https://wordpress.slack.com/archives/C09KYQLS7F1',
 					'chat'  => __( 'Ask in the mentors Slack channel', 'wpcredits-program-manager' ),
 				),
-				// The institutions page of the same handbook, and the program's own channel
-				// rather than either of the two above: a school's question is about running
-				// the program, not about a student's work or a mentor's.
+				// The institutions page of the same handbook, and the program's own channel, which
+				// the students' entry links too (the mentors have one of their own): a school's
+				// question is about running the program, not about a student's work or a mentor's.
 				'institution'   => array(
 					'label' => __( 'Institution guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/institutions/',

@@ -399,11 +399,15 @@ ck( 'the last-member notice fired once', count( $GLOBALS['notified'] ), 1 );
 ck( 'with its context', $GLOBALS['notified'][0]['context'], 'member-last' );
 $mail = $GLOBALS['notified'][0]['mail'];
 ck( 'the subject names the site and the institution', $mail['subject'], '[WordPress Education Dashboard] TEST - Institution 20 has no members left' );
-ck( 'the body names who, the record and the reason', array(
+ck( 'the body names who, the institution and the reason, and not its Airtable record', array(
 	false !== strpos( $mail['body'], 'Eve Editor' ),
-	false !== strpos( $mail['body'], $A ),
+	false !== strpos( $mail['body'], 'TEST - Institution 20' ),
 	false !== strpos( $mail['body'], '(left)' ),
-), array( true, true, true ) );
+	false === strpos( $mail['body'], $A ),
+	false === stripos( $mail['body'], 'Airtable' ),
+), array( true, true, true, true, true ) );
+ck( 'in the words of the notice: who, of which institution, as of when, why, and that no account can act for it', (bool) preg_match( '/^Eve Editor is no longer a member of TEST - Institution 20 as of pl_PL:\d{4}-\d{2}-\d{2}\S* \(left\)\. No account can act for this institution on the site now\./', str_replace( "\r\n", "\n", $mail['body'] ) ), true );
+ck( 'and says what is untouched, without the record', false !== strpos( $mail['body'], "The institution's record, its agreement, its students and its history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there." ), true );
 ck( 'and the day the membership ended, written inside the builder, in the language of the Administrator it is for, as the words around it are', (bool) preg_match( '/ pl_PL:\d{4}-\d{2}-\d{2}\b/', $mail['body'] ), true );
 ck( 'nobody is left', WPCPM_Institution_Members::members_of( $A ), array() );
 ck( 'three former members', $ids( WPCPM_Institution_Members::former_members_of( $A ) ), array( 7, 10, 11 ) );

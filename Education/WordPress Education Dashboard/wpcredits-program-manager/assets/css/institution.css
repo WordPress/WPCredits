@@ -247,13 +247,10 @@
 .wpcpm-agreement-panel__note-by,
 .wpcpm-agreement-panel__on-file-note,
 .wpcpm-agreement-panel__read,
-.wpcpm-agreement-panel__soon,
 .wpcpm-agreement-card__route,
-.wpcpm-agreement-card__soon,
 .wpcpm-people__facts,
 .wpcpm-people__note,
 .wpcpm-people__read,
-.wpcpm-people__muted,
 .wpcpm-roster__note,
 .wpcpm-roster__read,
 .wpcpm-roster__empty,
@@ -628,11 +625,6 @@
 	opacity: 0.78;
 }
 
-.wpcpm-roster__read--strip {
-	margin: 0.5em 0 0;
-	opacity: 0.7;
-}
-
 /* One student's detail view: the way back, then the card. */
 .wpcpm-institution__back {
 	display: inline-block;
@@ -735,7 +727,7 @@
 	margin-bottom: 0;
 }
 
-/* "Not yet in the Students table": read-only, and a program manager's to fix. */
+/* "Enrollment not recorded yet": read-only, and a program manager's to fix. */
 .wpcpm-roster__group--unlinked .wpcpm-roster__students {
 	opacity: 0.9;
 }

@@ -594,9 +594,11 @@ $out                = WPCPM_Institution_Create::create_slice( $batch_id );
 ck( 'an unsettled agreement stops the slice', $out['problem'], 'agreement' );
 ck( 'and nothing was created', count( $GLOBALS['created'] ), 0 );
 ck( 'and the batch is parked', state_of( $batch_id ), WPCPM_Institution_Import::STATE_BLOCKED );
-ck( 'with the reason on the record', get_post_meta( $batch_id, WPCPM_Institution_Create::META_REASON, true ), 'agreement' );
+// The reason is the audit row's, the one account of a stop: a copy on the batch had no reader.
+ck( 'with no reason written on the batch', array( get_post_meta( $batch_id, '_wpcpm_batch_reason', true ), defined( 'WPCPM_Institution_Create::META_REASON' ) ), array( '', false ) );
 ck( 'and one audit row saying so', count( $GLOBALS['audit'] ), 1 );
 ck( 'named as the import stopping', $GLOBALS['audit'][0]['kind'], WPCPM_Institution_Create::LOG_STOPPED );
+ck( 'which still carries the reason', $GLOBALS['audit'][0]['data']['reason'], 'agreement' );
 
 fresh();
 $batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ), array(), 42 );

@@ -3515,6 +3515,16 @@ ck( 'with nobody named, a notice under the field says what that means, before th
 ck( 'its fold lists the emails one by one',
     isset( $institution_mail[1][0] ) ? $institution_mail[1][0] : null,
     'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.' );
+// The Check against the Doc button this row named was drawn on no screen; the address is linked
+// from the Agreement template card, and the row and the guide say so.
+$settings_guide = (string) preg_replace( '/\s+/', ' ', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/31-admin-settings.md' ) );
+ck( 'The agreement wording says where the Doc is linked from, and neither it nor the guide promises a Check against the Doc button',
+    array(
+        help_of( $states['institutions'], 'The agreement wording' )[0] ?? null,
+        false !== strpos( $settings_guide, 'linked from the Agreement template card on the Institutions screen\'s Agreements tab; Google addresses only.' ),
+        stripos( $states['institutions'] . $settings_guide, 'Check against the Doc' ),
+    ),
+    array( array( 'The Google Doc the plugin\'s copy of the Collaboration Agreement came from, linked from the Institutions screen\'s Agreement template card; Google addresses only.' ), true, false ) );
 ck( 'Agreement review says the applications are marked overdue by it too, in its one sentence',
     help_of( $states['institutions'], 'Agreement review' )[0] ?? null,
     array( 'How long a signed agreement or an institution\'s application may wait before the queue marks it overdue, and an agreement before the nightly reminder names it.' ) );

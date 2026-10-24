@@ -1335,7 +1335,7 @@ class WPCPM_Settings_Screen {
 			esc_html( $wording ),
 			esc_attr( (string) $settings['agreement_doc_url'] ),
 			esc_attr__( 'https://docs.google.com/document/d/...', 'wpcredits-program-manager' ),
-			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement was taken from, used by the Check against the Doc button; Google addresses only.', 'wpcredits-program-manager' )
+			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement came from, linked from the Institutions screen\'s Agreement template card; Google addresses only.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $wording, __( 'Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin\'s source is public.', 'wpcredits-program-manager' ) );
 

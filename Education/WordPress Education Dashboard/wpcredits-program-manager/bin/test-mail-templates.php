@@ -135,6 +135,8 @@ function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 
+// The site's date format, which an invitation's example day is printed in.
+require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
@@ -559,7 +561,206 @@ $want_whole = array();
 foreach ( $shape as $id => $want ) {
 	$want_whole[ $id ] = array( 'trigger' => true, 'undeclared' => array(), 'unused' => array(), 'missing' => array(), 'in_subject' => array(), 'about' => true, 'left' => array(), 'eol' => $want[0], 'link' => array( $want[1], $want[2] ) );
 }
+// The two emails that name the institution's record no longer say it, and still list it: an
+// Administrator's saved edit that uses {institution_record} would otherwise be set aside, without
+// anyone noticing (`WPCPM_Mail_Templates::state()`). It is the one placeholder declared and not used.
+$want_whole['agreement-template']['unused'] = array( 'institution_record' );
+$want_whole['member-last']['unused']        = array( 'institution_record' );
 ck( 'every template says what sends it, uses only the placeholders it declares and every one it declares, holds its required ones in its body and none that goes in the body in its subject, says what each means with an example, and leaves none unfilled; every invitation needs its set-password link, in its body, every email about a call its time, every link with a secret is needed, in the body alone, and a meeting link and what somebody typed go in the body alone', $whole, $want_whole );
+
+// The Institutions' and the Semester reports' emails (1.123.27): true about what the site does, the
+// site called by its name, no Airtable record in front of a school or an Administrator, and a
+// subject prefix on every one.
+//
+// Removing a placeholder from an email's list is a silent break: an Administrator's saved edit that
+// uses a placeholder the email no longer has is set aside (`WPCPM_Mail_Templates::state()`). So the
+// lists of 1.123.26, below, only grow, and what is added is optional. `institution_record` stays in
+// the lists of the two emails that said it and leaves only their shipped text.
+$lists_1_123_26 = array(
+	'institution-applied'          => 'site_name institution_name reference verify_link*^ booking_link* applicant_email^',
+	'institution-applied-no-call'  => 'site_name institution_name reference verify_link*^ applicant_email^',
+	'institution-application'      => 'site_name institution_name city^ country contact_name^ contact_email^ queue_link',
+	'institution-information'      => 'site_name reference question*^',
+	'institution-declined'         => 'site_name',
+	'institution-invite'           => 'site_name inviter_name institution_name accept_link*^ expiry_date replies_reach',
+	'institution-invite-no-sender' => 'site_name institution_name accept_link*^ expiry_date replies_reach',
+	'agreement-received'           => 'site_name uploaded_on uploaded_by review_window',
+	'agreement-landed'             => 'site_name institution_name uploaded_on uploaded_by queue_link',
+	'agreement-landed-flagged'     => 'site_name institution_name uploaded_on uploaded_by scan_flags* queue_link',
+	'agreement-accepted'           => 'site_name accepted_on dashboard_link',
+	'agreement-reinstated'         => 'site_name reinstated_on dashboard_link',
+	'agreement-returned'           => 'site_name returned_on administrator_name note*^',
+	'agreement-revoked'            => 'site_name revoked_on administrator_name note*^ country country_contact*',
+	'agreement-revoked-no-contact' => 'site_name revoked_on administrator_name note*^',
+	'agreement-reminder'           => 'site_name agreements_waiting agreements_overdue review_days overdue_list queue_link',
+	'agreement-template'           => 'site_name reason language institution_record name_asked_for^',
+	'member-last'                  => 'site_name member_name institution_name institution_record left_on ended_because',
+	'report-drafted'               => 'institution_name semester* students_in_progress review_link',
+	'report-approved'              => 'semester* report_link',
+	'report-consent'               => 'semester* dashboard_link',
+);
+$lists_now = array();
+foreach ( $all as $id => $entry ) {
+	if ( ! in_array( $entry['module'], array( WPCPM_Mail_Catalog::MODULE_INSTITUTIONS, WPCPM_Mail_Catalog::MODULE_REPORTS ), true ) ) {
+		continue;
+	}
+
+	$lists_now[ $id ] = array_map(
+		static function ( $name, $placeholder ) {
+			return $name . ( ! empty( $placeholder['required'] ) ? '*' : '' ) . ( ! empty( $placeholder['body_only'] ) ? '^' : '' );
+		},
+		array_keys( $entry['placeholders'] ),
+		$entry['placeholders']
+	);
+}
+$removed = array();
+$added   = array();
+foreach ( $lists_1_123_26 as $id => $list ) {
+	$was = explode( ' ', $list );
+
+	// A token carries its marks, so a placeholder made required, or moved to the body alone, is
+	// a token missing here and one added there.
+	if ( array() !== array_diff( $was, $lists_now[ $id ] ) ) {
+		$removed[ $id ] = array_values( array_diff( $was, $lists_now[ $id ] ) );
+	}
+
+	if ( array() !== array_diff( $lists_now[ $id ], $was ) ) {
+		$added[ $id ] = array_values( array_diff( $lists_now[ $id ], $was ) );
+	}
+}
+ck( 'the Institutions and the Semester reports have the 21 emails they had', array_keys( $lists_now ), array_keys( $lists_1_123_26 ) );
+ck( 'no placeholder is taken out of any of their lists, none is made required and none is moved to the body alone, so no saved edit is set aside', $removed, array() );
+ck(
+	'and what the lists gain is optional and in the body or the subject: the institution\'s name, in the notice of a template that cannot be used, and the site\'s name in the three Semester reports emails\' subjects',
+	$added,
+	array(
+		'agreement-template' => array( 'institution_name' ),
+		'report-drafted'     => array( 'site_name' ),
+		'report-approved'    => array( 'site_name' ),
+		'report-consent'     => array( 'site_name' ),
+	)
+);
+
+$asked  = array( 'agreement panel', 'airtable', '{institution_record}' );
+$saying = array();
+foreach ( $lists_now as $id => $list ) {
+	$text = strtolower( $all[ $id ]['subject'] . "\n" . $all[ $id ]['body'] );
+
+	foreach ( $asked as $words ) {
+		if ( false !== strpos( $text, $words ) ) {
+			$saying[ $id ][] = $words;
+		}
+	}
+}
+ck( 'no shipped subject or body of the Institutions or the Semester reports says "agreement panel", "Airtable" or an {institution_record}', $saying, array() );
+
+$paragraphs = static function ( $id ) {
+	return explode( "\n\n", str_replace( "\r\n", "\n", rtrim( WPCPM_Mail_Templates::get( $id )['body'], "\r\n" ) ) );
+};
+$said       = array(
+	'institution-applied'          => array(
+		'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account for it on the site, where you generate the program\'s Collaboration Agreement or upload your own, then sign it and upload the signed copy.',
+		'This message went to {applicant_email} because that address was given on the application form at the {site_name}. If it was not you, you can ignore it: nothing happens until the address is confirmed.',
+	),
+	'institution-applied-no-call'  => array(
+		'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account for it on the site, where you generate the program\'s Collaboration Agreement or upload your own, then sign it and upload the signed copy.',
+		'This message went to {applicant_email} because that address was given on the application form at the {site_name}. If it was not you, you can ignore it: nothing happens until the address is confirmed.',
+	),
+	'institution-invite'           => array( '{inviter_name} has invited you to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.' ),
+	'institution-invite-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.' ),
+	'agreement-revoked'            => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
+	'agreement-revoked-no-contact' => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
+	'agreement-received'           => array( 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.' ),
+	'agreement-returned'           => array( 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
+	'agreement-template'           => array(
+		'The reason given was: {reason} (template language {language}, institution {institution_name}, name asked for "{name_asked_for}").',
+		'The template is part of the plugin, so a developer fixes it. A bracketed word other than the institution\'s name is refused on purpose: it would otherwise be printed on a document somebody signs. Nothing can be generated in this language until it is fixed.',
+	),
+	'member-last'                  => array(
+		'{member_name} is no longer a member of {institution_name} as of {left_on} ({ended_because}). No account can act for this institution on the site now.',
+		'The institution\'s record, its agreement, its students and its history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.',
+	),
+);
+$missing    = array();
+foreach ( $said as $id => $wanted_paragraphs ) {
+	foreach ( $wanted_paragraphs as $paragraph ) {
+		if ( ! in_array( $paragraph, $paragraphs( $id ), true ) ) {
+			$missing[ $id ][] = $paragraph;
+		}
+	}
+}
+ck( 'each changed paragraph is the one worded for it, a paragraph of its own, in the acknowledgements, the invitations, the revocation, the received and returned notices, the notice of a template that cannot be used and the last member\'s', $missing, array() );
+
+$subjects = array(
+	'report-drafted'  => '[{site_name}] Semester report drafted: {institution_name}',
+	'report-approved' => '[{site_name}] Your semester report is ready',
+	'report-consent'  => '[{site_name}] May your institution mention you in its semester report?',
+);
+ck( 'the three Semester reports emails\' subjects open with the site\'s name in brackets, as every other email\'s does', array_map( static function ( $id ) use ( $all ) { return $all[ $id ]['subject']; }, array_keys( $subjects ) ), array_values( $subjects ) );
+ck(
+	'filled with their examples they read so, the site\'s name in the brackets',
+	array_map( static function ( $id ) { return WPCPM_Mail_Templates::render( $id, WPCPM_Mail_Templates::example_values( $id ) )['subject']; }, array_keys( $subjects ) ),
+	array( '[WordPress Credits] Semester report drafted: Example University', '[WordPress Credits] Your semester report is ready', '[WordPress Credits] May your institution mention you in its semester report?' )
+);
+
+$about_the_name = array();
+foreach ( $lists_now as $id => $list ) {
+	foreach ( array( 'institution_name' => 'The institution\'s name, or its record ID when the site holds no name for it.', 'site_name' => 'The site\'s name.' ) as $name => $means ) {
+		if ( isset( $all[ $id ]['placeholders'][ $name ] ) && $means !== $all[ $id ]['placeholders'][ $name ]['means'] && ! in_array( $id, array( 'institution-applied', 'institution-applied-no-call', 'institution-application' ), true ) ) {
+			$about_the_name[] = $id . ' {' . $name . '}';
+		}
+	}
+}
+ck( 'the institution\'s name is explained as its name, or its record ID when the site holds none, in every email of both areas but the three about an application, and the site\'s name as the site\'s name', $about_the_name, array() );
+ck(
+	'who uploaded it is explained for both of its copies, the institution\'s and the Administrators\'',
+	array( $all['agreement-received']['placeholders']['uploaded_by']['means'], $all['agreement-landed']['placeholders']['uploaded_by']['means'], $all['agreement-landed-flagged']['placeholders']['uploaded_by']['means'] ),
+	array_fill( 0, 3, 'Who uploaded it: their name, or, when their account holds none, "a member of your institution" in the institution\'s copy and "a member of the institution" in the Administrators\'.' )
+);
+
+$filled = WPCPM_Mail_Templates::render( 'member-last', WPCPM_Mail_Templates::example_values( 'member-last' ) );
+ck( 'the last member\'s notice, filled with its examples, names the member, the institution, the day and why, in that order', explode( "\r\n\r\n", $filled['body'] )[0], 'Ada Okonjo is no longer a member of Example University as of ' . wp_date( 'F j, Y' ) . ' (left). No account can act for this institution on the site now.' );
+$filled = WPCPM_Mail_Templates::render( 'agreement-template', WPCPM_Mail_Templates::example_values( 'agreement-template' ) );
+ck( 'and the template notice names the institution, not a record', explode( "\r\n\r\n", $filled['body'] )[1], 'The reason given was: The agreement template needs attention: it contains a placeholder the generator does not fill in. (template language en, institution Example University, name asked for "Example University").' );
+
+// An edit saved under 1.123.26 that uses {institution_record} still fits the two emails that
+// stopped saying it: it is the shipped text that has changed since, which the state says, and the
+// edit is what is sent, with the record in it. Saved now, an edit that uses it is taken too.
+$was_shipped = array(
+	'member-last'        => array(
+		'subject' => '[{site_name}] {institution_name} has no members left',
+		'body'    => "{member_name} is no longer a member of {institution_name} ({institution_record}) as of {left_on} ({ended_because}). No account can act for this institution on the site now.\n\nThe Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.",
+		'values'  => array( 'member_name' => 'Ada Okonjo', 'institution_name' => 'Example University', 'institution_record' => 'recEXAMPLE0000001', 'left_on' => 'March 9, 2036', 'ended_because' => 'left' ),
+		'says'    => 'Ada Okonjo is no longer a member of Example University (recEXAMPLE0000001) as of March 9, 2036 (left).',
+	),
+	'agreement-template' => array(
+		'subject' => '[{site_name}] The Collaboration Agreement template needs attention',
+		'body'    => "An institution asked the site to generate the Collaboration Agreement and the template could not be used.\n\nThe reason given was: {reason} (template language {language}, institution {institution_record}, name asked for \"{name_asked_for}\").",
+		'values'  => array( 'reason' => 'It holds a placeholder.', 'language' => 'en', 'institution_record' => 'recEXAMPLE0000001', 'name_asked_for' => 'Example University' ),
+		'says'    => 'The reason given was: It holds a placeholder. (template language en, institution recEXAMPLE0000001, name asked for "Example University").',
+	),
+);
+$kept_edits = array();
+foreach ( $was_shipped as $id => $edit ) {
+	$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates'][ $id ] = array( 'subject' => $edit['subject'], 'body' => $edit['body'], 'by' => 7, 'at' => 1, 'shipped' => md5( 'the text 1.123.26 shipped' ) );
+	$stored_state                                                         = WPCPM_Mail_Templates::state( $id );
+	$sent                                                                 = WPCPM_Mail_Templates::render( $id, array( 'site_name' => 'WordPress Credits' ) + $edit['values'] );
+	$kept_edits[ $id ]                                                    = array( $stored_state['state'], $stored_state['reason'], WPCPM_Mail_Templates::sent_as_edited( $id ), false !== strpos( str_replace( "\r\n", "\n", $sent['body'] ), $edit['says'] ) );
+	unset( $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates'][ $id ] );
+
+	$saved                      = WPCPM_Mail_Templates::save( $id, $edit['subject'], $edit['body'], 7 );
+	$kept_edits[ $id ]['saved'] = array( $saved, WPCPM_Mail_Templates::state( $id )['state'], WPCPM_Mail_Templates::sent_as_edited( $id ) );
+	WPCPM_Mail_Templates::restore( $id );
+}
+ck(
+	'an edit of the last member\'s notice or the template notice that uses {institution_record} is not set aside: it is edited, the shipped text having changed since, it is sent as typed with the record, and one saved now is kept',
+	$kept_edits,
+	array(
+		'member-last'        => array( 'changed', '', true, true, 'saved' => array( true, 'edited', true ) ),
+		'agreement-template' => array( 'changed', '', true, true, 'saved' => array( true, 'edited', true ) ),
+	)
+);
+unset( $GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ], $GLOBALS['autoload'][ WPCPM_Mail_Templates::OPTION ] );
 
 // The two sentences an event email says only when they are true, the calendar file's and how many
 // of the people on a canceled event were told, are values an Administrator can move or delete but
@@ -831,7 +1032,7 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 		'agreement-returned returned_on'         => $today->format( 'Y-m-d' ),
 		'agreement-revoked revoked_on'           => $today->format( 'Y-m-d' ),
 		'agreement-received uploaded_on'         => $today->modify( '-1 day' )->format( 'Y-m-d' ),
-		'institution-invite expiry_date'         => $today->modify( '+14 days' )->format( 'Y-m-d' ),
+		'institution-invite expiry_date'         => $today->modify( '+14 days' )->format( 'F j, Y' ),
 		'member-last left_on'                    => $today->format( 'F j, Y' ),
 		'agreement-received review_window'       => '3 working days',
 		'sponsor-agreement-accepted accepted_on' => $today->format( 'Y-m-d' ),
@@ -1388,15 +1589,15 @@ $builders = array(
 	'call-booked-student'        => function () use ( $site ) {
 		return reach( 'WPCPM_Mentor_Calls', 'mail_of' )->invoke( null, 'call-booked-student', array( 'site_name' => $site, 'mentor_name' => 'Seán O\'Example &amp; Ana' ) + WPCPM_Mail_Templates::example_values( 'call-booked-student' ), array() );
 	},
-	'report-drafted'             => function () {
-		return reach( 'WPCPM_Semester_Report_Screen', 'rendered' )->invoke( null, 'report-drafted', array( 'institution_name' => 'Example College &amp; "Arts"' ) + WPCPM_Mail_Templates::example_values( 'report-drafted' ) );
+	'report-drafted'             => function () use ( $site ) {
+		return reach( 'WPCPM_Semester_Report_Screen', 'rendered' )->invoke( null, 'report-drafted', array( 'site_name' => $site, 'institution_name' => 'Example College &amp; "Arts"' ) + WPCPM_Mail_Templates::example_values( 'report-drafted' ) );
 	},
 );
 $as_shipped = array(
 	'institution-application'    => '[Credits & Co] New institution application from Arts & Sciences "North"',
 	'sponsor-agreement-received' => '[Credits & Co] Example Hosting & "Partners" uploaded a signed Collaboration Agreement',
 	'call-booked-student'        => '[Credits & Co] Your call with Seán O\'Example & Ana is booked',
-	'report-drafted'             => 'Semester report drafted: Example College & "Arts"',
+	'report-drafted'             => '[Credits & Co] Semester report drafted: Example College & "Arts"',
 );
 /** The subject an email's real send hands `wp_mail()`, and whether the filter was handed it marked plain text. */
 $sent_subject = function ( $id ) use ( $admin, &$builders ) {

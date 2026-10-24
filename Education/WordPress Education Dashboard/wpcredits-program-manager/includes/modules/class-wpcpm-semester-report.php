@@ -98,9 +98,6 @@ final class WPCPM_Semester_Report {
 	/** When the snapshot was last generated, as a Unix time. */
 	const META_GENERATED = '_wpcpm_report_generated';
 
-	/** When the print document was last opened, as a Unix time. */
-	const META_EXPORTED = '_wpcpm_report_exported';
-
 	/** Prefix for the two cached Airtable reads. */
 	const CACHE_PREFIX = 'wpcpm_report_';
 
@@ -141,14 +138,14 @@ final class WPCPM_Semester_Report {
 	 */
 	const VERSION = 1;
 
-	/** `draft` or `approved`. Version 2 of the vocabulary; `maybe_upgrade()` flips `final`. */
+	/** `draft` or `approved`; a `final` from before 1.91.0 is read as a draft (see `state()`). */
 	const META_STATE = '_wpcpm_report_state';
 	/**
 	 * Who approved the report and when: `array( 'at' => int, 'by' => int )`.
 	 *
-	 * `by` is 0 for a report that was `final` before approval existed and was flipped by
-	 * `maybe_upgrade()`: nobody pressed Approve on it, and a stamp naming the upgrading
-	 * request's user would be a claim about a person. Deleted on reopen.
+	 * `by` is 0 for a report that was `final` before approval existed and was flipped to
+	 * `approved` by 1.91.0's upgrade: nobody pressed Approve on it, and a stamp naming the
+	 * upgrading request's user would have been a claim about a person. Deleted on reopen.
 	 *
 	 * @var string
 	 */
@@ -249,16 +246,14 @@ final class WPCPM_Semester_Report {
 	 */
 	const OPT_EPOCH = 'wpcpm_report_epoch';
 
-	/** The version of the state vocabulary this site's reports are written in. */
-	const OPT_STATE_VERSION = 'wpcpm_report_state_version';
-	/** Version 2 renamed `final` to `approved`; `maybe_upgrade()` flips the rows once. */
-	const STATE_VERSION = 2;
 	/**
 	 * The day the drafting job was installed, as `Y-m-d`.
 	 *
 	 * Nothing whose semester window closed before this day is drafted by the job: the first
 	 * run on a site with forty institutions and two years of rosters would otherwise draft
 	 * eighty reports nobody asked for. A manager who wants an older one presses Draft now.
+	 * Stored by `WPCPM_Institutions::schedule_cron()` where it puts the job on the clock, as
+	 * an `add_option()` that keeps a day already stored.
 	 *
 	 * @var string
 	 */
@@ -283,10 +278,6 @@ final class WPCPM_Semester_Report {
 	 * Hooks.
 	 */
 	public static function init() {
-		// Before the post type, on purpose: the flip queries by post type string and needs no
-		// registration, and running first means every later hook of this request sees the
-		// new vocabulary.
-		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ), 5 );
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
 		add_action( 'init', array( __CLASS__, 'register_meta' ) );
 	}
@@ -505,17 +496,39 @@ final class WPCPM_Semester_Report {
 	 * A report whose state meta was lost or never written is editable, which is the safe
 	 * direction: the other reading would lock a school out of its own document with no way
 	 * back. Any other stored value comes back unchanged rather than folded into `draft`: a
-	 * row `maybe_upgrade()` has not yet reached still reads as `final` here, and only the
-	 * upgrade decides when that changes. A comparison against `approved` still treats such a
-	 * row as a draft, because nothing but the exact word matches.
+	 * `final` from before 1.91.0, on a site that never ran that version's flip to `approved`,
+	 * still reads as `final` here. Every comparison against `approved` treats such a row as a
+	 * draft, because nothing but the exact word matches, and `state_label()` words it so.
 	 *
 	 * @param WP_Post $post The report.
-	 * @return string `draft`, `approved`, or a value only a not-yet-upgraded row still carries.
+	 * @return string `draft`, `approved`, or whatever else the row holds, such as an old `final`.
 	 */
 	public static function state( WP_Post $post ) {
 		$state = (string) get_post_meta( (int) $post->ID, self::META_STATE, true );
 
 		return '' === $state ? self::STATE_DRAFT : $state;
+	}
+
+	/**
+	 * A report's state in the words an Administrator reads for it.
+	 *
+	 * One map for the Institutions screen's list, the report editor's header and the
+	 * Administrator Dashboard's Programs running cell. `none` is no state a report holds: it is
+	 * what that cell keeps for an institution with no report yet. Any other value reads as a
+	 * draft, as every comparison against `approved` already treats it, so a value this map does
+	 * not know never shows as a stored word.
+	 *
+	 * @param string $state `none`, `draft` or `approved`.
+	 * @return string
+	 */
+	public static function state_label( $state ) {
+		if ( 'none' === $state ) {
+			return __( 'Not drafted', 'wpcredits-program-manager' );
+		}
+
+		return self::STATE_APPROVED === $state
+			? __( 'Approved', 'wpcredits-program-manager' )
+			: __( 'Draft', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -550,16 +563,6 @@ final class WPCPM_Semester_Report {
 	 */
 	public static function generated_at( WP_Post $post ) {
 		return (int) get_post_meta( (int) $post->ID, self::META_GENERATED, true );
-	}
-
-	/**
-	 * When the print document was last opened, as a Unix time, or 0.
-	 *
-	 * @param WP_Post $post The report.
-	 * @return int
-	 */
-	public static function exported_at( WP_Post $post ) {
-		return (int) get_post_meta( (int) $post->ID, self::META_EXPORTED, true );
 	}
 
 	/**
@@ -737,15 +740,6 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
-	 * Record that the print document was opened.
-	 *
-	 * @param WP_Post $post The report.
-	 */
-	public static function mark_exported( WP_Post $post ) {
-		update_post_meta( (int) $post->ID, self::META_EXPORTED, time() );
-	}
-
-	/**
 	 * Remove every report on uninstall.
 	 *
 	 * These posts hold students' own words and the names of students who agreed to appear in
@@ -781,63 +775,13 @@ final class WPCPM_Semester_Report {
 
 		delete_option( self::OPT_EPOCH );
 		delete_option( self::OPT_LOG );
-		delete_option( self::OPT_STATE_VERSION );
+		// The version of the state vocabulary, which 1.91.0's flip of `final` to `approved`
+		// stamped and nothing writes or reads now. Named here because a site that ran the
+		// flip still holds the row.
+		delete_option( 'wpcpm_report_state_version' );
 		delete_option( self::OPT_AUTODRAFT_SINCE );
 
 		return $removed;
-	}
-
-	/**
-	 * Flip every `final` report to `approved`, once, and record the day the job arrived.
-	 *
-	 * Runs on `init` at priority 5 for sites updated by dropping in files, the way the roles
-	 * and settings upgrades do. Idempotent: the version option is what makes it once.
-	 */
-	public static function maybe_upgrade() {
-		if ( (int) get_option( self::OPT_STATE_VERSION ) >= self::STATE_VERSION ) {
-			return;
-		}
-
-		// Every status, for the reason delete_all() gives: a trashed report is still a report,
-		// and a `final` one left in the trash would read as a third state nothing knows.
-		$found = get_posts(
-			array(
-				'post_type'      => self::POST_TYPE,
-				'post_status'    => array( 'publish', 'private', 'draft', 'pending', 'future', 'trash', 'auto-draft', 'inherit' ),
-				'posts_per_page' => -1,
-				'meta_query'     => array(
-					array(
-						'key'   => self::META_STATE,
-						'value' => 'final',
-					),
-				),
-			)
-		);
-
-		foreach ( $found as $post ) {
-			if ( ! $post instanceof WP_Post ) {
-				continue;
-			}
-
-			update_post_meta( (int) $post->ID, self::META_STATE, self::STATE_APPROVED );
-
-			// `by` 0: nobody pressed Approve. `at` is the last edit, the closest fact to "when
-			// it was marked final" a version-1 row holds.
-			update_post_meta(
-				(int) $post->ID,
-				self::META_APPROVED,
-				array(
-					'at' => (int) get_post_modified_time( 'U', true, $post ),
-					'by' => 0,
-				)
-			);
-		}
-
-		// `add_option()` and not `update_option()`: the day the job was installed is a fact
-		// about this site that a later upgrade must not move.
-		add_option( self::OPT_AUTODRAFT_SINCE, wp_date( 'Y-m-d' ), '', false );
-
-		update_option( self::OPT_STATE_VERSION, self::STATE_VERSION );
 	}
 
 	/**

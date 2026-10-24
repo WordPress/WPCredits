@@ -57,7 +57,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 
-$GLOBALS['opts']       = array( 'date_format' => 'Y-m-d' );
+$GLOBALS['opts']       = array( 'date_format' => 'F j, Y', 'time_format' => 'g:i a' );
 $GLOBALS['umeta']      = array();
 $GLOBALS['users']      = array();
 $GLOBALS['posts']      = array();
@@ -237,6 +237,7 @@ require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -428,7 +429,6 @@ function token_from_mail() {
 	$body = $mail['mail']['body'] ?? '';
 	return preg_match( '/[?&]t=([A-Za-z0-9]{32})/', (string) $body, $m ) ? $m[1] : '';
 }
-function invites( $record ) { return WPCPM_Institution_Invite::invites_for( $record ); }
 function pmeta( $id, $key ) { return $GLOBALS['pmeta'][ (int) $id ][ $key ][0] ?? null; }
 function newest_invite() {
 	$ids = array();
@@ -666,13 +666,47 @@ echo "\n=== The link in the mail asks, and changes nothing ===\n";
 
 reset_world();
 
+$sent_before = time();
 invite_as( 7, $A, 'newcomer@example.test' );
-$invite  = newest_invite();
-$token   = token_from_mail();
-$members = count( WPCPM_Institution_Members::members_of( $A ) );
-$people  = count( $GLOBALS['users'] );
+$sent_after = time();
+$invite     = newest_invite();
+$token      = token_from_mail();
+$mail_body  = (string) ( last_mail()['mail']['body'] ?? '' );
+$members    = count( WPCPM_Institution_Members::members_of( $A ) );
+$people     = count( $GLOBALS['users'] );
 
 $page = ask_as( 0, $token );
+
+// The day the link stops working is printed the way the site's Settings say, in the mail and on the page
+// it opens, and never as the year-month-day the plugin works it out in. Read for the moment before the
+// invitation was sent and the one after it, so a run across midnight cannot fail it.
+$works_until = static function ( $format ) use ( $sent_before, $sent_after ) {
+	return array_values( array_unique( array( gmdate( $format, $sent_before + ( 14 * DAY_IN_SECONDS ) ), gmdate( $format, $sent_after + ( 14 * DAY_IN_SECONDS ) ) ) ) );
+};
+$said_until  = static function ( $text, $before, $after, $format ) use ( $works_until ) {
+	foreach ( $works_until( $format ) as $day ) {
+		if ( has( $text, $before . $day . $after ) ) {
+			return true;
+		}
+	}
+
+	return false;
+};
+ck( 'the mail says the link works until a day in the site\'s format, not year-month-day', array(
+	$said_until( $mail_body, 'The link works until ', ' and can only be used once.', 'F j, Y' ),
+	$said_until( $mail_body, 'The link works until ', ' and can only be used once.', 'Y-m-d' ),
+), array( true, false ) );
+ck( 'and so does the page the link opens', array(
+	$said_until( $page, 'The invitation works until ', ',', 'F j, Y' ),
+	$said_until( $page, 'The invitation works until ', ',', 'Y-m-d' ),
+), array( true, false ) );
+$GLOBALS['opts']['date_format'] = 'd/m/Y';
+ck( 'a site with another format reads its own, on the page', $said_until( ask_as( 0, $token ), 'The invitation works until ', ',', 'd/m/Y' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+ck( 'the mail and the page it opens name the site after "the", as the Institutions emails do: "on the WordPress Education Dashboard"', array(
+	has( $mail_body, 'Anna Kowalska has invited you to see TEST - Institution 20\'s students in the WordPress Credits Program on the WordPress Education Dashboard.' ),
+	has( $page, 'Anna Kowalska has invited you to see TEST - Institution 20&#039;s students in the WordPress Credits Program on the WordPress Education Dashboard.' ),
+), array( true, true ) );
 
 ck( 'the link draws a page rather than doing anything', has( $page, '<form' ), true );
 ck( 'and the only control on it is a POST back to the accept action', array(
@@ -735,14 +769,19 @@ ck( 'attached as invited, with the inviter as the actor and the invitation named
 	$membership['invite'],
 ), array( 'invited', 7, $invite ) );
 
-ck( 'the row is accepted, and names the account', array(
+// When it stopped being pending is the settled stamp's, which the retention reads; a second stamp
+// of the acceptance alone had no reader.
+ck( 'the row is accepted, names the account, and is settled, with no second stamp of the acceptance', array(
 	pmeta( $invite, '_wpcpm_inv_state' ),
 	(int) pmeta( $invite, '_wpcpm_inv_user' ),
-	pmeta( $invite, '_wpcpm_inv_accepted' ) > 0,
-), array( 'accepted', (int) $created->ID, true ) );
+	pmeta( $invite, '_wpcpm_inv_settled' ) > 0,
+	pmeta( $invite, '_wpcpm_inv_accepted' ),
+	defined( 'WPCPM_Institution_Invite::META_ACCEPTED' ),
+), array( 'accepted', (int) $created->ID, true, null, false ) );
 ck( 'and its token is forgotten, so the link is dead whatever the state says', pmeta( $invite, '_wpcpm_inv_token' ), '' );
 ck( 'an audit row records the acceptance', array( last_entry( $A )['kind'], last_entry( $A )['actor'] ), array( 'invite_accepted', (int) $created->ID ) );
-ck( 'and the member card would show it', array( count( invites( $A ) ), invites( $A )[0]['state'], invites( $A )[0]['waiting'] ), array( 1, 'accepted', false ) );
+ck( 'and its facts say so', array( WPCPM_Institution_Invite::facts( $invite )['state'], WPCPM_Institution_Invite::facts( $invite )['waiting'] ), array( 'accepted', false ) );
+ck( 'invites_for() is gone: no card lists an institution\'s invitations from it', method_exists( 'WPCPM_Institution_Invite', 'invites_for' ), false );
 
 $second = accept_as( 0, $token );
 
@@ -1244,6 +1283,23 @@ ck( 'with Cancel and Resend, each keyed to the invitation', array(
 ), array( true, true, true ) );
 ck( 'no token is ever rendered', has( $list, 'inv_token' ), false );
 ck( 'and a stranger is drawn nothing', render_pending_as( 9, $A ), '' );
+
+// The dates in "Invited by ... on ..., good until ..." are the site's, the way every other date
+// on the dashboard is, and never the year-month-day a database writes.
+reset_world();
+$sent = time() - ( 2 * DAY_IN_SECONDS );
+seed_invite( $A, 'dated@example.test', 7, $sent );
+$list = render_pending_as( 7, $A );
+$long = static function ( $t ) { return gmdate( 'F j, Y', $t ); };
+$iso  = static function ( $t ) { return gmdate( 'Y-m-d', $t ); };
+
+ck( 'a waiting invitation says who sent it and the two dates in the site\'s format',
+	has( $list, 'Invited by Anna Kowalska on ' . $long( $sent ) . ', good until ' . $long( $sent + ( 14 * DAY_IN_SECONDS ) ) . '.' ), true );
+ck( 'and prints neither as year-month-day', array( has( $list, $iso( $sent ) ), has( $list, $iso( $sent + ( 14 * DAY_IN_SECONDS ) ) ) ), array( false, false ) );
+
+$GLOBALS['opts']['date_format'] = 'd/m/Y';
+ck( 'a site with another format reads its own', has( render_pending_as( 7, $A ), ' on ' . gmdate( 'd/m/Y', $sent ) . ', good until ' . gmdate( 'd/m/Y', $sent + ( 14 * DAY_IN_SECONDS ) ) . '.' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
 
 echo "\n=== The outcome is printed on the card it happened to ===\n";
 

@@ -854,7 +854,7 @@ ck( 'a tile that counts two reads as the strip reads it, both counts on the chip
 	array(
 		'agreements' => '2 Collaboration Agreements to review, 1 overdue',
 		'reports'    => '1 Semester reports to review, 1 due for drafting',
-		'requests'   => '2 Mentor requests open, 1 overdue',
+		'requests'   => '2 Requests from institutions open, 1 overdue',
 	) );
 
 $busy_targets = array();

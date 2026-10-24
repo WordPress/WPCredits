@@ -122,9 +122,6 @@ class WPCPM_Institution_Invite {
 	/** Post meta: when it stopped being pending, unix. The retention window runs from here. */
 	const META_SETTLED = '_wpcpm_inv_settled';
 
-	/** Post meta: when it was accepted, unix. */
-	const META_ACCEPTED = '_wpcpm_inv_accepted';
-
 	/** Post meta: the account that accepted it. */
 	const META_USER = '_wpcpm_inv_user';
 
@@ -234,29 +231,6 @@ class WPCPM_Institution_Invite {
 		}
 
 		return $pending;
-	}
-
-	/**
-	 * Every invitation an institution has, newest first, as facts.
-	 *
-	 * Facts only, in the shape the cards print them: nothing here decides anything and
-	 * nothing here is a token. `waiting` is the state after the fourteen days are applied,
-	 * so a card never shows a lapsed row as pending while it waits for the sweep.
-	 *
-	 * @param string $record_id Airtable institution record ID.
-	 * @param int    $limit     Most rows to read.
-	 * @return array[] `id`, `email`, `state`, `waiting`, `sent`, `expires`, `actor`,
-	 *                 `actor_name`, `user`.
-	 */
-	public static function invites_for( $record_id, $limit = 50 ) {
-		$limit = (int) $limit > 0 ? (int) $limit : 50;
-		$facts = array();
-
-		foreach ( self::posts_for( $record_id, $limit ) as $post ) {
-			$facts[] = self::facts_of( $post );
-		}
-
-		return $facts;
 	}
 
 	/**
@@ -412,8 +386,8 @@ class WPCPM_Institution_Invite {
 					/* translators: 1: who sent it, 2: the date it was sent, 3: the date it stops working. */
 					__( 'Invited by %1$s on %2$s, good until %3$s.', 'wpcredits-program-manager' ),
 					'' !== $facts['actor_name'] ? $facts['actor_name'] : __( 'a colleague', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d', $facts['sent'] ),
-					wp_date( 'Y-m-d', $facts['expires'] )
+					WPCPM_Dates::day( (int) $facts['sent'] ),
+					WPCPM_Dates::day( (int) $facts['expires'] )
 				)
 			)
 		);
@@ -775,7 +749,6 @@ class WPCPM_Institution_Invite {
 		}
 
 		self::settle( $post_id, self::STATE_ACCEPTED );
-		update_post_meta( $post_id, self::META_ACCEPTED, time() );
 		update_post_meta( $post_id, self::META_USER, (int) $user_id );
 
 		WPCPM_Institution_Audit::record(
@@ -1022,7 +995,7 @@ class WPCPM_Institution_Invite {
 		$school  = self::institution_name( (string) $invite['record'] );
 		$site    = wp_specialchars_decode( WPCPM_Mail::site_name(), ENT_QUOTES );
 		$who     = self::actor_name( (int) get_post_meta( $post_id, self::META_ACTOR, true ) );
-		$until   = wp_date( 'Y-m-d', self::expires_at( (int) get_post_meta( $post_id, self::META_SENT, true ) ) );
+		$until   = WPCPM_Dates::day( self::expires_at( (int) get_post_meta( $post_id, self::META_SENT, true ) ) );
 		$title   = __( 'Accept this invitation?', 'wpcredits-program-manager' );
 
 		if ( '' === $who ) {
@@ -1049,8 +1022,8 @@ class WPCPM_Institution_Invite {
 
 		$html .= '<p>' . esc_html(
 			sprintf(
-				/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name. */
-				__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on %3$s.', 'wpcredits-program-manager' ),
+				/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name, read after "the", as in "the Education Directory". */
+				__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on the %3$s.', 'wpcredits-program-manager' ),
 				$who,
 				$school,
 				$site
@@ -1916,7 +1889,7 @@ class WPCPM_Institution_Invite {
 		$school  = self::institution_name( $record );
 		$who     = self::actor_name( $actor );
 		$link    = self::accept_url( $token );
-		$until   = wp_date( 'Y-m-d', self::expires_at( time() ) );
+		$until   = WPCPM_Dates::day( self::expires_at( time() ) );
 		$sender  = get_user_by( 'id', $actor );
 		$headers = WPCPM_Mail::reply_to( $sender instanceof WP_User ? $sender : null );
 		$id      = '' === trim( $who ) ? self::MAIL_INVITE_NO_SENDER : self::MAIL_INVITE;

@@ -889,9 +889,6 @@ final class WPCPM_Institution_Import_Form {
 			self::bounce( 'not-staged', array(), $institution );
 		}
 
-		$counts = self::counts( $checked );
-		WPCPM_Institution_Import::log_check( $institution, get_current_user_id(), count( $checked ), $counts['blocked'] );
-
 		self::leave( 'checked', array( 'batch' => $staged ), $institution );
 	}
 

@@ -383,7 +383,8 @@ class WPCPM_Institution_Export {
 			'site|group'                     => (string) $group,
 			'students|Full Name'             => self::from( $row, 'name' ),
 			// The program the student is on, not the pipeline status: it is what the screen's
-			// badge says, and `site|group` above already carries "finished" or "did not start".
+			// badge says, and `site|group` above already carries "Finished" or
+			// "Not on the program now".
 			'students|Status'                => '' === $status ? '' : WPCPM_Program::label( $status ),
 			// The dates exactly as the base holds them, which is ISO. A spreadsheet reads
 			// `2026-09-03` as a date in every locale; a formatted date is a string in most.

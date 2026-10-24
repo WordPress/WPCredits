@@ -1,8 +1,8 @@
 # The program's Collaboration Agreement Doc, as its plain-text export reads it out.
 #
-# Hand written, never generated. This is the other side of WPCPM_Agreement_Template::drift(),
-# and a fixture produced by calling plain_text() could only ever agree with itself: it would
-# pass while the real check reported a difference on every press, which is what happened.
+# Hand written, never generated. bin/test-agreement-template.php holds the plugin's copy to the
+# load-bearing sentences this file carries, and a fixture produced by calling plain_text() could
+# only ever agree with itself.
 #
 # The words are the Doc's, which is where the plugin's copy was transcribed from too. What is
 # the Doc's alone is the SHAPE, and the shape is the whole point of this file:
@@ -16,8 +16,9 @@
 #   - the ruled lines a signatory writes on, which are longer here than the four underscores
 #     plain_text() prints.
 #
-# Those four are exactly what normalise() folds away, and every one of them is a difference
-# this check must not report. Anything else in here that stops matching is a wording change.
+# Those four are the Doc's alone, and the suite checks this file still has them, so it stays a
+# transcription of the Doc rather than of the plugin's copy. Anything else in here that stops
+# matching the Doc is a wording change.
 #
 # How to check it: open the Doc and read down this file beside it. How to maintain it: when
 # the wording owner edits the Doc, this file is edited in the same change as the block list

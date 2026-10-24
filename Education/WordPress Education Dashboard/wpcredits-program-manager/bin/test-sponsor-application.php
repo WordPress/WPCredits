@@ -10,6 +10,11 @@
  *   the sync (1.111.0): an application already on file keeps its answers under these exact
  *   strings. The apostrophe in "Anything else you'd like to share." is ASCII, unlike the
  *   institution table's U+2019, and the full stop is part of the name.
+ * - **A label is the company's words and a key is the base's.** The name of the company, the
+ *   person to contact and their address are asked in plain words (1.123.27) over the columns
+ *   `Company Name`, `Contact Person Full Name` and `Contact Email`; the eight columns and the
+ *   field name each posts under, hashed from the column, are pinned as they were, so only the
+ *   label beside a field moved.
  * - **The support question is no longer asked** (1.123.12). "How would you like to support WP
  *   Credits?" and its note on tools are gone from the form, since the tiers cover them: nothing
  *   draws, requires or stores it, an application without it is taken, and a stale form that posts
@@ -750,13 +755,61 @@ echo "\n-- required fields say so ----------------------------------------------
 // radios and its mark went with it (1.123.12).
 ck( 'five rendered `required` attributes and five visible marks', array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ), array( 5, 5 ) );
 $name_key = WPCPM_Sponsor_Application::form_key( 'Company Name' );
-ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $name_key . '">Company Name <span class="wpcpm-field__required">Required</span></label>' ), true );
+ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $name_key . '">Name of your company <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, 'under it. <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the logo question and the free text carry no mark', array( false !== strpos( $form, '<span class="wpcpm-field__label">Company logo</span>' ), false !== strpos( $form, "Anything else you&#039;d like to share.</label>" ) ), array( true, true ) );
 ck( 'the policy line links a word inside the sentence, WordPress.org\'s policy and not the page this site has set, opening where the form is', array( false !== strpos( $form, '<span class="wpcpm-field__hint">You can read the WordPress.org privacy policy <a href="https://wordpress.org/about/privacy/" rel="noopener">here</a>.</span>' ), strpos( $form, 'href="' . get_privacy_policy_url() . '"' ), substr_count( $form, 'target=' ) ), array( true, false, 0 ) );
 ck( 'the consent box says which policy, in the words of 1.123.24', WPCPM_Sponsor_Application::fields()['Privacy Policy Compliance']['label'], 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.' );
 ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'checked="checked"' ), false );
 ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-sponsor-application', 'wpcpm-forms' ) );
+
+echo "\n-- three labels in plain words, over the same columns -----------------\n";
+
+// The label is what a company reads. The column beside it is what the record is written under and
+// what the form's field name is hashed from (`form_key()`), so the label changes and the name does
+// not. The eight names are pinned as they were before the three labels changed.
+$posted_before = array(
+	'Company Name'                      => 'fe7b47c58815a',
+	'Website'                           => 'f15bbb9d0bbf2',
+	'Contact Person Full Name'          => 'f2c53cd73c212',
+	'Contact Email'                     => 'f3c2292f30e63',
+	'Tier considered'                   => 'ffaaa581cc514',
+	'Logo'                              => 'f8c2857a9ad1d',
+	"Anything else you'd like to share." => 'fc85ee5a2b23c',
+	'Privacy Policy Compliance'         => 'f62b991a00670',
+);
+$field_names   = array();
+$labels        = array();
+
+foreach ( WPCPM_Sponsor_Application::fields() as $column => $spec ) {
+	$field_names[ $column ] = WPCPM_Sponsor_Application::form_key( $column );
+	$labels[ $column ]      = $spec['label'];
+}
+
+ck( 'the eight columns are spelled as they were, in order, and each posts under the name it posted under before', $field_names, $posted_before );
+ck(
+	'the three labels that were the base\'s column names say who and what they ask for, and the three columns are the same bytes',
+	array( $labels['Company Name'], $labels['Contact Person Full Name'], $labels['Contact Email'], bin2hex( WPCPM_Sponsor_Application::COL_NAME ), bin2hex( WPCPM_Sponsor_Application::COL_PERSON ), bin2hex( WPCPM_Sponsor_Application::COL_EMAIL ) ),
+	array( 'Name of your company', 'Name of the person we should contact', 'Their email address', bin2hex( 'Company Name' ), bin2hex( 'Contact Person Full Name' ), bin2hex( 'Contact Email' ) )
+);
+
+reset_world();
+$form = WPCPM_Sponsor_Application::render();
+preg_match_all( '#name="wpcpm_sponsor_application\[(f[0-9a-f]{12})\]"#', $form, $posted );
+
+ck( 'the form posts the text answers under those names and no others', array_values( array_unique( $posted[1] ) ), array( $posted_before['Company Name'], $posted_before['Website'], $posted_before['Contact Person Full Name'], $posted_before['Contact Email'], $posted_before["Anything else you'd like to share."], $posted_before['Privacy Policy Compliance'] ) );
+ck(
+	'and each of the three is asked in the new words, marked Required, with none of the column names left on the page',
+	array(
+		false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $posted_before['Company Name'] . '">Name of your company <span class="wpcpm-field__required">Required</span></label>' ),
+		false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $posted_before['Contact Person Full Name'] . '">Name of the person we should contact <span class="wpcpm-field__required">Required</span></label>' ),
+		false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $posted_before['Contact Email'] . '">Their email address <span class="wpcpm-field__required">Required</span></label>' ),
+		strpos( $form, 'Company Name' ),
+		strpos( $form, 'Contact Person Full Name' ),
+		strpos( $form, 'Contact Email' ),
+	),
+	array( true, true, true, false, false, false )
+);
 
 echo "\n-- the tier question, asked once the tiers are announced (1.113.0) -----\n";
 

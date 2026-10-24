@@ -147,7 +147,7 @@ class WPCPM_Institution_Roster_View {
 		}
 
 		self::render_filters( $record_id, $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
-		self::render_strip( $rows, $cohort, $read );
+		self::render_strip( $rows, $cohort );
 
 		$groups = WPCPM_Roster_Index::groups( $record_id, $cohort );
 
@@ -215,8 +215,10 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * The four groups, in the order design spec 7.5 lists them, with the names it gives them.
 	 *
-	 * "Did not start" is the honest name for the last one: they are the applicants who never
-	 * began, which is the first question an institution asks about a cohort.
+	 * "Not on the program now" is the honest name for the last one: it holds the students who have
+	 * not started yet, the applicants who never began (the first question an institution asks
+	 * about a cohort) and the students who stopped before finishing. Only the heading is plain;
+	 * the group's key and the statuses filed in it are the base's own words.
 	 *
 	 * @return array<string, string> Group key to heading.
 	 */
@@ -225,7 +227,7 @@ class WPCPM_Institution_Roster_View {
 			'current'     => __( 'Current', 'wpcredits-program-manager' ),
 			'waiting'     => __( 'Waiting for a mentor', 'wpcredits-program-manager' ),
 			'finished'    => __( 'Finished', 'wpcredits-program-manager' ),
-			'not_started' => __( 'Did not start', 'wpcredits-program-manager' ),
+			'not_started' => __( 'Not on the program now', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -548,11 +550,12 @@ class WPCPM_Institution_Roster_View {
 	 * because "0 signed up, 0 graduated" reads as a failure and "no students started in July
 	 * to December 2025" reads as what happened.
 	 *
+	 * It prints no read line: the page holds that once, at its foot (see `read_line()`).
+	 *
 	 * @param array  $rows   The institution's index rows.
 	 * @param string $cohort The chosen cohort.
-	 * @param int    $read   Unix time the index was read.
 	 */
-	private static function render_strip( array $rows, $cohort, $read ) {
+	private static function render_strip( array $rows, $cohort ) {
 		$now      = WPCPM_Cohort::participation( $rows, $cohort );
 		$previous = WPCPM_Cohort::previous( $cohort );
 
@@ -624,8 +627,6 @@ class WPCPM_Institution_Roster_View {
 			}
 		}
 
-		self::read_line( $read, 'wpcpm-roster__read wpcpm-roster__read--strip' );
-
 		echo '</section>';
 	}
 
@@ -653,12 +654,12 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * One of the four groups: its heading, its count, its explanation and its table.
 	 *
-	 * **Every group is a disclosure.** Finished and Did not start start closed, as design spec
-	 * 7.5 asks: they are counted every time and read rarely. Current and Waiting start open,
-	 * and fold: the product owner asked for the same chevron on every panel of the page, and
-	 * a heading that cannot be folded beside three that can is a control that is there on one
-	 * row and gone on the next. An empty group still prints, with its zero, so that a group a
-	 * filter emptied is visibly empty rather than missing.
+	 * **Every group is a disclosure.** Finished and Not on the program now start closed, as
+	 * design spec 7.5 asks: they are counted every time and read rarely. Current and Waiting
+	 * start open, and fold: the product owner asked for the same chevron on every panel of the
+	 * page, and a heading that cannot be folded beside three that can is a control that is
+	 * there on one row and gone on the next. An empty group still prints, with its zero, so that
+	 * a group a filter emptied is visibly empty rather than missing.
 	 *
 	 * **A long group starts closed whichever group it is.** One institution has forty-two
 	 * students on the program at once, and an open list of forty-two cards buries everything
@@ -716,17 +717,23 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * What a group means, in the words design spec 7.5 uses for it.
+	 * What a group means, in the words a school uses for it.
+	 *
+	 * The two signals a student is filed by are a mentor assigned and a progress record started
+	 * (the student's own report, which the program calls a record and a school calls their
+	 * progress). Both are named, because a student with a progress record and no mentor link is
+	 * still Current, and "with a mentor assigned" alone would promise a name the Mentor row then
+	 * denies.
 	 *
 	 * @param string $key Group key.
 	 * @return string
 	 */
 	private static function group_note( $key ) {
 		$notes = array(
-			'current'     => __( 'On the program now, with a mentor assigned or a report record already created.', 'wpcredits-program-manager' ),
-			'waiting'     => __( 'Signed up, with no mentor assigned and no report record yet.', 'wpcredits-program-manager' ),
+			'current'     => __( 'On the program now, with a mentor assigned or a progress record already started.', 'wpcredits-program-manager' ),
+			'waiting'     => __( 'Signed up, with no mentor assigned and no progress record yet.', 'wpcredits-program-manager' ),
 			'finished'    => __( 'Mentoring has finished. Their details are kept for reference.', 'wpcredits-program-manager' ),
-			'not_started' => __( 'Applicants who never began the program.', 'wpcredits-program-manager' ),
+			'not_started' => __( 'Students who have not started yet, never began the program, or stopped before finishing it.', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $notes[ $key ] ) ? $notes[ $key ] : '';
@@ -836,7 +843,7 @@ class WPCPM_Institution_Roster_View {
 			printf(
 				'<span class="wpcpm-badge%1$s">%2$s</span>',
 				'' === WPCPM_Program::badge( $program ) ? '' : esc_attr( ' wpcpm-badge--' . WPCPM_Program::badge( $program ) ),
-				esc_html( WPCPM_Program::label( $program ) )
+				esc_html( WPCPM_Program::status_words( $program ) )
 			);
 		}
 
@@ -1104,9 +1111,14 @@ class WPCPM_Institution_Roster_View {
 	 * 50 hours, the Developer Track, paused, pending. Only a row with an account carries it,
 	 * in the program meta the students sync writes. The index row's own `status` is the
 	 * Students table's pipeline status, which is a different list (Interested, Not moving
-	 * forward, Fail, and the cohort names), so it is printed plainly, and only when there is no
-	 * program to show: a row that never started has no program, and hiding its status would
-	 * make it vanish from a list whose whole point is that nothing does.
+	 * forward, Fail, and the cohort names), so it is printed as a muted word, and only when
+	 * there is no program to show: a row that never started has no program, and hiding its
+	 * status would make it vanish from a list whose whole point is that nothing does.
+	 *
+	 * Every status this cell prints, the program's or the pipeline's, is in the words
+	 * `WPCPM_Program::status_words()` gives it (a graduate reads "Graduated" whichever table said
+	 * so); the status itself is read as it is everywhere else on the page, and only what the
+	 * school reads changes.
 	 *
 	 * A student waiting to graduate whose course the site keeps is shown that course's badge, as a
 	 * current student on it is, with the Pending graduation badge beside it: the cards on the
@@ -1131,14 +1143,16 @@ class WPCPM_Institution_Roster_View {
 
 		$status = trim( (string) $status );
 
-		return '' === $status ? '' : sprintf( '<span class="wpcpm-muted">%s</span>', esc_html( $status ) );
+		return '' === $status ? '' : sprintf( '<span class="wpcpm-muted">%s</span>', esc_html( WPCPM_Program::status_words( $status ) ) );
 	}
 
 	/**
 	 * The program badge for one Airtable status, or an empty string when there is no status.
 	 *
 	 * One calculation, drawn by the roster table and by the fifth list, so two lists on one
-	 * page cannot paint the same student's track in two different colours.
+	 * page cannot paint the same student's track in two different colours. The colour is the raw
+	 * status's and the words are `WPCPM_Program::status_words()`'s, as the closed row's badge says
+	 * them too.
 	 *
 	 * @param string $status Airtable status.
 	 * @return string
@@ -1155,7 +1169,7 @@ class WPCPM_Institution_Roster_View {
 		return sprintf(
 			'<span class="%1$s">%2$s</span>',
 			esc_attr( 'wpcpm-badge' . ( '' !== $modifier ? ' wpcpm-badge--' . $modifier : '' ) ),
-			esc_html( WPCPM_Program::label( $status ) )
+			esc_html( WPCPM_Program::status_words( $status ) )
 		);
 	}
 
@@ -1163,8 +1177,9 @@ class WPCPM_Institution_Roster_View {
 	 * The dates cell: both dates when there are both, and a named gap when there is no start.
 	 *
 	 * Design spec 7.5 gives a row with no start date a "Set start date" link into the edit
-	 * form. The form is Phase 4, so this phase names the gap and stops there: a link that
-	 * went nowhere would be worse than the marker it replaced.
+	 * form. The marker links nowhere: the student edit form
+	 * (`WPCPM_Institution_Student_Form::render_form()`) is drawn on no page, and a link that
+	 * opened nothing would be worse than the marker.
 	 *
 	 * @param string $start Start date, `Y-m-d`.
 	 * @param string $end   End date, `Y-m-d`.
@@ -1234,10 +1249,12 @@ class WPCPM_Institution_Roster_View {
 	 *
 	 * "A mentor is assigned" and "no mentor yet" are different answers to the school's
 	 * question, and design spec 7.5 asks for both: the first is waiting on the automation
-	 * that creates the report record, or on the sync's join by email finding one that exists
-	 * under another address (WPCredits#222); the second is waiting on the program. Either way
-	 * the record has not reached this page, and that is what the sentence says: "has not been
-	 * created" claimed to know which, and for the #222 shape it was wrong.
+	 * that creates the student's progress record, or on the sync's join by email finding one
+	 * that exists under another address (WPCredits#222); the second is waiting on the program.
+	 * Either way the record has not reached this page, and that is what the sentence says: "has
+	 * not been created" claimed to know which, and for the #222 shape it was wrong. The sentence
+	 * says "progress record", the student's own report as a school knows it, and names the
+	 * thing that is missing, which is the mentor's name.
 	 *
 	 * @param string $name       The mentor's name from the cached card, if there is one.
 	 * @param bool   $has_mentor  Whether the Students row links a mentor.
@@ -1264,7 +1281,7 @@ class WPCPM_Institution_Roster_View {
 			esc_html(
 				$has_report
 					? __( 'A mentor is assigned. Their name has not reached this page yet.', 'wpcredits-program-manager' )
-					: __( 'A mentor is assigned. The report record has not reached this page yet.', 'wpcredits-program-manager' )
+					: __( 'A mentor is assigned. Their name shows here once the student\'s progress record reaches this page.', 'wpcredits-program-manager' )
 			)
 		);
 	}
@@ -1323,7 +1340,9 @@ class WPCPM_Institution_Roster_View {
 	 * Nothing is silently dropped: these people are on the program, the roster groups cannot
 	 * hold them because the groups are built from Students rows, and an institution that
 	 * counted its students without them would be short. Read-only, and the line says whose
-	 * job the missing record is.
+	 * job the missing record is. The list is titled and explained by what is missing from a
+	 * school's side, their enrollment, and not by the table that lacks the row: a school has no
+	 * Students table to look at.
 	 *
 	 * @param mixed  $rows   What `WPCPM_Roster_Index::unlinked_for()` returned.
 	 * @param string $search The search term, or ''.
@@ -1352,12 +1371,12 @@ class WPCPM_Institution_Roster_View {
 		echo '<section class="wpcpm-group wpcpm-roster__group wpcpm-roster__group--unlinked">';
 		printf(
 			'<h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3>',
-			esc_html__( 'Not yet in the Students table', 'wpcredits-program-manager' ),
+			esc_html__( 'Enrollment not recorded yet', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $people ) ) )
 		);
 		printf(
 			'<p class="wpcpm-muted wpcpm-roster__note">%s</p>',
-			esc_html__( 'These students are reporting on the program, but the program records have no enrollment row for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.', 'wpcredits-program-manager' )
+			esc_html__( 'These students are reporting their progress, but the program records hold no enrollment for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.', 'wpcredits-program-manager' )
 		);
 
 		// **A student's address is a manager's to see, not the school's.** The export has no
@@ -1662,8 +1681,10 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * When the numbers on this page were read.
 	 *
-	 * Printed by the strip and again by the footer, because both carry counts and a reader
-	 * who scrolled past the first one is looking at the second.
+	 * A page holds it once, in one of two places: the roster's own footer where the roster
+	 * stands alone, and the Institution Dashboard's foot where the dashboard titles the module
+	 * the roster sits in (`$context['module_titled']`), in which case the roster prints none.
+	 * The strip never prints it. The time is shown in the site's date and time formats.
 	 *
 	 * @param int    $read    Unix time the index was read.
 	 * @param string $classes The paragraph's classes.
@@ -1688,7 +1709,7 @@ class WPCPM_Institution_Roster_View {
 				sprintf(
 					/* translators: 1: date and time, 2: human-readable time difference, e.g. "2 hours". */
 					__( 'Read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ),
-					wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $read ),
+					WPCPM_Dates::moment( $read ),
 					human_time_diff( $read, time() )
 				)
 			)

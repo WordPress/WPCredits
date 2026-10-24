@@ -15,6 +15,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// The site's name, which opens every subject: optional, so a saved edit that leaves it out still fits.
+$wpcpm_site = array(
+	'means'    => __( 'The site\'s name.', 'wpcredits-program-manager' ),
+	'example'  => static function () {
+		return WPCPM_Mail::site_name();
+	},
+	'required' => false,
+);
+
 // The semester a preview and a test name: the one running now.
 $wpcpm_semester = array(
 	'means'    => __( 'The semester the report covers, such as "January to June 2026". The email needs it.', 'wpcredits-program-manager' ),
@@ -28,8 +37,9 @@ return array(
 	'report-drafted'  => array(
 		'trigger'      => __( 'When the daily job drafts a semester report for an institution: to the addresses in Who reviews reports, or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
-			/* translators: %s: institution name. */
-			__( 'Semester report drafted: %s', 'wpcredits-program-manager' ),
+			/* translators: 1: site name, 2: institution name. */
+			__( '[%1$s] Semester report drafted: %2$s', 'wpcredits-program-manager' ),
+			'{site_name}',
 			'{institution_name}'
 		),
 		'body'         => implode(
@@ -51,8 +61,9 @@ return array(
 			)
 		) . "\n",
 		'placeholders' => array(
+			'site_name'            => $wpcpm_site,
 			'institution_name'     => array(
-				'means'    => __( 'The institution\'s name; its Airtable record when the index holds no name for it.', 'wpcredits-program-manager' ),
+				'means'    => __( 'The institution\'s name, or its record ID when the site holds no name for it.', 'wpcredits-program-manager' ),
 				'example'  => 'Example University',
 				'required' => false,
 			),
@@ -79,13 +90,18 @@ return array(
 	),
 	'report-approved' => array(
 		'trigger'      => __( 'When an Administrator approves an institution\'s semester report: to each of the institution\'s accounts.', 'wpcredits-program-manager' ),
-		'subject'      => __( 'Your semester report is ready', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: %s: site name. */
+			__( '[%s] Your semester report is ready', 'wpcredits-program-manager' ),
+			'{site_name}'
+		),
 		'body'         => sprintf(
 			/* translators: %s: a semester, e.g. "January to June 2026". Two sentences: the site reads a full stop followed by a space as the end of a sentence. */
 			__( 'The semester report on %s has been approved by the WordPress Credits program. You can read it on your Institution Dashboard and download it as a PDF.', 'wpcredits-program-manager' ),
 			'{semester}'
 		) . "\n\n{report_link}\n",
 		'placeholders' => array(
+			'site_name'   => $wpcpm_site,
 			'semester'    => $wpcpm_semester,
 			'report_link' => array(
 				'means'    => __( 'The report on the Institution Dashboard. Empty, while that page is not published, leaves its line out.', 'wpcredits-program-manager' ),
@@ -98,7 +114,11 @@ return array(
 	),
 	'report-consent'  => array(
 		'trigger'      => __( 'When an Administrator asks the students of a semester report whether it may mention them; those one press cannot reach are written to a few minutes later.', 'wpcredits-program-manager' ),
-		'subject'      => __( 'May your institution mention you in its semester report?', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: %s: site name. */
+			__( '[%s] May your institution mention you in its semester report?', 'wpcredits-program-manager' ),
+			'{site_name}'
+		),
 		'body'         => implode(
 			"\n\n",
 			array(
@@ -114,6 +134,7 @@ return array(
 			)
 		),
 		'placeholders' => array(
+			'site_name'      => $wpcpm_site,
 			'semester'       => $wpcpm_semester,
 			'dashboard_link' => array(
 				'means'    => __( 'The student\'s Student Report Card, where the two questions are, while its page is published. Empty leaves its lines out.', 'wpcredits-program-manager' ),

@@ -1358,8 +1358,50 @@ ck( 'and the people who can fix it were mailed', count( $GLOBALS['notified'] ) ?
 $refused = WPCPM_Agreement_Template::load( WPCPM_TEST_LANGUAGE );
 
 ck( 'with the institution and the reason the template gave, verbatim',
-    count( $GLOBALS['notified'] ) ? array( false !== strpos( $GLOBALS['notified'][0][2], 'recMEMBEROWN00001' ), false !== strpos( $GLOBALS['notified'][0][2], $refused->get_error_message() ) ) : array(),
+    count( $GLOBALS['notified'] ) ? array( false !== strpos( $GLOBALS['notified'][0][2], 'institution Universidad Example, name asked for' ), false !== strpos( $GLOBALS['notified'][0][2], $refused->get_error_message() ) ) : array(),
     array( true, true ) );
+ck( 'the institution is named, as the pipeline index holds its name, and its Airtable record is not printed',
+    count( $GLOBALS['notified'] ) ? false !== strpos( $GLOBALS['notified'][0][2], 'institution Universidad Example, name asked for' ) && false === strpos( $GLOBALS['notified'][0][2], 'recMEMBEROWN00001' ) : null,
+    true );
+ck( 'the sentence is the one worded for it, the last paragraph saying a developer fixes the template',
+    count( $GLOBALS['notified'] ) ? array(
+        false !== strpos( $GLOBALS['notified'][0][2], ' (template language ' . WPCPM_TEST_LANGUAGE . ', institution Universidad Example, name asked for "Universidad Example").' ),
+        false !== strpos( $GLOBALS['notified'][0][2], "\r\n\r\nThe template is part of the plugin, so a developer fixes it. A bracketed word other than the institution's name is refused on purpose: it would otherwise be printed on a document somebody signs. Nothing can be generated in this language until it is fixed." ),
+    ) : array(),
+    array( true, true ) );
+
+// The index holds a name that is not the one the institution typed: the name the site holds is the
+// one the notice gives, and the typed one stays where it was, after "name asked for".
+reset_world();
+seed_index( 'recMEMBEROWN00001' );
+$named_row         = WPCPM_Institutions_Index::row( 'recMEMBEROWN00001' );
+$named_row['name'] = '  Universidad del Pipeline ';
+WPCPM_Institutions_Index::write( array( 'recMEMBEROWN00001' => $named_row ), WPCPM_TEST_CLOCK - 3600 );
+sign_in( 31, false, 'recMEMBEROWN00001' );
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]     = 'Universidad Example';
+$_POST[ WPCPM_Agreement_Generate::FIELD_LANGUAGE ] = WPCPM_TEST_LANGUAGE;
+try {
+	WPCPM_Agreement_Generate::generate();
+} catch ( Exception $e ) {
+	$outcome = $e->getMessage();
+}
+ck( 'the notice names the institution by the name the index holds, trimmed, and the typed name apart', count( $GLOBALS['notified'] ) ? false !== strpos( $GLOBALS['notified'][0][2], 'institution Universidad del Pipeline, name asked for "Universidad Example").' ) : null, true );
+
+// And an index that holds no name for it: the record, the one thing left to find it by.
+reset_world();
+seed_index( 'recMEMBEROWN00001' );
+$nameless         = WPCPM_Institutions_Index::row( 'recMEMBEROWN00001' );
+$nameless['name'] = '  ';
+WPCPM_Institutions_Index::write( array( 'recMEMBEROWN00001' => $nameless ), WPCPM_TEST_CLOCK - 3600 );
+sign_in( 31, false, 'recMEMBEROWN00001' );
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]     = 'Universidad Example';
+$_POST[ WPCPM_Agreement_Generate::FIELD_LANGUAGE ] = WPCPM_TEST_LANGUAGE;
+try {
+	WPCPM_Agreement_Generate::generate();
+} catch ( Exception $e ) {
+	$outcome = $e->getMessage();
+}
+ck( 'and an index with no name for it gives the record', count( $GLOBALS['notified'] ) ? false !== strpos( $GLOBALS['notified'][0][2], 'institution recMEMBEROWN00001, name asked for "Universidad Example").' ) : null, true );
 
 unlink( $scratch );
 

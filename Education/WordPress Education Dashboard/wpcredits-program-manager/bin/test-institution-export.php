@@ -488,7 +488,7 @@ ck( 'nor the Duplicated one', has( implode( '|', array_map( 'implode', array_fil
 ck(
 	'rows come out in the four groups, in the screen\'s order',
 	column_of( $file, 0 ),
-	array( 'Current', 'Current', 'Waiting for a mentor', 'Finished', 'Did not start' )
+	array( 'Current', 'Current', 'Waiting for a mentor', 'Finished', 'Not on the program now' )
 );
 
 // The apostrophe is in the file, so a plain CSV parser reads it back. That is the point of it:
@@ -504,6 +504,9 @@ ck( 'the neutralised name is quoted as one cell, not split at its spaces', has( 
 ck( 'a tutor beginning with a hyphen is neutralised too', has( WPCPM_Institution_Export::csv( $matrix ), "'-Smith" ), true );
 
 ck( 'the program is the label, not the raw status', $file[1][2], 'WordPress Credits Program 150h' );
+// The roster page prints this student's pipeline status as "Not continuing"; the file keeps the
+// base's own words, which are what a school's spreadsheet is filtered and counted by.
+ck( 'a pipeline status the page puts in plain words is still the base\'s own word in the file', $file[5][2], 'Not moving forward' );
 ck( 'the dates are the base\'s ISO strings, which every locale reads as dates', array( $file[1][3], $file[1][4] ), array( '2026-02-10', '2026-08-10' ) );
 ck( 'the cohort is derived from the start date', $file[1][5], 'January to June 2026' );
 ck( 'a row with no start date says so rather than guessing', $file[5][5], 'No start date' );
@@ -711,7 +714,7 @@ ck( 'the cohort argument is the roster view\'s', WPCPM_Institution_Export::ARG_C
 
 // The four groups are the index's and the headings are the screen's, so a fifth group added to
 // either shows up in the file under its own name instead of being dropped.
-ck( 'the group column uses the screen\'s headings', array_values( WPCPM_Institution_Roster_View::group_labels() ), array( 'Current', 'Waiting for a mentor', 'Finished', 'Did not start' ) );
+ck( 'the group column uses the screen\'s headings', array_values( WPCPM_Institution_Roster_View::group_labels() ), array( 'Current', 'Waiting for a mentor', 'Finished', 'Not on the program now' ) );
 
 // The four characters are one rule with two halves: the import refuses them, the export
 // neutralises them. Listed as data so the two halves can be read side by side.

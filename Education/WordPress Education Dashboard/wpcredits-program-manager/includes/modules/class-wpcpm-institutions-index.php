@@ -202,23 +202,6 @@ class WPCPM_Institutions_Index {
 	}
 
 	/**
-	 * How many institutions sit at each stage, with `''` for the ones that have none.
-	 *
-	 * In `by_stage()` order, so a screen can print the two side by side.
-	 *
-	 * @return array<string, int>
-	 */
-	public static function stage_counts() {
-		$counts = array();
-
-		foreach ( self::by_stage() as $stage => $rows ) {
-			$counts[ $stage ] = count( $rows );
-		}
-
-		return $counts;
-	}
-
-	/**
 	 * The rows grouped by stage, in pipeline order.
 	 *
 	 * The order is the agreement's `STAGE_ORDER` (the path a partnership takes), then the

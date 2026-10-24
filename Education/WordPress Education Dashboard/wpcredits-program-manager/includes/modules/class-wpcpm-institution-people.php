@@ -26,8 +26,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * A, and gets the one refusal. Reading the institution out of the request instead would
  * make the fence a suggestion, which is the shape of every fence bug this module has had.
  *
- * The program's contact, the address Airtable holds for the school, is marked on the row
- * whose account carries it and **nothing at all is attached to that mark**: it is
+ * The institution's contact, the address the program records hold for the school, is marked
+ * on the row whose account carries it and **nothing at all is attached to that mark**: it is
  * information about who the program writes to, not a rank. The mark used to take the row's
  * control away, on both surfaces, which meant a contact who left the school could not be
  * removed by their colleagues, by a program manager, or by themselves, and an institution
@@ -208,11 +208,13 @@ class WPCPM_Institution_People {
 	/**
 	 * One member's row.
 	 *
-	 * The program's contact is marked and the mark takes nothing away: the row carries the
+	 * The institution's contact is marked and the mark takes nothing away: the row carries the
 	 * same control as every other one, because a contact who has left the school has to be
 	 * removable by their colleagues and by a program manager alike. What the mark does is
-	 * put a sentence in that row's confirm saying Airtable still names the address, so the
-	 * person pressing Remove knows the school is about to have no contact on record.
+	 * put a sentence in that row's confirm saying the program will go on writing to the
+	 * address, so the person pressing Remove knows the school is about to have no contact on
+	 * record. The mark and its tooltip say who the program writes to, which is what a school
+	 * needs to know about the address; where the program keeps it is not its business.
 	 *
 	 * @param WP_User   $member     The account being drawn.
 	 * @param WP_User[] $members    Every live member, for the count the confirm names.
@@ -238,8 +240,8 @@ class WPCPM_Institution_People {
 		if ( $is_contact ) {
 			printf(
 				' <span class="wpcpm-people__mark" title="%1$s">%2$s</span>',
-				esc_attr__( 'This is the address Airtable holds for the institution. It is shown so everybody knows who the program writes to.', 'wpcredits-program-manager' ),
-				esc_html__( 'the program\'s contact', 'wpcredits-program-manager' )
+				esc_attr__( 'The program writes to this address about the institution.', 'wpcredits-program-manager' ),
+				esc_html__( 'the institution\'s contact', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -253,7 +255,7 @@ class WPCPM_Institution_People {
 	}
 
 	/**
-	 * The contact Airtable names, who holds no account here.
+	 * The contact the program records name, who holds no account here.
 	 *
 	 * **A representative of the institution, not of this site.** The card answers "who speaks
 	 * for this school", and until now it answered it with the accounts alone - so a school
@@ -271,8 +273,11 @@ class WPCPM_Institution_People {
 	 * above under a different address. Forty-one of the forty-two carry both, so the pairing
 	 * is reliable in practice and the wording does not overclaim where it is not.
 	 *
-	 * @param string $name  The contact's name as Airtable holds it, or ''.
-	 * @param string $email The contact's address as Airtable holds it, or ''.
+	 * The mark and its tooltip are the member row's, in the same words: the row says who the
+	 * program writes to and that it is a person rather than an account.
+	 *
+	 * @param string $name  The contact's name as the program records hold it, or ''.
+	 * @param string $email The contact's address as the program records hold it, or ''.
 	 */
 	private static function render_contact_row( $name, $email ) {
 		$name  = trim( (string) $name );
@@ -291,8 +296,8 @@ class WPCPM_Institution_People {
 
 		printf(
 			' <span class="wpcpm-people__mark" title="%1$s">%2$s</span>',
-			esc_attr__( 'This is the person Airtable holds for the institution. It is shown so everybody knows who the program writes to.', 'wpcredits-program-manager' ),
-			esc_html__( 'the program\'s contact', 'wpcredits-program-manager' )
+			esc_attr__( 'The program writes to this person about the institution.', 'wpcredits-program-manager' ),
+			esc_html__( 'the institution\'s contact', 'wpcredits-program-manager' )
 		);
 
 		printf(
@@ -314,7 +319,7 @@ class WPCPM_Institution_People {
 	 * @param WP_User[] $members    Every live member, for the count the confirm names.
 	 * @param string    $name       Institution name, as printed.
 	 * @param bool      $is_self    Whether the viewer is removing themselves.
-	 * @param bool      $is_contact Whether this row holds the address Airtable names.
+	 * @param bool      $is_contact Whether this row holds the institution's contact address.
 	 * @param string    $origin     `RETURN_ADMIN` from the manager screen, '' from the dashboard.
 	 */
 	private static function render_remove_form( WP_User $member, array $members, $name, $is_self, $is_contact, $origin ) {
@@ -364,10 +369,11 @@ class WPCPM_Institution_People {
 	 * institution, who else is told and that the account is kept, because a removal that read
 	 * as a deletion is the one somebody would undo by creating a second account.
 	 *
-	 * A fifth sentence is added on the row Airtable names as the contact. That is the whole
-	 * of what the contact mark does now: the control it used to take away left an institution
-	 * whose contact had left unrepairable from either surface, and the address matters to a
-	 * program manager, not to the fence. So it is said, not enforced.
+	 * A fifth sentence is added on the row that holds the institution's contact address. That
+	 * is the whole of what the contact mark does now: the control it used to take away left an
+	 * institution whose contact had left unrepairable from either surface, and the address
+	 * matters to a program manager, not to the fence. So it is said, not enforced: the program
+	 * keeps writing to the address until an Administrator changes the contact.
 	 *
 	 * The mails to the members themselves ship with the agreement phase; the text is the one
 	 * the spec settles, so it does not have to change under the people who learned it.
@@ -375,14 +381,14 @@ class WPCPM_Institution_People {
 	 * @param WP_User $member     The account the control acts on.
 	 * @param string  $name       Institution name, as printed.
 	 * @param bool    $is_self    Whether the viewer is removing themselves.
-	 * @param bool    $is_contact Whether this row holds the address Airtable names.
+	 * @param bool    $is_contact Whether this row holds the institution's contact address.
 	 * @param int     $others     How many members would be left.
 	 * @return string
 	 */
 	private static function confirm_text( WP_User $member, $name, $is_self, $is_contact, $others ) {
 		$who  = '' !== trim( (string) $member->display_name ) ? $member->display_name : $member->user_login;
 		$note = $is_contact
-			? ' ' . __( 'Airtable still names this address as the institution\'s contact: an Administrator changes that there.', 'wpcredits-program-manager' )
+			? ' ' . __( 'The program will go on writing to this address as the institution\'s contact until an Administrator changes it.', 'wpcredits-program-manager' )
 			: '';
 
 		if ( $is_self && 0 === (int) $others ) {
@@ -458,7 +464,7 @@ class WPCPM_Institution_People {
 			/* translators: 1: how the membership came about, 2: date. */
 			__( '%1$s, %2$s.', 'wpcredits-program-manager' ),
 			$label,
-			wp_date( get_option( 'date_format' ), $since )
+			WPCPM_Dates::day( $since )
 		);
 	}
 
@@ -1155,7 +1161,8 @@ class WPCPM_Institution_People {
 	 *
 	 * Two sources in one card: the institution's name and the contact address are as the last
 	 * sync read them, the memberships are as they are right now. Saying only one of the two
-	 * would let the stale half look as fresh as the live one.
+	 * would let the stale half look as fresh as the live one. The time is printed in the
+	 * site's date and time formats, as every date on the dashboard is.
 	 *
 	 * @param int $read Unix time the pipeline index was read, or 0 for never.
 	 */
@@ -1165,7 +1172,7 @@ class WPCPM_Institution_People {
 		if ( ! $read ) {
 			printf(
 				'<p class="wpcpm-institution__read wpcpm-people__read">%s</p>',
-				esc_html__( 'The institution\'s details have not been read from Airtable yet. The people above are as they are right now.', 'wpcredits-program-manager' )
+				esc_html__( 'The institution\'s details have not been read from the program records yet. The people above are as they are right now.', 'wpcredits-program-manager' )
 			);
 
 			return;
@@ -1176,8 +1183,8 @@ class WPCPM_Institution_People {
 			esc_html(
 				sprintf(
 					/* translators: 1: date and time, 2: human-readable time difference. */
-					__( 'The institution\'s details were read %1$s (%2$s ago). The people above are as they are right now.', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d H:i', $read ),
+					__( 'The institution\'s details were read on %1$s (%2$s ago). The people above are as they are right now.', 'wpcredits-program-manager' ),
+					WPCPM_Dates::moment( $read ),
 					human_time_diff( $read, time() )
 				)
 			)

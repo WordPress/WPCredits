@@ -60,10 +60,13 @@ final class WPCPM_Institution_Policy {
 	/** Both CSVs. */
 	const ACT_EXPORT = 'export';
 
-	/** The semester report, read. */
+	/** The semester report, read and printed once approved. */
 	const ACT_VIEW_SEMESTER_REPORT = 'view_semester_report';
 
-	/** Generate, save, restore, final, reopen, ask, print. */
+	/**
+	 * Generate, save, re-read consent, draft, approve, reopen, restore and ask: an Administrator's
+	 * alone since 1.91.0.
+	 */
 	const ACT_EDIT_SEMESTER_REPORT = 'edit_semester_report';
 
 	/** Invite, cancel, resend, remove. */

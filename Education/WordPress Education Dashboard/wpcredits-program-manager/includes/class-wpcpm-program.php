@@ -68,6 +68,42 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * A status in the words a school reads it by, for the pages an institution sees.
+	 *
+	 * **Printed only.** A status stays the base's own word everywhere it is read: the roster's
+	 * groups, its search, the cohort counts, the export, the badge's colour and every decision are
+	 * made on the raw status, and none of them goes through here. This is the one place the words
+	 * a school is shown for a status are chosen, so the Program cell, the closed row's badge and
+	 * the placement card's quote cannot give the same student two names.
+	 *
+	 * A status that names a compiled track prints the track's name (`label()`), as it does
+	 * everywhere a program is named. The others are the pipeline's: `Not moving forward` is "Not
+	 * continuing", since a student may have started before stopping, and `Interested` stays as
+	 * it is, because "Signed up" would contradict the strip's count of the students who did. A
+	 * status with no plain word (`Dropped out`, `Paused`, a cohort's name) is printed as it is.
+	 *
+	 * @param string $status A status from either table.
+	 * @return string The words to print, unescaped.
+	 */
+	public static function status_words( $status ) {
+		$status = trim( (string) $status );
+		$named  = self::label( $status );
+
+		if ( $named !== $status ) {
+			return $named;
+		}
+
+		$plain = array(
+			'In Sensei Self-onboarding' => __( 'Getting started', 'wpcredits-program-manager' ),
+			'Not moving forward'        => __( 'Not continuing', 'wpcredits-program-manager' ),
+			'Fail'                      => __( 'Did not complete', 'wpcredits-program-manager' ),
+			'Graduate'                  => __( 'Graduated', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $plain[ $status ] ) ? $plain[ $status ] : $status;
+	}
+
+	/**
 	 * The status → program name map, one row per track the site runs.
 	 *
 	 * **A track is a row here, even one whose name is its status**, as the Developer and Designer

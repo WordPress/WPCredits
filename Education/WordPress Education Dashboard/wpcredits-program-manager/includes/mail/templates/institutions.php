@@ -25,6 +25,12 @@
  *
  * Every body is joined with the line ending the code wrote, "\r\n", and every date is the site's.
  *
+ * The notice of a template that cannot be used and the notice that an institution has no members
+ * left name the institution (`{institution_name}`), and no longer say its Airtable record; both
+ * still list `{institution_record}`, because an Administrator's edit that uses a placeholder its
+ * email does not list is set aside (`WPCPM_Mail_Templates::state()`), and an edit saved while they
+ * said it must keep working.
+ *
  * @package WPCreditsProgramManager
  */
 
@@ -53,7 +59,7 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'institution_name'   => array(
-			'means'   => __( 'The institution\'s name; its Airtable record when the site holds no name for it.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The institution\'s name, or its record ID when the site holds no name for it.', 'wpcredits-program-manager' ),
 			'example' => 'Example University',
 		),
 		'reference'          => array(
@@ -134,8 +140,9 @@ $wpcpm_placeholders = static function () {
 		),
 		'expiry_date'        => array(
 			'means'   => __( 'The day the invitation\'s link stops working.', 'wpcredits-program-manager' ),
-			'example' => static function () use ( $day ) {
-				return $day( WPCPM_Institution_Invite::LIFETIME_DAYS );
+			// A moment, as the invitation works its own out, in the site's date format on the site's clock.
+			'example' => static function () {
+				return WPCPM_Dates::day( ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( '+' . (int) WPCPM_Institution_Invite::LIFETIME_DAYS . ' days' )->getTimestamp() );
 			},
 		),
 		'uploaded_on'        => array(
@@ -145,7 +152,7 @@ $wpcpm_placeholders = static function () {
 			},
 		),
 		'uploaded_by'        => array(
-			'means'   => __( 'Who uploaded it: their name, or, when their account holds none, "a member of your institution" in the institution\'s copy and the institution\'s Airtable record in the Administrators\'.', 'wpcredits-program-manager' ),
+			'means'   => __( 'Who uploaded it: their name, or, when their account holds none, "a member of your institution" in the institution\'s copy and "a member of the institution" in the Administrators\'.', 'wpcredits-program-manager' ),
 			'example' => 'Ada Okonjo',
 		),
 		'review_window'      => array(
@@ -334,7 +341,7 @@ $wpcpm_applied = static function ( $call ) use ( $wpcpm_body ) {
 			__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 			'{reference}'
 		),
-		__( 'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account on the program site and send you the Collaboration Agreement to sign.', 'wpcredits-program-manager' ),
+		__( 'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account for it on the site, where you generate the program\'s Collaboration Agreement or upload your own, then sign it and upload the signed copy.', 'wpcredits-program-manager' ),
 		// An Administrator cannot approve an application until its address is confirmed, and this
 		// link is the only thing that confirms it, so the sentence says so (1.123.26): it used to
 		// say the link did nothing else, and an applicant who believed it never followed it.
@@ -348,8 +355,8 @@ $wpcpm_applied = static function ( $call ) use ( $wpcpm_body ) {
 	}
 
 	$paragraphs[] = sprintf(
-		/* translators: 1: the address the message went to, 2: site name. */
-		__( 'This message went to %1$s because that address was given on the application form at %2$s. If it was not you, you can ignore it: nothing happens until the address is confirmed.', 'wpcredits-program-manager' ),
+		/* translators: 1: the address the message went to, 2: the site's name, read after "the", as in "the Education Directory". */
+		__( 'This message went to %1$s because that address was given on the application form at the %2$s. If it was not you, you can ignore it: nothing happens until the address is confirmed.', 'wpcredits-program-manager' ),
 		'{applicant_email}',
 		'{site_name}'
 	);
@@ -372,15 +379,15 @@ $wpcpm_invite = static function ( $named ) use ( $wpcpm_body ) {
 		array(
 			$named
 				? sprintf(
-					/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name. */
-					__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on %3$s.', 'wpcredits-program-manager' ),
+					/* translators: 1: the member who invited them, 2: the institution's name, 3: the site's name, read after "the", as in "the Education Directory". */
+					__( '%1$s has invited you to see %2$s\'s students in the WordPress Credits Program on the %3$s.', 'wpcredits-program-manager' ),
 					'{inviter_name}',
 					'{institution_name}',
 					'{site_name}'
 				)
 				: sprintf(
-					/* translators: 1: the institution's name, 2: the site's name. The opening of an invitation that has nobody to name as its sender. */
-					__( 'You have been invited to see %1$s\'s students in the WordPress Credits Program on %2$s.', 'wpcredits-program-manager' ),
+					/* translators: 1: the institution's name, 2: the site's name, read after "the", as in "the Education Directory". The opening of an invitation that has nobody to name as its sender. */
+					__( 'You have been invited to see %1$s\'s students in the WordPress Credits Program on the %2$s.', 'wpcredits-program-manager' ),
 					'{institution_name}',
 					'{site_name}'
 				),
@@ -448,7 +455,7 @@ $wpcpm_revoked = static function ( $contact ) use ( $wpcpm_body ) {
 				'{administrator_name}'
 			),
 			'{note}',
-			__( 'Your account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
+			__( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
 			$contact
 				? sprintf(
 					/* translators: 1: country name, 2: the contact's email address. */
@@ -582,7 +589,7 @@ return array(
 					__( 'An Administrator will read it and you will get an email either way, usually within %s.', 'wpcredits-program-manager' ),
 					'{review_window}'
 				),
-				__( 'If it was the wrong file, withdraw it from the agreement panel on the site and upload the right one.', 'wpcredits-program-manager' ),
+				__( 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",
@@ -660,7 +667,7 @@ return array(
 					'{administrator_name}'
 				),
 				'{note}',
-				__( 'Upload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
+				__( 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",
@@ -714,18 +721,18 @@ return array(
 			array(
 				__( 'An institution asked the site to generate the Collaboration Agreement and the template could not be used, so nothing was generated and they were told the template needs attention.', 'wpcredits-program-manager' ),
 				sprintf(
-					/* translators: 1: what the template refused with, 2: language code, 3: institution record ID, 4: the name that was asked for. */
+					/* translators: 1: what the template refused with, 2: language code, 3: institution name, 4: the name that was asked for. */
 					__( 'The reason given was: %1$s (template language %2$s, institution %3$s, name asked for "%4$s").', 'wpcredits-program-manager' ),
 					'{reason}',
 					'{language}',
-					'{institution_record}',
+					'{institution_name}',
 					'{name_asked_for}'
 				),
-				__( 'The template lives in the plugin, in includes/templates/. A bracketed token other than the institution name is refused on purpose: it would otherwise print on a document somebody signs. Nothing can be generated in this language until it is fixed.', 'wpcredits-program-manager' ),
+				__( 'The template is part of the plugin, so a developer fixes it. A bracketed word other than the institution\'s name is refused on purpose: it would otherwise be printed on a document somebody signs. Nothing can be generated in this language until it is fixed.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",
-		'placeholders' => $wpcpm_take( array( 'site_name', 'reason', 'language', 'institution_record', 'name_asked_for' ), array() ),
+		'placeholders' => $wpcpm_take( array( 'site_name', 'reason', 'language', 'institution_name', 'institution_record', 'name_asked_for' ), array() ),
 	),
 	'member-last'                  => array(
 		'trigger'      => __( 'When the last member of an institution leaves or is removed: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
@@ -738,15 +745,14 @@ return array(
 		'body'         => $wpcpm_body(
 			array(
 				sprintf(
-					/* translators: 1: person, 2: institution name, 3: record ID, 4: reason, 5: date. */
-					__( '%1$s is no longer a member of %2$s (%3$s) as of %5$s (%4$s). No account can act for this institution on the site now.', 'wpcredits-program-manager' ),
+					/* translators: 1: person, 2: institution name, 3: why, as removed, left or revoked, 4: date. */
+					__( '%1$s is no longer a member of %2$s as of %4$s (%3$s). No account can act for this institution on the site now.', 'wpcredits-program-manager' ),
 					'{member_name}',
 					'{institution_name}',
-					'{institution_record}',
 					'{ended_because}',
 					'{left_on}'
 				),
-				__( 'The Airtable record, the agreement, the students and the history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.', 'wpcredits-program-manager' ),
+				__( 'The institution\'s record, its agreement, its students and its history are untouched. A former member can be re-added in one click from the Institutions screen, or a new account created there.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",

@@ -46,7 +46,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 
-$GLOBALS['opts']       = array( 'date_format' => 'Y-m-d' );
+$GLOBALS['opts']       = array( 'date_format' => 'F j, Y', 'time_format' => 'g:i a' );
 $GLOBALS['umeta']      = array();
 $GLOBALS['users']      = array();
 $GLOBALS['posts']      = array();
@@ -217,6 +217,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -453,10 +454,32 @@ ck( 'each address is printed', array( has( $card, 'anna@example.test' ), has( $c
 ck( 'how: added by an Administrator', has( $card, 'Added by an Administrator' ), true );
 ck( 'how: added by the institutions sync', has( $card, 'Added by the institutions sync' ), true );
 ck( 'how: joined by invitation', has( $card, 'Joined by invitation' ), true );
-ck( 'since: the date the stamp was written', has( $card, gmdate( 'Y-m-d' ) ), true );
+ck( 'since: the date the stamp was written, in the site\'s format', has( $card, gmdate( 'F j, Y' ) ), true );
+ck( 'and not as year-month-day', has( $card, gmdate( 'Y-m-d' ) ), false );
 ck( 'the institution name prints trimmed', has( $card, 'TEST - Institution 20&#039;s students' ), true );
-ck( 'the read time of the facts that are not live', has( $card, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
+ck( 'the read time of the facts that are not live, in the site\'s date and time formats', has( $card, 'The institution&#039;s details were read on ' . gmdate( 'F j, Y g:i a', 1756000000 ) . ' (4 hours ago). The people above are as they are right now.' ), true );
+ck( 'and not as year-month-day and a clock', has( $card, gmdate( 'Y-m-d H:i', 1756000000 ) ), false );
 ck( 'and it never renders accessibility', has( $card, 'accessibility' ), false );
+
+// A site with another format reads its own, and the time after the date.
+$GLOBALS['opts']['date_format'] = 'd/m/Y';
+$GLOBALS['opts']['time_format'] = 'H:i';
+ck( 'a site with another date and time format reads its own', has( render_card( 7, $A ), 'were read on ' . gmdate( 'd/m/Y H:i', 1756000000 ) . ' (4 hours ago).' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$GLOBALS['opts']['time_format'] = 'g:i a';
+
+// Nothing read yet: the sentence says so, and it is the card's own to say.
+$GLOBALS['index_read'] = 0;
+$unread = render_card( 7, $A );
+$GLOBALS['index_read'] = 1756000000;
+ck( 'before the first read the card says the details have not been read from the program records yet', has( $unread, 'The institution&#039;s details have not been read from the program records yet. The people above are as they are right now.' ), true );
+ck( 'and prints no date for it', has( $unread, 'were read' ), false );
+
+// The card is read by the school's own people, so none of it names the base: the rows, the
+// marks, their tooltips, every Remove confirm and both read lines.
+ck( 'a member\'s card names no Airtable at all, its read line included', array( has( $card, 'Airtable' ), has( $unread, 'Airtable' ) ), array( false, false ) );
+ck( 'nor does the card of a contact with no account, where the tooltip and the row are the card\'s', has( render_card( 1, $D, true ), 'Airtable' ), false );
+ck( 'nor a program table or the program\'s contact', array( has( $card, 'Students table' ), has( $card, 'the program&#039;s contact' ) ), array( false, false ) );
 
 echo "\n=== The invite flow the module already had is what the card draws now ===\n";
 
@@ -477,7 +500,9 @@ ck( 'the contact is listed', has( $named, 'Dana Dean' ), true );
 ck( 'with the address the base holds', has( $named, 'dana@example.test' ), true );
 ck( 'and the count is one, not zero', has( $named, '<span class="wpcpm-group__count wpcpm-people__count">1</span>' ), true );
 ck( 'the row says the account is what is missing', has( $named, 'no account on this site yet' ), true );
-ck( 'and it is marked as the program\'s contact', has( $named, 'the program&#039;s contact' ), true );
+ck( 'and it is marked as the institution\'s contact', has( $named, 'the institution&#039;s contact' ), true );
+ck( 'whose tooltip says who the program writes to, about whom', has( $named, 'title="The program writes to this person about the institution."' ), true );
+ck( 'and names no Airtable', has( $named, 'Airtable holds' ), false );
 // The row is a fact about the program's records; there is no membership under it to end.
 ck( 'the row carries no Remove control', has( $named, 'wpcpm-people__remove' ), false );
 // Two different questions: who the program writes to, and who can open this page.
@@ -501,25 +526,28 @@ ck( 'and counts it the same way', has( $block, '<span class="wpcpm-people__count
 ck( 'and still names the gap it can close', has( $block, 'no member holds that address' ), true );
 ck( 'a manager\'s card links Add or re-add to the institution\'s own Manage members view on the Institutions screen', has( $named, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $D . '">Add or re-add an account on the Institutions screen</a>' ), true );
 
-echo "\n=== The program's contact is marked, and the mark takes nothing away ===\n";
+echo "\n=== The institution's contact is marked, and the mark takes nothing away ===\n";
 
 // The blocker this block exists for: the mark used to suppress the row's control on both
 // surfaces, so a contact who left the school could not be removed by a colleague, by a
 // program manager or by themselves, and the institution could not be repaired from anywhere.
 // The mark is information about who the program writes to; the control is on every row.
-ck( 'the contact is marked, once', substr_count( $card, 'the program&#039;s contact<' ), 1 );
-ck( 'the mark is on the account holding the address Airtable names, whatever its case', has( $card, 'contact@example.test</span> <span class="wpcpm-people__mark"' ), true );
+ck( 'the contact is marked, once', substr_count( $card, 'the institution&#039;s contact<' ), 1 );
+ck( 'and never as the program\'s', has( $card, 'the program&#039;s contact' ), false );
+ck( 'with a tooltip saying who the program writes to', has( $card, 'title="The program writes to this address about the institution."' ), true );
+ck( 'the mark is on the account holding the address the program records name, whatever its case', has( $card, 'contact@example.test</span> <span class="wpcpm-people__mark"' ), true );
 ck( 'the contact\'s row carries the same control as every other', has( $card, 'nonce-wpcpm_remove_member_8' ), true );
 ck( 'so all three rows carry one', substr_count( $card, 'name="action" value="wpcpm_remove_member"' ), 3 );
 ck( 'the other two among them', array( has( $card, 'nonce-wpcpm_remove_member_7' ), has( $card, 'nonce-wpcpm_remove_member_13' ) ), array( true, true ) );
 ck( 'and no row says a manager is the only one who can', has( $card, 'is removed by an Administrator' ), false );
-ck( 'what the mark does instead is warn, in that row\'s confirm', has( $card, 'Airtable still names this address as the institution&#039;s contact' ), true );
-ck( 'once, on that row and no other', substr_count( $card, 'Airtable still names this address' ), 1 );
+ck( 'what the mark does instead is warn, in that row\'s confirm', has( $card, 'The program will go on writing to this address as the institution&#039;s contact until an Administrator changes it.' ), true );
+ck( 'once, on that row and no other', substr_count( $card, 'The program will go on writing to this address' ), 1 );
+ck( 'in no word of the base\'s', has( $card, 'Airtable still names' ), false );
 
 $own = render_card( 8, $A );
 ck( 'the contact may leave, like anybody else', has( $own, 'nonce-wpcpm_remove_member_8' ), true );
 ck( 'their own row is Leave', has( $own, '>Leave</button>' ), true );
-ck( 'their confirm warns them too', has( $own, 'Airtable still names this address as the institution&#039;s contact' ), true );
+ck( 'their confirm warns them too', has( $own, 'The program will go on writing to this address as the institution&#039;s contact until an Administrator changes it.' ), true );
 ck( 'and they see the controls on everybody else', substr_count( $own, 'name="action" value="wpcpm_remove_member"' ), 3 );
 
 $backstop_card = render_manager_block( 1, $A );
@@ -856,7 +884,7 @@ WPCPM_Institution_People::render_manager( $A );
 $block = (string) ob_get_clean();
 
 ck( 'former members are listed with a Re-add', array( has( $block, 'Grace Third' ), has( $block, 'name="action" value="wpcpm_readd_institution_member"' ) ), array( true, true ) );
-ck( 'and the read time is printed here too', has( $block, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
+ck( 'and the read time is printed here too, in the site\'s formats', has( $block, 'were read on ' . gmdate( 'F j, Y g:i a', 1756000000 ) . ' (4 hours ago).' ), true );
 
 // Each form, by the action it posts, with what its `wpcpm_from` says ('' for none): the flag
 // `finish()` rebuilds the way back from.

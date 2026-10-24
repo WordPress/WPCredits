@@ -285,6 +285,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -668,6 +669,14 @@ ck( 'once', substr_count( $here, 'wpcpm-request__message' ), 1 );
 // a member can take for their own institution's administrator.
 ck( 'and the note under the date sends a long wait to the program\'s Administrators, not to "your Administrator"',
     array( has( $here, 'If it has been a long time, write to the program&#039;s Administrators.' ), has( $here, 'your Administrator' ) ), array( true, false ) );
+// The day a school reads is in the site's own date format, as every other date on its pages is,
+// and not a year-month-day.
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$long_form                      = render_block( 8, $A, $S1 );
+$GLOBALS['opts']['date_format'] = 'Y-m-d';
+
+ck( 'the date it was asked for is written in the site\'s date format, not year-month-day',
+	array( has( $long_form, 'A mentor was asked for on August 24, 2025, 4 days ago.' ), has( $long_form, '2025-08-24' ) ), array( true, false ) );
 ck( 'and the card now shows the date it was asked for instead of the control', array(
 	has( $here, 'A mentor was asked for on' ),
 	has( $here, 'Ask for a mentor' ),

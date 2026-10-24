@@ -159,7 +159,6 @@ ck( 'read() is the empty shape', WPCPM_Institutions_Index::read(), array( 'v' =>
 ck( 'rows() is empty', WPCPM_Institutions_Index::rows(), array() );
 ck( 'row() is null', WPCPM_Institutions_Index::row( 'recSEED0000000008' ), null );
 ck( 'has() is false', WPCPM_Institutions_Index::has( 'recSEED0000000008' ), false );
-ck( 'stage_counts() is empty', WPCPM_Institutions_Index::stage_counts(), array() );
 ck( 'by_stage() is empty', WPCPM_Institutions_Index::by_stage(), array() );
 ck( 'OPTION and VERSION are the contract', array( WPCPM_Institutions_Index::OPT_NAME, WPCPM_Institutions_Index::VERSION ), array( 'wpcpm_institutions_index', 1 ) );
 
@@ -179,12 +178,6 @@ ck( 'every fixture row is in the index', count( WPCPM_Institutions_Index::rows()
 $SEEDED = count( $seed['institutions'] );
 ck( 'and that is what the fixture holds', count( WPCPM_Institutions_Index::rows() ), $SEEDED );
 
-$counts = WPCPM_Institutions_Index::stage_counts();
-$want   = $seed['counts']['by_stage'];
-ksort( $counts, SORT_STRING );
-ksort( $want, SORT_STRING );
-ck( 'the stage counts are the fixture\'s', $counts, $want );
-
 $groups = array();
 foreach ( WPCPM_Institutions_Index::by_stage() as $stage => $group ) {
 	$groups[ $stage ] = count( $group );
@@ -192,9 +185,9 @@ foreach ( WPCPM_Institutions_Index::by_stage() as $stage => $group ) {
 $want = $seed['counts']['by_stage'];
 ksort( $groups, SORT_STRING );
 ksort( $want, SORT_STRING );
-ck( 'by_stage() groups the same rows', $groups, $want );
+ck( 'by_stage() groups the rows by the fixture\'s stage counts', $groups, $want );
 
-ck( 'no record has an empty stage in this fixture', isset( $counts[''] ), false );
+ck( 'no record has an empty stage in this fixture', isset( $groups[''] ), false );
 
 // Pipeline order: STAGE_ORDER, then the terminal stages. Every one of the eleven is present
 // in the fixture, so the key order is the whole list.
@@ -202,7 +195,8 @@ ck( 'by_stage() runs the pipeline in order, terminal stages last',
 	array_keys( WPCPM_Institutions_Index::by_stage() ),
 	array( 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Confirmed', 'Student', 'Not Moving Forward', 'SPAM', 'Revisit Later' ) );
 
-ck( 'stage_counts() follows the same order', array_keys( WPCPM_Institutions_Index::stage_counts() ), array_keys( WPCPM_Institutions_Index::by_stage() ) );
+// A screen counts a stage's group; a second method counting them for it had no caller.
+ck( 'stage_counts() is gone: by_stage() is what a screen counts', method_exists( 'WPCPM_Institutions_Index', 'stage_counts' ), false );
 
 /* ---- single rows --------------------------------------------------------- */
 
@@ -372,7 +366,7 @@ ck( 'the empty stage is last', end( $order ), '' );
 ck( 'unknown stages sit after the terminal ones, sorted, before the empty group',
 	array_slice( $order, -4 ),
 	array( 'Revisit Later', 'Another New Stage', 'Brand New Stage', '' ) );
-ck( 'stage_counts() names the empty stage as \'\'', WPCPM_Institutions_Index::stage_counts()[''], 1 );
+ck( 'by_stage() names the empty stage as \'\'', count( WPCPM_Institutions_Index::by_stage()[''] ), 1 );
 
 /* ---- versioning ---------------------------------------------------------- */
 

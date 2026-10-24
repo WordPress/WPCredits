@@ -1007,7 +1007,7 @@ class WPCPM_Institution_Request {
 				sprintf(
 					/* translators: 1: date, 2: human-readable time difference, e.g. "4 days". */
 					__( 'A mentor was asked for on %1$s, %2$s ago. An Administrator reads these and assigns mentors in the program records; the name appears here once they have.', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d', (int) $facts['at'] ),
+					WPCPM_Dates::day( (int) $facts['at'] ),
 					human_time_diff( (int) $facts['at'], time() )
 				)
 			)

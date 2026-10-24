@@ -851,12 +851,18 @@ class WPCPM_Flash {
 }
 
 class WPCPM_Mail {
+	/** The site's name as WordPress stores it, which every email's `{site_name}` is handed. */
+	public static function site_name() {
+		return (string) get_bloginfo( 'name' );
+	}
+	/** Records who, under which id, and the subject and body the builder hands the mail layer. */
 	public static function send( $recipient, $context, $build ) {
 		$user = $recipient instanceof WP_User ? $recipient : get_user_by( 'id', (int) $recipient );
 
 		if ( ! $user instanceof WP_User || ! $user->exists() ) { return false; }
 
-		$GLOBALS['mail'][] = array( 'to' => $user->ID, 'context' => (string) $context );
+		$message           = is_callable( $build ) ? call_user_func( $build, $user ) : array();
+		$GLOBALS['mail'][] = array( 'to' => $user->ID, 'context' => (string) $context, 'subject' => isset( $message['subject'] ) ? $message['subject'] : '', 'body' => isset( $message['body'] ) ? $message['body'] : '' );
 
 		return true;
 	}
@@ -1901,6 +1907,10 @@ ck( 'a student who declined is not on it', has( $screen, 'Carla Nowak' ), false 
 ck( 'nor is the disclosure from her index row', has( $screen, 'screen reader' ), false );
 ck( 'and no address is printed anywhere on it', has( $screen, 'ana.example@example.test' ), false );
 ck( 'the read date of the roster behind it is shown', has( $screen, wp_date( 'Y-m-d', 1756900000 ) ), true );
+// The bucket the table counts as not started is `Not moving forward` alone, which the roster prints
+// "Not continuing": a student may have started before stopping, so the row does not say they did not.
+ck( 'the participation table names that bucket Not continuing, with the fixture\'s one student',
+	array( has( $screen, '<th scope="row">Not continuing</th><td>1</td>' ), has( $screen, 'Did not start' ) ), array( true, false ) );
 
 $save_form = form_for( $screen, WPCPM_Semester_Report_Screen::ACTION_SAVE );
 
@@ -2060,6 +2070,8 @@ $_POST = array();
 $document = run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT );
 
 ck( 'it is a whole document', has( strtolower( $document ), '<html' ), true );
+// Nothing read the day a report was last printed, so the print route writes nothing at all.
+ck( 'and printing it writes no export stamp', array_key_exists( '_wpcpm_report_exported', isset( $GLOBALS['pmeta'][ $post_id ] ) ? $GLOBALS['pmeta'][ $post_id ] : array() ), false );
 ck( 'with the report\'s own title', has( $document, esc_html( get_post( $post_id )->post_title ) ), true );
 
 // No theme part at all. A print stylesheet fighting a theme's is how a document comes out of a
@@ -2321,6 +2333,7 @@ $asked = count( $GLOBALS['mail'] );
 
 ck( 'a manager pressing it does send', $asked > 0, true );
 ck( 'and the message is the report-consent one', isset( $GLOBALS['mail'][0]['context'] ) ? $GLOBALS['mail'][0]['context'] : '', 'report-consent' );
+ck( 'in a subject that opens with the site\'s name in brackets', array_unique( array_column( $GLOBALS['mail'], 'subject' ) ), array( '[WordPress Credits] May your institution mention you in its semester report?' ) );
 
 /*
  * Who it went to. The spec's set is "a candidate answer and no permission answer", so it is
@@ -2736,6 +2749,12 @@ ck( 'the vocabulary is draft and approved', array( WPCPM_Semester_Report::STATE_
 ck( 'final is not a state any more', WPCPM_Semester_Report::set_state( get_post( $s_post_id ), 'final' ), false );
 ck( 'nothing on the class still names it', defined( 'WPCPM_Semester_Report::STATE_FINAL' ), false );
 
+// The words an Administrator reads for a report's state, in one place: the Institutions screen's
+// list, the report editor and the Administrator Dashboard's Programs running cell all print them.
+// `none` is what that cell holds for an institution with no report yet.
+ck( 'state_label() words none, draft and approved', array( WPCPM_Semester_Report::state_label( 'none' ), WPCPM_Semester_Report::state_label( WPCPM_Semester_Report::STATE_DRAFT ), WPCPM_Semester_Report::state_label( WPCPM_Semester_Report::STATE_APPROVED ) ), array( 'Not drafted', 'Draft', 'Approved' ) );
+ck( 'and a value no state names, a final from before 1.91.0 among them, reads as a draft, as every comparison against approved already does', array( WPCPM_Semester_Report::state_label( 'final' ), WPCPM_Semester_Report::state_label( '' ) ), array( 'Draft', 'Draft' ) );
+
 ck( 'approve writes the state and the stamp', WPCPM_Semester_Report::approve( get_post( $s_post_id ), 3 ), true );
 $stamp = WPCPM_Semester_Report::approved_at( get_post( $s_post_id ) );
 ck( 'the stamp names the manager', isset( $stamp['by'] ) ? $stamp['by'] : null, 3 );
@@ -2754,18 +2773,25 @@ ck( 'the job\'s origin is recorded', WPCPM_Semester_Report::origin_of( get_post(
 WPCPM_Semester_Report::generate( $B, $COHORT, WPCPM_Semester_Report::ORIGIN_MANAGER );
 ck( 'and a regeneration by hand does not rewrite it: the origin is how the report came to exist', WPCPM_Semester_Report::origin_of( get_post( $auto_id ) ), 'auto' );
 
-echo "\n=== The upgrade: final becomes approved, once ===\n";
+echo "\n=== The final vocabulary is gone, and nothing upgrades on init ===\n";
 
+// The flip of final reports to approved shipped in 1.91.0 and was asked again on every request
+// after it. The drafting day it also stored is stored where the drafting job is put on the clock
+// (WPCPM_Institutions::schedule_cron(), in bin/test-institutions-screen.php).
+$on_init = array();
+foreach ( isset( $GLOBALS['hooks']['init'] ) ? $GLOBALS['hooks']['init'] : array() as $callback ) {
+	$on_init[] = is_array( $callback ) ? ( is_string( $callback[0] ) ? $callback[0] : get_class( $callback[0] ) ) . '::' . $callback[1] : (string) $callback;
+}
+ck( 'nothing hooks an upgrade of the report on init', array( in_array( 'WPCPM_Semester_Report::maybe_upgrade', $on_init, true ), method_exists( 'WPCPM_Semester_Report', 'maybe_upgrade' ) ), array( false, false ) );
+ck( 'and the vocabulary\'s version has no constant left', array( defined( 'WPCPM_Semester_Report::OPT_STATE_VERSION' ), defined( 'WPCPM_Semester_Report::STATE_VERSION' ) ), array( false, false ) );
+ck( 'final is still refused', WPCPM_Semester_Report::set_state( get_post( $s_post_id ), 'final' ), false );
+
+// A report the 1.91.0 flip approved is approved by nobody: nobody pressed Approve on it.
 $legacy = wp_insert_post( array( 'post_type' => WPCPM_Semester_Report::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Legacy final' ) );
 update_post_meta( $legacy, WPCPM_Semester_Report::META_INSTITUTION, $C );
 update_post_meta( $legacy, WPCPM_Semester_Report::META_COHORT, '2025-H2' );
-update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'final' );
-unset( $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_STATE_VERSION ], $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] );
-
-WPCPM_Semester_Report::maybe_upgrade();
-ck( 'a final report reads approved after the upgrade', WPCPM_Semester_Report::state( get_post( $legacy ) ), 'approved' );
-$legacy_stamp = WPCPM_Semester_Report::approved_at( get_post( $legacy ) );
-ck( 'approved by nobody, because approval did not exist when it was marked', isset( $legacy_stamp['by'] ) ? $legacy_stamp['by'] : null, 0 );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, WPCPM_Semester_Report::STATE_APPROVED );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_APPROVED, array( 'at' => 1756000000, 'by' => 0 ) );
 
 // The header prints "Approved on <date>." with no " by " clause when by is 0: rendered here
 // as a manager, because a member never sees a draft's editor and this stamp is drawn there.
@@ -2773,18 +2799,8 @@ $prev_manage       = $GLOBALS['manage'];
 $GLOBALS['manage'] = true;
 $legacy_screen     = screen_html( $C, '2025-H2' );
 $GLOBALS['manage'] = $prev_manage;
-ck( 'an upgraded report says when it was approved and names nobody', has( $legacy_screen, 'Approved on' ) && ! preg_match( '/Approved on [^<]* by /', $legacy_screen ), true );
-
-ck( 'the vocabulary version is stamped', (int) get_option( WPCPM_Semester_Report::OPT_STATE_VERSION ), 2 );
-ck( 'and the since-date is today', get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ), gmdate( 'Y-m-d' ) );
+ck( 'a report approved by nobody says when it was approved and names nobody', has( $legacy_screen, 'Approved on' ) && ! preg_match( '/Approved on [^<]* by /', $legacy_screen ), true );
 ck( 'the draft was left alone', WPCPM_Semester_Report::state( get_post( $s_post_id ) ), 'draft' );
-
-update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'final' );
-$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2020-01-01';
-WPCPM_Semester_Report::maybe_upgrade();
-ck( 'a second run does nothing', WPCPM_Semester_Report::state( get_post( $legacy ) ), 'final' );
-ck( 'and never moves the since-date', get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ), '2020-01-01' );
-update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'approved' );
 
 echo "\n=== The log ===\n";
 
@@ -2803,10 +2819,13 @@ ck( 'the log is capped', count( WPCPM_Semester_Report::log_entries() ), WPCPM_Se
 WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFT_FAILED, $A, $COHORT, 0, array( 'why' => str_repeat( 'x', 500 ) ) );
 ck( 'a reason is cut short', strlen( WPCPM_Semester_Report::log_entries()[0]['why'] ), 200 );
 
+// The vocabulary's version is written no more, and a site that ran 1.91.0 holds it: deleted by name.
+$GLOBALS['opts']['wpcpm_report_state_version']                = 2;
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
 WPCPM_Semester_Report::delete_all();
-ck( 'uninstall takes the log, the version and the since-date', array(
+ck( 'uninstall takes the log, the version a site may still hold and the since-date', array(
 	get_option( WPCPM_Semester_Report::OPT_LOG, 'gone' ),
-	get_option( WPCPM_Semester_Report::OPT_STATE_VERSION, 'gone' ),
+	get_option( 'wpcpm_report_state_version', 'gone' ),
 	get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE, 'gone' ),
 ), array( 'gone', 'gone', 'gone' ) );
 
@@ -2994,6 +3013,7 @@ ck( 'and mails the managers once per draft, through the report setting', count( 
 ck( 'the mail names the institution, the semester and the review link', has( $GLOBALS['mail'][0]['body'], 'Job University' ) && has( $GLOBALS['mail'][0]['body'], 'January to June 2026' ) && has( $GLOBALS['mail'][0]['body'], 'wpcpm_report=2026-H1' ), true );
 ck( 'and opens it as the institution it was drafted for, through the switcher', has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $second_pair['institution'] ), true );
 ck( 'and names that institution in the subject', has( $GLOBALS['mail'][0]['subject'], 'Job University ' . (int) substr( $second_pair['institution'], -3 ) ), true );
+ck( 'which opens with the site\'s name in brackets, as the subject of every email of the plugin does', $GLOBALS['mail'][0]['subject'], '[WordPress Credits] Semester report drafted: Job University ' . (int) substr( $second_pair['institution'], -3 ) );
 ck( 'each draft is the job\'s', WPCPM_Semester_Report::queue()[0]['origin'], 'auto' );
 ck( 'and logged to actor 0', WPCPM_Semester_Report::log_entries()[0]['actor'], 0 );
 unset( $GLOBALS['opts'][ 'wpcpm_report_gen_' . md5( $first_pair['institution'] . '|' . $first_pair['cohort'] ) ] );
@@ -3042,6 +3062,7 @@ $GLOBALS['transients'] = array();
 ck( 'approval approves', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ), 'approved' );
 ck( 'stamped with the manager', WPCPM_Semester_Report::approved_at( get_post( $ap_post ) )['by'], 3 );
 ck( 'the institution\'s two accounts are told', array_map( static function ( $m ) { return $m['to'] . ':' . $m['context']; }, $GLOBALS['mail'] ), array( '21:report-approved', '22:report-approved' ) );
+ck( 'in a subject that opens with the site\'s name in brackets', array_unique( array_column( $GLOBALS['mail'], 'subject' ) ), array( '[WordPress Credits] Your semester report is ready' ) );
 ck( 'and the flash carries the count', $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ]['detail']['notified'], 2 );
 ck( 'logged', WPCPM_Semester_Report::log_entries()[0]['event'], 'approved' );
 ck( 'approving again is a refusal that names the state', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ), 'is-approved' );
@@ -3112,6 +3133,7 @@ $draft_editor = screen_html( $B, '2025-H2' );
 ck( 'a draft offers Approve and not Reopen', has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ) && ! has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ), true );
 ck( 'and the editing form', has( $draft_editor, '<textarea' ), true );
 ck( 'and says who drafted it', has( $draft_editor, 'Drafted by an Administrator' ), true );
+ck( 'the state word of a draft is Draft', has( $draft_editor, '<span class="wpcpm-report-card__state">Draft</span>' ), true );
 $approved_editor = screen_html( $B, '2026-H1' );
 ck( 'an approved report offers Reopen and not Approve', has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ) && ! has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ), true );
 ck( 'and no editing form', has( $approved_editor, '<textarea' ), false );

@@ -627,6 +627,20 @@ foreach ( array( 'Graduate', 'Dropped out', 'Paused', 'Fail', '', 'Something new
 // what Airtable says instead of a blank.
 ck( 'an unknown status is its own label', WPCPM_Program::label( 'Something new' ), 'Something new' );
 
+// The words a school reads a status in (the Institution Dashboard's Program cell, its closed row's
+// badge and the placement card's quote): a track keeps its program name, the four pipeline words
+// with a plain version have it, and everything else is the status as it is. `label()` itself is
+// untouched, because the pages that are not a school's go on reading it.
+ck( 'a track\'s status is its program name in a school\'s words', WPCPM_Program::status_words( 'In Sensei' ), WPCPM_Program::label( 'In Sensei' ) );
+ck( 'Not moving forward is Not continuing', WPCPM_Program::status_words( 'Not moving forward' ), 'Not continuing' );
+ck( 'In Sensei Self-onboarding is Getting started', WPCPM_Program::status_words( 'In Sensei Self-onboarding' ), 'Getting started' );
+ck( 'Fail is Did not complete', WPCPM_Program::status_words( 'Fail' ), 'Did not complete' );
+ck( 'Graduate is Graduated', WPCPM_Program::status_words( 'Graduate' ), 'Graduated' );
+ck( 'Interested stays Interested, since Signed up would contradict the count of those who did', WPCPM_Program::status_words( 'Interested' ), 'Interested' );
+ck( 'any other status is as it is', array( WPCPM_Program::status_words( 'Dropped out' ), WPCPM_Program::status_words( 'Paused' ), WPCPM_Program::status_words( 'Pending graduation' ), WPCPM_Program::status_words( 'Something new' ) ), array( 'Dropped out', 'Paused', 'Pending graduation', 'Something new' ) );
+ck( 'padding is trimmed, and an empty status is empty', array( WPCPM_Program::status_words( '  Graduate ' ), WPCPM_Program::status_words( '' ) ), array( 'Graduated', '' ) );
+ck( 'while label() still passes Graduate through for the pages that are not a school\'s', WPCPM_Program::label( 'Graduate' ), 'Graduate' );
+
 // Whitespace is what a copy-paste into Airtable leaves behind.
 ck( 'a padded status still resolves', WPCPM_Program::track( '  Developer Track  ' ), 'dev' );
 

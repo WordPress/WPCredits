@@ -90,7 +90,7 @@ class WPCPM_Institution_Panel {
 			// Revoke and reinstate, T8 and T9. Named here with everything else the two agreement
 			// forms can flash, because a slug with no row prints nothing at all: the button
 			// redirects, the page looks untouched, and the manager presses it again.
-			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. The institution\'s account is limited to the agreement panel from its next page load, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
+			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. From its next page load the institution\'s account shows only the Collaboration Agreement card, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the institution as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
 			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this institution.', 'wpcredits-program-manager' ) ),
@@ -1469,7 +1469,7 @@ class WPCPM_Institution_Panel {
 
 		$note = trim( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_NOTE, true ) );
 		$who  = get_userdata( (int) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_DECIDED_BY, true ) );
-		$when = trim( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_DECIDED_AT, true ) );
+		$when = WPCPM_Dates::day( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_DECIDED_AT, true ) );
 
 		echo '<blockquote class="wpcpm-agreement-panel__note">';
 
@@ -1521,8 +1521,8 @@ class WPCPM_Institution_Panel {
 			esc_html(
 				sprintf(
 					/* translators: 1: date and time, 2: human-readable time difference. */
-					__( 'Agreement state: read %1$s (%2$s ago).', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d H:i', $updated ),
+					__( 'The agreement\'s state was read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ),
+					WPCPM_Dates::moment( $updated ),
 					human_time_diff( $updated, time() )
 				)
 			)
@@ -1551,7 +1551,10 @@ class WPCPM_Institution_Panel {
 	}
 
 	/**
-	 * A post's date as Y-m-d, or an empty string.
+	 * The day a post was written, in the site's date format, or an empty string.
+	 *
+	 * Read from `post_date`, the site-local one, as the day it names: `WPCPM_Dates::day()` takes
+	 * its first ten characters and moves no time zone over them.
 	 *
 	 * @param int $post_id Post ID.
 	 * @return string
@@ -1559,7 +1562,7 @@ class WPCPM_Institution_Panel {
 	private static function post_date( $post_id ) {
 		$post = get_post( (int) $post_id );
 
-		return $post instanceof WP_Post ? substr( (string) $post->post_date, 0, 10 ) : '';
+		return $post instanceof WP_Post ? WPCPM_Dates::day( (string) $post->post_date ) : '';
 	}
 
 	/**
@@ -1644,7 +1647,7 @@ class WPCPM_Institution_Agreement_Card {
 		// of a school.
 		$as_manager = isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === $decision['ground'];
 		$summary    = WPCPM_Institution_Agreement::summary( $record_id );
-		$accepted   = isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '';
+		$accepted   = WPCPM_Dates::day( isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '' );
 
 		echo '<section class="wpcpm-agreement-card">';
 

@@ -354,7 +354,7 @@ class WPCPM_Institution_Student_View {
 			printf(
 				'<span class="wpcpm-badge%1$s">%2$s</span>',
 				'' === $badge ? '' : esc_attr( ' wpcpm-badge--' . $badge ),
-				esc_html( WPCPM_Program::label( $status ) )
+				esc_html( WPCPM_Program::status_words( $status ) )
 			);
 		}
 
@@ -436,11 +436,22 @@ class WPCPM_Institution_Student_View {
 		$website  = self::first( array( isset( $program['website'] ) ? $program['website'] : '' ) );
 		$team     = WPCPM_Mentors_Sync::resolve_stored( isset( $program['team'] ) ? (string) $program['team'] : '', 'teams' );
 
+		// The row the three cards share, with the words this page's roster prints for a status: the
+		// shared row says "Graduate" where the roster says "Graduated", and it is not this page's to
+		// change for the Mentor Report Card and the Student Report Card. A row with markup of its
+		// own (a student waiting to graduate, with the course they took and its badge) is left as
+		// it is; its badge says "Pending graduation", a status with no plainer word.
+		$program_field = WPCPM_Program::program_field( $status, $student->ID );
+
+		if ( empty( $program_field['html'] ) ) {
+			$program_field['value'] = WPCPM_Program::status_words( $status );
+		}
+
 		return array(
 			// The Learn WordPress course for their track, so the syllabus is one click from the row
 			// that says which track they are on. The cards' shared row: for a student waiting to
 			// graduate it names the course they took, with the Pending graduation badge beside it.
-			'reports|Status'                 => WPCPM_Program::program_field( $status, $student->ID ),
+			'reports|Status'                 => $program_field,
 			// Both dates in one row, because a school reads a placement as a period rather than
 			// as two facts. Keyed on the start date, which is the column that decides the cohort.
 			'students|Start Date'            => array(
@@ -617,6 +628,9 @@ class WPCPM_Institution_Student_View {
 	 * Students row, and not here. A card that hid the disclosure would be a courtesy; the
 	 * refusal is the fence.
 	 *
+	 * A student whose account holds no report record has nothing to fetch. The note says so in a
+	 * school's words: the report is the student's progress, and what is missing is the record of it.
+	 *
 	 * @param WP_User $student The student.
 	 */
 	private static function render_report( WP_User $student ) {
@@ -625,7 +639,7 @@ class WPCPM_Institution_Student_View {
 		if ( '' === $record ) {
 			printf(
 				'<p class="wpcpm-student__note">%s</p>',
-				esc_html__( 'This student has no report record in the program data yet, so there is no Student Report Card to show.', 'wpcredits-program-manager' )
+				esc_html__( 'This student has no progress record yet, so there is no Student Report Card to show.', 'wpcredits-program-manager' )
 			);
 
 			return;

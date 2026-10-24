@@ -400,7 +400,7 @@ class WPCPM_Institutions_Dashboard {
 			self::render_switcher( $record );
 		}
 
-		self::render_identity( $profile );
+		self::render_identity( $profile, $can_manage );
 
 		if ( $can_manage && ! $settled ) {
 			self::render_banner( $record );
@@ -476,8 +476,8 @@ class WPCPM_Institutions_Dashboard {
 			}
 
 			// When the records were last read, once, at the foot of the page under its own
-			// line, as the Student Report Card ends (owner, 1.96.5); the roster no longer closes
-			// with it. The strip inside the roster keeps its own copy, which belongs to the cohort.
+			// line, as the Student Report Card ends (owner, 1.96.5). The roster is told its module
+			// is titled and prints none, and neither does its strip, so the page holds it once.
 			if ( method_exists( 'WPCPM_Institution_Roster_View', 'read_line' ) && method_exists( 'WPCPM_Roster_Index', 'read' ) ) {
 				$read = isset( $context['read'] ) ? (int) $context['read'] : (int) WPCPM_Roster_Index::read( $record )['read'];
 				WPCPM_Institution_Roster_View::read_line( $read, 'wpcpm-dashboard__updated' );
@@ -517,7 +517,7 @@ class WPCPM_Institutions_Dashboard {
 			'filters'    => method_exists( $view, 'filters_from_request' )
 				? (array) call_user_func( array( $view, 'filters_from_request' ) )
 				: array(),
-			// The read time of the data this page shows, printed by the roster's footer. The
+			// The read time of the data this page shows, printed at the foot of the page. The
 			// index's own and never "now": the whole point of a per-institution index is that
 			// every surface says how old the rows on it are.
 			'read'       => (int) WPCPM_Roster_Index::read( $record_id )['read'],
@@ -540,12 +540,16 @@ class WPCPM_Institutions_Dashboard {
 	/**
 	 * What each module is for, said once under its title.
 	 *
+	 * Printed to a school, so each sentence says what the module gives its readers and in the
+	 * words they use. The Semester report's says when the report can be read: the program
+	 * prepares it, and an Administrator approves it before the institution sees it.
+	 *
 	 * @return array<string, string>
 	 */
 	public static function leads() {
 		return array(
 			self::MODULE_STUDENTS => __( 'Your students on the program, by cohort and by where they are, with the export and the enrollment form.', 'wpcredits-program-manager' ),
-			self::MODULE_REPORT   => __( 'The report the program compiles for your institution each semester, for you to review and approve.', 'wpcredits-program-manager' ),
+			self::MODULE_REPORT   => __( 'The report the program prepares for your institution each semester, to read and download as a PDF once an Administrator has approved it.', 'wpcredits-program-manager' ),
 			self::MODULE_PEOPLE   => __( 'Who at your institution can see this page, invitations to colleagues, and the Collaboration Agreement.', 'wpcredits-program-manager' ),
 		);
 	}
@@ -681,11 +685,10 @@ class WPCPM_Institutions_Dashboard {
 	}
 
 	/**
-	 * Draw one of the dashboard's cards, if the piece that owns it is installed.
+	 * Draw one of the dashboard's cards, if the class that owns it is loaded.
 	 *
-	 * Phase 2's cards land as separate commits and any one of them may be absent from a
-	 * checkout, so a missing card leaves a gap on the page rather than a fatal on the page a
-	 * partner institution was invited to. Named as a string and called through
+	 * A card whose class is not loaded leaves a gap on the page rather than a fatal on the page
+	 * a partner institution was invited to. Named as a string and called through
 	 * `call_user_func()` for that reason: a hard reference would be a parse-time promise this
 	 * class cannot keep. The order of the calls is the spec's, and it is the whole of it - a
 	 * card that is not called from `render()` is not on the dashboard.
@@ -1062,9 +1065,16 @@ class WPCPM_Institutions_Dashboard {
 	 * is "Institution Dashboard" and that `<h1>` is the page's. Two of them is not a document
 	 * outline.
 	 *
-	 * @param array $profile Facts from `profile()`.
+	 * **The Stage line is the program's, not the school's.** The stage is the program's own word
+	 * for where an institution stands in its pipeline (Confirmed, Agreement Sent), which tells a
+	 * school nothing it can act on and reads as the program's bookkeeping. It is drawn for a viewer
+	 * who can manage the program, who reads this page through the switcher to see what the school
+	 * sees and what the program holds about it, and for nobody else.
+	 *
+	 * @param array $profile    Facts from `profile()`.
+	 * @param bool  $can_manage Whether the viewer can manage the program.
 	 */
-	private static function render_identity( array $profile ) {
+	private static function render_identity( array $profile, $can_manage ) {
 		$name = '' !== $profile['name']
 			? $profile['name']
 			// Two records in the base carry no name at all. Saying so is better than an empty
@@ -1127,7 +1137,7 @@ class WPCPM_Institutions_Dashboard {
 			);
 		}
 
-		if ( '' !== $profile['stage'] ) {
+		if ( $can_manage && '' !== $profile['stage'] ) {
 			printf(
 				'<p class="wpcpm-institution__fact wpcpm-institution__stage">%s</p>',
 				esc_html(
@@ -1203,7 +1213,7 @@ class WPCPM_Institutions_Dashboard {
 			esc_html(
 				sprintf(
 					/* translators: %s: the agreement state in words, e.g. "not started". */
-					__( 'This institution\'s agreement is not settled: %s. Members see only the agreement panel.', 'wpcredits-program-manager' ),
+					__( 'This institution\'s agreement is not settled: %s. Members see only the Collaboration Agreement card.', 'wpcredits-program-manager' ),
 					self::state_label( $summary['state'] )
 				)
 			)

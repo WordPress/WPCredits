@@ -392,6 +392,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 // there, and the screen's map of outcomes holds them.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';

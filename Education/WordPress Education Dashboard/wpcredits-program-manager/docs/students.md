@@ -201,7 +201,7 @@ Only you see your codes. Nobody is sent a code by mail, and sponsors see how man
 
 ### Resources
 
-At the foot of the page: the students Slack channel, the Student guide in the handbook, and **Need
+At the foot of the page: the WordPress Credits Slack channel, the Student guide in the handbook, and **Need
 help?** - a question box answered from the WordPress documentation, if the program has switched it
 on. Beside them, **Program updates and announcements** lists anything recently posted for you.
 

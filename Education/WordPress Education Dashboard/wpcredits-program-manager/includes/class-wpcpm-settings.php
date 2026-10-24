@@ -196,10 +196,10 @@ class WPCPM_Settings {
 			'report_autodraft'              => true,
 			'report_autodraft_grace_days'   => 45,
 			'report_notify'                 => '',
-			// Where the wording actually lives, for the manager screen's link and for the drift
-			// check that compares the plugin's copy against it. Deliberately empty by default and
-			// deliberately not in the code: the document is editable by anyone holding its link,
-			// so the link belongs on the site rather than in a public repository.
+			// Where the wording actually lives, for the Agreement template card's link to it on the
+			// Institutions screen. Deliberately empty by default and deliberately not in the code:
+			// the document is editable by anyone holding its link, so the link belongs on the site
+			// rather than in a public repository.
 			'agreement_doc_url'             => '',
 			'agreement_discard_days'        => 30,
 			// Roster import by institutions. Off until it has run on the pilot, since

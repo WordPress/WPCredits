@@ -1389,22 +1389,22 @@ reset_world();
 $GLOBALS['opts'][ 'wpcpm_agreement_lock_' . $rec_a ] = time();
 ck( 'a lock row is not listed as an institution', WPCPM_Institution_Agreement::discrepancies(), array() );
 
-/* ---- rebuild_all, summary, delete_all ----------------------------------- */
+/* ---- several records, summary, delete_all ------------------------------- */
 
-echo "\n=== rebuild_all(), summary() and delete_all() ===\n";
+echo "\n=== Several records, summary() and delete_all() ===\n";
+
+// The sync rebuilds one record at a time, so there is no method that rebuilds a list of them.
+ck( 'rebuild_all() is gone: nothing called it', method_exists( 'WPCPM_Institution_Agreement', 'rebuild_all' ), false );
 
 reset_world();
+// The row a check against the Doc stored, which a site may still hold: it shares the prefix,
+// and its suffix is no record ID.
 $GLOBALS['opts']['wpcpm_agreement_drift'] = array( 'read' => 1 );
 seed_post( $rec_b, 'accepted', 'template' );
-$written = WPCPM_Institution_Agreement::rebuild_all( array(
-	$rec_a => block( 'On file', $drive ),
-	$rec_b => block( 'Accepted' ),
-	$rec_c => block( 'Not started' ),
-	'junk' => block( 'Accepted' ),
-	$rec_a . 'x' => 'not a block',
-) );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'On file', $drive ) );
+WPCPM_Institution_Agreement::rebuild( $rec_b, block( 'Accepted' ) );
+WPCPM_Institution_Agreement::rebuild( $rec_c, block( 'Not started' ) );
 
-ck( 'three options written, the junk keys skipped', $written, 3 );
 ck( 'each row reads as its inputs say',
     array( WPCPM_Institution_Agreement::is_settled( $rec_a ), WPCPM_Institution_Agreement::is_settled( $rec_b ), WPCPM_Institution_Agreement::is_settled( $rec_c ) ),
     array( true, true, false ) );
@@ -1436,6 +1436,21 @@ ck( 'summary after a site-side revoke deleted the option still says revoked', ar
 
 ck( 'posts_for() is newest first', array_map( function ( $p ) { return $p->ID; }, WPCPM_Institution_Agreement::posts_for( $rec_a ) ), array( $revoked ) );
 ck( 'posts_for() refuses a bad ID', WPCPM_Institution_Agreement::posts_for( 'x' ), array() );
+
+// The words an Administrator reads for a summary state, in one place, so the Institutions screen's
+// line and the Administrator Dashboard's Programs running cell cannot name one state two ways.
+$summary_states = array(
+	WPCPM_Institution_Agreement::SUMMARY_NONE,
+	WPCPM_Institution_Agreement::SUMMARY_GENERATED,
+	WPCPM_Institution_Agreement::SUMMARY_SUBMITTED,
+	WPCPM_Institution_Agreement::SUMMARY_RETURNED,
+	WPCPM_Institution_Agreement::SUMMARY_REVOKED,
+	WPCPM_Institution_Agreement::SUMMARY_ACCEPTED,
+	WPCPM_Institution_Agreement::SUMMARY_ON_FILE,
+);
+ck( 'summary_label() words each of the seven summary states', array_map( array( 'WPCPM_Institution_Agreement', 'summary_label' ), $summary_states ), array( 'Not started', 'Template generated', 'Awaiting review', 'Returned', 'Revoked', 'Accepted', 'On file' ) );
+ck( 'and says a state it does not know as it is, never an empty word', array( WPCPM_Institution_Agreement::summary_label( 'mystery' ), WPCPM_Institution_Agreement::summary_label( '' ) ), array( 'mystery', '' ) );
+ck( 'no label is the stored word, so a cell that prints the label never prints on_file or none', array_values( array_filter( $summary_states, static function ( $state ) { return WPCPM_Institution_Agreement::summary_label( $state ) === $state; } ) ), array() );
 
 reset_world();
 WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'On file', $drive ) );
@@ -1770,8 +1785,9 @@ ck( 'and their message says the scan is a courtesy, in the same breath as what i
 ), array( true, true ) );
 ck( 'the members are told when to expect an answer and how to take it back', array(
 	false !== strpos( $GLOBALS['mail'][0]['body'], 'within 3 working days' ),
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'withdraw it' ),
-), array( true, true ) );
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.' ),
+	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
+), array( true, true, true ) );
 
 ck( 'one audit row, on the member ground, naming the document', array(
 	count( $GLOBALS['audit'] ),
@@ -1783,6 +1799,22 @@ ck( 'one audit row, on the member ground, naming the document', array(
 	$GLOBALS['audit'][0]['actor'],
 ), array( 1, 'agreement_upload', 'member', 'index', 'recAAAAAAAAAAAAA1', (string) $new_id, 4 ) );
 ck( 'and the ceiling came before the store, which came before Airtable', array_slice( $GLOBALS['journal'], 0, 3 ), array( 'ceiling', 'store', 'airtable' ) );
+
+// The account that uploaded it holds no name: the members are told it was "a member of your
+// institution", and the Administrators that it was "a member of the institution", where they were
+// given the institution's Airtable record, which they cannot read.
+upload_world();
+$GLOBALS['users'][4]->display_name = '';
+post_file( temp_file( pdf_bytes() ) );
+$outcome = run( 'handle_upload' );
+
+ck( 'an upload by an account with no name lands', $outcome, 'agreement-uploaded' );
+ck( 'the members are told it was uploaded by a member of their institution', array_map( function ( $m ) { return false !== strpos( $m['body'], 'uploaded by a member of your institution.' ); }, array_slice( $GLOBALS['mail'], 0, 2 ) ), array( true, true ) );
+ck( 'and the Administrators by a member of the institution, with the institution\'s name and no record', array(
+	$GLOBALS['mail'][2]['context'],
+	1 === preg_match( '/^Universidad Example uploaded a signed Collaboration Agreement on \d{4}-\d{2}-\d{2} \(a member of the institution\)\./', $GLOBALS['mail'][2]['body'] ),
+	false === strpos( $GLOBALS['mail'][2]['body'], 'recAAAAAAAAAAAAA1' ),
+), array( 'agreement-landed', true, true ) );
 
 /* ---- an institution's own paper, uploaded after a generate -------------- */
 
@@ -2133,6 +2165,10 @@ ck( 'every member got the note, once each', mail_log(), array( 'agreement-return
 ck( 'word for word', false !== strpos( $GLOBALS['mail'][0]['body'], $note ), true );
 ck( 'naming the manager who wrote it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Kasia Manager' ), true );
 ck( 'and replying reaches them', $GLOBALS['mail'][0]['headers'], array( 'Reply-To: "Kasia Manager" <kasia@example.org>' ) );
+ck( 'saying where the corrected copy goes: the Collaboration Agreement card on the Institution Dashboard, and no panel', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
+	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
+), array( true, true ) );
 ck( 'one audit row, on the manager ground', array( $GLOBALS['audit'][0]['kind'], $GLOBALS['audit'][0]['ground'] ), array( 'agreement_return', 'manager' ) );
 ck( 'the lock was released', array_key_exists( 'wpcpm_agreement_lock_recAAAAAAAAAAAAA1', $GLOBALS['opts'] ), false );
 
@@ -2474,9 +2510,9 @@ ck( 'with the note word for word, in both of them', array(
 	false !== strpos( $GLOBALS['mail'][1]['body'], $note ),
 ), array( true, true ) );
 ck( 'naming the manager who wrote it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Kasia Manager' ), true );
-ck( 'saying what is limited rather than what is gone', array(
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'limited to the agreement panel' ),
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'Nothing about your students has been deleted.' ),
+ck( 'saying what the account shows now rather than what is gone, by the card\'s name and the dashboard\'s, with no panel', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
+	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
 ), array( true, true ) );
 ck( 'and naming the country contact to write to', false !== strpos( $GLOBALS['mail'][0]['body'], 'Your program contact for Costa Rica is costa.rica@example.org.' ), true );
 ck( 'who is named and never mailed', in_array( 'costa.rica@example.org', array_column( $GLOBALS['mail'], 'to' ), true ), false );

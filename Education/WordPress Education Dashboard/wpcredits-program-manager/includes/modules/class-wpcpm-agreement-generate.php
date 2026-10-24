@@ -1016,13 +1016,21 @@ class WPCPM_Agreement_Generate {
 		$site   = WPCPM_Mail::site_name();
 		$reason = $error->get_error_message();
 
-		$build = static function () use ( $site, $record, $name, $language, $reason ) {
+		// The name the pipeline index holds for the institution, which an Administrator can read; the
+		// record when it holds none. The record is still handed over, for an edit of the email that
+		// says it.
+		$row    = WPCPM_Institutions_Index::row( $record );
+		$school = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+		$school = '' !== $school ? $school : $record;
+
+		$build = static function () use ( $site, $record, $school, $name, $language, $reason ) {
 			return WPCPM_Mail_Templates::mail(
 				self::NOTIFY_TEMPLATE,
 				array(
 					'site_name'          => $site,
 					'reason'             => $reason,
 					'language'           => $language,
+					'institution_name'   => $school,
 					'institution_record' => $record,
 					'name_asked_for'     => $name,
 				)

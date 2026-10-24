@@ -213,19 +213,6 @@ final class WPCPM_Institution_Import {
 	const ROWS_PER_DAY = 600;
 
 	/**
-	 * How many checks the log remembers.
-	 *
-	 * Capped because it is an option: a log that grew without a bound would be read on every
-	 * manager screen and would eventually be the reason one is slow.
-	 *
-	 * @var int
-	 */
-	const LOG_MAX = 200;
-
-	/** The capped log of checks, for the manager reconciliation card. */
-	const OPT_LOG = 'wpcpm_import_log';
-
-	/**
 	 * What an institution's creation lock is called.
 	 *
 	 * Declared here rather than beside the loop that takes it, because this class owns the
@@ -313,9 +300,10 @@ final class WPCPM_Institution_Import {
 	 *
 	 * **The batch posts are the reason this method exists.** Each one holds a school's list of
 	 * names and email addresses, and until this was written an uninstall left every one of them
-	 * in the database: the plugin would be gone and the people would still be there. The log
-	 * and the locks go with them, the log because it names who ran what and the locks because a
-	 * request that died holding one leaves a row nothing else would ever clear.
+	 * in the database: the plugin would be gone and the people would still be there. The locks
+	 * go with them, because a request that died holding one leaves a row nothing else would ever
+	 * clear, and so does `wpcpm_import_log`, by name: the log of checks a version before 1.123.27
+	 * wrote, which names who ran what and which nothing writes or reads now.
 	 *
 	 * The students created by an import are not touched. They are records in Airtable and
 	 * accounts on this site, and both are people rather than plugin state, which is the same
@@ -341,7 +329,7 @@ final class WPCPM_Institution_Import {
 			}
 		}
 
-		delete_option( self::OPT_LOG );
+		delete_option( 'wpcpm_import_log' );
 
 		global $wpdb;
 
@@ -646,27 +634,14 @@ final class WPCPM_Institution_Import {
 	}
 
 	/**
-	 * The batch this institution has waiting, if any.
-	 *
-	 * One at a time, so a school cannot stage six lists and confirm them in an order nobody
-	 * intended. A second check replaces this one only after it has been cancelled, which is
-	 * the caller's business rather than this method's.
-	 *
-	 * @param string $institution Airtable Institutions record ID.
-	 * @return int Post ID, or 0.
-	 */
-	public static function staged_for( $institution ) {
-		return self::in_state( $institution, self::STATE_STAGED );
-	}
-
-	/**
 	 * The batch this institution has in hand, staged or part way through being created.
 	 *
-	 * **What "one list at a time" has to mean once creating exists.** `staged_for()` answers
-	 * about a list nobody has confirmed yet; a batch that is being created is just as much in
-	 * hand, and a school allowed to send a second list while the first was half created would
-	 * have two imports writing to one roster with one lock between them. This is the question
-	 * the screen and the check handler both ask.
+	 * **One list at a time**, so a school cannot stage six lists and confirm them in an order
+	 * nobody intended. A list nobody has confirmed yet is in hand, and so is a batch being
+	 * created: a school allowed to send a second list while the first was half created would
+	 * have two imports writing to one roster with one lock between them. Refusing the second
+	 * check is the caller's business rather than this method's; this is the question the screen
+	 * and the check handler both ask, and a staged batch is the answer before a creating one.
 	 *
 	 * A `done` or `blocked` batch is not in hand: the first has finished and the second has
 	 * stopped for good, and neither may keep a school from importing again. That the students
@@ -814,74 +789,6 @@ final class WPCPM_Institution_Import {
 		}
 
 		return (bool) wp_delete_post( (int) $post_id, true );
-	}
-
-	/**
-	 * Write one line to the capped log of checks.
-	 *
-	 * **What this is for is the ratio, not the row.** A member feeding addresses in to see
-	 * which come back blocked looks exactly like a batch whose blocked count is most of it, and
-	 * a run of those from one institution is the shape worth a manager's attention. No name and
-	 * no address is stored: the count is the signal, and the names are in the batch post for as
-	 * long as it lives.
-	 *
-	 * @param string $institution Airtable Institutions record ID.
-	 * @param int    $member      Who ran the check.
-	 * @param int    $rows        How many rows the file held.
-	 * @param int    $blocked     How many of them were blocked.
-	 * @param int    $when        Unix time, for a caller that has one.
-	 */
-	public static function log_check( $institution, $member, $rows, $blocked, $when = 0 ) {
-		$log = get_option( self::OPT_LOG );
-		$log = is_array( $log ) ? $log : array();
-
-		$log[] = array(
-			'institution' => trim( (string) $institution ),
-			'member'      => (int) $member,
-			'rows'        => (int) $rows,
-			'blocked'     => (int) $blocked,
-			'when'        => $when ? (int) $when : time(),
-		);
-
-		if ( count( $log ) > self::LOG_MAX ) {
-			$log = array_slice( $log, -self::LOG_MAX );
-		}
-
-		update_option( self::OPT_LOG, $log, false );
-	}
-
-	/**
-	 * The log, newest last.
-	 *
-	 * @return array[]
-	 */
-	public static function log() {
-		$log = get_option( self::OPT_LOG );
-
-		return is_array( $log ) ? $log : array();
-	}
-
-	/**
-	 * Checks whose blocked rows were more than half the file.
-	 *
-	 * The manager reconciliation card lists these. A school whose file was mostly people the
-	 * program already knows has either sent last term's list again, which is worth a word, or
-	 * is finding out who the program knows, which is worth more than a word.
-	 *
-	 * @return array[]
-	 */
-	public static function suspicious() {
-		$out = array();
-
-		foreach ( self::log() as $line ) {
-			$rows = isset( $line['rows'] ) ? (int) $line['rows'] : 0;
-
-			if ( $rows > 0 && (int) $line['blocked'] * 2 > $rows ) {
-				$out[] = $line;
-			}
-		}
-
-		return $out;
 	}
 
 	/**

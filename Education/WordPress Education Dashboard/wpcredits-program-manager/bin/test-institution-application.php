@@ -41,11 +41,25 @@
  *   any other way is a 422 for the whole record.
  * - **A failure never hands back a tick.** The stash that refills the form is asserted to
  *   carry no consent value at all, in every failure path.
+ * - **A label is the applicant's words and a key is the base's.** The internship question asks
+ *   about "practicums" (1.123.27) over the column that says "practices": the thirteen columns and
+ *   the field name each posts under, hashed from the column, are pinned as they were, so only the
+ *   label moved. It is a heading with the "Required" mark over its boxes in a group the heading
+ *   names and the hint describes.
+ * - **The country is one field to type into, and it still posts a record ID.** The combobox is
+ *   `WPCPM_Dashboards::render_combo()`'s; the hidden select carries no `required` attribute, or a
+ *   browser would refuse the form over a control nobody can see, while the server refuses a form
+ *   with no country as it always has, and a country's name is not an answer.
+ * - **The old address answers exactly /apply/, and the move takes only what is the plugin's.**
+ *   A 404 whose matched path is the old slug sends a 301 to the form with its query string; a
+ *   deeper path ending in it, a slug that starts with it and a real page there are left alone.
+ *   The one-time move changes the slug, the title and the content each only while it is still
+ *   what the plugin wrote, never takes a slug another post holds, and is stamped before it works.
  *
  * The other pieces are stood in for exactly at their contracts: the mail exit, the manager
- * notification, the settings. `WPCPM_Countries`, `WPCPM_Field_Value`, `WPCPM_Ceiling`,
- * `WPCPM_Request` and `WPCPM_Roles` are the real files, because what half of this suite is
- * about is whether this form uses them properly.
+ * notification, the settings. `WPCPM_Countries`, `WPCPM_Dashboards`, `WPCPM_Field_Value`,
+ * `WPCPM_Ceiling`, `WPCPM_Request` and `WPCPM_Roles` are the real files, because what half of
+ * this suite is about is whether this form uses them properly.
  *
  * Run from the plugin root:  php bin/test-institution-application.php
  */
@@ -58,6 +72,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'OBJECT', 'OBJECT' );
 
 $GLOBALS['opts']        = array();
 $GLOBALS['autoload']    = array();
@@ -78,6 +93,11 @@ $GLOBALS['password']    = 0;
 $GLOBALS['enqueued']    = array();
 $GLOBALS['nocache']     = 0;
 $GLOBALS['on_page']     = 0;
+$GLOBALS['hooks']       = array();
+$GLOBALS['redirects']   = array();
+$GLOBALS['updates']     = array();
+$GLOBALS['is_404']      = false;
+$GLOBALS['query_vars']  = array();
 
 class WP_Error {
 	public $code = '';
@@ -87,15 +107,16 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_date = '', $post_modified_gmt = '';
+	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_name = '', $post_content = '', $post_date = '', $post_modified_gmt = '';
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
-function __( $s, $d = null ) { return $s; }
+// The words as the site's translation gives them, when a test sets one (`$GLOBALS['translations']`).
+function __( $s, $d = null ) { return isset( $GLOBALS['translations'][ $s ] ) ? $GLOBALS['translations'][ $s ] : $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function number_format_i18n( $n ) { return (string) $n; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+function esc_html__( $s, $d = null ) { return esc_html( __( $s, $d ) ); }
 function esc_attr( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
@@ -128,7 +149,8 @@ function shortcode_atts( $pairs, $atts, $shortcode = '' ) {
 	}
 	return $out;
 }
-function add_action( $h, $c, $p = 10, $a = 1 ) {}
+// Recorded, so the checks can read which hook and which priority `init()` gives each method.
+function add_action( $h, $c, $p = 10, $a = 1 ) { $GLOBALS['hooks'][] = array( $h, $c, $p ); }
 function add_filter( $h, $c, $p = 10, $a = 1 ) {}
 function add_shortcode( $t, $c ) {}
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
@@ -168,7 +190,44 @@ function add_query_arg( ...$args ) {
 	}
 	return $url;
 }
-function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }
+// Recorded with its status, then thrown, so a handler's `exit` after it is never reached.
+function wp_safe_redirect( $to, $status = 302 ) {
+	$GLOBALS['redirects'][] = array( $to, $status );
+	throw new Exception( 'redirect: ' . $to );
+}
+function is_404() { return (bool) $GLOBALS['is_404']; }
+function get_query_var( $name, $fallback = '' ) { return array_key_exists( $name, $GLOBALS['query_vars'] ) ? $GLOBALS['query_vars'][ $name ] : $fallback; }
+
+/**
+ * `wp_kses_post()` as core runs it on the words this suite hands it: a page's block comments and
+ * paragraphs. A comment is kept as `wp_kses_split2()` keeps one, its words through kses again, a
+ * run of hyphens made one and a hyphen at its end dropped; a bare "&" is written `&amp;`
+ * (`wp_kses_normalize_entities()`), a ">" outside a tag `&gt;`, a tag the post context allows is
+ * kept only while it carries no attribute, which is stricter than core, and any other tag goes.
+ * Core's `pre_kses` filters are not run: the one for blocks parses and serializes the content
+ * again, which leaves blocks written as core writes them, as the page's are, as they were.
+ */
+function wp_kses_post( $html ) {
+	$html = preg_replace( '/&(?![A-Za-z]{2,8}[0-9]{0,2};|#[0-9]{1,7};|#[xX][0-9A-Fa-f]{1,6};)/', '&amp;', (string) $html );
+
+	return (string) preg_replace_callback(
+		'~(<!--.*?(?:-->|$))|(<[^>]*(?:>|$)|>)~',
+		static function ( $found ) {
+			if ( '' !== $found[1] ) {
+				$inner = wp_kses_post( str_replace( array( '<!--', '-->' ), '', $found[1] ) );
+
+				return '' === $inner ? '' : '<!--' . preg_replace( '/-$/', '', preg_replace( '/--+/', '-', $inner ) ) . '-->';
+			}
+
+			if ( '>' === $found[2] ) {
+				return '&gt;';
+			}
+
+			return preg_match( '%^</?(p|strong|em|br)>$%', $found[2] ) ? $found[2] : '';
+		},
+		$html
+	);
+}
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die: ' . $m ); }
 
 function wp_hash( $data, $scheme = 'auth' ) { return md5( 'test-salt|' . (string) $data ); }
@@ -219,6 +278,8 @@ function wp_insert_post( $a, $error = false ) {
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
 	// Unslashed as core's insert unslashes it, so a title handed over as it stands loses a backslash.
 	$post->post_title              = stripslashes( (string) ( $a['post_title'] ?? '' ) );
+	$post->post_name               = (string) ( $a['post_name'] ?? '' );
+	$post->post_content            = (string) ( $a['post_content'] ?? '' );
 	$post->post_date               = gmdate( 'Y-m-d H:i:s', $GLOBALS['clock'] );
 	$post->post_modified_gmt       = $post->post_date;
 	$GLOBALS['clock']             += 60;
@@ -227,8 +288,44 @@ function wp_insert_post( $a, $error = false ) {
 }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_status( $id ) { $p = get_post( $id ); return $p ? $p->post_status : false; }
-function get_permalink( $id ) { return 'https://example.test/apply/'; }
-function get_page_by_path( $slug ) { return null; }
+function get_permalink( $id ) { return 'https://example.test/institution-application/'; }
+
+/**
+ * Core's lookup by slug, for a top-level slug: a page or an attachment by default, the types
+ * named when it is given a list, and in any status, as core's own query asks none.
+ */
+function get_page_by_path( $slug, $output = 'OBJECT', $post_type = 'page' ) {
+	$types = is_array( $post_type ) ? $post_type : array( $post_type, 'attachment' );
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( $slug === $post->post_name && in_array( $post->post_type, $types, true ) ) {
+			return $post;
+		}
+	}
+	return null;
+}
+
+/**
+ * Recorded, then applied to the stored post, with whether the move's flag was already written
+ * when the update was asked for.
+ */
+function wp_update_post( $a, $error = false ) {
+	$post = get_post( $a['ID'] ?? 0 );
+	$GLOBALS['updates'][] = array(
+		'args'    => $a,
+		'stamped' => get_option( 'wpcpm_application_page_moved', false ),
+	);
+	if ( ! $post ) {
+		return 0;
+	}
+	// Unslashed as core's update ends up unslashing it (it hands the post to `wp_insert_post()`), so
+	// a value handed over as it stands loses a backslash.
+	foreach ( array( 'post_title', 'post_name', 'post_content' ) as $field ) {
+		if ( array_key_exists( $field, $a ) ) {
+			$post->$field = stripslashes( (string) $a[ $field ] );
+		}
+	}
+	return $post->ID;
+}
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 
 /**
@@ -337,6 +434,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
+// The class that draws the one field for a long list, which the country is since 1.123.27.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 // The template registry, which every email's builder fills its words from since 1.122.22.
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
@@ -382,16 +481,25 @@ function reset_world() {
 	$GLOBALS['enqueued']    = array();
 	$GLOBALS['nocache']     = 0;
 	$GLOBALS['on_page']     = 0;
+	$GLOBALS['hooks']       = array();
+	$GLOBALS['redirects']   = array();
+	$GLOBALS['updates']     = array();
+	$GLOBALS['is_404']      = false;
+	$GLOBALS['query_vars']  = array();
+	$GLOBALS['wp']          = (object) array( 'request' => '' );
 	$GLOBALS['settings']    = array(
 		'applications_enabled'      => true,
 		'application_trusted_proxy' => '',
 	);
 
+	// The words a test gives a translation, by their English (see `__()`).
+	$GLOBALS['translations'] = array();
+
 	$_POST                    = array();
 	$_GET                     = array();
 	$_SERVER['REMOTE_ADDR']   = '203.0.113.7';
 	$_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (test)';
-	unset( $_SERVER['HTTP_X_FORWARDED_FOR'] );
+	unset( $_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['QUERY_STRING'] );
 
 	// The page the form lives on, published, so `page_url()` answers.
 	$page              = new WP_Post();
@@ -399,6 +507,7 @@ function reset_world() {
 	$page->post_type   = 'page';
 	$page->post_status = 'publish';
 	$page->post_title  = 'Apply';
+	$page->post_name   = 'institution-application';
 	$page->post_date   = '2026-09-01 09:00:00';
 
 	$GLOBALS['posts'][42] = $page;
@@ -781,29 +890,26 @@ echo "\n-- required fields say so ----------------------------------------------
 
 // Every rendered `required` attribute pairs with exactly one visible mark: both come from the
 // same boolean in render_field(), so a field that is not required prints neither and one that
-// is prints both. The internship checklist is the one exception - it is required by the spec,
-// but a checkbox array has no native `required` that means "at least one", so render_field()
-// never emits the attribute for it; there is nothing here for a label to point at, and it is
-// checked by name below instead of by count.
+// is prints both. Two required questions are the exception, each with a mark and no attribute:
+// the internship checklist, because a checkbox array has no native `required` that means "at
+// least one", and the country, because its list is hidden behind its field once the script
+// runs, where a browser would refuse the form over a control nobody can see. Both are checked by
+// name below instead of by count.
 ck(
-	'one visible mark for every rendered `required` attribute, ten in all',
+	'a visible mark for every rendered `required` attribute and one more for each of the two questions that cannot carry the attribute: nine and eleven',
 	array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ),
-	array( 10, 10 )
+	array( 9, 11 )
 );
 
 $name_key = WPCPM_Institution_Application::form_key( 'Name' );
-$country_key = WPCPM_Institution_Application::form_key( 'Country' );
 $why_key = WPCPM_Institution_Application::form_key( 'Why are you interested in offering WordPress Credits to your students?' );
 
 ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-application-' . $name_key . '">Name of your institution <span class="wpcpm-field__required">Required</span></label>' ), true );
-ck( 'so does a required select\'s', false !== strpos( $form, '<label for="wpcpm-application-' . $country_key . '">Country <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'and a required textarea\'s', false !== strpos( $form, '<label for="wpcpm-application-' . $why_key . '">Why are you interested in offering WordPress Credits to your students? <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, "students&#039; details with the program under it. <span class=\"wpcpm-field__required\">Required</span></label>" ), true );
 ck( 'an optional textarea carries no mark', false !== strpos( $form, 'please tell us how</label>' ), true );
-ck( 'the internship checklist is required with no native attribute to point at, and carries no mark', false !== strpos( $form, '<span class="wpcpm-field__label">How do your internships or practices typically work?</span>' ), true );
 
 ck( 'the five groups are drawn as fieldsets', substr_count( $form, '<fieldset' ), 5 );
-ck( 'the country select offers the map, with a record ID as the value', false !== strpos( $form, '<option value="recCR000000000001">Costa Rica</option>' ), true );
 ck( 'the U+2019 label survives to the page', false !== strpos( $form, "Anything else you\xE2\x80\x99d like us to know?" ), true );
 ck( 'the checkbox values keep the leading space the column has', false !== strpos( $form, 'value=" Based on required hours (e.g. 150 hours)"' ), true );
 ck( 'and show it trimmed', false !== strpos( $form, '<span>Based on required hours (e.g. 150 hours)</span>' ), true );
@@ -819,8 +925,140 @@ ck( 'the policy line links a word inside the sentence', array(
 ck( 'and it points at WordPress.org\'s policy, not the page this site has set, opening where the form is', array( strpos( $form, 'href="' . get_privacy_policy_url() . '"' ), substr_count( $form, 'target=' ) ), array( false, 0 ) );
 ck( 'the consent box says which policy, in the words of 1.123.24', isset( WPCPM_Institution_Application::fields()['Privacy Policy Compliance']['label'] ) ? WPCPM_Institution_Application::fields()['Privacy Policy Compliance']['label'] : null, 'I confirm I have read the WordPress.org privacy policy and that this institution can share students\' details with the program under it.' );
 ck( 'the old shape, with the link trailing a colon, is gone', false !== strpos( $form, 'The policy is here:' ), false );
-ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-institution-application', 'wpcpm-forms' ) );
+ck( 'the stylesheet, the submit guard and the script of the country field are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-institution-application', 'wpcpm-forms', WPCPM_Dashboards::SWITCHER_SCRIPT ) );
 ck( 'the form is guarded against a second press', false !== strpos( $form, 'data-wpcpm-once' ), true );
+
+echo "\n-- the internship question: a plain label over the same column ---------\n";
+
+// The label is what an applicant reads. The column beside it is what the record is written under
+// and what the form's field name is hashed from (`form_key()`), so the label can change and the
+// name cannot. The thirteen names are pinned as they were before the label changed.
+$posted_before = array(
+	'Name'                                                                   => 'f49ee3087348e',
+	'Country'                                                                => 'f59716c97497e',
+	'City'                                                                   => 'f57d056ed0984',
+	'Website'                                                                => 'f15bbb9d0bbf2',
+	'Contact Person'                                                         => 'f790a8c9ddb09',
+	'Contact Email'                                                          => 'f3c2292f30e63',
+	'Department'                                                             => 'f1d17cb9923b9',
+	'How do your internships or practices typically work?'                   => 'f8302297bcd34',
+	'Comments'                                                               => 'f8413c683b4b2',
+	'Estimated number of students who may be interested'                     => 'f6c4c41623a3a',
+	'Why are you interested in offering WordPress Credits to your students?' => 'f7c2e16b070b5',
+	"Anything else you\xE2\x80\x99d like us to know?"                          => 'f3e11bfbf4a59',
+	'Privacy Policy Compliance'                                              => 'f62b991a00670',
+);
+
+reset_world();
+$form        = WPCPM_Institution_Application::render();
+$internships = 'How do your internships or practices typically work?';
+$field_names = array();
+
+foreach ( array_keys( WPCPM_Institution_Application::fields() ) as $column ) {
+	$field_names[ $column ] = WPCPM_Institution_Application::form_key( $column );
+}
+
+preg_match_all( '#name="wpcpm_application\[(f[0-9a-f]{12})\](?:\[\])?"#', $form, $posted );
+
+ck( 'the thirteen columns are spelled as they were, in order, and each posts under the name it posted under before', $field_names, $posted_before );
+ck( 'and the form posts those names and no others', array_values( array_unique( $posted[1] ) ), array_values( $posted_before ) );
+
+ck(
+	'the question\'s words say practicums, and the column it is written under does not',
+	array( WPCPM_Institution_Application::fields()[ $internships ]['label'], bin2hex( array_keys( WPCPM_Institution_Application::fields() )[7] ) ),
+	array( 'How do your internships or practicums typically work?', bin2hex( $internships ) )
+);
+ck( 'nothing on the page says practices', array( substr_count( $form, 'practicums' ), strpos( $form, 'practices' ) ), array( 1, false ) );
+
+$internship_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( $internships );
+
+ck(
+	'the question is a label with an id and the mark, over its choices in a group that label names and the hint describes',
+	false !== strpos( $form, '<span class="wpcpm-field__label" id="' . $internship_id . '-label">How do your internships or practicums typically work? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help">' ),
+	true
+);
+ck(
+	'four boxes sit in the group, each posting under the column\'s name as a list, and the hint follows it under the id the group names',
+	1 === preg_match( '#role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help">((?:<label class="wpcpm-field__check"><input type="checkbox" name="wpcpm_application\[' . $field_names[ $internships ] . '\]\[\]" value="[^"]*" /> <span>[^<]*</span></label>){4})</span><span class="wpcpm-field__hint" id="' . $internship_id . '-help">Tick everything that applies\.</span></div>#', $form ),
+	true
+);
+ck( 'and no native attribute is on a box, because none of them is the whole answer', preg_match( '#name="wpcpm_application\[' . $field_names[ $internships ] . '\]\[\]"[^>]*required="required"#', $form ), 0 );
+
+// Handed back for no box ticked, the group is described by the problem as well as the hint.
+reset_world();
+$none = submit( answers( array( $internships => array() ) ) );
+follow( $none['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck(
+	'a form handed back for no box ticked has the group describe itself by the hint and the problem',
+	array( false !== strpos( $again, 'role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help ' . $internship_id . '-problem">' ), false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $internship_id . '-problem">Please fill this in.</span>' ) ),
+	array( true, true )
+);
+
+echo "\n-- the country: one field to type into, posting the record ID ---------\n";
+
+reset_world();
+$form       = WPCPM_Institution_Application::render();
+$country_id = 'wpcpm-application-' . $field_names['Country'];
+
+ck(
+	'the label carries the id the list names and the mark, over the select with its empty first entry chosen and the countries valued by record ID',
+	false !== strpos( $form, '<label for="' . $country_id . '" id="' . $country_id . '-label">Country <span class="wpcpm-field__required">Required</span></label> <select name="wpcpm_application[' . $field_names['Country'] . ']" id="' . $country_id . '" autocomplete="off"><option value="" selected="selected">Choose a country</option><option value="recCR000000000001">Costa Rica</option><option value="recNG000000000002">Nigeria</option></select>' ),
+	true
+);
+ck( 'a record ID is what the select posts, and a country\'s name is not a value anywhere', array( strpos( $form, 'value="Costa Rica"' ), strpos( $form, 'value="Nigeria"' ) ), array( false, false ) );
+ck( 'the select carries no `required`, and neither does the field beside it, or a browser would refuse the form over a control nobody can see', array( preg_match( '#<select name="wpcpm_application\[' . $field_names['Country'] . '\]"[^>]*required="required"#', $form ), preg_match( '#<input type="text" id="' . $country_id . '-input"[^>]*required="required"#', $form ) ), array( 0, 0 ) );
+ck( 'the select is not hidden in the markup, so without the script it is the field', preg_match( '#<select name="wpcpm_application\[' . $field_names['Country'] . '\]"[^>]*hidden#', $form ), 0 );
+ck(
+	'beside it, hidden until the script shows it, is the field that takes typing, named by nobody',
+	1 === preg_match( '#<div class="wpcpm-dashboard__switcher-combo" hidden><input type="text" id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" />#', $form ) && 0 === preg_match( '#<input type="text" id="' . $country_id . '-input"[^>]* name=#', $form ),
+	true
+);
+ck(
+	'with its list named by the label, and its two sentences the translated strings the mentor form passes',
+	array( false !== strpos( $form, '<ul id="' . $country_id . '-list" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="' . $country_id . '-label" hidden></ul>' ), false !== strpos( $form, 'data-wpcpm-count="Countries in the list: %s" data-wpcpm-none="No country has that name."' ) ),
+	array( true, true )
+);
+ck( 'the question sits in a div, because a paragraph cannot hold the field', array( false !== strpos( $form, '<div class="wpcpm-field wpcpm-field--country">' ), strpos( $form, '<p class="wpcpm-field wpcpm-field--country' ) ), array( true, false ) );
+ck( 'there is one search field for the country and no search box above a select', array( substr_count( $form, 'role="combobox"' ), substr_count( $form, 'type="search"' ) ), array( 1, 0 ) );
+
+// A to Z by name whatever order the map is stored in, the value still the record ID.
+reset_world();
+$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ]['rows'] = array(
+	'recZM000000000003' => array( 'name' => 'Zambia', 'manager' => '', 'email' => '', 'calendly' => '' ),
+	'recAL000000000004' => array( 'name' => 'Albania', 'manager' => '', 'email' => '', 'calendly' => '' ),
+	'recMX000000000005' => array( 'name' => 'Mexico', 'manager' => '', 'email' => '', 'calendly' => '' ),
+);
+preg_match( '#<select name="wpcpm_application\[' . $field_names['Country'] . '\]"[^>]*>(.*?)</select>#', WPCPM_Institution_Application::render(), $list );
+ck( 'the countries are listed A to Z by name, each valued by its record ID', $list[1], '<option value="" selected="selected">Choose a country</option><option value="recAL000000000004">Albania</option><option value="recMX000000000005">Mexico</option><option value="recZM000000000003">Zambia</option>' );
+
+// What the server does with it has not moved.
+reset_world();
+$nobody = submit( answers( array( 'Country' => '' ) ) );
+
+ck( 'a post with no country is refused as it always was: the field is asked for, and nothing is stored', array( $nobody['outcome'], $nobody['stash']['problems']['Country'], count( stored() ) ), array( 'again', 'required', 0 ) );
+
+follow( $nobody['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck(
+	'and the form handed back says so under the field, which the select and the field are described by',
+	array( false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $country_id . '-problem">Please fill this in.</span>' ), false !== strpos( $again, 'id="' . $country_id . '" autocomplete="off" aria-describedby="' . $country_id . '-problem">' ), false !== strpos( $again, 'id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" aria-describedby="' . $country_id . '-problem"' ) ),
+	array( true, true, true )
+);
+
+reset_world();
+$named = submit( answers( array( 'Country' => 'Costa Rica' ) ) );
+
+ck( 'a country\'s name is not what the form posts and is refused, nothing stored', array( $named['stash']['problems']['Country'], count( stored() ) ), array( 'bad_choice', 0 ) );
+
+reset_world();
+$name_missing = submit( answers( array( 'Name' => '', 'Country' => 'recNG000000000002' ) ) );
+follow( $name_missing['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck( 'a form handed back for another answer keeps the country picked, chosen in the select', array( false !== strpos( $again, '<option value="recNG000000000002" selected="selected">Nigeria</option>' ), false !== strpos( $again, '<option value="" selected="selected">' ) ), array( true, false ) );
 
 echo "\n-- one good application, end to end -----------------------------------\n";
 
@@ -877,7 +1115,7 @@ ck( 'and is stored on the row', get_post_meta( $row->ID, WPCPM_Institution_Appli
 
 // The confirmation is drawn from a one-shot stash and never from a reference in the address
 // bar, so the reference cannot become a bearer token for somebody else's address.
-ck( 'the redirect carries a random id and nothing else', 1, preg_match( '#^https://example\.test/apply/\?wpcpm_app=[a-z0-9]+$#', $sent['url'] ) );
+ck( 'the redirect carries a random id and nothing else', 1, preg_match( '#^https://example\.test/institution-application/\?wpcpm_app=[a-z0-9]+$#', $sent['url'] ) );
 ck( 'and the reference is nowhere in it', strpos( $sent['url'], 'APP-' ), false );
 
 $_GET[ WPCPM_Institution_Application::QUERY_STASH ] = $sent['id'];
@@ -1551,6 +1789,251 @@ ck( 'the form\'s own page sends the no-cache headers', $GLOBALS['nocache'], 1 );
 ck( 'and says so by the name every page cache on the market reads', defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE, true );
 
 $GLOBALS['on_page'] = 0;
+
+echo "\n-- the form's address, its title and the address it had before -------\n";
+
+/**
+ * Asks `redirect_old_address()` about one request and says where it sent the visitor.
+ *
+ * @param string $path  The path WordPress matched, as `$wp->request` holds it.
+ * @param array  $vars  The query variables the request ended with.
+ * @param bool   $is_404 Whether WordPress found nothing there.
+ * @param string $query The request's query string, if it had one.
+ * @return array|null The address and the status, or null when nothing was sent.
+ */
+function old_address( $path, array $vars, $is_404 = true, $query = '' ) {
+	$GLOBALS['wp']         = (object) array( 'request' => $path );
+	$GLOBALS['query_vars'] = $vars;
+	$GLOBALS['is_404']     = $is_404;
+	$GLOBALS['redirects']  = array();
+
+	if ( '' !== $query ) {
+		$_SERVER['QUERY_STRING'] = $query;
+	} else {
+		unset( $_SERVER['QUERY_STRING'] );
+	}
+
+	try {
+		WPCPM_Institution_Application::redirect_old_address();
+	} catch ( Exception $e ) {
+		// The stand-in's redirect, recorded before it was thrown.
+		unset( $e );
+	}
+
+	return $GLOBALS['redirects'] ? $GLOBALS['redirects'][0] : null;
+}
+
+/** The page as live holds it before the move: page 751's slug, title and content. */
+function live_page() {
+	$page               = get_post( 42 );
+	$page->post_name    = WPCPM_Institution_Application::OLD_SLUG;
+	$page->post_title   = WPCPM_Institution_Application::OLD_TITLE;
+	$page->post_content = '<!-- wp:' . WPCPM_Institution_Application::BLOCK . ' /-->';
+
+	return $page;
+}
+
+$intro = 'For universities, colleges and schools that would like to offer WordPress Credits to their students: an Administrator reads every application and writes back, usually within a few working days.';
+
+ck( 'the address names the institutions it is for, and the old one is kept by name', array( WPCPM_Institution_Application::SLUG, WPCPM_Institution_Application::OLD_SLUG ), array( 'institution-application', 'apply' ) );
+ck( 'the title says who the form is for', WPCPM_Institution_Application::page_title(), 'Bring WordPress Credits to your institution' );
+ck( 'and the old title is the words live holds, untranslated', WPCPM_Institution_Application::OLD_TITLE, 'Apply to the WordPress Credits Program' );
+ck( 'the page is the intro line, then the form, each in its block comments', WPCPM_Institution_Application::page_content(), "<!-- wp:paragraph -->\n<p>" . $intro . "</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/institution-application /-->" );
+// The move runs on whichever request comes first after the update, a visitor's among them, and
+// a visitor has no `unfiltered_html`: kses runs on that save, so the words must be ones it keeps.
+ck( 'kses keeps the page\'s words as they are', wp_kses_post( WPCPM_Institution_Application::page_content() ), WPCPM_Institution_Application::page_content() );
+ck( 'and the title\'s', wp_kses_post( WPCPM_Institution_Application::page_title() ), WPCPM_Institution_Application::page_title() );
+ck( 'the stand-in for kses is not a pass-through', wp_kses_post( '<!-- a -- b --><p class="x">A & B ></p><script>x</script>' ), '<!-- a - b -->A &amp; B &gt;</p>x' );
+
+// An empty site: activation creates the page at the new address, ungated as before.
+reset_world();
+unset( $GLOBALS['posts'][42], $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+$made = WPCPM_Institution_Application::ensure_page();
+$page = get_post( $made );
+
+ck( 'ensure_page() on an empty site creates a published page', array( $page instanceof WP_Post, $page ? $page->post_type : '', $page ? $page->post_status : '' ), array( true, 'page', 'publish' ) );
+ck( 'at the new address, under the new title, holding the intro and the form', array( $page->post_name, $page->post_title, $page->post_content ), array( 'institution-application', WPCPM_Institution_Application::page_title(), WPCPM_Institution_Application::page_content() ) );
+ck( 'and records it', (int) get_option( WPCPM_Institution_Application::OPT_PAGE ), $made );
+ck( 'with no meta at all, so no access level gates it', $GLOBALS['pmeta'][ $made ] ?? array(), array() );
+ck( 'a second call finds it and makes nothing more', array( WPCPM_Institution_Application::ensure_page(), count( $GLOBALS['posts'] ) ), array( $made, 2 ) );
+
+// A site restored from a backup, or migrated, that has the page and not the option.
+reset_world();
+unset( $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+
+ck( 'a page already at the new address is adopted rather than a second made', array( WPCPM_Institution_Application::ensure_page(), (int) get_option( WPCPM_Institution_Application::OPT_PAGE ), count( $GLOBALS['posts'] ) ), array( 42, 42, 2 ) );
+
+reset_world();
+unset( $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+live_page();
+
+ck( 'and so is one still at the old address, from a backup taken before the move', array( WPCPM_Institution_Application::ensure_page(), (int) get_option( WPCPM_Institution_Application::OPT_PAGE ), count( $GLOBALS['posts'] ) ), array( 42, 42, 2 ) );
+
+// Live: the recorded page still has the slug, the title and the content the plugin gave it.
+reset_world();
+live_page();
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'the move changes all three in one update', count( $GLOBALS['updates'] ), 1 );
+ck( 'naming the page and the three new values', $GLOBALS['updates'][0]['args'], array(
+	'ID'           => 42,
+	'post_name'    => 'institution-application',
+	'post_title'   => WPCPM_Institution_Application::page_title(),
+	'post_content' => WPCPM_Institution_Application::page_content(),
+) );
+ck( 'with the flag written before the work, so a move that fails halfway is not tried on every request', $GLOBALS['updates'][0]['stamped'], WPCPM_Institution_Application::MOVE_VERSION );
+ck( 'the flag is the move\'s revision, and not autoloaded', array( get_option( WPCPM_Institution_Application::OPT_MOVED ), $GLOBALS['autoload'][ WPCPM_Institution_Application::OPT_MOVED ] ), array( 1, false ) );
+ck( 'and the page now answers at the new address', get_post( 42 )->post_name, 'institution-application' );
+
+// Once only: a slug, title or content put back by hand afterwards is an Administrator's.
+live_page();
+$GLOBALS['updates'] = array();
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'a second run does nothing', $GLOBALS['updates'], array() );
+
+// A field an Administrator changed by hand is theirs, and only what is still the plugin's moves.
+reset_world();
+live_page()->post_title = 'Partner with WordPress Credits';
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'a title changed by hand is kept, and the slug and the content still move', $GLOBALS['updates'][0]['args'], array(
+	'ID'           => 42,
+	'post_name'    => 'institution-application',
+	'post_content' => WPCPM_Institution_Application::page_content(),
+) );
+
+reset_world();
+live_page()->post_content = "<!-- wp:paragraph -->\n<p>Our own words.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/institution-application /-->";
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'content changed by hand is kept, and the slug and the title still move', $GLOBALS['updates'][0]['args'], array(
+	'ID'         => 42,
+	'post_name'  => 'institution-application',
+	'post_title' => WPCPM_Institution_Application::page_title(),
+) );
+
+reset_world();
+live_page()->post_name = 'join';
+get_post( 42 )->post_title   = 'Join us';
+get_post( 42 )->post_content = 'Our own words.';
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'a page changed by hand in all three is not touched at all', $GLOBALS['updates'], array() );
+ck( 'and the move is still stamped as done', get_option( WPCPM_Institution_Application::OPT_MOVED ), 1 );
+
+// Another post already at the new address keeps it: core would hand the page
+// `institution-application-2`, or, for a post, hide it behind the page.
+foreach ( array( 'a page' => 'page', 'a post' => 'post', 'an attachment' => 'attachment' ) as $kind => $type ) {
+	reset_world();
+	live_page();
+	$other              = new WP_Post();
+	$other->ID          = 77;
+	$other->post_type   = $type;
+	$other->post_status = 'publish';
+	$other->post_name   = 'institution-application';
+
+	$GLOBALS['posts'][77] = $other;
+	WPCPM_Institution_Application::maybe_move_page();
+
+	ck( 'with ' . $kind . ' already at the new address the slug is left, and the title and the content move', array( $GLOBALS['updates'][0]['args'] ?? null, get_post( 42 )->post_name ), array(
+		array(
+			'ID'           => 42,
+			'post_title'   => WPCPM_Institution_Application::page_title(),
+			'post_content' => WPCPM_Institution_Application::page_content(),
+		),
+		'apply',
+	) );
+	ck( 'and the move is stamped all the same', get_option( WPCPM_Institution_Application::OPT_MOVED ), 1 );
+}
+
+reset_world();
+unset( $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'a site with no recorded page has nothing moved, and is stamped', array( $GLOBALS['updates'], get_option( WPCPM_Institution_Application::OPT_MOVED ) ), array( array(), 1 ) );
+
+// The update is handed slashed copies, as `wp_insert_post()` unslashes what it is given: a
+// backslash in a translation of the title or the intro survives the move.
+reset_world();
+live_page();
+$GLOBALS['translations']['Bring WordPress Credits to your institution'] = 'Bring WordPress Credits to your institution \\ school';
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'the update is handed slashed copies', $GLOBALS['updates'][0]['args']['post_title'], 'Bring WordPress Credits to your institution \\\\ school' );
+ck( 'so a backslash in the translated title is still there after the move', get_post( 42 )->post_title, 'Bring WordPress Credits to your institution \\ school' );
+
+reset_world();
+live_page();
+$GLOBALS['translations']['For universities, colleges and schools that would like to offer WordPress Credits to their students: an Administrator reads every application and writes back, usually within a few working days.'] = 'An intro with a \\ backslash and "quotes" and an apostrophe\'s.';
+WPCPM_Institution_Application::maybe_move_page();
+
+ck( 'and so is one in the intro line, with its quotes', strpos( get_post( 42 )->post_content, 'An intro with a \\ backslash and &quot;quotes&quot; and an apostrophe&#039;s.' ) !== false, true );
+
+// The old address: a 404 there sends the visitor to the form, and nothing else is answered.
+reset_world();
+
+ck( 'a 404 at /apply/ that WordPress read as a page sends a 301 to the form', old_address( 'apply', array( 'pagename' => 'apply' ) ), array( 'https://example.test/institution-application/', 301 ) );
+// Under /%postname%/ links a missing page falls through to the post rule, which sets `name`.
+ck( 'and so does one it read as a post', old_address( 'apply', array( 'name' => 'apply' ) ), array( 'https://example.test/institution-application/', 301 ) );
+// A visitor mid-redirect at deploy time carries the outcome or the stash id.
+ck( 'the query string goes with the visitor', old_address( 'apply', array( 'name' => 'apply' ), true, 'wpcpm_app_said=closed' ), array( 'https://example.test/institution-application/?wpcpm_app_said=closed', 301 ) );
+ck( 'every part of it', old_address( 'apply', array( 'name' => 'apply' ), true, 'wpcpm_app=AbCd0123&utm_source=slides' ), array( 'https://example.test/institution-application/?wpcpm_app=AbCd0123&utm_source=slides', 301 ) );
+// A real page published at /apply/ later is not a 404, so it wins.
+ck( 'a page that is there is not a 404, and is left alone', old_address( 'apply', array( 'pagename' => 'apply' ), false ), null );
+ck( 'any other path is left alone', old_address( 'about', array( 'pagename' => 'about' ) ), null );
+ck( 'and so is a slug that starts with the old one', old_address( 'apply-now', array( 'name' => 'apply-now' ) ), null );
+// By `template_redirect` WP_Query has cut a missing page's path to its last part and copied it
+// into `name`, and a post type's address sets `name` too: the query variables alone would send
+// /about/apply/ and /<type>/apply/ to the form.
+ck( 'a deeper path whose last part is the old slug is left alone', old_address( 'about/apply', array( 'pagename' => 'apply', 'name' => 'apply' ) ), null );
+ck( 'and so is a post type\'s address that ends in it', old_address( 'sponsor-posts/apply', array( 'name' => 'apply', 'post_type' => 'wpcpm_sponsor_post' ) ), null );
+ck( 'and so is the old path where WordPress read something else there', old_address( 'apply', array( 'category_name' => 'apply' ) ), null );
+
+// The Institutions module's comment about who can reach the form names the address it has, and
+// says the old one redirects, rather than naming the one it had.
+$module_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
+
+ck( 'the queue ceiling\'s comment names the form\'s address and says the old one redirects',
+	array( false !== strpos( $module_source, '`/institution-application/`' ), false !== strpos( $module_source, '/apply/` redirects' ), false === strpos( $module_source, '`/apply` is open' ) ),
+	array( true, true, true ) );
+
+// Page addresses are matched without regard to case, so /Apply/ served the form before the move; the
+// path is read as the visitor typed it, and it is compared as lower case, which widens nothing: it
+// is still the one path.
+ck( '/Apply/ typed with a capital is sent to the form too', old_address( 'Apply', array( 'pagename' => 'Apply' ) ), array( 'https://example.test/institution-application/', 301 ) );
+ck( 'and /APPLY/, read as a post', old_address( 'APPLY', array( 'name' => 'APPLY' ) ), array( 'https://example.test/institution-application/', 301 ) );
+ck( 'with its query string', old_address( 'Apply', array( 'pagename' => 'Apply' ), true, 'wpcpm_app_said=closed' ), array( 'https://example.test/institution-application/?wpcpm_app_said=closed', 301 ) );
+ck( 'a page that is there at /Apply/ is not a 404, and is left alone', old_address( 'Apply', array( 'pagename' => 'Apply' ), false ), null );
+ck( 'a deeper path ending in a capitalized old slug is left alone', old_address( 'about/Apply', array( 'pagename' => 'Apply', 'name' => 'Apply' ) ), null );
+ck( 'and so is a post type\'s address that ends in it', old_address( 'sponsor-posts/Apply', array( 'name' => 'Apply', 'post_type' => 'wpcpm_sponsor_post' ) ), null );
+ck( 'a longer slug in capitals is left alone', old_address( 'Apply-Now', array( 'name' => 'Apply-Now' ) ), null );
+ck( 'and a variable that is not a string is not read as the slug', old_address( 'apply', array( 'pagename' => array( 'apply' ) ) ), null );
+
+get_post( 42 )->post_status = 'draft';
+ck( 'with the form\'s page not published there is nowhere to send anybody', old_address( 'apply', array( 'pagename' => 'apply' ) ), null );
+
+unset( $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
+ck( 'nor on a site with no form page at all', old_address( 'apply', array( 'pagename' => 'apply' ) ), null );
+
+// Before core's `redirect_canonical()` and `wp_old_slug_redirect()`, both at 10, so core's guess
+// at a post whose slug starts with the old one cannot send the visitor somewhere else; and the
+// move after `register`, at 20, the place every dashboard's one-time rename has.
+reset_world();
+WPCPM_Institution_Application::init();
+$hooked = array();
+
+foreach ( $GLOBALS['hooks'] as $hook ) {
+	if ( is_array( $hook[1] ) && in_array( $hook[1][1], array( 'redirect_old_address', 'maybe_move_page' ), true ) ) {
+		$hooked[ $hook[1][1] ] = array( $hook[0], $hook[2] );
+	}
+}
+
+ck( 'the redirect is on template_redirect at 9, and the move on init at 20', $hooked, array(
+	'maybe_move_page'      => array( 'init', 20 ),
+	'redirect_old_address' => array( 'template_redirect', 9 ),
+) );
+$GLOBALS['hooks'] = array();
 
 echo "\n-- which address the request came from --------------------------------\n";
 

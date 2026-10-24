@@ -258,13 +258,14 @@ final class WPCPM_Administrators_Cards {
 	 * Syncs and health begin with what each counts instead, a part of what that card holds.
 	 *
 	 * Two cards count a part of their own queue, and that part folds into the card's tile rather
-	 * than repeating the queue on a tile of its own: the mentor requests open and how many of
-	 * them are overdue, the Collaboration Agreements to review and how many of those are overdue.
+	 * than repeating the queue on a tile of its own: the requests from institutions open and how
+	 * many of them are overdue, the Collaboration Agreements to review and how many of those are
+	 * overdue.
 	 * The Semester reports card's two counts, the reports to review and the semesters due for
 	 * drafting, add up to its number and share one tile the same way. Such a tile is drawn while
 	 * either of its counts is above zero; its number is its first count and its label names what it
 	 * counts and says the rest, each count through a plural form of its own, so the tile reads
-	 * "2 Mentor requests open, 1 overdue". The semester reports' tile is led by the reports to
+	 * "2 Requests from institutions open, 1 overdue". The semester reports' tile is led by the reports to
 	 * review while there is one, and by the semesters due for drafting when there is none, so it
 	 * never leads with a zero: "1 Semester reports due for drafting".
 	 *
@@ -346,10 +347,10 @@ final class WPCPM_Administrators_Cards {
 					'card'  => 'reports',
 				),
 			'requests'             => self::paired_tile(
-				/* translators: %s: how many of the open mentor requests are overdue, as "1 overdue". The tile prints how many are open above these words, so the two read as one line, "2 Mentor requests open, 1 overdue". */
-				_n( 'Mentor requests open, %s', 'Mentor requests open, %s', $requests, 'wpcredits-program-manager' ),
-				/* translators: %s: how many of the open mentor requests are overdue. */
-				_nx( '%s overdue', '%s overdue', $late, 'of the open mentor requests', 'wpcredits-program-manager' ),
+				/* translators: %s: how many of the open requests from institutions are overdue, as "1 overdue". The tile prints how many are open above these words, so the two read as one line, "2 Requests from institutions open, 1 overdue". */
+				_n( 'Requests from institutions open, %s', 'Requests from institutions open, %s', $requests, 'wpcredits-program-manager' ),
+				/* translators: %s: how many of the open requests from institutions are overdue. */
+				_nx( '%s overdue', '%s overdue', $late, 'of the open requests from institutions', 'wpcredits-program-manager' ),
 				$requests,
 				$late,
 				'requests'
@@ -2208,7 +2209,10 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * One application: its facts, its answers behind a disclosure, and the module's decisions.
+	 * One application: its title, linking to it in the Institutions screen's queue as a sponsor
+	 * application's links to its own, its facts with the state in the Institutions screen's words,
+	 * a note when the anti-spam checks held it, its answers behind a disclosure, and the module's
+	 * decisions.
 	 *
 	 * @param WP_Post     $post   The application.
 	 * @param object|null $module The Institutions module, which owns the answers and the forms.
@@ -2222,12 +2226,13 @@ final class WPCPM_Administrators_Cards {
 
 		printf( '<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-%d">', (int) $post->ID );
 		printf(
-			'<h4 class="wpcpm-administrator__item-title">%1$s <code class="wpcpm-administrator__ref">%2$s</code></h4>',
+			'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <code class="wpcpm-administrator__ref">%3$s</code></h4>',
+			esc_url( WPCPM_Institution_Application::queue_url( (int) $post->ID ) ),
 			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
 			esc_html( WPCPM_Institutions::application_reference( $post ) )
 		);
 		echo '<p class="wpcpm-administrator__facts">';
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( ucfirst( $state ) ) );
+		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( WPCPM_Institutions::application_state_label( $state ) ) );
 		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( WPCPM_Institutions::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) ) ) );
 
 		if ( '' !== $manager ) {
@@ -2245,6 +2250,10 @@ final class WPCPM_Administrators_Cards {
 
 		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( self::received( $at ) ) );
 		echo '</p>';
+
+		if ( WPCPM_Institution_Application::STATE_HELD === $state ) {
+			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Held by the anti-spam checks. Open it on the Institutions screen to read which.', 'wpcredits-program-manager' ) );
+		}
 
 		printf( '<details class="wpcpm-administrator__answers"><summary>%s</summary>', esc_html__( 'Read the application', 'wpcredits-program-manager' ) );
 
@@ -2519,15 +2528,15 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * Mentor requests: the open ones with the request class's two decisions, the closed folded,
-	 * and last the way to the Institutions screen's queue tab.
+	 * Requests from institutions: the open ones with the request class's two decisions, the closed
+	 * folded, and last the way to the Institutions screen's queue tab.
 	 *
 	 * @param array $data `open`, `closed` (facts rows), `overdue`.
 	 */
 	public static function render_requests( array $data ) {
 		$open   = isset( $data['open'] ) ? (array) $data['open'] : array();
 		$closed = isset( $data['closed'] ) ? (array) $data['closed'] : array();
-		$screen = self::institutions_screen( 'queue', __( 'Mentor requests', 'wpcredits-program-manager' ) );
+		$screen = self::institutions_screen( 'queue', __( 'Requests from institutions', 'wpcredits-program-manager' ) );
 
 		$count = count( $open );
 		WPCPM_Dashboard_Card::open(
@@ -2535,7 +2544,7 @@ final class WPCPM_Administrators_Cards {
 				self::SHELL,
 				array(
 					'key'    => 'requests',
-					'title'  => __( 'Mentor requests', 'wpcredits-program-manager' ),
+					'title'  => __( 'Requests from institutions', 'wpcredits-program-manager' ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -2693,8 +2702,8 @@ final class WPCPM_Administrators_Cards {
 									: sprintf( /* translators: 1: earliest end date, 2: latest end date. */ __( '%1$s to %2$s', 'wpcredits-program-manager' ), $row['earliest'], $row['latest'] )
 							)
 					),
-					esc_html( str_replace( '_', ' ', (string) $row['agreement'] ) ),
-					esc_html( (string) $row['report'] )
+					esc_html( WPCPM_Institution_Agreement::summary_label( (string) $row['agreement'] ) ),
+					esc_html( WPCPM_Semester_Report::state_label( (string) $row['report'] ) )
 				);
 			}
 
@@ -3123,7 +3132,7 @@ final class WPCPM_Administrators_Cards {
 	/**
 	 * A card's way to the Institutions screen, at the tab that holds the card's items: the queue
 	 * tab for the institutions' applications, their signed Collaboration Agreements waiting for
-	 * review and their mentor requests, the Semester reports tab for their reports. The card's row
+	 * review and their requests, the Semester reports tab for their reports. The card's row
 	 * action, and the line its body ends with (`render_screen_line()`).
 	 *
 	 * Every institution card's link reads "Open on the Institutions screen", whichever tab it opens,

@@ -537,6 +537,17 @@ function wp_clear_scheduled_hook( $hook, $args = array() ) {
 	}
 	return $cleared;
 }
+/** Clears every event of a hook, whatever its arguments, as WordPress does. */
+function wp_unschedule_hook( $hook ) {
+	$cleared = 0;
+	foreach ( $GLOBALS['cron'] as $i => $event ) {
+		if ( $event['hook'] === $hook ) {
+			unset( $GLOBALS['cron'][ $i ] );
+			++$cleared;
+		}
+	}
+	return $cleared;
+}
 /** Records each flush of the stored rewrite rules; nothing here keeps rules to write. */
 function flush_rewrite_rules( $hard = true ) {
 	$GLOBALS['flushes'][] = (bool) $hard;
@@ -693,6 +704,13 @@ $named_options = array(
 	'wpcpm_mentor_application_log',        // WPCPM_Mentor_Application::OPT_LOG, through delete_all().
 	'wpcpm_mentor_application_counts',     // WPCPM_Mentor_Application::OPT_KEPT, through delete_all().
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
+	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the
+	// stored check against the agreement Doc, the import's check log and the report vocabulary's
+	// version, through WPCPM_Institutions::uninstall(), WPCPM_Institution_Import::delete_all() and
+	// WPCPM_Semester_Report::delete_all().
+	'wpcpm_agreement_drift',
+	'wpcpm_import_log',
+	'wpcpm_report_state_version',
 );
 $named_options = array_merge( $named_options, $sync_options );
 
@@ -913,6 +931,19 @@ foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) 
 	);
 }
 
+// The two single events scheduled with an ID: a semester report's ask queue, named after the
+// report, and an import's next slice, named after its batch.
+$single_hooks = array( 'wpcpm_report_ask_queue', 'wpcpm_import_tick' );
+
+$GLOBALS['cron'][] = array(
+	'hook' => 'wpcpm_report_ask_queue',
+	'args' => array( 42 ),
+);
+$GLOBALS['cron'][] = array(
+	'hook' => 'wpcpm_import_tick',
+	'args' => array( 7 ),
+);
+
 /** The hooks still scheduled. */
 function scheduled() {
 	return array_values( array_map( function ( $event ) { return $event['hook']; }, $GLOBALS['cron'] ) );
@@ -1059,6 +1090,7 @@ echo "\n=== The cron hooks ===\n";
 
 ck( 'the twelve hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
 ck( 'and so is every hook the modules and the tools clear', array_values( array_intersect( $other_hooks, scheduled() ) ), array() );
+ck( 'and so are the two single events scheduled with an ID, whatever it is', array_values( array_intersect( $single_hooks, scheduled() ) ), array() );
 ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) );
 
 echo "\n=== The meta ===\n";
@@ -1189,6 +1221,7 @@ $names = array(
 	'WPCPM_Institution_Agreement::CRON_REMINDERS'   => 'wpcpm_agreement_reminders',
 	'WPCPM_Institution_Invite::CRON_EXPIRE'         => 'wpcpm_invite_expire',
 	'WPCPM_Semester_Report_Screen::CRON_ASK'        => 'wpcpm_report_ask_queue',
+	'WPCPM_Institution_Import::CRON_TICK'           => 'wpcpm_import_tick',
 	'WPCPM_Semester_Report_Screen::CRON_AUTODRAFT'  => 'wpcpm_report_autodraft',
 	'WPCPM_Sponsor_Agreement::CRON_DISCARD'         => 'wpcpm_sponsor_agreement_discard',
 	'WPCPM_Sponsor_Application::CRON_PURGE'         => 'wpcpm_purge_sponsor_applications',

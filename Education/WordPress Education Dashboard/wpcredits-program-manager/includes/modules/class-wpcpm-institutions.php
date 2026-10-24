@@ -35,7 +35,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * invitation and the rows-per-page choice. What is the institutions' own is here: the words, the
  * table, the invitations card, the six tabs around the list, and the accounts provisioning creates.
  *
- * Phase 1 is manager-only. The screen reads the pipeline index, the roster counts, the
+ * The screen is an Administrator's. It reads the pipeline index, the roster counts, the
  * countries map and the per-institution agreement options, and Airtable itself only for the
  * search an opened application asks for: a render that paged the base would take the rate
  * limit away from the syncs, and a number read live cannot say when it was true. Every card
@@ -122,7 +122,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/** Flash channel for this screen's outcomes. */
 	const FLASH = 'institutions';
 
-	/** The one pipeline filter Phase 1 offers, as the `wpcpm_filter` query argument. */
+	/**
+	 * The one filter the Pipeline tab offers, the Confirmed institutions with no agreement
+	 * recorded, as the `wpcpm_filter` query argument.
+	 */
 	const FILTER_GAP = 'agreement_gap';
 
 	/**
@@ -239,11 +242,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * How many rows the queue card draws.
 	 *
-	 * A ceiling and not a page size, the way `PROVISION_LIMIT` is. `/apply` is open to
-	 * strangers, so how many rows are waiting is somebody else's decision: a card that drew
-	 * one per submission would answer a bad afternoon on the form with a screen nobody can
-	 * open, which is the screen the applications need a manager to be able to open. The
-	 * oldest fifty are the ones whose turn it is, and the card says when there are more.
+	 * A ceiling and not a page size, the way `PROVISION_LIMIT` is. The form at
+	 * `/institution-application/` (`/apply/` redirects to it) is open to strangers, so how many
+	 * rows are waiting is somebody else's decision: a card that drew one per submission would
+	 * answer a bad afternoon on the form with a screen nobody can open, which is the screen the
+	 * applications need a manager to be able to open. The oldest fifty are the ones whose turn
+	 * it is, and the card says when there are more.
 	 */
 	const QUEUE_MAX = 50;
 
@@ -404,7 +408,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Educational institution records from Airtable, the students each one has in the program, and the state of every Collaboration Agreement. Institution accounts are based on the Subscriber role, with access to Institution-level content.', 'wpcredits-program-manager' );
+		return __( 'Educational institution records from Airtable, the students each one has in the program, and the state of every Collaboration Agreement. Each institution has an Institution Dashboard, its own people and its students; their accounts are created and invited on the Accounts tab.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -498,7 +502,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Put the module's five daily jobs on the clock, if they are not there already.
+	 * Put the module's six daily jobs on the clock, if they are not there already.
 	 *
 	 * **Called from `boot()` on every load, not only from `activate()`.** The activation hook
 	 * fires on an explicit activation and on nothing else: not on the files being replaced,
@@ -508,22 +512,48 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * upgrader, would never purge an application or expire an invitation again and nothing
 	 * on any screen would say so. The three syncs already self-heal this way on every boot;
 	 * this is the same rule for the rest. `wp_next_scheduled()` makes it cheap and
-	 * idempotent: five cache reads on a normal load, one write when a job is missing.
+	 * idempotent: six cache reads on a normal load, one write when a job is missing.
 	 *
-	 * The ceiling's sweep is the ceiling's own housekeeping: its rows are hash-named claims
-	 * that nothing reads after their window, so a sweep is the only thing that ever removes
-	 * them. The five nightly jobs are retention on applications, retention on agreement
-	 * files, the reviewer's digest, invitation expiry and the semester report drafting. All
-	 * daily because the settings behind them are in days, and none on the sync's cadence: a
-	 * base that is down must not stop a file being forgotten on time. An hour apart so they
-	 * never land in one request.
+	 * The jobs are `daily_jobs()`, the list `deactivate()` takes off the clock again, each an
+	 * hour after the one before it, the first an hour after the load that schedules it.
+	 *
+	 * **The drafting job takes its day with it.** Nothing whose semester ended before the day
+	 * in `WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE` is drafted by the job, so a site whose
+	 * first run found no day would draft every semester its rosters hold. The day is stored in
+	 * the branch that puts the drafting job on the clock, a new site's first load or the one
+	 * after a reactivation, and never on an ordinary load, which asks no option at all; as an
+	 * `add_option()` it keeps a day already stored, so a reactivation never moves it.
 	 */
 	public static function schedule_cron() {
-		if ( ! wp_next_scheduled( WPCPM_Ceiling::CRON_SWEEP ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', WPCPM_Ceiling::CRON_SWEEP );
-		}
+		foreach ( self::daily_jobs() as $offset => $hook ) {
+			if ( wp_next_scheduled( $hook ) ) {
+				continue;
+			}
 
-		$nightly = array(
+			if ( WPCPM_Semester_Report_Screen::CRON_AUTODRAFT === $hook ) {
+				add_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE, wp_date( 'Y-m-d' ), '', false );
+			}
+
+			wp_schedule_event( time() + ( ( 1 + $offset ) * HOUR_IN_SECONDS ), 'daily', $hook );
+		}
+	}
+
+	/**
+	 * The module's six daily jobs, in the order `schedule_cron()` puts them on the clock.
+	 *
+	 * One list, read by `schedule_cron()` and `deactivate()` alike, so a job one of them knows is
+	 * a job the other knows. The ceiling's sweep is the ceiling's own housekeeping: its rows are
+	 * hash-named claims that nothing reads after their window, so a sweep is the only thing that
+	 * ever removes them. The five after it are retention on applications, retention on agreement
+	 * files, the reviewer's digest, invitation expiry and the semester report drafting. All daily
+	 * because the settings behind them are in days, and none on the sync's cadence: a base that
+	 * is down must not stop a file being forgotten on time.
+	 *
+	 * @return string[] Cron hooks.
+	 */
+	private static function daily_jobs() {
+		return array(
+			WPCPM_Ceiling::CRON_SWEEP,
 			self::CRON_PURGE,
 			WPCPM_Institution_Agreement::CRON_DISCARD,
 			WPCPM_Institution_Agreement::CRON_REMINDERS,
@@ -533,19 +563,23 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			// them reading the base at once.
 			WPCPM_Semester_Report_Screen::CRON_AUTODRAFT,
 		);
-
-		foreach ( $nightly as $offset => $hook ) {
-			if ( ! wp_next_scheduled( $hook ) ) {
-				wp_schedule_event( time() + ( ( 2 + $offset ) * HOUR_IN_SECONDS ), 'daily', $hook );
-			}
-		}
 	}
 
 	/**
-	 * Deactivation: stop scheduled work.
+	 * Deactivation: the sync's schedule, and the six daily jobs `schedule_cron()` puts on the clock.
+	 *
+	 * Off the clock with the plugin, as the Sponsors module takes its own: a daily event with no
+	 * listener is what deactivation would otherwise leave behind. The single events, a semester
+	 * report's ask queue and an import's next slice, are left: WordPress drops a due event that
+	 * has no listener, and a reactivation inside their minutes picks them up. A reactivation's
+	 * first load puts the six back, since `boot()` hooks `schedule_cron()` on `init`.
 	 */
 	public function deactivate() {
 		WPCPM_Institutions_Sync::deactivate();
+
+		foreach ( self::daily_jobs() as $hook ) {
+			wp_clear_scheduled_hook( $hook );
+		}
 	}
 
 	/**
@@ -569,16 +603,23 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED );
 
-		wp_clear_scheduled_hook( WPCPM_Ceiling::CRON_SWEEP );
-		wp_clear_scheduled_hook( self::CRON_PURGE );
-		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_DISCARD );
-		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_REMINDERS );
-		wp_clear_scheduled_hook( WPCPM_Institution_Invite::CRON_EXPIRE );
-		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_ASK );
-		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_AUTODRAFT );
+		foreach ( self::daily_jobs() as $hook ) {
+			wp_clear_scheduled_hook( $hook );
+		}
+
+		// A semester report's ask queue and an import's next slice are scheduled with the
+		// report's or the batch's ID, and a clear that names no arguments clears none of them:
+		// every event of each hook goes, whatever it carries.
+		wp_unschedule_hook( WPCPM_Semester_Report_Screen::CRON_ASK );
+		wp_unschedule_hook( WPCPM_Institution_Import::CRON_TICK );
 
 		delete_option( WPCPM_Institution_Application::OPT_PAGE );
+		delete_option( WPCPM_Institution_Application::OPT_MOVED );
 		delete_option( self::OPT_APP_LOG );
+		// Where the check against the agreement Doc, which nothing called, kept its answer. Named
+		// here since its code went: the agreement's own sweep of its prefix finds the row as well,
+		// and this does not rest on that sweep staying as wide.
+		delete_option( 'wpcpm_agreement_drift' );
 
 		WPCPM_Ceiling::delete_all();
 		WPCPM_Institution_Application::delete_all();
@@ -1773,10 +1814,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * A state in the words the screen uses for it.
 	 *
+	 * Public since 1.123.27 for the Administrator Dashboard, whose applications card prints a
+	 * state in these words, so the card and this screen name one state the same way.
+	 *
 	 * @param string $state An application state.
 	 * @return string
 	 */
-	private static function application_state_label( $state ) {
+	public static function application_state_label( $state ) {
 		$labels = array(
 			WPCPM_Institution_Application::STATE_NEW      => __( 'new', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Application::STATE_HELD     => __( 'held by the anti-spam checks', 'wpcredits-program-manager' ),
@@ -2897,7 +2941,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
 
-		echo '<p class="description">' . esc_html__( 'Reads the Countries table, then every institution record\'s public columns and the eight agreement columns, and rebuilds the pipeline index and each institution\'s agreement state. The prose fields are never read.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Reads the Countries table, then each institution\'s name, stage, country, city, website and contact, and its eight agreement columns, and rebuilds the institution list and each institution\'s agreement state. The long written answers in the base are never read.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( ! empty( $progress['running'] ) ) {
 			printf(
@@ -5407,6 +5451,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Both dates are shown because they answer different questions. *Drafted* is how old the
 	 * numbers are; *last edited* is whether anybody has written anything since. A report
 	 * generated in July and never edited is one nobody has picked up.
+	 *
+	 * The number beside the heading is the drafts waiting for review, the number the
+	 * Administrator Dashboard's strip gives as "Semester reports to review" and its Semester
+	 * reports card lists under "To review". That card's own number adds the semesters due for
+	 * drafting, which this heading does not. The list under the heading holds every draft and
+	 * the newest approved reports.
 	 */
 	private function render_semester_reports() {
 		// `private` by name rather than `any`: it is the one status a report is ever written
@@ -5427,8 +5477,6 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'suppress_filters' => false,
 			)
 		);
-
-		$total = count( $posts );
 
 		// Partitioned rather than sorted in place, because the two halves are kept to different
 		// rules below: every draft, whatever its date, and only the newest REPORTS_SHOWN of the
@@ -5463,7 +5511,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( $total ) )
+			esc_html( number_format_i18n( count( $drafts ) ) )
 		);
 		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; an Administrator reviews and approves it on the Institution Dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
 
@@ -5537,7 +5585,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$label     = '' !== $cohort ? WPCPM_Cohort::label( $cohort ) : __( '(no semester recorded)', 'wpcredits-program-manager' );
 		$generated = WPCPM_Semester_Report::generated_at( $post );
 		$edited    = (int) get_post_modified_time( 'U', true, $post );
-		$approved  = WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post );
+		$state     = WPCPM_Semester_Report::state( $post );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		$origin    = WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
 			? __( 'by the site', 'wpcredits-program-manager' )
@@ -5551,7 +5599,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( '' !== $record ? $record : '-' ),
 			esc_html( $label ),
 			'' !== $cohort ? sprintf( ' <code>%s</code>', esc_html( $cohort ) ) : '',
-			esc_html( $approved ? __( 'Approved', 'wpcredits-program-manager' ) : __( 'Draft', 'wpcredits-program-manager' ) ),
+			esc_html( WPCPM_Semester_Report::state_label( $state ) ),
 			esc_html( $generated ? wp_date( $format, $generated ) : __( 'not yet', 'wpcredits-program-manager' ) ),
 			esc_html( $origin ),
 			esc_html( $edited ? wp_date( $format, $edited ) : __( 'never', 'wpcredits-program-manager' ) )
@@ -5647,9 +5695,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The plugin's copy of the Collaboration Agreement: version, read date, source, checksum.
 	 *
-	 * No drift button in this phase. The Doc is world-editable, so a drift check is a button a
-	 * manager presses on purpose and reads with care, never a schedule; it ships with the
-	 * generate path.
+	 * The Doc is linked from the `agreement_doc_url` setting and compared with nothing: anyone
+	 * holding its link can edit it, so it is read beside the plugin's copy by a person, and what
+	 * the copy says is pinned by the checksum the plugin's tests check.
 	 *
 	 * @param array $index The pipeline index, for the institutions listed per signed version.
 	 */
@@ -5714,7 +5762,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'<tr><th scope="row">%1$s</th><td><code>%2$s</code> <span class="wpcpm-inst-muted">%3$s</span></td></tr>',
 				esc_html__( 'Checksum', 'wpcredits-program-manager' ),
 				esc_html( substr( WPCPM_Agreement_Template::checksum( $template ), 0, 12 ) ),
-				esc_html__( '(the first twelve characters of the sha256 the fixture pins)', 'wpcredits-program-manager' )
+				esc_html__( '(the start of the fingerprint the plugin\'s tests check, which changes only when a word of the agreement does)', 'wpcredits-program-manager' )
 			);
 			echo '</tbody></table>';
 		}
@@ -6251,23 +6299,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$kind  = isset( $summary['kind'] ) ? (string) $summary['kind'] : '';
 		$route = isset( $summary['route'] ) ? (string) $summary['route'] : '';
 
-		$states = array(
-			WPCPM_Institution_Agreement::SUMMARY_NONE      => __( 'Not started', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_GENERATED => __( 'Template generated', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_SUBMITTED => __( 'Awaiting review', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_RETURNED  => __( 'Returned', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_REVOKED   => __( 'Revoked', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_ACCEPTED  => __( 'Accepted', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Agreement::SUMMARY_ON_FILE   => __( 'On file', 'wpcredits-program-manager' ),
-		);
-
 		$kinds = array(
 			WPCPM_Institution_Agreement::KIND_TEMPLATE => __( 'program template', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Agreement::KIND_OWN      => __( 'institution-specific', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Agreement::KIND_LEGACY   => __( 'legacy', 'wpcredits-program-manager' ),
 		);
 
-		$parts = array( isset( $states[ $state ] ) ? $states[ $state ] : $state );
+		$parts = array( WPCPM_Institution_Agreement::summary_label( $state ) );
 
 		if ( isset( $kinds[ $kind ] ) ) {
 			$parts[] = $kinds[ $kind ];

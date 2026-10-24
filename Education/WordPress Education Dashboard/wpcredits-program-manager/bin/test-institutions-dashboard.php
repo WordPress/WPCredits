@@ -28,6 +28,14 @@
  *   refreshes the stamp after `attach()` writes it, so a stale one must never win over a
  *   row the sync read on its last run - and with no row at all the stamp is what draws the
  *   header instead of nothing.
+ * - **A school reads none of the base's words.** The Stage line is the program's own pipeline
+ *   word and is drawn for a viewer who can manage the program alone, through the switcher; a
+ *   member's page, locked or settled, and every module's title and lead hold no table name,
+ *   view ID, record kind or "Airtable": no sentence is allowed to, the read lines included.
+ * - **The read line is printed once, at the foot of the page.** The roster prints none inside
+ *   a module the page titles, so a settled member's page and a manager's hold "Read from the
+ *   program records on" exactly once, after the last module; a locked member's page has no
+ *   module and so none.
  * - The four cards are named as strings and guarded, so a checkout missing one of them
  *   leaves a gap rather than a fatal. Only the panel exists when the section below the
  *   fixture runs: a guard whose whole job is to survive an absent class cannot be
@@ -525,6 +533,29 @@ function cards_run() {
 	return array_map( function ( $card ) { return $card[0]; }, $GLOBALS['cards'] );
 }
 
+/**
+ * The words a school is not meant to read, found in one rendered page or one sentence.
+ *
+ * Table and view names, a record kind, the program's pipeline stage and the name of the
+ * base itself are the base's words, and no sentence on a member's page may hold one. Decoded
+ * before it is searched, because the page escapes its apostrophes.
+ *
+ * @param string $html A rendered page, or one sentence.
+ * @return string[] The words found, in this list's order: empty when nothing is.
+ */
+function internal_words( $html ) {
+	$html = html_entity_decode( (string) $html, ENT_QUOTES, 'UTF-8' );
+	$out  = array();
+
+	foreach ( array( 'Students table', 'report record', 'Stage:', 'viw', 'the program\'s contact', 'Airtable' ) as $word ) {
+		if ( false !== stripos( $html, $word ) ) {
+			$out[] = $word;
+		}
+	}
+
+	return $out;
+}
+
 /* ---- the fixture --------------------------------------------------------- */
 
 $krakow = 'recKRAKOW12345678';
@@ -640,6 +671,15 @@ if ( ! class_exists( 'WPCPM_Institution_Roster_View' ) ) {
 		public static function render( $record_id, array $context ) {
 			$GLOBALS['cards'][] = array( 'roster', $record_id, $context );
 			echo '<div class="wpcpm-institution__card" data-card="roster"></div>';
+			// As the real roster closes: with its own read line only where no module title is
+			// above it. The page passes `module_titled`, so a copy here is a page that stopped.
+			if ( empty( $context['module_titled'] ) ) {
+				self::read_line( isset( $context['read'] ) ? $context['read'] : 0, 'wpcpm-roster__read wpcpm-roster__read--footer' );
+			}
+		}
+		/** The wording and the formats are the roster view suite's; this is the line the page asks for. */
+		public static function read_line( $read, $classes ) {
+			printf( '<p class="%s">Read from the program records on %s.</p>', $classes, gmdate( 'Y-m-d H:i', (int) $read ) );
 		}
 		public static function cohort_from_request() {
 			$asked = WPCPM_Request::text( self::ARG_COHORT );
@@ -764,11 +804,17 @@ ck( 'a locked member gets the identity header', false !== strpos( $out, 'wpcpm-i
 ck( 'naming their institution, trimmed', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Example</p>' ), true );
 ck( 'with the city the index knows and the stamp does not', false !== strpos( $out, 'Krakow, Poland' ), true );
 
-// The two sources disagree about the stage, and the fresh one wins. The stamp is written
-// once, by attach(), and no sync ever refreshes it: preferred, it would have this member
-// reading the day their account was attached on a header with no read date to say so.
-ck( 'and the index\'s stage, because the index is what gets re-read', false !== strpos( $out, 'Stage: Confirmed' ), true );
-ck( 'never the stamp\'s, which has been stale since attach() wrote it', false !== strpos( $out, 'Agreement Sent' ), false );
+// The stage is the program's own pipeline word for where an institution stands, and a school
+// is not told it: neither the index's, which is the fresher of the two sources, nor the
+// stamp's, which has been stale since attach() wrote it. A manager reading the page through
+// the switcher still is (below).
+ck( 'a member is not shown the Stage line', false !== strpos( $out, 'Stage:' ), false );
+ck( 'nor the stage the index holds', false !== strpos( $out, 'Confirmed' ), false );
+ck( 'nor the one the stamp holds', false !== strpos( $out, 'Agreement Sent' ), false );
+ck( 'and no stage line is drawn at all', false !== strpos( $out, 'wpcpm-institution__stage' ), false );
+
+ck( 'a locked member\'s page holds none of the base\'s words', internal_words( $out ), array() );
+ck( 'and no read line, since it has no module to read it from', false !== strpos( $out, 'Read from the program records' ), false );
 
 ck( 'and the panel', false !== strpos( $out, 'data-card="panel"' ), true );
 ck( 'and nothing else at all', cards_run(), array( 'panel' ) );
@@ -792,21 +838,20 @@ ck( 'and still sees their own', false !== strpos( $out, 'Politechnika Example' )
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
 $out = render_as( 2 );
 ck( 'with no index row the stamp draws the header', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Example</p>' ), true );
-ck( 'stage and all', false !== strpos( $out, 'Stage: Agreement Sent<' ), true );
+ck( 'and the stamp\'s stage is not printed for a member either', false !== strpos( $out, 'Stage:' ), false );
 // Needled on the city *sentence* rather than on the bare city word, which the fixture also
 // uses as the member's city: only the index ever carried this one.
 ck( 'and the city only the index ever knew is simply absent', false !== strpos( $out, 'Krakow, Poland' ), false );
 ck( 'leaving the country the stamp does hold, with no stray separator', false !== strpos( $out, '>Poland<' ), true );
 
-// One fact to a line, in the order somebody reads them: where it is, how to reach it, where
-// the program has got to, and who it writes to. They used to run together in one sentence.
+// One fact to a line, in the order somebody reads them: where it is, how to reach it, and who
+// the program writes to. They used to run together in one sentence.
 ck( 'the header puts each fact on its own line, in that order', array(
 	strpos( $out, 'wpcpm-institution__name' ) < strpos( $out, 'wpcpm-dashboard__intro' ),
 	strpos( $out, 'wpcpm-dashboard__intro' ) < strpos( $out, 'wpcpm-institution__website' ),
-	strpos( $out, 'wpcpm-institution__website' ) < strpos( $out, 'wpcpm-institution__stage' ),
-	strpos( $out, 'wpcpm-institution__stage' ) < strpos( $out, 'wpcpm-institution__contact' ),
-), array( true, true, true, true ) );
-ck( 'and no longer runs them together in a sentence', false !== strpos( $out, 'Poland Stage:' ), false );
+	strpos( $out, 'wpcpm-institution__website' ) < strpos( $out, 'wpcpm-institution__contact' ),
+), array( true, true, true ) );
+ck( 'and no longer runs them together in a sentence', false !== strpos( $out, 'Poland Contact:' ), false );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 1;
 
 /* ---- a manager on the same unsettled institution ------------------------- */
@@ -825,7 +870,9 @@ $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'the dashboard arms the double-submit guard its forms carry', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
 
 ck( 'a manager sees the banner', false !== strpos( $out, 'wpcpm-institution__banner' ), true );
+ck( 'and the read line once, as the member does', substr_count( $out, 'Read from the program records on' ), 1 );
 ck( 'naming the state in words', false !== strpos( $out, 'not settled: a signed copy is waiting for review' ), true );
+ck( 'and what the members see: only the Collaboration Agreement card, no panel', array( false !== strpos( $out, 'This institution&#039;s agreement is not settled: a signed copy is waiting for review. Members see only the Collaboration Agreement card.' ), false === stripos( $out, 'agreement panel' ) ), array( true, true ) );
 ck( 'and what the base says, which is the other half of the predicate', false !== strpos( $out, 'Agreement Status as Awaiting review' ), true );
 ck( 'and gets the whole dashboard under it', cards_run(), array( 'panel', 'roster', 'people', 'agreement-card' ) );
 ck( 'with the switcher', false !== strpos( $out, 'id="wpcpm-institution-switcher"' ), true );
@@ -838,6 +885,13 @@ ck( 'with the one field that finds and picks an institution', false !== strpos( 
 ck( 'and the note names the Administrators', false !== strpos( $out, '<span class="wpcpm-dashboard__switcher-note">Only Administrators see this control.</span>' ), true );
 ck( 'and the page loads the script that makes the field work', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), true );
 ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed' ), true );
+// The stage is the Administrator's, who reads the page for the program: drawn through the
+// switcher, in the place it always had, between the website and the contact.
+ck( 'an Administrator reading the page through the switcher still sees the Stage line', false !== strpos( $out, '<p class="wpcpm-institution__fact wpcpm-institution__stage">Stage: Confirmed</p>' ), true );
+ck( 'between the website and the contact', array(
+	strpos( $out, 'wpcpm-institution__website' ) < strpos( $out, 'wpcpm-institution__stage' ),
+	strpos( $out, 'wpcpm-institution__stage' ) < strpos( $out, 'wpcpm-institution__contact' ),
+), array( true, true ) );
 ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://politechnika.example"' ), true );
 ck( 'and printed without one', false !== strpos( $out, '>politechnika.example</a>' ), true );
 
@@ -951,6 +1005,21 @@ $out = render_as( 2 );
 ck( 'a settled member gets the whole dashboard', cards_run(), array( 'panel', 'roster', 'people', 'agreement-card' ) );
 ck( 'and no banner, because there is nothing outstanding', false !== strpos( $out, 'wpcpm-institution__banner' ), false );
 ck( 'and no switcher: it is drawn under CAP_MANAGE and nowhere else', false !== strpos( $out, 'wpcpm-institution-switcher' ), false );
+ck( 'a settled member\'s page holds none of the base\'s words either', internal_words( $out ), array() );
+ck( 'nor the Stage line, which is the Administrators\'', false !== strpos( $out, 'wpcpm-institution__stage' ), false );
+
+// The read line is the page's, once, at the foot: the roster is told its module is titled and
+// prints none, and the page prints the one.
+ck( 'the roster is handed the flag that tells it its module is titled', $GLOBALS['cards'][1][2]['module_titled'], true );
+ck( 'a settled member\'s page holds the read line exactly once', substr_count( $out, 'Read from the program records on' ), 1 );
+ck( 'as the page\'s own line', false !== strpos( $out, '<p class="wpcpm-dashboard__updated">Read from the program records on ' ), true );
+ck( 'after the last module, at the foot', strpos( $out, 'wpcpm-dashboard__updated' ) > strrpos( $out, 'id="wpcpm-module-' ), true );
+ck( 'and not from the roster\'s own footer', false !== strpos( $out, 'wpcpm-roster__read' ), false );
+
+// What each module says it is for is printed under its title, so it is read the way the page is.
+$leads = WPCPM_Institutions_Dashboard::leads();
+ck( 'the Semester report lead says what a school gets and when it can read it', $leads[ WPCPM_Institutions_Dashboard::MODULE_REPORT ], 'The report the program prepares for your institution each semester, to read and download as a PDF once an Administrator has approved it.' );
+ck( 'no module\'s title or lead holds one of the base\'s words', array_filter( array_map( 'internal_words', array_merge( WPCPM_Institutions_Dashboard::modules(), $leads ) ) ), array() );
 
 /* ---- somebody who is neither --------------------------------------------- */
 

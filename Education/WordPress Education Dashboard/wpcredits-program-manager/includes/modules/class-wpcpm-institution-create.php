@@ -79,9 +79,6 @@ final class WPCPM_Institution_Create {
 	/** The ground that confirm was allowed on: `manager` or `member`. */
 	const META_GROUND = '_wpcpm_batch_ground';
 
-	/** Why a batch stopped, for a program manager. */
-	const META_REASON = '_wpcpm_batch_reason';
-
 	/** Not attempted yet. */
 	const ROW_PENDING = 'pending';
 
@@ -941,7 +938,7 @@ final class WPCPM_Institution_Create {
 	}
 
 	/**
-	 * Park a batch, and say why on the record.
+	 * Park a batch, and say why in the audit trail.
 	 *
 	 * @param array  $batch   The batch.
 	 * @param string $problem `agreement`, `no-actor` or `not-allowed`.
@@ -954,7 +951,6 @@ final class WPCPM_Institution_Create {
 		// `update_post_meta()`, so without this stamp every batch would look as old as its
 		// creation and a long import would be thrown away on the wrong day.
 		WPCPM_Institution_Import::settle( $batch_id );
-		update_post_meta( $batch_id, self::META_REASON, sanitize_key( (string) $problem ) );
 
 		$tally = self::tally( $batch['rows'] );
 

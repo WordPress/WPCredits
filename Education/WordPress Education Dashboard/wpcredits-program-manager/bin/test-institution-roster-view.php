@@ -50,8 +50,8 @@ $GLOBALS['today']  = '2026-09-02';
 $GLOBALS['uri']    = '/institution-dashboard/';
 $GLOBALS['opts']   = array(
 	'permalink_structure' => '/%postname%/',
-	'date_format'         => 'Y-m-d',
-	'time_format'         => 'H:i',
+	'date_format'         => 'F j, Y',
+	'time_format'         => 'g:i a',
 );
 $GLOBALS['umeta']  = array();
 $GLOBALS['allowed'] = true;
@@ -293,6 +293,7 @@ require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
@@ -548,14 +549,16 @@ echo "\n=== The four groups ===\n";
 ck( 'Current holds the student with a report record and the one with only a mentor', group_count( $html, 'Current' ), 2 );
 ck( 'Waiting for a mentor holds the student with neither', group_count( $html, 'Waiting for a mentor' ), 1 );
 ck( 'Finished holds the graduate', group_count( $html, 'Finished' ), 1 );
-ck( 'Did not start holds the applicant and both leads', group_count( $html, 'Did not start' ), 3 );
+ck( 'Not on the program now holds the applicant and both leads', group_count( $html, 'Not on the program now' ), 3 );
 ck( 'Ada is in Current', has( group_rows( $html, 'current' ), 'Ada Example' ), true );
 ck( 'so is Bo', has( group_rows( $html, 'current' ), 'Bo Example' ), true );
 ck( 'Bo is not waiting', has( group_rows( $html, 'waiting' ), 'Bo Example' ), false );
 // "Has not reached this page" rather than "has not been created": in the #222 shape the record
 // exists and the address join missed it, and telling a school it was never created is untrue.
-ck( 'and his row says a mentor is assigned but the report record has not reached the page',
-	has( group_rows( $html, 'current' ), 'A mentor is assigned. The report record has not reached this page yet.' ), true );
+ck( 'and his row says a mentor is assigned and that the name shows once the progress record reaches the page',
+	has( group_rows( $html, 'current' ), 'A mentor is assigned. Their name shows here once the student&#039;s progress record reaches this page.' ), true );
+ck( 'in no sentence that names a report record',
+	has( group_rows( $html, 'current' ), 'The report record has not reached this page yet.' ), false );
 ck( 'the old sentence, which claimed the record was never created, is gone', has( $html, 'has not been created yet' ), false );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
 // A finished student who never had an account (1.117.7): the closed row used to draw its badge
@@ -564,15 +567,30 @@ ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 
 // both tables, so it is badged off the Students row, and the mentor's name the join lent the
 // row is the one the opened card prints.
 ck( 'a finished student with no account still wears the badge of their past status',
-	has( card_summary( $html, 'finished', 'Dee Example' ), 'wpcpm-badge' ) && has( card_summary( $html, 'finished', 'Dee Example' ), '>Graduate</span>' ), true );
+	has( card_summary( $html, 'finished', 'Dee Example' ), 'wpcpm-badge' ) && has( card_summary( $html, 'finished', 'Dee Example' ), '>Graduated</span>' ), true );
 ck( 'and the mentor the row already names is in the preview line', has( card_summary( $html, 'finished', 'Dee Example' ), 'Mo Mentor' ), true );
 ck( 'but a current student with no account gets no badge off the pipeline status', has( card_summary( $html, 'current', 'Bo Example' ), 'wpcpm-badge' ), false );
 ck( 'and no mentor name the row does not carry', has( card_summary( $html, 'current', 'Bo Example' ), ' · ' ), false );
 // The two notes state the rule the groups are built on, both signals named: a report record
 // with no mentor link left on the Students row is still Current, so "with a mentor assigned"
 // alone would promise a name the mentor cell then denies.
-ck( 'the Current note names both signals', has( $html, 'On the program now, with a mentor assigned or a report record already created.' ), true );
-ck( 'and the Waiting note says neither is there', has( $html, 'Signed up, with no mentor assigned and no report record yet.' ), true );
+ck( 'the Current note names both signals', has( $html, 'On the program now, with a mentor assigned or a progress record already started.' ), true );
+ck( 'and the Waiting note says neither is there', has( $html, 'Signed up, with no mentor assigned and no progress record yet.' ), true );
+ck( 'neither note names a report record', has( $html, 'report record' ), false );
+// The last group holds whoever is not on the program now: students who have not started yet,
+// applicants who never began and students who stopped partway. Its heading and its note say all
+// of that, and neither "Did not start" nor "Not continuing" does.
+ck( 'the last group is headed Not on the program now', has( $html, 'Not on the program now <span class="wpcpm-group__count">' ), true );
+ck( 'its note names the students who have not started, the ones who never began and the ones who stopped',
+	has( $html, 'Students who have not started yet, never began the program, or stopped before finishing it.' ), true );
+ck( 'and the earlier headings and notes are gone', array(
+	has( $html, 'Did not start' ),
+	has( $html, 'Not continuing <span class="wpcpm-group__count">' ),
+	has( $html, 'Applicants who never began the program' ),
+), array( false, false, false ) );
+ck( 'the group filter offers the same four headings, in the same order',
+	options( $html, 'wpcpm_roster_status' ), array( 'All students', 'Current', 'Waiting for a mentor', 'Finished', 'Not on the program now' ) );
+ck( 'while the group keys are the same four', array_keys( WPCPM_Institution_Roster_View::group_labels() ), array( 'current', 'waiting', 'finished', 'not_started' ) );
 // Every group is a disclosure, so the same chevron is on every row of the page. The two a
 // school works from start open; the two it reads rarely start closed. The group, not its
 // students: since the roster became the Mentor Report Card's component every student is a
@@ -581,7 +599,7 @@ ck( 'all four groups are disclosures', substr_count( $html, '<details class="wpc
 ck( 'Current starts open', has( group_rows( $html, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), true );
 ck( 'so does Waiting', has( group_rows( $html, 'waiting' ), '<details class="wpcpm-group__disclosure" open>' ), true );
 ck( 'Finished starts closed', has( group_rows( $html, 'finished' ), '<details class="wpcpm-group__disclosure">' ), true );
-ck( 'and so does Did not start', has( group_rows( $html, 'not_started' ), '<details class="wpcpm-group__disclosure">' ), true );
+ck( 'and so does Not on the program now', has( group_rows( $html, 'not_started' ), '<details class="wpcpm-group__disclosure">' ), true );
 
 // ...until it is long. One institution has forty-two students on the program at once, and an
 // open list of forty-two buries the groups, the people and the agreement under it. Past
@@ -613,7 +631,7 @@ $GLOBALS['index']['recINSTAAA0000001'] = array(
 
 $long = render();
 
-// Named for the Current group, not "somewhere on the page": Finished and Did not start are
+// Named for the Current group, not "somewhere on the page": Finished and Not on the program now are
 // disclosures whatever their length, so counting them would pass with the ceiling deleted.
 ck( 'a group longer than the ceiling starts closed', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure">' ), true );
 ck( 'and not open', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), false );
@@ -681,6 +699,139 @@ ck( 'a row with an account links to the detail view',
 	has( $ada, 'wpcpm_institution_student=21' ), true );
 ck( 'a row without one does not', has( group_rows( $html, 'waiting' ), 'wpcpm_institution_student' ), false );
 ck( 'an empty cell says so rather than going blank', has( group_rows( $html, 'waiting' ), 'Not recorded' ), true );
+
+echo "\n=== A status is printed in a school's words and read in the base's ===\n";
+
+/**
+ * One student's Program cell, as the reader sees it: the value of that card's Program row.
+ *
+ * @param string $html  The rendered page.
+ * @param string $group Which group the card is in.
+ * @param string $name  The student's name.
+ * @return string|null The cell's text, or null when the card has no Program row.
+ */
+function program_text( $html, $group, $name ) {
+	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
+		if ( false === strpos( $card, '>' . $name . '<' ) ) { continue; }
+		if ( preg_match( '/wpcpm-roster__row--students-status">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $card, $m ) ) {
+			return trim( html_entity_decode( wp_strip_all_tags( $m[1] ), ENT_QUOTES, 'UTF-8' ) );
+		}
+	}
+
+	return null;
+}
+
+// One student for each word the Students table's own status list gives a school to read, all but
+// the last without an account, so each Program cell is the pipeline status and nothing else. The
+// last has an account whose Students Reports status says Graduate: the cell and the closed row's
+// badge both print that status, and a school must read the same word as for the others. Swapped
+// in for the fixture and put back, as the long list above is: everything after reads the fixture.
+$kept = $GLOBALS['index'][ $A ];
+$GLOBALS['umeta'][41] = array(
+	'wpcpm_student_program' => array( 'name' => 'Kay Example', 'program' => 'Graduate', 'team' => 'Training' ),
+);
+$GLOBALS['index'][ $A ] = array(
+	'read' => 1788336000,
+	'rows' => array(
+		'recSTW00000000001' => row( 'recSTW00000000001', 'Ann Example', 'Interested', '2026-02-16' ),
+		'recSTW00000000002' => row( 'recSTW00000000002', 'Ben Example', 'In Sensei Self-onboarding', '2026-02-16' ),
+		'recSTW00000000003' => row( 'recSTW00000000003', 'Cat Example', 'Not moving forward', '2026-02-16' ),
+		'recSTW00000000004' => row( 'recSTW00000000004', 'Dan Example', 'Fail', '2026-02-16' ),
+		'recSTW00000000005' => row( 'recSTW00000000005', 'Eli Example', 'Graduate', '2026-02-16' ),
+		'recSTW00000000006' => row( 'recSTW00000000006', 'Fay Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true ) ),
+		'recSTW00000000007' => row( 'recSTW00000000007', 'Gil Example', 'In Sensei 50h', '2026-02-16' ),
+		'recSTW00000000008' => row( 'recSTW00000000008', 'Hui Example', 'Developer Track', '2026-02-16', array( 'has_mentor' => true ) ),
+		'recSTW00000000009' => row( 'recSTW00000000009', 'Ivy Example', 'Dropped out', '2026-02-16' ),
+		'recSTW00000000010' => row( 'recSTW00000000010', 'Jax Example', 'Paused', '2026-02-16' ),
+		'recSTW00000000011' => row( 'recSTW00000000011', 'Kay Example', 'Graduate', '2026-02-16', array( 'user_id' => 41 ) ),
+	),
+);
+
+$words = render();
+
+// Interested is a lead, and "Signed up" would contradict the strip's count of the students who
+// did, so it is printed as it is: the one pipeline word with no plain version.
+ck( 'Interested is printed as it is', program_text( $words, 'not_started', 'Ann Example' ), 'Interested' );
+ck( 'In Sensei Self-onboarding is Getting started', program_text( $words, 'not_started', 'Ben Example' ), 'Getting started' );
+ck( 'Not moving forward is Not continuing, since a student may have started before stopping', program_text( $words, 'not_started', 'Cat Example' ), 'Not continuing' );
+ck( 'Fail is Did not complete', program_text( $words, 'not_started', 'Dan Example' ), 'Did not complete' );
+ck( 'Graduate is Graduated', program_text( $words, 'finished', 'Eli Example' ), 'Graduated' );
+
+// **One word for a student, whichever table says it.** An account-holding graduate's Program cell
+// is drawn from their Students Reports status, and the closed row's badge from the same, and both
+// went through the label that passes `Graduate` untouched while the cell of a student without an
+// account said Graduated.
+ck( 'an account-holding graduate\'s Program cell says Graduated too', program_text( $words, 'finished', 'Kay Example' ), 'Graduated' );
+$graduate_badge = 'wpcpm-badge' . ( '' !== WPCPM_Program::badge( 'Graduate' ) ? ' wpcpm-badge--' . WPCPM_Program::badge( 'Graduate' ) : '' );
+ck( 'and so does their closed row\'s badge, in the raw status\'s colour', has( card_summary( $words, 'finished', 'Kay Example' ), '<span class="' . $graduate_badge . '">Graduated</span>' ), true );
+ck( 'as does the badge of one without an account', has( card_summary( $words, 'finished', 'Eli Example' ), '<span class="' . $graduate_badge . '">Graduated</span>' ), true );
+ck( 'a status with no plain word keeps its badge\'s words', has( card_summary( $words, 'finished', 'Ivy Example' ), '>Dropped out</span>' ), true );
+ck( 'and nothing on the page says Graduate on its own', has( $words, '>Graduate<' ), false );
+ck( 'a status that names a compiled track prints the track\'s name', array(
+	program_text( $words, 'current', 'Fay Example' ),
+	program_text( $words, 'waiting', 'Gil Example' ),
+	program_text( $words, 'current', 'Hui Example' ),
+), array( WPCPM_Program::label( 'In Sensei' ), WPCPM_Program::label( 'In Sensei 50h' ), WPCPM_Program::label( 'Developer Track' ) ) );
+ck( 'which is the program\'s name and not the status', array(
+	program_text( $words, 'current', 'Fay Example' ),
+	program_text( $words, 'waiting', 'Gil Example' ),
+), array( 'WordPress Credits Program 150h', 'WordPress Credits Program 50h' ) );
+ck( 'any other status is printed as it is', array(
+	program_text( $words, 'finished', 'Ivy Example' ),
+	program_text( $words, 'waiting', 'Jax Example' ),
+), array( 'Dropped out', 'Paused' ) );
+ck( 'and none of the raw words is left on the page for a school to read', array(
+	has( $words, 'Self-onboarding' ), has( $words, 'Not moving forward' ), has( $words, '>Fail<' ),
+	has( $words, '>In Sensei<' ), has( $words, '>In Sensei 50h<' ),
+), array( false, false, false, false, false ) );
+
+// **Only the printed words changed.** The groups are built from the base's own status, so each of
+// these students is filed where their raw status files them: Interested, Not moving forward and
+// Fail with the applicants who never began, the way the list always did, whatever the cell says.
+ck( 'the group a row is filed in is the raw status\'s: Current', group_count( $words, 'Current' ), 2 );
+ck( 'Waiting for a mentor', group_count( $words, 'Waiting for a mentor' ), 2 );
+ck( 'Finished, which holds both graduates and the one who dropped out', group_count( $words, 'Finished' ), 3 );
+ck( 'and Not on the program now, which holds Interested, Self-onboarding, Not moving forward and Fail', group_count( $words, 'Not on the program now' ), 4 );
+ck( 'each of them in it by name', array(
+	has( group_rows( $words, 'not_started' ), 'Ann Example' ),
+	has( group_rows( $words, 'not_started' ), 'Ben Example' ),
+	has( group_rows( $words, 'not_started' ), 'Cat Example' ),
+	has( group_rows( $words, 'not_started' ), 'Dan Example' ),
+), array( true, true, true, true ) );
+
+// The counts read the base's words too. Ann is a lead and is not counted among the ten who signed
+// up, whatever word the cell prints for her.
+$cohort_counts = WPCPM_Cohort::participation( WPCPM_Roster_Index::rows( $A ), '2026-H1' );
+
+ck( 'the strip counts who signed up by the raw status, and not Ann', has( $words, '10 students signed up.' ), true );
+ck( 'and who graduated, the account-holding graduate with the other', has( $words, '2 have graduated.' ), true );
+ck( 'from the same figures the cohort counts hold', array( $cohort_counts['signed_up'], $cohort_counts['graduated'], $cohort_counts['not_started'], $cohort_counts['withdrawn'] ), array( 10, 2, 1, 2 ) );
+ck( 'and the picker counts them as it did', options( $words, 'wpcpm_cohort' ), array( 'January to June 2026 (10)' ) );
+
+// The search reads a row's own fields and never its status, so the plain words are no more
+// searchable than the base's were: a school typing what it reads finds nobody, and a name still
+// finds its student, in the group the raw status files them in.
+$by_word = render( array( 'wpcpm_roster_search' => 'Not continuing' ) );
+ck( 'searching for a plain word finds nobody, as searching for the raw one did', array(
+	group_count( $by_word, 'Current' ), group_count( $by_word, 'Waiting for a mentor' ), group_count( $by_word, 'Finished' ), group_count( $by_word, 'Not on the program now' ),
+), array( 0, 0, 0, 0 ) );
+$by_raw = render( array( 'wpcpm_roster_search' => 'Not moving forward' ) );
+ck( 'and so does the raw word', array(
+	group_count( $by_raw, 'Current' ), group_count( $by_raw, 'Waiting for a mentor' ), group_count( $by_raw, 'Finished' ), group_count( $by_raw, 'Not on the program now' ),
+), array( 0, 0, 0, 0 ) );
+$by_name = render( array( 'wpcpm_roster_search' => 'Cat Example' ) );
+ck( 'a name still finds its student, filed by the raw status', array(
+	group_count( $by_name, 'Not on the program now' ),
+	has( group_rows( $by_name, 'not_started' ), 'Cat Example' ),
+	program_text( $by_name, 'not_started', 'Cat Example' ),
+), array( 1, true, 'Not continuing' ) );
+
+// The group filter is a request for a group, and the group is the raw status's.
+$only = render( array( 'wpcpm_roster_status' => 'not_started' ) );
+ck( 'the group filter narrows to the same four', group_count( $only, 'Not on the program now' ), 4 );
+
+$GLOBALS['index'][ $A ] = $kept;
+ck( 'the fixture is back', group_count( render(), 'Current' ), 2 );
 
 echo "\n=== Hours ===\n";
 
@@ -913,7 +1064,7 @@ ck( 'its two numbers: signed up', has( $html, '5 students signed up.' ), true );
 ck( 'its two numbers: graduated', has( $html, '1 has graduated.' ), true );
 ck( 'the lead is not counted as somebody who signed up',
 	WPCPM_Cohort::participation( WPCPM_Roster_Index::rows( $A ), '2026-H1' )['signed_up'], 5 );
-ck( 'though the roster still shows her, under Did not start',
+ck( 'though the roster still shows her, under Not on the program now',
 	has( group_rows( $html, 'not_started' ), 'Fi Example' ), true );
 ck( 'the previous semester is compared, with its own two numbers',
 	has( $html, 'Compared with July to December 2025: 2 signed up, 1 graduated.' ), true );
@@ -935,26 +1086,48 @@ ck( 'and it has no semester before it to compare with',
 
 echo "\n=== The read time ===\n";
 
-ck( 'the strip prints when the counts were read',
-	has( $html, '<p class="wpcpm-roster__read wpcpm-roster__read--strip">Read from the program records on 2026-09-02 08:00 (2 hours ago).</p>' ), true );
-ck( 'and the footer prints it again under the table',
-	has( $html, '<p class="wpcpm-roster__read wpcpm-roster__read--footer">Read from the program records on 2026-09-02 08:00 (2 hours ago).</p>' ), true );
+ck( 'the footer prints when the counts were read, in the site\'s date and time formats',
+	has( $html, '<p class="wpcpm-roster__read wpcpm-roster__read--footer">Read from the program records on September 2, 2026 8:00 am (2 hours ago).</p>' ), true );
+ck( 'and the strip does not print it again: the roster holds the line once',
+	array( has( $html, 'wpcpm-roster__read--strip' ), substr_count( $html, 'Read from the program records on' ) ), array( false, 1 ) );
+ck( 'nor does the strip of a roster that was never read',
+	array( has( $b_html, 'wpcpm-roster__read--strip' ), substr_count( $b_html, 'have not been read from the program records yet' ) ), array( false, 1 ) );
+ck( 'not as year-month-day and a clock', has( $html, '2026-09-02 08:00' ), false );
 ck( 'a read time the caller hands over is the one printed',
-	has( render( array(), $A, array( 'read' => 1787500000 ) ), '2026-08-23 15:46' ), true );
+	has( render( array(), $A, array( 'read' => 1787500000 ) ), 'August 23, 2026 3:46 pm' ), true );
 
-echo "\n=== Not yet in the Students table ===\n";
+// Inside a module the dashboard titles, the page prints the line once at its foot, so the
+// roster prints none: neither the dated sentence nor the one for a roster never read.
+$titled   = render( array(), $A, array( 'module_titled' => true ) );
+$titled_b = render( array(), $B, array( 'module_titled' => true ) );
+ck( 'in a titled module the roster prints no read line at all',
+	array( has( $titled, 'Read from the program records' ), has( $titled, 'wpcpm-roster__read' ) ), array( false, false ) );
+ck( 'and none for a roster never read either',
+	array( has( $titled_b, 'have not been read from the program records yet' ), has( $titled_b, 'wpcpm-roster__read' ) ), array( false, false ) );
+ck( 'while the strip\'s counts are all still there',
+	array( has( $titled, '5 students signed up.' ), has( $titled, '1 has graduated.' ) ), array( true, true ) );
+ck( 'and the standalone roster\'s footer sits after its last group',
+	strrpos( $html, 'wpcpm-roster__read--footer' ) > strrpos( $html, 'wpcpm-roster__group' ), true );
 
-ck( 'the fifth list is absent when there is nobody in it', has( $html, 'Not yet in the Students table' ), false );
+echo "\n=== Enrollment not recorded yet ===\n";
+
+ck( 'the fifth list is absent when there is nobody in it', has( $html, 'Enrollment not recorded yet' ), false );
 
 $GLOBALS['unlinked'][ $A ] = array(
 	31 => row( '', 'Nia Example', 'In Sensei', '2026-02-16', array( 'user_id' => 31, 'record_id' => '' ) ),
 );
 $with_fifth = render();
 
-ck( 'it appears when there is somebody in it', group_count( $with_fifth, 'Not yet in the Students table' ), 1 );
+ck( 'it appears when there is somebody in it', group_count( $with_fifth, 'Enrollment not recorded yet' ), 1 );
 ck( 'with the person named', has( $with_fifth, 'Nia Example' ), true );
 ck( 'and the explanation of whose job the missing record is',
-	has( $with_fifth, 'An Administrator needs to complete the record.' ), true );
+	has( $with_fifth, 'These students are reporting their progress, but the program records hold no enrollment for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.' ), true );
+ck( 'in no word of the base\'s: no table, no row, no report record', array(
+	has( $with_fifth, 'Students table' ),
+	has( $with_fifth, 'enrollment row' ),
+	has( $with_fifth, 'report record' ),
+	has( $with_fifth, 'Airtable' ),
+), array( false, false, false, false ) );
 ck( 'they are not in any of the four groups', group_count( $with_fifth, 'Current' ), 2 );
 
 // A student's address is a manager's to see, not the school's: the export has no email column
@@ -987,7 +1160,7 @@ $waiting = render( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_status' => 
 ck( 'a group filter narrows to that group', group_count( $waiting, 'Waiting for a mentor' ), 1 );
 ck( 'and the other three are not drawn', group_count( $waiting, 'Current' ), null );
 ck( 'the fifth list stays out of a request for one of the four',
-	has( $waiting, 'Not yet in the Students table' ), false );
+	has( $waiting, 'Enrollment not recorded yet' ), false );
 ck( 'the filter comes back selected in the form', chosen( $waiting, 'wpcpm_roster_status' ), 'waiting' );
 ck( 'and can be cleared without losing the cohort',
 	has( $waiting, 'href="/institution-dashboard/?wpcpm_cohort=2026-H1">Clear the filters' ), true );
@@ -1014,7 +1187,7 @@ $junk = render( array( 'wpcpm_cohort' => 'summer', 'wpcpm_roster_status' => 'eve
 
 ck( 'a cohort that is not a key falls back to the default', chosen( $junk, 'wpcpm_cohort' ), '2026-H1' );
 ck( 'a group that is not one of the four is no filter at all', chosen( $junk, 'wpcpm_roster_status' ), '' );
-ck( 'so every group is drawn', group_count( $junk, 'Did not start' ), 3 );
+ck( 'so every group is drawn', group_count( $junk, 'Not on the program now' ), 3 );
 
 $posted = render( array(), $A, array( 'cohort' => '2025-H1', 'filters' => array( 'status' => 'finished', 'search' => '' ) ) );
 

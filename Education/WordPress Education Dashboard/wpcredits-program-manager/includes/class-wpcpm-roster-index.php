@@ -316,7 +316,7 @@ class WPCPM_Roster_Index {
 	/**
 	 * The institution's students whose Students row the site could not find.
 	 *
-	 * The fifth list on the dashboard, "Not yet in the Students table": accounts the
+	 * The fifth list on the dashboard, "Enrollment not recorded yet": accounts the
 	 * students sync could only place from the reports side, because the Students table
 	 * has no row for their address at all. Nineteen such rows exist, seven of them with
 	 * accounts. They are real students of this institution and are listed read-only, with

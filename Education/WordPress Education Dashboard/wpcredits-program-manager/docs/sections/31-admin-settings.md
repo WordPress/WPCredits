@@ -196,6 +196,8 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 - **Applications from institutions** - **Take applications through the form on this site**. Off by
   default, since the form is a public page anybody can post to; its address is under the switch.
+  Since 1.123.27 the form is at /institution-application/, titled "Bring WordPress Credits to your
+  institution", and /apply/, its address before, takes a visitor there.
   Every submission is stored for an Administrator to read on the Institutions screen's Waiting for
   review tab and to decide on the Administrator Dashboard, and nothing is created until somebody
   approves it; while this is off, the page shows one sentence saying applications are closed. Since
@@ -248,9 +250,9 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   Administrator account with an email address can be listed, the addresses are typed, separated by
   commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
-  taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept
-  on this site rather than in the code, because the document is editable by anyone holding its link
-  and the plugin's source is public.
+  taken from, linked from the Agreement template card on the Institutions screen's Agreements tab;
+  Google addresses only. Its fold: it is kept on this site rather than in the code, because the
+  document is editable by anyone holding its link and the plugin's source is public.
 
 #### Semester report drafting
 

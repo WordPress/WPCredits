@@ -896,12 +896,21 @@ ck( 'the guide is before "Need help?"',
     array( true ) );
 
 // The Slack channel, before the guide, as Slack's own logo and no words of ours.
-ck( 'the student card links the students Slack channel',
+ck( 'the student card links the program\'s Slack channel',
     array(
         false !== strpos( $student_section, 'wordpress.slack.com/archives/C0959D2M3T8' ),
         false !== strpos( $student_section, 'class="wpcpm-resources__slack"' ),
     ),
     array( true, true ) );
+
+// The channel the student card links is the program's own, the one the institution, Administrator
+// and sponsor entries link, so the logo's name for a screen reader is the one name they all use.
+ck( 'the student card\'s logo link is named for the program\'s channel, not for a channel of the students\'',
+    array(
+        false !== strpos( $student_section, 'aria-label="Ask in the WordPress Credits Slack channel"' ),
+        false !== strpos( $student_section, 'students Slack channel' ),
+    ),
+    array( true, false ) );
 
 // A link and not a button: none of the `wpcpm-button` classes, so nothing the theme or the
 // plugin draws borders and fills with can reach it. Pinned here because the class list is the
@@ -1191,6 +1200,24 @@ $guides = WPCPM_Handbook_Assistant::guides();
 ck( 'and the audiences that do have a guide are the five that have a dashboard',
     array_keys( $guides ), array( 'student', 'mentor', 'institution', 'administrator', 'sponsor' ) );
 ck( 'the sponsor guide is the sponsors\' own, on the handbook beside the other three (S6)', array( $guides['sponsor']['url'], $guides['sponsor']['label'] ), array( 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/', 'Sponsor guide' ) );
+
+$channel = array_values( array_unique( array_map( static function ( $audience ) use ( $guides ) { return $guides[ $audience ]['slack']; }, array( 'student', 'institution', 'administrator', 'sponsor' ) ) ) );
+ck( 'the student, institution, Administrator and sponsor entries link one channel', $channel, array( 'https://wordpress.slack.com/archives/C0959D2M3T8' ) );
+ck( 'and call it by one name',
+    array_values( array_unique( array_map( static function ( $audience ) use ( $guides ) { return $guides[ $audience ]['chat']; }, array( 'student', 'institution', 'administrator', 'sponsor' ) ) ) ),
+    array( 'Ask in the WordPress Credits Slack channel' ) );
+ck( 'the mentors\' own channel is another one, with its own name', array( $guides['mentor']['slack'], $guides['mentor']['chat'] ), array( 'https://wordpress.slack.com/archives/C09KYQLS7F1', 'Ask in the mentors Slack channel' ) );
+
+// The Student Report Card's guide says the same words, and so do the three guides built from it.
+$student_guide = (string) file_get_contents( __DIR__ . '/../docs/sections/10-student-card.md' );
+ck( 'the guide names the channel the card links: the WordPress Credits Slack channel',
+    array( false !== strpos( $student_guide, 'the WordPress Credits Slack channel, the Student guide in the handbook' ), false !== strpos( $student_guide, 'students Slack channel' ) ),
+    array( true, false ) );
+$built_with_it = array();
+foreach ( array( 'students', 'mentors', 'administrators' ) as $built_guide ) {
+    $built_with_it[] = false !== strpos( (string) file_get_contents( __DIR__ . '/../docs/build/' . $built_guide . '.html' ), 'students Slack channel' );
+}
+ck( 'and no built guide still says the students\' channel', $built_with_it, array( false, false, false ) );
 
 $build_src = file_get_contents( __DIR__ . '/build-docs.php' );
 ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sections and the sign-in section', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), file_exists( __DIR__ . '/../docs/sections/42-sponsor-visibility.md' ) ), array( true, true, true, true ) );

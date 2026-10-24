@@ -102,10 +102,21 @@ ck(
 	'and the Semester reports area\'s three ids are its three emails, as they were',
 	array_map( function ( $id ) { return WPCPM_Mail_Catalog::get( $id ); }, array( 'report-drafted', 'report-approved', 'report-consent' ) ),
 	array(
-		array( 'label' => 'Semester report drafted', 'module' => 'reports', 'audience' => 'administrator', 'test' => false ),
-		array( 'label' => 'Semester report approved', 'module' => 'reports', 'audience' => 'institution', 'test' => false ),
-		array( 'label' => 'Consent for the semester report', 'module' => 'reports', 'audience' => 'student', 'test' => false ),
+		array( 'label' => 'Semester report drafted, to Administrators', 'module' => 'reports', 'audience' => 'administrator', 'test' => false ),
+		array( 'label' => 'Semester report approved, to the institution', 'module' => 'reports', 'audience' => 'institution', 'test' => false ),
+		array( 'label' => 'Consent for the semester report, to the student', 'module' => 'reports', 'audience' => 'student', 'test' => false ),
 	)
+);
+
+// The Log's Email field lists every name, so two emails with the same words in it could not be told
+// apart: the institution's and the sponsor's emails about an application or a Collaboration Agreement
+// say whose they are (1.123.27), and no name is any other's.
+$labels = array_column( $emails, 'label' );
+ck( 'no two emails share a name', array_keys( array_filter( array_count_values( $labels ), function ( $count ) { return $count > 1; } ) ), array() );
+ck(
+	'and every institution email about an application, an upload, a reminder or a template says it is the institution\'s',
+	array_map( function ( $id ) { return false !== stripos( WPCPM_Mail_Catalog::label( $id ), 'institution' ); }, array( 'institution-applied', 'institution-applied-no-call', 'institution-information', 'institution-declined', 'agreement-landed', 'agreement-landed-flagged', 'agreement-reminder', 'agreement-template' ) ),
+	array_fill( 0, 8, true )
 );
 
 // Each email of the Institutions and the Sponsors areas that says words of its own has an id of its own
@@ -126,23 +137,23 @@ ck(
 	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, and the invitation with no sender named, its own since 1.122.23, each with who receives it',
 	isset( $named['institutions'] ) ? $named['institutions'] : null,
 	array(
-		'institution-applied'          => 'Application received, to the applicant / applicant',
-		'institution-applied-no-call'  => 'Application received, to an applicant with no call to book / applicant',
+		'institution-applied'          => 'Institution application received, to the applicant / applicant',
+		'institution-applied-no-call'  => 'Institution application received, to an applicant with no call to book / applicant',
 		'institution-application'      => 'New institution application, to Administrators / administrator',
-		'institution-information'      => 'Question about an application / applicant',
-		'institution-declined'         => 'Application declined / applicant',
+		'institution-information'      => 'Question about an institution application / applicant',
+		'institution-declined'         => 'Institution application declined / applicant',
 		'institution-invite'           => 'Invitation to join an institution / institution',
 		'institution-invite-no-sender' => 'Invitation to join an institution, with no sender named / institution',
 		'agreement-received'           => 'Collaboration Agreement received, to the institution / institution',
-		'agreement-landed'             => 'Collaboration Agreement uploaded, to Administrators / administrator',
-		'agreement-landed-flagged'     => 'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / administrator',
+		'agreement-landed'             => 'Collaboration Agreement uploaded by an institution, to Administrators / administrator',
+		'agreement-landed-flagged'     => 'Collaboration Agreement uploaded by an institution with the scan\'s notes, to Administrators / administrator',
 		'agreement-accepted'           => 'Collaboration Agreement accepted, to the institution / institution',
 		'agreement-reinstated'         => 'Collaboration Agreement back in force, to the institution / institution',
 		'agreement-returned'           => 'Collaboration Agreement returned with a note, to the institution / institution',
 		'agreement-revoked'            => 'Collaboration Agreement taken out of force, to the institution / institution',
 		'agreement-revoked-no-contact' => 'Collaboration Agreement taken out of force, to an institution with no country contact / institution',
-		'agreement-reminder'           => 'Collaboration Agreements waiting for review / administrator',
-		'agreement-template'           => 'Collaboration Agreement could not be generated / administrator',
+		'agreement-reminder'           => 'Collaboration Agreements from institutions waiting for review, to Administrators / administrator',
+		'agreement-template'           => 'Collaboration Agreement for an institution could not be generated, to Administrators / administrator',
 		'member-last'                  => 'Institution has no members left, to Administrators / administrator',
 	)
 );

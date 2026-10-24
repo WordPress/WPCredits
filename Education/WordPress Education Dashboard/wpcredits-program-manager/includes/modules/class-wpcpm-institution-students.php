@@ -44,7 +44,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * student's account and their mentor's list all went on saying Paused. The four rows of one partner
  * institution reading `Paused` on Students and `Not moving forward` on Students Reports are
  * what that gap already produces without anybody pressing anything. The refusal comes out, with
- * its test, on the day the base owner adds `Paused` to the view (open question 4).
+ * its test, on the day the base owner adds `Paused` to the view (open question 4). What a school
+ * reads says why in its own terms, that the student would be emailed while the rest of their
+ * records went on saying paused, and does not name the view: its ID is here for the Administrator
+ * who has to find it in the base.
  *
  * **Guard 3: the confirm names the mail.** `confirm()` names the student, says Airtable will
  * email them and that the mail cannot be recalled, and says the change is logged under the
@@ -90,13 +93,10 @@ final class WPCPM_Institution_Students {
 	 * The status this refuses by name, and the view that is the reason.
 	 *
 	 * Written out as a literal because it is the base's own value and not a setting: a site that
-	 * renamed the choice would be a different base, and the automation named below would have to
-	 * be re-read anyway.
+	 * renamed the choice would be a different base, and the automation named in the class
+	 * docblock would have to be re-read anyway.
 	 */
 	const PAUSED = 'Paused';
-
-	/** The Airtable view the mirror automation is restricted to. Named in the refusal on purpose. */
-	const MIRROR_VIEW = 'viwzSJspvACLnhXom';
 
 	/** The one cell this class writes, in the vocabulary `WPCPM_Institution_Policy::scope()` narrows. */
 	const SLOT = 'students|Status';
@@ -597,8 +597,12 @@ final class WPCPM_Institution_Students {
 	 * gets nothing quoted rather than an empty pair of words, because "the records say ." reads
 	 * as a bug and is one.
 	 *
+	 * The quote is in the words the roster prints the same status in (`WPCPM_Program::status_words()`),
+	 * so a card cannot say "Graduate" under a roster row that says "Graduated". It is the words
+	 * only: the outcome was decided on the status as the records spell it.
+	 *
 	 * @param string $outcome One of the OUT_* slugs.
-	 * @param string $status  What the row says.
+	 * @param string $status  What the row says, as the records spell it.
 	 * @return string
 	 */
 	private static function says( $outcome, $status ) {
@@ -609,9 +613,9 @@ final class WPCPM_Institution_Students {
 		}
 
 		return ' ' . sprintf(
-			/* translators: %s: the status stored in the program records. */
+			/* translators: %s: the status stored in the program records, in the words the roster shows it in. */
 			__( 'They say: %s.', 'wpcredits-program-manager' ),
-			$status
+			WPCPM_Program::status_words( $status )
 		);
 	}
 
@@ -740,19 +744,18 @@ final class WPCPM_Institution_Students {
 	/**
 	 * The paused refusal, written once and printed in two places.
 	 *
-	 * It names the view because the view is the whole of the reason, and because the person who
-	 * can fix it - a program manager, talking to whoever owns the base - needs the name to act
-	 * on. A sentence that said only "this student is paused" would send a school to ask for the
-	 * pause to be lifted without anybody learning why the site would not simply write the cell.
+	 * It gives the school the whole of the reason in its own terms: the student would be emailed
+	 * while the rest of their records went on saying paused, and the way out is the program's
+	 * contact taking them off pause. A sentence that said only "this student is paused" would
+	 * send a school to ask for the pause to be lifted without anybody learning why the page
+	 * would not simply write the cell. The view the mirror automation is restricted to is the
+	 * technical form of that reason and is the Administrator's to find in the base, so its ID
+	 * is in the class docblock and not in what a school reads.
 	 *
 	 * @return string
 	 */
 	private static function paused_sentence() {
-		return sprintf(
-			/* translators: %s: the Airtable view ID the mirror automation is restricted to. */
-			__( 'The program records say this student is paused. The automation that carries a status change through to the rest of their records is restricted to one view, %s, and a paused student is not in it: recording a paused student as finished would email them while their report record, their site account and their mentor\'s list all went on saying paused. Ask your program contact to take them off pause first.', 'wpcredits-program-manager' ),
-			self::MIRROR_VIEW
-		);
+		return __( 'The program records say this student is paused, so this page cannot record a change for them: they would be emailed while the rest of their records went on saying paused. Ask your contact at the program to take them off pause first.', 'wpcredits-program-manager' );
 	}
 
 	/*

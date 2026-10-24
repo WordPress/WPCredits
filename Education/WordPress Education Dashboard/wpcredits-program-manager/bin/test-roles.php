@@ -559,10 +559,20 @@ if ( file_exists( dirname( __DIR__ ) . '/' . $ceiling_file ) ) {
 		}
 	}
 
+	// The sweep is cleared by name, or as one of the institutions module's daily jobs, the list its
+	// uninstall clears every hook of.
+	$institutions_src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-institutions.php' );
+	$daily_jobs       = substr( $institutions_src, (int) strpos( $institutions_src, 'private static function daily_jobs()' ) );
+	$daily_jobs       = substr( $daily_jobs, 0, (int) strpos( $daily_jobs, "\n\t}\n" ) );
+	$uninstall_body   = substr( $institutions_src, (int) strpos( $institutions_src, 'public function uninstall()' ) );
+	$uninstall_body   = substr( $uninstall_body, 0, (int) strpos( $uninstall_body, "\n\t}\n" ) );
+
 	ck( 'its rows are deleted and its sweep unscheduled on uninstall',
 	    array(
 	        false !== strpos( $reach, 'WPCPM_Ceiling::delete_all()' ),
-	        (bool) preg_match( '/wp_clear_scheduled_hook\(\s*(?:WPCPM_Ceiling::CRON_SWEEP|\'wpcpm_ceiling_sweep\')\s*\)/', $reach ),
+	        (bool) preg_match( '/wp_clear_scheduled_hook\(\s*(?:WPCPM_Ceiling::CRON_SWEEP|\'wpcpm_ceiling_sweep\')\s*\)/', $reach )
+	            || ( false !== strpos( $daily_jobs, 'WPCPM_Ceiling::CRON_SWEEP' )
+	                && (bool) preg_match( '/foreach \( self::daily_jobs\(\) as \$hook \) \{\s*wp_clear_scheduled_hook\( \$hook \);/', $uninstall_body ) ),
 	    ),
 	    array( true, true ) );
 } else {

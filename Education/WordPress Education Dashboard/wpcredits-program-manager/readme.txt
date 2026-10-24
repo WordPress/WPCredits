@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.26
+Stable tag: 1.123.27
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,17 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.27 =
+
+* The institution application form is at /institution-application/, titled "Bring WordPress Credits to your institution", with one line under the title saying who it is for and that an Administrator writes back. Its old address, /apply/, takes a visitor there. The page is moved once, on the first request after the update, and only what is still the plugin's own text moves: a title or content an Administrator edited stays.
+* The Institution Dashboard speaks plainly to a school: no Airtable table names, view IDs or stored statuses. A student's status reads as a word ("Getting started", "Not continuing", "Did not complete", "Graduated") in the roster, on the student card and on the placement card, the roster's last group is headed "Not on the program now", the semester report counts "Not continuing" where it counted "Did not start", and the Stage line shows only to an Administrator. What is filed, counted, searched and exported still reads the program records' own words; the export's Group column follows the roster's headings.
+* Every date on the Institution Dashboard and in an institution's invitation is in the site's date format, the "read from the program records" line shows once, at the foot of the page, and the student guide names the WordPress Credits Slack channel.
+* The Administrator Dashboard and the Institutions screen print labels, not stored states: an agreement's and a semester report's state, an application's state and why it is held. The requests card is "Requests from institutions", and the Institutions screen's description, sync card and agreement fingerprint say what they mean without technical terms.
+* Institution and semester report emails say what the site does: an institution generates or uploads its Collaboration Agreement, the Collaboration Agreement card replaces the "agreement panel", no Airtable record ID is shown, the site is named with its "the", and every report email's subject starts with the site's name. Tools > Emails names each institution email for what it is. No placeholder is removed, so an edit an Administrator saved keeps working.
+* The application forms: the internship question says practicums and is marked required, the country is one field to type into, and the sponsor form asks for the company's and the contact's names and address in plain words. What each answer is saved under is unchanged.
+* Removed: the "Check against the Doc" promise on Settings > Institutions, which no screen ever drew, and the code behind it; other code nothing called. Deactivating the plugin takes the Institutions module's six daily jobs off the clock, and uninstalling it also clears the semester report and import queues.
+* For developers: `WPCPM_Dates::day()` and `moment()`, `WPCPM_Program::status_words()`, `WPCPM_Institution_Agreement::summary_label()`, `WPCPM_Semester_Report::state_label()`; `WPCPM_Institutions::application_state_label()` is public; `WPCPM_Institution_Application::SLUG` is `institution-application`, with `redirect_old_address()` and the option `wpcpm_application_page_moved`; `WPCPM_Agreement_Template::drift()` and its helpers, `WPCPM_Semester_Report::maybe_upgrade()` and the other removed names are gone.
 
 = 1.123.26 =
 

@@ -811,8 +811,9 @@ ck( 'no student name is in the post title', false !== strpos( $GLOBALS['posts'][
 ck( 'and the post is private', $GLOBALS['posts'][ $staged ]->post_status, 'private' );
 
 // One at a time, so a school cannot stage six lists and confirm them in an order nobody meant.
-ck( 'the institution has one waiting', WPCPM_Institution_Import::staged_for( $HERE ), $staged );
-ck( 'and another institution has none', WPCPM_Institution_Import::staged_for( $ELSEWHERE ), 0 );
+ck( 'the institution has one in hand', WPCPM_Institution_Import::active_for( $HERE ), $staged );
+ck( 'and another institution has none', WPCPM_Institution_Import::active_for( $ELSEWHERE ), 0 );
+ck( 'staged_for() is gone: active_for() is the one question the screen and the check ask', method_exists( 'WPCPM_Institution_Import', 'staged_for' ), false );
 
 ck( 'a staged batch can be cancelled', WPCPM_Institution_Import::cancel( $staged ), true );
 ck( 'and is gone afterwards', WPCPM_Institution_Import::batch( $staged ), null );
@@ -925,40 +926,24 @@ ck( 'a batch still creating is never swept, however old', WPCPM_Institution_Impo
 
 echo "\n=== And nothing of it outlives the plugin ===\n";
 
-$GLOBALS['opts'][ WPCPM_Institution_Import::OPT_LOG ] = array( array( 'institution' => $HERE, 'member' => 7, 'rows' => 3, 'blocked' => 0, 'when' => time() ) );
-$GLOBALS['opts']['wpcpm_import_lock_' . $HERE ]       = time();
+// The log of checks a version before this one wrote: nothing reads it, and a site may still hold it.
+$GLOBALS['opts']['wpcpm_import_log']            = array( array( 'institution' => $HERE, 'member' => 7, 'rows' => 3, 'blocked' => 0, 'when' => time() ) );
+$GLOBALS['opts']['wpcpm_import_lock_' . $HERE ] = time();
 
 $removed = WPCPM_Institution_Import::delete_all();
 
 // The plugin would otherwise be gone and the people still there.
 ck( 'every remaining batch is deleted', $removed > 0 && empty( $GLOBALS['posts'] ), true );
-ck( 'the check log goes with them', WPCPM_Institution_Import::log(), array() );
+ck( 'the check log a site may still hold goes with them, by name', array_key_exists( 'wpcpm_import_log', $GLOBALS['opts'] ), false );
 ck( 'and so does a lock a dead request left behind', isset( $GLOBALS['opts']['wpcpm_import_lock_' . $HERE ] ), false );
 
-echo "\n=== The log is a ratio, not a list of people ===\n";
+echo "\n=== No log of checks is kept ===\n";
 
-$GLOBALS['opts'] = array();
-WPCPM_Institution_Import::log_check( $HERE, 7, 20, 1 );
-WPCPM_Institution_Import::log_check( $HERE, 7, 20, 18 );
-
-$log = WPCPM_Institution_Import::log();
-ck( 'both checks are logged', count( $log ), 2 );
-// No name and no address: the count is the signal, and the names are in the batch post for as
-// long as it lives.
-ck( 'and neither line carries a person', array_keys( $log[0] ), array( 'institution', 'member', 'rows', 'blocked', 'when' ) );
-
-// A member feeding addresses in to see which come back blocked looks exactly like this.
-$odd = WPCPM_Institution_Import::suspicious();
-ck( 'the mostly-blocked check is the one flagged', count( $odd ), 1 );
-ck( 'and it is the right one', $odd[0]['blocked'], 18 );
-
-$GLOBALS['opts'] = array();
-for ( $i = 0; $i < WPCPM_Institution_Import::LOG_MAX + 10; $i++ ) {
-	WPCPM_Institution_Import::log_check( $HERE, 7, 1, 0 );
-}
-// It is an option, read on a manager screen. A log that grew without a bound is eventually
-// the reason one is slow.
-ck( 'the log is capped', count( WPCPM_Institution_Import::log() ), WPCPM_Institution_Import::LOG_MAX );
+// The log was written on every check for a manager card that was never drawn, and nothing read it.
+ck( 'no method of the check log is left', array_values( array_filter( array( 'log_check', 'log', 'suspicious' ), function ( $name ) {
+	return method_exists( 'WPCPM_Institution_Import', $name );
+} ) ), array() );
+ck( 'and no constant of it', array( defined( 'WPCPM_Institution_Import::OPT_LOG' ), defined( 'WPCPM_Institution_Import::LOG_MAX' ) ), array( false, false ) );
 
 echo "\n=== This file touches nothing ===\n";
 

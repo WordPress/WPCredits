@@ -10,7 +10,7 @@
  * - **At a glance shows what needs a manager, in the cards' own numbers.** Each tile's count comes
  *   from the same arrays the cards draw, so a tile and its card cannot disagree. A tile is drawn
  *   only for a count above zero, in the order of the cards the tiles link to, each a link to a
- *   card the page draws; a card's part of its own queue folds into its tile (the mentor requests
+ *   card the page draws; a card's part of its own queue folds into its tile (the requests from institutions
  *   and the Collaboration Agreements overdue, each "overdue" asked in a context of its own), the
  *   semester reports' two counts share one tile, led by the reports to review while there is one
  *   and by the semesters due for drafting when there is none, each of a folded tile's counts is
@@ -29,6 +29,13 @@
  * - **The programs calculation reads only status, start, end, reports and mentor_name**
  *   off roster rows, and a finished student no longer says their track, so "finished this
  *   semester" is one number rather than one per track.
+ * - **A card prints words, never a stored state.** Programs running's Agreement and Report cells
+ *   are the words the Collaboration Agreement and semester report classes give their states
+ *   (including "Not started" and "Not drafted" for none), and an Institution applications row says
+ *   its state in the Institutions screen's words as they are given, links its title to the
+ *   application in that screen's queue as a sponsor application's links to its own, and carries a
+ *   note when the anti-spam checks held it. The requests card and its tile are called Requests from
+ *   institutions.
  * - **A viewer without the capability sees the refusal and no form.**
  * - **Every card is drawn in the dashboards' one shell** (WPCPM_Dashboard_Card, pinned in
  *   bin/test-dashboard-card.php) in this page's shape: the anchor on the card's section, where the
@@ -504,6 +511,8 @@ class WPCPM_Institution_Application {
 		return $out;
 	}
 	public static function reference( $id ) { return sprintf( 'APP-2026-%04d', (int) $id ); }
+	/** Where the Institutions screen's queue opens one application, as the real class builds it. */
+	public static function queue_url( $id ) { return 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=' . (int) $id; }
 }
 class WPCPM_Institutions {
 	const FLASH = 'institutions';
@@ -511,6 +520,11 @@ class WPCPM_Institutions {
 	public static function open_states() { return array( 'new', 'held', 'info' ); }
 	public static function application_state( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_app_state', true ); }
 	public static function application_reference( WP_Post $post ) { return WPCPM_Institution_Application::reference( $post->ID ); }
+	/** The words the Institutions screen uses for a state, as the real class holds them. */
+	public static function application_state_label( $state ) {
+		$words = array( 'new' => 'new', 'held' => 'held by the anti-spam checks', 'info' => 'waiting on the applicant', 'spam' => 'marked as spam', 'rejected' => 'rejected', 'approved' => 'approved' );
+		return isset( $words[ $state ] ) ? $words[ $state ] : $state;
+	}
 	public static function country_name( $id, $stored ) { return '' !== $stored ? $stored : ( 'recCOUNTRY0000001' === (string) $id ? 'Poland' : '' ); }
 	public static function queue_messages() { return array( 'app-approved' => array( 'success', 'The application is approved.' ) ); }
 	public function render_application_answers( WP_Post $post ) { echo '<table class="wpcpm-app-answers" data-app="' . (int) $post->ID . '"></table>'; }
@@ -542,6 +556,11 @@ class WPCPM_Institution_Agreement {
 	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['agr']['submitted'] ) ? $GLOBALS['agr']['submitted'] : array(); }
 	public static function in_state( $state, $limit = 50 ) { return isset( $GLOBALS['agr'][ $state ] ) ? $GLOBALS['agr'][ $state ] : array(); }
 	public static function summary( $record ) { return array( 'state' => isset( $GLOBALS['agr_summary'][ $record ] ) ? $GLOBALS['agr_summary'][ $record ] : 'none' ); }
+	/** The words an Administrator reads for a summary state, as the real class holds them. */
+	public static function summary_label( $state ) {
+		$words = array( 'none' => 'Not started', 'generated' => 'Template generated', 'submitted' => 'Awaiting review', 'returned' => 'Returned', 'revoked' => 'Revoked', 'accepted' => 'Accepted', 'on_file' => 'On file' );
+		return isset( $words[ $state ] ) ? $words[ $state ] : (string) $state;
+	}
 }
 class WPCPM_Institution_Panel {
 	// The way back a card asks the block for, its third argument after whether the block draws the
@@ -564,6 +583,11 @@ class WPCPM_Semester_Report {
 	public static function approved_since( $ts ) { $GLOBALS['asked'][] = array( 'approved_since', (int) $ts ); return isset( $GLOBALS['reports']['approved'] ) ? $GLOBALS['reports']['approved'] : array(); }
 	public static function reports_of( $record ) { return isset( $GLOBALS['reports_of'][ $record ] ) ? $GLOBALS['reports_of'][ $record ] : array(); }
 	public static function state( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_state', true ); }
+	/** The words an Administrator reads for a report's state, as the real class holds them. */
+	public static function state_label( $state ) {
+		$words = array( 'none' => 'Not drafted', 'approved' => 'Approved' );
+		return isset( $words[ $state ] ) ? $words[ $state ] : 'Draft';
+	}
 }
 class WPCPM_Semester_Report_Screen {
 	const ACTION_DRAFT = 'wpcpm_report_draft';
@@ -1164,8 +1188,8 @@ ck( 'each tile is a number and a card, but the mentor applications\', which is a
 ck( 'the mentor applications tile reads what waits through the record class, in the words of the design, and carries no card', array( $data['mentor_applications'], $counts['mentor_applications'] ), array( 4, array( 'label' => 'Mentor applications waiting', 'n' => 4, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue' ) ) );
 // Two cards count a part of their own queue, and the Semester reports card two counts that add
 // up to its number: each is one tile, whose number is its first count and whose label names what
-// it counts and says the rest, so the tile reads as one line, "2 Mentor requests open, 1 overdue".
-ck( 'the folded tiles name what they count: the Collaboration Agreements to review and how many of them are overdue, the semester reports to review and the semesters due for drafting, the mentor requests open and how many of them are overdue', array_map( static function ( $t ) { return $t['n'] . ' / ' . $t['label']; }, array_intersect_key( $counts, array_flip( array( 'agreements', 'reports', 'requests' ) ) ) ), array( 'agreements' => '2 / Collaboration Agreements to review, 1 overdue', 'reports' => '1 / Semester reports to review, 1 due for drafting', 'requests' => '2 / Mentor requests open, 1 overdue' ) );
+// it counts and says the rest, so the tile reads as one line, "2 Requests from institutions open, 1 overdue".
+ck( 'the folded tiles name what they count: the Collaboration Agreements to review and how many of them are overdue, the semester reports to review and the semesters due for drafting, the requests from institutions open and how many of them are overdue', array_map( static function ( $t ) { return $t['n'] . ' / ' . $t['label']; }, array_intersect_key( $counts, array_flip( array( 'agreements', 'reports', 'requests' ) ) ) ), array( 'agreements' => '2 / Collaboration Agreements to review, 1 overdue', 'reports' => '1 / Semester reports to review, 1 due for drafting', 'requests' => '2 / Requests from institutions open, 1 overdue' ) );
 // Every count different, so a form keyed to the wrong one of a tile's two counts shows.
 $varied                   = array_merge(
 	$data,
@@ -1183,15 +1207,15 @@ ck( 'and each of a folded tile\'s two counts is said through a plural form of it
 	array_map( static function ( $t ) { return $t['n'] . ' / ' . $t['label']; }, array_intersect_key( $varied_counts, array_flip( array( 'agreements', 'reports', 'requests' ) ) ) ),
 	$varied_plurals,
 ), array(
-	array( 'agreements' => '3 / Collaboration Agreements to review, 2 overdue', 'reports' => '4 / Semester reports to review, 5 due for drafting', 'requests' => '7 / Mentor requests open, 6 overdue' ),
+	array( 'agreements' => '3 / Collaboration Agreements to review, 2 overdue', 'reports' => '4 / Semester reports to review, 5 due for drafting', 'requests' => '7 / Requests from institutions open, 6 overdue' ),
 	array(
 		array( '%s sync needs a look', '%s syncs need a look', 3 ),
 		array( 'Collaboration Agreements to review, %s', 'Collaboration Agreements to review, %s', 3 ),
 		array( '%s overdue', '%s overdue', 2, 'of the Collaboration Agreements to review' ),
 		array( 'Semester reports to review, %s', 'Semester reports to review, %s', 4 ),
 		array( '%s due for drafting', '%s due for drafting', 5 ),
-		array( 'Mentor requests open, %s', 'Mentor requests open, %s', 7 ),
-		array( '%s overdue', '%s overdue', 6, 'of the open mentor requests' ),
+		array( 'Requests from institutions open, %s', 'Requests from institutions open, %s', 7 ),
+		array( '%s overdue', '%s overdue', 6, 'of the open requests from institutions' ),
 		array( 'Sync needs a look', 'Syncs need a look', 3 ),
 	),
 ) );
@@ -1237,7 +1261,7 @@ ck( 'a folded tile is drawn while either of its counts is above zero: the semest
 	array( 'label' => 'Semester reports due for drafting', 'n' => 1, 'card' => 'reports' ),
 	array( 'label' => 'Semester reports to review, 0 due for drafting', 'n' => 1, 'card' => 'reports' ),
 	array( 'label' => 'Collaboration Agreements to review, 1 overdue', 'n' => 0, 'card' => 'agreements' ),
-	array( 'label' => 'Mentor requests open, 1 overdue', 'n' => 0, 'card' => 'requests' ),
+	array( 'label' => 'Requests from institutions open, 1 overdue', 'n' => 0, 'card' => 'requests' ),
 ) );
 $quiet_counts = WPCPM_Administrators_Cards::counts( $quiet_data );
 $quiet_strip  = capture( static function () use ( $quiet_counts ) { WPCPM_Administrators_Cards::render_strip( $quiet_counts ); } );
@@ -1611,7 +1635,7 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // "tile", so the bare count would call the wrapper a tile too.
 ck( 'the strip is one section, named for a screen reader, with a tile for each count above zero, thirteen here, each a link to its card in the order counts() gives them, the last two to Syncs and health, but the mentor applications\', which has no card here', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, '<section class="wpcpm-administrator__card wpcpm-attention" id="wpcpm-attention" aria-label="Needs attention"><ul class="wpcpm-attention__tiles"><li ' ), preg_match_all( '#<a class="wpcpm-attention__link" href="\#wpcpm-([a-z-]+)">#', $strip, $strip_hrefs ) ? $strip_hrefs[1] : array(), has( $strip, 'wpcpm-attention__none' ) ), array( 13, true, array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'health', 'health' ), false ) );
 // A card this page does not draw is no place to anchor to: the tile opens the Mentors screen.
-ck( 'and the mentor applications tile opens the Mentors screen at Waiting for review, never an anchor to a card this page does not draw, right after the mentor requests\' tile', array( preg_match( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="\#wpcpm-requests"><span class="wpcpm-attention__n">2</span><span class="wpcpm-attention__l">Mentor requests open, 1 overdue</span></a></li><li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="https://example\.test/wp-admin/admin\.php\?page=wpcpm-mentors&tab=queue"><span class="wpcpm-attention__n">4</span><span class="wpcpm-attention__l">Mentor applications waiting</span></a></li>#', $strip ), has( $strip, 'href="#wpcpm-mentor' ), has( $strip, 'href="#wpcpm-"' ) ), array( 1, false, false ) );
+ck( 'and the mentor applications tile opens the Mentors screen at Waiting for review, never an anchor to a card this page does not draw, right after the requests from institutions\' tile', array( preg_match( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="\#wpcpm-requests"><span class="wpcpm-attention__n">2</span><span class="wpcpm-attention__l">Requests from institutions open, 1 overdue</span></a></li><li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="https://example\.test/wp-admin/admin\.php\?page=wpcpm-mentors&tab=queue"><span class="wpcpm-attention__n">4</span><span class="wpcpm-attention__l">Mentor applications waiting</span></a></li>#', $strip ), has( $strip, 'href="#wpcpm-mentor' ), has( $strip, 'href="#wpcpm-"' ) ), array( 1, false, false ) );
 // The tile's markup is the one the Sponsor Dashboard's At a glance tiles copy, so a tile that
 // stays keeps its markup, only its words naming its card now; a folded tile takes the same markup,
 // its label the rest of its line. Since no tile at zero is drawn, none is drawn muted, and the
@@ -1622,7 +1646,7 @@ $due_only_strip  = capture( static function () use ( $due_only_counts ) { WPCPM_
 ck( 'a tile that stays keeps its markup, its words naming its card, a folded tile in the same markup, and no tile muted: the semester reports\' tile with none to review leads with the semester due for drafting, not a 0', array(
 	has( $strip, '<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="#wpcpm-applications"><span class="wpcpm-attention__n">2</span><span class="wpcpm-attention__l">Institution applications waiting</span></a></li>' ),
 	has( $strip, '<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="#wpcpm-health"><span class="wpcpm-attention__n">1</span><span class="wpcpm-attention__l">Locked accounts</span></a></li></ul></section>' ),
-	has( $strip, '<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="#wpcpm-requests"><span class="wpcpm-attention__n">2</span><span class="wpcpm-attention__l">Mentor requests open, 1 overdue</span></a></li>' ),
+	has( $strip, '<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="#wpcpm-requests"><span class="wpcpm-attention__n">2</span><span class="wpcpm-attention__l">Requests from institutions open, 1 overdue</span></a></li>' ),
 	substr_count( $strip, 'wpcpm-attention__tile--zero' ),
 	$due_only_strip,
 ), array(
@@ -1671,6 +1695,16 @@ ck( 'the decisions are the module\'s, and come back here', substr_count( $apps, 
 preg_match( '/<form[^>]*data-wpcpm-confirm="[^>]*>/', $apps, $confirm_form );
 ck( 'a decision drawn with a confirm still carries the double-submit guard', isset( $confirm_form[0] ) && has( $confirm_form[0], 'data-wpcpm-once' ) && has( $confirm_form[0], 'data-wpcpm-busy=' ), true );
 ck( 'the closed ones sit in a second, closed disclosure', has( $apps, 'Uni Rejected' ) && has( $apps, 'wpcpm-administrator__closed' ), true );
+
+// Each application row, by the id its article carries.
+$app_rows = array();
+if ( preg_match_all( '#<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-(\d+)">(.*?)</article>#s', $apps, $app_found ) ) {
+	$app_rows = array_combine( $app_found[1], $app_found[2] );
+}
+$held_note = '<p class="wpcpm-administrator__note">Held by the anti-spam checks. Open it on the Institutions screen to read which.</p>';
+ck( 'each application row prints its state in the Institutions screen\'s words, as they are given: lowercase, the way the sponsor applications row prints its own', array_map( static function ( $row ) { return 1 === preg_match( '#<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">([^<]*)</span>#', $row, $fact ) ? $fact[1] : null; }, $app_rows ), array( '501' => 'new', '502' => 'held by the anti-spam checks', '503' => 'rejected' ) );
+ck( 'each title links to the application in the Institutions screen\'s queue, as a sponsor application\'s links to its own', array_map( static function ( $id ) use ( $app_rows ) { return has( $app_rows[ $id ], '<h4 class="wpcpm-administrator__item-title"><a href="' . esc_url( WPCPM_Institution_Application::queue_url( (int) $id ) ) . '">' ) && has( $app_rows[ $id ], '</a> <code class="wpcpm-administrator__ref">APP-2026-' . sprintf( '%04d', (int) $id ) . '</code></h4>'); }, array_combine( array_keys( $app_rows ), array_keys( $app_rows ) ) ), array( '501' => true, '502' => true, '503' => true ) );
+ck( 'a held application carries the note that says where to read which check held it, and no other row does', array_map( static function ( $row ) use ( $held_note ) { return substr_count( $row, $held_note ); }, $app_rows ), array( '501' => 0, '502' => 1, '503' => 0 ) );
 
 echo "\n=== The application lists cap where the queue caps ===\n";
 
@@ -1778,6 +1812,7 @@ unset( $GLOBALS['offer_reviews'] );
 ck( 'open requests draw the decisions, coming back here', substr_count( $req, 'value="wpcpm_resolve_request"' ) === 2 && substr_count( $req, 'name="wpcpm_return" value="dashboard"' ) === 2, true );
 ck( 'the overdue one is marked and the note is printed', has( $req, 'wpcpm-administrator__item--overdue' ) && has( $req, 'Two students without a mentor.' ), true );
 ck( 'the closed list says handled', has( $req, 'Handled' ), true );
+ck( 'the card is called Requests from institutions, and the words Mentor requests are nowhere on it', array( has( $req, '>Requests from institutions<' ), has( $req, 'Mentor requests' ) ), array( true, false ) );
 
 // A closed row is dated by when it was closed, and says so. The card exists so a manager can
 // see what a colleague did this week (closed_requests()' own docblock), and a row handled
@@ -1804,6 +1839,29 @@ ck( 'the programs card draws a tile per track and a finished tile', substr_count
 ck( 'the institution row links through the switcher and carries its numbers', has( $prog, 'wpcpm_institution_view=' . $A ) && has( $prog, '2026-12-15' ) && has( $prog, 'Uniwersytet Alpha' ), true );
 ck( 'the quiet institutions are one closing line', has( $prog, '1 more institution' ), true );
 ck( 'and the read time is printed', has( $prog, 'Read from the program records' ), true );
+
+// The Agreement and Report cells are read by an Administrator: the words the classes that own the
+// states give them, never the stored state ("none", "on_file", "accepted", "draft") the row holds.
+// Every agreement state and every report state the card can be handed, one row apiece.
+ck( 'the row from the real calculation prints its agreement and its report in words', has( $prog, '<td>Accepted</td><td>Draft</td></tr>' ), true );
+$cell_programs         = $programs;
+$cell_programs['rows'] = array();
+foreach ( array( array( 'none', 'none' ), array( 'generated', 'draft' ), array( 'submitted', 'approved' ), array( 'returned', 'none' ), array( 'revoked', 'draft' ), array( 'accepted', 'approved' ), array( 'on_file', 'draft' ) ) as $cell_pair ) {
+	$cell_programs['rows'][] = array_merge( $programs['rows'][0], array( 'agreement' => $cell_pair[0], 'report' => $cell_pair[1] ) );
+}
+$cell_html = capture( static function () use ( $cell_programs ) { WPCPM_Administrators_Cards::render_programs( $cell_programs ); } );
+preg_match_all( '#<td>([^<]*)</td><td>([^<]*)</td></tr>#', $cell_html, $cell_found, PREG_SET_ORDER );
+$cell_words = array_map( static function ( $cells ) { return array( $cells[1], $cells[2] ); }, $cell_found );
+ck( 'Programs running prints each agreement state and each report state as the owning class words it', $cell_words, array(
+	array( 'Not started', 'Not drafted' ),
+	array( 'Template generated', 'Draft' ),
+	array( 'Awaiting review', 'Approved' ),
+	array( 'Returned', 'Not drafted' ),
+	array( 'Revoked', 'Draft' ),
+	array( 'Accepted', 'Approved' ),
+	array( 'On file', 'Draft' ),
+) );
+ck( 'and not one cell is a stored state', array_values( array_filter( array_merge( ...$cell_words ), static function ( $word ) { return in_array( $word, array( 'none', 'on file', 'on_file', 'accepted', 'draft', 'approved', 'generated', 'submitted', 'returned', 'revoked' ), true ); } ) ), array() );
 
 /* ---- the Mentor engagement card (1.122.26) ------------------------------- */
 
@@ -1858,7 +1916,7 @@ ck( 'the probe verdict and the invitation run are there', has( $health, 'blocked
 // status in a sentence of its own; then the last day's failures; each linked to the Emails tool's Log.
 $failed_since = isset( $GLOBALS['mail_failed_since'][0] ) ? (int) strtotime( $GLOBALS['mail_failed_since'][0] . ' UTC' ) : 0;
 ck( 'the mail line names the latest email, masks its address, and gives its status in a sentence of its own',
-	array( has( $health, 'Last email: Semester report drafted to m***@example.test on ' ), has( $health, '. Status: Handed to the mail server. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), has( $health, 'mia@example.test' ) ),
+	array( has( $health, 'Last email: Semester report drafted, to Administrators to m***@example.test on ' ), has( $health, '. Status: Handed to the mail server. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log">Open the email log</a>' ), has( $health, 'mia@example.test' ) ),
 	array( true, true, false ) );
 ck( 'and counts the failures of the last day, linked to the Log\'s failed emails',
 	array( has( $health, '<li>1 email failed in the last day. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=log&status=failed">Show the failed emails</a></li>' ), abs( $failed_since - ( time() - DAY_IN_SECONDS ) ) <= 5 ),
@@ -2842,7 +2900,7 @@ $module_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/c
 ck( 'the module boots the dashboard, ensures the page on activation and deletes its options on uninstall', array( has( $module_src, 'WPCPM_Administrators_Dashboard::init()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::ensure_page()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_PAGE' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED' ) ), array( true, true, true, true ) );
 $block = json_decode( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/block.json' ), true );
 $asset = include WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.asset.php';
-ck( 'the block is named for the class and versioned with the release that last changed what its editor script and description say (1.123.18: the sponsor offers to review)', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.123.18', '1.123.18' ) );
+ck( 'the block is named for the class and versioned with the release that last changed what its editor script and description say (1.123.27: requests from institutions)', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.123.27', '1.123.27' ) );
 $editor_js = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.js' );
 ck( 'and the editor\'s empty preview speaks of the Administrator viewing the page, not a manager', array( has( $editor_js, 'for the Administrator viewing it.' ), has( $editor_js, 'for the manager viewing it' ), has( $block['description'], 'Shows Administrators what needs them' ) ), array( true, false, true ) );
 $dashes = array();
@@ -3685,7 +3743,7 @@ ck( 'on the page each tile\'s words begin with the title of the card it leads to
 		array( 'applications', 'Institution applications waiting' ),
 		array( 'agreements', 'Collaboration Agreements to review, 1 overdue' ),
 		array( 'reports', 'Semester reports to review, 1 due for drafting' ),
-		array( 'requests', 'Mentor requests open, 1 overdue' ),
+		array( 'requests', 'Requests from institutions open, 1 overdue' ),
 		array( 'sponsor-applications', 'Sponsor applications waiting' ),
 		array( 'sponsor-posts', 'Sponsor posts to review' ),
 		array( 'sponsor-events', 'Events waiting' ),
@@ -3771,6 +3829,7 @@ ck( 'one sponsor card and one institution card, word for word: Sponsor applicati
 	'sponsor-applications' => array( 'for the Sponsor applications card', 'for the Sponsor applications card' ),
 	'applications'         => array( 'for the Institution applications card', 'for the Institution applications card' ),
 ) );
+ck( 'and the requests card\'s links carry its name, after the words of its row action and of its last line', hidden_words( static function () use ( $data ) { WPCPM_Administrators_Cards::render_requests( $data['requests'] ); } ), array( 'for the Requests from institutions card', 'for the Requests from institutions card' ) );
 // Each card names its title twice, for its heading and for its links: read from the heading as drawn,
 // so a title changed in one place and not the other fails here.
 $thirteen = array(

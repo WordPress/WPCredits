@@ -554,13 +554,20 @@ class WPCPM_Sponsor_Application {
 	 * from: an approval writes these keys through. The logo is two files and the consent is a
 	 * precondition, and neither is ever in the stored fields; `server_held()` names them.
 	 *
+	 * A question's `label` is the words a company reads and its key is the column it is written
+	 * under, so the two can differ: the company's name, the contact person and their address are
+	 * asked in plain words over the base's own column names. Only the label may change. The key is
+	 * what a record is created from and what the form's field name is hashed from (`form_key()`),
+	 * so a key that moved would be a column the base does not have and a field name an open page
+	 * does not post.
+	 *
 	 * @return array<string, array> Column name => spec.
 	 */
 	public static function fields() {
 		return array(
 			self::COL_NAME     => array(
 				'group'     => 'company',
-				'label'     => __( 'Company Name', 'wpcredits-program-manager' ),
+				'label'     => __( 'Name of your company', 'wpcredits-program-manager' ),
 				'type'      => 'text',
 				'required'  => true,
 				'maxlength' => 200,
@@ -577,7 +584,7 @@ class WPCPM_Sponsor_Application {
 			),
 			self::COL_PERSON   => array(
 				'group'     => 'contact',
-				'label'     => __( 'Contact Person Full Name', 'wpcredits-program-manager' ),
+				'label'     => __( 'Name of the person we should contact', 'wpcredits-program-manager' ),
 				'type'      => 'text',
 				'required'  => true,
 				'maxlength' => 120,
@@ -585,7 +592,7 @@ class WPCPM_Sponsor_Application {
 			),
 			self::COL_EMAIL    => array(
 				'group'    => 'contact',
-				'label'    => __( 'Contact Email', 'wpcredits-program-manager' ),
+				'label'    => __( 'Their email address', 'wpcredits-program-manager' ),
 				'type'     => 'email',
 				'required' => true,
 				'auto'     => 'email',

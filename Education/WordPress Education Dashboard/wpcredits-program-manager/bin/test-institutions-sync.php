@@ -714,7 +714,7 @@ $rows = WPCPM_Institutions_Index::rows();
 ck( 'the index holds every record', count( $rows ), $SEEDED );
 ck( 'read at the run\'s start time', array( WPCPM_Institutions_Index::read()['read'] > 0 ), array( true ) );
 
-$counts = WPCPM_Institutions_Index::stage_counts();
+$counts = array_map( 'count', WPCPM_Institutions_Index::by_stage() );
 $want   = $seed['counts']['by_stage'];
 ksort( $counts, SORT_STRING );
 ksort( $want, SORT_STRING );
@@ -1512,7 +1512,14 @@ ck( 'deactivate() unschedules', isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync
 $housekeeping = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-institutions.php' );
 $checker      = file_get_contents( dirname( __DIR__ ) . '/includes/tools/class-wpcpm-mentor-checker-runner.php' );
 
-ck( 'the application-purge sweep is still daily', false !== strpos( $housekeeping, "'daily', WPCPM_Ceiling::CRON_SWEEP" ), true );
+// The six are one list, `daily_jobs()`, and one call puts each of them on the clock, daily.
+$daily_jobs = substr( $housekeeping, (int) strpos( $housekeeping, 'private static function daily_jobs()' ) );
+$daily_jobs = substr( $daily_jobs, 0, (int) strpos( $daily_jobs, "\n\t}\n" ) );
+ck( 'the ceiling\'s sweep and the application purge are still daily', array(
+	1 === substr_count( $housekeeping, 'wp_schedule_event(' ) && false !== strpos( $housekeeping, "'daily', \$hook );" ),
+	false !== strpos( $daily_jobs, 'WPCPM_Ceiling::CRON_SWEEP' ),
+	false !== strpos( $daily_jobs, 'self::CRON_PURGE' ),
+), array( true, true, true ) );
 // The checker moved too, on its own and later: from weekly to daily in 1.122.4, at the owner's
 // request, and still not onto the syncs' three hours.
 ck( 'and the mentor checker runs daily, not on the syncs\' three hours', 1 === preg_match( "#const RECURRENCE\s*=\s*'daily';#", $checker ), true );

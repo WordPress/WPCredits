@@ -67,7 +67,7 @@ final class WPCPM_Overview {
 	 *
 	 * The institutions' counts open the Institutions screen at the tab for each, named even where
 	 * it is the queue the screen opens on, so each address says where it goes: the applications,
-	 * the agreements and the mentor requests at Waiting for review, the semester reports to review
+	 * the agreements and the requests from institutions at Waiting for review, the semester reports to review
 	 * and to draft at Semester reports, and the locked accounts at Accounts. The sponsors' counts
 	 * open the Sponsors screen the same way: the applications, the sponsor posts, the events and the
 	 * signed agreements at Waiting for review, each at the card there that lists it, the events' at

@@ -93,6 +93,12 @@ function wp_clear_scheduled_hook( $hook ) {
 	$GLOBALS['calls'][] = array( 'unschedule', $hook );
 	return 1;
 }
+/** Every event of a hook, whatever its arguments: what uninstall asks of the single events. */
+function wp_unschedule_hook( $hook ) {
+	unset( $GLOBALS['cron'][ $hook ] );
+	$GLOBALS['calls'][] = array( 'unschedule_hook', $hook );
+	return 1;
+}
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'MONTH_IN_SECONDS', 2592000 );
 
@@ -205,7 +211,18 @@ function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_action', $h ); }
 function add_filter() {}
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+// Every option read is journalled by name, so a check can say a load read none it had no need of.
+function get_option( $k, $d = false ) { $GLOBALS['option_reads'][] = $k; return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+// Core's reads the option before it writes, and writes nothing over a value already stored.
+function add_option( $k, $v, $deprecated = '', $a = null ) {
+	$GLOBALS['option_reads'][] = $k;
+	$GLOBALS['calls'][]        = array( 'add_option', $k, $a );
+	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) {
+		return false;
+	}
+	$GLOBALS['opts'][ $k ] = $v;
+	return true;
+}
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; $GLOBALS['calls'][] = array( 'update_option', $k, $a ); return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); $GLOBALS['calls'][] = array( 'delete_option', $k ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
@@ -264,7 +281,7 @@ function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true
 }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
-function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, (int) $ts ); }
+function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, null === $ts ? time() : (int) $ts ); }
 function wp_timezone_string() { return 'UTC'; }
 function get_role( $r ) { return new WP_Role(); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
@@ -419,11 +436,6 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 		public static function has( $id ) { return null !== self::row( $id ); }
 		public static function write( array $rows, $read ) { update_option( self::OPT_NAME, array( 'v' => 1, 'read' => (int) $read, 'rows' => $rows ), false ); }
 		public static function insert( array $row ) { $r = self::read(); $r['rows'][ $row['record_id'] ] = $row; update_option( self::OPT_NAME, $r, false ); }
-		public static function stage_counts() {
-			$counts = array();
-			foreach ( self::rows() as $row ) { $counts[ $row['stage'] ] = ( $counts[ $row['stage'] ] ?? 0 ) + 1; }
-			return $counts;
-		}
 		public static function by_stage() {
 			$order  = array_merge( WPCPM_Institution_Agreement::STAGE_ORDER, WPCPM_Institution_Agreement::TERMINAL_STAGES, array( '' ) );
 			$groups = array_fill_keys( $order, array() );
@@ -571,6 +583,7 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 	}
 
 	class WPCPM_Institution_Import {
+		const CRON_TICK = 'wpcpm_import_tick';
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'import_init' );
 		}
@@ -713,8 +726,12 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			$none = array( 'state' => self::SUMMARY_NONE, 'kind' => '', 'accepted_at' => '', 'agreement_id' => 0, 'pending_id' => 0, 'generated_id' => 0, 'airtable_status' => '', 'route' => '' );
 			return isset( $GLOBALS['summaries'][ $id ] ) ? array_merge( $none, $GLOBALS['summaries'][ $id ] ) : $none;
 		}
+		/** The words an Administrator reads for a summary state, as the real class holds them. */
+		public static function summary_label( $state ) {
+			$words = array( 'none' => 'Not started', 'generated' => 'Template generated', 'submitted' => 'Awaiting review', 'returned' => 'Returned', 'revoked' => 'Revoked', 'accepted' => 'Accepted', 'on_file' => 'On file' );
+			return isset( $words[ $state ] ) ? $words[ $state ] : (string) $state;
+		}
 		public static function rebuild( $id, array $airtable ) { return array(); }
-		public static function rebuild_all( array $by_record ) { return 0; }
 		public static function discrepancies() { return $GLOBALS['discrepancies'] ?? array(); }
 		public static function posts_for( $id ) { return array(); }
 		public static function awaiting_review() { return $GLOBALS['awaiting'] ?? array(); }
@@ -801,6 +818,7 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 	class WPCPM_Institution_Application {
 		const POST_TYPE = 'wpcpm_inst_app';
 		const OPT_PAGE  = 'wpcpm_application_page_id';
+		const OPT_MOVED = 'wpcpm_application_page_moved';
 
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'application_init' );
@@ -1065,14 +1083,20 @@ if ( ! class_exists( 'WPCPM_Mentors' ) ) {
  */
 if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
 	class WPCPM_Semester_Report {
-		const POST_TYPE      = 'wpcpm_inst_report';
-		const STATE_DRAFT    = 'draft';
-		const STATE_APPROVED = 'approved';
-		const ORIGIN_AUTO    = 'auto';
+		const POST_TYPE           = 'wpcpm_inst_report';
+		const STATE_DRAFT         = 'draft';
+		const STATE_APPROVED      = 'approved';
+		const ORIGIN_AUTO         = 'auto';
+		const OPT_AUTODRAFT_SINCE = 'wpcpm_report_autodraft_since';
 		public static function institution_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_institution', true ); }
 		public static function cohort_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_cohort', true ); }
 		public static function generated_at( WP_Post $post ) { return (int) get_post_meta( $post->ID, '_wpcpm_report_generated', true ); }
 		public static function state( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_state', true ); }
+		/** The words an Administrator reads for a report's state, as the real class holds them. */
+		public static function state_label( $state ) {
+			$words = array( 'none' => 'Not drafted', 'approved' => 'Approved' );
+			return isset( $words[ $state ] ) ? $words[ $state ] : 'Draft';
+		}
 		public static function origin_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_origin', true ) === 'auto' ? 'auto' : 'manager'; }
 		public static function approved_at( WP_Post $post ) { $s = get_post_meta( $post->ID, '_wpcpm_report_approved', true ); return is_array( $s ) ? $s : array(); }
 		public static function due( $today ) { return isset( $GLOBALS['due'] ) ? $GLOBALS['due'] : array(); }
@@ -2585,7 +2609,11 @@ $html = render_tab( 'reports' );
 // and that the consent request is offered here and only here. Open question 2 puts the send in
 // a program manager's hands, because the institution is the party that gains from a student's
 // yes and must not be the party that asks for it, so this screen is the one that draws it.
-ck( 'the card counts the reports that exist', false !== strpos( $html, 'Semester reports <span class="wpcpm-count">2</span>' ), true );
+// The heading's number is the drafts waiting for review, the number the Administrator Dashboard's
+// strip gives as "Semester reports to review" and its Semester reports card lists under "To review",
+// not every report the site holds: the list below it still holds the approved ones, and a number
+// that counted them would not match the drafts it is read beside.
+ck( 'the heading counts the drafts waiting, one of the two reports that exist', false !== strpos( $html, 'Semester reports <span class="wpcpm-count">1</span>' ), true );
 ck( 'and not the one somebody trashed', false !== strpos( $html, 'Report 2025-H1' ), false );
 
 $report_rows = array();
@@ -2613,7 +2641,7 @@ for ( $i = 0; $i <= 60; $i++ ) {
 
 $capped = render_tab( 'reports' );
 
-ck( 'the heading counts every report fetched, not only the capped rows', false !== strpos( $capped, 'Semester reports <span class="wpcpm-count">63</span>' ), true );
+ck( 'the heading counts the draft, and not the sixty-one approved reports the list caps', false !== strpos( $capped, 'Semester reports <span class="wpcpm-count">1</span>' ), true );
 
 $capped_rows = array();
 
@@ -2635,6 +2663,16 @@ foreach ( range( 9200, 9260 ) as $id ) {
 	unset( $GLOBALS['posts'][ $id ], $GLOBALS['pmeta'][ $id ] );
 }
 
+// Another draft is one more waiting; with the drafts all approved the number is a zero, and the
+// approved reports are still listed.
+seed_report( 9300, $report_record, '2024-H1', 'draft', 1757000000 );
+ck( 'a second draft makes the heading say 2', false !== strpos( render_tab( 'reports' ), 'Semester reports <span class="wpcpm-count">2</span>' ), true );
+unset( $GLOBALS['posts'][9300], $GLOBALS['pmeta'][9300] );
+update_post_meta( 9101, '_wpcpm_report_state', 'approved' );
+$no_drafts = render_tab( 'reports' );
+ck( 'with no draft waiting the heading says 0, over the approved reports still listed', array( false !== strpos( $no_drafts, 'Semester reports <span class="wpcpm-count">0</span>' ), substr_count( $no_drafts, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ) ), array( true, 2 ) );
+update_post_meta( 9101, '_wpcpm_report_state', 'draft' );
+
 ck( 'the due list offers Draft now for the cohort the job would draft', false !== strpos( $html, 'name="cohort" value="2024-H2"' ) && false !== strpos( $html, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ), true );
 ck( 'and the picker for any semester is drawn', false !== strpos( $html, 'Draft any semester' ) && false !== strpos( $html, 'name="institution"' ), true );
 ck( 'and the log is drawn', false !== strpos( $html, 'Report log' ) && false !== strpos( $html, 'approved' ), true );
@@ -2653,6 +2691,45 @@ $empty_card = render_tab( 'reports' );
 
 ck( 'with nothing written, the card says so', false !== strpos( $empty_card, 'No report has been drafted yet.' ), true );
 ck( 'and offers nobody a request to send', false !== strpos( $empty_card, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), false );
+
+/* ---- the words an Administrator reads ------------------------------------ */
+
+echo "\n=== The screen speaks in an Administrator's words ===\n";
+
+// The module's description, the sync card and the checksum row each named a mechanism: the role an
+// account is built on, the columns of a table, the hash function behind a pin. An Administrator
+// reads what the screen does for the program, so each says that, and none of the three technical
+// phrases is on any tab.
+$words_module = new WPCPM_Institutions();
+$words_lede   = 'Educational institution records from Airtable, the students each one has in the program, and the state of every Collaboration Agreement. Each institution has an Institution Dashboard, its own people and its students; their accounts are created and invited on the Accounts tab.';
+$words_sync   = 'Reads the Countries table, then each institution\'s name, stage, country, city, website and contact, and its eight agreement columns, and rebuilds the institution list and each institution\'s agreement state. The long written answers in the base are never read.';
+$words_fprint = '(the start of the fingerprint the plugin\'s tests check, which changes only when a word of the agreement does)';
+
+ck( 'the description says what the module holds, and where the institutions\' accounts are made', $words_module->description(), $words_lede );
+ck( 'and the screen prints it as its lede', false !== strpos( render_screen(), '<p class="wpcpm-lede">' . esc_html( $words_lede ) . '</p>' ), true );
+ck( 'the sync card says what the sync reads and rebuilds, in the program\'s words', false !== strpos( render_tab( 'sync' ), '<h2>Airtable sync</h2><p class="description">' . esc_html( $words_sync ) . '</p>' ), true );
+ck( 'the checksum row says what the twelve characters are', false !== strpos( render_tab( 'agreements' ), '<th scope="row">Checksum</th><td><code>' . substr( WPCPM_Agreement_Template::checksum( WPCPM_Agreement_Template::load( 'en' ) ), 0, 12 ) . '</code> <span class="wpcpm-inst-muted">' . esc_html( $words_fprint ) . '</span></td>' ), true );
+
+$still_technical = array();
+foreach ( array( 'queue', 'pipeline', 'accounts', 'reports', 'agreements', 'sync' ) as $words_tab ) {
+	$words_html = render_tab( $words_tab );
+	foreach ( array( 'Subscriber role', 'public columns', 'sha256' ) as $phrase ) {
+		if ( false !== stripos( $words_html, $phrase ) ) { $still_technical[] = $words_tab . ': ' . $phrase; }
+	}
+}
+foreach ( array( 'Subscriber role', 'public columns', 'sha256' ) as $phrase ) {
+	if ( false !== stripos( $words_module->description(), $phrase ) ) { $still_technical[] = 'description: ' . $phrase; }
+}
+ck( 'none of "Subscriber role", "public columns" and "sha256" is on the description or any tab', $still_technical, array() );
+
+// The Administrator Dashboard's applications card prints a state in this screen's words, so the
+// method that holds them is public, and holds the words it always has.
+$state_method = new ReflectionMethod( 'WPCPM_Institutions', 'application_state_label' );
+ck( 'application_state_label() is public and static, for the Administrator Dashboard', array( $state_method->isPublic(), $state_method->isStatic() ), array( true, true ) );
+ck( 'and its words are the ones the screen has always used, a state it does not know as it stands', array_map(
+	array( 'WPCPM_Institutions', 'application_state_label' ),
+	array( WPCPM_Institution_Application::STATE_NEW, WPCPM_Institution_Application::STATE_HELD, WPCPM_Institution_Application::STATE_INFO, WPCPM_Institution_Application::STATE_SPAM, WPCPM_Institution_Application::STATE_REJECTED, WPCPM_Institution_Application::STATE_APPROVED, 'other' )
+), array( 'new', 'held by the anti-spam checks', 'waiting on the applicant', 'marked as spam', 'rejected', 'approved', 'other' ) );
 
 /* ---- the storage card --------------------------------------------------- */
 
@@ -4622,6 +4699,8 @@ ck( 'and starts the resend of a student\'s invitation right after graduate and w
 // through the upgrader's silent reactivation). Recorded, not run: the stub says nothing is
 // scheduled yet, so every job is put on the clock; a second call schedules nothing.
 $GLOBALS['calls'] = array();
+$GLOBALS['cron']  = array();
+unset( $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] );
 WPCPM_Institutions::schedule_cron();
 $scheduled = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'schedule' === $c[0]; } ) );
 ck( 'schedule_cron() puts the six daily jobs on the clock', array_values( $scheduled ), array(
@@ -4629,6 +4708,35 @@ ck( 'schedule_cron() puts the six daily jobs on the clock', array_values( $sched
 	WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE,
 	WPCPM_Semester_Report_Screen::CRON_AUTODRAFT,
 ) );
+
+// The drafting day: nothing whose semester ended before it is drafted by the job, so a site whose
+// first run had no such day would draft every semester its rosters hold. It is stored where the job
+// is put on the clock, as an add_option() that keeps a day already there, and asked nowhere else.
+ck( 'scheduling the drafting job on a site with no drafting day stores today, not autoloaded', array(
+	$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] ?? null,
+	in_array( array( 'add_option', WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE, false ), $GLOBALS['calls'], true ),
+), array( gmdate( 'Y-m-d' ), true ) );
+
+$GLOBALS['cron']                                              = array();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+WPCPM_Institutions::schedule_cron();
+ck( 'and on a site that has one, as a reactivation does, keeps it', $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ], '2026-05-01' );
+
+$GLOBALS['calls']        = array();
+$GLOBALS['option_reads'] = array();
+WPCPM_Institutions::schedule_cron();
+ck( 'with every job on the clock, as on an ordinary load, it schedules nothing and reads no option', array(
+	array_values( array_filter( $GLOBALS['calls'], function ( $c ) { return in_array( $c[0], array( 'schedule', 'add_option' ), true ); } ) ),
+	$GLOBALS['option_reads'],
+), array( array(), array() ) );
+
+// Only the drafting job's own branch asks: the other five missing, and the drafting job on the
+// clock, nothing is stored.
+$GLOBALS['cron'] = array( WPCPM_Semester_Report_Screen::CRON_AUTODRAFT => time() );
+unset( $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] );
+WPCPM_Institutions::schedule_cron();
+ck( 'and the other jobs going back on the clock store no day', array_key_exists( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE, $GLOBALS['opts'] ), false );
+
 $institutions_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
 $boot_body        = substr( $institutions_src, strpos( $institutions_src, 'public function boot()' ), strpos( $institutions_src, 'public function activate()' ) - strpos( $institutions_src, 'public function boot()' ) );
 ck( 'and boot() is what hooks it, on init', false !== strpos( $boot_body, "add_action( 'init', array( __CLASS__, 'schedule_cron' )" ), true );
@@ -4651,9 +4759,23 @@ $module->activate();
 ck( 'but does not touch Airtable when nothing is connected', in_array( 'WPCPM_Countries::refresh', array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] ), true ), false );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
 
+// Off the clock with the plugin, as the Sponsors module takes its own: a daily event with no
+// listener is what deactivation would otherwise leave behind. The single events (a report's ask
+// queue, an import's next slice) stay: a due event with no listener is dropped, and a reactivation
+// inside their minutes picks them up.
 $GLOBALS['calls'] = array();
 $module->deactivate();
-ck( 'deactivate() delegates to the sync', $GLOBALS['calls'], array( array( 'WPCPM_Institutions_Sync::deactivate' ) ) );
+$cleared = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'unschedule' === $c[0]; } ) );
+ck( 'deactivate() still hands the sync its own, and takes off the clock exactly the jobs schedule_cron() puts on it', array(
+	in_array( array( 'WPCPM_Institutions_Sync::deactivate' ), $GLOBALS['calls'], true ),
+	array_values( $cleared ),
+	count( $GLOBALS['calls'] ),
+), array( true, array_values( $scheduled ), 1 + count( $scheduled ) ) );
+ck( 'both read the one list, and deactivate() names no job of its own', array(
+	false !== strpos( body_of_method( $institutions_src, 'schedule_cron' ), 'self::daily_jobs()' ),
+	false !== strpos( body_of_method( $institutions_src, 'deactivate' ), 'self::daily_jobs()' ),
+	preg_match( '/CRON_/', body_of_method( $institutions_src, 'deactivate' ) ),
+), array( true, true, 0 ) );
 
 $GLOBALS['calls'] = array();
 $module->uninstall();
@@ -4678,6 +4800,12 @@ ck( 'uninstall() drops the three options, every delete_all(), the membership sta
 	in_array( 'delete_metadata:wpcpm_institutions_per_page', $names, true ),
 ), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
+// The form's page is the site's to keep, but the plugin's note of which page it is goes, and so does
+// the stamp of its one-time move to /institution-application/, or a reinstall would never move it.
+ck( 'and forgets the application form\'s page and its one-time move', array(
+	in_array( 'delete_option:wpcpm_application_page_id', $names, true ),
+	in_array( 'delete_option:wpcpm_application_page_moved', $names, true ),
+), array( true, true ) );
 
 /*
  * The semester report, on the way out. Both halves hold something an uninstall has to take
@@ -4688,12 +4816,21 @@ ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2
 ck( 'and takes the semester reports and their leftovers with it', array(
 	in_array( 'WPCPM_Semester_Report::delete_all', $names, true ),
 	in_array( 'WPCPM_Semester_Report_Screen::delete_all', $names, true ),
-	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_ASK, $names, true ),
+	in_array( 'unschedule_hook:' . WPCPM_Semester_Report_Screen::CRON_ASK, $names, true ),
 	in_array( 'delete_metadata:' . WPCPM_Student_Feedback::META_REPORT_PERMISSIONS, $names, true ),
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_ASKED, $names, true ),
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_STASH, $names, true ),
 	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_AUTODRAFT, $names, true ),
 ), array( true, true, true, true, true, true, true ) );
+
+// A report's ask queue and an import's next slice are scheduled with the report's or the batch's
+// ID, and a clear that names no arguments clears neither; and a check against the Doc that a
+// version before this one could store left its row under a name of its own.
+ck( 'and unschedules the two single events whatever their arguments, and forgets a stored check against the Doc', array(
+	in_array( 'unschedule_hook:' . WPCPM_Semester_Report_Screen::CRON_ASK, $names, true ),
+	in_array( 'unschedule_hook:' . WPCPM_Institution_Import::CRON_TICK, $names, true ),
+	in_array( 'delete_option:wpcpm_agreement_drift', $names, true ),
+), array( true, true, true ) );
 
 /* ---- one map for every outcome a press here leaves ---------------------- */
 

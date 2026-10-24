@@ -51,7 +51,9 @@
  * 1.122.23 plan it comes from and the exact text it changes
  * (docs/plans/2026-10-11-mail-fixes-1-122-23.md); the calendar files are as recorded in every case.
  * What 1.123.24 changes after them, the site's address in the footer, is
- * bin/stubs/mail-since-1-123-24.php's, run over every recorded body where it is compared.
+ * bin/stubs/mail-since-1-123-24.php's, run over every recorded body where it is compared; what
+ * 1.123.27 changes, the site's name in brackets opening the three Semester reports emails' subjects,
+ * is bin/stubs/mail-since-1-123-27.php's, run after it, the same way.
  *
  * Run from the plugin root:  php bin/test-calls-reports-text.php
  * Record (once, against 1.122.20, before the move):  php bin/test-calls-reports-text.php --record
@@ -224,6 +226,7 @@ require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-27.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -950,9 +953,13 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		foreach ( $want as $n => $mail ) {
 			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
 
+			// As 1.123.24 and then 1.123.27 send it: the footer's address line, and a Semester reports email's
+			// subject opening with the site's name in brackets.
+			$since = wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) ) + $mail, array( 'name' => $case['site'] ) );
+
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
-			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
-			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) );
+			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $since['subject'] );
+			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], $since['body'] );
 			ck( $name . ' #' . $n . ': the headers and the calendar files, byte for byte' . $as, array( $now['headers'], $now['attachments'] ), array( $mail['headers'], $mail['attachments'] ) );
 		}
 	}
@@ -963,6 +970,20 @@ ck( 'every change listed is made, to a case of one of the two recordings, and ch
 // 1.123.24: the site's address on the line under the signature's first, in every recorded email, none
 // of whose bodies names the home page whole, and no sponsor rejection among them.
 ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.24 sends it, and nothing else of 1.123.24 is in them', $GLOBALS['wpcpm_since_1_123_24'], array( 'declined' => 0, 'site_line' => 96, 'site_kept' => 0 ) );
+
+// 1.123.27: the subject of each Semester reports email opens with the site's name in brackets, in the
+// recorded emails of the three, and nothing else of 1.123.27 is in them.
+$reported = 0;
+foreach ( array( $recorded, $more ) as $recording ) {
+	foreach ( is_array( $recording ) && isset( $recording['cases'] ) ? $recording['cases'] : array() as $mails ) {
+		foreach ( $mails as $mail ) {
+			$reported += in_array( $mail['context'], array( 'report-drafted', 'report-approved', 'report-consent' ), true ) ? 1 : 0;
+		}
+	}
+}
+ck( 'every Semester reports email opens its subject with the site\'s name in brackets, as 1.123.27 sends it, and nothing else of 1.123.27 is in them', array( $GLOBALS['wpcpm_since_1_123_27']['report_subject'], $reported ), array( $reported, $reported ) );
+ck( 'and they are the 30 recorded emails of the three, the managers\' notices of a draft, the approvals and the questions to the students', $reported, 30 );
+ck( 'no other change of 1.123.27 touched them', array_sum( array_diff_key( $GLOBALS['wpcpm_since_1_123_27'], array( 'report_subject' => 0 ) ) ), 0 );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.

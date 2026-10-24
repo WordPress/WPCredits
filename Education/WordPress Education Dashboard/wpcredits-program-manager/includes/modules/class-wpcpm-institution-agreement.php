@@ -145,7 +145,8 @@ class WPCPM_Institution_Agreement {
 	 *
 	 * `Student` is left alone by every write. Declared here rather than read from the base so
 	 * the spelling is asserted once, against the fixture, and a renamed choice fails a test
-	 * instead of a PATCH. Stage writes themselves are a later phase.
+	 * instead of a PATCH. The one stage write is the acceptance's: `handle_accept()` moves a
+	 * record to `Confirmed` when `precedes_confirmed()` finds its live stage before it.
 	 */
 	const STAGE_ORDER = array(
 		'First Contact Made',
@@ -162,8 +163,9 @@ class WPCPM_Institution_Agreement {
 	 * The stages that refuse acceptance by name.
 	 *
 	 * Acceptance is the program saying yes, and it must not say yes to a record it has said no
-	 * to: a manager changes the stage in Airtable first. Enforced by the accept handler of a
-	 * later phase; declared here beside `STAGE_ORDER` so the two lists are read together.
+	 * to: an Administrator changes the stage in Airtable first. `handle_accept()` reads the
+	 * record's live stage and refuses on any of these; declared here beside `STAGE_ORDER` so
+	 * the two lists are read together.
 	 */
 	const TERMINAL_STAGES = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 
@@ -515,6 +517,32 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * A summary state in the words an Administrator reads for it.
+	 *
+	 * One map for every screen that prints `summary()`'s `state`: the Institutions screen's
+	 * Pipeline row and the Administrator Dashboard's Programs running cell, so one state is never
+	 * "on_file" in one and "On file" in the other. A state the map does not know comes back as it
+	 * is, so a new one reads as itself until it has words.
+	 *
+	 * @param string $state One of the SUMMARY_* states.
+	 * @return string
+	 */
+	public static function summary_label( $state ) {
+		$state  = (string) $state;
+		$labels = array(
+			self::SUMMARY_NONE      => __( 'Not started', 'wpcredits-program-manager' ),
+			self::SUMMARY_GENERATED => __( 'Template generated', 'wpcredits-program-manager' ),
+			self::SUMMARY_SUBMITTED => __( 'Awaiting review', 'wpcredits-program-manager' ),
+			self::SUMMARY_RETURNED  => __( 'Returned', 'wpcredits-program-manager' ),
+			self::SUMMARY_REVOKED   => __( 'Revoked', 'wpcredits-program-manager' ),
+			self::SUMMARY_ACCEPTED  => __( 'Accepted', 'wpcredits-program-manager' ),
+			self::SUMMARY_ON_FILE   => __( 'On file', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $labels[ $state ] ) ? $labels[ $state ] : $state;
+	}
+
+	/**
 	 * Rebuild one institution's option from the base and the posts (T12).
 	 *
 	 * The Airtable block is what the sync read for the record: `status`, `kind`, `accepted_on`,
@@ -580,28 +608,6 @@ class WPCPM_Institution_Agreement {
 		self::unlock( $record_id );
 
 		return $option;
-	}
-
-	/**
-	 * Rebuild every option the sync has a block for.
-	 *
-	 * @param array $airtable_by_record Agreement blocks keyed by Institutions record ID.
-	 * @return int How many options were written.
-	 */
-	public static function rebuild_all( array $airtable_by_record ) {
-		$written = 0;
-
-		foreach ( $airtable_by_record as $record_id => $airtable ) {
-			if ( ! is_array( $airtable ) ) {
-				continue;
-			}
-
-			if ( ! empty( self::rebuild( $record_id, $airtable ) ) ) {
-				++$written;
-			}
-		}
-
-		return $written;
 	}
 
 	/**
@@ -2525,9 +2531,10 @@ class WPCPM_Institution_Agreement {
 	/**
 	 * The record IDs that have a stored option.
 	 *
-	 * The prefix is shared with the lock rows and, later, with `wpcpm_agreement_drift`, so
-	 * the suffix is checked for the record-ID shape: that is what keeps a lock from being
-	 * listed as an institution with an unreadable row.
+	 * The prefix is shared with the lock rows, the reminder's `wpcpm_agreement_reminded` and
+	 * any `wpcpm_agreement_drift` an older version left, so the suffix is checked for the
+	 * record-ID shape: that is what keeps a lock from being listed as an institution with an
+	 * unreadable row.
 	 *
 	 * Public because the sync's revoke phase closes the gate on every institution that has
 	 * left the active stages, and it needs the list of institutions that have a gate at all.
@@ -2731,10 +2738,10 @@ class WPCPM_Institution_Agreement {
 	/**
 	 * Whether a post is one the rebuild materialised from the grid.
 	 *
-	 * Read from the event rows rather than `post_author` or the kind. A manager recording an
-	 * agreement on file by hand (a later phase) also makes a legacy post, so the kind cannot
-	 * tell the two apart, and an author of 0 is incidental where the event row is the one
-	 * thing written for exactly this purpose.
+	 * Read from the event rows rather than `post_author` or the kind. An Administrator recording
+	 * an agreement on file by hand, on its institution's page, also makes a legacy post, so the
+	 * kind cannot tell the two apart, and an author of 0 is incidental where the event row is
+	 * the one thing written for exactly this purpose.
 	 *
 	 * @param int $post_id Post ID.
 	 * @return bool
@@ -3659,7 +3666,9 @@ class WPCPM_Institution_Agreement {
 					'site_name'        => $site,
 					'institution_name' => $facts['institution_name'],
 					'uploaded_on'      => $facts['uploaded_at'],
-					'uploaded_by'      => '' === $facts['uploaded_by'] ? $facts['institution'] : $facts['uploaded_by'],
+					// An account with no name is "a member of the institution": the Administrators have the
+					// institution's name beside it, and the record would tell them nothing.
+					'uploaded_by'      => '' === $facts['uploaded_by'] ? __( 'a member of the institution', 'wpcredits-program-manager' ) : $facts['uploaded_by'],
 					// What the scan noticed, in words, in the Administrator's language (since 1.122.23).
 					'scan_flags'       => WPCPM_Pdf_Check::in_words( $facts['flags'] ),
 					'queue_link'       => $queue,

@@ -340,13 +340,15 @@ echo "=== The institution is the reader's, never the form's ===\n";
 $status = post_check( batch_fields( array( 'institution' => $THERE, 'record' => $THERE ) ) );
 
 ck( 'a valid list is checked and staged', $status, 'checked' );
+// The check was logged for a manager card that was never drawn, and nothing read the log.
+ck( 'and checking it writes no log of checks', array_key_exists( 'wpcpm_import_log', $GLOBALS['opts'] ), false );
 
 // **The lines survived the request, which is what failed in production.** A pasted CSV read
 // through the text sanitiser arrives as one line, so the header and the first student run
 // together and the file is refused for having no email column. Three lines in, three rows out.
 fresh_world();
 $status = post_check( batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@institution-3.example\nBartek Zielinski,bartek@institution-3.example\nCecylia Nowak,cecylia@institution-3.example\n" ) ) );
-$staged = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) );
+$staged = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::active_for( $HERE ) );
 
 ck( 'a three line paste is checked', $status, 'checked' );
 ck( 'and arrives as three rows, not one', count( $staged['rows'] ), 3 );
@@ -359,7 +361,7 @@ foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $decided
 ck( 'the decision was made about the reader\'s own institution', $decided, array( $HERE ) );
 ck( 'and never about the one the form named', in_array( $THERE, $decided, true ), false );
 
-$staged_id = WPCPM_Institution_Import::staged_for( $HERE );
+$staged_id = WPCPM_Institution_Import::active_for( $HERE );
 ck( 'the batch belongs to the reader\'s institution', WPCPM_Institution_Import::batch( $staged_id )['institution'], $HERE );
 ck( 'and the reader is its author', WPCPM_Institution_Import::batch( $staged_id )['author'], 7 );
 
@@ -457,7 +459,7 @@ $status = post_check(
 
 ck( 'one student sent through the boxes is checked the same way', $status, 'checked' );
 
-$rows = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) )['rows'];
+$rows = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::active_for( $HERE ) )['rows'];
 
 ck( 'and arrives as one cleaned row', count( $rows ), 1 );
 ck( 'and the address lowercased for comparing', $rows[0]['email_key'], 'bartek@institution-3.example' );
@@ -497,7 +499,7 @@ echo "\n=== Cancel decides against the batch's institution ===\n";
 fresh_world();
 post_check( batch_fields() );
 
-$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+$batch_id = WPCPM_Institution_Import::active_for( $HERE );
 
 ck( 'there is a batch to cancel', $batch_id > 0, true );
 
@@ -526,12 +528,12 @@ ck( 'somebody the policy refuses cannot cancel it', post_cancel( $batch_id ), 'r
 $decided = array();
 foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $decided[] = $call[2]; } }
 ck( 'and the decision was about the batch\'s institution', $decided, array( $HERE ) );
-ck( 'the batch is still there', WPCPM_Institution_Import::staged_for( $HERE ) > 0, true );
+ck( 'the batch is still there', WPCPM_Institution_Import::active_for( $HERE ) > 0, true );
 
 $GLOBALS['allowed']  = true;
 $GLOBALS['resolved'] = $HERE;
 ck( 'its own institution can throw it away', post_cancel( $batch_id ), 'cancelled' );
-ck( 'and then there is none waiting', WPCPM_Institution_Import::staged_for( $HERE ), 0 );
+ck( 'and then there is none waiting', WPCPM_Institution_Import::active_for( $HERE ), 0 );
 ck( 'cancelling a batch that is gone says so', post_cancel( $batch_id ), 'no-batch' );
 
 echo "\n=== Confirm: the order, the nonce, and what a second press does ===\n";
@@ -560,7 +562,7 @@ function post_batch( $handler, $batch_id ) {
 fresh_world();
 $GLOBALS['created'] = array();
 post_check( batch_fields() );
-$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+$batch_id = WPCPM_Institution_Import::active_for( $HERE );
 
 // Keyed to the batch, so a token minted for one school's list is not a token for another's,
 // and to a digest of what that list says, so a token minted for the preview somebody read is
@@ -617,7 +619,7 @@ echo "\n=== What the three states of a batch put on the screen ===\n";
 fresh_world();
 $GLOBALS['created'] = array();
 post_check( batch_fields() );
-$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+$batch_id = WPCPM_Institution_Import::active_for( $HERE );
 $staged   = draw_section( $HERE );
 
 // Everything that is about to happen, and everything that is not, read before the button:
@@ -785,7 +787,7 @@ WPCPM_Institutions::$gated = array();
 // record" that every unvalidatable row would get if we let create_slice proceed.
 fresh_world();
 post_check( batch_fields( array( 'program' => WPCPM_Program::STATUS_150H ) ) );
-$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+$batch_id = WPCPM_Institution_Import::active_for( $HERE );
 
 WPCPM_Institutions::$gated = array( WPCPM_Program::STATUS_150H );
 
@@ -883,7 +885,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
 
 	ck( $who . ': checking a list stages it', said_now(), 'checked' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the institution they were viewing, with the batch to open' : 'is the dashboard and the batch to open, nothing more' ), $went, went_to( $named, WPCPM_Institution_Import::staged_for( $HERE ) ) );
+	ck( $who . ': and the address ' . ( $manager ? 'is the institution they were viewing, with the batch to open' : 'is the dashboard and the batch to open, nothing more' ), $went, went_to( $named, WPCPM_Institution_Import::active_for( $HERE ) ) );
 
 	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
 
@@ -892,7 +894,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 
 	// Every control on a staged list reads its institution off the batch, whoever is resolved.
 	$GLOBALS['resolved'] = $OTHER;
-	$batch_id            = WPCPM_Institution_Import::staged_for( $HERE );
+	$batch_id            = WPCPM_Institution_Import::active_for( $HERE );
 
 	ck( $who . ': there is a list to act on', $batch_id > 0, true );
 
@@ -915,7 +917,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	fresh_world();
 	$GLOBALS['resolved'] = $HERE;
 	press_to( 'handle_check', batch_fields(), array() );
-	$running = WPCPM_Institution_Import::staged_for( $HERE );
+	$running = WPCPM_Institution_Import::active_for( $HERE );
 	WPCPM_Institution_Create::claim( $running, 7, 'member' );
 	update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
 	$GLOBALS['resolved'] = $OTHER;
@@ -929,7 +931,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	fresh_world();
 	$GLOBALS['resolved'] = $HERE;
 	press_to( 'handle_check', batch_fields(), array() );
-	$staged_now = WPCPM_Institution_Import::staged_for( $HERE );
+	$staged_now = WPCPM_Institution_Import::active_for( $HERE );
 	$GLOBALS['resolved'] = $OTHER;
 
 	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
@@ -1029,9 +1031,9 @@ $GLOBALS['allowed'] = true;
 // posted switcher is not consulted, even though it is well formed and the index holds it.
 fresh_world();
 $went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
-ck( 'checking a list is still the institution acted on', $went, went_to( $HERE, WPCPM_Institution_Import::staged_for( $HERE ) ) );
+ck( 'checking a list is still the institution acted on', $went, went_to( $HERE, WPCPM_Institution_Import::active_for( $HERE ) ) );
 
-$staged_now = WPCPM_Institution_Import::staged_for( $HERE );
+$staged_now = WPCPM_Institution_Import::active_for( $HERE );
 $went       = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
 ck( 'and so is throwing it away', $went, went_to( $HERE ) );
 
@@ -1039,7 +1041,7 @@ ck( 'and so is throwing it away', $went, went_to( $HERE ) );
 // one, so the press adds nothing: the switcher the form carried is not asked in its place.
 fresh_world();
 press_to( 'handle_check', batch_fields(), array() );
-$malformed = WPCPM_Institution_Import::staged_for( $HERE );
+$malformed = WPCPM_Institution_Import::active_for( $HERE );
 update_post_meta( $malformed, WPCPM_Institution_Import::META_INSTITUTION, 'recno' );
 $went = press_to( 'handle_cancel', array( 'batch' => (string) $malformed ) + $other_view, $other_view );
 ck( 'throwing away a list stamped with no record ID cancels it', said_now(), 'cancelled' );
@@ -1146,7 +1148,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	ck( $who . ': the Confirm form posts to ' . ( $manager ? 'the institution they are viewing' : 'admin-post.php as it did' ), action_of( $confirm ), $posts_to );
 
 	// The other tab throws the list away; this page still holds its forms.
-	WPCPM_Institution_Import::cancel( WPCPM_Institution_Import::staged_for( $HERE ) );
+	WPCPM_Institution_Import::cancel( WPCPM_Institution_Import::active_for( $HERE ) );
 
 	ck( $who . ': the list is gone', WPCPM_Institution_Import::active_for( $HERE ), 0 );
 
@@ -1161,7 +1163,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	// A list part way through: Continue.
 	fresh_world();
 	post_check( batch_fields() );
-	$running = WPCPM_Institution_Import::staged_for( $HERE );
+	$running = WPCPM_Institution_Import::active_for( $HERE );
 	WPCPM_Institution_Create::claim( $running, 7, 'member' );
 	update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
 	$progress = draw_section( $HERE );

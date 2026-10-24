@@ -88,11 +88,35 @@ class WPCPM_Institution_Application {
 	/**
 	 * The page's slug.
 	 *
-	 * Short because it is printed on slides, mailed and read aloud. Chosen once and never
-	 * renamed, for the reason the dashboard pages give: a rename breaks every link anybody
-	 * has been sent.
+	 * Printed on slides, mailed and read aloud. Renamed once, from `apply` (`OLD_SLUG`), on the
+	 * owner's decision of 22 October 2026, so the address names the institutions it is for as
+	 * `sponsor-application` names the sponsors. A rename breaks every link anybody has been sent,
+	 * which is why the old address still answers, through `redirect_old_address()`, and why
+	 * `maybe_move_page()` moves the page an existing site already has rather than making another.
 	 */
-	const SLUG = 'apply';
+	const SLUG = 'institution-application';
+
+	/** The page's slug before 1.123.27, which `redirect_old_address()` still answers. */
+	const OLD_SLUG = 'apply';
+
+	/**
+	 * The title `ensure_page()` gave the page before 1.123.27, as a site that made it then holds it.
+	 *
+	 * Compared as written, untranslated, because it is the stored words being compared: the page
+	 * on a site that made it in another language keeps its title, and only its slug and its content
+	 * move.
+	 */
+	const OLD_TITLE = 'Apply to the WordPress Credits Program';
+
+	/**
+	 * Option: which revision of the one-time move of the page `maybe_move_page()` has applied.
+	 *
+	 * A number, as the dashboards' title revisions are, so a later move runs once as well.
+	 */
+	const OPT_MOVED = 'wpcpm_application_page_moved';
+
+	/** The current revision of the move. */
+	const MOVE_VERSION = 1;
 
 	/** The `admin_post_` action the form posts to, registered for logged-out visitors too. */
 	const ACTION_SUBMIT = 'wpcpm_apply';
@@ -263,11 +287,15 @@ class WPCPM_Institution_Application {
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register' ) );
+		// After `register`, and once only, as every dashboard's one-time rename runs.
+		add_action( 'init', array( __CLASS__, 'maybe_move_page' ), 20 );
 		add_action( 'admin_post_' . self::ACTION_SUBMIT, array( __CLASS__, 'handle_submit' ) );
 		add_action( 'admin_post_nopriv_' . self::ACTION_SUBMIT, array( __CLASS__, 'handle_submit' ) );
 		add_action( 'admin_post_' . self::ACTION_VERIFY, array( __CLASS__, 'handle_verify' ) );
 		add_action( 'admin_post_nopriv_' . self::ACTION_VERIFY, array( __CLASS__, 'handle_verify' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'no_cache' ) );
+		// At 9, before core's `redirect_canonical()` and `wp_old_slug_redirect()`, both at 10.
+		add_action( 'template_redirect', array( __CLASS__, 'redirect_old_address' ), 9 );
 	}
 
 	/**
@@ -388,22 +416,25 @@ class WPCPM_Institution_Application {
 		}
 
 		// A site that has the page but not the option - restored from a backup, or migrated -
-		// adopts it rather than creating a second one at `apply-2`.
-		$existing = get_page_by_path( self::SLUG );
+		// adopts it rather than creating a second one at `institution-application-2`. At the old
+		// address too, for a backup taken before the move, which `maybe_move_page()` then makes.
+		foreach ( array( self::SLUG, self::OLD_SLUG ) as $slug ) {
+			$existing = get_page_by_path( $slug );
 
-		if ( $existing instanceof WP_Post ) {
-			update_option( self::OPT_PAGE, $existing->ID, false );
+			if ( $existing instanceof WP_Post ) {
+				update_option( self::OPT_PAGE, $existing->ID, false );
 
-			return (int) $existing->ID;
+				return (int) $existing->ID;
+			}
 		}
 
 		$page_id = wp_insert_post(
 			array(
 				'post_type'    => 'page',
 				'post_status'  => 'publish',
-				'post_title'   => __( 'Apply to the WordPress Credits Program', 'wpcredits-program-manager' ),
+				'post_title'   => self::page_title(),
 				'post_name'    => self::SLUG,
-				'post_content' => '<!-- wp:' . self::BLOCK . ' /-->',
+				'post_content' => self::page_content(),
 			),
 			true
 		);
@@ -415,6 +446,155 @@ class WPCPM_Institution_Application {
 		update_option( self::OPT_PAGE, (int) $page_id, false );
 
 		return (int) $page_id;
+	}
+
+	/**
+	 * The page's title, which says who the form is for.
+	 *
+	 * @return string
+	 */
+	public static function page_title() {
+		return __( 'Bring WordPress Credits to your institution', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The page's content: one intro line, then the form's block, each in its block comments.
+	 *
+	 * The intro is a paragraph of the page and not words the block prints, so an Administrator
+	 * edits it in the editor as they edit the title, and the block draws what it always drew.
+	 * Written as kses keeps it, because the one-time move can run on a visitor's request, and a
+	 * save made with no `unfiltered_html` passes the content through `wp_kses_post()`.
+	 *
+	 * @return string
+	 */
+	public static function page_content() {
+		return "<!-- wp:paragraph -->\n<p>"
+			. esc_html__( 'For universities, colleges and schools that would like to offer WordPress Credits to their students: an Administrator reads every application and writes back, usually within a few working days.', 'wpcredits-program-manager' )
+			. "</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:" . self::BLOCK . ' /-->';
+	}
+
+	/**
+	 * Move the page an existing site already has to the new address, title and content, once.
+	 *
+	 * `ensure_page()` writes the three only when it *creates* the page, so a site that made it
+	 * before 1.123.27 keeps `apply`, the old title and the bare block until this runs. Each of the
+	 * three moves only while it is still what the plugin wrote: the slug while it is `apply`, the
+	 * title while it is `OLD_TITLE`, the content while it is the bare block. A field an
+	 * Administrator changed by hand is theirs and is left alone.
+	 *
+	 * The slug is left as well when another page, post or attachment already holds the new one:
+	 * core would give this page `institution-application-2`, or, for a post, hide it behind the
+	 * page, since page addresses are matched first. The page then stays at /apply/, a real page,
+	 * so `redirect_old_address()` has no 404 to answer there.
+	 *
+	 * The flag is written before the work, whatever the outcome, as `maybe_rename_page()` writes
+	 * its own: a move that failed halfway must not be tried again on every request.
+	 */
+	public static function maybe_move_page() {
+		if ( (int) get_option( self::OPT_MOVED ) >= self::MOVE_VERSION ) {
+			return;
+		}
+
+		update_option( self::OPT_MOVED, self::MOVE_VERSION, false );
+
+		$page_id = (int) get_option( self::OPT_PAGE );
+		$page    = $page_id ? get_post( $page_id ) : null;
+
+		if ( ! $page instanceof WP_Post ) {
+			return;
+		}
+
+		$changes = array();
+
+		if ( self::OLD_SLUG === $page->post_name && ! get_page_by_path( self::SLUG, OBJECT, array( 'page', 'post', 'attachment' ) ) ) {
+			$changes['post_name'] = self::SLUG;
+		}
+
+		if ( self::OLD_TITLE === $page->post_title ) {
+			$changes['post_title'] = self::page_title();
+		}
+
+		// Give or take the white space around it, which is no Administrator's edit.
+		if ( '<!-- wp:' . self::BLOCK . ' /-->' === trim( (string) $page->post_content ) ) {
+			$changes['post_content'] = self::page_content();
+		}
+
+		if ( ! $changes ) {
+			return;
+		}
+
+		// Slashed, as `wp_insert_post()` unslashes what `wp_update_post()` hands it: a backslash in a
+		// translated title or intro would otherwise be lost on the way in.
+		wp_update_post( array_merge( array( 'ID' => $page->ID ), wp_slash( $changes ) ) );
+	}
+
+	/**
+	 * Send a visitor who asks for /apply/, the form's address before 1.123.27, to the form.
+	 *
+	 * WordPress keeps no old slug for a page: `wp_check_for_changed_slugs()` records one only for
+	 * a post type that is not hierarchical, and `wp_old_slug_redirect()` reads only the `name`
+	 * query variable. So acknowledgements and invitations already sent, bookmarks, slides, the
+	 * handbook, and any template or pattern that saved the address the theme printed when it was
+	 * inserted, would all land on a 404 without this.
+	 *
+	 * It answers only a 404, so a real page published at /apply/ later wins, and only when the path
+	 * WordPress matched is exactly the old slug, in any case (/Apply/ served the form before the
+	 * move, as page addresses are matched without regard to case), and the request names it as a
+	 * page or a post (`pagename`, or `name` where a missing page falls through to the post rule
+	 * under /%postname%/ links). The path is asked as well because by `template_redirect` WP_Query
+	 * has cut a missing page's path to its last part and copied it into `name`, and a post type's
+	 * address sets `name` too, so the query variables alone would also answer /about/apply/ and
+	 * /<type>/apply/. The request's query string goes with the visitor, so one landing
+	 * mid-redirect at the moment of the update keeps `wpcpm_app` or `wpcpm_app_said`.
+	 *
+	 * A 301, because the owner decided the address and search engines should learn it. At 9, before
+	 * core's `redirect_canonical()`, whose guess at a post whose slug starts with `apply` could
+	 * otherwise send the visitor somewhere else, and before `wp_old_slug_redirect()`.
+	 */
+	public static function redirect_old_address() {
+		global $wp;
+
+		if ( ! is_404() ) {
+			return;
+		}
+
+		$path = isset( $wp->request ) ? (string) $wp->request : '';
+
+		if ( ! self::is_old_slug( $path ) ) {
+			return;
+		}
+
+		if ( ! self::is_old_slug( get_query_var( 'pagename' ) ) && ! self::is_old_slug( get_query_var( 'name' ) ) ) {
+			return;
+		}
+
+		$url = self::page_url();
+
+		if ( '' === $url ) {
+			return;
+		}
+
+		if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
+			$url = esc_url_raw( $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . wp_unslash( $_SERVER['QUERY_STRING'] ) );
+		}
+
+		wp_safe_redirect( $url, 301 );
+
+		exit;
+	}
+
+	/**
+	 * Whether a path or a query variable is the old slug, whatever case the visitor typed it in.
+	 *
+	 * WordPress matches a page's address without regard to case, so /Apply/ served the form
+	 * before the move, and the request reaches `template_redirect` as typed. Only the case is
+	 * ignored: a deeper path, a longer slug or anything that is not a string is still not it.
+	 *
+	 * @param mixed $value A request path or a query variable.
+	 * @return bool
+	 */
+	private static function is_old_slug( $value ) {
+		return is_string( $value ) && self::OLD_SLUG === strtolower( $value );
 	}
 
 	/**
@@ -474,6 +654,12 @@ class WPCPM_Institution_Application {
 	 * `Country` and `Privacy Policy Compliance` are questions here because they are asked, and
 	 * are never in the stored fields because the server holds them: the country as a record ID
 	 * on its own meta key, consent as evidence on another. `Current Stage` is not asked at all.
+	 *
+	 * A question's `label` is the words an applicant reads and its key is the column it is written
+	 * under, so the two can differ: the internship question asks about "practicums" over a column
+	 * that says "practices". Only the label may change. The key is what a record is created from and
+	 * what the form's field name is hashed from (`form_key()`), so a key that moved would be a
+	 * column the base does not have and a field name an open page does not post.
 	 *
 	 * @return array<string, array> Column name => spec.
 	 */
@@ -536,7 +722,7 @@ class WPCPM_Institution_Application {
 			),
 			'How do your internships or practices typically work?' => array(
 				'group'    => 'program',
-				'label'    => __( 'How do your internships or practices typically work?', 'wpcredits-program-manager' ),
+				'label'    => __( 'How do your internships or practicums typically work?', 'wpcredits-program-manager' ),
 				'type'     => 'choices',
 				'required' => true,
 				'help'     => __( 'Tick everything that applies.', 'wpcredits-program-manager' ),
@@ -1151,23 +1337,30 @@ class WPCPM_Institution_Application {
 	/**
 	 * One question.
 	 *
+	 * The country is the one field for a long list (`WPCPM_Dashboards::render_combo()`), as the
+	 * mentor application form draws its own: a text field that takes typing, with the select it
+	 * stands in for kept in the form as what is sent. That select posts a Countries record ID, as it
+	 * always has, so the combobox is a way to find one and not a second answer; it carries no name.
+	 *
 	 * @param string $column    Airtable column name.
 	 * @param array  $spec      Its spec.
 	 * @param mixed  $value     Its value from a failed attempt, or null.
 	 * @param string $problem   The problem slug from that attempt, or ''.
-	 * @param array  $countries Record ID => country name.
+	 * @param array  $countries Record ID => country name, A to Z.
 	 */
 	private static function render_field( $column, array $spec, $value, $problem, array $countries ) {
-		$key      = self::form_key( $column );
-		$id       = 'wpcpm-application-' . $key;
-		$name     = self::FIELD_ANSWERS . '[' . $key . ']';
-		$type     = $spec['type'];
-		$required = ! empty( $spec['required'] ) ? ' required="required"' : '';
-		// The label's own mark, printed only where $required is: the internship checklist is
-		// required too, but a checkbox array has no native `required` that means "at least one",
-		// so it is never given this attribute and its label is left to say nothing rather than
-		// point at a control that carries no such thing.
-		$required_mark = '' !== $required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '';
+		$key  = self::form_key( $column );
+		$id   = 'wpcpm-application-' . $key;
+		$name = self::FIELD_ANSWERS . '[' . $key . ']';
+		$type = $spec['type'];
+		// A required attribute only where one control is the whole answer: a checkbox array has no
+		// native `required` that means "at least one", and the country's select is hidden behind
+		// its field once the script runs, where a browser would refuse the form for a control
+		// nobody can see. Neither carries it, and `add_required()` is the check for every question.
+		$required = ! empty( $spec['required'] ) && ! in_array( $type, array( 'choices', 'country' ), true ) ? ' required="required"' : '';
+		// The label's own mark, printed on every required question, the two without the attribute
+		// included: the mark is what tells an applicant the answer is needed.
+		$required_mark = ! empty( $spec['required'] ) ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '';
 		$invalid       = '' !== $problem ? ' aria-invalid="true"' : '';
 		$says          = array();
 
@@ -1181,11 +1374,10 @@ class WPCPM_Institution_Application {
 
 		$describedby = empty( $says ) ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $says ) ) . '"';
 
-		// A checkbox list and the consent box read as controls with a label after them, so they
-		// carry their own wrappers; a `<p>` cannot hold a `<fieldset>` at all - the parser
-		// closes the paragraph the moment one opens - which is what scattered a field set
-		// across a row the last time this was got wrong.
-		$wrapper = 'choices' === $type ? 'div' : 'p';
+		// A checkbox list and the country's field hold elements a paragraph cannot - the parser
+		// closes a `<p>` the moment a `<div>` or a `<fieldset>` opens in it - which is what
+		// scattered a field set across a row the last time this was got wrong.
+		$wrapper = in_array( $type, array( 'choices', 'country' ), true ) ? 'div' : 'p';
 
 		printf(
 			'<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s">',
@@ -1207,9 +1399,14 @@ class WPCPM_Institution_Application {
 
 			self::render_policy_line();
 		} elseif ( 'choices' === $type ) {
-			printf( '<span class="wpcpm-field__label">%s</span>', esc_html( $spec['label'] ) );
+			// The heading is the group's name, so a screen reader announces the question with the
+			// boxes, and the hint and the problem describe the group, as the mentor application
+			// form's lists of boxes are.
+			printf( '<span class="wpcpm-field__label" id="%1$s-label">%2$s%3$s</span>', esc_attr( $id ), esc_html( $spec['label'] ), $required_mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
 
 			$picked = is_array( $value ) ? $value : array();
+
+			printf( '<span class="wpcpm-field__choices" role="group" aria-labelledby="%1$s-label"%2$s>', esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
 
 			foreach ( self::internship_choices() as $choice ) {
 				printf(
@@ -1222,6 +1419,27 @@ class WPCPM_Institution_Application {
 					esc_html( trim( $choice ) )
 				);
 			}
+
+			echo '</span>';
+		} elseif ( 'country' === $type ) {
+			WPCPM_Dashboards::render_combo(
+				array(
+					'id'          => $id,
+					'name'        => $name,
+					// The empty entry first, then the countries as they were given, A to Z, valued by
+					// record ID: the select posts the ID and the field only helps find it.
+					'options'     => array( '' => __( 'Choose a country', 'wpcredits-program-manager' ) ) + $countries,
+					'current'     => is_scalar( $value ) ? (string) $value : '',
+					'label'       => $spec['label'],
+					'mark'        => ! empty( $spec['required'] ) ? __( 'Required', 'wpcredits-program-manager' ) : '',
+					'describedby' => implode( ' ', $says ),
+					/* translators: Shown in the empty country field, which takes typing. */
+					'find'        => __( 'Type to find your country', 'wpcredits-program-manager' ),
+					'none'        => __( 'No country has that name.', 'wpcredits-program-manager' ),
+					/* translators: %s: how many countries the list shows, as a number. */
+					'count'       => __( 'Countries in the list: %s', 'wpcredits-program-manager' ),
+				)
+			);
 		} else {
 			printf(
 				'<label for="%1$s">%2$s%3$s</label>',
@@ -1230,29 +1448,7 @@ class WPCPM_Institution_Application {
 				$required_mark // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
 			);
 
-			if ( 'country' === $type ) {
-				printf(
-					'<select id="%1$s" name="%2$s"%3$s%4$s%5$s>',
-					esc_attr( $id ),
-					esc_attr( $name ),
-					$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
-					$invalid, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
-					$describedby // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
-				);
-
-				printf( '<option value="">%s</option>', esc_html__( 'Choose a country', 'wpcredits-program-manager' ) );
-
-				foreach ( $countries as $record_id => $country ) {
-					printf(
-						'<option value="%1$s"%2$s>%3$s</option>',
-						esc_attr( $record_id ),
-						selected( (string) $value, (string) $record_id, false ),
-						esc_html( $country )
-					);
-				}
-
-				echo '</select>';
-			} elseif ( 'textarea' === $type ) {
+			if ( 'textarea' === $type ) {
 				printf(
 					'<textarea id="%1$s" name="%2$s" rows="4" maxlength="%3$d"%4$s%5$s%6$s>%7$s</textarea>',
 					esc_attr( $id ),

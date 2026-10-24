@@ -29,8 +29,10 @@
  * - **A `Paused` row refuses, by name.** The mirror automation is restricted to view
  *   `viwzSJspvACLnhXom` and `Paused` is not in it, so a Paused row marked `Graduate` would mail
  *   the student while the reports row, the account and the mentor's list all still said Paused.
- *   The refusal names the view, before the press on the card and after it in the message, and it
- *   fires even on a site whose settings have lost `Paused` from the tracked list.
+ *   The refusal gives that reason in a school's words, before the press on the card and after it
+ *   in the message, and names neither the view nor the automation (the class docblock keeps the
+ *   view's ID for the Administrator who has to find it in the base); it fires even on a site
+ *   whose settings have lost `Paused` from the tracked list.
  * - **The write reaches the Students table and nothing else**, one cell, on the record `claim()`
  *   proved rather than the one the form named. The Students Reports row carries a `Status` of its
  *   own and is not written: one authority per field, and the automation is what carries it across.
@@ -379,6 +381,7 @@ if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
 	}
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
@@ -625,7 +628,9 @@ $graduate_card = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 // and the placement already recorded as finished, never "not on the program right now".
 ck( 'a graduate\'s card draws no control', has( $graduate_card, '<form' ), false );
 ck( 'and says the placement is already recorded as finished, quoting the records',
-    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduate.</p>' ), true );
+    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduated.</p>' ), true );
+ck( 'in the words the roster prints a graduate in, and not the raw status',
+    has( $graduate_card, 'They say: Graduate.' ), false );
 ck( 'and not that the student is off the program', has( $graduate_card, 'not on the program right now' ), false );
 
 ck( 'graduation_offered() answers no by default', WPCPM_Institution_Students::graduation_offered(), false );
@@ -738,12 +743,25 @@ press( 2, $student, 'withdrawn' );
 ck( 'a graduate cannot then be dropped out from this screen', flash_outcome(), WPCPM_Institution_Students::OUT_UNTRACKED );
 ck( 'and the refusal carries what the row says', flash_detail(), 'Graduate' );
 ck( 'and nothing is written', $GLOBALS['writes'], array() );
+// The flash keeps the status as the records spell it, which is what the decision was made on;
+// only the sentence a school reads after the press is in the roster's words. A reader of their
+// own for each, because `WPCPM_Flash::take()` keeps its first answer for the rest of a request.
+reset_world( 'Graduate' );
+$GLOBALS['users'][7]   = new WP_User( 7, 'A Bursar', 'bursar@example.test' );
+$GLOBALS['members'][7] = array( $inst_a );
+press( 7, $student, 'withdrawn' );
+ck( 'the sentence after that press quotes it as the roster prints it', has( draw( 7, $student, array( 'name' => 'Anna Nowak' ) ), 'They say: Graduated.' ), true );
 
 reset_world( 'Not moving forward' );
 press( 2, $student, 'graduated' );
 
 ck( 'a row that is not on the program is refused', flash_outcome(), WPCPM_Institution_Students::OUT_UNTRACKED );
 ck( 'naming what the row says', flash_detail(), 'Not moving forward' );
+reset_world( 'Not moving forward' );
+$GLOBALS['users'][8]   = new WP_User( 8, 'A Provost', 'provost@example.test' );
+$GLOBALS['members'][8] = array( $inst_a );
+press( 8, $student, 'graduated' );
+ck( 'and the sentence after the press says Not continuing, the roster\'s word for it', has( draw( 8, $student, array( 'name' => 'Anna Nowak' ) ), 'They say: Not continuing.' ), true );
 
 reset_world( '' );
 press( 2, $student, 'graduated' );
@@ -774,11 +792,17 @@ ck( 'a paused student cannot be graduated', flash_outcome(), WPCPM_Institution_S
 ck( 'and nothing is written', $GLOBALS['writes'], array() );
 
 $paused = WPCPM_Institution_Students::messages()[ WPCPM_Institution_Students::OUT_PAUSED ][1];
+$reason = 'The program records say this student is paused, so this page cannot record a change for them: they would be emailed while the rest of their records went on saying paused. Ask your contact at the program to take them off pause first.';
 
-// The view is the whole of the reason, and the person who can fix it needs its name to ask.
-ck( 'the refusal names the view the mirror automation is restricted to', has( $paused, 'viwzSJspvACLnhXom' ), true );
-ck( 'and the constant is that view', WPCPM_Institution_Students::MIRROR_VIEW, 'viwzSJspvACLnhXom' );
-ck( 'and it says the student would be emailed anyway', has( $paused, 'email' ), true );
+// The reason is the school's to read and the view's name is not: the Administrator who has to
+// find the view in the base reads it in the class docblock, which keeps its ID.
+ck( 'the refusal is the sentence a school can act on', $paused, 'Nothing was changed. ' . $reason );
+ck( 'it names no view, and no automation', array( has( $paused, 'viw' ), has( $paused, 'view' ), has( $paused, 'automation' ) ), array( false, false, false ) );
+ck( 'nor the program contact the old sentence sent them to', has( $paused, 'program contact' ), false );
+ck( 'and the view\'s constant goes with the last sentence that read it', defined( 'WPCPM_Institution_Students::MIRROR_VIEW' ), false );
+$students_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-students.php' );
+ck( 'while the class docblock still holds the view\'s ID, once', substr_count( $students_source, 'viwzSJspvACLnhXom' ), 1 );
+ck( 'and it says the student would be emailed anyway', has( $paused, 'emailed' ), true );
 ck( 'and it says what to ask for', has( $paused, 'off pause' ), true );
 
 reset_world( 'Paused' );
@@ -857,7 +881,8 @@ $html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 
 ck( 'a paused row draws no control at all', has( $html, '<form' ), false );
 ck( 'and says so before anybody presses anything', has( $html, 'paused' ), true );
-ck( 'naming the view', has( $html, 'viwzSJspvACLnhXom' ), true );
+ck( 'in the same words as the refusal after a press', has( $html, $reason ), true );
+ck( 'without the view\'s name', has( $html, 'viw' ), false );
 
 reset_world( 'In Sensei' );
 WPCPM_Roster_Index::update( $inst_a, $student, array( 'status' => 'Graduate' ) );
@@ -865,7 +890,7 @@ $html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 
 ck( 'a finished row draws no control', has( $html, '<form' ), false );
 ck( 'and says the placement is already recorded as finished', has( $html, 'already recorded as finished' ), true );
-ck( 'and quotes what the records say', has( $html, 'They say: Graduate.' ), true );
+ck( 'and quotes what the records say, in the roster\'s words', has( $html, 'They say: Graduated.' ), true );
 ck( 'and says who changes it', has( $html, 'An Administrator changes it' ), true );
 
 reset_world( 'In Sensei' );
@@ -873,7 +898,8 @@ WPCPM_Roster_Index::update( $inst_a, $student, array( 'status' => 'Not moving fo
 $html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 
 ck( 'a row that is not on the program draws no control', has( $html, '<form' ), false );
-ck( 'and quotes what the records say', has( $html, 'They say: Not moving forward.' ), true );
+ck( 'and quotes what the records say, in the roster\'s words', has( $html, 'They say: Not continuing.' ), true );
+ck( 'never the raw status', has( $html, 'Not moving forward' ), false );
 
 reset_world( 'In Sensei' );
 

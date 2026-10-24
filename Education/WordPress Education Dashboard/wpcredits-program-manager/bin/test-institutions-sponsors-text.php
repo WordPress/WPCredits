@@ -434,7 +434,9 @@ require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-26.php';
+require_once __DIR__ . '/stubs/mail-since-1-123-27.php';
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -2100,6 +2102,13 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		$want = null === $held ? null : as_changed( $name, $held );
 		$got  = emails_of( $case );
 		$as   = in_array( $name, $listed, true ) ? ', as 1.122.23 changes it' : '';
+		// What the case's site was, for the changes of 1.123.27 that name it or the institution the
+		// index holds a name for.
+		$site = array(
+			'name'         => $case['site'],
+			'date_format'  => 'F j, Y',
+			'institutions' => array_filter( array_map( function ( $row ) { return trim( (string) $row['name'] ); }, WPCPM_Institutions_Index::$rows ), 'strlen' ),
+		);
 
 		if ( null !== $held && $want !== $held ) {
 			$changed[] = $name;
@@ -2110,9 +2119,11 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		foreach ( (array) $want as $n => $mail ) {
 			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
 
+			$since = wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_26( wpcpm_mail_since_1_123_24( $mail['body'] ) ) ) + $mail, $site );
+
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
-			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $mail['subject'] );
-			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], wpcpm_mail_since_1_123_26( wpcpm_mail_since_1_123_24( $mail['body'] ) ) );
+			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $since['subject'] );
+			ck( $name . ' #' . $n . ': the body, byte for byte, the signature and footer included' . $as, $now['body'], $since['body'] );
 			ck( $name . ' #' . $n . ': the headers, byte for byte, and no file attached' . $as, array( $now['headers'], $now['files'] ), array( $mail['headers'], 0 ) );
 		}
 	}
@@ -2131,6 +2142,32 @@ ck( 'every recorded email ends with the site\'s address in its footer, as 1.123.
 // 1.123.26: the acknowledgement says its link is needed, in the seven recorded acknowledgements of an
 // institution application and in no other email of either recording.
 ck( 'the acknowledgement of an institution application says its link is needed, in the seven emails that are one, as 1.123.26 sends it', $GLOBALS['wpcpm_since_1_123_26']['confirm_link'], 7 );
+// 1.123.27: the Institutions' emails, each change made in the emails it belongs to and in no other.
+// The counts are the recordings' own, read off the two files by what each email said before: seven
+// acknowledgements of an institution application and seven invitations (the sponsors' acknowledgements
+// keep their words), 13 receipts, 16 returned agreements and 19 revocations that sent a school to the
+// agreement panel, 8 Administrators' notices of an upload that gave an uploader with no name as the
+// institution's record, 7 notices of a template that cannot be used, and 19 of an institution with no
+// members left. No Semester reports email is in these recordings.
+ck(
+	'the Institutions\' emails say what 1.123.27 changes, in the emails that said it before and in no other',
+	$GLOBALS['wpcpm_since_1_123_27'],
+	array(
+		'next'                 => 7,
+		'form_at'              => 7,
+		'invite_site'          => 7,
+		'invite_expiry'        => 7,
+		'received'             => 13,
+		'returned'             => 16,
+		'revoked'              => 19,
+		'landed'               => 8,
+		'template_institution' => 7,
+		'template_fix'         => 7,
+		'member_line'          => 19,
+		'member_untouched'     => 19,
+		'report_subject'       => 0,
+	)
+);
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.
@@ -2332,7 +2369,7 @@ ck(
 	array(
 		'Your Collaboration Agreement was revoked on 2036-03-09 by an Administrator, with this note:',
 		'institution-invite-no-sender',
-		'You have been invited to see Example University & "Partners" 100%\'s students in the WordPress Credits Program on WordPress Credits.',
+		'You have been invited to see Example University & "Partners" 100%\'s students in the WordPress Credits Program on the WordPress Credits.',
 		true,
 		array( 'Reply-To: blank at example.test' ),
 	)

@@ -160,6 +160,8 @@ require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/scroll-regions.php';
 
+// The site's date format, which an invitation's example day is printed in.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
@@ -350,27 +352,27 @@ ck(
 		'Call reminder, to the mentor / Mentor / Shipped text / call-reminder-mentor',
 		'Call reminder, to the student / Student / Shipped text / call-reminder-student',
 		'Group session reminder / The people it concerns / Shipped text / session-reminder',
-		'Application received, to the applicant / Applicant (no account) / Shipped text / institution-applied',
-		'Application received, to an applicant with no call to book / Applicant (no account) / Shipped text / institution-applied-no-call',
+		'Institution application received, to the applicant / Applicant (no account) / Shipped text / institution-applied',
+		'Institution application received, to an applicant with no call to book / Applicant (no account) / Shipped text / institution-applied-no-call',
 		'New institution application, to Administrators / Administrator / Shipped text / institution-application',
-		'Question about an application / Applicant (no account) / Shipped text / institution-information',
-		'Application declined / Applicant (no account) / Shipped text / institution-declined',
+		'Question about an institution application / Applicant (no account) / Shipped text / institution-information',
+		'Institution application declined / Applicant (no account) / Shipped text / institution-declined',
 		'Invitation to join an institution / Institution member / Shipped text / institution-invite',
 		'Invitation to join an institution, with no sender named / Institution member / Shipped text / institution-invite-no-sender',
 		'Collaboration Agreement received, to the institution / Institution member / Shipped text / agreement-received',
-		'Collaboration Agreement uploaded, to Administrators / Administrator / Shipped text / agreement-landed',
-		'Collaboration Agreement uploaded with the scan\'s notes, to Administrators / Administrator / Shipped text / agreement-landed-flagged',
+		'Collaboration Agreement uploaded by an institution, to Administrators / Administrator / Shipped text / agreement-landed',
+		'Collaboration Agreement uploaded by an institution with the scan\'s notes, to Administrators / Administrator / Shipped text / agreement-landed-flagged',
 		'Collaboration Agreement accepted, to the institution / Institution member / Shipped text / agreement-accepted',
 		'Collaboration Agreement back in force, to the institution / Institution member / Shipped text / agreement-reinstated',
 		'Collaboration Agreement returned with a note, to the institution / Institution member / Shipped text / agreement-returned',
 		'Collaboration Agreement taken out of force, to the institution / Institution member / Shipped text / agreement-revoked',
 		'Collaboration Agreement taken out of force, to an institution with no country contact / Institution member / Shipped text / agreement-revoked-no-contact',
-		'Collaboration Agreements waiting for review / Administrator / Shipped text / agreement-reminder',
-		'Collaboration Agreement could not be generated / Administrator / Shipped text / agreement-template',
+		'Collaboration Agreements from institutions waiting for review, to Administrators / Administrator / Shipped text / agreement-reminder',
+		'Collaboration Agreement for an institution could not be generated, to Administrators / Administrator / Shipped text / agreement-template',
 		'Institution has no members left, to Administrators / Administrator / Shipped text / member-last',
-		'Semester report drafted / Administrator / Shipped text / report-drafted',
-		'Semester report approved / Institution member / Shipped text / report-approved',
-		'Consent for the semester report / Student / Shipped text / report-consent',
+		'Semester report drafted, to Administrators / Administrator / Shipped text / report-drafted',
+		'Semester report approved, to the institution / Institution member / Shipped text / report-approved',
+		'Consent for the semester report, to the student / Student / Shipped text / report-consent',
 		'Sponsor application received, to the applicant / Applicant (no account) / Shipped text / sponsor-applied',
 		'Sponsor application received, to an applicant whose logo was not kept / Applicant (no account) / Shipped text / sponsor-applied-no-logo',
 		'New sponsor application, to Administrators / Administrator / Shipped text / sponsor-application',
@@ -950,7 +952,7 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 	$previews[ $who ] = array( html_entity_decode( $shown_returned[1] ?? '', ENT_QUOTES ), str_replace( "\r\n", "\n", html_entity_decode( $shown_returned[2] ?? '', ENT_QUOTES ) ) );
 	$wanted[ $who ]   = array(
 		'[WordPress Credits] Your signed agreement needs a change',
-		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the agreement panel on the site. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
+		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
 	);
 }
 $GLOBALS['opts']['timezone_string'] = $site_zone;

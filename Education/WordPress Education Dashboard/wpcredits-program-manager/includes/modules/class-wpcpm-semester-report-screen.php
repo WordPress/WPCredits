@@ -383,7 +383,7 @@ final class WPCPM_Semester_Report_Screen {
 
 				printf(
 					'<span class="wpcpm-report-card__state">%s</span>',
-					esc_html( self::state_label( WPCPM_Semester_Report::state( $post ) ) )
+					esc_html( WPCPM_Semester_Report::state_label( WPCPM_Semester_Report::state( $post ) ) )
 				);
 
 				if ( '' !== $url ) {
@@ -798,7 +798,7 @@ final class WPCPM_Semester_Report_Screen {
 		printf(
 			'<h3 class="wpcpm-report-card__title">%1$s <span class="wpcpm-report-card__state">%2$s</span></h3>',
 			esc_html( WPCPM_Cohort::label( $cohort ) ),
-			esc_html( self::state_label( $state ) )
+			esc_html( WPCPM_Semester_Report::state_label( $state ) )
 		);
 
 		if ( $generated > 0 ) {
@@ -1493,7 +1493,8 @@ final class WPCPM_Semester_Report_Screen {
 			'graduated'   => __( 'Graduated', 'wpcredits-program-manager' ),
 			'pending'     => __( 'Waiting to graduate', 'wpcredits-program-manager' ),
 			'withdrawn'   => __( 'Withdrew', 'wpcredits-program-manager' ),
-			'not_started' => __( 'Did not start', 'wpcredits-program-manager' ),
+			// The bucket counts `Not moving forward` alone, which the roster prints the same way.
+			'not_started' => __( 'Not continuing', 'wpcredits-program-manager' ),
 			'other'       => __( 'Other', 'wpcredits-program-manager' ),
 		);
 
@@ -2349,8 +2350,8 @@ final class WPCPM_Semester_Report_Screen {
 
 	/**
 	 * The message to the Administrators when the job drafts a report: the template registry's
-	 * `report-drafted`, filled with the institution, the semester, how many of its students were still
-	 * in progress, and the draft's address.
+	 * `report-drafted`, filled with the site's name, the institution, the semester, how many of its
+	 * students were still in progress, and the draft's address.
 	 *
 	 * @param string $institution Institutions record ID.
 	 * @param string $cohort      Cohort key.
@@ -2358,7 +2359,9 @@ final class WPCPM_Semester_Report_Screen {
 	 * @return callable A builder for `WPCPM_Mail::send()`.
 	 */
 	private static function drafted_message( $institution, $cohort, $in_progress ) {
-		return function () use ( $institution, $cohort, $in_progress ) {
+		$site = WPCPM_Mail::site_name();
+
+		return function () use ( $site, $institution, $cohort, $in_progress ) {
 			// row() answers null for a record the index has since dropped between due() and
 			// this mail being built; the institution's own ID is what the sentence falls back
 			// to; a name is never worth a fatal over.
@@ -2371,6 +2374,7 @@ final class WPCPM_Semester_Report_Screen {
 			return self::rendered(
 				self::MAIL_DRAFTED,
 				array(
+					'site_name'            => $site,
 					'institution_name'     => $name,
 					'semester'             => WPCPM_Cohort::label( $cohort ),
 					// Counted here with the verb that goes with the number, so the template never
@@ -2390,16 +2394,19 @@ final class WPCPM_Semester_Report_Screen {
 
 	/**
 	 * The message to an institution's accounts when a report is approved: the template registry's
-	 * `report-approved`, filled with the semester and the report's address.
+	 * `report-approved`, filled with the site's name, the semester and the report's address.
 	 *
 	 * @param string $cohort Cohort key.
 	 * @return callable A builder for `WPCPM_Mail::send()`.
 	 */
 	private static function approved_message( $cohort ) {
-		return function () use ( $cohort ) {
+		$site = WPCPM_Mail::site_name();
+
+		return function () use ( $site, $cohort ) {
 			return self::rendered(
 				self::MAIL_APPROVED,
 				array(
+					'site_name'   => $site,
 					'semester'    => WPCPM_Cohort::label( $cohort ),
 					'report_link' => self::report_url( $cohort ),
 				)
@@ -2568,7 +2575,7 @@ final class WPCPM_Semester_Report_Screen {
 	 * A `GET` handler, so the order is the one design spec 7.9 sets: the capability and the
 	 * membership through `decide()`, and **then** the nonce. Both come before anything else,
 	 * and they have to: drawing the document re-reads the students' consent, which is a live
-	 * read, and it writes the export stamp. A cross-site link therefore causes neither.
+	 * read. A cross-site link therefore causes none.
 	 *
 	 * **A post ID that is not this reader's gets the unknown-report message, byte for byte
 	 * the same as one that does not exist.** Anything else is a membership oracle: a refusal
@@ -2603,12 +2610,6 @@ final class WPCPM_Semester_Report_Screen {
 		}
 
 		check_admin_referer( self::ACTION_PRINT . '_' . $post->ID );
-
-		// What `_wpcpm_report_exported` is for: the manager screen's question is "has this
-		// school actually used the report it wrote", and the answer is the day it last
-		// printed one. It records that the document was served, not that it was complete: a
-		// consent read that failed prints a sheet saying so, and that is still a print.
-		update_post_meta( $post->ID, WPCPM_Semester_Report::META_EXPORTED, time() );
 
 		self::send( self::document( $post ) );
 	}
@@ -3016,8 +3017,8 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The consent message: the template registry's `report-consent`, filled with the semester and
-	 * the student's dashboard, where the two questions are.
+	 * The consent message: the template registry's `report-consent`, filled with the site's name, the
+	 * semester and the student's dashboard, where the two questions are.
 	 *
 	 * **It names no institution and quotes nothing.** The student knows which school they
 	 * are at, and a message repeating a sentence they wrote about their term back at them,
@@ -3030,10 +3031,13 @@ final class WPCPM_Semester_Report_Screen {
 	 *                  written to beyond what their own locale does to the wording.
 	 */
 	private static function ask_message( $cohort ) {
-		return function () use ( $cohort ) {
+		$site = WPCPM_Mail::site_name();
+
+		return function () use ( $site, $cohort ) {
 			return self::rendered(
 				self::MAIL_CONTEXT,
 				array(
+					'site_name'      => $site,
 					'semester'       => WPCPM_Cohort::label( $cohort ),
 					'dashboard_link' => class_exists( 'WPCPM_Students_Dashboard' ) ? WPCPM_Students_Dashboard::page_url() : '',
 				)
@@ -3426,18 +3430,6 @@ final class WPCPM_Semester_Report_Screen {
 		}
 
 		return count( $snapshot[ $of[ $key ] ] );
-	}
-
-	/**
-	 * What a state is called on screen.
-	 *
-	 * @param string $state `draft` or `approved`.
-	 * @return string
-	 */
-	private static function state_label( $state ) {
-		return WPCPM_Semester_Report::STATE_APPROVED === $state
-			? __( 'Approved', 'wpcredits-program-manager' )
-			: __( 'Draft', 'wpcredits-program-manager' );
 	}
 
 	/**

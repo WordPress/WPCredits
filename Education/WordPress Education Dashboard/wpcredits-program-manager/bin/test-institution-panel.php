@@ -65,7 +65,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 
-$GLOBALS['opts']       = array();
+$GLOBALS['opts']       = array( 'date_format' => 'F j, Y', 'time_format' => 'g:i a' );
 $GLOBALS['posts']      = array();
 $GLOBALS['pmeta']      = array();
 $GLOBALS['umeta']      = array();
@@ -146,6 +146,7 @@ function wpautop( $s ) { return '<p>' . str_replace( "\n", "<br />\n", (string) 
 function wp_kses_post( $s ) { return (string) $s; }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? $GLOBALS['clock'] : (int) $t ); }
+function date_i18n( $f, $t = false ) { return gmdate( $f, (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function add_query_arg( $args, $url = '' ) {
@@ -258,6 +259,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 // The real way back, which prints nothing for a form drawn anywhere but the Administrator Dashboard.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
@@ -790,7 +792,8 @@ seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_GENERATED, WPCPM_Instituti
 WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Template generated' ) );
 $generated = panel( $rec_a );
 
-ck( 'generated: names the date and the template version', false !== strpos( $generated, 'You generated the program&#039;s agreement on 2025-09-01 (template 2025-11-04)' ), true );
+ck( 'generated: names the date, in the site\'s format, and the template version', false !== strpos( $generated, 'You generated the program&#039;s agreement on September 1, 2025 (template 2025-11-04)' ), true );
+ck( 'generated: and not the date as year-month-day', false !== strpos( $generated, 'agreement on 2025-09-01' ), false );
 ck( 'generated: still shows the three steps', substr_count( $generated, '<li>' ), 3 );
 $ledes['generated'] = $generated;
 
@@ -800,7 +803,8 @@ seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Instituti
 WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Awaiting review' ) );
 $submitted = panel( $rec_a );
 
-ck( 'submitted: says it arrived and that an email is coming either way', false !== strpos( $submitted, 'We received your signed agreement on 2025-09-01' ), true );
+ck( 'submitted: says it arrived, on a date in the site\'s format, and that an email is coming either way', false !== strpos( $submitted, 'We received your signed agreement on September 1, 2025. An Administrator will review it and you will get an email either way.' ), true );
+ck( 'submitted: and not the date as year-month-day', false !== strpos( $submitted, 'agreement on 2025-09-01' ), false );
 ck( 'submitted: asks the reader to do nothing, so no steps', substr_count( $submitted, '<li>' ), 0 );
 ck( 'submitted: offers the copy and the way to take it back', array( false !== strpos( $submitted, 'action=wpcpm_agreement_download' ), false !== strpos( $submitted, 'value="wpcpm_agreement_withdraw"' ) ), array( true, true ) );
 $ledes['submitted'] = $submitted;
@@ -818,8 +822,21 @@ $returned = panel( $rec_a );
 ck( 'returned: says a manager returned it', false !== strpos( $returned, 'returned your agreement, with this note' ), true );
 ck( 'returned: the note is printed verbatim', false !== strpos( $returned, 'Page 4 is not signed.' ), true );
 ck( 'returned: and its second line too', false !== strpos( $returned, 'Please send it again.' ), true );
-ck( 'returned: signed and dated', false !== strpos( $returned, 'Ada Manager, 2026-08-30' ), true );
+ck( 'returned: signed and dated in the site\'s format', false !== strpos( $returned, 'Ada Manager, August 30, 2026' ), true );
+ck( 'returned: and not as year-month-day', false !== strpos( $returned, '2026-08-30' ), false );
 $ledes['returned'] = $returned;
+
+// A note nobody dated falls back to the day the document was written, in the same format.
+reset_world();
+seed_index( $rec_a, $country );
+seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_RETURNED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
+	WPCPM_Institution_Agreement::META_NOTE       => 'An older note.',
+	WPCPM_Institution_Agreement::META_DECIDED_BY => 9,
+) );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Returned' ) );
+$undated = panel( $rec_a );
+ck( 'returned: a note with no day of its own is dated by the document\'s, in the site\'s format', false !== strpos( $undated, 'Ada Manager, September 1, 2025' ), true );
+ck( 'and not as year-month-day', false !== strpos( $undated, '2025-09-01' ), false );
 
 reset_world();
 seed_index( $rec_a, $country );
@@ -849,7 +866,25 @@ foreach ( $ledes as $state => $html ) {
 
 ck( 'all five states rendered a lede', count( array_filter( $first_lines ) ), 5 );
 ck( 'and no two of them are the same words', count( array_unique( $first_lines ) ), 5 );
-ck( 'every panel printed its read time', count( array_filter( $ledes, function ( $html ) { return false !== strpos( $html, 'Agreement state: read' ); } ) ), 5 );
+$read_line = '/The agreement&#039;s state was read from the program records on [A-Z][a-z]+ \d{1,2}, \d{4} \d{1,2}:\d{2} [ap]m \(2 hours ago\)\./';
+ck( 'every panel printed its read time, in the site\'s date and time formats', count( array_filter( $ledes, function ( $html ) use ( $read_line ) { return 1 === preg_match( $read_line, $html ); } ) ), 5 );
+ck( 'and none in the old words or as year-month-day and a clock', count( array_filter( $ledes, function ( $html ) { return false !== strpos( $html, 'Agreement state: read' ) || 1 === preg_match( '/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $html ); } ) ), 0 );
+
+// The exact moment, and a site with another format: the read time is the option's own.
+$updated = (int) WPCPM_Institution_Agreement::option( $rec_a )['updated'];
+ck( 'the read line holds the stamp the option carries', false !== strpos( $ledes['revoked'], 'was read from the program records on ' . gmdate( 'F j, Y g:i a', $updated ) . ' (2 hours ago).' ), true );
+$GLOBALS['opts']['date_format'] = 'd/m/Y';
+$GLOBALS['opts']['time_format'] = 'H:i';
+ck( 'a site with another date and time format reads its own', false !== strpos( panel( $rec_a ), 'on ' . gmdate( 'd/m/Y H:i', $updated ) . ' (2 hours ago).' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$GLOBALS['opts']['time_format'] = 'g:i a';
+
+// Nothing read yet: the undated sentence keeps its words.
+$unread_option            = WPCPM_Institution_Agreement::option( $rec_a );
+$unread_option['updated'] = 0;
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $rec_a ) ] = $unread_option;
+ck( 'with nothing read yet the panel says so, in the words it had', false !== strpos( panel( $rec_a ), 'The agreement state has not been read from the program&#039;s records yet.' ), true );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Revoked' ) );
 
 /* ---- the sixth case: the two sources disagree ---------------------------- */
 
@@ -878,7 +913,8 @@ ck( 'the grid route settled it', WPCPM_Institution_Agreement::is_settled( $rec_a
 ck( 'the panel prints nothing', panel( $rec_a ), '' );
 
 $grid_card = card( $rec_a );
-ck( 'the card names the acceptance date', false !== strpos( $grid_card, 'Accepted on ' . gmdate( 'Y-m-d', $GLOBALS['clock'] ) . '.' ), true );
+ck( 'the card names the acceptance date, in the site\'s format', false !== strpos( $grid_card, 'Accepted on ' . gmdate( 'F j, Y', $GLOBALS['clock'] ) . '.' ), true );
+ck( 'and not as year-month-day', false !== strpos( $grid_card, gmdate( 'Y-m-d', $GLOBALS['clock'] ) ), false );
 ck( 'the card says it came from the program\'s own records', false !== strpos( $grid_card, 'Recorded from the program&#039;s own records' ), true );
 ck( 'and not that it was signed here', false !== strpos( $grid_card, 'Signed and accepted through this site' ), false );
 ck( 'a member is not sent to the program\'s Drive folder', false !== strpos( $grid_card, $drive ), false );
@@ -1067,7 +1103,11 @@ ck( 'and the option holds the link with no name on it',
     array( $drive, false ) );
 
 $site_card = card( $rec_a );
-ck( 'the card at the foot names the date', false !== strpos( $site_card, 'Accepted on 2025-09-01.' ), true );
+ck( 'the card at the foot names the date, in the site\'s format', false !== strpos( $site_card, 'Accepted on September 1, 2025.' ), true );
+ck( 'and not as year-month-day', false !== strpos( $site_card, '2025-09-01' ), false );
+$GLOBALS['opts']['date_format'] = 'j M Y';
+ck( 'a site with another date format reads its own', false !== strpos( card( $rec_a ), 'Accepted on 1 Sep 2025.' ), true );
+$GLOBALS['opts']['date_format'] = 'F j, Y';
 ck( 'and says a manager recorded it here from the program\'s copy', false !== strpos( $site_card, 'Recorded on this site by an Administrator' ), true );
 ck( 'the panel has nothing left to say', panel( $rec_a ), '' );
 
@@ -1372,7 +1412,7 @@ ck( 'submitted: download and withdraw, and nothing to upload over it', forms_in(
 ck( 'returned: the upload form and not the generate form', forms_in( $p_returned ), array( 'generate' => 0, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
 ck( 'revoked: the same', forms_in( $p_revoked ), array( 'generate' => 0, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
 
-ck( 'generated: says when it was generated and from which template', false !== strpos( $p_generated, 'You generated the program&#039;s agreement on 2025-09-01 (template 2025-11-04)' ), true );
+ck( 'generated: says when it was generated and from which template', false !== strpos( $p_generated, 'You generated the program&#039;s agreement on September 1, 2025 (template 2025-11-04)' ), true );
 ck( 'and offers that document again rather than only a fresh one', false !== strpos( $p_generated, 'Open that document again' ), true );
 ck( 'revoked: still names the country contact after the upload form', strpos( $p_revoked, 'value="wpcpm_agreement_upload"' ) < strpos( $p_revoked, 'Your program contact for Poland' ), true );
 
@@ -2163,6 +2203,14 @@ ck( 'the review block is eleven classes, and the admin stylesheet dresses all of
 // fails and the exception goes with it.
 ck( 'every class either half prints is dressed, but for the one another stylesheet owes', $undressed, array( 'wpcpm-link-button' ) );
 
+// And the other way round: three classes no PHP of the plugin's or the theme's prints, a promise
+// of a later card and a muted line nothing drew, are out of the stylesheet's selector list.
+ck( 'and institution.css dresses none of the three classes nothing prints', array(
+	dressed( $front_css, 'wpcpm-agreement-panel__soon' ),
+	dressed( $front_css, 'wpcpm-agreement-card__soon' ),
+	dressed( $front_css, 'wpcpm-people__muted' ),
+), array( false, false, false ) );
+
 // The review block draws two pieces of the panel's own markup - the download link, and the
 // note's textarea, which carries the panel's input class - on a screen that loads neither of
 // the front-end stylesheets. Both are dressed by context in admin.css rather than by a
@@ -2454,13 +2502,13 @@ ck( 'no rule with a leading-edge bar pads its two sides unequally', $shorthand, 
 ck( 'and the five quote-like rules pad on the inline axis', $unpadded, array() );
 ck( 'the roster strip puts its bar where the banner does', false !== strpos( $inst_rules['.wpcpm-roster__strip'] ?? '', 'border-inline-start-width: 4px' ), true );
 
-// The "Not yet in the Students table" list prints an address beside a name, and an address is
+// The "Enrollment not recorded yet" list prints an address beside a name, and an address is
 // one long word: on a phone it ran past the section's edge and the page scrolled sideways. The
 // list is the view's own markup, so the check reads the class from the view as well, and a
 // rename on one side fails here rather than leaving the rule naming nothing.
 $roster_view = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' );
 
-ck( 'the roster still prints its Not yet in the Students table list under the class the sheet dresses', array(
+ck( 'the roster still prints its Enrollment not recorded yet list under the class the sheet dresses', array(
 	false !== strpos( $roster_view, "<ul class=\"wpcpm-roster__unlinked\">" ),
 	false !== strpos( $roster_view, "' <span class=\"wpcpm-muted\">%s</span>'" ),
 ), array( true, true ) );
@@ -2579,6 +2627,8 @@ ck( 'every message is a known notice type', array_values( array_unique( array_ma
 $panel_messages = WPCPM_Institution_Panel::messages();
 ck( 'a record the site could not write after Airtable took it sends the manager to the institutions sync, on the tab that runs it', $panel_messages['agreement-not-saved'][1], 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.' );
 ck( 'and a state that was being rebuilt says the account opens after the next institutions sync', $panel_messages['agreement-later'][1], 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.' );
+ck( 'the revocation\'s outcome says what the institution\'s account shows from its next page load, the Collaboration Agreement card, and that everybody there has been emailed the note', $panel_messages['agreement-revoked'], array( 'success', 'The agreement is revoked. From its next page load the institution\'s account shows only the Collaboration Agreement card, and everybody there has been emailed your note.' ) );
+ck( 'and no outcome calls that card a panel', array_values( array_filter( array_keys( $panel_messages ), function ( $slug ) use ( $panel_messages ) { return false !== stripos( (string) $panel_messages[ $slug ][1], 'agreement panel' ); } ) ), array() );
 ck( 'and no outcome names a Refresh control', array_values( array_filter( array_keys( $panel_messages ), function ( $slug ) use ( $panel_messages ) { return false !== stripos( (string) $panel_messages[ $slug ][1], 'Refresh' ); } ) ), array() );
 
 echo "\n=== The location note is kept as it was typed ===\n";

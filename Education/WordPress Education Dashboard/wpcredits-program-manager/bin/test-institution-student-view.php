@@ -657,6 +657,45 @@ $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] = '';
 ck( 'a pending student with no known course reads Pending graduation alone, with no link', row_of( card( $inst_a, 10, array() ), 'Program' ), 'Pending graduation' );
 
 unset( $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] );
+
+// A student who has finished, and the other statuses the base writes that are not a track: the
+// card says what the roster's row says ("Graduated", not the base's own "Graduate"), in the badge
+// beside the name and in the Program row, while the badge keeps the colour of the raw status.
+$plain_words = array(
+	'Graduate'                  => 'Graduated',
+	'Fail'                      => 'Did not complete',
+	'Not moving forward'        => 'Not continuing',
+	'In Sensei Self-onboarding' => 'Getting started',
+	'Dropped out'               => 'Dropped out',
+);
+
+foreach ( $plain_words as $raw => $printed ) {
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = $raw;
+
+	$words_card = card( $inst_a, 10, array() );
+	$badge_html = '<span class="wpcpm-badge' . ( '' === WPCPM_Program::badge( $raw ) ? '' : ' wpcpm-badge--' . WPCPM_Program::badge( $raw ) ) . '">' . $printed . '</span>';
+
+	ck( "a student whose status is {$raw} has a badge beside the name that says {$printed}",
+		1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p>' . preg_quote( $badge_html, '#' ) . '#', $words_card ), true );
+	ck( "and a Program row that says {$printed}", row_of( $words_card, 'Program' ), $printed );
+}
+
+// And the base's own word is not left anywhere on a graduate's card.
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'Graduate';
+
+ck( "a graduate's card does not print the base's own word for the status", preg_match( '/\bGraduate\b/', card( $inst_a, 10, array() ) ), 0 );
+
+// A current student on a compiled track reads as before, in the badge and in the row.
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'Developer Track';
+
+$track_card = card( $inst_a, 10, array() );
+
+ck( "a compiled track's name is still what the Program row says, linked to its course",
+	row_of( $track_card, 'Program' ),
+	'<a href="' . WPCPM_Program::course_url( 'Developer Track' ) . '" target="_blank" rel="noopener noreferrer">Developer Track</a>' );
+ck( 'and what the badge beside the name says',
+	1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p><span class="wpcpm-badge wpcpm-badge--dev">Developer Track</span>#', $track_card ), true );
+
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
 
 /* ---- 6. the identity block, from both sides ------------------------------- */
@@ -794,7 +833,8 @@ $GLOBALS['styles']                                           = array();
 $without = card( $inst_a, 10, array() );
 
 ck( 'a student with no report record gets no disclosure', false === strpos( $without, 'data-wpcpm-report=' ), true );
-ck( 'and is told why', false !== strpos( $without, 'no report record' ), true );
+ck( 'and is told why, in the words a school uses for it', false !== strpos( $without, 'This student has no progress record yet, so there is no Student Report Card to show.' ), true );
+ck( 'with no record kind, table or data store named', array( false !== strpos( $without, 'report record' ), false !== strpos( $without, 'program data' ), false !== strpos( $without, 'Airtable' ) ), array( false, false, false ) );
 ck( 'and a card with no report to draw loads no stylesheet for one', in_array( WPCPM_Call_Calendar::STYLE, $GLOBALS['styles'], true ), false );
 
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_RECORD_ID ] = $report_a;
