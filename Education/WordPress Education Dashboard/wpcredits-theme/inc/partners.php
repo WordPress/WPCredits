@@ -46,6 +46,13 @@ const WPCREDITS_PARTNERS_SLUG = 'partners';
 const WPCREDITS_PARTNERS_LINK_HOOK = 'wpcredits-theme/partners-link';
 
 /**
+ * The type the menu's "Become a sponsor" button is hooked under, for the same reason as the Partners
+ * link's (above): core writes the navigation link its filter answers and looks for this name in a menu's
+ * `ignoredHookedBlocks`, where a menu saved in the Site Editor may hold it, so it stays as it is.
+ */
+const WPCREDITS_SPONSOR_LINK_HOOK = 'wpcredits-theme/sponsor-link';
+
+/**
  * Register the Partners page's stylesheet, after the hub's, whose type, heads, cards and buttons it
  * builds on.
  */
@@ -97,16 +104,21 @@ function wpcredits_partners_live() {
 }
 
 /**
- * The header menu's last two items: the "Partners" link while the levels are public, then the button,
- * "Partner as an institution", hooked into the menu as its last children (the site's owner, 21 and 25
- * October 2026). The link leads to the Partners page, so while the levels are not public there is no
- * link, and nothing points at what visitors cannot see yet. The button leads to the institution
- * application form, which does not depend on the levels, so it is always there.
+ * The header menu's last items, hooked into the menu as its last children (the site's owner, 21 and 25
+ * October 2026): the "Partners" link while the levels are public, then, for a visitor who is not signed in,
+ * two buttons, "Become a sponsor" and "Partner as an institution". The link leads to the Partners page,
+ * so while the levels are not public there is no link, and nothing points at what visitors cannot see
+ * yet. The buttons lead to the sponsor and the institution application forms, which do not depend on the
+ * levels. They ask someone who has no account yet, so a signed-in reader's bar, which carries the report
+ * cards' links, has neither, and keeps its items on one line from 1200px (theme 1.32.7, the site's
+ * owner's choice of 25 October 2026).
  *
- * The button is hooked as a navigation link, the type it has been since 1.31.9, and the link under a type
- * of its own (`WPCREDITS_PARTNERS_LINK_HOOK`): see the constant. A menu saved in the Site Editor lists
- * the types it was offered as ignored, so the one saved before the levels were public is still offered
- * the link once they are, and a menu saved with both holds both as links of its own, as saved.
+ * The institution button is hooked as a navigation link, the type it has been since 1.31.9, and the link
+ * and the sponsor button under types of their own (`WPCREDITS_PARTNERS_LINK_HOOK`,
+ * `WPCREDITS_SPONSOR_LINK_HOOK`): see the constants. A menu saved in the Site Editor lists the types it
+ * was offered as ignored. The Site Editor is used signed in, where the buttons are not offered, so a menu
+ * saved there never ignores them; one saved before the levels were public is still offered the link once
+ * they are; and a menu saved with an item holds it as a link of its own, as saved.
  *
  * @param string[] $hooked   The block types hooked at this position.
  * @param string   $position Where: before, after, first_child or last_child.
@@ -119,7 +131,10 @@ function wpcredits_partners_menu_item( $hooked, $position, $anchor ) {
 			$hooked[] = WPCREDITS_PARTNERS_LINK_HOOK;
 		}
 
-		$hooked[] = 'core/navigation-link';
+		if ( ! is_user_logged_in() ) {
+			$hooked[] = WPCREDITS_SPONSOR_LINK_HOOK;
+			$hooked[] = 'core/navigation-link';
+		}
 	}
 
 	return $hooked;
@@ -166,7 +181,7 @@ function wpcredits_partners_menu_attrs( $label, $url, $class = '' ) {
 }
 
 /**
- * Whether a hooked block sits last in a navigation, where the menu's two items go.
+ * Whether a hooked block sits last in a navigation, where the menu's items go.
  *
  * @param string $position Where it is hooked.
  * @param array  $anchor   The anchor block, parsed.
@@ -234,6 +249,35 @@ function wpcredits_partners_link_block( $block, $type, $position, $anchor ) {
 	return $block;
 }
 add_filter( 'hooked_block_' . WPCREDITS_PARTNERS_LINK_HOOK, 'wpcredits_partners_link_block', 10, 4 );
+
+/**
+ * The hooked sponsor button: "Become a sponsor", the site's owner's words, an outline button like the
+ * institution one beside it, leading to the sponsor application form, written as a navigation link
+ * although it is hooked under a type of its own (`WPCREDITS_SPONSOR_LINK_HOOK`). While the plugin has no
+ * published form it falls back to the WordPress Credits handbook, as every link to one of the site's own
+ * pages does.
+ *
+ * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
+ * @param string     $type     The hooked block's type.
+ * @param string     $position Where it is hooked.
+ * @param array      $anchor   The anchor block, parsed.
+ * @return array|null
+ */
+function wpcredits_partners_sponsor_block( $block, $type, $position, $anchor ) {
+	if ( null === $block || ! wpcredits_partners_menu_position( $position, $anchor ) ) {
+		return $block;
+	}
+
+	$block['blockName'] = 'core/navigation-link';
+	$block['attrs']     = wpcredits_partners_menu_attrs(
+		__( 'Become a sponsor', 'wpcredits-theme' ),
+		wpcredits_hub_url( 'sponsor_application' ),
+		'wpc-nav__partner'
+	);
+
+	return $block;
+}
+add_filter( 'hooked_block_' . WPCREDITS_SPONSOR_LINK_HOOK, 'wpcredits_partners_sponsor_block', 10, 4 );
 
 /**
  * The five partnership levels the theme ships, in a program lead's words (21 October 2026), the lowest

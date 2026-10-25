@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.6
+Stable tag: 1.32.7
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -191,6 +191,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.7 =
+
+* The menu has a second button for visitors: "Become a sponsor", an outline button like "Partner as an institution" beside it, leads to the sponsor application (the site's owner, 25 October 2026). A visitor who is not signed in sees Partners (while the partnership levels are public), Become a sponsor and Partner as an institution, on one line at every width.
+* The two buttons are for visitors alone: a signed-in reader's menu has the Partners link, so a bar that carries the Student Report Card's and the Mentor Report Card's links stays on one line from 1200px, where it would have wrapped up to about 1350px with both buttons in it (the site's owner's choice).
+* For developers: the sponsor button is hooked under a type of its own, `wpcredits-theme/sponsor-link`, as the Partners link is; a menu saved in the Site Editor, which is used signed in and is never offered the buttons, keeps them for visitors. `bin/test-partners.php` checks the three items, each audience, the links and their fallbacks, the current marking and saved menus.
 
 = 1.32.6 =
 

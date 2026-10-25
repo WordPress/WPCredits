@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.6
+Version: 1.32.7
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -417,10 +417,11 @@ body .skip-link.screen-reader-text:focus {
 	font-weight: 500;
 }
 
-/* "Partner as an institution", the menu's last item (inc/partners.php): an outline button in the brand
-   blue, so it stands apart from the links before it, "Partners" among them while the partnership levels
-   are public, and from the filled Log in beside it. In the phone menu it is a row like the others, whose
-   rules are deeper. */
+/* "Become a sponsor" and "Partner as an institution", the menu's last items for a visitor who is not
+   signed in (inc/partners.php): outline buttons in the brand blue, so they stand apart from the links
+   before them, "Partners" among them while the partnership levels are public, and from the filled Log in
+   beside them. In the signed-in phone menu, which has them only where a menu saved in the Site Editor
+   holds one as a link of its own, a button is a row like the others, whose rules are deeper. */
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 	border: 1px solid var( --wpc-brand );
 	color: var( --wpc-brand );
@@ -2112,8 +2113,9 @@ p.is-style-pill {
 		color: var( --wpc-brand );
 	}
 
-	/* "Partner as an institution" is a row like the others here: the rule above replaces only the bottom border,
-	   so the wide row's outline button would keep its other three, with the text against the left one. */
+	/* An outline button is a row like the others here: the rule above replaces only the bottom border, so the
+	   wide row's outline button would keep its other three, with the text against the left one. The menu
+	   hooks the buttons for visitors alone since 1.32.7, so this dresses one a saved menu holds. */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 		border-left: 0;
 		border-right: 0;
@@ -2133,9 +2135,8 @@ p.is-style-pill {
 		font-weight: 500;
 	}
 
-	/* "Partner as an institution" on the institution form's page (inc/partners.php marks it current there):
-	   the blue is the cue, and it keeps the weight 600 its own rule gives it, which the rule above would
-	   take down to 500. */
+	/* An outline button on its own form's page (inc/partners.php marks it current there): the blue is the
+	   cue, and it keeps the weight 600 its own rule gives it, which the rule above would take down to 500. */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > [aria-current="page"] {
 		font-weight: 600;
 	}
