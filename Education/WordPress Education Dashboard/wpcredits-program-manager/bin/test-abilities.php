@@ -56,6 +56,9 @@ define( 'MONTH_IN_SECONDS', 2592000 );
 // The child process that runs with no Abilities API at all (a WordPress before 6.9).
 $bare = isset( $argv[1] ) && 'child-bare' === $argv[1];
 
+// The child that runs on a PHP without mb_scrub() and on a WordPress before 6.9 (no wp_scrub_utf8()).
+$no_mb = isset( $argv[1] ) && 'child-no-mbstring' === $argv[1];
+
 $GLOBALS['opts']       = array(); // Option => value.
 $GLOBALS['actions']    = array(); // Hook => the callbacks added to it.
 $GLOBALS['categories'] = array(); // Slug => the arguments the category was registered with.
@@ -64,6 +67,9 @@ $GLOBALS['uid']        = 0;       // The signed-in account.
 $GLOBALS['manage']     = array(); // The accounts that hold the management capability.
 $GLOBALS['app_uuid']   = null;    // The application password that signed the request, or null.
 $GLOBALS['app_items']  = array(); // User ID => uuid => the stored application password.
+$GLOBALS['throw_option'] = null;  // The start of the names of options whose read throws, or null.
+$GLOBALS['validated']  = array(); // The schemas the stand-in validator was asked about, in order.
+$GLOBALS['schema_of']  = array(); // Name => the output schema a filter left on the registered ability.
 
 /* ---- WordPress, as far as the frame reaches ---------------------------------- */
 
@@ -83,7 +89,7 @@ function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
 function __( $text, $domain = null ) { return $text; }
 function _n( $single, $plural, $number, $domain = null ) { return 1 === (int) $number ? $single : $plural; }
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) { $GLOBALS['actions'][ $hook ][] = $callback; }
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+function get_option( $k, $d = false ) { if ( null !== $GLOBALS['throw_option'] && 0 === strpos( $k, $GLOBALS['throw_option'] ) ) { throw new RuntimeException( 'The options table is gone.' ); } return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function add_option( $k, $v, $dep = '', $a = 'yes' ) {
@@ -99,6 +105,23 @@ function absint( $n ) { return abs( (int) $n ); }
 function wp_date( $f, $t = null ) { return '2026-10-24 10:00'; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
+
+/**
+ * Core's REST validator, as far as these schemas reach: the suite's own `misfits()`, with only the keys an
+ * object's `required` names insisted on, as core insists. It keeps each schema it is asked about.
+ *
+ * @param mixed  $value The value.
+ * @param array  $args  The schema.
+ * @param string $param Its name in core's message.
+ * @return true|WP_Error
+ */
+function rest_validate_value_from_schema( $value, $args, $param = '' ) {
+	$GLOBALS['validated'][] = $args;
+	$problems               = misfits( $args, decoded( $value ), '$', false );
+
+	return array() === $problems ? true : new WP_Error( 'rest_invalid_type', $param . ': ' . implode( '; ', $problems ) );
+}
 
 // The Abilities API, as far as the frame registers: each call is kept with its arguments.
 if ( ! $bare ) {
@@ -106,6 +129,32 @@ if ( ! $bare ) {
 	function wp_register_ability( $name, $args ) { $GLOBALS['registered'][ $name ] = $args; return true; }
 	// Core's: the id of the application password that signed this request, or null.
 	function rest_get_authenticated_app_password() { return $GLOBALS['app_uuid']; }
+	// Core's (6.9 and later), as core writes it: bytes that are not UTF-8 become U+FFFD.
+	if ( ! $no_mb ) {
+		function wp_scrub_utf8( $text ) {
+			$previous = mb_substitute_character();
+			mb_substitute_character( 0xFFFD );
+			$scrubbed = mb_scrub( $text, 'UTF-8' );
+			mb_substitute_character( $previous );
+
+			return $scrubbed;
+		}
+	}
+	// Core's: the registered ability, whose output schema is the one core checks an answer against. A
+	// filter on the registration may have changed it (`schema_of`); unregistered, there is none.
+	function wp_get_ability( $name ) {
+		if ( ! isset( $GLOBALS['registered'][ $name ] ) ) {
+			return null;
+		}
+
+		$schema = isset( $GLOBALS['schema_of'][ $name ] ) ? $GLOBALS['schema_of'][ $name ] : $GLOBALS['registered'][ $name ]['output_schema'];
+
+		return new class( $schema ) {
+			private $schema;
+			public function __construct( $schema ) { $this->schema = $schema; }
+			public function get_output_schema() { return $this->schema; }
+		};
+	}
 	class WP_Application_Passwords {
 		public static function get_user_application_password( $user_id, $uuid ) {
 			return isset( $GLOBALS['app_items'][ (int) $user_id ][ $uuid ] ) ? $GLOBALS['app_items'][ (int) $user_id ][ $uuid ] : null;
@@ -169,6 +218,23 @@ if ( $bare ) {
 			'functions' => array( function_exists( 'wp_register_ability' ), function_exists( 'wp_register_ability_category' ), function_exists( 'rest_get_authenticated_app_password' ), class_exists( 'WP_Application_Passwords', false ) ),
 			'enabled'   => WPCPM_Abilities::enabled(),
 			'password'  => WPCPM_Abilities::password(),
+		)
+	);
+	exit( 0 );
+}
+
+/* ---- The child that has no mbstring scrubber --------------------------------- */
+
+// Run with mb_scrub() disabled and no wp_scrub_utf8(): text that is not UTF-8 becomes nothing, never
+// the bytes and never a fatal, and everything else is cleaned as ever (Review Focus 4).
+if ( $no_mb ) {
+	echo json_encode(
+		array(
+			'scrubbers' => array( function_exists( 'mb_scrub' ), function_exists( 'wp_scrub_utf8' ) ),
+			'invalid'   => WPCPM_Abilities::text( "Caf\xE9 X" ),
+			'invisible' => WPCPM_Abilities::text( "A \u{200B} B" ),
+			'cut'       => WPCPM_Abilities::text( str_repeat( 'a', 119 ) . ' bcd' ),
+			'plain'     => WPCPM_Abilities::text( 'University of Example, Kraków' ),
 		)
 	);
 	exit( 0 );
@@ -594,6 +660,39 @@ ck( 'an array gives nothing', WPCPM_Abilities::text( array( 'a' ) ), '' );
 ck( 'null gives nothing', WPCPM_Abilities::text( null ), '' );
 ck( 'a number gives nothing: only text is text', WPCPM_Abilities::text( 12 ), '' );
 ck( 'bytes that are not UTF-8 give a string, never null', is_string( WPCPM_Abilities::text( "Caf\xE9 X" ) ), true );
+ck( 'bytes that are not UTF-8 are scrubbed by core\'s wp_scrub_utf8(), each to U+FFFD', WPCPM_Abilities::text( "Caf\xE9 X" ), "Caf\u{FFFD} X" );
+ck( 'a zero-width space between two spaces leaves one space, not two', WPCPM_Abilities::text( "A \u{200B} B" ), 'A B' );
+ck( 'and so does a control character between two spaces', WPCPM_Abilities::text( "A \x07 B" ), 'A B' );
+ck( 'a cut that ends on a space ends without it', WPCPM_Abilities::text( str_repeat( 'a', 119 ) . ' bcd' ), str_repeat( 'a', 119 ) );
+
+exec( escapeshellarg( PHP_BINARY ) . ' -d disable_functions=mb_scrub ' . escapeshellarg( __FILE__ ) . ' child-no-mbstring 2>&1', $no_mb_out, $no_mb_status );
+ck( 'with neither wp_scrub_utf8() nor mb_scrub(), text that is not UTF-8 is nothing, never the bytes or a fatal, and every other text is cleaned as ever (Review Focus 4)', array( $no_mb_status, json_decode( implode( '', $no_mb_out ), true ) ), array( 0, array( 'scrubbers' => array( false, false ), 'invalid' => '', 'invisible' => 'A B', 'cut' => str_repeat( 'a', 119 ), 'plain' => 'University of Example, Kraków' ) ) );
+
+// mbstring is not on every PHP. WordPress stands in for mb_substr() and mb_strlen(), and for nothing
+// else this frame uses, so every other mb_ function is asked for first, on the line that calls it or on
+// the line of the branch it sits in.
+$unguarded = array();
+
+foreach ( array( 'includes/class-wpcpm-abilities.php', 'includes/class-wpcpm-ability-answers.php' ) as $file ) {
+	$lines = explode( "\n", (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ) );
+
+	foreach ( $lines as $number => $line ) {
+		if ( preg_match( '/^\s*(\*|\/\/)/', $line ) ) {
+			continue;
+		}
+
+		preg_match_all( '/\b(mb_[a-z_]+)\s*\(/', $line, $calls );
+		$guards = $line . ( $number > 0 ? $lines[ $number - 1 ] : '' );
+
+		foreach ( $calls[1] as $call ) {
+			if ( ! in_array( $call, array( 'mb_substr', 'mb_strlen' ), true ) && false === strpos( $guards, "function_exists( '$call' )" ) ) {
+				$unguarded[] = basename( $file ) . ':' . ( $number + 1 ) . ' ' . $call;
+			}
+		}
+	}
+}
+
+ck( 'every mb_ call that WordPress does not stand in for is behind function_exists() on its line', $unguarded, array() );
 
 echo "\n=== time(): ISO 8601 in UTC, or null ===\n";
 ck( 'zero is never read', WPCPM_Abilities::time( 0 ), null );
@@ -807,6 +906,22 @@ ck( 'another account\'s ceiling refusal is written while the first one\'s cap is
 WPCPM_Settings::patch( array( 'mcp_calls_per_hour' => 120, 'mcp_calls_per_day' => 600 ) );
 
 echo "\n=== answer(): a build that fails ===\n";
+// A failure leaves a line in PHP's error log (trace()), read back from a file of this run's own.
+$log_file    = wpcpm_test_temp_dir() . 'php-errors.log';
+$log_was     = ini_get( 'error_log' );
+$lines_after = static function ( callable $run, $fresh = true ) use ( $log_file ) {
+	// The hour's one line of failed answers given back, unless the check is that it is spent.
+	if ( $fresh ) {
+		WPCPM_Ceiling::release( WPCPM_Ceiling::key( 'mcp-trace', 'answer' ), HOUR_IN_SECONDS );
+	}
+
+	file_put_contents( $log_file, '' );
+	$run();
+	$lines = array_values( array_filter( array_map( 'trim', explode( "\n", (string) file_get_contents( $log_file ) ) ), 'strlen' ) );
+
+	return array_map( static function ( $line ) { return preg_replace( '/^\[[^\]]*\] /', '', $line ); }, $lines );
+};
+ini_set( 'error_log', $log_file );
 sign_in( 15 );
 $rows    = row_count();
 $thrower = function ( $input = null ) { throw new RuntimeException( 'Token rejected for patXXXXXXXX at https://api.airtable.example.test/v0/appXXXX' ); };
@@ -838,6 +953,93 @@ $ran    = 0;
 $cheap  = WPCPM_Abilities::answer( 'wpcpm/program-counts', null, function ( $input = null ) use ( &$ran ) { ++$ran; return array( 'answer' => array(), 'records' => array() ); } );
 ck( 'an answer with nothing in it is still an answer', array( $cheap, last_row()['data']['outcome'] ), array( array(), 'answered' ) );
 
+echo "\n=== answer(): an answer that does not fit its schema is a failure ===\n";
+sign_in( 16 );
+$schema = array(
+	'type'                 => 'object',
+	'properties'           => array( 'x' => array( 'type' => 'integer' ) ),
+	'required'             => array( 'x' ),
+	'additionalProperties' => false,
+);
+$ran  = 0;
+$fits = WPCPM_Abilities::answer( 'wpcpm/program-counts', null, counting_build( $ran ), $schema );
+ck( 'an answer that fits the schema it is given is answered, and logged so', array( $fits, last_row()['data']['outcome'], $ran ), array( array( 'x' => 1 ), 'answered', 1 ) );
+
+$rows  = row_count();
+$hour  = WPCPM_Ceiling::count( WPCPM_Ceiling::key( 'mcp-hour', 16 ), HOUR_IN_SECONDS );
+$ran   = 0;
+$wrong = WPCPM_Abilities::answer( 'wpcpm/program-counts', null, function ( $input = null ) use ( &$ran ) { ++$ran; return array( 'answer' => array( 'x' => 'Token patXXXXXXXX' ), 'records' => array( 'recAAAAAAAAAAAAA2' ) ); }, $schema );
+$row   = last_row();
+ck( 'one that does not fit is the fixed failure, and nothing of the validator\'s words or of the answer goes out', array( code_of( $wrong ), is_wp_error( $wrong ) ? $wrong->get_error_message() : '', false !== strpos( serialize( $wrong ), 'patXXXX' ), $ran ), array( 'wpcpm_mcp_failed', 'The site could not answer this time.', false, 1 ) );
+ck( 'logged once, as failed for the reason invalid_output, with no records, since none went out', array( row_count() - $rows, $row['data']['outcome'], $row['data']['reason'], $row['data']['records'], false !== strpos( json_encode( $row ), 'patXXXX' ) ), array( 1, 'failed', 'invalid_output', array(), false ) );
+ck( 'and counted against the hour all the same', WPCPM_Ceiling::count( WPCPM_Ceiling::key( 'mcp-hour', 16 ), HOUR_IN_SECONDS ) - $hour, 1 );
+
+$ran       = 0;
+$unchecked = WPCPM_Abilities::answer( 'wpcpm/program-counts', null, function ( $input = null ) use ( &$ran ) { ++$ran; return array( 'answer' => array( 'x' => 'one' ), 'records' => array() ); } );
+ck( 'with no schema the answer is not checked', array( $unchecked, last_row()['data']['outcome'] ), array( array( 'x' => 'one' ), 'answered' ) );
+
+echo "\n=== trace(): one line in PHP's error log, at most one an hour (Review Focus 2 and 5) ===\n";
+sign_in( 17 );
+$thrower = function ( $input = null ) { throw new RuntimeException( 'Token rejected for patXXXXXXXX at https://api.airtable.example.test/v0/appXXXX' ); };
+$lines   = $lines_after( static function () use ( $thrower ) { WPCPM_Abilities::answer( 'wpcpm/program-counts', null, $thrower ); } );
+ck( 'a build that throws leaves one line, with the ability and the exception\'s class and nothing of its message', $lines, array( 'WPCredits MCP: wpcpm/program-counts could not answer (RuntimeException).' ) );
+ck( 'and the row\'s reason is still error', last_row()['data']['reason'], 'error' );
+$lines = $lines_after( static function () use ( $thrower ) { WPCPM_Abilities::answer( 'wpcpm/program-counts', null, $thrower ); }, false );
+ck( 'a second failure in the same hour leaves no second line', $lines, array() );
+ck( 'and is still logged as a failed call', array( last_row()['data']['outcome'], last_row()['data']['reason'] ), array( 'failed', 'error' ) );
+
+$lines = $lines_after( static function () { WPCPM_Abilities::answer( 'wpcpm/waiting-for-decision', null, function ( $input = null ) { return 'text'; } ); } );
+ck( 'a build that answers something else says not_an_answer', $lines, array( 'WPCredits MCP: wpcpm/waiting-for-decision could not answer (not_an_answer).' ) );
+$lines = $lines_after( static function () use ( $schema ) { WPCPM_Abilities::answer( 'wpcpm/program-counts', null, function ( $input = null ) { return array( 'answer' => array( 'x' => 'one' ), 'records' => array() ); }, $schema ); } );
+ck( 'an answer that does not fit its schema says invalid_output', $lines, array( 'WPCredits MCP: wpcpm/program-counts could not answer (invalid_output).' ) );
+
+$lines = $lines_after( static function () { WPCPM_Abilities::answer( 'wpcpm/program-counts', null, function ( $input = null ) { throw new class( 'Token patXXXXXXXX' ) extends RuntimeException {}; } ); } );
+ck( 'an anonymous class is named for what it extends, without the file it was declared in', array( $lines, false !== strpos( (string) file_get_contents( $log_file ), 'test-abilities' ), false !== strpos( (string) file_get_contents( $log_file ), 'bin' ) ), array( array( 'WPCredits MCP: wpcpm/program-counts could not answer (RuntimeException@anonymous).' ), false, false ) );
+
+$ran   = 0;
+$lines = $lines_after( static function () use ( &$ran ) { WPCPM_Abilities::answer( 'wpcpm/program-counts', null, counting_build( $ran ) ); } );
+ck( 'an answer leaves no line', array( $lines, $ran ), array( array(), 1 ) );
+
+$lines = $lines_after( static function () { WPCPM_Abilities::trace( 'answer', "Bad\nClass: WPCredits MCP: fake", "wpcpm/Odd name\n" ); } );
+ck( 'what a line names is cleaned to the characters a class and an ability are made of, so nothing can add a line', $lines, array( 'WPCredits MCP: wpcpm/ddname could not answer (BadClassWPCreditsMCPfake).' ) );
+
+// The hour's place is given back first, so the line could be written but for the options table.
+WPCPM_Ceiling::release( WPCPM_Ceiling::key( 'mcp-trace', 'answer' ), HOUR_IN_SECONDS );
+$GLOBALS['throw_option'] = WPCPM_Ceiling::PREFIX;
+$escaped                 = null;
+try {
+	$lines = $lines_after( static function () { WPCPM_Abilities::trace( 'answer', 'RuntimeException', 'wpcpm/program-counts' ); }, false );
+} catch ( Throwable $e ) {
+	$escaped = get_class( $e );
+}
+$GLOBALS['throw_option'] = null;
+ck( 'with the options table gone, the hour cannot be counted: nothing escapes and no line is written', array( $escaped, $lines ), array( null, array() ) );
+
+echo "\n=== The schema an answer is checked against is the registered ability's ===\n";
+// Core checks an answer against the output schema of the ability as it was registered, which a filter on
+// the registration may have changed; answer() checks against the same one, and against the schema written
+// in definitions() only when the ability cannot be read.
+sign_in( 18 );
+readers_reset();
+$definitions = WPCPM_Abilities::definitions();
+$GLOBALS['schema_of']['wpcpm/program-counts'] = array( 'type' => 'object', 'properties' => array( 'not_there' => array( 'type' => 'string' ) ), 'required' => array( 'not_there' ), 'additionalProperties' => true );
+$GLOBALS['validated'] = array();
+$result               = call_user_func( $definitions['wpcpm/program-counts']['execute_callback'], null );
+ck( 'with a filter\'s schema on the registered ability, that schema is the one checked, and an answer that does not fit it is a failure', array( $GLOBALS['validated'], code_of( $result ), last_row()['data']['reason'] ), array( array( $GLOBALS['schema_of']['wpcpm/program-counts'] ), 'wpcpm_mcp_failed', 'invalid_output' ) );
+$GLOBALS['schema_of']['wpcpm/program-counts'] = array();
+$GLOBALS['validated'] = array();
+$result               = call_user_func( $definitions['wpcpm/program-counts']['execute_callback'], null );
+ck( 'with no schema left on the registered ability, nothing is checked, as core checks nothing', array( $GLOBALS['validated'], is_array( $result ) ), array( array(), true ) );
+$GLOBALS['schema_of'] = array();
+$registered           = $GLOBALS['registered']['wpcpm/program-counts'];
+unset( $GLOBALS['registered']['wpcpm/program-counts'] );
+$GLOBALS['validated'] = array();
+call_user_func( $definitions['wpcpm/program-counts']['execute_callback'], null );
+ck( 'an ability that cannot be read is checked against the schema definitions() writes', $GLOBALS['validated'], array( $definitions['wpcpm/program-counts']['output_schema'] ) );
+$GLOBALS['registered']['wpcpm/program-counts'] = $registered;
+
+ini_set( 'error_log', false === $log_was ? '' : $log_was );
+
 echo "\n=== The log rows are the audit type's, under the fourth key ===\n";
 ck( 'every row the frame wrote is of the audit post type, under the fourth key', count( WPCPM_Institution_Audit::mcp_entries( 0 ) ) > 0 && count( array_filter( $GLOBALS['posts'], function ( $post ) { return WPCPM_Institution_Audit::POST_TYPE === $post->post_type; } ) ) === count( WPCPM_Institution_Audit::mcp_entries( 0 ) ), true );
 
@@ -850,10 +1052,14 @@ readers_reset();
 $definitions = WPCPM_Abilities::definitions();
 $seen        = array();
 foreach ( $inputs as $name => $pair ) {
-	$rows   = row_count();
-	$result = call_user_func( $definitions[ $name ]['execute_callback'], $pair[1] );
-	$direct = WPCPM_Ability_Answers::{$pair[0]}( $pair[1] );
-	$row    = last_row();
+	$rows                 = row_count();
+	$GLOBALS['validated'] = array();
+	$result               = call_user_func( $definitions[ $name ]['execute_callback'], $pair[1] );
+	$checked              = $GLOBALS['validated'];
+	$direct               = WPCPM_Ability_Answers::{$pair[0]}( $pair[1] );
+	$row                  = last_row();
+
+	ck( "$name: the answer was checked once, against the output schema the ability is registered with", $checked, array( $definitions[ $name ]['output_schema'] ) );
 
 	ck( "$name: answers what WPCPM_Ability_Answers::{$pair[0]}() builds for it", json_encode( $result ), json_encode( $direct['answer'] ) );
 	ck( "$name: and writes one row that names the ability and the outcome", array( row_count(), $row['data']['ability'], $row['data']['outcome'] ), array( $rows + 1, $name, 'answered' ) );

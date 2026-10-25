@@ -66,6 +66,13 @@ class WPCPM_Ability_Answers {
 	/** The groups a roster puts an institution's students in. */
 	const GROUPS = array( 'current', 'waiting', 'finished', 'not_started' );
 
+	/**
+	 * The stage an institution with none is named by and counted under. It is data, a key of the answer
+	 * as the stages typed into the records are, so it is not translated: the answer reads the same whatever
+	 * language the account that asks reads the site in.
+	 */
+	const NO_STAGE = 'No stage';
+
 	/*
 	 * --------------------------------------------------------------------
 	 * The builders
@@ -330,7 +337,7 @@ class WPCPM_Ability_Answers {
 			foreach ( WPCPM_Institutions_Index::rows() as $id => $row ) {
 				$name = WPCPM_Abilities::text( is_array( $row ) && isset( $row['name'] ) ? $row['name'] : '' );
 
-				if ( is_array( $row ) && false !== mb_stripos( $name, $needle, 0, 'UTF-8' ) ) {
+				if ( is_array( $row ) && false !== ( function_exists( 'mb_stripos' ) ? mb_stripos( $name, $needle, 0, 'UTF-8' ) : stripos( $name, $needle ) ) ) {
 					$found[] = array(
 						'id'   => (string) $id,
 						'name' => $name,
@@ -340,10 +347,11 @@ class WPCPM_Ability_Answers {
 			}
 		}
 
+		// By name as the dashboards order names, accents and case aside, then by record ID.
 		usort(
 			$found,
 			static function ( $a, $b ) {
-				$order = strcmp( mb_strtolower( $a['name'], 'UTF-8' ), mb_strtolower( $b['name'], 'UTF-8' ) );
+				$order = WPCPM_Dashboards::compare_names( $a['name'], $b['name'] );
 
 				return 0 !== $order ? $order : strcmp( $a['id'], $b['id'] );
 			}
@@ -414,7 +422,7 @@ class WPCPM_Ability_Answers {
 	private static function stage( $stage ) {
 		$stage = WPCPM_Abilities::text( $stage );
 
-		return '' !== $stage ? $stage : __( 'No stage', 'wpcredits-program-manager' );
+		return '' !== $stage ? $stage : self::NO_STAGE;
 	}
 
 	/**
@@ -555,7 +563,11 @@ class WPCPM_Ability_Answers {
 				),
 				'institutions'        => self::object(
 					array(
-						'by_stage' => self::keyed( self::integer( __( 'Institutions at this pipeline stage.', 'wpcredits-program-manager' ) ), __( 'Institutions per pipeline stage; "No stage" counts those with none.', 'wpcredits-program-manager' ) ),
+						'by_stage' => self::keyed(
+							self::integer( __( 'Institutions at this pipeline stage.', 'wpcredits-program-manager' ) ),
+							/* translators: "No stage" is a key of the answer, which stays in English: keep it as it is. */
+							__( 'Institutions per pipeline stage; "No stage" counts those with none.', 'wpcredits-program-manager' )
+						),
 						'read_at'  => self::when( __( 'When the institutions were last read, ISO 8601 in UTC; null when they never were.', 'wpcredits-program-manager' ) ),
 					)
 				),
@@ -684,6 +696,7 @@ class WPCPM_Ability_Answers {
 						array(
 							'record_id' => self::text_of( __( 'The institution\'s record ID.', 'wpcredits-program-manager' ) ),
 							'name'      => self::text_of( __( 'The institution\'s name.', 'wpcredits-program-manager' ) ),
+							/* translators: "No stage" is a value of the answer, which stays in English: keep it as it is. */
 							'stage'     => self::text_of( __( 'Its pipeline stage; "No stage" when it has none.', 'wpcredits-program-manager' ) ),
 							'country'   => self::text_of( __( 'Its country\'s name; empty when none is recorded.', 'wpcredits-program-manager' ) ),
 							'city'      => self::text_of( __( 'Its city; empty when none is recorded.', 'wpcredits-program-manager' ) ),

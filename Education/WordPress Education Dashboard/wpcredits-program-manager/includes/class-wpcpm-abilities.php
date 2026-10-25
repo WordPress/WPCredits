@@ -197,12 +197,15 @@ class WPCPM_Abilities {
 			}
 
 			// The output schema names every key the answer can hold, and says, as the description does, that
-			// what is in it was typed by people.
-			$definitions[ $name ]['output_schema'] = array_merge( WPCPM_Ability_Answers::output_schema( $method ), array( 'description' => $notice ) );
+			// what is in it was typed by people. `answer()` checks the answer against the schema core checks it
+			// against after (`checked_schema()`).
+			$output_schema = array_merge( WPCPM_Ability_Answers::output_schema( $method ), array( 'description' => $notice ) );
+
+			$definitions[ $name ]['output_schema'] = $output_schema;
 
 			$definitions[ $name ] += array(
-				'execute_callback'    => static function ( $input = null ) use ( $name, $method ) {
-					return self::answer( $name, $input, array( 'WPCPM_Ability_Answers', $method ) );
+				'execute_callback'    => static function ( $input = null ) use ( $name, $method, $output_schema ) {
+					return self::answer( $name, $input, array( 'WPCPM_Ability_Answers', $method ), self::checked_schema( $name, $output_schema ) );
 				},
 				'permission_callback' => array( __CLASS__, 'permitted' ),
 				'meta'                => array(
@@ -217,6 +220,31 @@ class WPCPM_Abilities {
 		}
 
 		return $definitions;
+	}
+
+	/**
+	 * The output schema core will check an ability's answer against: the registered ability's.
+	 *
+	 * Core checks an answer against the schema of the ability as it was registered, and a filter on the
+	 * registration (`wp_register_ability_args`) may have changed the one `definitions()` wrote. So the
+	 * schema is read back from the registered ability, and the one written is used only when the ability
+	 * cannot be read. A registered ability left with no schema is checked against nothing, as core then
+	 * checks nothing.
+	 *
+	 * @param string $name    The ability's name.
+	 * @param array  $written The output schema `definitions()` wrote for it.
+	 * @return array|null The schema, or null to check nothing.
+	 */
+	private static function checked_schema( $name, array $written ) {
+		$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( $name ) : null;
+
+		if ( ! is_object( $ability ) || ! method_exists( $ability, 'get_output_schema' ) ) {
+			return $written;
+		}
+
+		$schema = $ability->get_output_schema();
+
+		return is_array( $schema ) && array() !== $schema ? $schema : null;
 	}
 
 	/**
@@ -235,17 +263,31 @@ class WPCPM_Abilities {
 	 * exception can hold an address, a token or a record, and the answer travels to a session that is
 	 * not the site's.
 	 *
+	 * An answer is checked against the ability's output schema, when it is given one, before it is logged
+	 * as answered. Core checks it again after this returns and refuses an answer that does not fit, so
+	 * without this check the log would say answered of an answer that never went out. A plugin that
+	 * refuses an answer through core's own `wp_ability_validate_output` filter, or changes it through
+	 * `wp_ability_execute_result`, still can, after the row is written: this check is core's, not every
+	 * plugin's. One that does not
+	 * fit is a failure like the others, logged with the reason `invalid_output`, and nothing of what core's
+	 * check said about it goes out either: its words name the keys of the answer.
+	 *
+	 * A failure also leaves one line in PHP's error log, at most one an hour (`trace()`), with the ability
+	 * and the exception's class, `not_an_answer` or `invalid_output`, so that a person who finds failed rows
+	 * on the Security tab can find why.
+	 *
 	 * The log row says what was asked and what went out, never what the answer held: the ability, the
 	 * outcome, the input with every string cleaned, how many rows went out and their record ids (at most
 	 * `LIST_MAX`), the time taken and the name and id of the application password. A row that cannot be
 	 * written does not take the answer with it.
 	 *
-	 * @param string   $ability The ability's name.
-	 * @param mixed    $input   What the call was given.
-	 * @param callable $build   Builds the answer; takes the input.
+	 * @param string     $ability The ability's name.
+	 * @param mixed      $input   What the call was given.
+	 * @param callable   $build   Builds the answer; takes the input.
+	 * @param array|null $schema  The ability's output schema, as it is registered; null checks nothing.
 	 * @return array|WP_Error The answer, or why not.
 	 */
-	public static function answer( $ability, $input, $build ) {
+	public static function answer( $ability, $input, $build, $schema = null ) {
 		$begin = microtime( true );
 		$user  = get_current_user_id();
 		$hour  = WPCPM_Ceiling::key( 'mcp-hour', $user );
@@ -292,14 +334,25 @@ class WPCPM_Abilities {
 			);
 		}
 
+		$why = 'not_an_answer';
+
 		try {
 			$built = call_user_func( $build, $input );
 		} catch ( Throwable $e ) {
 			$built = null;
+			$why   = $e;
 		}
 
 		if ( ! is_array( $built ) || ! isset( $built['answer'] ) || ! is_array( $built['answer'] ) ) {
 			self::log( $ability, $input, 'failed', 'error', $begin );
+			self::trace( 'answer', $why, $ability );
+
+			return new WP_Error( 'wpcpm_mcp_failed', __( 'The site could not answer this time.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( is_array( $schema ) && function_exists( 'rest_validate_value_from_schema' ) && is_wp_error( rest_validate_value_from_schema( $built['answer'], $schema, 'output' ) ) ) {
+			self::log( $ability, $input, 'failed', 'invalid_output', $begin );
+			self::trace( 'answer', 'invalid_output', $ability );
 
 			return new WP_Error( 'wpcpm_mcp_failed', __( 'The site could not answer this time.', 'wpcredits-program-manager' ) );
 		}
@@ -397,8 +450,14 @@ class WPCPM_Abilities {
 	 * only a string is text; bytes that are not UTF-8 are replaced; every run of white space, a newline
 	 * and a tab among it, becomes one space, before anything is removed, so two words on two lines stay
 	 * two words; control characters and the invisible formatting characters (a zero-width space, a
-	 * bidirectional override, a byte-order mark, a soft hyphen) are removed; the ends are trimmed; and
-	 * what is left is cut to the length, counted in characters, not bytes.
+	 * bidirectional override, a byte-order mark, a soft hyphen) are removed, and the two spaces such a
+	 * character stood between become one; the ends are trimmed; and what is left is cut to the length,
+	 * counted in characters, not bytes, with no space left at the end of the cut.
+	 *
+	 * The bytes are replaced by core's `wp_scrub_utf8()` (WordPress 6.9 and later, with or without
+	 * mbstring), else by `mb_scrub()`. With neither, which is a WordPress before 6.9 on a PHP without
+	 * mbstring, they are not replaced, and the patterns below, which read UTF-8 only, give an empty text
+	 * instead: never the bytes and never a fatal. The fence reaches this whatever the switch says.
 	 *
 	 * @param mixed $value What was typed.
 	 * @return string
@@ -408,11 +467,68 @@ class WPCPM_Abilities {
 			return '';
 		}
 
-		$value = mb_scrub( $value, 'UTF-8' );
+		if ( function_exists( 'wp_scrub_utf8' ) ) {
+			$value = wp_scrub_utf8( $value );
+		} elseif ( function_exists( 'mb_scrub' ) ) {
+			$value = mb_scrub( $value, 'UTF-8' );
+		}
+
 		$value = (string) preg_replace( '/\s+/u', ' ', $value );
 		$value = (string) preg_replace( '/[\p{Cc}\p{Cf}]/u', '', $value );
+		$value = (string) preg_replace( '/ {2,}/', ' ', $value );
 
-		return mb_substr( trim( $value ), 0, self::TEXT_MAX, 'UTF-8' );
+		return rtrim( mb_substr( trim( $value ), 0, self::TEXT_MAX, 'UTF-8' ), ' ' );
+	}
+
+	/**
+	 * Leave one line in PHP's error log saying that something of Claude access did not work: the server
+	 * that the MCP Adapter could not create (`WPCPM_MCP::create_server()`), or an answer that failed.
+	 *
+	 * Either leaves the site working and nothing to say why: an address that answers 404 with the switch
+	 * on, or failed rows on the Security tab. The line is what a person looking for the reason finds. It
+	 * names the error's code or the exception's class, `not_an_answer` or `invalid_output`, and for an
+	 * answer the ability, and nothing else, never a message: a message can hold a token, an address or a
+	 * record.
+	 *
+	 * At most one line an hour of each kind, so a server that fails on every REST request, or a client
+	 * that keeps asking a failing question, writes one line and not one a request; the hour is counted
+	 * under its own `WPCPM_Ceiling` key. Nothing that goes wrong here leaves it, since it runs while a
+	 * request is already failing: a count that cannot be read writes no line.
+	 *
+	 * The word is cleaned to the characters a code or a class name is made of (letters, digits,
+	 * underscore, dot, at sign, hyphen and the backslash of a namespace) and the ability to those of an
+	 * ability's name, and both are cut, so nothing they hold can add a line to the log. An anonymous
+	 * class is named for what it extends on PHP 8, `RuntimeException@anonymous`, and `class@anonymous` on
+	 * PHP 7.4: the rest of its name is the file and the line it was declared on, and is cut.
+	 *
+	 * @param string           $kind    `server` or `answer`.
+	 * @param Throwable|string $what    The exception, or the error's code or the ground.
+	 * @param string           $ability The ability that could not answer; '' for the server.
+	 */
+	public static function trace( $kind, $what, $ability = '' ) {
+		try {
+			if ( $what instanceof Throwable ) {
+				$what = get_class( $what );
+				$at   = strpos( $what, '@anonymous' );
+				$what = false === $at ? $what : substr( $what, 0, $at + strlen( '@anonymous' ) );
+			}
+
+			$what    = substr( (string) preg_replace( '/[^A-Za-z0-9_.@\\\\-]/', '', (string) $what ), 0, 100 );
+			$ability = substr( (string) preg_replace( '#[^a-z0-9/-]#', '', (string) $ability ), 0, 100 );
+
+			if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( 'mcp-trace', (string) $kind ), 1, HOUR_IN_SECONDS ) ) {
+				return;
+			}
+
+			$line = 'server' === $kind
+				? sprintf( 'WPCredits MCP: the server could not be created (%s).', $what )
+				: sprintf( 'WPCredits MCP: %1$s could not answer (%2$s).', $ability, $what );
+
+			// This line is the log's, not the page's: it is for the person who reads the site's error log.
+			error_log( $line ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Saying why the server or an answer failed is this line's whole job.
+		} catch ( Throwable $e ) {
+			unset( $e ); // The request is failing already; the line is not a reason to fail it again.
+		}
 	}
 
 	/**

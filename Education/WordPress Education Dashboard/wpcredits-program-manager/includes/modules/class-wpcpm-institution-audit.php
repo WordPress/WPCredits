@@ -60,7 +60,8 @@ class WPCPM_Institution_Audit {
 	const META_PROGRAM = '_wpcpm_log_program';
 
 	/**
-	 * The mark of a row about one call to an ability (Claude access, 1.123.30), answered or refused:
+	 * The mark of a row about one call to an ability (Claude access, 1.123.30), answered, refused or
+	 * failed, or about one refusal by the MCP address's door or its password fence:
 	 * it holds `mcp`, and none of the other three keys is on such a row, so no institution reader, no
 	 * sponsor reader and no program reader lists it, and only `mcp_entries()` does. The facts of the
 	 * call are in `META_DATA`. The rows are about no record of the program: they say who asked the
@@ -86,7 +87,7 @@ class WPCPM_Institution_Audit {
 	const KIND_MEMBER_ADDED   = 'member_added';
 	const KIND_MEMBER_REMOVED = 'member_removed';
 
-	/** The kind of every row under `META_MCP`: one call to an ability, answered or refused. */
+	/** The kind of every row under `META_MCP`: one call to an ability, answered, refused or failed, or one refusal by the door or the fence. */
 	const KIND_MCP_CALL = 'mcp_call';
 
 	const GROUND_MANAGER = 'manager';

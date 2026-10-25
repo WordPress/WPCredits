@@ -4586,6 +4586,7 @@ $GLOBALS['users'] = array(
 	3  => $account( 3, 'First Administrator', 'admin-one' ),
 	7  => $account( 7, 'Second <i>Administrator</i>', 'admin-two' ),
 	12 => $account( 12, '', 'admin-three' ),
+	14 => $account( 14, 'admin-four', 'admin-four' ),
 );
 
 WPCPM_Two_Factor::$available = true;
@@ -4632,13 +4633,14 @@ preg_match_all( '#<label><input type="checkbox" name="mcp_users\[\]" value="(\d+
 $hidden_empty = strpos( $who_row, '<input type="hidden" name="mcp_users[]" value="" />' );
 $first_box    = strpos( $who_row, '<input type="checkbox" name="mcp_users[]"' );
 
-ck( 'Who may connect posts an empty value ahead of its boxes, then has a box for each account that holds the capability, "name (login)", ticked while the account is on the list',
+ck( 'Who may connect posts an empty value ahead of its boxes, then has a box for each account that holds the capability, "name (login)", or the login alone when there is no name or the name is the login, ticked while the account is on the list',
     array( false !== $hidden_empty && false !== $first_box && $hidden_empty < $first_box, substr_count( $who_row, 'name="mcp_users[]" value=""' ),
            array_map( static function ( $box ) { return array( (int) $box[1], ! empty( $box[2] ), html_entity_decode( $box[3], ENT_QUOTES ) ); }, $who_boxes ) ),
     array( true, 1, array(
         array( 3, false, 'First Administrator (admin-one)' ),
         array( 7, true, 'Second <i>Administrator</i> (admin-two)' ),
-        array( 12, false, 'admin-three (admin-three)' ),
+        array( 12, false, 'admin-three' ),
+        array( 14, false, 'admin-four' ),
     ) ) );
 ck( 'a name is escaped where it is drawn, and an ID saved for an account that is not listed is not drawn',
     array( false !== strpos( $who_row, 'Second &lt;i&gt;Administrator&lt;/i&gt; (admin-two)' ), false === strpos( $who_row, 'value="40"' ) ),

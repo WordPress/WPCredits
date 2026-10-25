@@ -1758,18 +1758,20 @@ class WPCPM_Settings_Screen {
 			$login = (string) $user->user_login;
 			$name  = trim( (string) $user->display_name );
 
+			// An account with no name of its own, or whose name is its login, as WordPress names a new
+			// one, is its login once rather than "admin (admin)".
+			$label = '' === $name || $login === $name ? $login : sprintf(
+				/* translators: 1: an account's display name, 2: its login. */
+				__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+				$name,
+				$login
+			);
+
 			printf(
 				'<label><input type="checkbox" name="mcp_users[]" value="%1$d"%2$s> %3$s</label><br>',
 				(int) $user->ID,
 				checked( in_array( (int) $user->ID, $on_list, true ), true, false ),
-				esc_html(
-					sprintf(
-						/* translators: 1: an account's display name, 2: its login. */
-						__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
-						'' !== $name ? $name : $login,
-						$login
-					)
-				)
+				esc_html( $label )
 			);
 		}
 

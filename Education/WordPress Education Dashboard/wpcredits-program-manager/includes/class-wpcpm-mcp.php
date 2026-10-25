@@ -28,9 +28,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **The fence** is the other half of that rule. An Administrator's application password otherwise opens
  * every REST route that Administrator can use, the second factor passing by design, so a password named
- * Claude is held to the one address: any other REST route, the batch route included, answers 403, and an
- * XML-RPC sign-in with it fails. The fence does not look at the switch, and it needs no adapter: it holds
- * with the switch off, with the adapter deactivated and with the server not created (decision 7).
+ * Claude is held to the one address: any other REST route, the batch route included, answers 403, and a
+ * sign-in with it anywhere but a REST request fails, XML-RPC's and that of any request a plugin opens to
+ * application passwords (since 1.123.32). The fence does not look at the switch, and it needs no adapter:
+ * it holds with the switch off, with the adapter deactivated and with the server not created (decision 7).
  *
  * **The log.** Every call to an ability writes one private row of the audit post type
  * (`WPCPM_Institution_Audit::record_mcp()`), and so does every refusal of a signed-in account
@@ -94,7 +95,7 @@ class WPCPM_MCP {
 		add_filter( 'mcp_adapter_create_default_server', array( __CLASS__, 'default_server' ), PHP_INT_MAX );
 		add_action( 'mcp_adapter_init', array( __CLASS__, 'create_server' ) );
 		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'fence_rest' ), 1, 3 );
-		add_action( 'wp_authenticate_application_password_errors', array( __CLASS__, 'fence_xmlrpc' ), 10, 4 );
+		add_action( 'wp_authenticate_application_password_errors', array( __CLASS__, 'fence_sign_in' ), 10, 4 );
 
 		add_action( self::CRON_SWEEP, array( __CLASS__, 'sweep' ) );
 		add_action( 'init', array( __CLASS__, 'schedule' ) );
@@ -123,19 +124,20 @@ class WPCPM_MCP {
 	 * file loads without the adapter; no observability handler is given. The transport's permission
 	 * callback is `permit()`, the door in the one form that cannot be misread.
 	 *
-	 * The call runs on every REST request while the switch is on, so an adapter that throws (a registry
-	 * that is broken, a version that changed the method) is caught here: the server is not created, and the
-	 * site's REST API goes on. A server that could not be created, because the adapter answered with an error
-	 * or threw, leaves one line in PHP's error log with the error's code or the exception's class (`trace()`).
+	 * The call runs on every REST request, so an adapter that throws (a registry that is broken, a version
+	 * that changed the method) is caught here, and so is a read of the switch that throws: the server is not
+	 * created, and the site's REST API goes on. A server that could not be created, because the adapter
+	 * answered with an error or anything here threw, leaves one line in PHP's error log with the error's code
+	 * or the exception's class, at most one an hour (`WPCPM_Abilities::trace()`).
 	 *
 	 * @param object $adapter The MCP Adapter, which takes `create_server()`.
 	 */
 	public static function create_server( $adapter ) {
-		if ( ! WPCPM_Abilities::enabled() || ! is_object( $adapter ) || ! method_exists( $adapter, 'create_server' ) ) {
-			return;
-		}
-
 		try {
+			if ( ! WPCPM_Abilities::enabled() || ! is_object( $adapter ) || ! method_exists( $adapter, 'create_server' ) ) {
+				return;
+			}
+
 			$created = $adapter->create_server(
 				self::SERVER_ID,
 				self::ROUTE_NAMESPACE,
@@ -153,33 +155,14 @@ class WPCPM_MCP {
 			);
 		} catch ( Throwable $e ) {
 			// No server is a closed address; it is not a reason to fail the request that asked for one.
-			self::trace( get_class( $e ) );
+			WPCPM_Abilities::trace( 'server', $e );
 
 			return;
 		}
 
 		if ( is_wp_error( $created ) ) {
-			self::trace( (string) $created->get_error_code() );
+			WPCPM_Abilities::trace( 'server', (string) $created->get_error_code() );
 		}
-	}
-
-	/**
-	 * Leave one line in PHP's error log saying the server could not be created.
-	 *
-	 * An adapter that answers with an error, or throws, leaves a closed address and a site that works, and
-	 * nothing to say why: the Security tab says the adapter is active and the address answers 404. The line
-	 * is what a person looking for the reason finds. It carries the error's code, or the exception's class,
-	 * and nothing else, never a message: a message can hold a token, an address or a record. The word is
-	 * cleaned to the characters a code or a class name is made of (letters, digits, underscore, dot,
-	 * hyphen and the backslash of a namespace) and cut, so nothing a code holds can add a line to the log.
-	 *
-	 * @param string $what The error's code, or the exception's class.
-	 */
-	private static function trace( $what ) {
-		$what = substr( (string) preg_replace( '/[^A-Za-z0-9_.\\\\-]/', '', $what ), 0, 100 );
-
-		// This line is the log's, not the page's: it is for the person who reads the site's error log.
-		error_log( sprintf( 'WPCredits MCP: the server could not be created (%s).', $what ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Saying why the server is absent is this line's whole job.
 	}
 
 	/**
@@ -410,24 +393,36 @@ class WPCPM_MCP {
 	}
 
 	/**
-	 * The XML-RPC fence, on `wp_authenticate_application_password_errors`: a Claude password does not sign
-	 * in to XML-RPC.
+	 * The sign-in fence, on `wp_authenticate_application_password_errors`: a Claude password signs in to
+	 * nothing but a REST request.
 	 *
-	 * Core fires the action while it checks an application password, for REST and for XML-RPC alike, once
-	 * the password has matched; an error added to `$error` fails the sign-in. REST is the other fence's, so
-	 * this one acts only in an XML-RPC request (`XMLRPC_REQUEST`), whatever the switch says. It writes no
-	 * row, because core fires the action while it is still working out who is signing in, before there is a
-	 * current user, and the row writer reads the current user.
+	 * Core checks an application password in a REST or an XML-RPC request, and in any other request that a
+	 * plugin opens to application passwords through `application_password_is_api_request`: Jetpack opens its
+	 * VideoPress AJAX actions in wp-admin that way, so an Administrator's password, a Claude one among them,
+	 * would sign in there too. Core fires this action once the password has matched, in every one of those
+	 * requests; an error added to `$error` fails the sign-in. A REST request (`REST_REQUEST`, which core
+	 * defines before it serves one) is the other fence's, which holds a Claude password to the MCP address;
+	 * every other sign-in with a Claude password fails here, whatever the switch says, so a plugin that opens
+	 * one more door to application passwords does not open it to Claude. A request that only became a REST
+	 * request after its sign-in was checked is refused too: the safe side of the doubt. Core alone never
+	 * does that: it checks no application password before it defines `REST_REQUEST`, and the REST server
+	 * works the account out again once it has. Its cost is a plugin that opens application passwords to a
+	 * REST request before core knows it is one (by matching `/wp-json/` in the address, say): core then
+	 * keeps this refusal and answers the MCP address 401, so Claude cannot connect on such a site until
+	 * that plugin stops. Jetpack's door does not, as `is_admin()` is false in a REST request.
+	 *
+	 * It writes no row, because core fires the action while it is still working out who is signing in,
+	 * before there is a current user, and the row writer reads the current user.
 	 *
 	 * @param WP_Error|mixed $error    The errors so far; one added here fails the sign-in.
 	 * @param WP_User|mixed  $user     The account whose password matched. Not needed.
 	 * @param array|mixed    $item     The password's stored item: `name`, `uuid` and so on.
 	 * @param string         $password The password as given. Not needed, and never read.
 	 */
-	public static function fence_xmlrpc( $error, $user, $item, $password ) {
+	public static function fence_sign_in( $error, $user, $item, $password ) {
 		unset( $user, $password );
 
-		if ( ! defined( 'XMLRPC_REQUEST' ) || ! XMLRPC_REQUEST || ! is_wp_error( $error ) || ! is_array( $item ) ) {
+		if ( ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ! is_wp_error( $error ) || ! is_array( $item ) ) {
 			return;
 		}
 

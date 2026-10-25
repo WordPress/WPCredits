@@ -36,9 +36,23 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'DAY_IN_SECONDS', 86400 );
 
-function __( $text, $domain = null ) { return $text; }
+// Translations, empty unless a check asks for some: a string that is data must not follow them.
+$GLOBALS['translations'] = array();
+function __( $text, $domain = null ) { return isset( $GLOBALS['translations'][ $text ] ) ? $GLOBALS['translations'][ $text ] : $text; }
+
+/**
+ * Core's remove_accents(), as far as the fixtures' names reach: the letters below lose their marks.
+ *
+ * @param string $text   A name.
+ * @param string $locale Not read.
+ * @return string
+ */
+function remove_accents( $text, $locale = '' ) {
+	return strtr( (string) $text, array( 'É' => 'E', 'é' => 'e', 'Ł' => 'L', 'ł' => 'l', 'ó' => 'o', 'ź' => 'z' ) );
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-abilities.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ability-answers.php';
 require_once __DIR__ . '/stubs/ability-readers.php';
@@ -111,6 +125,13 @@ function many_universities( $count, array $template ) {
 }
 
 $ISO = static function ( $unix ) { return gmdate( 'c', $unix ); };
+
+// The child that runs on a PHP without mb_stripos(): the lookup matches with stripos() instead.
+if ( isset( $argv[1] ) && 'child-no-mb-stripos' === $argv[1] ) {
+	readers_reset();
+	echo json_encode( array( function_exists( 'mb_stripos' ), array_column( build( 'institutions', array( 'institution' => 'UNIV' ) )['answer']['matches'], 'name' ) ) );
+	exit( 0 );
+}
 
 echo "=== The readers the answers lean on are still on the real classes ===\n";
 $readers = array(
@@ -399,6 +420,8 @@ ck( 'a record ID the index does not hold finds nothing, and says so', array( $bu
 $built = build( 'institutions', array( 'institution' => 'univ' ) );
 $a     = plain( $built['answer'] );
 ck( '"univ" finds every name holding it, case-insensitive, by name A to Z', array_column( $a['matches'], 'name' ), array( 'Northern UNIVERSITY of Samples', 'University of Example' ) );
+exec( escapeshellarg( PHP_BINARY ) . ' -d disable_functions=mb_stripos ' . escapeshellarg( __FILE__ ) . ' child-no-mb-stripos 2>&1', $no_mb_out, $no_mb_status );
+ck( 'and on a PHP without mb_stripos() the same, through stripos()', array( $no_mb_status, json_decode( implode( '', $no_mb_out ), true ) ), array( 0, array( false, array( 'Northern UNIVERSITY of Samples', 'University of Example' ) ) ) );
 ck( 'and the records of those two, in that order', $built['records'], array( 'recINST0000000002', 'recINST0000000001' ) );
 ck( 'two matches say no more', $a['more'], false );
 ck( '"UNIV" finds the same two', array_column( plain( build( 'institutions', array( 'institution' => 'UNIV' ) )['answer'] )['matches'], 'record_id' ), array( 'recINST0000000002', 'recINST0000000001' ) );
@@ -429,6 +452,16 @@ $GLOBALS['readers']['institutions']['rows'] = many_universities( 5, $template );
 $built = build( 'institutions', array( 'institution' => 'univ' ) );
 ck( 'five names hold it: five matches, and no more', array( count( $built['answer']['matches'] ), $built['answer']['more'] ), array( 5, false ) );
 
+// The order is the dashboards' own (`WPCPM_Dashboards::compare_names()`): an accent does not send a name
+// after Z, as a comparison byte by byte would.
+$GLOBALS['readers']['institutions']['rows'] = array(
+	'recINST0000000071' => array_merge( $template, array( 'name' => 'Zeta Example College' ) ),
+	'recINST0000000072' => array_merge( $template, array( 'name' => 'Łódź Example Academy' ) ),
+	'recINST0000000073' => array_merge( $template, array( 'name' => 'Émile Example School' ) ),
+);
+$built = build( 'institutions', array( 'institution' => 'example' ) );
+ck( 'accented names sort among their letters, as the dashboards sort them: E, L, Z', array_column( $built['answer']['matches'], 'name' ), array( 'Émile Example School', 'Łódź Example Academy', 'Zeta Example College' ) );
+
 readers_reset();
 $built = build( 'institutions', array( 'institution' => 'recINST0000000001', 'cohort' => '2026-H2' ) );
 ck( 'a semester narrows the students\' groups, and the answer says which', array( $built['answer']['matches'][0]['students'], groups_asked() ), array( array( 'current' => 5, 'waiting' => 1, 'finished' => 0, 'not_started' => 0, 'cohort' => '2026-H2' ), array( 'recINST0000000001', '2026-H2' ) ) );
@@ -442,6 +475,13 @@ ck( 'an institution with no students and no members has zeros', array( $built['a
 ck( 'no country name falls back to the country the record holds, and an empty city is empty', array( $built['answer']['matches'][0]['country'], build( 'institutions', array( 'institution' => 'recINST0000000002' ) )['answer']['matches'][0]['city'] ), array( 'XF', '' ) );
 ck( 'an agreement not yet accepted: empty dates, no document', plain( $built['answer'] )['matches'][0]['agreement'], array( 'status' => 'Submitted', 'kind' => 'Standard', 'submitted_on' => '2026-09-30', 'accepted_on' => '', 'signed_on' => '', 'has_document' => false ) );
 ck( 'a record with no stage is in the stage "No stage", as the stages are counted', build( 'institutions', array( 'institution' => 'recINST0000000005' ) )['answer']['matches'][0]['stage'], 'No stage' );
+
+// "No stage" is a key of the answer's data, not words for a person: it reads the same whatever language
+// the account that asks reads the site in.
+$GLOBALS['translations'] = array( 'No stage' => 'Sin etapa' );
+ck( 'with "No stage" translated, a match with no stage still says "No stage"', build( 'institutions', array( 'institution' => 'recINST0000000005' ) )['answer']['matches'][0]['stage'], 'No stage' );
+ck( 'and so does the key it is counted under', array_key_exists( 'No stage', (array) build( 'program_counts' )['answer']['institutions']['by_stage'] ), true );
+$GLOBALS['translations'] = array();
 
 echo "\n--- One institution: nothing of a person, and typed text on one line (Review Focus 4) ---\n";
 $built = build( 'institutions', array( 'institution' => 'recINST0000000001' ) );

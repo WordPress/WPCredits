@@ -45,8 +45,9 @@
  *   the 403 on a fenced route, unless it is an error already, and comes back as it was elsewhere. A
  *   route that only resembles the address (a trailing segment, another case, a longer name) is not the
  *   address, and a password whose name cannot be read is treated as a Claude password (Review Focus 2 and 5).
- * - **The XML-RPC fence** adds an error to the sign-in of a Claude password during an XML-RPC request, and to no
- *   other sign-in (Review Focus 2).
+ * - **The sign-in fence** adds an error to the sign-in of a Claude password in every request that is not a REST
+ *   request (XML-RPC, and an AJAX request a plugin opens to application passwords, as Jetpack does for
+ *   VideoPress), and to no other sign-in; a REST request is the REST fence's (Review Focus 2).
  *
  * Nothing touches the network or a database: the posts and the options are stand-ins and the audit log
  * and the settings are the real classes.
@@ -219,6 +220,20 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-abilities.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mcp.php';
+
+/* ---- The child that is a REST request ------------------------------------------ */
+
+// A constant once defined cannot be taken away, so the sign-in of a REST request runs here, in a process of
+// its own that defines REST_REQUEST as core does when it serves one.
+if ( isset( $argv[1] ) && 'child-rest' === $argv[1] ) {
+	define( 'REST_REQUEST', true );
+
+	$claude = new WP_Error();
+	WPCPM_MCP::fence_sign_in( $claude, new stdClass(), array( 'uuid' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'name' => 'Claude - laptop' ), 'abcd efgh' );
+
+	echo json_encode( array( 'codes' => $claude->get_error_codes() ) );
+	exit( 0 );
+}
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -575,10 +590,10 @@ ck( 'taking the adapter', isset( $GLOBALS['hooked']['mcp_adapter_init'][0] ) ? $
 $fence = isset( $GLOBALS['filters']['rest_pre_dispatch'] ) ? $GLOBALS['filters']['rest_pre_dispatch'] : array();
 ck( 'the REST fence is on rest_pre_dispatch, alone, first of all (priority 1) and taking the result, the server and the request', $fence, array( array( 'callback' => array( 'WPCPM_MCP', 'fence_rest' ), 'priority' => 1, 'args' => 3 ) ) );
 
-ck( 'the XML-RPC fence is on the action that checks an application password, taking its four arguments', array(
+ck( 'the sign-in fence is on the action that checks an application password, taking its four arguments', array(
 	isset( $GLOBALS['actions']['wp_authenticate_application_password_errors'] ) ? $GLOBALS['actions']['wp_authenticate_application_password_errors'] : null,
 	isset( $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0] ) ? $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0]['args'] : null,
-), array( array( array( 'WPCPM_MCP', 'fence_xmlrpc' ) ), 4 ) );
+), array( array( array( 'WPCPM_MCP', 'fence_sign_in' ) ), 4 ) );
 
 ck( 'the sweep\'s own hooks are still there', array( isset( $GLOBALS['actions'][ WPCPM_MCP::CRON_SWEEP ] ), in_array( array( 'WPCPM_MCP', 'schedule' ), $GLOBALS['actions']['init'], true ) ), array( true, true ) );
 
@@ -639,7 +654,12 @@ ck( 'something that is not an adapter is ignored, not a fatal', $survived, true 
 // is read back through the error_log setting, pointed at a file of this run's temporary directory.
 $log_file     = wpcpm_test_temp_dir() . 'php-errors.log';
 $log_was      = ini_get( 'error_log' );
-$lines_after  = static function ( callable $run ) use ( $log_file ) {
+$lines_after  = static function ( callable $run, $fresh = true ) use ( $log_file ) {
+	// The hour's one line of a server not created given back, unless the check is that it is spent.
+	if ( $fresh ) {
+		WPCPM_Ceiling::release( WPCPM_Ceiling::key( 'mcp-trace', 'server' ), HOUR_IN_SECONDS );
+	}
+
 	file_put_contents( $log_file, '' );
 	$run();
 	$lines = array_values( array_filter( array_map( 'trim', explode( "\n", (string) file_get_contents( $log_file ) ) ), 'strlen' ) );
@@ -682,6 +702,33 @@ $namespaced = new class() {
 };
 $lines = $lines_after( static function () use ( $namespaced ) { WPCPM_MCP::create_server( $namespaced ); } );
 ck( 'an exception of a class in a namespace is named whole, backslashes and all, and nothing of its message', $lines, array( 'WPCredits MCP: the server could not be created (Wpcpm\\Trial\\BrokenRegistry).' ) );
+
+// One line an hour is enough to say why: a server that fails on every REST request does not write one
+// line a request.
+$lines = $lines_after( static function () { WPCPM_MCP::create_server( new Throwing_Adapter() ); WPCPM_MCP::create_server( new Erroring_Adapter() ); WPCPM_MCP::create_server( new Throwing_Adapter() ); } );
+ck( 'three failed creations in one hour leave one line, the first one\'s', $lines, array( 'WPCredits MCP: the server could not be created (RuntimeException).' ) );
+$lines = $lines_after( static function () { WPCPM_MCP::create_server( new Erroring_Adapter() ); }, false );
+ck( 'and the hour\'s line spent, another failure leaves none', $lines, array() );
+
+// An anonymous class's name holds the file and the line it was declared on; the line names what it
+// extends and stops there.
+$anonymous = new class() {
+	public function create_server( ...$args ) { throw new class( 'Token patXXXXXXXX' ) extends RuntimeException {}; }
+};
+$lines = $lines_after( static function () use ( $anonymous ) { WPCPM_MCP::create_server( $anonymous ); } );
+ck( 'an exception of an anonymous class is named for what it extends, without the file it was declared in', array( $lines, false !== strpos( (string) file_get_contents( $log_file ), 'test-mcp' ) ), array( array( 'WPCredits MCP: the server could not be created (RuntimeException@anonymous).' ), false ) );
+
+// The switch is read inside the guard too: a settings read that throws is a server not created.
+$GLOBALS['throw_option'] = WPCPM_Settings::OPT_NAME;
+$adapter                 = new Stub_Adapter();
+$escaped                 = null;
+try {
+	$lines = $lines_after( static function () use ( $adapter ) { WPCPM_MCP::create_server( $adapter ); } );
+} catch ( Throwable $e ) {
+	$escaped = get_class( $e );
+}
+$GLOBALS['throw_option'] = null;
+ck( 'a settings read that throws while asking whether the switch is on escapes nothing, creates nothing and says so in one line', array( $escaped, count( $adapter->calls ), $lines ), array( null, 0, array( 'WPCredits MCP: the server could not be created (RuntimeException).' ) ) );
 
 $adapter = new Stub_Adapter();
 $lines   = $lines_after( static function () use ( $adapter ) { WPCPM_MCP::create_server( $adapter ); } );
@@ -1052,53 +1099,60 @@ $GLOBALS['app_uuid'] = null;
 arrive( 38, true, null );
 ck( 'with no application password in the request the fence does nothing, however many times it is asked', array( fence( '/wp/v2/users' ), fence( '/wp/v2/users' ) ), array( null, null ) );
 
-echo "\n=== The XML-RPC fence (Review Focus 2) ===\n";
+echo "\n=== The sign-in fence: no sign-in with a Claude password outside a REST request (Review Focus 2) ===\n";
 
 $item_claude = array( 'uuid' => $UUID, 'name' => 'Claude - laptop', 'password' => '$P$hash' );
 $item_other  = array( 'uuid' => $UUID, 'name' => 'Backup script', 'password' => '$P$hash' );
 
+// Neither a REST nor an XML-RPC request: a request a plugin opened to application passwords, as Jetpack
+// opens its VideoPress AJAX actions in wp-admin (`application_password_is_api_request`).
 $error = new WP_Error();
-WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), $item_claude, 'abcd efgh' );
-ck( 'with no XML-RPC request defined, a Claude password\'s sign-in gets no error', $error->has_errors(), false );
-ck( 'XMLRPC_REQUEST is not defined yet', defined( 'XMLRPC_REQUEST' ), false );
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, 'abcd efgh' );
+ck( 'in a request that is neither REST nor XML-RPC, an AJAX one a plugin opened to application passwords, a Claude password\'s sign-in gets the error wpcpm_mcp_fenced', array( $error->get_error_codes(), defined( 'REST_REQUEST' ), defined( 'XMLRPC_REQUEST' ) ), array( array( 'wpcpm_mcp_fenced' ), false, false ) );
+$error = new WP_Error();
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_other, 'abcd efgh' );
+ck( 'and another password\'s gets none', $error->has_errors(), false );
+
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-rest 2>&1', $rest_out, $rest_status );
+ck( 'in a REST request a Claude password\'s sign-in gets no error: which route it may use is the REST fence\'s', array( $rest_status, json_decode( implode( '', $rest_out ), true ) ), array( 0, array( 'codes' => array() ) ) );
 
 define( 'XMLRPC_REQUEST', true );
 
 $error = new WP_Error();
-WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), $item_claude, 'abcd efgh' );
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, 'abcd efgh' );
 ck( 'during an XML-RPC request, a Claude password\'s sign-in gets the error wpcpm_mcp_fenced', array( $error->get_error_codes(), $error->get_error_message() ), array( array( 'wpcpm_mcp_fenced' ), 'This password opens only the WPCredits MCP address.' ) );
 
 foreach ( array( ' claude', 'CLAUDE - old phone' ) as $name ) {
 	$error = new WP_Error();
-	WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), array_merge( $item_claude, array( 'name' => $name ) ), '' );
+	WPCPM_MCP::fence_sign_in( $error, new stdClass(), array_merge( $item_claude, array( 'name' => $name ) ), '' );
 	ck( 'a password named ' . var_export( $name, true ) . ' is fenced too', $error->get_error_codes(), array( 'wpcpm_mcp_fenced' ) );
 }
 
 $error = new WP_Error();
-WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), $item_other, 'abcd efgh' );
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_other, 'abcd efgh' );
 ck( 'another password\'s sign-in gets none', $error->has_errors(), false );
 
 foreach ( array( 'Claudette', 'My Claude', '' ) as $name ) {
 	$error = new WP_Error();
-	WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), array_merge( $item_claude, array( 'name' => $name ) ), '' );
+	WPCPM_MCP::fence_sign_in( $error, new stdClass(), array_merge( $item_claude, array( 'name' => $name ) ), '' );
 	ck( 'nor does one named ' . var_export( $name, true ), $error->has_errors(), false );
 }
 
 $error = new WP_Error();
-WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), array( 'uuid' => $UUID ), '' );
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), array( 'uuid' => $UUID ), '' );
 ck( 'an item with no name gets none (and is not a notice)', $error->has_errors(), false );
 
 $survived = true;
 try {
-	WPCPM_MCP::fence_xmlrpc( null, null, null, null );
-	WPCPM_MCP::fence_xmlrpc( 'not an error', null, $item_claude, null );
+	WPCPM_MCP::fence_sign_in( null, null, null, null );
+	WPCPM_MCP::fence_sign_in( 'not an error', null, $item_claude, null );
 } catch ( Throwable $e ) {
 	$survived = false;
 }
 ck( 'arguments that are not what core passes are ignored, not a fatal', $survived, true );
 
 $error = new WP_Error( 'incorrect_password', 'Already failing.' );
-WPCPM_MCP::fence_xmlrpc( $error, new stdClass(), $item_claude, '' );
+WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, '' );
 ck( 'an error already there keeps its place and the fence adds its own', $error->get_error_codes(), array( 'incorrect_password', 'wpcpm_mcp_fenced' ) );
 
 // Review Focus 2: the switch makes no difference to the fence.
@@ -1107,8 +1161,8 @@ foreach ( array( true, false ) as $on ) {
 
 	$claude = new WP_Error();
 	$other  = new WP_Error();
-	WPCPM_MCP::fence_xmlrpc( $claude, new stdClass(), $item_claude, 'abcd efgh' );
-	WPCPM_MCP::fence_xmlrpc( $other, new stdClass(), $item_other, 'abcd efgh' );
+	WPCPM_MCP::fence_sign_in( $claude, new stdClass(), $item_claude, 'abcd efgh' );
+	WPCPM_MCP::fence_sign_in( $other, new stdClass(), $item_other, 'abcd efgh' );
 
 	ck( 'switch ' . ( $on ? 'on' : 'off' ) . ': a Claude password\'s sign-in gets wpcpm_mcp_fenced, another password\'s gets none', array( $claude->get_error_codes(), $other->has_errors() ), array( array( 'wpcpm_mcp_fenced' ), false ) );
 }

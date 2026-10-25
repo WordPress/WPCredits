@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.30
+Stable tag: 1.123.32
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,13 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.32 =
+
+* Claude access: a password whose name begins with Claude now signs in to nothing but a REST request, where it opens only the MCP address. XML-RPC was refused already; so now is any request a plugin opens to application passwords, such as the VideoPress requests Jetpack opens in wp-admin.
+* An answer is checked against its schema before it is logged as answered, and one that does not fit is logged as failed. A failed answer, or a server the MCP Adapter could not create, leaves at most one line an hour in PHP's error log and nothing else: for an answer, the question's name and the exception's class, not_an_answer or invalid_output; for the server, the error's code or the exception's class.
+* Names in answers keep one space where an invisible character was taken out and never end on a space, and a PHP without mbstring no longer stops an answer. "No stage" reads the same in every language, and One institution lists its matches in the dashboards' order, so an accented name sorts among its letters.
+* Settings > Security: Who may connect shows an account whose display name is its login, or empty, by its login once.
 
 = 1.123.30 =
 
