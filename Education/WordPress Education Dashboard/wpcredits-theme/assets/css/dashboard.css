@@ -831,8 +831,10 @@
 }
 
 /* The gap the "Invite a colleague" heading was missing under the representatives' list
-   (owner, 1.23.10): the people card's own rhythm, 24px. */
-.wpc-institution-page .wpcpm-people__list + .wpcpm-people__subtitle {
+   (owner, 1.23.10): the people card's own rhythm, 24px. The institution's details card puts its
+   second heading under the first group's fold, so it takes the same 24px (1.32.4). */
+.wpc-institution-page .wpcpm-people__list + .wpcpm-people__subtitle,
+.wpc-institution-page .wpcpm-details__more + .wpcpm-details__subtitle {
 	margin-top: 24px;
 }
 
@@ -3291,12 +3293,18 @@
 
 /* The plugin's base rule draws the flash's shape (assets/css/institution.css) with a logical
    `border-inline-start-width`, so the color is painted on the same logical side and the bar stays
-   one color in a right-to-left locale; the tokens are the Administrator Dashboard's messages'. */
-.wpc-institution-page .wpcpm-people__message.is-success {
+   one color in a right-to-left locale; the tokens are the Administrator Dashboard's messages'.
+   The institution's details card and the student card's correction form print their outcome in
+   the same shape, so they take the same two colors (1.32.4). */
+.wpc-institution-page .wpcpm-people__message.is-success,
+.wpc-institution-page .wpcpm-details__message.is-success,
+.wpc-institution-page .wpcpm-institution__edit-message.is-success {
 	border-inline-start-color: var( --wpc-green, #1a7f37 );
 }
 
-.wpc-institution-page .wpcpm-people__message.is-error {
+.wpc-institution-page .wpcpm-people__message.is-error,
+.wpc-institution-page .wpcpm-details__message.is-error,
+.wpc-institution-page .wpcpm-institution__edit-message.is-error {
 	border-inline-start-color: var( --wpc-red, #b32d2e );
 }
 
