@@ -64,6 +64,12 @@ class MapPageTest(unittest.TestCase):
         self.assertIn('src="assets/partner-map.js"', text)
         self.assertIn('content="noindex"', text)
 
+    def test_map_template_opens_links_outside_the_frame(self):
+        # Framed on wordpress.org: a link that loaded inside the frame (OpenStreetMap's
+        # copyright page refuses to be framed) would leave the visitor without the map.
+        text = (SCRIPTS / "map_template.html").read_text()
+        self.assertIn('<base target="_blank">', text)
+
     def test_map_template_pins_every_cdn_file(self):
         # map.html is framed on wordpress.org: each file from the CDN carries its hash.
         text = (SCRIPTS / "map_template.html").read_text()

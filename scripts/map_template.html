@@ -8,6 +8,9 @@
      frames this page. Built every Monday by scripts/build_dashboard.py from the same
      markers as the dashboard's map; the map itself is assets/partner-map.js. -->
 <meta name="robots" content="noindex">
+<!-- Every link on this page opens in a new tab: inside a frame, a link that loaded in
+     place would replace the map, and OpenStreetMap's copyright page refuses framing. -->
+<base target="_blank">
 <!-- Each CDN file carries the hash cdnjs publishes for it, so a changed file is refused
      rather than run inside a page framed on wordpress.org. -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
